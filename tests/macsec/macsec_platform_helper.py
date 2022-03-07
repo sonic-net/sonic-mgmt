@@ -5,11 +5,15 @@ from multiprocessing.pool import ThreadPool
 
 import pytest
 
+from tests.common.devices.eos import EosHost
+
 
 def global_cmd(duthost, nbrhosts, cmd):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(duthost.command, args=(cmd,))
     for nbr in nbrhosts.values():
+        if isinstance(nbr["host"], EosHost):
+            continue
         pool.apply_async(nbr["host"].command, args=(cmd, ))
     pool.close()
     pool.join()

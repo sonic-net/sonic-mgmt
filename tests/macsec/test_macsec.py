@@ -39,6 +39,8 @@ class TestControlPlane():
         def _test_wpa_supplicant_processes():
             for port_name, nbr in ctrl_links.items():
                 check_wpa_supplicant_process(duthost, port_name)
+                if isinstance(nbr["host"], EosHost):
+                    continue
                 check_wpa_supplicant_process(nbr["host"], nbr["port"])
             return True
         assert wait_until(300, 1, 1, _test_wpa_supplicant_processes)
@@ -46,6 +48,8 @@ class TestControlPlane():
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_appl_db():
             for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    continue
                 check_appl_db(duthost, port_name, nbr["host"],
                               nbr["port"], policy, cipher_suite, send_sci)
             return True
@@ -63,6 +67,8 @@ class TestControlPlane():
             dut_mka_session = get_mka_session(duthost)
             assert len(dut_mka_session) == len(ctrl_links)
             for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    continue
                 nbr_mka_session = get_mka_session(nbr["host"])
                 dut_macsec_port = get_macsec_ifname(duthost, port_name)
                 nbr_macsec_port = get_macsec_ifname(
@@ -79,7 +85,24 @@ class TestControlPlane():
 
 
 class TestDataPlane():
-    BATCH_COUNT = 100
+    BATCH_COUNT = 10
+
+    def test_server_to_eos_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, ptfadapter):
+        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 30)
+        down_port, down_link = downstream_links.items()[0]
+        for ctrl_port in ctrl_links.keys():
+            up_link = upstream_links[ctrl_port]
+            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
+            payload = "{} -> {}".format(down_link["name"], up_link["name"])
+            logging.info(payload)
+            # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
+            pkt = create_pkt(
+                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+            exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+            testutils.send_packet(
+                ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+            check_macsec_pkt(macsec_attr=get_macsec_attr(duthost, ctrl_port), test=ptfadapter,
+                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
 
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
@@ -135,6 +158,11 @@ class TestDataPlane():
                     return
                 fail_message += result
             pytest.fail(fail_message)
+
+    def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
+        for up_port, up_link in upstream_links.items():
+            ret = duthost.command("ping -c {} {}".format(4, up_link['ipv4_addr']))
+            assert not ret['failed']
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         portchannels = get_portchannel(duthost).values()
@@ -236,3 +264,53 @@ class TestFaultHandling():
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], profile_name)
+
+def get_lldp_list(host):
+    '''
+        Here is an output example of `show lldp table`
+            Capability codes: (R) Router, (B) Bridge, (O) Other
+            LocalPort    RemoteDevice    RemotePortID    Capability    RemotePortDescr
+            -----------  --------------  --------------  ------------  -----------------
+            Ethernet112  ARISTA01T1      Ethernet1       BR
+            Ethernet116  ARISTA02T1      Ethernet1       BR
+            Ethernet120  ARISTA03T1      Ethernet1       BR
+            Ethernet124  ARISTA04T1      Ethernet1       BR
+            --------------------------------------------------
+            Total entries displayed:  4
+    '''
+    lines = host.command("show lldp table")["stdout_lines"]
+    lines = lines[3:-2]  # Remove the output header
+    lldp_list = {}
+    for line in lines:
+        items = line.split()
+        lldp = items[1]
+        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
+    return lldp_list
+class TestInteropProtocol():
+    '''
+    Macsec interop with other slow protocols
+    '''
+    BATCH_COUNT = 10
+
+    def test_port_channel(self, duthost, ctrl_links):
+        ctrl_port, _ = ctrl_links.items()[0]
+        pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+        assert pc["status"] == "Up"
+
+        # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
+        duthost.command("sudo config portchannel member del {} {}".format(pc["name"], ctrl_port))
+        assert wait_until(6, 1, 0, lambda: get_portchannel(duthost)[pc["name"]]["status"] == "Dw")
+
+        # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
+        duthost.command("sudo config portchannel member add {} {}".format(pc["name"], ctrl_port))
+        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+            ctrl_port, get_portchannel(duthost))["status"] == "Up")
+
+    def test_lldp(self, duthost, nbrhosts):
+        lldp_neighbors = get_lldp_list(duthost)
+        for nbr in nbrhosts:
+            assert nbr in lldp_neighbors
+
+    def test_bgp(self, duthost, nbrhosts):
+        # TODO
+        pass
