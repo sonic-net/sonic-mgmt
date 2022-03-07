@@ -112,17 +112,13 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
         json_patch = [
             {
                 "op": op,
-                "path": "/BGP_ALLOWED_PREFIXES",
-                "value": {
-                    "DEPLOYMENT_ID|0{}".format(community_table): {
-                        "prefixes_v4": [
-                            prefixes_v4
-                        ],
-                        "prefixes_v6": [
-                            prefixes_v6
-                        ]
-                    }
-                }
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v6/0".format(community_table),
+                "value": prefixes_v6
+            },
+            {
+                "op": op,
+                "path": "/BGP_ALLOWED_PREFIXES/DEPLOYMENT_ID|0{}/prefixes_v4/0".format(community_table),
+                "value": prefixes_v4
             }
         ]
 
