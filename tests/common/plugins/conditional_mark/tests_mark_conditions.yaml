@@ -7,7 +7,7 @@ acl/test_acl_outer_vlan.py:
   xfail:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests"
     conditions:
-       - asic_type=="cisco-8000"
+      - asic_type=="cisco-8000"
        
 #######################################
 #####            cacl             #####
