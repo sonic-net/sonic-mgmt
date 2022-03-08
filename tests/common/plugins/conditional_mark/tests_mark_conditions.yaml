@@ -59,16 +59,6 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_to
     conditions:
       - "asic_type in ['broadcom']"
 
-dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on:
-  xfail:
-    reason: "Image issue on Boradcom platforms, only fail on some dscp values"
-    conditions:
-      - "asic_type in ['broadcom']"
-
-dualtor/test_tor_ecn.py::test_ecn_during_decap_on:
-  xfail:
-    reason: "Test flaky"
-
 #######################################
 #####             ecmp            #####
 #######################################
