@@ -339,7 +339,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_rx_los: Skipping transceiver {} (not supported on this platform)".format(i))
+                logger.info("test_get_rx_los: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             rx_los = sfp.get_rx_los(platform_api_conn, i)
@@ -357,7 +357,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_tx_fault: Skipping transceiver {} (not supported on this platform)".format(i))
+                logger.info("test_get_tx_fault: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             tx_fault = sfp.get_tx_fault(platform_api_conn, i)
@@ -375,7 +375,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_temperature: Skipping transceiver {} (not supported on this platform)".format(i))
+                logger.info("test_get_temperature: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             temp = sfp.get_temperature(platform_api_conn, i)
@@ -392,7 +392,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_voltage: Skipping transceiver {} (not supported on this platform)".format(i))
+                logger.info("test_get_voltage: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             voltage = sfp.get_voltage(platform_api_conn, i)
@@ -449,7 +449,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_tx_power: Skipping transceiver {} (not supported on this platform)".format(i))
+                logger.info("test_get_tx_power: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             tx_power = sfp.get_tx_power(platform_api_conn, i)
