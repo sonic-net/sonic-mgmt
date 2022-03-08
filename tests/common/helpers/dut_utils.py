@@ -93,6 +93,25 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
+def restart_container_and_check_running(duthost, container_name):
+    """Restarts container and check whether it is running.
+
+    @param duthost: Host DUT.
+    @param container_name: name of a container.
+
+    Returns:
+        None
+    """
+    logger.info("Container '{}' is being restarted ...".format(container_name))
+    duthost.shell("sudo systemctl restart {}.service".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart container '{}'!".format(container_name))
+    logger.info("Container '{}' is restarted.".format(container_name))
+
+
 def get_group_program_info(duthost, container_name, group_name):
     """Gets program names, running status and their pids by analyzing the command
        output of "docker exec <container_name> supervisorctl status". Program name

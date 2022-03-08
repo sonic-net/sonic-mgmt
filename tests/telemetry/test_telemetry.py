@@ -6,6 +6,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import restart_container_and_check_running
 from tests.common.utilities import wait_until, wait_tcp_connection
 
 pytestmark = [
@@ -25,6 +26,9 @@ SUBSCRIBE_MODE_POLL = 2
 SUBMODE_TARGET_DEFINED = 0
 SUBMODE_ON_CHANGE = 1
 SUBMODE_SAMPLE = 2
+
+CHECK_MEM_USAGE_COUNTER = 10
+CONTAINER_NAME = "telemetry"
 
 # Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
@@ -240,3 +244,99 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+
+
+def run_gnmi_client(ptfhost, dut_ip):
+    """Runs gNMI client in the corresponding PTF docker.
+
+    Args:
+        pfthost: PTF docker binding to the selected DuT.
+        dut_ip: Mgmt IP of DuT.
+
+    Returns:
+        None.
+    """
+    gnmi_cli_cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --trigger_mem_spike \
+                    -x DOCKER_STATS -xt STATE_DB -o "ndastreamingservertest" &'.format(dut_ip, TELEMETRY_PORT)
+    logger.info("Starting gNMI client command in PTF docker: {}".format(gnmi_cli_cmd))
+    cmd_result = ptfhost.shell(gnmi_cli_cmd)
+    exit_code = cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to run gNMI client in PTF docker!")
+
+
+def terminate_gnmi_client(ptfhost):
+    """Terminate the gNMI client running in the PTF docker.
+
+    Args:
+        pfthost: PTF docker binding to the selected DuT.
+
+    Returns:
+        None.
+    """
+    gnmi_client_pid = ""
+
+    ps_cmd = "ps -aux | grep 'python /gnxi/gnmi_cli_py/py_gnmicli' | grep -v grep"
+    logger.info("Running ps command to get process information of gNMI client: {}".format(ps_cmd))
+    for line in ptfhost.shell(ps_cmd)["stdout_lines"]:
+        if "py_gnmicli" in line:
+            gnmi_client_pid = line.split()[1].strip()
+
+        if not gnmi_client_pid:
+            pytest.fail("Failed to find PID of gNMI client in PTF docker!")
+
+        logger.info("PID of gNMI client in PTF docker is: '{}'".format(gnmi_client_pid))
+        terminate_client_cmd = "kill -9 {}".format(gnmi_client_pid)
+        logger.info("Terminating gNMI client with PID: '{}' ...".format(gnmi_client_pid))
+        terminate_cmd_result = ptfhost.shell(terminate_client_cmd)
+        exit_code = terminate_cmd_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to terminate gNMI client with PID '{}'!".format(gnmi_client_pid))
+        logger.info("gNMI client with PID: '{}' was terminated!".format(gnmi_client_pid))
+
+
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+    """Test whether memory usage on gNMI server will increase or not if gNMI client
+    continuously creates TCP connections but did not explicitly close them.
+
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT.
+        pfthost: PTF docker binding to the selected DuT.
+
+    Returns:
+        None.
+    """
+    logger.info("Start testing the memory spike issue on gNMI server side ...")
+
+    duthost = duthosts[rand_one_dut_hostname]
+    skip_201911_and_older(duthost)
+
+    dut_ip = duthost.mgmt_ip
+    client_thread = threading.Thread(target=run_gnmi_client, args=(ptfhost, dut_ip))
+    client_thread.start()
+
+    mem_usage_val = 0
+    for index in range(CHECK_MEM_USAGE_COUNTER):
+        get_mem_usage_cmd = "docker stats --no-stream --format \{{\{{.MemUsage\}}\}} {}".format(CONTAINER_NAME)
+        mem_info = duthost.shell(get_mem_usage_cmd)["stdout_lines"]
+        if not mem_info:
+            pytest.fail("Failed to get memory usage of '{}'!".format(CONTAINER_NAME))
+        mem_usage = mem_info[0].split()[0]
+        logger.info("Memory usage of '{}' is: '{}'.".format(CONTAINER_NAME, mem_usage))
+
+        try:
+            mem_val = float(mem_usage[:-3])
+        except ValueError as err:
+            pytest.fail("Failed to convert the memory usage of telemetry from string to float type!")
+
+        pytest_assert(mem_val > mem_usage_val, "Memory usage of telemetry did not increase as expected!")
+        mem_usage_val = mem_val
+        # Wait for 2 seconds such that memory usage can continuously increase
+        time.sleep(2)
+
+    terminate_gnmi_client(ptfhost)
+
+    logger.info("Restarting '{}' container ...".format(CONTAINER_NAME))
+    restart_container_and_check_running(duthost, CONTAINER_NAME)
+    logger.info("Container '{}' was restarted!".format(CONTAINER_NAME))
+
+    logger.info("Testing the memory spike issue on gNMI server side was done!")
