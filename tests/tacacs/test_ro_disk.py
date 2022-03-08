@@ -99,6 +99,14 @@ def do_check_clean_state(duthost):
     return True
 
 
+def fetch_into_file(localhost, remote_ip, rwuser, rwpass, src_file, dst_file):
+    chk_ssh_remote_run(localhost, remote_ip, rwuser, rwpass, "sudo chmod a+r {}".format(src_file))
+    scp_cmd = "scp -o StrictHostKeyChecking=no {}@{}:{} {}".format(rwuser, remote_ip, src_file, dst_file)
+    cmd = "sshpass -p {} {}".format(rwpass, scp_cmd)
+    ret = os.system(cmd)
+    logger.info("ret={} cmd={}".format(ret, scp_cmd))
+
+
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         tacacs_creds, check_tacacs):
     """test tacacs rw user
@@ -148,6 +156,9 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
             os.path.abspath(__file__)), "000-ro_disk.conf")
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
+        # To get file in decent size. Force a rotate
+        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
 
@@ -168,22 +179,28 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #   Note: Monit invokes disk check every 5 cycles/minutes
         #   We need to wait solid +10mins before concluding.
         #         
-        assert wait_until(900, 20, 0, chk_ssh_remote_run, localhost, dutip,
-                ro_user, ro_pass, "cat /etc/passwd"), "Failed to ssh as ro user"
+        res = wait_until(900, 20, 0, chk_ssh_remote_run, localhost, dutip,
+                ro_user, ro_pass, "cat /etc/passwd")
+        logger.info("res={}".format(res))
 
-    finally:
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "find {} -ls".format(MOUNT_DIR))
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find {} -ls".format(MOUNT_DIR))
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "systemctl status monit")
 
-        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "find /home -ls")
-        duthost.fetch(src="/etc/passwd", dest=DATA_DIR)
+        chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
 
-        # Fetch log files
-        duthost.fetch(src=os.path.join(LOG_DIR, "auth.log"), dest=DATA_DIR,
-                fail_on_missing=False)
-        duthost.fetch(src=os.path.join(LOG_DIR, "syslog"), dest=DATA_DIR,
-                fail_on_missing=False)
+        if not os.path.exists(DATA_DIR):
+            os.mkdir(DATA_DIR)
 
+
+        # Fetch files of interest
+        #
+        for f in [ "/etc/passwd", os.path.join(LOG_DIR, "auth.log"),
+                os.path.join(LOG_DIR, "syslog")]:
+            fetch_into_file(localhost, dutip, rw_user, rw_pass, f,
+                    os.path.join(DATA_DIR, os.path.basename(f)))
+        assert res, "Failed to ssh as ro user"
+
+    finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
         do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
