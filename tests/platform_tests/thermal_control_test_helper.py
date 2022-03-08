@@ -14,6 +14,11 @@ DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, 'files')
 
+daemon_name = "thermalctld"
+
+expected_running_status = "RUNNING"
+expected_stopped_status = "STOPPED"
+
 class BaseMocker:
     """
     @summary: Base class for thermal control data mocker
@@ -249,6 +254,9 @@ def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
         return thermal_mocker.check_thermal_algorithm_status(expected_status)
     return True  # if vendor doesn't provide a thermal mocker, ignore this check by return True.
 
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
 
 def restart_thermal_control_daemon(dut):
     """
@@ -257,13 +265,16 @@ def restart_thermal_control_daemon(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return:
     """
+    if dut.is_multi_asic and dut.sonic_release in ["201911"]:
+        logging.info("thermalctl daemon is not present")
+        return
     logging.info('Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
-    # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may 
+    # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
     # use subprocess to call ethtool to do initialization.
     # So we check here thermalcltd must have at least 2 processes.
     assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
@@ -280,7 +291,24 @@ def restart_thermal_control_daemon(dut):
     config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
 
+def start_thermal_control_daemon(dut):
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status != expected_running_status:
+        dut.start_pmon_daemon(daemon_name)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_running_status)
+    running_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert running_daemon_status == expected_running_status, "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
 
+def stop_thermal_control_daemon(dut):
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status == expected_running_status:
+        dut.stop_pmon_daemon(daemon_name)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_stopped_status)
+    stopped_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert stopped_daemon_status == expected_stopped_status, "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
+                                                                
 class ThermalPolicyFileContext:
     """
     Context class to help replace thermal control policy file and restore it automatically.
@@ -303,7 +331,11 @@ class ThermalPolicyFileContext:
         thermal control daemon to make it effect.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        out = self.dut.stat(path=self.thermal_policy_file_path)
+        if out['stat']['exists']:
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        else:
+            logging.warning("Thermal Policy file {} not found".format(self.thermal_policy_file_path))
         self.dut.copy(src=os.path.join(FILES_DIR, self.src), dest=self.thermal_policy_file_path)
         restart_thermal_control_daemon(self.dut)
 
@@ -315,15 +347,17 @@ class ThermalPolicyFileContext:
         :param exc_tb: Not used.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
-        restart_thermal_control_daemon(self.dut)
+        out = self.dut.stat(path=self.thermal_policy_file_backup_path)
+        if out['stat']['exists']:
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
+            restart_thermal_control_daemon(self.dut)
 
 
 @pytest.fixture
 def disable_thermal_policy(duthosts, enum_rand_one_per_hwsku_hostname):
     """Fixture to help disable thermal policy during the test. After test, it will
        automatically re-enable thermal policy. The idea here is to make thermalctld
-       load a invalid policy file. To use this fixture, the test case will probably 
+       load a invalid policy file. To use this fixture, the test case will probably
        marked as @pytest.mark.disable_loganalyzer.
 
     Args:

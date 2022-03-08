@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import get_inventory_files
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -24,6 +25,10 @@ L3_COL_KEY = RX_ERR
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
 
+ACL_COUNTERS_UPDATE_INTERVAL = 10
+LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
+LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
+LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
 LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
 
@@ -258,6 +263,115 @@ def ports_info(ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports)
     return data
 
 
+def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+              dut_clear_conf_file_path):
+    for duthost in duthosts:
+        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+        if 'DATAACL' not in acl_facts.keys():
+            pytest.skip("Skipping test since DATAACL table is not present on DUT")
+
+        duthost.command("mkdir -p {}".format(dut_tmp_dir))
+        dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path)
+        logger.info("Generating clear config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
+
+        logger.info("Applying {}".format(dut_conf_file_path))
+
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer[duthost.hostname]:
+            duthost.command("config acl update full {}".format(dut_conf_file_path))
+
+
+def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
+    for duthost in duthosts:
+        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer[duthost.hostname]:
+            logger.info("Applying {}".format(dut_clear_conf_file_path))
+            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
+            logger.info("Removing {}".format(dut_tmp_dir))
+            duthost.command("rm -rf {}".format(dut_tmp_dir))
+            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
+
+
+@pytest.fixture
+def acl_ingress(duthosts, loganalyzer):
+    """ Create acl rule defined in config file. Delete rule after test case finished """
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, 'acl_templates')
+    acl_rules_template = "acltb_test_rule.json"
+    del_acl_rules_template = "acl_rule_del.json"
+    dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
+    dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
+
+    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+              dut_clear_conf_file_path)
+    yield
+    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+
+
+def create_or_remove_acl_egress_table(duthost, setup, op):
+    acl_table_config = {
+        "table_name": "OUTDATAACL",
+        "table_ports": ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
+        "table_stage": "egress",
+        "table_type": "L3"
+    }
+
+    for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+        if op == "add":
+            logger.info("Creating ACL table: \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
+            sonic_host_or_asic_inst.command(
+                "config acl add table {} {} -s {} -p {}".format(
+                    acl_table_config["table_name"],
+                    acl_table_config["table_type"],
+                    acl_table_config["table_stage"],
+                    acl_table_config["table_ports"]
+                )
+            )
+        elif op == "remove":
+            logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
+            sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
+        else:
+            pytest.fail("Unvalid op {} should use add or remove".format(op))
+
+
+@pytest.fixture
+def acl_egress(duthosts, loganalyzer, setup):
+    """
+    Create acl table OUTDATAACL
+    Create acl rule defined in config file.
+    Delete rule and table after test case finished
+    """
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, 'acl_templates')
+    acl_rules_template = "acltb_test_rule_egress.json"
+    del_acl_rules_template = "acl_rule_del.json"
+    dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
+    dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
+
+    for duthost in duthosts:
+        try:
+            loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            with loganalyzer[duthost.hostname]:
+                create_or_remove_acl_egress_table(duthost, setup, "add")
+        except LogAnalyzerError as err:
+            # Cleanup Config DB if table creation failed
+            logger.error("ACL table creation failed, attempting to clean-up...")
+            create_or_remove_acl_egress_table(duthost, setup, "remove")
+            raise err
+
+    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+              dut_clear_conf_file_path)
+    yield
+    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+
+    for duthost in duthosts:
+        create_or_remove_acl_egress_table(duthost, setup, "remove")
+
+
 def log_pkt_params(dut_iface, mac_dst, mac_src, ip_dst, ip_src):
     """ Displays information about packet fields used in test case: mac_dst, mac_src, ip_dst, ip_src """
     logger.info("Selected TX interface on DUT - {}".format(dut_iface))
@@ -433,14 +547,25 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
     @summary: Create a packet with absent destination IP address.
     """
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], "", pkt_fields["ipv4_src"])
-
-    pkt = testutils.simple_tcp_packet(
-        eth_dst=ports_info["dst_mac"],  # DUT port
-        eth_src=ports_info["src_mac"],  # PTF port
-        ip_src=pkt_fields["ipv4_src"],  # PTF source
-        ip_dst="", # VM source
-        tcp_sport=pkt_fields["tcp_sport"],
-        tcp_dport=pkt_fields["tcp_dport"])
+    try:
+        # ip_dst accept None as empty dst ip address in scapy version such as 2.4.5,
+        # but in old scapy version such as 2.2.0.dev0, it will throw TypeError
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=ports_info["dst_mac"],  # DUT port
+            eth_src=ports_info["src_mac"],  # PTF port
+            ip_src=pkt_fields["ipv4_src"],  # PTF source
+            ip_dst=None,  # VM source
+            tcp_sport=pkt_fields["tcp_sport"],
+            tcp_dport=pkt_fields["tcp_dport"])
+    except TypeError:
+        # in old scapy version such as 2.2.0.dev0, ip_dst accept "" as dst ip address
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=ports_info["dst_mac"],  # DUT port
+            eth_src=ports_info["src_mac"],  # PTF port
+            ip_src=pkt_fields["ipv4_src"],  # PTF source
+            ip_dst="",  # VM source
+            tcp_sport=pkt_fields["tcp_sport"],
+            tcp_dport=pkt_fields["tcp_dport"])
 
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
@@ -575,12 +700,6 @@ def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-# Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
-# Default SONiC behaviour is to forward the traffic, so loop-back filter does not triggers for IP packets.
-# All router interfaces has attribute "sx_interface_attributes_t.loopback_enable" - enabled.
-# To enable loop-back filter drops - need to disable that attribute when create RIF.
-# To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
-@pytest.mark.skip(reason="SONiC can't enable loop-back filter feature")
 def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Create a packet drops by loopback-filter. Loop-back filter means that route to the host
@@ -618,7 +737,7 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
                     pkt_fields["ipv4_src"])
-    
+
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
         eth_src=ports_info["src_mac"],  # PTF port
@@ -767,8 +886,70 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         eth_layer = Ether(src=ports_info["src_mac"], dst=ethernet_dst)
         ip_layer = IP(src=pkt_fields["ipv4_src"], )
         igmp_layer = igmp_types[igmp_version][msg_type]
-        assert igmp_layer.igmpize(ip=ip_layer, ether=eth_layer), "Can't create IGMP packet"
         pkt = eth_layer/ip_layer/igmp_layer
+        try:
+            # in old scapy version such as 2.2.0.dev0, igmpize method require the parameter ip and ether,
+            # if these params not specified the return value will be False
+            # in new scapy version such as 2.4.5, the igmpize dose not require any parameters,
+            # if any parameter is given, it will throw TypeError
+            assert igmp_layer.igmpize(ip=ip_layer, ether=eth_layer), "Can't create IGMP packet"
+        except TypeError:
+            assert igmp_layer.igmpize(), "Can't create IGMP packet"
 
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
     do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+
+
+def test_acl_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, acl_ingress,
+                  ports_info):
+    """
+        @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if tx_dut_ports[ports_info["dut_iface"]] not in \
+            duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+        pytest.skip("RX DUT port absent in 'DATAACL' table")
+
+    ip_src = "20.0.0.5"
+
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"],
+                   ip_src)
+
+    pkt = testutils.simple_tcp_packet(
+        eth_dst=ports_info["dst_mac"],  # DUT port
+        eth_src=ports_info["src_mac"],  # PTF port
+        ip_src=ip_src,
+        ip_dst=pkt_fields["ipv4_dst"],
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"]
+    )
+
+    do_test("ACL", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+
+
+def test_acl_egress_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields,
+                         acl_egress, ports_info):
+    """
+        @summary: Verify that DUT drops packet with DST IP 192.168.144.1/24 matched by egress ACL and ACL drop counter incremented
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if tx_dut_ports[ports_info["dut_iface"]] not in \
+            duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+        pytest.skip("RX DUT port absent in 'DATAACL' table")
+
+    ip_dst = "192.168.144.1"
+
+    log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], ip_dst,
+                   pkt_fields["ipv4_src"])
+
+    pkt = testutils.simple_tcp_packet(
+        eth_dst=ports_info["dst_mac"],  # DUT port
+        eth_src=ports_info["src_mac"],  # PTF port
+        ip_dst=ip_dst,
+        ip_src=pkt_fields["ipv4_src"],
+        tcp_sport=pkt_fields["tcp_sport"],
+        tcp_dport=pkt_fields["tcp_dport"],
+        ip_ttl=64
+    )
+    do_test(discard_group="ACL", pkt=pkt, ptfadapter=ptfadapter, ports_info=ports_info,
+            sniff_ports=setup["neighbor_sniff_ports"], tx_dut_ports=tx_dut_ports, drop_information="OUTDATAACL")

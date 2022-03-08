@@ -18,8 +18,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
-from tests.common.utilities import compose_dict_from_cli
-from tests.common.utilities import wait_until
+from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +74,7 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module", autouse=True)
 def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+    skip_release(duthost, ["201811", "201911"])
     command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
     
     global pcie_devices_status_tbl_key
@@ -99,7 +99,7 @@ def wait_data(duthost):
         shared_scope.data_after_restart = collect_data(duthost)
         return bool(shared_scope.data_after_restart['devices'])
     pcied_pooling_interval = 60
-    wait_until(pcied_pooling_interval, 6, _collect_data)
+    wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
 
 @pytest.fixture(scope='module')
@@ -170,8 +170,7 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_on
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    if "201811" in duthost.os_version or "201911" in duthost.os_version:
-        pytest.skip("Skip: SIG_TERM behaves differnetly in {} on {}".format(daemon_name, duthost.os_version))
+    skip_release(duthost, ["201811", "201911"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))

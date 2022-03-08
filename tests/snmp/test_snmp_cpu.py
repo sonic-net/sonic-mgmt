@@ -36,7 +36,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
     logger.info("found {} cpu on the dut".format(host_vcpus))
 
     # Gather facts with SNMP version 2
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
@@ -48,7 +48,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         time.sleep(20)
 
         # Gather facts with SNMP version 2
-        snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
+        snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
         # Pull CPU utilization via shell
         # Explanation: Run top command with 2 iterations, 5sec delay.
@@ -57,8 +57,8 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
         output = duthost.shell("top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };END   { print cpu }' | awk '{printf \"%.0f\",$1}'")
 
-        print int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
-        print int(output['stdout'])
+        logger.info(str(snmp_facts['ansible_ChStackUnitCpuUtil5sec']))
+        logger.info(str(output['stdout']))
 
         cpu_diff = abs(int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']) - int(output['stdout']))
 

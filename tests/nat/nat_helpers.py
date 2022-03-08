@@ -4,6 +4,7 @@ import time
 import logging
 import json
 from collections import namedtuple
+from netaddr import IPAddress
 
 import ptf.mask as mask
 import ptf.packet as packet
@@ -478,7 +479,10 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
     if "dut_iface" in setup_info[interface_type]["vrf_conf"][key].keys():
         dut_iface = setup_info[interface_type]["vrf_conf"][key]["dut_iface"]
         pch_ip = setup_info["pch_ips"][dut_iface]
-        duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
+        pch_mask = setup_info["pch_masks"][dut_iface]
+        mask_prefix = IPAddress(pch_mask).netmask_bits()
+
+        duthost.shell("sudo config interface ip remove {} {}/{}".format(dut_iface, pch_ip, mask_prefix))
         duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))
 
 

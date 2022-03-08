@@ -15,7 +15,7 @@ test -z "$(virsh list --all --name)" || virsh list --all --name | xargs -I % vir
 rm -f {{ root_path }}/disks/*
 
 # remove all ovs bridges
-test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | sed -e 's/^/-- del-br /' | xargs ovs-vsctl
+test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | xargs -I % ovs-vsctl del-br %
 
 # stop all running docker containers
 test -z "$(docker ps -q)" || docker stop $(docker ps -q)
@@ -25,4 +25,3 @@ test -z "$(docker ps -a -q)" || docker rm -f $(docker ps -a -q)
 
 # remove all docker images
 test -z "$(docker images -q)" || docker rmi -f $(docker images -q|uniq)
-

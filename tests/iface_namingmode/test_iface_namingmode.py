@@ -256,7 +256,7 @@ class TestShowInterfaces():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        regex_int = re.compile(r'(\S+)\s+(\w)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)')
+        regex_int = re.compile(r'(\S+)(\d+)')
         interfaces = list()
 
         show_intf_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces counter'.format(ifmode))
@@ -265,7 +265,9 @@ class TestShowInterfaces():
         for line in show_intf_counter['stdout_lines']:
             line = line.strip()
             if regex_int.match(line):
-                interfaces.append(regex_int.match(line).group(1))
+                interfaces.append(regex_int.match(line).group(0))
+
+        assert(len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
@@ -559,11 +561,13 @@ class TestShowVlan():
         show_vlan_brief = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show vlan brief'.format(ifmode))['stdout']
         logger.info('show_vlan_brief:\n{}'.format(show_vlan_brief))
 
+        vlan_type = minigraph_vlans['Vlan1000'].get('type', 'untagged').lower()
+
         for item in minigraph_vlans['Vlan1000']['members']:
             if mode == 'alias':
-                assert re.search(r'{}.*untagged'.format(setup['port_name_map'][item]), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(setup['port_name_map'][item], vlan_type), show_vlan_brief) is not None
             elif mode == 'default':
-                assert re.search(r'{}.*untagged'.format(item), show_vlan_brief) is not None
+                assert re.search(r'{}.*{}'.format(item, vlan_type), show_vlan_brief) is not None
 
     @pytest.mark.usefixtures('setup_vlan')
     def test_show_vlan_config(self, setup, setup_config_mode):
@@ -686,14 +690,14 @@ class TestConfigInterface():
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'down'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'down'),
                         "Interface {} should be admin down".format(test_intf))
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} startup {}'.format(
             ifmode, cli_ns_option, test_intf))
         if out['rc'] != 0:
             pytest.fail()
-        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, _port_status, 'up'),
+        pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                         "Interface {} should be admin up".format(test_intf))
 
 
@@ -710,9 +714,16 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # Get supported speeds for interface
+        supported_speeds = duthost.get_supported_speeds(interface)
+        # Remove native speed from supported speeds
+        if supported_speeds != None:
+            supported_speeds.remove(native_speed)
+        # Set speed to configure
+        configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} 10000'.format(
-             ifmode,cli_ns_option, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
+             ifmode,cli_ns_option, test_intf, configure_speed))
 
         if out['rc'] != 0:
             pytest.fail()
@@ -724,7 +735,7 @@ class TestConfigInterface():
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
-        assert speed == '10000'
+        assert speed == configure_speed
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
@@ -856,7 +867,7 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def spine_ports(self, setup):
+    def spine_ports(self, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
@@ -872,7 +883,8 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if (key in setup['physical_interfaces']) and ('T2' in value['name']):
+            if (key in setup['physical_interfaces'] 
+                    and ('T2' in value['name'] or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
 

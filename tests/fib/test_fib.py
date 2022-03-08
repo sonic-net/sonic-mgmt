@@ -1,11 +1,9 @@
 import time
 import logging
-import random
 
 from datetime import datetime
 
 import pytest
-import requests
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
@@ -13,11 +11,13 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lg
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.ptf_runner import ptf_runner
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
 from tests.common.utilities import is_ipv4_address
 
 from tests.common.fixtures.fib_utils import fib_info_files_per_function
+from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
@@ -59,34 +59,9 @@ def ignore_ttl(duthosts):
     return False
 
 
-@pytest.fixture(scope="module")
-def single_fib_for_duts(tbinfo):
-    # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
-    if tbinfo['topo']['type'] == "t2":
-        return True
-    return False
-
-def set_mux_side(tbinfo, mux_server_url, side):
-    if 'dualtor' in tbinfo['topo']['name']:
-        res = requests.post(mux_server_url, json={"active_side": side})
-        pytest_assert(res.status_code==200, 'Failed to set active side: {}'.format(res.text))
-        return res.json()   # Response is new mux_status of all mux Y-cables.
-    return {}
-
-
-@pytest.fixture
-def set_mux_random(tbinfo, mux_server_url):
-    return set_mux_side(tbinfo, mux_server_url, 'random')
-
-
-@pytest.fixture
-def set_mux_same_side(tbinfo, mux_server_url):
-    return set_mux_side(tbinfo, mux_server_url, random.choice(['upper_tor', 'lower_tor']))
-
-
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
-                #    set_mux_random,
+                   toggle_all_simulator_ports_to_random_side,
                    fib_info_files_per_function,
                    tbinfo, mux_server_url, router_macs,
                    ignore_ttl, single_fib_for_duts):
@@ -171,6 +146,8 @@ def hash_keys(duthost):
     if duthost.facts['asic_type'] in ["barefoot"]:
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # removing ingress-port and ip-proto from hash_keys not supported by Marvell SAI
     if duthost.facts['platform'] in ['armhf-nokia_ixs7215_52x-r0']:
         if 'ip-proto' in hash_keys:
@@ -273,7 +250,7 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
 
 
 def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
-              set_mux_same_side,
+              toggle_all_simulator_ports_to_rand_selected_tor_m,
               tbinfo, mux_server_url, router_macs,
               ignore_ttl, single_fib_for_duts):
 

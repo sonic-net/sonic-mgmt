@@ -1,6 +1,7 @@
 import pytest
 import logging
 import time
+from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -42,19 +43,16 @@ def test_restore_container_autorestart(duthosts, enum_dut_hostname, enable_conta
 
 def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
+    # We don't need to recover the rate limit on vs testbed
+    pytest_require(duthost.facts['asic_type'] != 'vs', "Skip on vs testbed")
     features_dict, succeed = duthost.get_feature_status()
     if not succeed:
         # Something unexpected happened.
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
-    cmd_enable_rate_limit = r"docker exec -i {} sed -i 's/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' /etc/rsyslog.conf"
-    cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
             continue
-        cmds = []
-        cmds.append(cmd_enable_rate_limit.format(feature_name))
-        cmds.append(cmd_reload.format(feature_name))
-        duthost.shell_cmds(cmds=cmds)
+        duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
 

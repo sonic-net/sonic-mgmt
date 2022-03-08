@@ -19,6 +19,26 @@
           </a:Prefix>
           <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
         </a:LoopbackIPInterface>
+      {% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+      {% if loopback4096_ip is defined %}
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ip[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ip[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ipv6[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ipv6[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {% endif %}
+      {% endif %}
       {%- if 'addl_loopbacks' in dual_tor_facts -%}
       {%- for loopback_num in dual_tor_facts['addl_loopbacks'][inventory_hostname] -%}
         {%- set loopback_facts = dual_tor_facts['addl_loopbacks'][inventory_hostname][loopback_num] -%}
@@ -41,7 +61,7 @@
       {%- endfor -%}
       {%- endif -%}
 {% endif %}
-      </LoopbackIPInterfaces>
+</LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
@@ -61,24 +81,24 @@
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
-{% if voq_inband_ip is defined or voq_inband_ipv6 is defined %}
+{% if num_asics == 1 and (voq_inband_ip is defined or voq_inband_ipv6 is defined) %}
       <VoqInbandInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if voq_inband_ip is defined %}
         <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf }}</Name>
+          <Name>{{ voq_inband_intf[0] }}</Name>
           <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ip }}</a:PrefixStr>
+          <a:PrefixStr>{{ voq_inband_ip[0] }}</a:PrefixStr>
         </a:VoqInbandInterface>
 {% endif %}
 {% if voq_inband_ipv6 is defined %}
         <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf }}</Name>
+          <Name>{{ voq_inband_intf[0] }}</Name>
           <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ipv6 }}</a:PrefixStr>
+          <a:PrefixStr>{{ voq_inband_ipv6[0] }}</a:PrefixStr>
         </a:VoqInbandInterface>
 {% endif %}
       </VoqInbandInterfaces>
-{% endif %}      
+{% endif %}
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
@@ -88,7 +108,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
         <PortChannel>
-          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
+          <Name>PortChannel{{ '10' + ((index+1)|string) }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -151,7 +171,7 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -160,7 +180,7 @@
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -222,7 +242,7 @@
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
+{% set a_intf = 'PortChannel' + '10' + ((index+1) |string) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}

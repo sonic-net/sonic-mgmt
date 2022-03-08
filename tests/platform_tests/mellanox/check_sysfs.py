@@ -4,10 +4,36 @@ Helper script for checking status of sysfs.
 This script contains re-usable functions for checking status of hw-management related sysfs.
 """
 import logging
+import re
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 
 MAX_FAN_SPEED_THRESHOLD = 0.15
+
+
+def skip_ignored_broken_symbolinks(broken_symbolinks):
+    """
+    @summary: Check all the broken symbol links found, remove the expected ones
+    examples for the expected broken symbol links:
+      /var/run/hw-management/led/led_psu2_green_delay_off
+      /var/run/hw-management/led/led_uid_blue_delay_on
+      /var/run/hw-management/led/led_fan_green_delay_on
+      /var/run/hw-management/led/led_status_red_delay_on
+    """
+    # Currently some led blinking related sysfs are expected to be broken after system boot up,
+    # so skip and remove them from the check list.
+    broken_symbolinks_updated = []
+    pattern = re.compile(".*led_.*_delay_(off|on)")
+
+    logging.info("broken_symbolinks: {}".format(broken_symbolinks))
+
+    for symbolink in broken_symbolinks.splitlines():
+        if not pattern.match(symbolink):
+            broken_symbolinks_updated.append(symbolink)
+        else:
+            logging.info("ignore expected broken link: {}".format(symbolink))
+
+    return broken_symbolinks_updated
 
 
 def check_sysfs(dut):
@@ -21,8 +47,9 @@ def check_sysfs(dut):
 
     logging.info("Check broken symbolinks")
     broken_symbolinks = sysfs_facts['symbolink_info']['broken_links']
-    assert len(broken_symbolinks) == 0, \
-        "Found some broken symbolinks: {}".format(str(broken_symbolinks))
+    broken_symbolinks_updated = skip_ignored_broken_symbolinks(broken_symbolinks)
+    assert len(broken_symbolinks_updated) == 0, \
+        "Found some broken symbolinks: {}".format(str(broken_symbolinks_updated))
 
     logging.info("Check ASIC related sysfs")
     try:
@@ -40,7 +67,7 @@ def check_sysfs(dut):
 
     if not _is_fan_speed_in_range(sysfs_facts):
         sysfs_fan_config = [generate_sysfs_fan_config(platform_data)]
-        assert wait_until(30, 5, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
+        assert wait_until(30, 5, 0, _check_fan_speed_in_range, dut, sysfs_fan_config), "Fan speed not in range"
 
     logging.info("Check CPU related sysfs")
     cpu_temp_high_counter = 0
@@ -101,6 +128,20 @@ def check_sysfs(dut):
             except Exception as e:
                 assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
+
+            if "201911" not in dut.os_version and "202012" not in dut.os_version:
+                # Check consistency between voltage capability and sysfs
+                all_capabilities = platform_data["psus"].get("capabilities")
+                if all_capabilities:
+                    for capabilities in all_capabilities:
+                        psu_cmd_prefix = 'cat /var/run/hw-management/power/{}_'.format(capabilities.format(psu_id))
+                        psu_capability = dut.command(psu_cmd_prefix + 'capability')['stdout'].split()
+                        for capability in psu_capability:
+                            # Each capability should exist
+                            output = dut.command(psu_cmd_prefix + capability)['stdout']
+                            assert output, "PSU capability {} doesn't not exist".format(capability)
+            else:
+                logging.info("PSU sensors' capability checking ignored")
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():

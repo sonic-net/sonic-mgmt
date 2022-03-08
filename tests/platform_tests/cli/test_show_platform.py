@@ -52,8 +52,10 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
-
+    if 'switch_type' in dut_vars:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"])
+    else:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
@@ -93,6 +95,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050","arista_7260"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -150,7 +153,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "Device Version",
             "MAC Addresses",
             "Manufacturer",
-            "Vendor Extension",
             "ONIE Version",
             "CRC-32"]
 
@@ -176,7 +178,10 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
-    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    pytest_assert(
+        check_pmon_daemon_status(duthost),
+        "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -197,11 +202,11 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
-def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
+def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -216,11 +221,15 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
+        led_status_list = ["N/A"]
+    else:
+        led_status_list = ["green", "amber", "red", "off"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
         pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
         pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
-        pytest_assert(psu_info["led_status"] in ["green", "amber", "red", "off"], "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
+        pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
@@ -346,7 +355,7 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     @summary: Verify output of `show platform firmware status`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050"])
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])

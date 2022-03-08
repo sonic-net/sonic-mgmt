@@ -153,7 +153,7 @@ def disable_portchannel(module, teamd_config):
 
 def setup_portchannel_conf():
     try:
-        os.mkdir(portchannel_conf_path, 0755)
+        os.mkdir(portchannel_conf_path, 0o755)
     except OSError:
         pass
 
@@ -165,7 +165,6 @@ def main():
             portchannel_config=dict(required=True, type='dict'),
         ),
         supports_check_mode=False)
-
     cmd = module.params['cmd']
     portchannel_config = module.params['portchannel_config']
     teamd_config = parse_teamd_config(module, portchannel_config)

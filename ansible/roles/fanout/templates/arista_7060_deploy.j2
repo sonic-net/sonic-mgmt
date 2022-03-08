@@ -29,8 +29,11 @@ vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 vrf definition management
    rd 1:1
 !
-{% for i in range(1,33) %}
+{% for i in range(1, device_port_vlans[inventory_hostname]|length + 1) %}
 {% set intf =  'Ethernet' + i|string + '/1'  %}
+{% if intf not in device_port_vlans[inventory_hostname] %}
+{% set intf =  'Ethernet' + i|string  %}
+{% endif %}
 interface {{ intf }}
 {% if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
 {%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
@@ -40,6 +43,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 100gfull
    error-correction encoding reed-solomon
+   no switchport mac address learning
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
@@ -47,6 +51,7 @@ interface {{ intf }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 40gfull
+   no switchport mac address learning
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
@@ -55,6 +60,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 50gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {% set intf =  'Ethernet' + i|string + '/3'  %}
 interface {{ intf }}
@@ -65,6 +71,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 50gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%         else %}
    shutdown
@@ -76,6 +83,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 10gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%         for j in range(2,5) %}
 {% set intf =  'Ethernet' + i|string + '/' + j|string %}
@@ -87,6 +95,7 @@ interface {{ intf }}
    spanning-tree portfast
    speed forced 10gfull
    no error-correction encoding
+   no switchport mac address learning
    no shutdown
 {%             else %}
    shutdown
@@ -102,6 +111,7 @@ interface {{ intf }}
    switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    spanning-tree portfast
    speed force 40gfull
+   no switchport mac address learning
    no shutdown
 {% else %}
    shutdown
@@ -111,13 +121,15 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}/{{ hostvars[inventory_hostname].mgmt_subnet_mask_length }}
  no shutdown
 !
 # LACP packets pass through
 mac address-table reserved forward 0180.c200.0002
 # LLDP packets pass through
 mac address-table reserved forward 0180.c200.000e
+# EAPOL packets pass through
+mac address-table reserved forward 0180.c200.0003
 !
 ip route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
 ip route vrf management 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}

@@ -4,6 +4,7 @@ Test bgp no-export community in SONiC.
 
 import random
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import apply_bgp_config

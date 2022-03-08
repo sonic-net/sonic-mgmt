@@ -13,11 +13,15 @@ from sub_ports_helpers import startup_port
 from sub_ports_helpers import setup_vlan
 from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
+from sub_ports_helpers import remove_sub_port
 
 
 pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
+
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
 
 class TestSubPorts(object):
     """
@@ -75,6 +79,34 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='drop')
 
+    @pytest.mark.parametrize("port_type", ["port"])
+    def test_untagged_packet_not_routed(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+        """
+        Validates that untagged packet aren't routed.
+
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Create untagged ICMP packet.
+            4.) Send untagged ICMP request packet from PTF to DUT.
+            5.) Verify that DUT doesn't sends ICMP reply packet to PTF.
+            6.) Clear configuration of sub-ports on the DUT.
+            7.) Clear configuration of sub-ports on the DUT.
+
+        Pass Criteria: PTF doesn't gets ICMP reply packet from DUT.
+        """
+        sub_ports = apply_config_on_the_dut["sub_ports"]
+
+        for sub_port, config in sub_ports.items():
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=config["neighbor_port"],
+                                        dst_port=sub_port,
+                                        ip_src=config["neighbor_ip"],
+                                        ip_dst=config["ip"],
+                                        pkt_action="drop",
+                                        untagged_icmp_request=True
+                                        )
 
     def test_admin_status_down_disables_forwarding(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
@@ -270,6 +302,60 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63)
 
+    @pytest.mark.parametrize("type_of_traffic, port_type", [["TCP-UDP-ICMP", "PORT"]])
+    def test_routing_between_sub_ports_unaffected_by_sub_ports_removal(self, type_of_traffic, duthost, ptfadapter, apply_route_config):
+        """
+        Validates that the routing of packets between sub-ports are not affected by the removal of other sub ports.
+
+        Test steps:
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Add one of the sub-ports to namespace on the PTF.
+            4.) Setup static routes between sub-port and sub-port in namespace on the PTF
+            5.) Create packet (TCP, UDP or ICMP).
+            6.) Remove some other sub ports
+            7.) Send packet from sub-port to sub-port in namespace on the PTF.
+            8.) Verify that sub-port gets received packet on the PTF.
+            9.) Remove static routes from PTF
+            10.) Remove namespaces from PTF
+            11.) Clear configuration of sub-ports on the DUT.
+            12.) Clear configuration of sub-ports on the PTF.
+
+        Note:
+            Test verifies two cases of routing between sub-ports:
+                1.) Routing between sub-ports on the same port
+                2.) Routing between sub-ports on the different ports
+
+        Pass Criteria: PTF port gets packets from port in namespace on the PTF.
+        """
+        new_sub_ports = apply_route_config['new_sub_ports']
+        sub_ports = apply_route_config['sub_ports']
+        type_of_traffic = type_of_traffic.split('-')
+
+        # find to-be-removed sub ports
+        sub_ports_to_remove = set(sub_ports.keys())
+        for sub_port, next_hop_sub_ports in new_sub_ports.items():
+            sub_ports_to_remove.remove(sub_port)
+            for next_hop_sub_port, _ in next_hop_sub_ports:
+                sub_ports_to_remove.remove(next_hop_sub_port)
+
+        # remove those to-be-removed sub ports
+        for sub_port in sub_ports_to_remove:
+            remove_sub_port(duthost, sub_port, sub_ports[sub_port]["ip"])
+
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
+            for sub_port, _ in next_hop_sub_ports:
+                generate_and_verify_traffic(duthost=duthost,
+                                            ptfadapter=ptfadapter,
+                                            src_port=sub_ports[src_port]['neighbor_port'],
+                                            ip_src=sub_ports[src_port]['neighbor_ip'],
+                                            dst_port=sub_ports[sub_port]['neighbor_port'],
+                                            ip_dst=sub_ports[sub_port]['neighbor_ip'],
+                                            pkt_action='fwd',
+                                            type_of_traffic=type_of_traffic,
+                                            ttl=63)
+
 
     @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP',])
     def test_routing_between_sub_ports_and_port(self, request, type_of_traffic, duthost, ptfadapter, apply_route_config_for_port):
@@ -318,3 +404,75 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63,
                                             pktlen=pktlen)
+
+
+    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut, apply_route_config):
+        """
+        Validates that packets are routed between sub-ports.
+
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Add one of the sub-ports to namespace on the PTF.
+            4.) Setup tunnel configuration on sub-ports of the DUT.
+            5.) Create encapsulated packet.
+            6.) Send encapsulated packet from sub-port to sub-port in namespace on the PTF.
+            7.) Verify that sub-port in namespace gets decapsulated packet on the PTF.
+            8.) Remove namespaces from PTF.
+            9.) Remove tunnel configuration from PTF.
+            10.) Clear configuration of sub-ports on the DUT.
+            11.) Clear configuration of sub-ports on the PTF.
+
+        Pass Criteria: PTF port gets decapsulated packet from port in namespace on the PTF.
+        """
+        new_sub_ports = apply_route_config['new_sub_ports']
+        sub_ports = apply_route_config['sub_ports']
+
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
+            for sub_port, _ in next_hop_sub_ports:
+                generate_and_verify_traffic(duthost=duthost,
+                                            ptfadapter=ptfadapter,
+                                            src_port=sub_ports[src_port]['neighbor_port'],
+                                            ip_src=sub_ports[src_port]['neighbor_ip'],
+                                            dst_port=sub_ports[sub_port]['neighbor_port'],
+                                            ip_dst=sub_ports[sub_port]['neighbor_ip'],
+                                            ip_tunnel=sub_ports[src_port]['ip'],
+                                            pkt_action='fwd',
+                                            type_of_traffic='decap',
+                                            ttl=63)
+
+
+    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter, apply_balancing_config):
+        """
+        Validates load-balancing when sub-port is part of ECMP
+        Test steps:
+            1.) Setup configuration of sub-ports on the DUT.
+            2.) Setup configuration of sub-ports on the PTF.
+            3.) Setup static routes to the network by different sub-ports on the DUT.
+            4.) Create packets with different source ip addresses.
+            5.) Send packets.
+            6.) Verify that sub-port gets received packets on the PTF.
+            7.) Verify load-balancing by using number of packets on different sub-ports.
+            8.) Remove static routes from DUT.
+            9.) Clear configuration of sub-ports on the DUT.
+            10.) Clear configuration of sub-ports on the PTF.
+        Pass Criteria:
+            1.) PTF sub-ports get received packet.
+            2.) Balancing range between sub-ports is less than 25%.
+        """
+        new_sub_ports = apply_balancing_config['new_sub_ports']
+        sub_ports = apply_balancing_config['sub_ports']
+        src_ports = apply_balancing_config['src_ports']
+        src_port = random.choice(src_ports)
+
+        for ports, subnet in new_sub_ports:
+            ip_dst = [str(ip) for ip in subnet.hosts()][0]
+            dst_ports = [sub_ports[sub_port]['neighbor_port'] for sub_port in ports]
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfhost=ptfhost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=src_port,
+                                        dst_port=dst_ports,
+                                        ip_dst=ip_dst,
+                                        type_of_traffic='balancing',
+                                        ttl=63)

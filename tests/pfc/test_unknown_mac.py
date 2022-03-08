@@ -14,9 +14,9 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.utilities import get_intf_by_sub_intf
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,11 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
 
     """
     duthost = duthosts[rand_one_dut_hostname]
+    # The behavior on Mellanox for unknown MAC is flooding rather than DROP,
+    # so we need to skip this test on Mellanox platform
+    asic_type = duthost.facts["asic_type"]
+    pytest_require(asic_type != "mellanox", "Skip on Mellanox platform")
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     server_ips = []
@@ -142,7 +147,7 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor):
+                toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -163,8 +168,6 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
     ptfhost.command("ping {} -c 3".format(setup['vlan']['addr']))
     # Wait 5 seconds for secondary ARP before proceeding to clear FDB
     time.sleep(5)
-
-    yield
 
     logger.info("Clean up all ips on the PTF")
     ptfhost.script("./scripts/remove_ip.sh")
@@ -282,7 +285,7 @@ class TrafficSendVerify(object):
             self.exp_pkts.append(tmp_pkt)
             # if inft is a sub interface, tuple be like ("Eth0.10", "Eth0")
             # if inft is a general interface, tuple be like ("Eth0", "Eth0")
-            self.pkt_map[pkt] = (intf, get_intf_by_sub_intf(intf, vlan_id))
+            self.pkt_map[str(pkt)] = (intf, get_intf_by_sub_intf(intf, vlan_id), pkt)
 
     def _parseCntrs(self):
         """
@@ -330,7 +333,7 @@ class TrafficSendVerify(object):
         self._verifyIntfCounters(pretest=True)
         for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
             self.ptfadapter.dataplane.flush()
-            out_intf = self.pkt_map[pkt][0]
+            out_intf = self.pkt_map[str(pkt)][0]
             src_port = self.ptf_ports[out_intf][0]
             logger.info("Sending traffic on intf {}".format(out_intf))
             testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)

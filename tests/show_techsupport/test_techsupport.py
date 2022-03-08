@@ -2,17 +2,14 @@ import os
 import pprint
 import pytest
 import time
-
 import logging
+import tech_support_cmds as cmds 
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
-
-from log_messages import *
-
-import tech_support_cmds as cmds 
+from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +188,8 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
+    elif asic_type in ["cisco-8000"]:
+        SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
 
@@ -259,17 +258,21 @@ def config(request):
     """
     return request.getfixturevalue(request.param)
 
-
 def execute_command(duthost, since):
     """
     Function to execute show techsupport command
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    stdout = duthost.command("show techsupport --since={}".format('"' + since + '"'))
-    if stdout['rc'] == SUCCESS_CODE:
-        pytest.tar_stdout = stdout['stdout']
-    return stdout['rc'] == SUCCESS_CODE
+    opt = "-r" if duthost.sonic_release not in ["201811", "201911"] else ""
+    result = duthost.command(
+        "show techsupport {} --since={}".format(opt, '"' + since + '"'),
+        module_ignore_errors=True
+    )
+    if result['rc'] != SUCCESS_CODE:
+        pytest.fail('Failed to create techsupport. \nstdout:{}. \nstderr:{}'.format(result['stdout'], result['stderr']))
+    pytest.tar_stdout = result['stdout']
+    return True
 
 
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -287,7 +290,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
 
     for i in range(loop_range):
         logger.debug("Running show techsupport ... ")
-        wait_until(300, 20, execute_command, duthost, str(since))
+        wait_until(300, 20, 0, execute_command, duthost, str(since))
         tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
         stdout = duthost.command("rm -rf {}".format(tar_file))
         logger.debug("Sleeping for {} seconds".format(loop_delay))
@@ -357,7 +360,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg("  -n  {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds, num),
+        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
@@ -369,10 +372,22 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
                 "broadcom_cmd_misc": 
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
-                "copy_config_cmds": 
-                    add_asic_arg("/{}", cmds.copy_config_cmds, num),
             }
         )
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds_no_qos, num),
+                }
+            )
+        else:
+            cmds_to_check.update(
+                {
+                    "copy_config_cmds":
+                        add_asic_arg("/{}", cmds.copy_config_cmds, num),
+                }
+            )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
         if 'armhf-' in duthost.facts["platform"]:
@@ -409,7 +424,6 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
                 cmd_not_found[cmd_group_name].append(cmd_str)
 
     return cmd_not_found
-
 
 def test_techsupport_commands(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check

@@ -36,6 +36,8 @@ import ast
 
 class Arista(object):
     DEBUG = False
+    # unit: second
+    SSH_CMD_TIMEOUT = 10
     def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
@@ -52,6 +54,8 @@ class Arista(object):
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
+        self.lacp_pdu_time_on_down = list()
+        self.lacp_pdu_time_on_up = list()
 
     def __del__(self):
         self.disconnect()
@@ -65,6 +69,10 @@ class Arista(object):
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.conn.connect(self.ip, username=self.login, password=self.password, allow_agent=False, look_for_keys=False)
         self.shell = self.conn.invoke_shell()
+        # avoid paramiko Channel.recv() stuck forever
+        self.shell.settimeout(Arista.SSH_CMD_TIMEOUT)
+        # add a reference to avoid garbage collecting destructs the ssh connection
+        self.shell.keep_this = self.conn
 
         first_prompt = self.do_cmd(None, prompt = '>')
         self.arista_prompt = self.get_arista_prompt(first_prompt)
@@ -75,6 +83,9 @@ class Arista(object):
         version_output = self.do_cmd('show version')
         self.veos_version = self.parse_version(version_output)
 
+        self.show_lacp_command = self.parse_supported_show_lacp_command()
+        self.show_ip_bgp_command = self.parse_supported_bgp_neighbor_command()
+        self.show_ipv6_bgp_command = self.parse_supported_bgp_neighbor_command(v4=False)
         return self.shell
 
     def get_arista_prompt(self, first_prompt):
@@ -88,11 +99,40 @@ class Arista(object):
             prompt = self.arista_prompt
 
         if cmd is not None:
-            self.shell.send(cmd + '\n')
+            if cmd.endswith('?'):
+                # '?' will auto trigger an 'enter', no need to add '\n' manually
+                self.shell.send(cmd)
+            else:
+                self.shell.send(cmd + '\n')
+            # wait 0.2s for the executing
+            time.sleep(0.2)
 
         input_buffer = ''
-        while re.search(prompt, input_buffer) is None:
-            input_buffer += self.shell.recv(16384)
+        start_time = time.time()
+        received_all_data = False
+
+        while not received_all_data:
+            recv_ready_timeout = (time.time() - start_time) >= Arista.SSH_CMD_TIMEOUT
+            # if pipe is empty and not timeout yet, keep waiting
+            should_wait = (not recv_ready_timeout) and (not self.shell.recv_ready())
+            if should_wait:
+                time.sleep(0.5)
+                continue
+
+            try:
+                input_buffer += self.shell.recv(16384)
+            except Exception as err:
+                msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(cmd, err, type(err))
+                self.log(msg)
+                return msg
+
+            # Received a prompt or a single 'exit' is considered as received all data
+
+            # cEOS will not return an arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
+            # so if input_buffer is merely an 'exit', it also means received all data
+            received_all_data = (re.search(prompt, input_buffer) is not None) \
+                                or \
+                                (input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit')
 
         return input_buffer
 
@@ -121,6 +161,7 @@ class Arista(object):
         portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
         sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
+        self.collect_lacppdu_time = True
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -131,13 +172,22 @@ class Arista(object):
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
+                if cmd == 'cpu_down':
+                    last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
+                    self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
+                if (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
+                    # control plane is back up, start polling for new lacp-pdu
+                    last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
+                    if int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
+                        self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
+                        self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
 
             cur_time = time.time()
             info = {}
             debug_info = {}
-            lacp_output = self.do_cmd('show lacp neighbor')
+            lacp_output = self.do_cmd(self.show_lacp_command)
             info['lacp'] = self.parse_lacp(lacp_output)
-            bgp_neig_output = self.do_cmd('show ip bgp neighbors')
+            bgp_neig_output = self.do_cmd(self.show_ip_bgp_command)
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
             v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
@@ -175,6 +225,7 @@ class Arista(object):
                     'show ip route bgp' : bgp_route_v4_output,
                     'show ipv6 route bgp' : bgp_route_v6_output,
                 }
+            time.sleep(1)
 
         attempts = 60
         log_present = False
@@ -233,7 +284,7 @@ class Arista(object):
                 self.fails.add(msg)
 
         self.log('Finishing run()')
-        return self.fails, self.info, cli_data, log_data
+        return self.fails, self.info, cli_data, log_data, {"lacp_down": self.lacp_pdu_time_on_down, "lacp_up": self.lacp_pdu_time_on_up}
 
     def extract_from_logs(self, regexp, data):
         raw_data = []
@@ -387,6 +438,66 @@ class Arista(object):
 
         return set(expects) == prefixes
 
+    def parse_supported_show_lacp_command(self):
+        """
+        'show lacp neighbor' is deprecated by 'show lacp peer' in high EOS versions,
+        so if 'show lacp neighbor' is supported, use 'show lacp neighbor'
+        otherwise use 'show lacp peer' instead
+        Args:
+            lacp_help (str): result of command 'show lacp ?', be like :
+                                   aggregates  Display info about LACP aggregates
+                                   counters    Display LACP counters
+                                   internal    Display information internal to the Link Aggregation Control Protocol
+                                   neighbor    Display identity and info about LACP neighbor(s)
+                                   peer        Display identity and info about LACP neighbor(s)
+                                   sys-id      Display System Identifier used by LACP
+                                   $           list end
+                                   <1-2000>    Channel Group ID(s)
+        Returns:
+            str: rest command of 'show lacp ', neighbor or peer
+        """
+        lacp_help = self.do_cmd('show lacp ?')
+        for line in lacp_help.split('\n'):
+            if re.match('neighbor *Display.*', line.strip()):
+                suffix = 'neighbor'
+                break
+        else:
+            suffix = 'peer'
+        # sent 'show lacp ?' in previous step already, so there are 'show lacp' in cmd ssh pipe
+        # only need to send 'peer' or 'neighbor' to complete the command
+        # don't send whole command('show lacp peer/neighbor') instead, it will mess the output pipe up
+        # Run the command just to complete the waiting prompt, and do nothing with the output.
+        self.do_cmd(suffix)
+        show_lacp_command = "show lacp {}".format(suffix)
+        self.log("show lacp command is '{}'".format(show_lacp_command))
+        return show_lacp_command
+
+
+    def parse_supported_bgp_neighbor_command(self, v4=True):
+        help_cmd = "show ip bgp ?" if v4 else "show ipv6 bgp ?"
+        ip_bgp_help = self.do_cmd(help_cmd)
+        for line in ip_bgp_help.split('\n'):
+            if re.match('neighbors *BGP Neighbor information', line.strip()):
+                # if help regex contains:
+                # "neighbors          BGP Neighbor information"
+                suffix = 'neighbors'
+                break
+        else:
+            # if help regex contains:
+            # "peers                 BGP neighbor information"
+            suffix = 'peers'
+        # Run the command just to complete the waiting prompt, and do nothing with the output.
+        self.do_cmd(suffix)
+        if v4:
+            show_bgp_neighbors_cmd = "show ip bgp {}".format(suffix)
+            self.log("show ip bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
+        else:
+            show_bgp_neighbors_cmd = "show ipv6 bgp {}".format(suffix)
+            self.log("show ipv6 bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
+
+        return show_bgp_neighbors_cmd
+
+
     def check_bgp_route(self, expects, ipv6=False):
         cmd = 'show ip route {} | json'
         if ipv6:
@@ -399,11 +510,62 @@ class Arista(object):
 
         return ok, output
 
+
+    def check_last_lacppdu_time(self):
+        """
+        ARISTA01T1#show lacp internal detailed
+        LACP System-identifier: 8000,22-3f-8e-9e-4b-c4
+        State: A = Active, P = Passive; S=ShortTimeout, L=LongTimeout;
+            G = Aggregable, I = Individual; s+=InSync, s-=OutOfSync;
+            C = Collecting (aggregating incoming frames), X = state machine expired,
+            D = Distributing (aggregating outgoing frames),
+            d = default neighbor state
+            Status  |         | Partner                                    Actor                                 Last             State Machines
+        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier
+        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------
+        Port Channel Port-Channel1:
+        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3
+
+        The above output is JSON formatted by EOS, and below is example (with irrelevant fileds removed for simplify example)
+
+        ARISTA01T1# show lacp internal detailed | json
+        {
+            "systemId": "8000,22-3f-8e-9e-4b-c4",
+            "portChannels": {
+                "Port-Channel1": {
+                    "interfaces": {
+                        "Ethernet1": {
+                            "partnerSystemId": "FFFF,00-e0-ec-c2-af-7a",
+                            "details": {
+                                "actorChurnState": "noChurn",
+                                "lastRxTime": 1643936422.4998167,
+                            }
+                        }
+                    }
+                }
+            },
+            "miscLacpSysIds": []
+        }
+
+        """
+        cmd = "show lacp internal detailed | json"
+        output = self.do_cmd(cmd)
+        data = "\n".join(output.split("\r\n")[1:-1])
+        json_output = json.loads(data)
+        last_lacp_pdu_time = json_output.get("portChannels", {})\
+            .get("Port-Channel1", {})\
+                .get("interfaces", {})\
+                    .get("Ethernet1", {})\
+                        .get("details", {})\
+                            .get("lastRxTime")
+        return last_lacp_pdu_time
+
+
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
         neigh_bgp = {}
         dut_bgp = {}
-        for cmd, ver in [('show ip bgp neighbors', 'v4'), ('show ipv6 bgp neighbors', 'v6')]:
+        for cmd, ver in [(self.show_ip_bgp_command, 'v4'), (self.show_ipv6_bgp_command, 'v6')]:
             output = self.do_cmd(cmd)
             if ver == 'v6':
                 neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
@@ -519,7 +681,7 @@ class Arista(object):
         if not self.ipv6_gr_enabled:
             pass # ToDo:
         if self.gr_timeout < 120: # bgp graceful restart timeout less then 120 seconds
-            self.fails.add("bgp graceful restart timeout is less then 120 seconds")
+            self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
         for when, other in sorted(output.items(), key = lambda x : x[0]):
             gr_active, timer = other['bgp_neig']

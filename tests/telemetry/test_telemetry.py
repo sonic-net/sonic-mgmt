@@ -93,7 +93,7 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
-    pytest_assert(wait_until(100, 10, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
     logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
     # Wait until the TCP port was opened
@@ -150,7 +150,7 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     status_dict = dict(zip(status_key_list, status_value_list))
     for k, v in status_dict.items():
         if str(k) == "status":
-            status_expected = "enabled";
+            status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
 def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):

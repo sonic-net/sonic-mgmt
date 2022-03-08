@@ -1,5 +1,8 @@
 import logging
 import pytest
+import time
+import json
+import uuid
 
 import requests
 
@@ -7,9 +10,25 @@ from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
-__all__ = ['check_simulator_read_side', 'mux_server_url', 'url', 'recover_all_directions', 'set_drop', 'set_output', 'toggle_all_simulator_ports_to_another_side', \
-           'toggle_all_simulator_ports_to_lower_tor', 'toggle_all_simulator_ports_to_random_side', 'toggle_all_simulator_ports_to_upper_tor', \
-           'toggle_simulator_port_to_lower_tor', 'toggle_simulator_port_to_upper_tor', 'toggle_all_simulator_ports', 'get_mux_status', 'reset_simulator_port']
+__all__ = [
+    'mux_server_info',
+    'restart_mux_simulator',
+    'mux_server_url',
+    'url',
+    'get_mux_status',
+    'check_simulator_read_side',
+    'set_output',
+    'set_drop',
+    'recover_all_directions',
+    'reset_simulator_port',
+    'toggle_all_simulator_ports_to_upper_tor',
+    'toggle_all_simulator_ports_to_lower_tor',
+    'toggle_all_simulator_ports_to_another_side',
+    'toggle_all_simulator_ports_to_random_side',
+    'toggle_simulator_port_to_upper_tor',
+    'toggle_simulator_port_to_lower_tor',
+    'toggle_all_simulator_ports',
+    ]
 
 logger = logging.getLogger(__name__)
 
@@ -17,23 +36,62 @@ TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
 
 @pytest.fixture(scope='session')
-def mux_server_url(request, tbinfo):
-    """
-    A session level fixture to retrieve the address of mux simulator address
+def mux_server_info(request, tbinfo):
+    """Fixture for getting ip, port  and vmset_name of mux simulator server
+
     Args:
-        request: A fixture from Ansible
-        tbinfo: A session level fixture
+        request (obj): Pytest request object
+        tbinfo (dict): Testbed info
+
     Returns:
-        str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
+        tuple: Tuple with items: ip, port, vmset_name. For non-dualtor testbed, returns None, None, None
     """
     if 'dualtor' in tbinfo['topo']['name']:
         server = tbinfo['server']
         vmset_name = tbinfo['group-name']
+
         inv_files = request.config.option.ansible_inventory
         ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
-        port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_port')
+        _port_map = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')
+        port = _port_map[tbinfo['conf-name']]
+        return ip, port, vmset_name
+    return None, None, None
+
+
+@pytest.fixture(scope='session', autouse=True)
+def restart_mux_simulator(mux_server_info, vmhost):
+    """Session level fixture restart mux simulator server
+
+    For dualtor testbed, it would be better to restart the mux simulator server to ensure that it is running in a
+    healthy state before testing.
+
+    This is a session level and auto used fixture.
+
+    Args:
+        mux_server_info (tuple): ip, port and vmset_name of mux simulator server
+        vmhost (obj): The test server object.
+    """
+    ip, port, vmset_name = mux_server_info
+    if ip is not None and port is not None and vmset_name is not None:
+        vmhost.command('systemctl restart mux-simulator-{}'.format(port))
+        time.sleep(5)  # Wait for the mux simulator to initialize
+
+
+@pytest.fixture(scope='session')
+def mux_server_url(mux_server_info):
+    """
+    A session level fixture to retrieve the address of mux simulator address
+
+    Args:
+        mux_server_info: A session scope fixture returns ip, port and vmset_name of mux simulator server
+    Returns:
+        str: The address of mux simulator server + vmset_name, like http://10.0.0.64:8080/mux/vms17-8
+    """
+    ip, port, vmset_name = mux_server_info
+    if ip is not None and port is not None and vmset_name is not None:
         return "http://{}:{}/mux/{}".format(ip, port, vmset_name)
     return ""
+
 
 @pytest.fixture(scope='module')
 def url(mux_server_url, duthost, tbinfo):
@@ -101,12 +159,14 @@ def _post(server_url, data):
         True if succeed. False otherwise
     """
     try:
-        logger.debug('POST {} with {}'.format(server_url, data))
+        server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
+        logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         resp = requests.post(server_url, json=data, headers=headers)
+        logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
-        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
+        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))  # lgtm [py/clear-text-logging-sensitive-data]
 
     return False
 
@@ -129,6 +189,7 @@ def set_drop(url, recover_all_directions):
         drop_intfs.add(interface_name)
         server_url = url(interface_name, DROP)
         data = {"out_sides": directions}
+        logger.info("Dropping packets to {} on {}".format(directions, interface_name))
         pytest_assert(_post(server_url, data), "Failed to set drop on {}".format(directions))
 
     yield _set_drop
@@ -158,7 +219,7 @@ def set_output(url):
     return _set_output
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_upper_tor(url):
+def toggle_simulator_port_to_upper_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
@@ -169,6 +230,9 @@ def toggle_simulator_port_to_upper_tor(url):
             interface_name: a str, the name of interface
             target: "upper_tor" or "lower_tor"
         """
+        # Skip on non dualtor testbed
+        if 'dualtor' not in tbinfo['topo']['name']:
+            return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
         pytest_assert(_post(server_url, data), "Failed to toggle to upper_tor on interface {}".format(interface_name))
@@ -176,7 +240,7 @@ def toggle_simulator_port_to_upper_tor(url):
     return _toggle_simulator_port_to_upper_tor
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_lower_tor(url):
+def toggle_simulator_port_to_lower_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_lower_tor to make fixture accept arguments
     """
@@ -186,6 +250,9 @@ def toggle_simulator_port_to_lower_tor(url):
         Args:
             interface_name: a str, the name of interface to control
         """
+        # Skip on non dualtor testbed
+        if 'dualtor' not in tbinfo['topo']['name']:
+            return
         server_url = url(interface_name)
         data = {"active_side": LOWER_TOR}
         pytest_assert(_post(server_url, data), "Failed to toggle to lower_tor on interface {}".format(interface_name))
@@ -257,39 +324,88 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
 
     return _get_active_torhost
 
-def _toggle_all_simulator_ports(mux_server_url, side):
+def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url):
+def toggle_all_simulator_ports(mux_server_url, tbinfo):
     """
     A module level fixture to toggle all ports to specified side.
     """
     def _toggle(side):
-        _toggle_all_simulator_ports(mux_server_url, side)
+        _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
     return _toggle
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url):
+def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo):
     """
-    A module level fixture to toggle all ports to upper_tor
+    A function level fixture to toggle all ports to upper_tor
+
+    For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
+    is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
-    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR)
+    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url):
+def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo):
     """
-    A module level fixture to toggle all ports to lower_tor
+    A function level fixture to toggle all ports to lower_tor
+
+    For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
+    is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
-    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR)
+    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
+
+
+def _are_muxcables_active(duthost):
+    """Check if all the muxcables are active on the duthost.
+
+    Example output of "show muxcable status --json"
+        {
+            "MUX_CABLE": {
+                "Ethernet0": {
+                    "STATUS": "active",
+                    "HEALTH": "unhealthy"
+                },
+                "Ethernet4": {
+                    "STATUS": "active",
+                    "HEALTH": "unhealthy"
+                },
+                "Ethernet8": {
+                    "STATUS": "active",
+                    "HEALTH": "unhealthy"
+                },
+                ...
+        }
+
+    Args:
+        duthost (ojb): Object for interacting with DUT.
+
+    Returns:
+        bool: True if all mux cables are active on DUT. False if not.
+    """
+    muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
+    inactive_muxcables = [intf for intf, muxcable in muxcables['MUX_CABLE'].items() if muxcable['STATUS'] != 'active']
+    if len(inactive_muxcables) > 0:
+        logger.info('Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(inactive_muxcables)))
+        return False
+    else:
+        return True
+
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
-    A module level fixture to toggle all ports to randomly selected tor
+    A function level fixture to toggle all ports to randomly selected tor
+
+    For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
+    is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -302,50 +418,161 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
     else:
         data = {"active_side": LOWER_TOR}
 
-    def _check_all_active(duthost):
-        lines = duthost.shell("show muxcable status")['stdout_lines']
-        """
-        The length of output of 'show muxcable status' must be larger than 2
-        PORT         STATUS    HEALTH
-        -----------  --------  ---------
-        Ethernet0    standby   unhealthy
-        ...
-        """
-        if len(lines) <= 2:
-            return False
-        for line in lines[2:]:
-            _, status, _ = line.split()
-            if status != 'active':
-                logger.warn("Unexpected mux status {}".format(line))
-                return False
-        return True
-
     # Allow retry for mux cable toggling
-    RETRY = 3
-    while RETRY > 0:
+    for attempt in range(1, 4):
+        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
+            attempt,
+            data['active_side']
+        ))
         _post(mux_server_url, data)
         time.sleep(5)
-        if _check_all_active(duthost):
+        if _are_muxcables_active(duthost):
             break
-        RETRY -= 1
+    else:
+        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(rand_one_dut_hostname))
 
-    pytest_assert(RETRY > 0, "Failed to toggle all ports to {}".format(rand_one_dut_hostname))
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_another_side(mux_server_url):
+def toggle_all_simulator_ports_to_rand_unselected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
     """
-    A module level fixture to toggle all ports to another side
+    A function level fixture to toggle all ports to randomly unselected tor
+
+    For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
+    is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
+    """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": LOWER_TOR}
+    else:
+        data = {"active_side": UPPER_TOR}
+
+    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to the randomly unselected tor, the counterpart of {}".format(rand_one_dut_hostname))
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
+    """
+    A function level fixture to toggle all ports to another side
     For example, if the current active side for a certain port is upper_tor,
     then it will be toggled to lower_tor.
+
+    For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
+    is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
-    _toggle_all_simulator_ports(mux_server_url, TOGGLE)
+    _toggle_all_simulator_ports(mux_server_url, TOGGLE, tbinfo)
+
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(mux_server_url):
+def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
-    A module level fixture to toggle all ports to a random side.
+    A function level fixture to toggle all ports to randomly selected tor.
+
+    Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
+    After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
     """
-    _toggle_all_simulator_ports(mux_server_url, RANDOM)
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        yield
+        return
+
+    logger.info('Set all muxcable to manual mode on all ToRs')
+    duthosts.shell('config muxcable mode manual all')
+
+    logger.info("Toggling mux cable to {}".format(rand_one_dut_hostname))
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": UPPER_TOR}
+    else:
+        data = {"active_side": LOWER_TOR}
+
+    # Allow retry for mux cable toggling
+    for attempt in range(1, 4):
+        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
+            attempt,
+            data['active_side']
+        ))
+        _post(mux_server_url, data)
+        utilities.wait(5, 'Wait for DUT muxcable status to update after toggled from mux simulator')
+        if _are_muxcables_active(duthost):
+            break
+    else:
+        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(rand_one_dut_hostname))
+
+    yield
+
+    logger.info('Set all muxcable to auto mode on all ToRs')
+    duthosts.shell('config muxcable mode auto all')
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo):
+    """
+    A function level fixture to toggle all ports to a random side.
+    """
+    def _get_mux_status(duthost):
+        cmd = 'show mux status --json'
+        return json.loads(duthost.shell(cmd)['stdout'])
+
+    def _check_mux_status_consistency():
+        """Ensure mux status is consistent between the ToRs and mux simulator."""
+        upper_tor_mux_status = _get_mux_status(upper_tor_host)
+        lower_tor_mux_status = _get_mux_status(lower_tor_host)
+        simulator_mux_status = _get(mux_server_url)
+
+        if not upper_tor_mux_status:
+            logging.warn("Failed to retrieve mux status from the upper tor")
+            return False
+        if not lower_tor_mux_status:
+            logging.warn("Failed to retrieve mux status from the lower tor")
+            return False
+        if not simulator_mux_status:
+            logging.warn("Failed to retrieve mux status from the mux simulator")
+            return False
+
+        if not set(upper_tor_mux_status.keys()) == set(lower_tor_mux_status.keys()):
+            logging.warn("Ports mismatch between the upper tor and lower tor")
+            return False
+
+        # get mapping from port indices to mux status
+        simulator_port_mux_status = {int(k.split('-')[-1]):v for k,v in simulator_mux_status.items()}
+        for intf in upper_tor_mux_status['MUX_CABLE']:
+            intf_index = port_indices[intf]
+            if intf_index not in simulator_port_mux_status:
+                logging.warn("No mux status for interface %s from mux simulator", intf)
+                return False
+
+            simulator_status = simulator_port_mux_status[intf_index]
+            upper_tor_status = upper_tor_mux_status['MUX_CABLE'][intf]['STATUS']
+            lower_tor_status = lower_tor_mux_status['MUX_CABLE'][intf]['STATUS']
+
+            if upper_tor_status == 'active' and lower_tor_status == 'standby' and simulator_status['active_side'] == 'upper_tor':
+                continue
+            if upper_tor_status == 'standby' and lower_tor_status == 'active' and simulator_status['active_side'] == 'lower_tor':
+                continue
+            logging.warn(
+                "For interface %s, upper tor mux status: %s, lower tor mux status: %s, simulator status: %s",
+                intf, upper_tor_status, lower_tor_status, simulator_status
+            )
+            logging.warn("Inconsistent mux status for interface %s", intf)
+            return False
+        return True
+
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
+    upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
+    mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
+    port_indices = mg_facts['minigraph_port_indices']
+    pytest_assert(
+        utilities.wait_until(30, 5, 0, _check_mux_status_consistency),
+        "Mux status is inconsistent between the DUTs and mux simulator after toggle"
+    )
+
 
 @pytest.fixture
 def simulator_server_down(set_drop, set_output):

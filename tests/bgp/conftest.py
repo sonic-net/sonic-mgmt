@@ -6,6 +6,8 @@ import logging
 import netaddr
 import pytest
 import random
+import re
+import socket
 
 from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -137,12 +139,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
     res = True
     err_msg = ""
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
     is_backend_topo = "backend" in tbinfo["topo"]["name"]
-    if not is_backend_topo and res and not wait_until(100, 5, duthost.check_bgp_default_route):
+    if not is_backend_topo and res and not wait_until(100, 5, 0, duthost.check_bgp_default_route):
         res = False
         err_msg = "ipv4 or ipv6 bgp default route not available"
 
@@ -157,12 +159,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     check_results(results)
 
-    if not wait_until(300, 10, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
+def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -322,7 +324,7 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1(mg_facts, peer_count):
+    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
@@ -353,8 +355,9 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
-            _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
-            subnets = (_ for _ in _subnets if _ not in used_subnets)
+            # Use a subnet which doesnt conflict with other subnets used in minigraph
+            subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
@@ -374,14 +377,14 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 conn["namespace"] = DEFAULT_NAMESPACE
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
-                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
                     conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
                 elif constants.VLAN_SUB_INTERFACE_SEPARATOR in intf:
                     orig_intf, vlan_id = intf.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
                     ptf_port_index = str(mg_facts["minigraph_port_indices"][orig_intf])
                     conn["neighbor_intf"] = "eth" + ptf_port_index + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
                 else:
-                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][intf]
                 connections.append(conn)
 
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
@@ -397,6 +400,20 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
+                # add route to loopback address on PTF host
+                nhop_ip = re.split("/", conn["local_addr"])[0]
+                try:
+                    socket.inet_aton(nhop_ip)
+                    ptfhost.shell(
+                        "ip route del {}/32".format(conn["loopback_ip"]),
+                        module_ignore_errors=True
+                    )
+                    ptfhost.shell("ip route add {}/32 via {}".format(
+                        conn["loopback_ip"], nhop_ip
+                    ))
+                except socket.error:
+                    raise Exception("Invalid V4 address {}".format(nhop_ip))
+
             yield connections
 
         finally:
@@ -404,18 +421,22 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
                 duthost.shell("config interface %s ip remove %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
+                ptfhost.shell(
+                    "ip route del {}/32".format(conn["loopback_ip"]),
+                    module_ignore_errors=True
+                )
 
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] == "t0":
         setup_func = _setup_interfaces_t0
-    elif tbinfo["topo"]["type"] == "t1":
-        setup_func = _setup_interfaces_t1
+    elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
+        setup_func = _setup_interfaces_t1_or_t2
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     with setup_func(mg_facts, peer_count) as connections:
         yield connections
@@ -530,7 +551,7 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
 
     pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
                   "Failed to start bgp monitor session on PTF")
-    pt_assert(wait_until(20, 5, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
+    pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
     yield
     # Cleanup bgp monitor

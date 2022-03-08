@@ -7,6 +7,7 @@
 # ARPTest
 # DHCPTest
 # DHCPTopoT1Test
+# DHCP6Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -57,6 +58,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
+        self.has_trap = test_params.get('has_trap', True)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -227,8 +229,12 @@ class NoPolicyTest(ControlPlaneBaseTest):
             (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
         )
 
-        assert(rx_pps > self.NO_POLICER_LIMIT)
-        assert(recv_count > pkt_rx_limit)
+        if self.has_trap:
+            assert (rx_pps > self.NO_POLICER_LIMIT)
+            assert (recv_count > pkt_rx_limit)
+        else:
+            assert (rx_pps < self.NO_POLICER_LIMIT)
+            assert (recv_count < pkt_rx_limit)
 
 
 class PolicyTest(ControlPlaneBaseTest):
@@ -340,6 +346,40 @@ class DHCPTest(NoPolicyTest):
             ip_ttl=64,
             udp_sport=68,
             udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+
+# SONIC configuration has no policer limiting for DHCPv6
+class DHCP6Test(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCP6Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='::1',
+            ip_dst='ff02::1::2',
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=546,
+            udp_dport=547,
             ip_ihl=None,
             ip_options=False,
             with_udp_chksum=True

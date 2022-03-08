@@ -76,3 +76,17 @@ x86_64-cel_e1031-r0:
     valid_timeout: 30
     greater_timeout: 180
     too_big_timeout: 200
+
+# Nokia IXS-7215 watchdog
+armhf-nokia_ixs7215_52x-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 200
+
+# Cisco-8000 watchdog
+x86_64-8102_64h_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
