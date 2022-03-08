@@ -10,9 +10,10 @@ op_service(){
         fi
         echo "remove service from : /etc/systemd/system/sonic.target.wants"
         mv -f /etc/systemd/system/sonic.target.wants ~
-    else
+    fi
+    if [[ x"$op" == x"restore" ]]; then
         echo "restore service from : /etc/systemd/system/sonic.target.wants"
-        mv -f ~/sonic.target.wants /etc/systemd/system/sonic.target.wants
+        cp -rf ~/sonic.target.wants /etc/systemd/system/sonic.target.wants
     fi
     for serv in ${services[*]}; do
         if [[ x"$skip" =~ x"$serv" ]]; then
@@ -40,7 +41,7 @@ remove_service(){
 
 restore_service(){
     echo "restore service: [$serv]."
-    mv ~/svcbak/$serv.service $service_dir/$serv.service 
+    cp ~/svcbak/$serv.service $service_dir/$serv.service 
 }
 
 
