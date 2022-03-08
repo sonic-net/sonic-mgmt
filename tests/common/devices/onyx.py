@@ -1,7 +1,7 @@
 import json
 import logging
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.helpers.drop_counters.fanout_onyx_drop_counter import FanoutOnyxDropCounter
+from tests.common.helpers.drop_counters.fanout_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class OnyxHost(AnsibleHostBase):
 
         self.host.options['variable_manager'].extra_vars.update(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.fanout_helper = FanoutOnyxDropCounter(self)
 
     def __str__(self):
         return '<OnyxHost {}>'.format(self.hostname)
@@ -227,8 +228,7 @@ class OnyxHost(AnsibleHostBase):
             boolean: True if success. Usually, the method return False only if the operation
             is not supported or failed.
         """
-        fanout_helper = FanoutOnyxDropCounter(self)
-        return fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
+        return self.fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
 
     def restore_drop_counter_config(self):
         """Delete configuraion for drop_packets tests if fanout has onyx OS
@@ -238,5 +238,4 @@ class OnyxHost(AnsibleHostBase):
             boolean: True if success. Usually, the method return False only if the operation
             is not supported or failed.
         """
-        fanout_helper = FanoutOnyxDropCounter(self)
-        return fanout_helper.restore_drop_counter_config()
+        return self.fanout_helper.restore_drop_counter_config()

@@ -1,5 +1,6 @@
 import re
 import logging
+from abc import abstractmethod
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,23 @@ INVOCATION = 'invocation'
 STDOUT = 'stdout'
 
 
-class FanoutOnyxDropCounter:
-    def __init__(self, onyx_switch):
-        self.onyx_switch = onyx_switch
+class FanoutDropCounter:
+    def __init__(self):
         self.fanout_graph_facts = None
+
+    @abstractmethod
+    def prepare_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        pass
+
+    @abstractmethod
+    def restore_drop_counter_config(self):
+        pass
+
+
+class FanoutOnyxDropCounter(FanoutDropCounter):
+    def __init__(self, onyx_switch):
+        FanoutDropCounter.__init__(self)
+        self.onyx_switch = onyx_switch
 
     def prepare_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
         self.fanout_graph_facts = fanout_graph_facts
@@ -49,7 +63,8 @@ class FanoutOnyxDropCounter:
         show_openflow = out[STDOUT][0]
         return self._get_openflow_port_id_from_show_openflow(show_openflow, port)
 
-    def _get_openflow_port_id_from_show_openflow(self, show_openflow, port):
+    @staticmethod
+    def _get_openflow_port_id_from_show_openflow(show_openflow, port):
         regexp = 'Eth1/{}\s*OF-(\d+)'.format(port)
         match = re.search(regexp, show_openflow)
         if match:
