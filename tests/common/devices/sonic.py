@@ -762,6 +762,9 @@ class SonicHost(AnsibleHostBase):
                 else:
                     logging.debug("Daemon %s is disabled" % key)
                     exemptions.append(key)
+
+            if self.sonic_release in ['201911']:
+                exemptions.append('platform_api_server')
         except:
             # if pmon_daemon_control.json not exist, then it's using default setting,
             # all the pmon daemons expected to be running after boot up.
@@ -1407,6 +1410,10 @@ Totals               6450                 6449
                 return True
         return False
 
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
+        cmd = "sonic-db-cli {}".format(sonic_db_cmd)
+        return self.command(cmd, verbose=False)
+
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
@@ -1797,6 +1804,9 @@ Totals               6450                 6449
         if ports is None:
             return True
         return False if "Ethernet-BP" not in ports["members"][0] else True
+
+    def is_backend_port(self, port, mg_facts):
+        return True if "Ethernet-BP" in port else False
 
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
         """
