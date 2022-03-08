@@ -86,4 +86,4 @@ while getopts ":o:s:" args; do
 done
 
 check_ops
-op_service 
+op_service
