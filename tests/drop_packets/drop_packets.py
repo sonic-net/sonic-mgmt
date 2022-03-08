@@ -181,8 +181,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         "neighbor_sniff_ports": neighbor_sniff_ports,
         "vlans": configured_vlans,
         "mg_facts": mg_facts,
-        "intf_per_namespace": intf_per_namespace
+        "intf_per_namespace": intf_per_namespace,
+        "platform_asic": duthost.facts.get("platform_asic")
     }
+
     return setup_information
 
 
@@ -501,7 +503,12 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, rand_one_dut_hostname, pt
         vlan_vid=vlan_id,
         )
 
-    do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+    group = "L2"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
 def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):
@@ -520,7 +527,12 @@ def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -539,7 +551,12 @@ def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_f
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -567,7 +584,13 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    print("msm group {}, setup {}".format(group, setup))
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
@@ -602,7 +625,12 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -627,7 +655,12 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-        do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+        group = "L3"
+        # DNX platform DROP counters are not there yet
+        if setup.get("platform_asic") == "broadcom-dnx":
+            group = "NO_DROPS"
+
+        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"), ("ipv4", "dst"),
@@ -673,7 +706,12 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
 
     logger.info(pkt_params)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -747,7 +785,12 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
@@ -767,7 +810,12 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
@@ -790,7 +838,12 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
@@ -812,7 +865,12 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports, 
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
