@@ -2033,16 +2033,14 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
         logging.info('[Find out the longest cable length the port can support]')
-        cable_length = 300
+        cable_length = int(original_cable_len[:-1])
         cable_length_step = 128
-        never_applied = True
         while True:
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
             expected_profile = make_expected_profile_name(original_speed, '{}m'.format(cable_length))
             profile_applied = check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile, False)
             if not profile_applied:
                 break
-            never_applied = False
             logging.info('Cable length {} has been applied successfully'.format(cable_length))
             if cable_length > 2000:
                 pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 2km, skip the test".format(port_to_test))
@@ -2053,12 +2051,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         cable_length_upper = cable_length
         cable_length_step /= 2
         cable_length -= cable_length_step
-        if never_applied:
-            cable_length_lower = int(original_cable_len[:-1])
-        else:
-            cable_length_lower = cable_length
+        cable_length_lower = cable_length
         logging.info("Cable length {} can be applied but {} can't. Finding the exact maximum cable length".format(cable_length_lower, cable_length_upper))
-
         while True:
             cable_length = (cable_length_upper + cable_length_lower) / 2
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
