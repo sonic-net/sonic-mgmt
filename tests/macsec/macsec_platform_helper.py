@@ -63,12 +63,13 @@ def get_all_ifnames(host):
 
 
 def get_eth_ifname(host, port_name):
-    if u"x86_64-kvm_x86_64" not in get_platform(host):
-        logging.info("Can only get the eth ifname on the virtual SONiC switch")
-        return None
-    ports = get_all_ifnames(host)
-    assert port_name in ports["Ethernet"]
-    return ports["eth"][ports["Ethernet"].index(port_name)]
+    if u"x86_64-kvm_x86_64" in get_platform(host):
+        logging.info("Get the eth ifname on the virtual SONiC switch")
+        ports = get_all_ifnames(host)
+        assert port_name in ports["Ethernet"]
+        return ports["eth"][ports["Ethernet"].index(port_name)]
+    # Same as port_name
+    return port_name
 
 
 def get_macsec_ifname(host, port_name):
@@ -85,6 +86,8 @@ def get_macsec_ifname(host, port_name):
 
 
 def get_platform(host):
+    if isinstance(host, EosHost):
+        return "Arista"
     for line in host.command("show platform summary")["stdout_lines"]:
         if "Platform" == line.split(":")[0]:
             return line.split(":")[1].strip()

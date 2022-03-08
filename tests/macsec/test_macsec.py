@@ -1,3 +1,4 @@
+from time import sleep
 import pytest
 import logging
 
@@ -202,16 +203,23 @@ class TestFaultHandling():
             nbr["host"], nbr["port"])
 
         # Flap < 6 seconds
-        nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
-            nbr_eth_port, nbr_eth_port))
-        _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
-            duthost, port_name, nbr["host"], nbr["port"])
-        assert dut_egress_sa_table_orig == dut_egress_sa_table_new
-        assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+        # Not working on eos neighbour
+        if not isinstance(nbr["host"], EosHost):
+            nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
+                nbr_eth_port, nbr_eth_port))
+            _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            assert dut_egress_sa_table_orig == dut_egress_sa_table_new
+            assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds
-        nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
-            nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].shutdown(nbr_eth_port)
+            sleep(TestFaultHandling.MKA_TIMEOUT)
+            nbr["host"].no_shutdown(nbr_eth_port)
+        else:
+            nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
+                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
 
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
@@ -226,11 +234,19 @@ class TestFaultHandling():
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
-        nbr["host"].shell("ifconfig {} down && sleep {}".format(
-            nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].shutdown(nbr_eth_port)
+            sleep(TestFaultHandling.LACP_TIMEOUT)
+        else:
+            nbr["host"].shell("ifconfig {} down && sleep {}".format(
+                nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Dw")
-        nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
+
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].no_shutdown(nbr_eth_port)
+        else:
+            nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
@@ -311,6 +327,28 @@ class TestInteropProtocol():
         for nbr in nbrhosts:
             assert nbr in lldp_neighbors
 
-    def test_bgp(self, duthost, nbrhosts):
+    def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
+        def check_bgp_established(up_link):
+            command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(up_link["ipv4_addr"])
+            fact = sonic_db_cli(duthost, command)
+            return fact["state"] == "Established"
+
+        # Check if the BGP sessions are established
+        for ctrl_port in ctrl_links.keys():
+            assert check_bgp_established(upstream_links[ctrl_port])
+
+        # Check the BGP sessions are present after port macsec disabled
+        for ctrl_port, nbr in ctrl_links.items():
+            disable_macsec_port(duthost, ctrl_port)
+            disable_macsec_port(nbr["host"], nbr["port"])
+            assert wait_until(60, 5, 5, check_bgp_established, upstream_links[ctrl_port])
+
+        # Check the BGP sessions are present after port macsec enabled
+        for ctrl_port, nbr in ctrl_links.items():
+            enable_macsec_port(duthost, ctrl_port, profile_name)
+            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            assert wait_until(60, 5, 5, check_bgp_established, upstream_links[ctrl_port])
+
+    def test_snmp(self, duthost, nbrhosts):
         # TODO
         pass

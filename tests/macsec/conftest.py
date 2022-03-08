@@ -29,7 +29,7 @@ def enable_macsec_feature(duthost, nbrhosts):
             if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
                 return False
         return True
-    assert wait_until(180, 1, 1, check_macsec_enabled)
+    assert wait_until(180, 5, 5, check_macsec_enabled)
     logger.info("Enable MACsec feature")
     yield
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
