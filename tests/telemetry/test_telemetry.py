@@ -344,7 +344,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, setup_testing_memor
     mem_usage_val = 0
     for index in range(CHECK_MEM_USAGE_COUNTER):
         get_mem_usage_cmd = "docker stats --no-stream --format \{{\{{.MemUsage\}}\}} {}".format(CONTAINER_NAME)
-        cmd_result = ptfhost.shell(get_mem_usage_cmd)
+        cmd_result = duthost.shell(get_mem_usage_cmd)
 
         exit_code = cmd_result["rc"]
         pytest_assert(exit_code == 0, "Failed to get memory usage of '{}'!".format(CONTAINER_NAME))
