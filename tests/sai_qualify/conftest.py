@@ -324,8 +324,11 @@ def stop_dockers(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    #TODO sample for skip duthost.shell(USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -s syncd -o stop")
-    duthost.shell(USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -o stop") 
+    #TODO sample for skip duthost.shell("sudo " + USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -s syncd -o stop")
+    duthost.command(
+    "sudo " + USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -o stop",
+    module_ignore_errors=True
+    )
     __services_env_stop_check(duthost)
 
 
