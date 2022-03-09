@@ -88,7 +88,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     logger.info("reset-failed flag of container '{}' is cleared".format(container_name))
 
     logger.info("Container '{}' is being restarted ...".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    duthost.shell("sudo systemctl restart {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
                            0,
