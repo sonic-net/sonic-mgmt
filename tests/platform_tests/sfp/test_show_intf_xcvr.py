@@ -16,7 +16,6 @@ cmd_sfp_presence = "show interface transceiver presence"
 cmd_sfp_eeprom = "show interface transceiver eeprom"
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
 

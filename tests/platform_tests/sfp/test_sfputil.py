@@ -24,7 +24,6 @@ cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
 cmd_sfp_set_lpmode = "sudo sfputil lpmode"
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
 
