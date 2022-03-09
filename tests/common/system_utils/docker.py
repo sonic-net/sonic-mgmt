@@ -4,6 +4,7 @@ import collections
 import logging
 
 from tests.common import config_reload
+from tests.common.utilities import wait
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.broadcom_data import is_broadcom_device
@@ -101,7 +102,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 def swap_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss 
+    This will download a new Docker image to the duthost and restart the swss
     service.
 
     Args:
@@ -114,7 +115,7 @@ def swap_syncd(duthost, creds):
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
 

@@ -89,11 +89,6 @@ def pytest_addoption(parser):
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
     ############################
-    # pfc_asym options         #
-    ############################
-    parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
-
-    ############################
     # test_techsupport options #
     ############################
     parser.addoption("--loop_num", action="store", default=2, type=int,

@@ -6,7 +6,7 @@ from natsort import natsorted
 
 from netaddr import IPAddress
 from tests.common.helpers.generators import generate_ips
-
+from tests.common.system_utils import docker
 
 PFC_GEN_FILE = "pfc_gen.py"
 PFC_FRAMES_NUMBER = 50000000
@@ -140,12 +140,12 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     Enable/disable asymmetric PFC on all server interfaces
     """
     duthost = duthosts[rand_one_dut_hostname]
-    get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
+    get_pfc_mode = "redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
     pfc_asym_restored = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED"
 
-    get_asym_pfc = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}"
+    get_asym_pfc = "redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}"
     sai_asym_pfc_rx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_RX"
     sai_asym_pfc_tx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_TX"
     sai_default_asym_pfc = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL"
@@ -172,7 +172,7 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
             assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
 
 @pytest.fixture(scope="module")
-def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, request):
+def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, request, creds):
     """
     Fixture performs initial steps which is required for test case execution.
     Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
@@ -235,10 +235,19 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, req
     setup = Setup(duthost, ptfhost, setup_params, minigraph_facts, server_ports_num)
     setup.generate_setup()
 
-    yield setup_params
+    swap_syncd = request.config.getoption("--pfc-asym-swap-syncd")
+    try:
+        if swap_syncd:
+            docker.swap_syncd(duthost, creds)
 
-    # Remove portmap
-    ptfhost.file(path=os.path.join(OS_ROOT_DIR, setup_params["ptf_test_params"]["port_map_file"]), state="absent")
+        yield setup_params
+
+    finally:
+        # Remove portmap
+        ptfhost.file(path=os.path.join(OS_ROOT_DIR, setup_params["ptf_test_params"]["port_map_file"]), state="absent")
+
+        if swap_syncd:
+                docker.restore_default_syncd(duthost, creds)
 
 
 class Setup(object):
@@ -255,10 +264,21 @@ class Setup(object):
         self.vlan_members = self.mg_facts["minigraph_vlans"][self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"][0:use_port_num]
         self.portchannel_member = self.mg_facts["minigraph_portchannels"][self.mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]]["members"][0]
 
+        self.port_oids_map = {}
+        self.vidtorid_map = {}
+
+    def _init_maps(self):
+        port_oids_raw = self.duthost.shell("redis-cli --raw -n 2 hgetall COUNTERS_PORT_NAME_MAP")["stdout_lines"]
+        self.port_oids_map = { port: oid for (port, oid) in zip(port_oids_raw[0::2], port_oids_raw[1::2])}
+
+        vidtorid_raw = self.duthost.shell("redis-cli --raw -n 1 hgetall VIDTORID", verbose=False)["stdout_lines"]
+        self.vidtorid_map = { vid: rid for (vid, rid) in zip(vidtorid_raw[0::2], vidtorid_raw[1::2])}
+
     def generate_setup(self):
         """
         Main function to compose parameters which is used in 'setup' fixture
         """
+        self._init_maps()
         self.generate_server_ports()
         self.generate_non_server_ports()
         self.generate_router_mac()
@@ -275,6 +295,7 @@ class Setup(object):
                                             [IPAddress(self.mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
 
         self.vars["ptf_test_params"]["server_ports"] = []
+
         for index, item in enumerate(self.vlan_members):
             port_info = {"dut_name": item,
                             "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][item]),
@@ -282,11 +303,10 @@ class Setup(object):
                             "ptf_ip": generated_ips[index],
                             "oid": None}
 
-            redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
-                        COUNTERS_PORT_NAME_MAP {}".format(item))["stdout"]
+            redis_oid = self.port_oids_map[item]
             self.vars["server_ports_oids"].append(redis_oid)
 
-            sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
+            sai_redis_oid = int(self.vidtorid_map[redis_oid].replace("oid:", ""), 16)
             port_info["oid"] = sai_redis_oid
             self.vars["ptf_test_params"]["server_ports"].append(port_info)
 
@@ -294,9 +314,8 @@ class Setup(object):
 
     def generate_non_server_ports(self):
         """ Generate list of port parameters which are connected to VMs """
-        redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
-                                            COUNTERS_PORT_NAME_MAP {}".format(self.portchannel_member))["stdout"]
-        sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
+        redis_oid = self.port_oids_map[self.portchannel_member]
+        sai_redis_oid = int(self.vidtorid_map[redis_oid].replace("oid:", ""), 16)
         self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][self.portchannel_member]),
                                                     "index": self.mg_facts["minigraph_ptf_indices"][self.portchannel_member],
                                                     "ip": self.mg_facts["minigraph_portchannel_interfaces"][0]["peer_addr"],
@@ -306,7 +325,6 @@ class Setup(object):
     def generate_router_mac(self):
         """ Get DUT MAC address which will be used by PTF as Ethernet destination MAC address during sending traffic """
         self.vars["ptf_test_params"]["router_mac"] = self.duthost.facts["router_mac"]
-
 
     def prepare_arp_responder(self):
         """ Copy ARP responder to the PTF host """
@@ -321,8 +339,7 @@ class Setup(object):
     def prepare_ptf_port_map(self):
         """ Copy 'ptf_portmap' file which is defined in inventory to the PTF host """
 
-        duthost_vars = self.duthost.host.options["inventory_manager"].get_host(self.duthost.hostname).vars
-        ptf_portmap_var = duthost_vars.get('ptf_portmap', None)
+        ptf_portmap_var = self.duthost.host_vars.get('ptf_portmap', None)
         if ptf_portmap_var:
             ptf_portmap = os.path.join(ANSIBLE_ROOT, ptf_portmap_var)
             self.ptfhost.copy(src=ptf_portmap, dest=OS_ROOT_DIR)
@@ -339,12 +356,12 @@ class Setup(object):
         """ Get configuration of lossless and lossy priorities """
         lossless = []
         lossy = []
-        buf_pg_keys = self.duthost.command("docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*")["stdout"].split()
+        buf_pg_keys = self.duthost.command("redis-cli --raw -n 4 KEYS *BUFFER_PG*")["stdout_lines"]
 
-        get_priority_cli = "for item in {}; do docker exec -i database redis-cli -n 4 HGET $item \"profile\"; done".format(
+        get_priority_cli = "for item in {}; do redis-cli -n 4 HGET $item \"profile\"; done".format(
             " ".join(["\"{}\"".format(item) for item in buf_pg_keys])
             )
-        out = self.duthost.command(get_priority_cli, _uses_shell=True)["stdout"].split()
+        out = self.duthost.command(get_priority_cli, _uses_shell=True)["stdout_lines"]
         for index, pg_key in enumerate(buf_pg_keys):
             value = pg_key.split("|")[-1].split("-")
             if "lossless" in out[index]:
@@ -359,14 +376,14 @@ class Setup(object):
 
     def generate_pfc_to_dscp_map(self):
         """ Get PFC to DSCP fields mapping """
-        dscp_to_tc_key = self.duthost.command("docker exec -i database redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*")["stdout"]
-        dscp_to_tc_keys = self.duthost.command("docker exec -i database redis-cli --raw -n 4 HKEYS {}".format(dscp_to_tc_key))["stdout"].split()
+        dscp_to_tc_key = self.duthost.command("redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*")["stdout"]
+        dscp_to_tc_keys = self.duthost.command("redis-cli --raw -n 4 HKEYS \"{}\"".format(dscp_to_tc_key))["stdout_lines"]
 
-        get_dscp_to_tc = "for item in {}; do docker exec -i database redis-cli -n 4 HGET \"{}\" $item; done".format(
+        get_dscp_to_tc = "for item in {}; do redis-cli -n 4 HGET \"{}\" $item; done".format(
                             " ".join(dscp_to_tc_keys), dscp_to_tc_key
                             )
-        dscp_to_tc = self.duthost.command(get_dscp_to_tc, _uses_shell=True)["stdout"]
-        self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(zip(map(int, dscp_to_tc.split()),
+        dscp_to_tc = self.duthost.command(get_dscp_to_tc, _uses_shell=True)["stdout_lines"]
+        self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(zip(map(int, dscp_to_tc),
                                                             map(int, dscp_to_tc_keys)))
 
     def generate_pfc_bitmask(self):
