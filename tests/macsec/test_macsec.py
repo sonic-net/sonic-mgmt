@@ -306,8 +306,6 @@ class TestInteropProtocol():
     '''
     Macsec interop with other slow protocols
     '''
-    BATCH_COUNT = 10
-
     def test_port_channel(self, duthost, ctrl_links):
         ctrl_port, _ = ctrl_links.items()[0]
         pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
@@ -328,9 +326,16 @@ class TestInteropProtocol():
             assert nbr in lldp_neighbors
 
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
+        '''Verify BGP neighbourship
+        '''
+        bgp_config = duthost.get_running_config_facts()["BGP_NEIGHBOR"].values()[0]
+        BGP_KEEPALIVE = int(bgp_config["keepalive"])
+        BGP_HOLDTIME = int(bgp_config["holdtime"])
+
         def check_bgp_established(up_link):
             command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(up_link["ipv4_addr"])
             fact = sonic_db_cli(duthost, command)
+            logger.info("bgp state {}".format(fact))
             return fact["state"] == "Established"
 
         # Check if the BGP sessions are established
@@ -341,14 +346,34 @@ class TestInteropProtocol():
         for ctrl_port, nbr in ctrl_links.items():
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
-            assert wait_until(60, 5, 5, check_bgp_established, upstream_links[ctrl_port])
+            # BGP session should keep established even after holdtime
+            assert wait_until(BGP_KEEPALIVE, 1, 1, check_bgp_established, upstream_links[ctrl_port])
+            sleep(BGP_HOLDTIME)
+            assert wait_until(BGP_HOLDTIME, 1, 1, check_bgp_established, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in ctrl_links.items():
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-            assert wait_until(60, 5, 5, check_bgp_established, upstream_links[ctrl_port])
+            # BGP session should keep established even after holdtime
+            assert wait_until(BGP_KEEPALIVE, 1, 1, check_bgp_established, upstream_links[ctrl_port])
+            sleep(BGP_HOLDTIME)
+            assert wait_until(BGP_HOLDTIME, 1, 1, check_bgp_established, upstream_links[ctrl_port])
 
-    def test_snmp(self, duthost, nbrhosts):
-        # TODO
-        pass
+    def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
+        '''
+        Verify SNMP request/response works across interface with macsec configuration
+        '''
+        ctrl_port, nbr = ctrl_links.items()[0]
+        if isinstance(nbr["host"], EosHost):
+            result = nbr["host"].eos_command(commands=['show snmp community | include name'])
+            community = re.search(r'Community name: (\S+)', result['stdout'][0]).groups()[0]
+        else:  # vsonic neighbour
+            community = creds['snmp_rocommunity']
+
+        up_link = upstream_links[ctrl_port]
+        sysDescr = ".1.3.6.1.2.1.1.1.0"
+        command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
+            community, up_link["ipv4_addr"], sysDescr)
+        assert not duthost.command(command)["failed"]
+
