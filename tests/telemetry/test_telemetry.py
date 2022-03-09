@@ -1,4 +1,5 @@
 import time
+from multiprocessing.pool import ThreadPool
 
 import logging
 import re
@@ -6,7 +7,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import restart_container_and_check_running
+from tests.common.helpers.dut_utils import clear_failed_flag_and_restart 
 from tests.common.utilities import wait_until, wait_tcp_connection
 
 pytestmark = [
@@ -230,6 +231,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
+
 def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
@@ -256,8 +258,8 @@ def run_gnmi_client(ptfhost, dut_ip):
     Returns:
         None.
     """
-    gnmi_cli_cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --trigger_mem_spike \
-                    -x DOCKER_STATS -xt STATE_DB -o "ndastreamingservertest" &'.format(dut_ip, TELEMETRY_PORT)
+    gnmi_cli_cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe  --trigger_mem_spike\
+                    -x DOCKER_STATS -xt STATE_DB -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     logger.info("Starting gNMI client command in PTF docker: {}".format(gnmi_cli_cmd))
     cmd_result = ptfhost.shell(gnmi_cli_cmd)
     exit_code = cmd_result["rc"]
@@ -277,7 +279,11 @@ def terminate_gnmi_client(ptfhost):
 
     ps_cmd = "ps -aux | grep 'python /gnxi/gnmi_cli_py/py_gnmicli' | grep -v grep"
     logger.info("Running ps command to get process information of gNMI client: {}".format(ps_cmd))
-    for line in ptfhost.shell(ps_cmd)["stdout_lines"]:
+    cmd_result = ptfhost.shell(ps_cmd)
+    exit_code = cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to get process information of gNMI client in PTF docker!")
+
+    for line in cmd_result["stdout_lines"]:
         if "py_gnmicli" in line:
             gnmi_client_pid = line.split()[1].strip()
 
@@ -285,6 +291,7 @@ def terminate_gnmi_client(ptfhost):
             pytest.fail("Failed to find PID of gNMI client in PTF docker!")
 
         logger.info("PID of gNMI client in PTF docker is: '{}'".format(gnmi_client_pid))
+
         terminate_client_cmd = "kill -9 {}".format(gnmi_client_pid)
         logger.info("Terminating gNMI client with PID: '{}' ...".format(gnmi_client_pid))
         terminate_cmd_result = ptfhost.shell(terminate_client_cmd)
@@ -293,7 +300,31 @@ def terminate_gnmi_client(ptfhost):
         logger.info("gNMI client with PID: '{}' was terminated!".format(gnmi_client_pid))
 
 
-def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+@pytest.fixture
+def setup_testing_memory_spike(duthosts, rand_one_dut_hostname, ptfhost):
+    """Before testing, gNMI client will be started. After testng, gNMI client will be terminated
+    and telemetry container will be restarted.
+
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT.
+        pfthost: PTF docker binding to the selected DuT.
+
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_ip = duthost.mgmt_ip
+    client_thread = ThreadPool(processes=1)
+    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip))
+
+    yield
+
+    terminate_gnmi_client(ptfhost)
+    clear_failed_flag_and_restart(duthost, CONTAINER_NAME)
+
+
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, setup_testing_memory_spike):
     """Test whether memory usage on gNMI server will increase or not if gNMI client
     continuously creates TCP connections but did not explicitly close them.
 
@@ -310,16 +341,15 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
 
-    dut_ip = duthost.mgmt_ip
-    client_thread = threading.Thread(target=run_gnmi_client, args=(ptfhost, dut_ip))
-    client_thread.start()
-
     mem_usage_val = 0
     for index in range(CHECK_MEM_USAGE_COUNTER):
         get_mem_usage_cmd = "docker stats --no-stream --format \{{\{{.MemUsage\}}\}} {}".format(CONTAINER_NAME)
-        mem_info = duthost.shell(get_mem_usage_cmd)["stdout_lines"]
-        if not mem_info:
-            pytest.fail("Failed to get memory usage of '{}'!".format(CONTAINER_NAME))
+        cmd_result = ptfhost.shell(get_mem_usage_cmd)
+
+        exit_code = cmd_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to get memory usage of '{}'!".format(CONTAINER_NAME))
+
+        mem_info = cmd_result["stdout_lines"]
         mem_usage = mem_info[0].split()[0]
         logger.info("Memory usage of '{}' is: '{}'.".format(CONTAINER_NAME, mem_usage))
 
@@ -332,11 +362,3 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
         mem_usage_val = mem_val
         # Wait for 2 seconds such that memory usage can continuously increase
         time.sleep(2)
-
-    terminate_gnmi_client(ptfhost)
-
-    logger.info("Restarting '{}' container ...".format(CONTAINER_NAME))
-    restart_container_and_check_running(duthost, CONTAINER_NAME)
-    logger.info("Container '{}' was restarted!".format(CONTAINER_NAME))
-
-    logger.info("Testing the memory spike issue on gNMI server side was done!")
