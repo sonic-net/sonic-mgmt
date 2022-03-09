@@ -16,7 +16,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {} 
-    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O"]
+    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils  import load_db_config
@@ -196,7 +196,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "64x100Gb":
             for i in range(0, 64):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku == "8800-LC-48H-O":
+        elif hwsku in ["8800-LC-48H-O", "88-LC0-36FH-MO"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku in ["msft_multi_asic_vs"]:

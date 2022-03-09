@@ -70,7 +70,7 @@
         vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)

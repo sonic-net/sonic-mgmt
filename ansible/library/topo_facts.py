@@ -195,7 +195,7 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['ipv6mask'][dut_index] = ip_mask if ip_mask else '128'
         return vmconfig
 
-    def get_topo_config(self, topo_name, hwsku):
+    def get_topo_config(self, topo_name, hwsku, asic_name):
         CLET_SUFFIX = "-clet"
 
         if 'ptf32' in topo_name:
@@ -204,7 +204,10 @@ class ParseTestbedTopoinfo():
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = 'vars/topo_' + topo_name + '.yml'
-        asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
+        if asic_name:
+            asic_topo_filename = 'vars/topo_' + hwsku + '_' + asic_name + '.yml'
+        else:
+            asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
         vm_topo_config = dict()
         asic_topo_config = dict()
         po_map = [None] * 16   # maximum 16 port channel interfaces
@@ -290,15 +293,17 @@ def main():
         argument_spec=dict(
             topo=dict(required=True, default=None),
             hwsku=dict(required=True, default=None),
+            asic_name=dict(required=True, default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     topo_name = m_args['topo']
     hwsku = m_args['hwsku']
+    asic_name = m_args['asic_name']
     try:
         topoinfo = ParseTestbedTopoinfo()
-        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku)
+        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, asic_name)
         module.exit_json(ansible_facts={'vm_topo_config': vm_topo_config,
                                         'asic_topo_config': asic_topo_config})
     except (IOError, OSError):
