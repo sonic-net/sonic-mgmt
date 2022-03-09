@@ -91,7 +91,7 @@ sonic-s6100-dut2,Ethernet116,snappi-sonic,Card9/Port2,100000,2,Access
 sonic-s6100-dut2,Ethernet120,snappi-sonic,Card9/Port3,100000,2,Access
 sonic-s6100-dut2,Ethernet124,snappi-sonic,Card9/Port4,100000,2,Access
 ```
-## ansible/files/snappi_sonic_link.csv
+## ansible/snappi_sonic
 ```
 [sonic_dell64_40]
 sonic-s6100-dut1    ansible_host=10.36.78.144
