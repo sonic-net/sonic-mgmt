@@ -314,6 +314,14 @@ def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
+def selected_rand_one_per_hwsku_hostname():
+    """
+    Return the selected hostnames for each module
+    """
+    return _hosts_per_hwsku_per_module
+
+
+@pytest.fixture(scope="module")
 def rand_one_dut_portname_oper_up(request):
     oper_up_ports = generate_port_lists(request, "oper_up_ports")
     if len(oper_up_ports) > 1:

@@ -30,44 +30,50 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 
 @pytest.fixture(autouse=True, scope="module")
-def config_reload_after_tests(rand_selected_dut):
+def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     """Restores the DuT.
 
     Args:
-      rand_selected_dut: The fixture returns a randomly selected DuT.
+      duthosts: list of DUTs.
+      selected_rand_one_per_hwsku_hostname: The fixture returns a dict of module
+                                            to list of hostnames mapping
 
     Returns:
       None.
     """
-    duthost = rand_selected_dut
-
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+    up_bgp_neighbors = {}
+    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+        duthost = duthosts[hostname]
+        bgp_neighbors = duthost.get_bgp_neighbors()
+        up_bgp_neighbors[duthost] = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
 
     yield
-
-    config_reload(duthost)
-    postcheck_critical_processes_status(duthost, up_bgp_neighbors)
+    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+        duthost = duthosts[hostname]
+        logger.info("Reload config on DuT '{}' ...".format(duthost.hostname))
+        config_reload(duthost)
+        postcheck_critical_processes_status(duthost, up_bgp_neighbors[duthost])
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(rand_selected_dut):
+def check_image_version(duthosts, selected_rand_one_per_hwsku_hostname):
     """Skips this test if the SONiC image installed on DUT was 201911 or old version.
 
     Args:
-      rand_selected_dut: The fixture returns a randomly selected DuT.
-
+      duthosts: list of DUTs.
+      selected_rand_one_per_hwsku_hostname: The fixture returns a dict of module
+                                            to list of hostnames mapping
     Returns:
       None.
     """
-    duthost = rand_selected_dut
-
-    pytest_require(parse_version(duthost.kernel_version) > parse_version("4.9.0"),
-                   "Test was not supported for 201911 and older image version!")
+    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+        duthost = duthosts[hostname]
+        pytest_require(parse_version(duthost.kernel_version) > parse_version("4.9.0"),
+                       "Test was not supported for 201911 and older image version!")
 
 
 @pytest.fixture(autouse=True, scope="module")
-def update_monit_service(rand_selected_dut):
+def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
     """Update Monit configuration and restart it.
 
     This function will first reduce the monitoring interval of container checker
@@ -75,34 +81,37 @@ def update_monit_service(rand_selected_dut):
     After testing, these two changes will be rolled back.
 
     Args:
-      rand_selected_dut: The fixture returns a randomly selected DuT.
-
+      duthosts: list of DUTs.
+      selected_rand_one_per_hwsku_hostname: The fixture returns a dict of module
+                                            to list of hostnames mapping
     Returns:
       None.
     """
-    duthost = rand_selected_dut
+    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+        duthost = duthosts[hostname]
+        logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
+        duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+        duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
-    logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
-    duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
-
-    temp_config_line = "    if status != 0 for 1 times within 1 cycles then alert repeat every 1 cycles"
-    logger.info("Reduce the monitoring interval of container_checker.")
-    duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
-    duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
-    duthost.shell("sudo sed -i 's/with start delay 300/with start delay 10/' /etc/monit/monitrc")
-    duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
-    logger.info("Restart the Monit service without delaying to monitor.")
-    duthost.shell("sudo systemctl restart monit")
+        temp_config_line = "    if status != 0 for 1 times within 1 cycles then alert repeat every 1 cycles"
+        logger.info("Reduce the monitoring interval of container_checker.")
+        duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
+        duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
+        duthost.shell("sudo sed -i 's/with start delay 300/with start delay 10/' /etc/monit/monitrc")
+        duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
+        logger.info("Restart the Monit service without delaying to monitor.")
+        duthost.shell("sudo systemctl restart monit")
 
     yield
 
-    logger.info("Roll back the Monit configuration of container checker on DuT '{}' ..."
-                .format(duthost.hostname))
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
-    duthost.shell("sudo mv -f /tmp/sonic-host /etc/monit/conf.d/")
-    logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
-    duthost.shell("sudo systemctl restart monit")
+    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+        duthost = duthosts[hostname]
+        logger.info("Roll back the Monit configuration of container checker on DuT '{}' ..."
+                    .format(duthost.hostname))
+        duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+        duthost.shell("sudo mv -f /tmp/sonic-host /etc/monit/conf.d/")
+        logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
+        duthost.shell("sudo systemctl restart monit")
 
 
 def check_all_critical_processes_status(duthost):
@@ -180,8 +189,9 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
 
     Args:
         duthosts: list of DUTs.
-        enum_dut_feature_container: A list contains strings ("<dut_name>|<container_name>").
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        enum_rand_one_per_hwsku_hostname: Fixture returning list of hostname selected per hwsku.
+        enum_rand_one_asic_index: Fixture returning list of asics for selected duts.
+        enum_dut_feature: A list contains features.
         tbinfo: Testbed information.
 
     Returns:
