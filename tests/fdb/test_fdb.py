@@ -160,8 +160,12 @@ def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, sr
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
     logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
         source_ports, source_mac, dest_mac, src_vlan, dest_ports))
+    ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, source_ports[0], pkt)
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+    if len(dest_ports) == 1:
+        testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+    else:
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
