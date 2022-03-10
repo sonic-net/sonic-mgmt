@@ -1367,7 +1367,10 @@ def get_reboot_cause(duthost):
     yield
     uptime_end = duthost.get_up_time()
     if not uptime_end == uptime_start:
-        duthost.show_and_parse("show reboot-cause history")
+        if "201811" in duthost.os_version or "201911" in duthost.os_version:
+            duthost.show_and_parse("show reboot-cause")
+        else:
+            duthost.show_and_parse("show reboot-cause history")
 
 def collect_db_dump_on_duts(request, duthosts):
     '''
