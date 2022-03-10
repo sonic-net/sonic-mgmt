@@ -1,4 +1,5 @@
 from tests.common.utilities import wait_until
+from tests.common.devices.eos import EosHost
 from macsec_helper import *
 
 

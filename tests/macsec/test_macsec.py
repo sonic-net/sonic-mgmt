@@ -18,8 +18,6 @@ pytestmark = [
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
           primary_cak, primary_ckn, policy, send_sci, request):
-    if request.session.testsfailed > 0:
-        return
     all_links = {}
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
@@ -30,8 +28,6 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
     yield
-    if request.session.testsfailed > 0:
-        return
     cleanup_macsec_configuration(duthost, all_links, profile_name)
 
 
@@ -304,9 +300,11 @@ def get_lldp_list(host):
     return lldp_list
 class TestInteropProtocol():
     '''
-    Macsec interop with other slow protocols
+    Macsec interop with other protocols
     '''
     def test_port_channel(self, duthost, ctrl_links):
+        '''Verify lacp
+        '''
         ctrl_port, _ = ctrl_links.items()[0]
         pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
         assert pc["status"] == "Up"
@@ -320,10 +318,29 @@ class TestInteropProtocol():
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
-    def test_lldp(self, duthost, nbrhosts):
-        lldp_neighbors = get_lldp_list(duthost)
-        for nbr in nbrhosts:
-            assert nbr in lldp_neighbors
+    def test_lldp(self, duthost, ctrl_links, profile_name):
+        '''Verify lldp
+        '''
+        LLDP_ADVERTISEMENT_INTERVAL = 30 # default interval in seconds
+        LLDP_HOLD_MULTIPLIER = 4 # default multiplier number
+        LLDP_TIMEOUT = LLDP_ADVERTISEMENT_INTERVAL * LLDP_HOLD_MULTIPLIER
+
+        # select one macsec link
+        ctrl_port, nbr = ctrl_links.items()[0]
+        # TODO: vsonic vm has issue on lldp
+        if not isinstance(nbr["host"], EosHost):
+            return
+        assert nbr["name"] in get_lldp_list(duthost)
+
+        disable_macsec_port(duthost, ctrl_port)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                          lambda: nbr["name"] in get_lldp_list(duthost))
+
+        enable_macsec_port(duthost, ctrl_port, profile_name)
+        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        assert wait_until(1, 1, LLDP_TIMEOUT,
+                          lambda: nbr["name"] in get_lldp_list(duthost))
 
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
         '''Verify BGP neighbourship
@@ -347,18 +364,19 @@ class TestInteropProtocol():
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_KEEPALIVE, 1, 1, check_bgp_established, upstream_links[ctrl_port])
-            sleep(BGP_HOLDTIME)
-            assert wait_until(BGP_HOLDTIME, 1, 1, check_bgp_established, upstream_links[ctrl_port])
+            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in ctrl_links.items():
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            # Wait PortChannel up, which might flap if having one port member
+            wait_until(20, 5, 5, lambda: find_portchannel_from_member(
+                ctrl_port, get_portchannel(duthost))["status"] == "Up")
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_KEEPALIVE, 1, 1, check_bgp_established, upstream_links[ctrl_port])
-            sleep(BGP_HOLDTIME)
-            assert wait_until(BGP_HOLDTIME, 1, 1, check_bgp_established, upstream_links[ctrl_port])
+            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, upstream_links[ctrl_port])
 
     def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
         '''
