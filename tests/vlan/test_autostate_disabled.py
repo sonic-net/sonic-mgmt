@@ -39,7 +39,7 @@ class TestAutostateDisabled:
         ifs_status = self.get_interface_status(duthost)
         ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
 
-        # Find out all vlans which meet the folloing requirements:
+        # Find out all vlans which meet the following requirements:
         #   1. The oper_state of vlan interface is 'up'
         #   2. The oper_state of at least one member in the vlan is 'up'
         vlan_available = []
