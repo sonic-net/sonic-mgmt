@@ -44,9 +44,10 @@ def profile_name():
 def default_priority():
     return 64
 
-#@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
-@pytest.fixture(scope="module", params=["GCM-AES-128"])
+@pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
+    if request.config.getoption("--neighbor_type") == "eos" and "XPN" in request.param:
+        pytest.skip("{} is not supported on neighbor EOS".format(request.param))
     return request.param
 
 

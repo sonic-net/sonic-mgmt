@@ -13,6 +13,7 @@ import scapy.contrib.macsec as scapy_macsec
 from macsec_common_helper import *
 from macsec_platform_helper import *
 
+
 def check_wpa_supplicant_process(host, ctrl_port_name):
     cmd = "ps aux | grep 'wpa_supplicant' | grep '{}' | grep -v 'grep'".format(
         ctrl_port_name)

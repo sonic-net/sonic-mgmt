@@ -130,3 +130,25 @@ def find_portchannel_from_member(port_name, portchannel_list):
         if port_name in v["members"]:
             return v
     return None
+
+def get_lldp_list(host):
+    '''
+        Here is an output example of `show lldp table`
+            Capability codes: (R) Router, (B) Bridge, (O) Other
+            LocalPort    RemoteDevice    RemotePortID    Capability    RemotePortDescr
+            -----------  --------------  --------------  ------------  -----------------
+            Ethernet112  ARISTA01T1      Ethernet1       BR
+            Ethernet116  ARISTA02T1      Ethernet1       BR
+            Ethernet120  ARISTA03T1      Ethernet1       BR
+            Ethernet124  ARISTA04T1      Ethernet1       BR
+            --------------------------------------------------
+            Total entries displayed:  4
+    '''
+    lines = host.command("show lldp table")["stdout_lines"]
+    lines = lines[3:-2]  # Remove the output header
+    lldp_list = {}
+    for line in lines:
+        items = line.split()
+        lldp = items[1]
+        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
+    return lldp_list

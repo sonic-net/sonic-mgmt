@@ -84,23 +84,6 @@ class TestControlPlane():
 class TestDataPlane():
     BATCH_COUNT = 10
 
-    def test_server_to_eos_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, ptfadapter):
-        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 30)
-        down_port, down_link = downstream_links.items()[0]
-        for ctrl_port in ctrl_links.keys():
-            up_link = upstream_links[ctrl_port]
-            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-            payload = "{} -> {}".format(down_link["name"], up_link["name"])
-            logging.info(payload)
-            # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
-            pkt = create_pkt(
-                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
-            exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-            testutils.send_packet(
-                ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            check_macsec_pkt(macsec_attr=get_macsec_attr(duthost, ctrl_port), test=ptfadapter,
-                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
-
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
 
@@ -158,7 +141,8 @@ class TestDataPlane():
 
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
         for up_port, up_link in upstream_links.items():
-            ret = duthost.command("ping -c {} {}".format(4, up_link['ipv4_addr']))
+            ret = duthost.command(
+                "ping -c {} {}".format(4, up_link['ipv4_addr']))
             assert not ret['failed']
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
@@ -277,31 +261,12 @@ class TestFaultHandling():
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], profile_name)
 
-def get_lldp_list(host):
-    '''
-        Here is an output example of `show lldp table`
-            Capability codes: (R) Router, (B) Bridge, (O) Other
-            LocalPort    RemoteDevice    RemotePortID    Capability    RemotePortDescr
-            -----------  --------------  --------------  ------------  -----------------
-            Ethernet112  ARISTA01T1      Ethernet1       BR
-            Ethernet116  ARISTA02T1      Ethernet1       BR
-            Ethernet120  ARISTA03T1      Ethernet1       BR
-            Ethernet124  ARISTA04T1      Ethernet1       BR
-            --------------------------------------------------
-            Total entries displayed:  4
-    '''
-    lines = host.command("show lldp table")["stdout_lines"]
-    lines = lines[3:-2]  # Remove the output header
-    lldp_list = {}
-    for line in lines:
-        items = line.split()
-        lldp = items[1]
-        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
-    return lldp_list
+
 class TestInteropProtocol():
     '''
     Macsec interop with other protocols
     '''
+
     def test_port_channel(self, duthost, ctrl_links):
         '''Verify lacp
         '''
@@ -310,47 +275,52 @@ class TestInteropProtocol():
         assert pc["status"] == "Up"
 
         # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
-        duthost.command("sudo config portchannel member del {} {}".format(pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: get_portchannel(duthost)[pc["name"]]["status"] == "Dw")
+        duthost.command("sudo config portchannel member del {} {}".format(
+            pc["name"], ctrl_port))
+        assert wait_until(6, 1, 0, lambda: get_portchannel(
+            duthost)[pc["name"]]["status"] == "Dw")
 
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
-        duthost.command("sudo config portchannel member add {} {}".format(pc["name"], ctrl_port))
+        duthost.command("sudo config portchannel member add {} {}".format(
+            pc["name"], ctrl_port))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
     def test_lldp(self, duthost, ctrl_links, profile_name):
         '''Verify lldp
         '''
-        LLDP_ADVERTISEMENT_INTERVAL = 30 # default interval in seconds
-        LLDP_HOLD_MULTIPLIER = 4 # default multiplier number
+        LLDP_ADVERTISEMENT_INTERVAL = 30  # default interval in seconds
+        LLDP_HOLD_MULTIPLIER = 4  # default multiplier number
         LLDP_TIMEOUT = LLDP_ADVERTISEMENT_INTERVAL * LLDP_HOLD_MULTIPLIER
 
         # select one macsec link
-        ctrl_port, nbr = ctrl_links.items()[0]
-        # TODO: vsonic vm has issue on lldp
-        if not isinstance(nbr["host"], EosHost):
-            return
-        assert nbr["name"] in get_lldp_list(duthost)
+        for ctrl_port, nbr in ctrl_links.items():
+            # TODO: vsonic vm has issue on lldp
+            if not isinstance(nbr["host"], EosHost):
+                pytest.skip("test_lldp has issue with vsonic neighbor")
+            assert nbr["name"] in get_lldp_list(duthost)
 
-        disable_macsec_port(duthost, ctrl_port)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
-                          lambda: nbr["name"] in get_lldp_list(duthost))
+            disable_macsec_port(duthost, ctrl_port)
+            disable_macsec_port(nbr["host"], nbr["port"])
+            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
 
-        enable_macsec_port(duthost, ctrl_port, profile_name)
-        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-        assert wait_until(1, 1, LLDP_TIMEOUT,
-                          lambda: nbr["name"] in get_lldp_list(duthost))
+            enable_macsec_port(duthost, ctrl_port, profile_name)
+            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            assert wait_until(1, 1, LLDP_TIMEOUT,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
 
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
         '''Verify BGP neighbourship
         '''
-        bgp_config = duthost.get_running_config_facts()["BGP_NEIGHBOR"].values()[0]
+        bgp_config = duthost.get_running_config_facts()[
+            "BGP_NEIGHBOR"].values()[0]
         BGP_KEEPALIVE = int(bgp_config["keepalive"])
         BGP_HOLDTIME = int(bgp_config["holdtime"])
 
         def check_bgp_established(up_link):
-            command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(up_link["ipv4_addr"])
+            command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(
+                up_link["ipv4_addr"])
             fact = sonic_db_cli(duthost, command)
             logger.info("bgp state {}".format(fact))
             return fact["state"] == "Established"
@@ -382,16 +352,17 @@ class TestInteropProtocol():
         '''
         Verify SNMP request/response works across interface with macsec configuration
         '''
-        ctrl_port, nbr = ctrl_links.items()[0]
-        if isinstance(nbr["host"], EosHost):
-            result = nbr["host"].eos_command(commands=['show snmp community | include name'])
-            community = re.search(r'Community name: (\S+)', result['stdout'][0]).groups()[0]
-        else:  # vsonic neighbour
-            community = creds['snmp_rocommunity']
+        for ctrl_port, nbr in ctrl_links.items():
+            if isinstance(nbr["host"], EosHost):
+                result = nbr["host"].eos_command(
+                    commands=['show snmp community | include name'])
+                community = re.search(r'Community name: (\S+)',
+                                      result['stdout'][0]).groups()[0]
+            else:  # vsonic neighbour
+                community = creds['snmp_rocommunity']
 
-        up_link = upstream_links[ctrl_port]
-        sysDescr = ".1.3.6.1.2.1.1.1.0"
-        command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
-            community, up_link["ipv4_addr"], sysDescr)
-        assert not duthost.command(command)["failed"]
-
+            up_link = upstream_links[ctrl_port]
+            sysDescr = ".1.3.6.1.2.1.1.1.0"
+            command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
+                community, up_link["ipv4_addr"], sysDescr)
+            assert not duthost.command(command)["failed"]
