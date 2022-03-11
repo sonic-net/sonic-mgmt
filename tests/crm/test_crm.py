@@ -9,6 +9,7 @@ import os
 import tempfile
 
 from jinja2 import Template
+from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
@@ -462,7 +463,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Add IPv[4/6] routes 
     # Cisco platforms need an upward of 10 routes for crm_stats_ipv4_route_available to decrement
-    if duthost.facts["asic_type"] in ["cisco-8000"] and ip_ver == '4':
+    if is_cisco_device(duthost) and ip_ver == '4':
         total_routes = 10
     else:
         total_routes = 1
@@ -640,7 +641,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     crm_stats_neighbor_used, crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
 
     # Add reachability to the neighbor
-    if duthost.facts["asic_type"] in ["cisco-8000"]:
+    if is_cisco_device(duthost):
          asichost.config_ip_intf(crm_interface[0], host, "add")
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
@@ -661,7 +662,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         pytest.fail("\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
 
     # Remove reachability to the neighbor
-    if duthost.facts["asic_type"] in ["cisco-8000"]:
+    if is_cisco_device(duthost):
         asichost.config_ip_intf(crm_interface[0], host, "remove")
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)
@@ -682,7 +683,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     used_percent = get_used_percent(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
     if used_percent < 1:
         #  Add 3k neighbors instead of 1 percentage for Cisco-8000 devices
-        neighbours_num = get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available) if duthost.facts["asic_type"] not in ["cisco-8000"] else CISCO_8000_ADD_NEIGHBORS
+        neighbours_num = CISCO_8000_ADD_NEIGHBORS if is_cisco_device(duthost) else get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
         
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver, asichost=asichost,
@@ -1015,12 +1016,24 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
 
     # Verify "crm_stats_fdb_entry_used" counter was incremented
-    pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used == 1, \
-        "Counter 'crm_stats_fdb_entry_used' was not incremented")
-
-    # Verify "crm_stats_fdb_entry_available" counter was decremented
-    pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available == 1, \
-        "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
+    # Hence, the used counter can increase by more than 1.
+    if is_cisco_device(duthost):
+        pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used >= 1, \
+            "Counter 'crm_stats_fdb_entry_used' was not incremented")
+    else: 
+        pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used == 1, \
+            "Counter 'crm_stats_fdb_entry_used' was not incremented")
+        
+    # Verify "crm_stats_fdb_entry_available" counter was decremented   
+    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
+    # Hence, the available counter can decrease by more than 1.
+    if is_cisco_device(duthost): 
+        pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available >= 1, \
+            "Counter 'crm_stats_fdb_entry_available' was not decremented")
+    else:
+        pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available == 1, \
+            "Counter 'crm_stats_fdb_entry_available' was not decremented")
 
     used_percent = get_used_percent(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
     if used_percent < 1:
