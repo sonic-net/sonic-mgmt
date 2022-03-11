@@ -120,4 +120,11 @@ COMMUN_TEST_CASE = [
         ]
 
 
+PTF_SAI_TEST_CASE = [
+        "saisanity.L2TrunkToTrunkVlanTest",
+        "saisanity.L2TrunkToAccessVlanTest",
+        "saisanity.L2SanityTest"
+        ]
+
+
 PROBE_TEST_CASE = "sail3.L3IPv4HostTest"
