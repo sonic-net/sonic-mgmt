@@ -133,9 +133,9 @@ def consume_memory(duthost, container_name, vm_workers):
 
 def consume_memory_and_loganalyzer(duthost, container_name, vm_workers, loganalyzer, marker):
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
-    and checks whether the container can be stopped and restarted by analyzing log messages.
-    Loganalyzer was leveraged to check whether the log messages related to container restarting
-    were generated.
+    and checks the syslog message to see whether the container can be stopped and restarted.
+    Loganalyzer was leveraged to verify whether the log messages related to container restarting
+    were generated or not.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -155,7 +155,6 @@ def consume_memory_and_loganalyzer(duthost, container_name, vm_workers, loganaly
 
     logger.info("Checking the alerting messages related to '{}' restart  ...".format(container_name))
     analyzing_result = loganalyzer.analyze(marker, fail=False)
-    logger.info(analyzing_result)
 
     return analyzing_result
 
@@ -252,7 +251,7 @@ def test_memory_checker(duthosts, enum_dut_feature_container, creds, enum_rand_o
         cmd_result = duthost.shell("sudo config reload -y")
         exit_code = cmd_result["rc"]
         pytest_assert(exit_code == 0, "Failed to execture 'sudo config reload -y' command!")
-        pytest.fail("Found wrror message indicating syncd process is being crashed!")
+        pytest.fail("Found error message indicating syncd process is being crashed!")
 
     if analyzing_result["total"]["expected_match"] >= len(expected_alerting_messages):
         logger.info("Found all the expected alerting messages from syslog!")
