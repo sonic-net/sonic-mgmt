@@ -1,6 +1,5 @@
 import logging
 import pytest
-from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.utilities import wait_until
 
@@ -27,7 +26,7 @@ class TestAutostateDisabled:
 
     def test_autostate_disabled(self, duthosts, enum_frontend_dut_hostname):
         """
-        Validate vlan interface autostate is disabled on SONiC.
+        Verify vlan interface autostate is disabled on SONiC.
         """
 
         duthost = duthosts[enum_frontend_dut_hostname]
@@ -40,14 +39,14 @@ class TestAutostateDisabled:
         ifs_status = self.get_interface_status(duthost)
         ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
 
-        # Find out all vlans which meet folloing requirements:
+        # Find out all vlans which meet the folloing requirements:
         #   1. The oper_state of vlan interface is 'up'
-        #   2. The oper_state of at least one interface in the vlan is 'up'
+        #   2. The oper_state of at least one member in the vlan is 'up'
         vlan_available = []
         for vlan in vlan_members_facts:
             if ip_ifs.get(vlan, {}).get('oper_state') == 'up':
                 for member in vlan_members_facts[vlan]:
-                    if ifs_status.get(member, {}).get('oper', '') == 'up':
+                    if ifs_status.get(member, {}).get('oper') == 'up':
                         vlan_available.append(vlan)
                         break
         if len(vlan_available) == 0:
@@ -56,7 +55,6 @@ class TestAutostateDisabled:
         # Pick a vlan for test
         vlan = vlan_available[0]
         vlan_members = vlan_members_facts[vlan].keys()
-        pytest_assert
 
         # Shutdown all the members in vlan.
         res = duthost.shutdown_multiple(vlan_members)
@@ -68,20 +66,20 @@ class TestAutostateDisabled:
             self.restore_interface_admin_state(duthost, ifs_status)
             pytest.fail('shutdown "{vlan_members}" in {vlan} failed'.format(vlan_members=vlan_members, vlan=vlan))
 
-        # Check whether the oper_state of vlan is changed as expected.
+        # Check whether the oper_state of vlan interface is changed as expected.
         ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
         if len(vlan_available) > 1:
             # If more than one vlan comply with the above test requirements, then there are members in other vlans
             # that are still up. Therefore, the bridge is still up, and vlan interface should be up.
             if ip_ifs.get(vlan, {}).get('oper_state') != "up":
                 self.restore_interface_admin_state(duthost, ifs_status)
-                pytest.fail('vlan interface is not up as expected')
+                pytest.fail('vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
         else:
             # If only one vlan comply with the above test requirements, then all the vlan members across all the vlans
             # are down. Therefore, the bridge is down, and vlan interface should be down.
             if ip_ifs.get(vlan, {}).get('oper_state') != "down":
                 self.restore_interface_admin_state(duthost, ifs_status)
-                pytest.fail('vlan interface is not down as expected')
+                pytest.fail('vlan interface of {vlan} is not down as expected'.format(vlan=vlan))
 
         # Restore all interfaces to their original admin_state.
         self.restore_interface_admin_state(duthost, ifs_status)
@@ -92,7 +90,7 @@ class TestAutostateDisabled:
         """
         ifs_up, ifs_down = [], []
         for interface in ifs_status:
-            admin_state = ifs_status[interface].get('admin', '')
+            admin_state = ifs_status[interface].get('admin')
             if admin_state == 'up':
                 ifs_up.append(interface)
             elif admin_state == 'down':
@@ -110,7 +108,7 @@ class TestAutostateDisabled:
         """
         Run 'show interfaces status' on DUT and parse the result into a dict
         """
-        return {x.get("interface"): x for x in duthost.show_and_parse('show interfaces status')}
+        return {x.get('interface'): x for x in duthost.show_and_parse('show interfaces status')}
 
     def check_interface_oper_state(self, duthost, interfaces, expected_state):
         """
