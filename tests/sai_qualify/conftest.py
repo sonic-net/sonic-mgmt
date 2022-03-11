@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 OPT_DIR = "/opt"
 USR_BIN_DIR = "/usr/bin"
 SAISERVER_SCRIPT = "prepare_saiserver_service.sh"
-SCRIPTS_SRC_DIR = "scripts/"
+SERVICES_SCRIPT = "all_service.sh"
+WARMBOOT_SCRIPT = "sai_warmboot.sh"
+SCRIPTS_SRC_DIR = "scripts/sai_qualify/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 SAI_PRC_PORT = 9092
 SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
@@ -76,8 +78,9 @@ def start_sai_test_container(duthost, creds, deploy_sai_test_container, request)
         stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
 
 
+#TODO add a fixture after this fixture to remove other service script
 @pytest.fixture(scope="module")
-def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saiserver_script, request):
+def deploy_sai_test_container(duthost, creds, stop_other_services, request):
     """
         Deploys a sai test container.
     """
@@ -89,7 +92,7 @@ def deploy_sai_test_container(duthost, creds, stop_other_services, prepare_saise
 
 
 @pytest.fixture(scope="module")
-def stop_other_services(duthost, request):
+def stop_other_services(duthost, prepare_saiserver_script, request):
     stop_dockers(duthost)
     yield
     if not request.config.option.sai_test_keep_test_env:
@@ -98,10 +101,12 @@ def stop_other_services(duthost, request):
 
 @pytest.fixture(scope="module")
 def prepare_saiserver_script(duthost, request):
-    __copy_saiserver_script(duthost)
+    __copy_sai_qualify_script(duthost)
+    #TODO prepare the saiserver service script here
     yield
     if not request.config.option.sai_test_keep_test_env:
-        __delete_saiserver_script(duthost)
+        #TODO remove the prepared saiserver service script here
+        __delete_sai_qualify_script(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -355,10 +360,11 @@ def stop_dockers(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    for service in SERVICES_LIST:
-        logger.info("Stopping service '{}' ...".format(service))
-        duthost.stop_service(service)    
-
+    #TODO sample for skip duthost.shell("sudo " + USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -s syncd -o stop")
+    duthost.command(
+    "sudo " + USR_BIN_DIR + "/" + SERVICES_SCRIPT + " -o stop",
+    module_ignore_errors=True
+    )
     __services_env_stop_check(duthost)
 
 
@@ -428,9 +434,9 @@ def __restore_default_syncd(duthost, creds):
     )
 
 
-def __copy_saiserver_script(duthost):
+def __copy_sai_qualify_script(duthost):
     """
-        Copys script for controlling saiserver docker.
+        Copys script for controlling saiserver docker, sonic services, warmboot...
 
         Args:
             duthost (AnsibleHost): device under test
@@ -438,20 +444,34 @@ def __copy_saiserver_script(duthost):
         Returns:
             None
     """
-    logger.info("Copy saiserver script to DUT: '{}'".format(duthost.hostname))
+    logger.info("Copy script {} to DUT: '{}'".format(SAISERVER_SCRIPT, duthost.hostname))
     duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SAISERVER_SCRIPT), dest=USR_BIN_DIR)
     duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + SAISERVER_SCRIPT)
 
+    logger.info("Copy script {} to DUT: '{}'".format(SERVICES_SCRIPT, duthost.hostname))
+    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SERVICES_SCRIPT), dest=USR_BIN_DIR)
+    duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + SERVICES_SCRIPT)
 
-def __delete_saiserver_script(duthost):
+    logger.info("Copy script {} to DUT: '{}'".format(WARMBOOT_SCRIPT, duthost.hostname))
+    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, WARMBOOT_SCRIPT), dest=USR_BIN_DIR)
+    duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + WARMBOOT_SCRIPT)
+
+
+def __delete_sai_qualify_script(duthost):
     """
     Deletes the saiserver script from dut.
 
     Args:
         duthost (SonicHost): The target device.
     """
-    logger.info("Delete saiserver script from DUT host '{}'".format(duthost.hostname))
+    logger.info("Delete script {} from DUT host '{}'".format(SAISERVER_SCRIPT, duthost.hostname))
     duthost.file(path=os.path.join(USR_BIN_DIR, SAISERVER_SCRIPT), state="absent")
+
+    logger.info("Delete script {} from DUT host '{}'".format(SERVICES_SCRIPT, duthost.hostname))
+    duthost.file(path=os.path.join(USR_BIN_DIR, SERVICES_SCRIPT), state="absent")
+
+    logger.info("Delete script {} from DUT host '{}'".format(WARMBOOT_SCRIPT, duthost.hostname))
+    duthost.file(path=os.path.join(USR_BIN_DIR, WARMBOOT_SCRIPT), state="absent")
 
 
 def __services_env_stop_check(duthost):
