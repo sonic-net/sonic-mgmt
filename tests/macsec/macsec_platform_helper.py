@@ -106,7 +106,8 @@ def get_portchannel(host):
     for line in lines:
         items = line.split()
         portchannel = items[1]
-        portchannel_list[portchannel] = {"status": None, "members": []}
+        portchannel_list[portchannel] = {
+            "name": portchannel, "status": None, "members": []}
         if items[-1] == "N/A":
             continue
         portchannel_list[portchannel]["status"] = re.search(
