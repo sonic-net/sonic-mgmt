@@ -95,14 +95,16 @@ class TestAutostateDisabled:
                 ifs_up.append(interface)
             elif admin_state == 'down':
                 ifs_down.append(interface)
-        res = duthost.no_shutdown_multiple(ifs_up)
-        if not res.is_successful:
-            logging.error('startup "{interfaces}" on DUT {hostname} failed'.
-                          format(interfaces=ifs_up, hostname=duthost.hostname))
-        res = duthost.shutdown_multiple(ifs_down)
-        if not res.is_successful:
-            logging.error('shutdown "{interfaces}" on DUT {hostname} failed'.
-                          format(interfaces=ifs_down, hostname=duthost.hostname))
+        if len(ifs_up) > 0:
+            res = duthost.no_shutdown_multiple(ifs_up)
+            if not res.is_successful:
+                logging.error('startup "{interfaces}" on DUT {hostname} failed'.
+                              format(interfaces=ifs_up, hostname=duthost.hostname))
+        if len(ifs_down) > 0:
+            res = duthost.shutdown_multiple(ifs_down)
+            if not res.is_successful:
+                logging.error('shutdown "{interfaces}" on DUT {hostname} failed'.
+                              format(interfaces=ifs_down, hostname=duthost.hostname))
 
     def get_interface_status(self, duthost):
         """
