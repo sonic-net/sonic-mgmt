@@ -1,5 +1,4 @@
 import ipaddress
-import json
 import logging
 import pytest
 import re
@@ -8,7 +7,6 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR

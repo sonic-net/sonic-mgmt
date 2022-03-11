@@ -28,8 +28,6 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
