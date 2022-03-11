@@ -1836,7 +1836,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' and pkts_num_fill_min != 0:
                 pkts_num_leak_out = pkts_num_leak_out - margin 
 
             # send packets to fill pg min but not trek into shared pool
