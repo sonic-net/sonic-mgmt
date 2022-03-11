@@ -13,7 +13,7 @@ TEST_FILE_2_NAME = "test_file_2.bin"
 BLOCK_SIZE = 500000000
 
 @pytest.fixture
-def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
+def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, add_route_to_ptf):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Copies script to DUT
     duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")

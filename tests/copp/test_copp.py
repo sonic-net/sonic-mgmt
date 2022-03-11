@@ -37,6 +37,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
+from tests.conftest import add_route_to_ptf_setup, add_route_to_ptf_cleanup
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -75,7 +76,8 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed,
+                     dut_type, tbinfo, request):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -83,11 +85,13 @@ class TestCOPP(object):
             that have a set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        add_route_to_ptf_setup(duthosts, tbinfo, request)
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
                      copp_testbed,
                      dut_type)
+        add_route_to_ptf_cleanup(duthosts, tbinfo, request)
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
@@ -95,7 +99,8 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed,
+                        dut_type, tbinfo, request):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
@@ -103,14 +108,17 @@ class TestCOPP(object):
             that do not have any set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        add_route_to_ptf_setup(duthosts, tbinfo, request)
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
                      copp_testbed,
                      dut_type)
+        add_route_to_ptf_cleanup(duthosts, tbinfo, request)
 
     @pytest.mark.disable_loganalyzer
-    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
+    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version,
+                          copp_testbed, dut_type, backup_restore_config_db, tbinfo, request):
         """
         Validates that one new trap(bgp) can be installed
 
@@ -119,7 +127,7 @@ class TestCOPP(object):
         3. Verify the trap status is installed by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
+        add_route_to_ptf_setup(duthosts, tbinfo, request)
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
 
@@ -138,11 +146,14 @@ class TestCOPP(object):
         pytest_assert(
             wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
+        add_route_to_ptf_cleanup(duthosts, tbinfo, request)
 
     @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
                                                   "disable_feature_status"])
-    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
+    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version,
+                         copp_testbed, dut_type, backup_restore_config_db, remove_trap_type,
+                         tbinfo, request):
         """
         Validates that The trap(bgp) can be uninstalled after deleting the corresponding entry from the feature table
 
@@ -151,7 +162,7 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
+        add_route_to_ptf_setup(duthosts, tbinfo, request)
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
 
@@ -166,6 +177,7 @@ class TestCOPP(object):
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
+        add_route_to_ptf_cleanup(duthosts, tbinfo, request)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
@@ -269,9 +281,11 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "myip": test_params.myip,
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
+              "timeout": 300,
               "has_trap": has_trap}
 
-    dut_ip = dut.mgmt_ip
+    #dut_ip = dut.mgmt_ip
+    dut_ip = dut.facts['dut_ip_ptfnet_add']
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
 

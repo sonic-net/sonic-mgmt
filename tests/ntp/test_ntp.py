@@ -27,9 +27,10 @@ def config_long_jump(duthost, enable=False):
     duthost.service(name='ntp', state='restarted')
 
 @pytest.fixture(scope="module")
-def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
+def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, add_mgmt_net_addr_to_ptf):
     """setup ntp client and server"""
     duthost = duthosts[rand_one_dut_hostname]
+    ptf_mgmt_ip=add_mgmt_net_addr_to_ptf.split("/")[0]
 
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
@@ -45,14 +46,14 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     for ntp_server in ntp_servers:
         duthost.command("config ntp del %s" % ntp_server)
 
-    duthost.command("config ntp add %s" % ptfhost.mgmt_ip)
+    duthost.command("config ntp add %s" % ptf_mgmt_ip)
 
     yield
 
     # stop ntp server
     ptfhost.service(name="ntp", state="stopped")
     # reset ntp client configuration
-    duthost.command("config ntp del %s" % ptfhost.mgmt_ip)
+    duthost.command("config ntp del %s" % ptf_mgmt_ip)
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s" % ntp_server)
     # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,

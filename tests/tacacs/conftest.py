@@ -9,7 +9,7 @@ TACACS_CREDS_FILE = 'tacacs_creds.yaml'
 
 
 @pytest.fixture(scope="module")
-def tacacs_creds(creds_all_duts):
+def tacacs_creds(creds_all_duts, add_route_to_ptf):
     creds_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), TACACS_CREDS_FILE)
     hardcoded_creds = yaml.safe_load(open(creds_file_path).read())
     creds_all_duts.update(hardcoded_creds)

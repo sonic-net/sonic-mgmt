@@ -7,7 +7,7 @@ from collections import namedtuple
 import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
-
+import os
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
@@ -53,7 +53,7 @@ def get_route_prefix_len(tbinfo, common_config):
 
 
 @pytest.fixture(scope="module")
-def announce_default_routes(localhost, tbinfo):
+def announce_default_routes(localhost, tbinfo, unset_proxy):
     """
     Fixture that will withdraw and announce default routes at teardown
     """
