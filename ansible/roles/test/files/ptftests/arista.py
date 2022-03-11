@@ -558,6 +558,9 @@ class Arista(object):
                     .get("Ethernet1", {})\
                         .get("details", {})\
                             .get("lastRxTime")
+        if last_lacp_pdu_time == None:
+            last_lacp_pdu_time = 0
+            self.log("Warn: the lastRxTime does not exist!")
         return last_lacp_pdu_time
 
 
