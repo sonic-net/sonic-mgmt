@@ -42,13 +42,13 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
       None.
     """
     up_bgp_neighbors = {}
-    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+    for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         bgp_neighbors = duthost.get_bgp_neighbors()
         up_bgp_neighbors[duthost] = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
 
     yield
-    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+    for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         logger.info("Reload config on DuT '{}' ...".format(duthost.hostname))
         config_reload(duthost)
@@ -66,7 +66,7 @@ def check_image_version(duthosts, selected_rand_one_per_hwsku_hostname):
     Returns:
       None.
     """
-    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+    for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         pytest_require(parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                        "Test was not supported for 201911 and older image version!")
@@ -87,7 +87,7 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
     Returns:
       None.
     """
-    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+    for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
         duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
@@ -104,7 +104,7 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
 
     yield
 
-    for hostname in selected_rand_one_per_hwsku_hostname[sys.modules[__name__]]:
+    for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         logger.info("Roll back the Monit configuration of container checker on DuT '{}' ..."
                     .format(duthost.hostname))

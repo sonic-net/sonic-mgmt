@@ -314,11 +314,17 @@ def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def selected_rand_one_per_hwsku_hostname():
+def selected_rand_one_per_hwsku_hostname(request):
     """
-    Return the selected hostnames for each module
+    Return the selected hostnames for the given module.
+    This fixture will return the list of selected dut hostnames
+    when another fixture like enum_rand_one_per_hwsku_hostname 
+    or enum_rand_one_per_hwsku_frontend_hostname is used.
     """
-    return _hosts_per_hwsku_per_module
+    if request.module in _hosts_per_hwsku_per_module:
+        return _hosts_per_hwsku_per_module[request.module]
+    else:
+        return []
 
 
 @pytest.fixture(scope="module")
