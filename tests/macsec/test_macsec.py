@@ -131,7 +131,7 @@ class TestDataPlane():
                     nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
                 result = check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
                                           ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
-                if result == None:
+                if result is None:
                     return
                 fail_message += result
             pytest.fail(fail_message)

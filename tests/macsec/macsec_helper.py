@@ -3,7 +3,6 @@ import sys
 import binascii
 import time
 
-import pytest
 import cryptography.exceptions
 import ptf.testutils as testutils
 import ptf.mask as mask
