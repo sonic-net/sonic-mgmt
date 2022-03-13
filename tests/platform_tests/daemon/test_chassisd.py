@@ -3,7 +3,6 @@ Check daemon status inside PMON container. Each daemon status is checked under t
 * Daemon Running Status
 * Daemon Stop status
 * Daemon Restart status
-
 This script is to cover the test case in the SONiC platform daemon and service test plan:
 https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
@@ -41,16 +40,16 @@ SIG_KILL = "-9"
 STATE_DB = 6
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -62,8 +61,8 @@ def teardown_module(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture
-def check_daemon_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     if daemon_status is not "RUNNING":
         duthost.start_pmon_daemon(daemon_name)
@@ -74,14 +73,13 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
     return daemon_status == expected_daemon_status
 
 def collect_data(duthost):
-    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "CHASSIS_INFO|*"')['stdout_lines']
+    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "CHASSIS_*TABLE|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-
     return {'keys': keys, 'data': dev_data}
 
 def wait_data(duthost):
@@ -91,22 +89,22 @@ def wait_data(duthost):
         shared_scope.data_after_restart = collect_data(duthost)
         return bool(shared_scope.data_after_restart['data'])
     pooling_interval = 60
-    wait_until(pooling_interval, 6, 0, _collect_data)
+    wait_until(pooling_interval, 10, 20, _collect_data)
     return shared_scope.data_after_restart
 
 @pytest.fixture(scope='module')
-def data_before_restart(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def data_before_restart(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     data = collect_data(duthost)
     return data
 
 
-def test_pmon_chassisd_running_status(duthosts, rand_one_dut_hostname, data_before_restart):
+def test_pmon_chassisd_running_status(duthosts, enum_rand_one_per_hwsku_hostname, data_before_restart):
     """
     @summary: This test case is to check chassisd status on dut
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     skip_release(duthost, ["201811", "201911", "202012"])
 
@@ -121,11 +119,11 @@ def test_pmon_chassisd_running_status(duthosts, rand_one_dut_hostname, data_befo
     pytest_assert(data_before_restart['data'], "DB data is not availale on daemon running")
 
 
-def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
+def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, enum_rand_one_per_hwsku_hostname, data_before_restart):
     """
     @summary: This test case is to check the chassisd stopped and restarted status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     skip_release(duthost, ["201811", "201911", "202012"])
 
@@ -147,7 +145,7 @@ def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, rand
 
     duthost.start_pmon_daemon(daemon_name)
 
-    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
+    wait_until(50, 25, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -161,11 +159,11 @@ def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, rand
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
-def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
+def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, enum_rand_one_per_hwsku_hostname, data_before_restart):
     """
     @summary: This test case is to check the chassisd terminated and restarted status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     skip_release(duthost, ["201811", "201911", "202012"])
 
@@ -187,11 +185,11 @@ def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, rand
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
-def test_pmon_chassisd_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
+def test_pmon_chassisd_kill_and_start_status(check_daemon_status, duthosts, enum_rand_one_per_hwsku_hostname, data_before_restart):
     """
     @summary: This test case is to check the chassisd killed unexpectedly (automatically restarted) status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     skip_release(duthost, ["201811", "201911", "202012"])
 
