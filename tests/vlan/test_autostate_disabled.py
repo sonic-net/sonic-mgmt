@@ -1,6 +1,7 @@
 import logging
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 
@@ -36,7 +37,7 @@ class TestAutostateDisabled:
         vlan_members_facts = duthost.get_running_config_facts().get('VLAN_MEMBER')
         if vlan_members_facts is None:
             pytest.skip('No vlan available on DUT {hostname}'.format(hostname=dut_hostname))
-        ifs_status = self.get_interface_status(duthost)
+        ifs_status = duthost.get_interfaces_status()
         ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
 
         # Find out all vlans which meet the following requirements:
@@ -50,39 +51,32 @@ class TestAutostateDisabled:
                         vlan_available.append(vlan)
                         break
         if len(vlan_available) == 0:
-            pytest.skip('No vlan available on DUT {hostname}'.format(hostname=dut_hostname))
+            pytest.skip('No applicable VLAN available on DUT {hostname} for this test case'.
+                        format(hostname=dut_hostname))
 
         # Pick a vlan for test
         vlan = vlan_available[0]
         vlan_members = vlan_members_facts[vlan].keys()
 
-        # Shutdown all the members in vlan.
-        res = duthost.shutdown_multiple(vlan_members)
-        if not res.is_successful:
-            self.restore_interface_admin_state(duthost, ifs_status)
-            pytest.fail('shutdown "{vlan_members}" in {vlan} failed'.format(vlan_members=vlan_members, vlan=vlan))
-        logging.info('waiting for "{vlan_members}" shutdown in {vlan}'.format(vlan_members=vlan_members, vlan=vlan))
-        if not wait_until(60, 5, 0, self.check_interface_oper_state, duthost, vlan_members, "down"):
-            self.restore_interface_admin_state(duthost, ifs_status)
-            pytest.fail('shutdown "{vlan_members}" in {vlan} failed'.format(vlan_members=vlan_members, vlan=vlan))
+        try:
+            # Shutdown all the members in vlan.
+            self.shutdown_multiple_with_confirm(duthost, vlan_members, err_handler=pytest.fail)
 
-        # Check whether the oper_state of vlan interface is changed as expected.
-        ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
-        if len(vlan_available) > 1:
-            # If more than one vlan comply with the above test requirements, then there are members in other vlans
-            # that are still up. Therefore, the bridge is still up, and vlan interface should be up.
-            if ip_ifs.get(vlan, {}).get('oper_state') != "up":
-                self.restore_interface_admin_state(duthost, ifs_status)
-                pytest.fail('vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
-        else:
-            # If only one vlan comply with the above test requirements, then all the vlan members across all the vlans
-            # are down. Therefore, the bridge is down, and vlan interface should be down.
-            if ip_ifs.get(vlan, {}).get('oper_state') != "down":
-                self.restore_interface_admin_state(duthost, ifs_status)
-                pytest.fail('vlan interface of {vlan} is not down as expected'.format(vlan=vlan))
-
-        # Restore all interfaces to their original admin_state.
-        self.restore_interface_admin_state(duthost, ifs_status)
+            # Check whether the oper_state of vlan interface is changed as expected.
+            ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
+            if len(vlan_available) > 1:
+                # If more than one vlan comply with the above test requirements, then there are members in other vlans
+                # that are still up. Therefore, the bridge is still up, and vlan interface should be up.
+                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "up",
+                              'vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
+            else:
+                # If only one vlan comply with the above test requirements, then all the vlan members across all the
+                # vlans are down. Therefore, the bridge is down, and vlan interface should be down.
+                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "down",
+                              'vlan interface of {vlan} is not down as expected'.format(vlan=vlan))
+        finally:
+            # Restore all interfaces to their original admin_state.
+            self.restore_interface_admin_state(duthost, ifs_status)
 
     def restore_interface_admin_state(self, duthost, ifs_status):
         """
@@ -96,25 +90,35 @@ class TestAutostateDisabled:
             elif admin_state == 'down':
                 ifs_down.append(interface)
         if len(ifs_up) > 0:
-            res = duthost.no_shutdown_multiple(ifs_up)
-            if not res.is_successful:
-                logging.error('startup "{interfaces}" on DUT {hostname} failed'.
-                              format(interfaces=ifs_up, hostname=duthost.hostname))
+            self.startup_multiple_with_confirm(duthost, ifs_up)
         if len(ifs_down) > 0:
-            res = duthost.shutdown_multiple(ifs_down)
-            if not res.is_successful:
-                logging.error('shutdown "{interfaces}" on DUT {hostname} failed'.
-                              format(interfaces=ifs_down, hostname=duthost.hostname))
-
-    def get_interface_status(self, duthost):
-        """
-        Run 'show interfaces status' on DUT and parse the result into a dict
-        """
-        return {x.get('interface'): x for x in duthost.show_and_parse('show interfaces status')}
+            self.shutdown_multiple_with_confirm(duthost, ifs_down)
 
     def check_interface_oper_state(self, duthost, interfaces, expected_state):
         """
         Check the oper_state of all interfaces are as expected.
         """
-        ifs_status = self.get_interface_status(duthost)
+        ifs_status = duthost.get_interfaces_status(duthost)
         return all([ifs_status.get(x, {}).get('oper', '') == expected_state for x in interfaces])
+
+    def shutdown_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
+        """
+        Shutdown multiple interfaces and confirm success.
+        """
+        res = duthost.shutdown_multiple(interfaces)
+        if not res.is_successful:
+            err_handler('shutdown "{interfaces}" failed'.format(interfaces=interfaces))
+        logging.info('waiting for "{interfaces}" shutdown'.format(interfaces=interfaces))
+        if not wait_until(60, 5, 0, self.check_interface_oper_state, duthost, interfaces, "down"):
+            err_handler('shutdown "{interfaces}" failed'.format(interfaces=interfaces))
+
+    def startup_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
+        """
+        Startup multiple interfaces and confirm success.
+        """
+        res = duthost.no_shutdown_multiple(interfaces)
+        if not res.is_successful:
+            err_handler('startup "{interfaces}" failed'.format(interfaces=interfaces))
+        logging.info('waiting for "{interfaces}" startup'.format(interfaces=interfaces))
+        if not wait_until(60, 5, 0, self.check_interface_oper_state, duthost, interfaces, "up"):
+            err_handler('startup "{interfaces}" failed'.format(interfaces=interfaces))
