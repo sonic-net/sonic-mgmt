@@ -98,7 +98,7 @@ class TestAutostateDisabled:
         """
         Check the oper_state of all interfaces are as expected.
         """
-        ifs_status = duthost.get_interfaces_status(duthost)
+        ifs_status = duthost.get_interfaces_status()
         return all([ifs_status.get(x, {}).get('oper', '') == expected_state for x in interfaces])
 
     def shutdown_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
