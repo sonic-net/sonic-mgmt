@@ -17,6 +17,16 @@ parameters:
     displayName: "SAI PTF DOCKER"
     default: docker-ptf
 
+  - name: SAI_REPO
+    type: string
+    displayName: "SAI Dev Repo"
+    default: "opencomputeproject"
+
+  - name: SAI_BRANCH
+    type: string
+    displayName: "SAI Dev Branch"
+    default: "v1.9"
+
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
@@ -43,6 +53,11 @@ parameters:
     type: boolean
     default: true
   
+  - name: ENABLE_PTF_SAI_TEST
+    displayName: "Run PTF-SAI Test"
+    type: boolean
+    default: false
+
   - name: RUN_TEST
     displayName: "Run Test"
     type: boolean
@@ -61,6 +76,9 @@ parameters:
     - $(IMAGE_BRCM_PUBLIC)
     - $(IMAGE_BRCM_PUBLIC_39085)
     - $(IMAGE_BRCM_ABOOT_PUBLIC)
+    - $(IMAGE_BRCM_INTERNAL)
+    - $(IMAGE_MLNX_INTERNAL)
+    - $(IMAGE_BFN_ABOOT_INTERNAL)
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
@@ -73,7 +91,9 @@ parameters:
     - $(SAITHRIFT_BRCM_PUBLIC_39085)
     - $(SAITHRIFT_MLNX_202012)
     - $(SAITHRIFT_MLNX_PUBLIC)
-
+    - $(SAITHRIFTV2_BFN_INTERNAL_DBG)
+    - $(SAITHRIFTV2_BRCM_202012_DBG)
+    - $(SAITHRIFTV2_BRCM_INTERNAL_DBG)
 
 stages:
   - template: ../templates/sai_test.yml
@@ -83,8 +103,11 @@ stages:
       UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
       CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
       RECOVER_TOPO: ${{ parameters.RECOVER_TOPO }}
+      ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
       RUN_TEST: ${{ parameters.RUN_TEST }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
+      SAI_REPO: ${{ parameters.SAI_REPO }}
+      SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
