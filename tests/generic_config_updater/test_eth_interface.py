@@ -47,9 +47,120 @@ def check_interface_status(duthost, field):
     status_data = output["stdout_lines"]
     
     field_index = status_data[0].split().index(field)
-    status = status_data[2].split()[field_index]
+    for line in status_data:
+        if "Ethernet0" in line:
+            ethernet0_status = line.strip()
+    status = re.split(r" {2,}", ethernet0_status)[field_index]
     return status
-    
+
+
+def test_remove_lanes(duthost, ensure_dut_readiness):
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/PORT/Ethernet0/lanes"
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_replace_lanes(duthost, ensure_dut_readiness):
+    cur_lanes = check_interface_status(duthost, "Lanes")
+    cur_lanes = cur_lanes.split(",")
+    cur_lanes.sort()
+    update_lanes = cur_lanes
+    update_lanes[-1] = str(int(update_lanes[-1]) + 1)
+    update_lanes = ",".join(update_lanes)
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/Ethernet0/lanes",
+            "value": "{}".format(update_lanes)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_replace_mtu(duthost, ensure_dut_readiness):
+    target_mtu = "1514"
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/Ethernet0/mtu",
+            "value": "{}".format(target_mtu)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        current_status_mtu = check_interface_status(duthost, "MTU")
+        pytest_assert(current_status_mtu == target_mtu, "Failed to properly configure interface MTU to requested value {}".format(target_mtu))
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+@pytest.mark.parametrize("pfc_asym", ["on", "off"])
+def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/Ethernet0/pfc_asym",
+            "value": "{}".format(pfc_asym)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        current_status_pfc_asym = check_interface_status(duthost, "Asym")
+        pytest_assert(current_status_pfc_asym == pfc_asym, "Failed to properly configure interface Asym PFC to requested value off")
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+@pytest.mark.parametrize("fec", ["rs", "fc"])
+def test_replace_fec(duthost, ensure_dut_readiness, fec):
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/Ethernet0/fec",
+            "value": "{}".format(fec)
+        }
+    ]
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        current_status_fec = check_interface_status(duthost, "FEC")
+        pytest_assert(current_status_fec == fec, "Failed to properly configure interface FEC to requested value {}".format(fec))
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
 
 @pytest.mark.parametrize("index, is_valid", [
     ("33", True),
