@@ -242,7 +242,6 @@ def craft_pkt(ptfadapter, dst_mac, src_port, dst_ip, ip_src=u'2.2.2.1', ttl=TTL,
         pktlen: packet length
     """
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    dst_mac = dst_mac
     pkt = testutils.simple_tcp_packet(eth_src=src_mac,
                                       eth_dst=dst_mac,
                                       ip_src=ip_src,
