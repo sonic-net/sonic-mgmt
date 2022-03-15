@@ -25,7 +25,7 @@ CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
 CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
 POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 480
+POST_CHECK_THRESHOLD_SECS = 600
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
