@@ -163,6 +163,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_image_info](sonichost_methods/get_image_info.md) - Get list of images installed on the DUT.
 
+- [get_interfaces_status](sonichost_methods/get_interfaces_status.md) - Get interfaces status on the DUT and parse the result into a dict.
+
 - [get_ip_route_info](sonichost_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
 
 - [get_monit_services_status](sonichost_methods/get_monit_services_status.md) - Get metadata on services monitored by Monit.
