@@ -234,7 +234,6 @@ class ArpTest(BaseTest):
             test['vlan_id'] = int(config['vlanid'])
             test['vni'] = vni_base + test['vlan_id']
 
-            gw = None
             prefixlen = None
             for d in config['interfaces']:
                 if sys.version_info < (3, 0):
