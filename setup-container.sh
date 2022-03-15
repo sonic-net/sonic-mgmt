@@ -204,9 +204,9 @@ then groupmod -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 else groupadd -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 fi
 
-# Environment configuration
+# Environment configuration, skip python virtual environments
 RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
-/bin/bash -c 'cp -a -f /var/AzDevOps/* /home/{{ USER_NAME }}/'; \
+/bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/{{ USER_NAME }}/'; \
 /bin/bash -c 'cp -a -f /var/AzDevOps/{.profile,.local,.ssh} /home/{{ USER_NAME }}/'; \
 fi
 
@@ -237,6 +237,13 @@ RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
 
+# Setup python3 virtual env
+RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
+/bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze)'; \
+fi
+
 EOF
 
     log_info "prepare an environment file: ${TMP_DIR}/data.env"
@@ -257,7 +264,14 @@ EOF
     log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
 
     log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
-    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK}" || \
+    build_args=""
+    if [[ -n ${http_proxy} ]]; then
+        build_args="--build-arg http_proxy=${http_proxy}"
+    fi
+    if [[ -n ${https_proxy} ]]; then
+        build_args="${build_args} --build-arg https_proxy=${https_proxy}"
+    fi
+    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK} ${build_args}" || \
     log_error "failed to build docker image: ${LOCAL_IMAGE}"
 
     log_info "cleanup a temporary dir: ${TMP_DIR}"

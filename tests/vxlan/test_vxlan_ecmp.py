@@ -68,7 +68,7 @@ NEXTHOP_PREFIX = 100
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1"),
+    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
     pytest.mark.sanity_check(post_check=True)
 ]
 
@@ -445,15 +445,15 @@ def get_t2_ports(duthost, minigraph_data):
     '''
     list_of_portchannels_to_T2 = get_portchannels_to_neighbors(duthost, "T2", minigraph_data)
     list_of_interfaces = []
-    for pc_name in list_of_portchannels_to_T2:
-        list_of_interfaces.extend(list_of_portchannels_to_T2[pc_name])
+    if list_of_portchannels_to_T2:
+        for pc_name in list_of_portchannels_to_T2:
+            list_of_interfaces.extend(list_of_portchannels_to_T2[pc_name])
+    else:
+        list_of_interfaces = get_ethernet_to_neighbors("T2", minigraph_data)
 
-    ret_list = [int(x[8:]) for x in list_of_interfaces]
-    if ret_list:
-        return ret_list
-
-    list_of_ethernet_to_T2 = get_ethernet_to_neighbors("T2", minigraph_data)
-    ret_list.extend([int(x[8:]) for x in list_of_ethernet_to_T2])
+    ret_list = []
+    for iface in list_of_interfaces:
+        ret_list.append(minigraph_data["minigraph_ptf_indices"][iface])
     return ret_list
 
 def bgp_established(duthost, ignore_list=[]):
