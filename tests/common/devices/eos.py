@@ -329,7 +329,7 @@ class EosHost(AnsibleHostBase):
         try:
             command = 'show mac security interface {} | json'.format(interface_name)
             output = self.eos_command(commands=[command])['stdout'][0]
-            return output["interfaces"][interface_name]["controlledPort"] == "true"
+            return output["interfaces"][interface_name]["controlledPort"]
         except Exception as e:
             logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
             return False
