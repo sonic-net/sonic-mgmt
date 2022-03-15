@@ -145,7 +145,7 @@ class TestDataPlane():
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
         for up_port, up_link in upstream_links.items():
             ret = duthost.command(
-                "ping -c {} {}".format(4, up_link['ipv4_addr']))
+                "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
@@ -329,7 +329,7 @@ class TestInteropProtocol():
 
         def check_bgp_established(up_link):
             command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(
-                up_link["ipv4_addr"])
+                up_link["local_ipv4_addr"])
             fact = sonic_db_cli(duthost, command)
             logger.info("bgp state {}".format(fact))
             return fact["state"] == "Established"
@@ -380,5 +380,5 @@ class TestInteropProtocol():
             up_link = upstream_links[ctrl_port]
             sysDescr = ".1.3.6.1.2.1.1.1.0"
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
-                community, up_link["ipv4_addr"], sysDescr)
+                community, up_link["local_ipv4_addr"], sysDescr)
             assert not duthost.command(command)["failed"]
