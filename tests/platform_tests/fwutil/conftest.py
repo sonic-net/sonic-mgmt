@@ -65,7 +65,7 @@ def host_firmware(localhost, duthost):
 def next_image(duthost, fw_pkg):
 
     # Install next version of sonic
-    current = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
+    current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
     image = fw_pkg.get("images", {}).keys()
     target = None
@@ -78,14 +78,9 @@ def next_image(duthost, fw_pkg):
         pytest.skip("No suitable image definitions found in config")
 
     logger.info("Installing new image {}".format(target))
-
-    if fw_pkg["images"][target].startswith("http"):
-        duthost.get_url(url=fw_pkg["images"][target], dest=DUT_HOME)
-    else:
-        duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest=DUT_HOME)
-
+    duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest=DUT_HOME)
     remote_path = os.path.join(DUT_HOME, os.path.basename(fw_pkg["images"][target]))
-    duthost.command("sonic-installer install -y {}".format(remote_path), module_ignore_errors=True)
+    duthost.command("sonic_installer install -y {}".format(remote_path), module_ignore_errors=True)
 
     # Mount newly installed image
     fs_path = FS_PATH_TEMPLATE.format(target)
@@ -96,10 +91,9 @@ def next_image(duthost, fw_pkg):
 
     logger.info("Attempting to stage test firware onto newly-installed image.")
     try:
-        duthost.command("mkdir -p {}".format(fs_mountpoint))
-        duthost.command("mkdir -p {}".format(fs_rw))
-        duthost.command("mkdir -p {}".format(fs_work))
+        wait_until(10, 1, 0, check_path_exists, fs_rw)
 
+        duthost.command("mkdir -p {}".format(fs_mountpoint))
         cmd = "mount -t squashfs {} {}".format(fs_path, fs_mountpoint)
         duthost.command(cmd)
 
@@ -112,11 +106,11 @@ def next_image(duthost, fw_pkg):
         )
         duthost.command(cmd)
     except Exception as e:
-        duthost.command("sonic-installer remove {} -y".format("SONiC-OS-{}".format(target)))
         pytest.fail("Failed to setup next-image.")
+        duthost.command("sonic_installer set-default {}".format(current))
 
     yield overlay_mountpoint
 
     logger.info("Ensuring correct image is set to default boot.")
-    duthost.command("sonic-installer remove {} -y".format("SONiC-OS-{}".format(target)))
+    duthost.command("sonic_installer set-default {}".format(current))
 
