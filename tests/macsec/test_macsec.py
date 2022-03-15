@@ -83,49 +83,81 @@ class TestDataPlane():
 
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
-        down_port, down_link = downstream_links.items()[0]
-        for ctrl_port in ctrl_links.keys():
-            up_link = upstream_links[ctrl_port]
-            dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-            payload = "{} -> {}".format(down_link["name"], up_link["name"])
+
+        down_link = downstream_links.values()[0]
+        dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
+
+        for portchannel in get_portchannel(duthost).values():
+            members = portchannel["members"]
+
+            if not members:
+                continue
+
+            is_protected_link = members[0] in ctrl_links
+            peer_ports = []
+            ptf_injected_ports = []
+            for port_name in members:
+                if is_protected_link:
+                    assert port_name in ctrl_links
+                    peer_ports.append(
+                        int(re.search(r"(\d+)", ctrl_links[port_name]["port"]).group(1)))
+                    ptf_injected_ports.append(
+                        upstream_links[port_name]["ptf_port_id"])
+                else:
+                    assert port_name not in ctrl_links
+            if not is_protected_link:
+                continue
+
+            up_link = upstream_links[members[0]]
+            up_host_name = up_link["name"]
+            up_host_ip = up_link["local_ipv4_addr"]
+            payload = "{} -> {}".format(down_link["name"], up_host_name)
             logging.info(payload)
             # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
             pkt = create_pkt(
-                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_link["ipv4_addr"], bytes(payload))
+                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
+
             testutils.send_packet(
                 nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            nbr_ctrl_port_id = int(
-                re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-            testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                nbr_device_numbers[up_link["name"]], nbr_ctrl_port_id))
-            macsec_attr = get_macsec_attr(duthost, ctrl_port)
-            testutils.send_packet(
-                nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
-                             ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=10)
+            testutils.verify_packet_any_port(
+                nbr_ptfadapter, exp_pkt, ports=peer_ports, device_number=nbr_device_numbers[up_host_name], timeout=3)
+
+            fail_message = ""
+            for port_name in members:
+                up_link = upstream_links[port_name]
+                macsec_attr = get_macsec_attr(duthost, port_name)
+                testutils.send_packet(
+                    nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+                result = check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
+                                          ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
+                if result is None:
+                    return
+                fail_message += result
+            pytest.fail(fail_message)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        for ctrl_port, nbr in ctrl_links.items():
-            for up_port, up_link in upstream_links.items():
-                if up_port == ctrl_port:
+        portchannels = get_portchannel(duthost).values()
+        for i in range(len(portchannels)):
+            assert portchannels[i]["members"]
+            requester = upstream_links[portchannels[i]["members"][0]]
+            # Set DUT as the gateway of requester
+            requester["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                requester["peer_ipv4_addr"]), module_ignore_errors=True)
+            for j in range(i + 1, len(portchannels)):
+                if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
                     continue
-                ctrl_link = upstream_links[ctrl_port]
-                dut_macaddress = duthost.get_dut_iface_mac(ctrl_port)
-                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
-                payload = "{} -> {}".format(ctrl_link["name"], up_link["name"])
-                logging.info(payload)
-                pkt = create_pkt(
-                    nbr_macaddress, dut_macaddress, ctrl_link["ipv4_addr"], up_link["ipv4_addr"], bytes(payload))
-                nbr_ctrl_port_id = int(
-                    re.search(r"(\d+)", ctrl_links[ctrl_port]["port"]).group(1))
-                testutils.send_packet(
-                    nbr_ptfadapter, (nbr_device_numbers[ctrl_link["name"]], nbr_ctrl_port_id), pkt, TestDataPlane.BATCH_COUNT)
-                exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
-                nbr_up_port_id = int(
-                    re.search(r"(\d+)", upstream_links[up_port]["port"]).group(1))
-                testutils.verify_packet(nbr_ptfadapter, exp_pkt, port_id=(
-                    nbr_device_numbers[up_link["name"]], nbr_up_port_id))
+                responser = upstream_links[portchannels[j]["members"][0]]
+                # Set DUT as the gateway of responser
+                responser["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                    responser["peer_ipv4_addr"]), module_ignore_errors=True)
+                # Ping from requester to responser
+                assert not requester["host"].shell(
+                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
+                responser["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                    responser["peer_ipv4_addr"]), module_ignore_errors=True)
+            requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
 
 class TestFaultHandling():
@@ -136,7 +168,6 @@ class TestFaultHandling():
         # Only pick one link for link flap test
         assert ctrl_links
         port_name, nbr = ctrl_links.items()[0]
-
         _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         nbr_eth_port = get_eth_ifname(
@@ -165,8 +196,8 @@ class TestFaultHandling():
         assert wait_until(12, 1, 0, check_new_mka_session)
 
         # Flap > 90 seconds
-        find_portchannel_from_member(
-            port_name, get_portchannel(duthost))["status"] == "Up"
+        assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
+            port_name, get_portchannel(duthost))["status"] == "Up")
         nbr["host"].shell("ifconfig {} down && sleep {}".format(
             nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(

@@ -3,7 +3,6 @@ import sys
 import binascii
 import time
 
-import pytest
 import cryptography.exceptions
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -313,4 +312,4 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
         exp_pkt, exp_pkt.exp_pkt.show(dump=True))
     for packet in received_packets:
         fail_message += "\n{}\n".format(packet.show(dump=True))
-    pytest.fail(fail_message)
+    return fail_message
