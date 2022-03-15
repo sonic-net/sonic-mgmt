@@ -113,14 +113,17 @@ def upstream_links(duthost, tbinfo, nbrhosts):
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ipaddress.ip_address(item["addr"]), ipaddress.IPv4Address):
-                        ipv4_addr = item["addr"]
+                        local_ipv4_addr = item["addr"]
+                        peer_ipv4_addr = item["peer_addr"]
                         break
             port = mg_facts["minigraph_neighbors"][interface]["port"]
             links[interface] = {
                 "name": neighbor["name"],
                 "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "ipv4_addr": ipv4_addr,
-                "port": port
+                "local_ipv4_addr": local_ipv4_addr,
+                "peer_ipv4_addr": peer_ipv4_addr,
+                "port": port,
+                "host": nbrhosts[neighbor["name"]]["host"]
             }
     find_links(duthost, tbinfo, filter)
     return links
@@ -140,7 +143,8 @@ def ctrl_links(duthost, tbinfo, nbrhosts):
 def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
     unctrl_nbr_names = set(nbrhosts.keys())
     for _, nbr in ctrl_links.items():
-        unctrl_nbr_names.remove(nbr["name"])
+        if nbr["name"] in unctrl_nbr_names:
+            unctrl_nbr_names.remove(nbr["name"])
     logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
