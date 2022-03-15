@@ -58,6 +58,8 @@ class TestControlPlane():
             # So, skip this test for physical switch
             # TODO: Support "get mka session" in the physical switch
             if u"x86_64-kvm_x86_64" not in get_platform(duthost):
+                # TODO: add check mka session later, now wait some time for session ready
+                sleep(30)
                 logging.info(
                     "Skip to check mka session due to the DUT isn't a virtual switch")
                 return True
@@ -65,6 +67,7 @@ class TestControlPlane():
             assert len(dut_mka_session) == len(ctrl_links)
             for port_name, nbr in ctrl_links.items():
                 if isinstance(nbr["host"], EosHost):
+                    assert nbr["host"].iface_macsec_ok(nbr["port"])
                     continue
                 nbr_mka_session = get_mka_session(nbr["host"])
                 dut_macsec_port = get_macsec_ifname(duthost, port_name)
@@ -302,11 +305,17 @@ class TestInteropProtocol():
 
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
+            wait_until(20, 3, 0,
+                lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                        not nbr["host"].iface_macsec_ok(nbr["port"]))
             assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            wait_until(20, 3, 0,
+                lambda: duthost.iface_macsec_ok(ctrl_port) and
+                        nbr["host"].iface_macsec_ok(nbr["port"]))
             assert wait_until(1, 1, LLDP_TIMEOUT,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
@@ -325,14 +334,18 @@ class TestInteropProtocol():
             logger.info("bgp state {}".format(fact))
             return fact["state"] == "Established"
 
-        # Check if the BGP sessions are established
+        # Ensure the BGP sessions have been established
         for ctrl_port in ctrl_links.keys():
-            assert check_bgp_established(upstream_links[ctrl_port])
+            assert wait_until(30, 5, 0,
+                              check_bgp_established, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in ctrl_links.items():
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
+            wait_until(20, 3, 0,
+                lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                        not nbr["host"].iface_macsec_ok(nbr["port"]))
             # BGP session should keep established even after holdtime
             assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, upstream_links[ctrl_port])
@@ -341,6 +354,9 @@ class TestInteropProtocol():
         for ctrl_port, nbr in ctrl_links.items():
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            wait_until(20, 3, 0,
+                lambda: duthost.iface_macsec_ok(ctrl_port) and
+                        nbr["host"].iface_macsec_ok(nbr["port"]))
             # Wait PortChannel up, which might flap if having one port member
             wait_until(20, 5, 5, lambda: find_portchannel_from_member(
                 ctrl_port, get_portchannel(duthost))["status"] == "Up")
