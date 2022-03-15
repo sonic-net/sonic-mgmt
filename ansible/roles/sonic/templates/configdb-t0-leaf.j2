@@ -18,13 +18,21 @@
 {% endif %}
     },
 {% endif %}
-{% if iface['lacp'] is defined %}
+{% endfor %}
+{% set portchannel_members = [] %}
+{% for name, iface in host['interfaces'].items() -%}
+{% if iface['lacp'] is defined -%}
+{{ portchannel_members.append('PortChannel' ~ iface['lacp'] ~ '|' ~ name) }}
+{%- endif %}
+{%- endfor %}
+{% if portchannel_members | length > 0 %}
     "PORTCHANNEL_MEMBER": {
-{% set index = name | replace("Ethernet", "") | int - 1 %}
-        "PortChannel{{ iface['lacp'] }}|Ethernet{{ index + 1}}": {}
+{% for i in range(portchannel_members | length) %}
+        "{{ portchannel_members[i] }}": {}{% if i < portchannel_members | length - 1 -%},{%- endif %}
+
+{% endfor %}
     },
 {% endif %}
-{% endfor %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Loopback') %}
     "LOOPBACK_INTERFACE": {
@@ -35,7 +43,7 @@
 {% if iface['ipv6'] is defined %}
         "{{ name }}|{{ iface['ipv6'] }}": {}
 {% endif %}
- 	}
+    }
 {% endif %}
 {% endfor %}
 }
