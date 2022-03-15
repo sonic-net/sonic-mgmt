@@ -37,6 +37,8 @@ TCP_SPORT = 3300
 TCP_DPORT = 3320
 MAX_MCLAG_INTF = 24
 TTL = 64
+DEFAULT_SESSION_TIMEOUT = 15
+NEW_SESSION_TIMEOUT = 25
 
 
 def parse_vm_vlan_port(vlan):
@@ -176,7 +178,7 @@ def get_dst_port(duthost1, duthost2, get_routes, dst_ip, collect):
             dst_port = collect[duthost2.hostname]['vm_link_on_ptf']
             return dst_port
 
-def generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, src_port, dst_ip, get_routes,
+def generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, src_port, dst_ip, router_mac, get_routes,
                                 collect, down_link_on_dut=None, pkt_action=ACTION_FORWARD):
     """
     Generate traffic, send and verify it
@@ -196,7 +198,7 @@ def generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, src_por
     router2_mac = duthost2.facts["router_mac"]
     dst_ports = get_dst_port(duthost1, duthost2, get_routes, dst_ip, collect)
     src_port = get_port_number(ptfhost, src_port)
-    pkt = craft_pkt(ptfadapter, router1_mac, router2_mac, src_port, dst_ip)
+    pkt = craft_pkt(ptfadapter, router_mac, src_port, dst_ip)
     expected_src_mac = router1_mac if dst_ports == collect[duthost1.hostname]['vm_link_on_ptf'] else router2_mac
 
     exp_pkt = pkt.copy()
@@ -226,7 +228,7 @@ def generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, src_por
         testutils.verify_no_packet(ptfadapter, exp_pkt, dst_ports)
 
 
-def craft_pkt(ptfadapter, router1_mac, router2_mac, src_port, dst_ip, ip_src=u'2.2.2.1', ttl=TTL, pktlen=100):
+def craft_pkt(ptfadapter, dst_mac, src_port, dst_ip, ip_src=u'2.2.2.1', ttl=TTL, pktlen=100):
     """
     Generate packet to send
     Args:
@@ -240,7 +242,7 @@ def craft_pkt(ptfadapter, router1_mac, router2_mac, src_port, dst_ip, ip_src=u'2
         pktlen: packet length
     """
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    dst_mac = router1_mac
+    dst_mac = dst_mac
     pkt = testutils.simple_tcp_packet(eth_src=src_mac,
                                       eth_dst=dst_mac,
                                       ip_src=ip_src,
@@ -309,7 +311,8 @@ def add_mclag_and_orphan_ports(duthost, collect, mg_facts, ip_base=0):
     duthost.shell_cmds(cmds=cmds)
 
 
-def config_peer_link_and_keep_alive(duthost, collect, mg_facts, mclag_local_ip, mclag_peer_link_ip):
+def config_peer_link_and_keep_alive(duthost, keep_and_peer_link_member, mclag_local_ip,
+                                    mclag_peer_link_ip):
     """
     Configure peer_link and keep_alive link on DUT
     Args:
@@ -320,9 +323,8 @@ def config_peer_link_and_keep_alive(duthost, collect, mg_facts, mclag_local_ip, 
         mclag_peer_link_ip: MClag peer ip address
     """
     cmds = []
-    port_indices = {mg_facts[duthost.hostname]['minigraph_port_indices'][k]:k for k in mg_facts[duthost.hostname]['minigraph_port_indices']}
-    keep_alive_interface = port_indices[int(collect[duthost.hostname]['devices_interconnect_interfaces'][0])]
-    peer_link_member = port_indices[int(collect[duthost.hostname]['devices_interconnect_interfaces'][-1])]
+    keep_alive_interface = keep_and_peer_link_member[duthost.hostname]['keepalive']
+    peer_link_member = keep_and_peer_link_member[duthost.hostname]['peerlink']
     cmds.append('config interface ip add {} {}'.format(keep_alive_interface, mclag_local_ip))
     cmds.append("config interface startup {}".format(keep_alive_interface))
 
@@ -388,4 +390,35 @@ def mclag_intf_to_shutdown(duthost1, duthost2, mg_facts, collect, num_intf=6):
             result[pc]['link_down_on_dut'] = duthost2.hostname
             result[pc]['member_to_shut'] = member
             result[pc]['member_on_ptf'] = get_member_ptf_map(duthost2, member, mg_facts, collect)
+    return result
+
+
+def check_keepalive_link(duthost1, duthost2, status):
+    """
+    Check keepalive link status
+    Args:
+        duthost1: DUT host object
+        duthost2: DUT host object
+        status: Expected status of keepalive link OK or ERROR
+    """
+    dut1_keepalive_status = duthost1.shell("mclagdctl dump state|grep keepalive")['stdout'].split(":")[-1].strip()
+    dut2_keepalive_status = duthost2.shell("mclagdctl dump state|grep keepalive")['stdout'].split(":")[-1].strip()
+    pytest_assert(dut1_keepalive_status == dut2_keepalive_status == status,
+                  "Keepalive status should be {} not {}, {}".format(status, dut1_keepalive_status, dut2_keepalive_status))
+
+
+def gen_list_pcs_to_check(duthost, mg_facts, collect):
+    """
+    Generate list of mclag interfaces to check
+    Args:
+        duthost: DUT host object
+        mg_facts: Dict with minigraph facts for each DUT
+        collect: Fixture which collects main info about link connection
+    """
+    result = OrderedDict()
+    for pc in collect[duthost.hostname]['mclag_interfaces']:
+        member = get_team_port(duthost, pc)
+        result[pc] = {}
+        result[pc]['member_to_shut'] = member
+        result[pc]['member_on_ptf'] = get_member_ptf_map(duthost, member, mg_facts, collect)
     return result

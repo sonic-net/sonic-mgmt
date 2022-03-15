@@ -13,13 +13,20 @@
     - [test_check_teamd_system_id](#Test-case-test_check_teamd_system_id)
     - [test_mclag_intf_status_down](#Test-case-test_mclag_intf_status_down)
     - [test_mclag_intf_status_up](#Test-case-test_mclag_intf_status_up)
+    - [test_keepalive_link_down](#Test-case-test_keepalive_link_down)
+    - [test_session_timeout](#Test-case-test_session_timeout)
+    - [test_active_down](#Test-case-test_active_down)
+    - [test_standby_down](#Test-case-test_standby_down)
+    - [test_peer_link_status_change](#Test-case-test_peer_link_status_change)
 
 
 ## Revision
 
-| Rev |     Date    |       Author                 | Change Description                 |
-|:---:|:-----------:|:-----------------------------|:-----------------------------------|
-| 0.1 |  04/02/2022 |Intel : Andrii-Yosafat Lozovyy|          Initial version           |
+| Rev |     Date    |       Author          |         Change Description         |
+|:---:|:-----------:|:---------------------:|:----------------------------------:|
+| 0.1 |  04/02/2022 | Andrii-Yosafat Lozovyy|          Initial version           |
+|:---:|:-----------:|:---------------------:|:----------------------------------:|
+| 0.2 |  04/03/2022 | Andrii-Yosafat Lozovyy|           New test cases           |
 
 
 ## Overview
@@ -174,8 +181,8 @@ Verify standby device changes its LACP system ID to be the same as active device
 
 ### Test steps
 
-- Check MAC of MCLAG interface on active device (DUT1)
-- Check MAC of MCLAG interface on standby device (DUT2)
+- Check MAC of MCLAG interface on active device
+- Check MAC of MCLAG interface on standby device
 - Verify that MAC of MCLAG interface is identical
 
 ### Test teardown
@@ -222,3 +229,118 @@ Verify data forwarding is correct when mclag enabled interface status change to 
 ### Test teardown
 
 - None
+
+
+## Test case test_keepalive_link_down
+
+### Test objective
+
+Verify data forwarding is correct when keepalive link is in down state
+
+### Test set up
+
+- Shutdown keepalive link and wait default session-timeout
+
+### Test steps
+
+- Verify that MAC of MCLAG interfaces on standby device changed to its default MAC
+- Verify that MCLAG status is ERROR on both PEERs
+- Define network data
+- From MCLAG interfaces on PTF, send TCP packet with varios dst_ip
+- Verify that packets was received on expected destination ports
+
+### Test teardown
+
+- Startup keepalive link and wait default session-timeout
+
+
+## Test case test_session_timeout
+
+### Test objective
+
+Verify that session_timeout can be changed
+
+### Test set up
+
+- Change default session-timeout to new value, shutdown keepalive link
+
+### Test steps
+
+- Verify that session-timeout is changed to new value
+- Verify that MAC of MCLAG interfaces on standby device changed to its default MAC
+- Verify that MCLAG status is ERROR on both PEERs
+
+### Test teardown
+
+- Change session-timeout to default value, startup keepalive link
+
+
+## Test case test_active_down
+
+### Test objective
+
+Verify data forwarding is correct when active device of mclag status change
+
+### Test set up
+
+- Shutdown mclag interfaces, peer and keepalive links, perform cold reboot
+
+### Test steps
+
+- Verify that MCLAG status is ERROR on both PEERs
+- Verify that MAC of MCLAG interfaces on standby device changed to its default MAC
+- Define network data
+- From MCLAG interfaces on PTF, send TCP packet with default dst_mac of standby device
+- Verify that packets was received on uplink after standby device
+- Verify that packets was droped on uplink after active device
+
+### Test teardown
+
+- Startup mclag interfaces, peer and keepalive links
+
+
+## Test case test_standby_down
+
+### Test objective
+
+Verify data forwarding is correct when standby device of mclag status change
+
+### Test set up
+
+- Shutdown mclag interfaces, peer and keepalive links, perform cold reboot
+
+### Test steps
+
+- Verify that MCLAG status is ERROR on both PEERs
+- Define network data
+- From MCLAG interfaces on PTF, send TCP packet dst_mac of active device
+- Verify that packets was received on uplink after active device
+- Verify that packets was droped on uplink after standby device
+
+### Test teardown
+
+- Startup mclag interfaces, peer and keepalive links
+
+
+## Test case test_peer_link_status_change
+
+### Test objective
+
+Verify data forwarding is correct when peerlink is lost
+
+### Test set up
+
+- Shutdown peerlink
+
+### Test steps
+
+- Verify that MCLAG status is OK on both PEERs
+- Verify that MAC of MCLAG interfaces on standby device is equal to MAC on active device
+- Define network data
+- Use PortChannel members as sorce_ports to be able to control on which PEER traffic will go
+- Verify that packets which travers trough active device can reach only its direct upstream, and will be droped when trying to reach standby uplink
+- Verify that packets which travers trough standby device can reach only its direct upstream, and will be droped when trying to reach active uplink
+
+### Test teardown
+
+- Startup peerlink

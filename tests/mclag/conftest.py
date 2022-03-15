@@ -12,6 +12,8 @@ from mclag_helpers import DUT1_INDEX, DUT2_INDEX
 from mclag_helpers import PC_NAME_TEMPLATE, SUBNET_CHECK
 from mclag_helpers import CONFIG_DB_TEMP, CONFIG_DB_BACKUP, MAX_MCLAG_INTF
 from mclag_helpers import TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE
+from mclag_helpers import DEFAULT_SESSION_TIMEOUT, NEW_SESSION_TIMEOUT
+from mclag_helpers import MCLAG_DOMAINE_ID
 from tests.common.ptf_agent_updater import PtfAgentUpdater
 
 def pytest_addoption(parser):
@@ -56,7 +58,7 @@ def get_router_macs(duthost1, duthost2):
     return router_mac1, router_mac2
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def tear_down(duthost1, duthost2, ptfhost, localhost, collect):
     """
     Performs tear down of all configuration on PTF and DUTs
@@ -144,3 +146,45 @@ def update_and_clean_ptf_agent(duthost1, ptfhost, ptfadapter, collect):
     yield
 
     ptf_agent_updater.cleanup_ptf_nn_agent(mclag_interfaces)
+
+
+@pytest.fixture()
+def change_session_timeout(duthost1, duthost2, keep_and_peer_link_member):
+    """
+    Change default session-timeout and shutdown keepalive link, restore to default setting afterwards
+    Args:
+        duthost1: DUT host object
+        duthost2: DUT host object
+        collect: Fixture which collects main info about link connection
+        mg_facts: Dict with minigraph facts for each DUT
+    """
+    cmd = 'config mclag session-timeout {} {}'
+    keep_alive_interface = keep_and_peer_link_member[duthost1.hostname]['keepalive']
+    duthost1.shell(cmd.format(MCLAG_DOMAINE_ID, NEW_SESSION_TIMEOUT))
+    duthost2.shell(cmd.format(MCLAG_DOMAINE_ID, NEW_SESSION_TIMEOUT))
+    duthost1.shutdown(keep_alive_interface)
+
+    yield
+
+    duthost1.shell(cmd.format(MCLAG_DOMAINE_ID, DEFAULT_SESSION_TIMEOUT))
+    duthost2.shell(cmd.format(MCLAG_DOMAINE_ID, DEFAULT_SESSION_TIMEOUT))
+    duthost1.no_shutdown(keep_alive_interface)
+
+
+@pytest.fixture(scope="module")
+def keep_and_peer_link_member(duthosts, collect, mg_facts):
+    """
+    Fixture which holds keepalive and peerlink member for both PEERs
+    Args:
+        duthosts: Duthosts fixture
+        collect: Fixture which collects main info about link connection
+        mg_facts: Dict with minigraph facts for each DUT
+    """
+    res = defaultdict(dict)
+    for dut in duthosts:
+        port_indices = {mg_facts[dut.hostname]['minigraph_port_indices'][k]:k for k in mg_facts[dut.hostname]['minigraph_port_indices']}
+        keep_alive_interface = port_indices[int(collect[dut.hostname]['devices_interconnect_interfaces'][0])]
+        peer_link_member = port_indices[int(collect[dut.hostname]['devices_interconnect_interfaces'][-1])]
+        res[dut.hostname]['keepalive'] = keep_alive_interface
+        res[dut.hostname]['peerlink'] = peer_link_member
+    return res
