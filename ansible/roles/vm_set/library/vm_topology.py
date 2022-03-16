@@ -124,7 +124,7 @@ PTF_MGMT_IF_TEMPLATE = 'ptf-%s-m'
 PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
-OVS_INTERCONNECTION_BRIDGE_TEMPLATE = 'br-%s-ic-%s'
+OVS_INTERCONNECTION_BRIDGE_TEMPLATE = 'bic-%s-%s'
 RETRIES = 10
 # name of interface must be less than or equal to 15 bytes.
 MAX_INTF_LEN = 15
