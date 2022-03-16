@@ -137,9 +137,7 @@ class BaseMplsTest(object):
         exp_pkt['Ethernet'].type=0x0800
         exp_pkt['Ethernet'].remove_payload()
         exp_pkt /= pkt1
-        #exp_pkt['IP'].len=100
         epkt=mask.Mask(epkt)
-        #pkt2=mask.Mask(pkt2)
         exp_pkt=mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
