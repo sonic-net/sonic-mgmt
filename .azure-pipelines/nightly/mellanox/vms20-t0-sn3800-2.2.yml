@@ -37,7 +37,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests"'
+    default: '-c "platform_tests/test_advanced_reboot.py"'
     displayName: Testbed specific
 
   - name: SKIP_SCRIPTS
