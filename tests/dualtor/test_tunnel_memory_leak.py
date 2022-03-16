@@ -57,6 +57,11 @@ def is_tunnel_packet_handler_running(duthost):
         bool: True if tunnel_packet_handler is running. Otherwise, return False.
     """
     status, _ = get_program_info(duthost, "swss", "tunnel_packet_handler")
+    # if tunnel_packet_handler is not running, restart it
+    if status != 'RUNNING':
+        duthost.command("docker exec swss supervisorctl restart tunnel_packet_handler")
+        time.sleep(2)
+    status, _ = get_program_info(duthost, "swss", "tunnel_packet_handler")
     return status == 'RUNNING'
 
 def check_memory_leak(duthost):
