@@ -50,6 +50,7 @@ def check_interface_status(duthost, field):
     for line in status_data:
         if "Ethernet0" in line:
             ethernet0_status = line.strip()
+    pytest_assert(len(ethernet0_status) > 0, "Failed to read Ethernet0 interface properties")
     status = re.split(r" {2,}", ethernet0_status)[field_index]
     return status
 
