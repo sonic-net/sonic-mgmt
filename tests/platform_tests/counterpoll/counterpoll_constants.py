@@ -10,7 +10,7 @@ class CounterpollConstants:
     INTERVAL = 'interval (in ms)'
     TYPE = 'type'
     STATUS = 'status'
-    STDOUT ='stdout'
+    STDOUT = 'stdout'
     PG_DROP = 'pg-drop'
     PG_DROP_STAT_TYPE = 'PG_DROP_STAT'
     QUEUE_STAT_TYPE = 'QUEUE_STAT'

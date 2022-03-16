@@ -20,9 +20,9 @@ class ConterpollHelper:
     def get_parsed_counterpoll_show(counterpoll_show):
         parsed_counterpoll = {}
         for counterpoll in counterpoll_show:
-                parsed_counterpoll[counterpoll[CounterpollConstants.TYPE]] = {
-                    CounterpollConstants.INTERVAL: counterpoll[CounterpollConstants.INTERVAL],
-                    CounterpollConstants.STATUS: counterpoll[CounterpollConstants.STATUS]}
+            parsed_counterpoll[counterpoll[CounterpollConstants.TYPE]] = {
+                CounterpollConstants.INTERVAL: counterpoll[CounterpollConstants.INTERVAL],
+                CounterpollConstants.STATUS: counterpoll[CounterpollConstants.STATUS]}
         return parsed_counterpoll
 
     @staticmethod

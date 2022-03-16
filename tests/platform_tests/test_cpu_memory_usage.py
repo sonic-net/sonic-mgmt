@@ -44,7 +44,7 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
         check_memory(i, memory_threshold, monit_result, outstanding_mem_polls)
         for proc in monit_result.processes:
             cpu_threshold = normal_cpu_threshold
-            if high_cpu_consume_procs.has_key(proc['name']):
+            if proc['name'] in high_cpu_consume_procs:
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter, proc)
 
@@ -73,7 +73,7 @@ def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_
 
 @pytest.fixture(scope='module')
 def counterpoll_cpu_threshold(duthosts, request):
-    counterpoll_cpu_usage_threshold = {"port-buffer-drop":  request.config.getoption("--port_buffer_drop_cpu_usage_threshold")}
+    counterpoll_cpu_usage_threshold = {"port-buffer-drop": request.config.getoption("--port_buffer_drop_cpu_usage_threshold")}
     return counterpoll_cpu_usage_threshold
 
 
@@ -119,7 +119,7 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
 
 def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):
     if cpu_usage_program_to_check:
-        logging.info('CPU usage for counterpoll type {} : {}'.format( counterpoll_type, cpu_usage_program_to_check))
+        logging.info('CPU usage for counterpoll type {} : {}'.format(counterpoll_type, cpu_usage_program_to_check))
 
 
 def get_manufacturer_program_to_check(duthost):
@@ -180,9 +180,9 @@ def caculate_cpu_usge_average_value(valid_cpu_usage_center_index_list, program_t
     len_valid_cpu_usage = len(valid_cpu_usage_center_index_list)
     cpu_usage_average = 0.0
     for i in valid_cpu_usage_center_index_list:
-        cpu_usage_average += sum(program_to_check_cpu_usage[i-1: i+2])
-        logging.info("cpu usage center index:{}: cpu usage:{}".format(i, program_to_check_cpu_usage[i-1:i+2]))
-    return cpu_usage_average/len_valid_cpu_usage/3.0 if len_valid_cpu_usage != 0 else 0
+        cpu_usage_average += sum(program_to_check_cpu_usage[i - 1: i + 2])
+        logging.info("cpu usage center index:{}: cpu usage:{}".format(i, program_to_check_cpu_usage[i - 1:i + 2]))
+    return cpu_usage_average / len_valid_cpu_usage / 3.0 if len_valid_cpu_usage != 0 else 0
 
 
 def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter, proc):
