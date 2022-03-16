@@ -28,7 +28,11 @@ ignored_iptable_rules = [
     '-A INPUT -s 40.74.146.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
     '-A INPUT -s 40.74.146.224/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
     '-A INPUT -s 52.162.110.128/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
-    '-A INPUT -s 52.162.110.128/27 -p tcp -m tcp --dport 8090 -j ACCEPT'
+    '-A INPUT -s 52.162.110.128/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 40.78.203.96/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 40.78.203.96/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT'
 ]
 
 
