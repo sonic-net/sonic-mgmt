@@ -1,3 +1,4 @@
+from time import sleep
 import pytest
 import logging
 
@@ -17,8 +18,6 @@ pytestmark = [
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
           primary_cak, primary_ckn, policy, send_sci, request):
-    if request.session.testsfailed > 0:
-        return
     all_links = {}
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
@@ -29,8 +28,6 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
     yield
-    if request.session.testsfailed > 0:
-        return
     cleanup_macsec_configuration(duthost, all_links, profile_name)
 
 
@@ -39,6 +36,8 @@ class TestControlPlane():
         def _test_wpa_supplicant_processes():
             for port_name, nbr in ctrl_links.items():
                 check_wpa_supplicant_process(duthost, port_name)
+                if isinstance(nbr["host"], EosHost):
+                    continue
                 check_wpa_supplicant_process(nbr["host"], nbr["port"])
             return True
         assert wait_until(300, 1, 1, _test_wpa_supplicant_processes)
@@ -46,6 +45,8 @@ class TestControlPlane():
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         def _test_appl_db():
             for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    continue
                 check_appl_db(duthost, port_name, nbr["host"],
                               nbr["port"], policy, cipher_suite, send_sci)
             return True
@@ -57,12 +58,17 @@ class TestControlPlane():
             # So, skip this test for physical switch
             # TODO: Support "get mka session" in the physical switch
             if u"x86_64-kvm_x86_64" not in get_platform(duthost):
+                # TODO: add check mka session later, now wait some time for session ready
+                sleep(30)
                 logging.info(
                     "Skip to check mka session due to the DUT isn't a virtual switch")
                 return True
             dut_mka_session = get_mka_session(duthost)
             assert len(dut_mka_session) == len(ctrl_links)
             for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    assert nbr["host"].iface_macsec_ok(nbr["port"])
+                    continue
                 nbr_mka_session = get_mka_session(nbr["host"])
                 dut_macsec_port = get_macsec_ifname(duthost, port_name)
                 nbr_macsec_port = get_macsec_ifname(
@@ -75,11 +81,11 @@ class TestControlPlane():
                                   nbr_mka_session[nbr_macsec_port], nbr_sci,
                                   policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 1, 1, _test_mka_session)
+        assert wait_until(300, 5, 3, _test_mka_session)
 
 
 class TestDataPlane():
-    BATCH_COUNT = 100
+    BATCH_COUNT = 10
 
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
@@ -136,6 +142,12 @@ class TestDataPlane():
                 fail_message += result
             pytest.fail(fail_message)
 
+    def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
+        for up_port, up_link in upstream_links.items():
+            ret = duthost.command(
+                "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
+            assert not ret['failed']
+
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         portchannels = get_portchannel(duthost).values()
         for i in range(len(portchannels)):
@@ -174,16 +186,23 @@ class TestFaultHandling():
             nbr["host"], nbr["port"])
 
         # Flap < 6 seconds
-        nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
-            nbr_eth_port, nbr_eth_port))
-        _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
-            duthost, port_name, nbr["host"], nbr["port"])
-        assert dut_egress_sa_table_orig == dut_egress_sa_table_new
-        assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+        # Not working on eos neighbour
+        if not isinstance(nbr["host"], EosHost):
+            nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
+                nbr_eth_port, nbr_eth_port))
+            _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            assert dut_egress_sa_table_orig == dut_egress_sa_table_new
+            assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds
-        nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
-            nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].shutdown(nbr_eth_port)
+            sleep(TestFaultHandling.MKA_TIMEOUT)
+            nbr["host"].no_shutdown(nbr_eth_port)
+        else:
+            nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
+                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
 
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
@@ -198,11 +217,19 @@ class TestFaultHandling():
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
-        nbr["host"].shell("ifconfig {} down && sleep {}".format(
-            nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].shutdown(nbr_eth_port)
+            sleep(TestFaultHandling.LACP_TIMEOUT)
+        else:
+            nbr["host"].shell("ifconfig {} down && sleep {}".format(
+                nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
         assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Dw")
-        nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
+
+        if isinstance(nbr["host"], EosHost):
+            nbr["host"].no_shutdown(nbr_eth_port)
+        else:
+            nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
@@ -236,3 +263,122 @@ class TestFaultHandling():
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], profile_name)
+
+
+class TestInteropProtocol():
+    '''
+    Macsec interop with other protocols
+    '''
+
+    def test_port_channel(self, duthost, ctrl_links):
+        '''Verify lacp
+        '''
+        ctrl_port, _ = ctrl_links.items()[0]
+        pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
+        assert pc["status"] == "Up"
+
+        # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
+        duthost.command("sudo config portchannel member del {} {}".format(
+            pc["name"], ctrl_port))
+        assert wait_until(6, 1, 0, lambda: get_portchannel(
+            duthost)[pc["name"]]["status"] == "Dw")
+
+        # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
+        duthost.command("sudo config portchannel member add {} {}".format(
+            pc["name"], ctrl_port))
+        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+            ctrl_port, get_portchannel(duthost))["status"] == "Up")
+
+    def test_lldp(self, duthost, ctrl_links, profile_name):
+        '''Verify lldp
+        '''
+        LLDP_ADVERTISEMENT_INTERVAL = 30  # default interval in seconds
+        LLDP_HOLD_MULTIPLIER = 4  # default multiplier number
+        LLDP_TIMEOUT = LLDP_ADVERTISEMENT_INTERVAL * LLDP_HOLD_MULTIPLIER
+
+        # select one macsec link
+        for ctrl_port, nbr in ctrl_links.items():
+            # TODO: vsonic vm has issue on lldp
+            if not isinstance(nbr["host"], EosHost):
+                pytest.skip("test_lldp has issue with vsonic neighbor")
+            assert nbr["name"] in get_lldp_list(duthost)
+
+            disable_macsec_port(duthost, ctrl_port)
+            disable_macsec_port(nbr["host"], nbr["port"])
+            wait_until(20, 3, 0,
+                lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                        not nbr["host"].iface_macsec_ok(nbr["port"]))
+            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
+
+            enable_macsec_port(duthost, ctrl_port, profile_name)
+            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            wait_until(20, 3, 0,
+                lambda: duthost.iface_macsec_ok(ctrl_port) and
+                        nbr["host"].iface_macsec_ok(nbr["port"]))
+            assert wait_until(1, 1, LLDP_TIMEOUT,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
+
+    def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
+        '''Verify BGP neighbourship
+        '''
+        bgp_config = duthost.get_running_config_facts()[
+            "BGP_NEIGHBOR"].values()[0]
+        BGP_KEEPALIVE = int(bgp_config["keepalive"])
+        BGP_HOLDTIME = int(bgp_config["holdtime"])
+
+        def check_bgp_established(up_link):
+            command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(
+                up_link["local_ipv4_addr"])
+            fact = sonic_db_cli(duthost, command)
+            logger.info("bgp state {}".format(fact))
+            return fact["state"] == "Established"
+
+        # Ensure the BGP sessions have been established
+        for ctrl_port in ctrl_links.keys():
+            assert wait_until(30, 5, 0,
+                              check_bgp_established, upstream_links[ctrl_port])
+
+        # Check the BGP sessions are present after port macsec disabled
+        for ctrl_port, nbr in ctrl_links.items():
+            disable_macsec_port(duthost, ctrl_port)
+            disable_macsec_port(nbr["host"], nbr["port"])
+            wait_until(20, 3, 0,
+                lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                        not nbr["host"].iface_macsec_ok(nbr["port"]))
+            # BGP session should keep established even after holdtime
+            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, upstream_links[ctrl_port])
+
+        # Check the BGP sessions are present after port macsec enabled
+        for ctrl_port, nbr in ctrl_links.items():
+            enable_macsec_port(duthost, ctrl_port, profile_name)
+            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            wait_until(20, 3, 0,
+                lambda: duthost.iface_macsec_ok(ctrl_port) and
+                        nbr["host"].iface_macsec_ok(nbr["port"]))
+            # Wait PortChannel up, which might flap if having one port member
+            wait_until(20, 5, 5, lambda: find_portchannel_from_member(
+                ctrl_port, get_portchannel(duthost))["status"] == "Up")
+            # BGP session should keep established even after holdtime
+            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, upstream_links[ctrl_port])
+
+    def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
+        '''
+        Verify SNMP request/response works across interface with macsec configuration
+        '''
+        for ctrl_port, nbr in ctrl_links.items():
+            if isinstance(nbr["host"], EosHost):
+                result = nbr["host"].eos_command(
+                    commands=['show snmp community | include name'])
+                community = re.search(r'Community name: (\S+)',
+                                      result['stdout'][0]).groups()[0]
+            else:  # vsonic neighbour
+                community = creds['snmp_rocommunity']
+
+            up_link = upstream_links[ctrl_port]
+            sysDescr = ".1.3.6.1.2.1.1.1.0"
+            command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
+                community, up_link["local_ipv4_addr"], sysDescr)
+            assert not duthost.command(command)["failed"]

@@ -16,31 +16,23 @@ def pytest_configure(config):
         "markers", "macsec_required: mark test as MACsec required to run")
 
 
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--neighbor_type") == "sonic":
-        return
-    skip_macsec = pytest.mark.skip(
-        reason="Neighbor devices don't support MACsec")
-    for item in items:
-        if "macsec_required" in item.keywords:
-            item.add_marker(skip_macsec)
-
-
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
 
     def check_macsec_enabled():
         for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+            if isinstance(nbr, EosHost):
+                continue
             if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
                 return False
             if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
                 return False
         return True
-    assert wait_until(180, 1, 1, check_macsec_enabled)
+    assert wait_until(180, 5, 5, check_macsec_enabled)
     logger.info("Enable MACsec feature")
     yield
-    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disable")
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
 
 
 @pytest.fixture(scope="module")
@@ -52,9 +44,10 @@ def profile_name():
 def default_priority():
     return 64
 
-
 @pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
+    if request.config.getoption("--neighbor_type") == "eos" and "XPN" in request.param:
+        pytest.skip("{} is not supported on neighbor EOS".format(request.param))
     return request.param
 
 
@@ -85,6 +78,8 @@ def policy(request):
 
 @pytest.fixture(scope="module", params=["true", "false"])
 def send_sci(request):
+    if request.param == "false" and request.config.getoption("--neighbor_type") == "eos":
+        pytest.skip("EOS with send_sci false does not work due to portchannel mac not matching ether port mac!")
     return request.param
 
 
