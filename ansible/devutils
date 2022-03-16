@@ -251,7 +251,7 @@ def action_pdu(parameters, action):
             data.append(status)
         else:
             data.append([status[x] for x in header])
-    
+
     return header, data
 
 
@@ -368,6 +368,9 @@ def main():
             print("If you are sure to do pdu action to all devices, please use -l/--limit all.")
             return
     hosts = retrieve_hosts(args.group, args.limit)
+    if not hosts:
+        print('No matching hosts')
+        return
     get_conn_graph_facts(hosts)
     actions = {'list': action_list,
                'ping': action_ping,
