@@ -99,7 +99,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
     return minigraph_facts
 
 @pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
-def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds):
+def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds, tbinfo):
     """
     Paramterized fixture that tests the Disabled, Enabled, and Cleanup configs for VxLAN
 
@@ -140,7 +140,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     elif request.param == "WR_ARP":
         testWrArp = test_wr_arp.TestWrArp()
-        test_wr_arp.TestWrArp.testWrArp(testWrArp, request, duthost, ptfhost, creds)
+        testWrArp.Setup(duthost, ptfhost, tbinfo)
+        try:
+            test_wr_arp.TestWrArp.testWrArp(testWrArp, request, duthost, ptfhost, creds)
+        finally:
+            testWrArp.Teardown(duthost)
 
     return vxlan_enabled, request.param
 
