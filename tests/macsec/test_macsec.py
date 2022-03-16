@@ -81,7 +81,7 @@ class TestControlPlane():
                                   nbr_mka_session[nbr_macsec_port], nbr_sci,
                                   policy, cipher_suite, send_sci)
             return True
-        assert wait_until(300, 1, 1, _test_mka_session)
+        assert wait_until(300, 5, 3, _test_mka_session)
 
 
 class TestDataPlane():

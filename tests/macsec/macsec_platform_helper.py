@@ -131,6 +131,7 @@ def find_portchannel_from_member(port_name, portchannel_list):
             return v
     return None
 
+
 def get_lldp_list(host):
     '''
         Here is an output example of `show lldp table`
