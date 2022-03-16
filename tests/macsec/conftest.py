@@ -16,31 +16,23 @@ def pytest_configure(config):
         "markers", "macsec_required: mark test as MACsec required to run")
 
 
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--neighbor_type") == "sonic":
-        return
-    skip_macsec = pytest.mark.skip(
-        reason="Neighbor devices don't support MACsec")
-    for item in items:
-        if "macsec_required" in item.keywords:
-            item.add_marker(skip_macsec)
-
-
 @pytest.fixture(scope="module")
 def enable_macsec_feature(duthost, nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
 
     def check_macsec_enabled():
         for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+            if isinstance(nbr, EosHost):
+                continue
             if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
                 return False
             if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
                 return False
         return True
-    assert wait_until(180, 1, 1, check_macsec_enabled)
+    assert wait_until(180, 5, 5, check_macsec_enabled)
     logger.info("Enable MACsec feature")
     yield
-    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disable")
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
 
 
 @pytest.fixture(scope="module")
@@ -52,9 +44,10 @@ def profile_name():
 def default_priority():
     return 64
 
-
 @pytest.fixture(scope="module", params=["GCM-AES-128", "GCM-AES-256", "GCM-AES-XPN-128", "GCM-AES-XPN-256"])
 def cipher_suite(request):
+    if request.config.getoption("--neighbor_type") == "eos" and "XPN" in request.param:
+        pytest.skip("{} is not supported on neighbor EOS".format(request.param))
     return request.param
 
 
@@ -85,6 +78,8 @@ def policy(request):
 
 @pytest.fixture(scope="module", params=["true", "false"])
 def send_sci(request):
+    if request.param == "false" and request.config.getoption("--neighbor_type") == "eos":
+        pytest.skip("EOS with send_sci false does not work due to portchannel mac not matching ether port mac!")
     return request.param
 
 
@@ -113,14 +108,17 @@ def upstream_links(duthost, tbinfo, nbrhosts):
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ipaddress.ip_address(item["addr"]), ipaddress.IPv4Address):
-                        ipv4_addr = item["addr"]
+                        local_ipv4_addr = item["addr"]
+                        peer_ipv4_addr = item["peer_addr"]
                         break
             port = mg_facts["minigraph_neighbors"][interface]["port"]
             links[interface] = {
                 "name": neighbor["name"],
                 "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "ipv4_addr": ipv4_addr,
-                "port": port
+                "local_ipv4_addr": local_ipv4_addr,
+                "peer_ipv4_addr": peer_ipv4_addr,
+                "port": port,
+                "host": nbrhosts[neighbor["name"]]["host"]
             }
     find_links(duthost, tbinfo, filter)
     return links
@@ -140,7 +138,8 @@ def ctrl_links(duthost, tbinfo, nbrhosts):
 def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
     unctrl_nbr_names = set(nbrhosts.keys())
     for _, nbr in ctrl_links.items():
-        unctrl_nbr_names.remove(nbr["name"])
+        if nbr["name"] in unctrl_nbr_names:
+            unctrl_nbr_names.remove(nbr["name"])
     logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
