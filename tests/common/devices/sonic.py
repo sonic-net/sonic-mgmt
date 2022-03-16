@@ -1193,6 +1193,20 @@ Totals               6450                 6449
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
 
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            cmd = 'sonic-db-cli STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return False
+
     def get_container_autorestart_states(self):
         """
         @summary: Get container names and their autorestart states by analyzing

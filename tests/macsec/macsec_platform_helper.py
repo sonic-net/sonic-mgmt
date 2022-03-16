@@ -5,11 +5,15 @@ from multiprocessing.pool import ThreadPool
 
 import pytest
 
+from tests.common.devices.eos import EosHost
+
 
 def global_cmd(duthost, nbrhosts, cmd):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(duthost.command, args=(cmd,))
     for nbr in nbrhosts.values():
+        if isinstance(nbr["host"], EosHost):
+            continue
         pool.apply_async(nbr["host"].command, args=(cmd, ))
     pool.close()
     pool.join()
@@ -59,12 +63,13 @@ def get_all_ifnames(host):
 
 
 def get_eth_ifname(host, port_name):
-    if u"x86_64-kvm_x86_64" not in get_platform(host):
-        logging.info("Can only get the eth ifname on the virtual SONiC switch")
-        return None
-    ports = get_all_ifnames(host)
-    assert port_name in ports["Ethernet"]
-    return ports["eth"][ports["Ethernet"].index(port_name)]
+    if u"x86_64-kvm_x86_64" in get_platform(host):
+        logging.info("Get the eth ifname on the virtual SONiC switch")
+        ports = get_all_ifnames(host)
+        assert port_name in ports["Ethernet"]
+        return ports["eth"][ports["Ethernet"].index(port_name)]
+    # Same as port_name
+    return port_name
 
 
 def get_macsec_ifname(host, port_name):
@@ -81,6 +86,8 @@ def get_macsec_ifname(host, port_name):
 
 
 def get_platform(host):
+    if isinstance(host, EosHost):
+        return "Arista"
     for line in host.command("show platform summary")["stdout_lines"]:
         if "Platform" == line.split(":")[0]:
             return line.split(":")[1].strip()
@@ -123,3 +130,26 @@ def find_portchannel_from_member(port_name, portchannel_list):
         if port_name in v["members"]:
             return v
     return None
+
+
+def get_lldp_list(host):
+    '''
+        Here is an output example of `show lldp table`
+            Capability codes: (R) Router, (B) Bridge, (O) Other
+            LocalPort    RemoteDevice    RemotePortID    Capability    RemotePortDescr
+            -----------  --------------  --------------  ------------  -----------------
+            Ethernet112  ARISTA01T1      Ethernet1       BR
+            Ethernet116  ARISTA02T1      Ethernet1       BR
+            Ethernet120  ARISTA03T1      Ethernet1       BR
+            Ethernet124  ARISTA04T1      Ethernet1       BR
+            --------------------------------------------------
+            Total entries displayed:  4
+    '''
+    lines = host.command("show lldp table")["stdout_lines"]
+    lines = lines[3:-2]  # Remove the output header
+    lldp_list = {}
+    for line in lines:
+        items = line.split()
+        lldp = items[1]
+        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
+    return lldp_list
