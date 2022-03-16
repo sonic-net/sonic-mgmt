@@ -21,7 +21,6 @@ pytestmark=[
     pytest.mark.topology('t1'),
 ]
 CONFIGS_DIR=os.path.dirname(os.path.realpath(__file__))
-#DUT_TMP_DIR='/tmp'
 ADD_DIR=os.path.join(CONFIGS_DIR, 'configs')
 
 LABEL_POP_ROUTES='label_pop_routes'
