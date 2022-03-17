@@ -59,10 +59,7 @@ class DataplaneBaseTest(BaseTest):
         icmp6 /= PrefixInfo(type=3, len=4)
         rapkt = ether / ip6 / icmp6
         scapy2.sendp(rapkt, iface="eth1")
-        # sleep(4)
         logging.info(scapy2.sniff(iface='eth1',timeout=10))
-        # testutils.send_packet(self, 0, rapkt)
-        # testutils.verify_packet_any_port(self, rapkt, [self.ptf_port_index])
         return rapkt
 
     """
@@ -150,10 +147,7 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
         testutils.verify_packet(self,
                                 self.masked_rapkt,
                                 self.ptf_port_index,
-                                self.radv_max_ra_interval+1)
-        logging.info("Received unsolicited RA from:%s on PTF eth%d",
-                     self.downlink_vlan_ip6,
-                     self.ptf_port_index)
+                                self.radv_max_ra_interval)
         logging.info("Received unsolicited RA from:%s on PTF eth%d having M=1",
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)
@@ -161,10 +155,8 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
         logging.info(sk)
 
     def runTest(self):
-        count = 5
-        while count > 0:
-            self.verify_periodic_router_advertisement_with_m_flag()
-            count = count - 1
+        self.verify_periodic_router_advertisement_with_m_flag()
+        
 
 """
 @summary: This test validates the solicited router advertisement sent on the VLAN network of the ToR
@@ -238,9 +230,6 @@ class RadvSolicitedRATest(DataplaneBaseTest):
                                 self.masked_rapkt,
                                 self.ptf_port_index,
                                 ICMPV6_SOLICITED_RA_TIMEOUT_SECS)
-        logging.info("Received solicited RA from:%s on PTF eth%d",
-                     self.downlink_vlan_ip6,
-                     self.ptf_port_index)
         logging.info("Received solicited RA from:%s on PTF eth%d having M=1",
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)

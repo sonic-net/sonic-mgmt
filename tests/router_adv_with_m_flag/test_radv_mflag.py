@@ -18,8 +18,6 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-RADV_CONF_FILE = '/etc/radvd.conf'
-RADV_BACKUP_CONF_FILE = '/tmp/radvd.conf'
 RADV_MIN_RA_INTERVAL_SECS = 3
 RADV_MAX_RA_INTERVAL_SECS = 4
 
@@ -76,40 +74,6 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
 """
 
-def dut_update_ra_interval(duthost, ra, interval):
-    logging.info("Updating %s to %d in RADVd's config file:%s", ra, int(interval), RADV_CONF_FILE)
-    cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)
-    duthost.shell("docker exec radv {}".format(cmd))
-
-"""
-@summary: A fixture that updates the RADVd's periodic RA update intervals and restores the
-intervals to old values after the test
-
-"""
-@pytest.fixture
-def dut_update_radv_periodic_ra_interval(duthost):
-    pytest_assert(duthost.is_service_fully_started('radv'), "radv service not running")
-
-    cmd = 'docker exec radv [ -f {} ] && echo "1" || echo "0"'.format(RADV_CONF_FILE)
-    pytest_assert(u'1' == duthost.shell(cmd)["stdout"], "radv conf file {} NOT found".format(RADV_CONF_FILE))
-
-    # Take backup of original radvd.conf before updating
-    duthost.shell('docker exec radv cp {} {}'.format(RADV_CONF_FILE, RADV_BACKUP_CONF_FILE))
-
-    dut_update_ra_interval(duthost, "MinRtrAdvInterval", RADV_MIN_RA_INTERVAL_SECS)
-    dut_update_ra_interval(duthost, "MaxRtrAdvInterval", RADV_MAX_RA_INTERVAL_SECS)
-
-    # Notify RADVd to read the updated RA intervals
-    logging.info("Notifying RADVd to read the updated config file:%s", RADV_CONF_FILE)
-    duthost.shell("docker exec radv supervisorctl signal SIGHUP radvd")
-
-    yield
-    # Restore the original radvd.conf file
-    duthost.shell('docker exec radv cp {} {}'.format(RADV_BACKUP_CONF_FILE, RADV_CONF_FILE))
-    duthost.shell('docker exec radv rm -f {}'.format(RADV_BACKUP_CONF_FILE))
-    duthost.shell("docker exec radv supervisorctl signal SIGHUP radvd")
-    logging.info("Successfully restored RADVd's config back to original")
-
 """
 @summary: Test validates the RADVd's periodic router advertisement sent on each VLAN interface
 
@@ -118,7 +82,7 @@ def test_unsolicited_router_advertisement(
                     request, tbinfo,
                     duthost, ptfhost,
                     radv_test_setup,
-                    dut_update_radv_periodic_ra_interval):
+                    ):
     if 'dualtor' in tbinfo['topo']['name']:
         request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
@@ -135,7 +99,7 @@ def test_unsolicited_router_advertisement(
                            "downlink_vlan_mac": vlan_intf['downlink_vlan_intf']['mac'],
                            "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
-                           "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
+                           "max_ra_interval": 180},
                    log_file="/tmp/router_adv_mflag_test.RadvUnSolicitedRATest.log")
 
 """
