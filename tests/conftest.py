@@ -1385,18 +1385,22 @@ def collect_db_dump_on_duts(request, duthosts):
         dbs = set()
         result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
         db_config = json.loads(result['stdout'])
+        state_db_id = db_config['DATABASES']['STATE_DB']['id']
         for db in db_config['DATABASES']:
             db_id = db_config['DATABASES'][db]['id']
             dbs.add(db_id)
 
-        namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else ['']
-        if namespace_list != ['']:
+        namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
+        if namespace_list:
             for namespace in namespace_list:
                 # Collect DB dump
                 db_dump_path = os.path.join(dut_file_path + "/" + namespace, request.module.__name__, request.node.name)
-                duthosts.file(path = db_dump_path, state="directory")
+                duthosts.file(path=db_dump_path, state="directory")
                 for i in dbs:
-                    duthosts.shell("ip netns exec {} redis-ducmp -d {} -y -o {}/{}".format(namespace, i, db_dump_path, i))
+                    if i == state_db_id and duthosts[0].sonic_release in ['201911']:
+                        continue
+                    else:
+                        duthosts.shell("ip netns exec {} redis-ducmp -d {} -y -o {}/{}".format(namespace, i, db_dump_path, i))
         else:
             # Collect DB dump
             db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
