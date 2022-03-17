@@ -1,5 +1,6 @@
 import argparse
 
+from concurrent.futures.thread import ThreadPoolExecutor
 from scapy.all import conf, Ether, ICMP, IP
 from scapy.arch import get_if_hwaddr
 from scapy.data import ETH_P_IP
@@ -28,8 +29,7 @@ class ICMPSniffer(object):
     """Sniff ICMP packets."""
 
     TYPE_ECHO_REQUEST = 8
-
-    def __init__(self, ifaces, request_handler=None, dst_mac=None):
+    def __init__(self, iface, request_handler=None, dst_mac=None):
         """
         Init ICMP sniffer.
 
@@ -39,9 +39,8 @@ class ICMPSniffer(object):
         """
         self.sniff_sockets = []
         self.iface_hwaddr = {}
-        for iface in ifaces:
-            self.sniff_sockets.append(conf.L2socket(type=ETH_P_IP, iface=iface, filter="icmp"))
-            self.iface_hwaddr[iface] = get_if_hwaddr(iface)
+        self.sniff_sockets.append(conf.L2socket(type=ETH_P_IP, iface=iface, filter="icmp"))
+        self.iface_hwaddr[iface] = get_if_hwaddr(iface)
         self.request_handler = request_handler
         self.dst_mac = dst_mac
 
@@ -67,5 +66,7 @@ if __name__ == "__main__":
     ifaces = args.ifaces
     dst_mac = args.dst_mac
 
-    icmp_sniffer = ICMPSniffer(ifaces, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
-    icmp_sniffer()
+    with ThreadPoolExecutor(max_workers=24) as executor:
+        for iface in ifaces:
+            icmp_sniffer = ICMPSniffer(iface, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
+            executor.submit(icmp_sniffer)
