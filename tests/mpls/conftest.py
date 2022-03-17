@@ -24,7 +24,6 @@ def setup(duthost, tbinfo, ptfadapter):
 
     # gather ansible facts
     mg_facts=duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    int_facts=duthost.interface_facts()['ansible_facts']
     host_facts=duthost.setup()['ansible_facts']
 
     tor_ports_ids={}
