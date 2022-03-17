@@ -151,8 +151,7 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
         logging.info("Received unsolicited RA from:%s on PTF eth%d having M=1",
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)
-        sk=scapy2.sniff(iface='eth1',timeout=10)
-        logging.info(sk)
+
 
     def runTest(self):
         self.verify_periodic_router_advertisement_with_m_flag()
