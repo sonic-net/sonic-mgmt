@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import pprint
@@ -6,14 +5,9 @@ import ptf.mask as mask
 import ptf.packet as packet
 import ptf.testutils as testutils
 import pytest
-import random
 import time
 
 from abc import ABCMeta, abstractmethod
-from tests.common import reboot, port_toggle
-from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_module
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger=logging.getLogger(__name__)
 
@@ -136,7 +130,7 @@ class BaseMplsTest(object):
         exp_pkt['Ethernet'].type=0x0800
         exp_pkt['Ethernet'].remove_payload()
         exp_pkt /= pkt1
-        epkt=mask.Mask(epkt)
+        exp_pkt=mask.Mask(exp_pkt)
         exp_pkt=mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
@@ -254,6 +248,7 @@ class BaseMplsTest(object):
         testutils.send(ptfadapter, src_pid, pkt)
         try:
             res=testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[dst_pid])
+            logger.info(res)
         except Exception as e:
             self.teardown_labels(setup)
             pytest.fail('MPLS swap test failed \n' + str(e)) 
