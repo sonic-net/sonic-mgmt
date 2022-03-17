@@ -221,10 +221,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
 
 
 def get_port_indices_for_asic(asic_id, port_name_list_sorted):
-    front_end_port_name_list = [p for p in port_name_list_sorted if 'BP' not in p]
-    back_end_port_name_list = [p for p in port_name_list_sorted if 'BP' in p]
+    front_end_port_name_list = [p for p in port_name_list_sorted if 'BP' not in p and 'IB' not in p and 'Rec' not in p]
+    back_end_port_name_list = [p for p in port_name_list_sorted if 'BP' in p or 'IB' in p or 'Rec' in p]
     index_offset = 0
-   # Create mapping between port alias and physical index
+    # Create mapping between port alias and physical index
     port_index_map = {}
     if asic_id:
         index_offset = int(asic_id) *len(front_end_port_name_list)
