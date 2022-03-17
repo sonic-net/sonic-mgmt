@@ -215,6 +215,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_EXTRA_OVERHEAD
     global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
+    global MAX_SPEED_8LANE_PORT
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -228,6 +229,7 @@ def load_test_parameters(duthost):
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(duthost.facts['platform'])
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
@@ -748,9 +750,9 @@ def make_expected_profile_name(speed, cable_length, **kwargs):
     if ASIC_TYPE == 'mellanox':
         number_of_lanes = kwargs.get('number_of_lanes')
         if number_of_lanes is not None:
-            if number_of_lanes == 8 and speed != '400000':
+            if number_of_lanes == 8 and speed != MAX_SPEED_8LANE_PORT:
                 expected_profile += '8lane_'
-        elif NUMBER_OF_LANES == 8 and speed != '400000':
+        elif NUMBER_OF_LANES == 8 and speed != MAX_SPEED_8LANE_PORT:
             expected_profile += '8lane_'
     expected_profile += 'profile'
     return expected_profile
