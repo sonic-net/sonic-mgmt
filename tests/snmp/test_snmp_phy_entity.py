@@ -621,7 +621,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     pdu_controller.turn_off_outlet(first_outlet)
     assert wait_until(30, 5, 0, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
-    assert wait_until(180, 20, 0, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
+    assert wait_until(180, 20, 5, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
