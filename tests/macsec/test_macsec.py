@@ -299,13 +299,14 @@ class TestInteropProtocol():
 
         # select one macsec link
         for ctrl_port, nbr in ctrl_links.items():
-            if send_sci is False and isinstance(nbr["host"], SonicHost):
+            if send_sci is "false" and isinstance(nbr["host"], SonicHost):
                 # The MAC address of SONiC host is locally administrated
                 # So, LLDPd will use an arbitrary fixed value (00:60:08:69:97:ef) as the source MAC address of LLDP packet (https://lldpd.github.io/usage.html)
                 # But the MACsec driver in Linux used by SONiC VM has a bug that cannot handle the packet with different source MAC address to SCI if the send_sci = false
                 # So, if send_sci = false and the neighbor device is SONiC VM, LLDPd need to use the real MAC address as the source MAC address
                 nbr["host"].command("lldpcli configure system bond-slave-src-mac-type real")
-            assert nbr["name"] in get_lldp_list(duthost)
+            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
 
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
@@ -322,7 +323,7 @@ class TestInteropProtocol():
                         nbr["host"].iface_macsec_ok(nbr["port"]))
             assert wait_until(1, 1, LLDP_TIMEOUT,
                             lambda: nbr["name"] in get_lldp_list(duthost))
-            if send_sci is False and isinstance(nbr["host"], SonicHost):
+            if send_sci is "false" and isinstance(nbr["host"], SonicHost):
                 # pytest.skip("test_lldp has issue with vsonic neighbor")
                 nbr["host"].command("lldpcli configure system bond-slave-src-mac-type local")
 
