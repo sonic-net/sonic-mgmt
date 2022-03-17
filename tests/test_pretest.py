@@ -4,6 +4,7 @@ import os
 import pytest
 import random
 import time
+from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
@@ -262,21 +263,24 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
 
 def prepare_autonegtest_params(duthosts, fanouthosts):
     from tests.common.platform.device_utils import list_dut_fanout_connections
-    
+
     cadidate_test_ports = {}
-
-    for duthost in duthosts:
-        all_ports = list_dut_fanout_connections(duthost, fanouthosts)
-
-        cadidate_test_ports[duthost.hostname] = {}
-        for dut_port, fanout, fanout_port in all_ports:
-            auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-            if auto_neg_mode is not None:
-                cadidate_test_ports[duthost.hostname][dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port}
-    folder = 'metadata'
-    filepath = os.path.join(folder, 'autoneg-test-params.json')
+    max_interfaces_per_dut = 3
+    filepath = os.path.join('metadata', 'autoneg-test-params.json')
     try:
+        for duthost in duthosts:
+            all_ports = list_dut_fanout_connections(duthost, fanouthosts)
+
+            cadidate_test_ports[duthost.hostname] = {}
+            for dut_port, fanout, fanout_port in all_ports:
+                if len(cadidate_test_ports[duthost.hostname]) == max_interfaces_per_dut:
+                    break
+                auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
+                if auto_neg_mode is not None:
+                    speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
+                    cadidate_test_ports[duthost.hostname][dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port, 'common_port_speeds': speeds}
+
         with open(filepath, 'w') as yf:
             json.dump(cadidate_test_ports, yf, indent=4)
-    except IOError as e:
-        logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
+    except Exception as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))

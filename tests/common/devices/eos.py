@@ -260,7 +260,13 @@ class EosHost(AnsibleHostBase):
         return v[:-1] + '000'
 
     def _has_cli_cmd_failed(self, cmd_output_obj):
-        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
+        err_out = False
+        if 'stdout' in cmd_output_obj:
+            stdout = cmd_output_obj['stdout']
+            msg = stdout[-1] if type(stdout) == list else stdout
+            err_out = 'Cannot advertise' in msg
+            
+        return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
 
     def set_speed(self, interface_name, speed):
 
@@ -272,9 +278,15 @@ class EosHost(AnsibleHostBase):
 
         speed_mode = 'auto' if self.get_auto_negotiation_mode(interface_name) else 'forced'
         speed = speed[:-3] + 'gfull'
-        out = self.host.eos_config(
-                lines=['speed {} {}'.format(speed_mode, speed)],
-                parents='interface %s' % interface_name)[self.hostname]
+
+        out = self.host.eos_command(commands=[
+            'conf',
+            'interface %s' % interface_name,
+            {
+                'command': 'speed {} {}'.format(speed_mode, speed),
+                'prompt':['Do you wish to proceed with this command'],
+                'answer':['y']}
+            ])[self.hostname]
         logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
         return not self._has_cli_cmd_failed(out)
 

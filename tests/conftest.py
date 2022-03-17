@@ -1269,8 +1269,14 @@ def pytest_generate_tests(metafunc):
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
-    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", parametrise_autoneg_tests(), scope="module")
+
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames or "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+        autoneg_tests_data = get_autoneg_tests_data()
+        if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+            metafunc.parametrize("enum_dut_portname_module_fixture", autoneg_tests_data, scope="module", ids=lambda p: "{}|{}|{}".format(p['dutname'], p['port'], ','.join(p['speeds'])), indirect=True)
+        if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+            metafunc.parametrize("enum_speed_per_dutport_fixture", parametrise_per_supported_port_speed(autoneg_tests_data), scope="module", ids=lambda p: "{}|{}|{}".format(p['dutname'], p['port'], p['speed']), indirect=True)
+
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -1292,23 +1298,27 @@ def pytest_generate_tests(metafunc):
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
 
-
-def parametrise_autoneg_tests():
+def get_autoneg_tests_data():
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
+    if not os.path.exists(filepath):
+        logger.warning('Autoneg tests datafile is missing: {}. Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
+        return [{'dutname': 'unknown', 'port': 'unknown', 'speeds': ['unknown']}]
     data = {}
-    try:
-        with open(filepath) as yf:
-            data = json.load(yf)
-    except IOError:
-        logger.warning('Cannot find a datafile for autoneg tests at {}. Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
-        return []
+    with open(filepath) as yf:
+        data = json.load(yf)
+        
+    return [
+        {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']} 
+        for dutname, ports in data.items() 
+        for dutport, portinfo in ports.items()
+    ]
 
-    def limit_ports(ports):
-        return random.sample(ports, min(3, len(ports)))
-
-    return [encode_dut_port_name(dutname,dutport) for dutname in data for dutport in limit_ports(data[dutname]) ]
-
+def parametrise_per_supported_port_speed(data):
+    return [
+        {'dutname': conn_info['dutname'], 'port': conn_info['port'], 'speed': speed}
+        for conn_info in data for speed in conn_info['speeds']
+    ]
 
 ### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
 @pytest.fixture(scope="module")
