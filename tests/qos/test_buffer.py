@@ -2038,7 +2038,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
         logging.info('[Find out the longest cable length the port can support]')
-        cable_length = 300
+        cable_length = int(original_cable_len[:-1])
         cable_length_step = 128
         while True:
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
@@ -2643,9 +2643,10 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     xon_value = 0
     headroom_size = 0
     speed_overhead = 0
+    pipeline_latency = PIPELINE_LATENCY
 
     if is_8lane:
-        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
+        pipeline_latency = PIPELINE_LATENCY * 2 - 1024
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
@@ -2671,7 +2672,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
     xoff_value = math.ceil(xoff_value / 1024) * 1024
-    xon_value = PIPELINE_LATENCY
+    xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:
