@@ -1388,8 +1388,12 @@ def collect_db_dump_on_duts(request, duthosts):
         state_db_id = db_config['DATABASES']['STATE_DB']['id']
         for db in db_config['DATABASES']:
             db_id = db_config['DATABASES'][db]['id']
-            # Skip STATE_DB dump on release 201911
-            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release
+            # Skip STATE_DB dump on release 201911.
+            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
+            # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
+            # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
+            # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
+            # to avoid raising exception when dumping the STATE_DB.
             if i == state_db_id and duthosts[0].sonic_release in ['201911']:
                 continue
             dbs.add(db_id)
