@@ -1438,7 +1438,7 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
-        db_dump_tarfile = "{}.tar.gz".format(dut_file_path)
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
 
         # Collect DB config
         dbs = set()
