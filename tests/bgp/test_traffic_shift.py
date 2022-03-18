@@ -6,6 +6,8 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 import re
 
+from tests.common.platform.processes_utils import wait_critical_processes
+
 pytestmark = [
     pytest.mark.topology('t1')
 ]
@@ -226,3 +228,4 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown):
 
         # Recover to Normal state
         duthost.shell("TSB")
+        wait_critical_processes(duthost)
