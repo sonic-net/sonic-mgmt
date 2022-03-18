@@ -73,7 +73,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 
 def get_topo_type(topo_name):
-    pattern = re.compile(r'^(t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
+    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -190,6 +190,14 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                                 continue
                             elif podset == 1 and set_num != 1:
                                 continue
+                    elif topo == 't0-mclag':
+                        if podset > 1:
+                            continue
+                        if set_num is not None:
+                            if podset == 0 and set_num != 0:
+                                continue
+                            elif podset == 1 and set_num != 1:
+                                continue
                     else:
                         # Skip tor 0 podset 0 for T1
                         if podset == 0 and tor == 0:
@@ -224,6 +232,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     aspath = "{} {}".format(leaf_asn, tor_asn)
                 elif router_type == "leaf":
                     if topo == "t2":
+                        aspath = "{}".format(tor_asn)
+                    elif topo == "t0-mclag":
                         aspath = "{}".format(tor_asn)
                     else:
                         if podset == 0:
@@ -434,6 +444,43 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
                         routes_vips.append((prefix, nhipv4, vms_config[a_vm]["vips"]["ipv4"]["asn"]))
                     change_routes(action, ptf_ip, port, routes_vips)
 
+def fib_t0_mclag(topo, ptf_ip, action="announce"):
+    common_config = topo['configuration_properties'].get('common', {})
+    podset_number = common_config.get("podset_number", PODSET_NUMBER)
+    tor_number = common_config.get("tor_number", TOR_NUMBER)
+    tor_subnet_number = common_config.get("tor_subnet_number", TOR_SUBNET_NUMBER)
+    max_tor_subnet_number = common_config.get("max_tor_subnet_number", MAX_TOR_SUBNET_NUMBER)
+    tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    spine_asn = common_config.get("spine_asn", SPINE_ASN)
+    leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
+    tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    vms = topo['topology']['VMs']
+    all_vms = sorted(vms.keys())
+
+    for vm_indx, vm in enumerate(all_vms):
+        if len(all_vms) == 1:
+            set_num = None
+        elif vm_indx < 1:
+            set_num = 0
+        else:
+            set_num = 1
+        vm_offset = vms[vm]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                    spine_asn, leaf_asn_start, tor_asn_start,
+                                    nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number,
+                                    "t0-mclag", set_num=set_num)
+        routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                    spine_asn, leaf_asn_start, tor_asn_start,
+                                    nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number,
+                                    "t0-mclag", set_num=set_num)
+
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
 
 def main():
     module = AnsibleModule(
@@ -467,6 +514,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "t2":
             fib_t2_lag(topo, ptf_ip, action=action)
+            module.exit_json(changed=True)
+        elif topo_type == "t0-mclag":
+            fib_t0_mclag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         else:
             module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))

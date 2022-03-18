@@ -124,6 +124,7 @@ PTF_MGMT_IF_TEMPLATE = 'ptf-%s-m'
 PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
+OVS_INTERCONNECTION_BRIDGE_TEMPLATE = 'bic-%s-%s'
 RETRIES = 10
 # name of interface must be less than or equal to 15 bytes.
 MAX_INTF_LEN = 15
@@ -274,6 +275,11 @@ class VMTopology(object):
             self.disabled_host_interfaces = self.topo['disabled_host_interfaces']
         else:
             self.disabled_host_interfaces = []
+
+        if 'devices_interconnect_interfaces' in self.topo:
+            self.devices_interconnect_interfaces = self.topo['devices_interconnect_interfaces']
+        else:
+            self.devices_interconnect_interfaces = []
 
         self.duts_fp_ports = duts_fp_ports
 
@@ -556,6 +562,41 @@ class VMTopology(object):
         if mgmt_port in if_to_br:
             VMTopology.cmd("brctl delif %s %s" % (if_to_br[mgmt_port], mgmt_port))
 
+    def bind_devices_interconnect(self):
+        for link_index, vlans in self.devices_interconnect_interfaces.items():
+            interconnection_bridge = OVS_INTERCONNECTION_BRIDGE_TEMPLATE % (self.vm_set_name, link_index)
+            self.create_ovs_bridge(interconnection_bridge, self.fp_mtu)
+            (dut_index, vlan_index, ptf_index) = VMTopology.parse_vm_vlan_port(vlans[0])
+            (dut_index_1, vlan_index_1, ptf_index_1) = VMTopology.parse_vm_vlan_port(vlans[-1])
+            vlan1_iface = self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)]
+            vlan2_iface = self.duts_fp_ports[self.duts_name[dut_index_1]][str(vlan_index_1)]
+            self.bind_devices_interconnect_ports(interconnection_bridge, vlan1_iface, vlan2_iface)
+
+    def unbind_devices_interconnect(self):
+        for link_index, vlans in self.devices_interconnect_interfaces.items():
+            interconnection_bridge = OVS_INTERCONNECTION_BRIDGE_TEMPLATE % (self.vm_set_name, link_index)
+            (dut_index, vlan_index, ptf_index) = VMTopology.parse_vm_vlan_port(vlans[0])
+            (dut_index_1, vlan_index_1, ptf_index_1) = VMTopology.parse_vm_vlan_port(vlans[-1])
+            vlan1_iface = self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)]
+            vlan2_iface = self.duts_fp_ports[self.duts_name[dut_index_1]][str(vlan_index_1)]
+            self.unbind_ovs_port(interconnection_bridge, vlan1_iface)
+            self.unbind_ovs_port(interconnection_bridge, vlan2_iface)
+            self.destroy_ovs_bridge(interconnection_bridge)
+
+    def bind_devices_interconnect_ports(self, br_name, vlan1_iface, vlan2_iface):
+        ports = VMTopology.get_ovs_br_ports(br_name)
+        if vlan1_iface not in ports:
+            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan1_iface))
+        if vlan2_iface not in ports:
+            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan2_iface))
+        bindings = VMTopology.get_ovs_port_bindings(br_name)
+        vlan1_iface_id = bindings[vlan1_iface]
+        vlan2_iface_id = bindings[vlan2_iface]
+        # clear old bindings
+        VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
+        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan1_iface_id, vlan2_iface_id))
+        VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan2_iface_id, vlan1_iface_id))
+
     def bind_fp_ports(self, disconnect_vm=False):
         """
         bind dut front panel ports to VMs
@@ -725,10 +766,11 @@ class VMTopology(object):
 
     def unbind_ovs_port(self, br_name, port):
         """unbind a port from an ovs bridge"""
-        ports = VMTopology.get_ovs_br_ports(br_name)
+        if VMTopology.intf_exists(br_name):
+            ports = VMTopology.get_ovs_br_ports(br_name)
 
-        if port in ports:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
+            if port in ports:
+                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
 
     def create_muxy_cable(self, host_ifindex, host_if, upper_if, lower_if, active_if_index=0):
         """
@@ -1194,6 +1236,28 @@ def check_topo(topo, is_multi_duts=False):
 
     return hostif_exists, vms_exists
 
+def check_devices_interconnect(topo, is_mutli_dut=False):
+    def _assert(condition, exctype, msg):
+        if not condition:
+            raise exctype(msg)
+
+    devices_interconnect_exists = False
+    all_vlans = set()
+    if 'devices_interconnect_interfaces' in topo:
+        links = topo['devices_interconnect_interfaces']
+        for key, vlans in links.items():
+            for vlan in vlans:
+                if is_mutli_dut:
+                    condition = (isinstance(vlan, str) and re.match(r"^\d+\.\d+(@\d+)?$", vlan))
+                    _assert(condition, ValueError,
+                            "topo['devices_interconnect_interfaces'][%s] should be a "
+                            "list of strings of format '<dut>.<dut_intf>' or '<dut>.<dut_intf>,<dut>.<dut_intf>'")
+                else:
+                    _assert(isinstance(vlan, int) and vlan >= 0, ValueError, "topo['devices_interconnect_interfaces'][%s] should be a list of integers" % key)
+                _assert(vlan not in all_vlans, ValueError, "topo['devices_interconnect_interfaces'][%s] double use of vlan: %s" % (key, vlan))
+                all_vlans.add(vlan)
+        devices_interconnect_exists = True
+    return devices_interconnect_exists
 
 def check_params(module, params, mode):
     for param in params:
@@ -1268,6 +1332,7 @@ def main():
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
             hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
+            devices_interconnect_exists = check_devices_interconnect(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -1305,6 +1370,10 @@ def main():
 
             if hostif_exists:
                 net.add_host_ports()
+
+            if devices_interconnect_exists:
+                net.bind_devices_interconnect()
+
         elif cmd == 'bind_keysight_api_server_ip':
             check_params(module, ['ptf_mgmt_ip_addr',
                                   'ptf_mgmt_ipv6_addr',
@@ -1336,6 +1405,7 @@ def main():
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
             hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
+            devices_interconnect_exists = check_devices_interconnect(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -1358,6 +1428,10 @@ def main():
 
             if hostif_exists:
                 net.remove_host_ports()
+
+            if devices_interconnect_exists:
+                net.unbind_devices_interconnect()
+
         elif cmd == 'renumber':
             check_params(module, ['vm_set_name',
                                   'topo',
@@ -1380,6 +1454,7 @@ def main():
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (VM_SET_NAME_MAX_LEN, vm_set_name, len(vm_set_name)))
 
             hostif_exists, vms_exists = check_topo(topo, is_multi_duts)
+            devices_interconnect_exists = check_devices_interconnect(topo, is_multi_duts)
 
             if vms_exists:
                 check_params(module, ['vm_base'], cmd)
@@ -1408,6 +1483,10 @@ def main():
 
             if hostif_exists:
                 net.add_host_ports()
+
+            if devices_interconnect_exists:
+                net.bind_devices_interconnect()
+
         elif cmd == 'connect-vms' or cmd == 'disconnect-vms':
             check_params(module, ['vm_set_name',
                                   'topo',
