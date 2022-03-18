@@ -45,6 +45,15 @@
 	    },
 	    "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:ingress_lossless_zero_profile]"],
 	    "BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]", "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]"]
+	},
+	"max_speed_8lane_platform": {
+		"x86_64-mlnx_msn4410-r0": "400000",
+		"x86_64-mlnx_msn4700-r0": "400000",
+		"x86_64-mlnx_msn4700_simx-r0": "400000",
+		"x86_64-nvidia_sn4800-r0": "400000",
+		"x86_64-nvidia_sn4800_simx-r0": "400000",
+		"x86_64-nvidia_sn5600-r0": "800000",
+		"x86_64-nvidia_sn5600_simx-r0": "800000"
 	}
     }
 }
