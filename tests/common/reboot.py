@@ -79,7 +79,7 @@ reboot_ctrl_dict = {
         "test_reboot_cause_only": True
     },
     REBOOT_TYPE_SAI_WARM: {
-        "command": "sai_warmboot.sh",
+        "command": "/usr/bin/sai_warmboot.sh",
         "timeout": 300,
         "wait": 90,
         "warmboot_finalizer_timeout": 30,
