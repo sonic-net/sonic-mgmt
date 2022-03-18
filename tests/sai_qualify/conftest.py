@@ -15,7 +15,8 @@ from tests.common.barefoot_data import is_barefoot_device
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
 from tests.common.system_utils.docker import tag_image
-from tests.common.reboot import *
+from tests.common.reboot import REBOOT_TYPE_SAI_WARM
+from tests.common.reboot import reboot
 from natsort import natsorted
 
 logger = logging.getLogger(__name__)
