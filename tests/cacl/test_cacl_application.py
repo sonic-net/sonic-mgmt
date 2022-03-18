@@ -175,6 +175,25 @@ ACL_SERVICES = {
     },
     "SSH": {
         "ip_protocols": ["tcp"],
+        "dst_ports": ["22"],
+        "multi_asic_ns_to_host_fwd": True
+    }
+}
+
+# For internal test, it has additional 50051 dst port for SSH iptable rules
+ACL_SERVICES_INTERNAL = {
+    "NTP": {
+        "ip_protocols": ["udp"],
+        "dst_ports": ["123"],
+        "multi_asic_ns_to_host_fwd": False
+    },
+    "SNMP": {
+        "ip_protocols": ["tcp", "udp"],
+        "dst_ports": ["161"],
+        "multi_asic_ns_to_host_fwd": True
+    },
+    "SSH": {
+        "ip_protocols": ["tcp"],
         "dst_ports": ["22", "50051"],
         "multi_asic_ns_to_host_fwd": True
     }
@@ -393,6 +412,11 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     rules_applied_from_config = 0
 
     cacl_tables = get_cacl_tables_and_rules(duthost)
+    # If nigthly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
+        cacl_services_standard = ACL_SERVICES_INTERNAL
+    else:
+        cacl_services_standard = ACL_SERVICES
 
     # Walk the ACL tables and generate an iptables rule for each rule
     for table in cacl_tables:
@@ -403,14 +427,14 @@ def generate_expected_rules(duthost, docker_network, asic_index):
         acl_services = table["services"]
 
         for acl_service in acl_services:
-            if acl_service not in ACL_SERVICES:
+            if acl_service not in cacl_services_standard:
                 logger.warning("Ignoring control plane ACL '{}' with unrecognized service '{}'"
                                .format(table["name"], acl_service))
                 continue
 
             # Obtain default IP protocol(s) and destination port(s) for this service
-            ip_protocols = ACL_SERVICES[acl_service]["ip_protocols"]
-            dst_ports = ACL_SERVICES[acl_service]["dst_ports"]
+            ip_protocols = cacl_services_standard[acl_service]["ip_protocols"]
+            dst_ports = cacl_services_standard[acl_service]["dst_ports"]
 
             table_ip_version = None
 
@@ -502,11 +526,16 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
     ip6tables_natrules.append("-P OUTPUT ACCEPT")
     ip6tables_natrules.append("-P POSTROUTING ACCEPT")
 
+    # If nigthly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
+        cacl_services_standard = ACL_SERVICES_INTERNAL
+    else:
+        cacl_services_standard = ACL_SERVICES
 
-    for acl_service in ACL_SERVICES:
-        if ACL_SERVICES[acl_service]["multi_asic_ns_to_host_fwd"]:
-            for ip_protocol in ACL_SERVICES[acl_service]["ip_protocols"]:
-                for dst_port in ACL_SERVICES[acl_service]["dst_ports"]:
+    for acl_service in cacl_services_standard:
+        if cacl_services_standard[acl_service]["multi_asic_ns_to_host_fwd"]:
+            for ip_protocol in cacl_services_standard[acl_service]["ip_protocols"]:
+                for dst_port in cacl_services_standard[acl_service]["dst_ports"]:
                     # IPv4 rules
                     iptables_natrules.append(
                                              "-A PREROUTING -p {} -m {} --dport {} -j DNAT --to-destination {}".format
@@ -548,6 +577,11 @@ def generate_expected_cacl_rules(duthost, ip_type):
 
     cacl_tables = get_cacl_tables_and_rules(duthost)
 
+    # If nigthly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
+        cacl_services_standard = ACL_SERVICES_INTERNAL
+    else:
+        cacl_services_standard = ACL_SERVICES
     # Walk the ACL tables and generate an iptables rule for each rule
     for table in cacl_tables:
         if len(table["rules"]) == 0:
@@ -557,14 +591,14 @@ def generate_expected_cacl_rules(duthost, ip_type):
         acl_services = table["services"]
 
         for acl_service in acl_services:
-            if acl_service not in ACL_SERVICES:
+            if acl_service not in cacl_services_standard:
                 logger.warning("Ignoring control plane ACL '{}' with unrecognized service '{}'"
                                .format(table["name"], acl_service))
                 continue
 
             # Obtain default IP protocol(s) and destination port(s) for this service
-            ip_protocols = ACL_SERVICES[acl_service]["ip_protocols"]
-            dst_ports = ACL_SERVICES[acl_service]["dst_ports"]
+            ip_protocols = cacl_services_standard[acl_service]["ip_protocols"]
+            dst_ports = cacl_services_standard[acl_service]["dst_ports"]
 
             # We assume the rules are already sorted by priority in descending order
             for rule in table["rules"]:
