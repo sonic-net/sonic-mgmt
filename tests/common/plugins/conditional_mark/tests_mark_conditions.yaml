@@ -1,4 +1,15 @@
 #######################################
+#####            acl              #####
+#######################################
+acl/test_acl_outer_vlan.py:
+  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000 
+  #For the current release, will mark the related test cases as XFAIL
+  xfail:
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+    conditions:
+      - asic_type=="cisco-8000"
+       
+#######################################
 #####            cacl             #####
 #######################################
 cacl/test_cacl_application.py::test_cacl_application:
