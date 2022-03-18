@@ -47,8 +47,19 @@
   become: yes
   when: host_distribution_version.stdout == "20.04" and docker_repo.matched == 0
 
+# In ansible 2.8, there isn't update_cache_retries option in apt module, we can manually run update as a seperate and retryable step
+- name: Run the "apt-get update" as a separate and retryable step
+  apt:
+    update_cache: yes
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  register: apt_update_res
+  until: apt_update_res.cache_updated
+  retries: 5
+  delay: 10
+
 - name: Install docker-ce
-  apt: pkg=docker-ce update_cache=yes
+  apt: pkg=docker-ce
   become: yes
   environment: "{{ proxy_env | default({}) }}"
 
