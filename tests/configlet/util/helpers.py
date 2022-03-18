@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 
+__all__ = ["log_debug", "log_info", "log_error", "get_prefix_lvl", "append_log_prefix_msg", "set_prefix_lvl", "set_log_prefix_msg", "set_print"]
 logger = logging.getLogger(__name__)
 
 do_print = os.path.exists("/etc/sonic/sonic-environment")

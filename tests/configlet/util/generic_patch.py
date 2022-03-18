@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
-import json
-import jsonpatch
 import fnmatch
+import json
 import os
 import re
 
-from helpers import *
+import jsonpatch
+
 from common import *
 
 if os.path.exists("/etc/sonic/sonic-environment"):
