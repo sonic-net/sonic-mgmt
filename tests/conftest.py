@@ -1453,7 +1453,7 @@ def collect_db_dump_on_duts(request, duthosts):
             # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
             # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
             # to avoid raising exception when dumping the STATE_DB.
-            if i == state_db_id and duthosts[0].sonic_release in ['201911']:
+            if db_id == state_db_id and duthosts[0].sonic_release in ['201911']:
                 continue
             dbs.add(db_id)
 
