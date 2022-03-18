@@ -32,7 +32,9 @@ def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def docker_network(duthost):
+def docker_network(duthosts, rand_one_dut_hostname):
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     output = duthost.command("docker inspect bridge")
 
