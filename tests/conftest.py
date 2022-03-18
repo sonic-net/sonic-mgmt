@@ -1438,11 +1438,11 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
-        db_dump_tarfile = "{}.tar.gz".format(dut_file_path)
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
 
         # Collect DB config
         dbs = set()
-        result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
+        result = duthosts[0].command(argv=["cat", "/var/run/redis/sonic-db/database_config.json"])
         db_config = json.loads(result['stdout'])
         state_db_id = db_config['DATABASES']['STATE_DB']['id']
         for db in db_config['DATABASES']:
@@ -1461,22 +1461,22 @@ def collect_db_dump_on_duts(request, duthosts):
         if namespace_list:
             for namespace in namespace_list:
                 # Collect DB dump
-                db_dump_path = os.path.join(dut_file_path + "/" + namespace, request.module.__name__, request.node.name)
+                db_dump_path = os.path.join(dut_file_path, namespace, request.module.__name__, request.node.name)
                 duthosts.file(path=db_dump_path, state="directory")
                 for i in dbs:
-                    duthosts.shell("ip netns exec {} redis-ducmp -d {} -y -o {}/{}".format(namespace, i, db_dump_path, i))
+                    duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
         else:
             # Collect DB dump
             db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
             duthosts.file(path = db_dump_path, state="directory")
             for i in dbs:
-                duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
+                duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
 
         #compress dump file and fetch to docker
-        duthosts.shell("tar czf {} {}".format(db_dump_tarfile, dut_file_path))
+        duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
         duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
         #remove dump file from dut
-        duthosts.shell("rm -rf {} {}".format(dut_file_path, db_dump_tarfile))
+        duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
 
 @pytest.fixture(autouse=True)
 def collect_db_dump(request, duthosts):
