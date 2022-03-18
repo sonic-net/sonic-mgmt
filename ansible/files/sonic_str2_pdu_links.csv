@@ -86,6 +86,7 @@ pdu-117,39,str2-7215-acs-2,PSU1
 pdu-118,39,str2-7215-acs-2,PSU2
 pdu-114,35,str2-7215-acs-3,PSU1
 pdu-113,35,str2-7215-acs-3,PSU2
+pdu-113,25,str2-7215-acs-3,PSU3
 pdu-114,36,str2-7215-acs-4,PSU1
 pdu-113,36,str2-7215-acs-4,PSU2
 pdu-117,36,str2-7260cx3-02,PSU1

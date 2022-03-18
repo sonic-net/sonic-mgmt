@@ -4944,7 +4944,7 @@
       <DeviceConsoleInfo Hostname="console-80" HwSku="Cisco" ManagementIp="10.3.145.80" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-81" HwSku="Cisco" ManagementIp="10.3.145.81" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-82" HwSku="Cisco" ManagementIp="10.3.145.82" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="console-179" HwSku="Cisco" ManagementIp="10.3.145.178" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-178" HwSku="Cisco" ManagementIp="10.3.145.178" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-179" HwSku="Cisco" ManagementIp="10.3.145.179" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-194" HwSku="Cisco" ManagementIp="10.3.145.194" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-199" HwSku="Cisco" ManagementIp="10.3.145.199" Protocol="ssh" Type="ConsoleServer"/>
@@ -5068,6 +5068,8 @@
       <PowerControlLinkInfo EndDevice="str-e1031-acs-1" EndPort="PSU1" StartDevice="pdu-107" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-1" EndPort="PSU2" StartDevice="pdu-108" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU1" StartDevice="pdu-113" StartPort="15"/>
+      <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU3" StartDevice="pdu-113" StartPort="28"/>
+      <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU4" StartDevice="pdu-114" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-102" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-103" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-02" EndPort="PSU1" StartDevice="pdu-99" StartPort="27"/>
