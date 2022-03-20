@@ -164,7 +164,7 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
 
     # Advertise all supported speeds in fanout port
     success = fanout.set_speed(fanout_port, None)
-    pytest_require('Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port))
+    pytest_require(success, 'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port))
 
     if dut_all_speeds_option == SPEEDS_BY_LITERAL:
         all_speeds = 'all'
@@ -206,7 +206,7 @@ def is_sfp_speed_supported(duthost, if_name, port_speed):
         return True
     out = duthost.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(if_name))
     n_lanes = len(out["stdout_lines"][0].split(','))
-    per_lane_speed = int(port_speed) / n_lanes
+    per_lane_speed = int(port_speed) // n_lanes
     return per_lane_speed <= 25000 or sfp_type in pam4_supporting_sfps
 
 
