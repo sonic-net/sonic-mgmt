@@ -21,12 +21,14 @@ pytestmark = [
 
 
 @pytest.mark.dynamic_config
-class TestDynamicInnerHashing():
+class TestDynamicInnerHashingLag():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_dynamic_pbh(self, request):
+        with allure.step('Add required LAG config'):
+            request.getfixturevalue("config_lag_ports")
         with allure.step('Config Dynamic PBH'):
-            request.getfixturevalue("config_pbh_table")
+            request.getfixturevalue("config_pbh_table_lag")
             request.getfixturevalue("config_hash_fields")
             request.getfixturevalue("config_hash")
             request.getfixturevalue("config_rules")
@@ -71,36 +73,3 @@ class TestDynamicInnerHashing():
                    fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys],
                    tries=5,
                    delay=5)
-
-
-@pytest.mark.static_config
-class TestStaticInnerHashing():
-
-    def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac, vlan_ptf_ports, symmetric_hashing):
-        logging.info("Executing static inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
-                     .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
-        timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-        log_file = "/tmp/inner_hash_test.StaticInnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
-        logging.info("PTF log file: %s" % log_file)
-
-        outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
-        inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
-
-        ptf_runner(ptfhost,
-                   "ptftests",
-                   "inner_hash_test.InnerHashTest",
-                   platform_dir="ptftests",
-                   params={"fib_info": FIB_INFO_FILE_DST,
-                           "router_mac": router_mac,
-                           "src_ports": vlan_ptf_ports,
-                           "hash_keys": hash_keys,
-                           "vxlan_port": VXLAN_PORT,
-                           "inner_src_ip_range": ",".join(inner_src_ip_range),
-                           "inner_dst_ip_range": ",".join(inner_dst_ip_range),
-                           "outer_src_ip_range": ",".join(outer_src_ip_range),
-                           "outer_dst_ip_range": ",".join(outer_dst_ip_range),
-                           "outer_encap_formats": OUTER_ENCAP_FORMATS,
-                           "symmetric_hashing": symmetric_hashing},
-                   log_file=log_file,
-                   qlen=PTF_QLEN,
-                   socket_recv_size=16384)
