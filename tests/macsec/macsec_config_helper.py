@@ -69,6 +69,26 @@ def disable_macsec_port(host, port):
     host.command(cmd)
 
 
+def enable_macsec_feature(duthost, macsec_nbrhosts):
+    nbrhosts = macsec_nbrhosts
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+
+    def check_macsec_enabled():
+        for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+            if isinstance(nbr, EosHost):
+                continue
+            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
+                return False
+            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
+                return False
+        return True
+    assert wait_until(180, 5, 5, check_macsec_enabled)
+
+
+def disable_macsec_feature(duthost, macsec_nbrhosts):
+    global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
+
+
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     devices.add(duthost)

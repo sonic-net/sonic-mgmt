@@ -16,12 +16,27 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
-          primary_cak, primary_ckn, policy, send_sci, request):
+def setup(duthost, macsec_nbrhosts, ctrl_links, unctrl_links, profile_name, default_priority, cipher_suite,
+          primary_cak, primary_ckn, policy, send_sci, request, creds):
+    if request.config.getoption("--enable_macsec"):
+        # Use global macsec setup
+        import pdb; pdb.set_trace()
+        profile = creds["macsec_profile"]
+        profile_name = profile['name']
+        default_priority =  profile['priority']
+        cipher_suite = profile['cipher_suite']
+        primary_cak = profile['primary_cak']
+        primary_ckn = profile['primary_ckn']
+        policy = profile['policy']
+        send_sci = profile['send_sci']
+        yield
+        return
+
     all_links = {}
     all_links.update(ctrl_links)
     all_links.update(unctrl_links)
     startup_all_ctrl_links(ctrl_links)
+    enable_macsec_feature(duthost, macsec_nbrhosts)
     cleanup_macsec_configuration(duthost, all_links, profile_name)
     setup_macsec_configuration(duthost, ctrl_links, profile_name,
                                default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
@@ -29,6 +44,7 @@ def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
     yield
     cleanup_macsec_configuration(duthost, all_links, profile_name)
+    disable_macsec_feature(duthost, macsec_nbrhosts)
 
 
 class TestControlPlane():
