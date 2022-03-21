@@ -1,0 +1,10 @@
+# default macsec configuration
+macsec_profile:
+    name: "default"
+    priority: 64
+    cipher_suite: "GCM-AES-128"
+    primary_cak: "xxx"
+    primary_ckn: "xxx"
+    policy: "security"
+    send_sci: "true"
+
