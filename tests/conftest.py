@@ -1520,6 +1520,6 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
         test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
                     % (ports, device_number, failure_report))
 
-# Hack testutils.verify_packets_any to workaround code bug
-# Todo: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
+# HACK: testutils.verify_packets_any to workaround code bug
+# TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
