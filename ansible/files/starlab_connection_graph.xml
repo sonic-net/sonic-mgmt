@@ -5068,6 +5068,7 @@
       <PowerControlLinkInfo EndDevice="str-e1031-acs-1" EndPort="PSU1" StartDevice="pdu-107" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-1" EndPort="PSU2" StartDevice="pdu-108" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU1" StartDevice="pdu-113" StartPort="15"/>
+      <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU2" StartDevice="pdu-114" StartPort="15"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU3" StartDevice="pdu-113" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-3" EndPort="PSU4" StartDevice="pdu-114" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-102" StartPort="26"/>
