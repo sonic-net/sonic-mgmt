@@ -44,7 +44,7 @@ from tests.common.utilities import str2bool
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
-
+from ptf import testutils # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1485,3 +1485,41 @@ def collect_db_dump(request, duthosts):
     '''
     yield
     collect_db_dump_on_duts(request, duthosts)
+
+def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
+    """
+    Check that a packet is received on _any_ of the specified ports belonging to
+    the given device (default device_number is 0).
+
+    Also verifies that the packet is not received on any other ports for this
+    device, and that no other packets are received on the device (unless --relax
+    is in effect).
+
+    The function is redefined here to workaround code bug in testutils.verify_packets_any
+    """
+    received = False
+    failures = []
+    for device, port in testutils.ptf_ports():
+        if device != device_number:
+            continue
+        if port in ports:
+            logging.debug("Checking for pkt on device %d, port %d", device_number, port)
+            result = testutils.dp_poll(test, device_number=device, port_number=port, exp_pkt=pkt)
+            if isinstance(result, test.dataplane.PollSuccess):
+                received = True
+            else:
+                failures.append((port, result))
+        else:
+            testutils.verify_no_packet(test, pkt, (device, port))
+    testutils.verify_no_other_packets(test)
+
+    if not received:
+        def format_failure(port, failure):
+            return "On port %d:\n%s" % (port, failure.format())
+        failure_report = "\n".join([format_failure(*f) for f in failures])
+        test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
+                    % (ports, device_number, failure_report))
+
+# HACK: testutils.verify_packets_any to workaround code bug
+# TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
+testutils.verify_packets_any = verify_packets_any_fixed
