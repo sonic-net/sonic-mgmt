@@ -13,6 +13,7 @@ SONIC_SSH_PORT  = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
+REBOOT_TYPE_SAI_WARM = "sai-warm"
 REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
@@ -76,7 +77,15 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
-    }
+    },
+    REBOOT_TYPE_SAI_WARM: {
+        "command": "/usr/bin/sai_warmboot.sh",
+        "timeout": 300,
+        "wait": 90,
+        "warmboot_finalizer_timeout": 30,
+        "cause": "warm-reboot",
+        "test_reboot_cause_only": False
+    },
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
