@@ -45,7 +45,8 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
 
     try:
         logger.info("Configure mgmt vrf")
-        duthost.command("sudo config vrf add mgmt")
+        duthost.command("sudo config vrf add mgmt", module_async=True)
+        time.sleep(5)
         verify_show_command(duthost, mvrf=True)
     except Exception as e:
         logger.error("Exception raised in setup, exception: {}".format(repr(e)))
@@ -56,13 +57,8 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
 
     try:
         logger.info("Unconfigure  mgmt vrf")
-        duthost.copy(src="mvrf/config_vrf_del.sh", dest="/tmp/config_vrf_del.sh", mode=0755)
-        duthost.shell("nohup /tmp/config_vrf_del.sh < /dev/null > /dev/null 2>&1 &")
-        localhost.wait_for(host=duthost.mgmt_ip,
-                        port=SONIC_SSH_PORT,
-                        state="stopped",
-                        search_regex=SONIC_SSH_REGEX,
-                        timeout=90)
+        duthost.shell("sudo config vrf del mgmt", module_async=True)
+        time.sleep(5)
 
         localhost.wait_for(host=duthost.mgmt_ip,
                         port=SONIC_SSH_PORT,
