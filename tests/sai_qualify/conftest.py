@@ -15,6 +15,8 @@ from tests.common.barefoot_data import is_barefoot_device
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
 from tests.common.system_utils.docker import tag_image
+from tests.common.reboot import REBOOT_TYPE_SAI_WARM
+from tests.common.reboot import reboot
 from natsort import natsorted
 
 logger = logging.getLogger(__name__)
@@ -24,11 +26,21 @@ USR_BIN_DIR = "/usr/bin"
 SAISERVER_SCRIPT = "prepare_saiserver_service.sh"
 SERVICES_SCRIPT = "all_service.sh"
 WARMBOOT_SCRIPT = "sai_warmboot.sh"
+WARMBOOT_PROFILE_SCRIPT = "sai_warm_profile.sh"
+SAI_SCRIPTS = [SAISERVER_SCRIPT, SERVICES_SCRIPT, WARMBOOT_SCRIPT, WARMBOOT_PROFILE_SCRIPT]
 SCRIPTS_SRC_DIR = "scripts/sai_qualify/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 SAI_PRC_PORT = 9092
 SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
 IS_TEST_ENV_FAILED = False
+WARM_TEST_DIR = "warm_boot"
+WARM_TEST_ARGS = ";test_reboot_mode='warm'"
+WARM_TEST_SETUP = ";test_reboot_stage='setup'"
+WARM_TEST_STARTING = ";test_reboot_stage='starting'"
+WARM_TEST_POST = ";test_reboot_stage='post'"
+WARM_TEST_STAGES = [WARM_TEST_SETUP, WARM_TEST_STARTING, WARM_TEST_POST]
+SONIC_SSH_PORT  = 22
+SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
 #PTF_TEST_ROOT_DIR is the root folder for SAI testing
@@ -53,14 +65,14 @@ RPC_RESTART_INTERVAL_IN_SEC = 32
 RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
-
 def pytest_addoption(parser):
     # sai test options
     parser.addoption("--sai_test_dir", action="store", default=None, type=str, help="SAI repo folder where the tests will be run.")
     parser.addoption("--sai_test_report_dir", action="store", default=None, type=str, help="SAI test report directory on mgmt node.")
-    parser.addoption("--sai_test_container", action="store", default=None, type=str, help="SAI test container, saiserver or syncd.")
+    parser.addoption("--sai_test_container", action="store", default="saiserver", type=str, help="SAI test container, saiserver or syncd.")
     parser.addoption("--sai_test_keep_test_env", action="store_true", default=False, help="SAI test debug options. If keep the test environment in DUT and PTF.")
     parser.addoption("--enable_ptf_sai_test", action="store_true", help="Trigger PTF-SAI test. If enable PTF-SAI testing or not, true or false.")
+    parser.addoption("--enable_warmboot_test", action="store_true", default=False, help="Trigger WARMBOOT test. If enable WARMBOOT testing or not, true or false.")
     parser.addoption("--always_stop_sai_test_container", action="store_true", help="If always stop the container after one test or not, true or false.")
 
 
@@ -153,6 +165,11 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
         __deploy_saiserver(duthost, creds, request)
         logger.info("Prepare saiserver.sh")
         duthost.shell("{}/{} -v \"{}\"".format(USR_BIN_DIR, SAISERVER_SCRIPT, get_sai_thrift_version(request)))
+        #Prepare warmboot
+        if request.config.option.enable_warmboot_test:
+            saiserver_warmboot_config(duthost, "init")
+            duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
+            duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " start")
 
 
 def revert_sai_test_container(duthost, creds, container_name, request):
@@ -167,6 +184,9 @@ def revert_sai_test_container(duthost, creds, container_name, request):
     if container_name == SYNCD_CONATINER:
         __restore_default_syncd(duthost, creds)
     else:
+        #Prepare warmboot
+        if request.config.option.enable_warmboot_test:
+            saiserver_warmboot_config(duthost, "restore")
         __remove_saiserver_deploy(duthost, creds, request)
 
 
@@ -287,7 +307,6 @@ def __deploy_saiserver(duthost, creds, request):
     
     docker_saiserver_name = "docker-saiserver{}-{}".format(get_sai_thrift_version(request), vendor_id)
     docker_saiserver_image = docker_saiserver_name
-
     # Skip download step if image has existed
     if __is_image_exists(duthost, docker_saiserver_image):
         logger.info("The image {} has existed".format(docker_saiserver_image))   
@@ -433,6 +452,35 @@ def __restore_default_syncd(duthost, creds):
         module_ignore_errors=True
     )
 
+def warm_reboot(duthost, localhost):
+    reboot(duthost, localhost, reboot_type=REBOOT_TYPE_SAI_WARM)
+
+
+def saiserver_warmboot_config(duthost, operation):
+    """
+    Saiserver warmboot mode.
+
+        Args:
+        duthost (AnsibleHost): device under test
+        operation: init|start|restore
+    """
+    duthost.command(
+        "docker exec {} {}/{} -o {}".format(SAISERVER_CONTAINER, USR_BIN_DIR, WARMBOOT_PROFILE_SCRIPT, operation),
+        module_ignore_errors=True
+    )
+
+
+def __copy_sai_profile_into_saiserver_docker(duthost):
+    """
+    Copy the script for prepare the sai.profile into saiserver docker
+
+        Args:
+        duthost (AnsibleHost): device under test
+    """
+    duthost.command(
+        "docker cp {}/{} {}:{}".format(USR_BIN_DIR, WARMBOOT_PROFILE_SCRIPT, SAISERVER_CONTAINER, USR_BIN_DIR),
+        module_ignore_errors=True
+    )
 
 def __copy_sai_qualify_script(duthost):
     """
@@ -444,17 +492,10 @@ def __copy_sai_qualify_script(duthost):
         Returns:
             None
     """
-    logger.info("Copy script {} to DUT: '{}'".format(SAISERVER_SCRIPT, duthost.hostname))
-    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SAISERVER_SCRIPT), dest=USR_BIN_DIR)
-    duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + SAISERVER_SCRIPT)
-
-    logger.info("Copy script {} to DUT: '{}'".format(SERVICES_SCRIPT, duthost.hostname))
-    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, SERVICES_SCRIPT), dest=USR_BIN_DIR)
-    duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + SERVICES_SCRIPT)
-
-    logger.info("Copy script {} to DUT: '{}'".format(WARMBOOT_SCRIPT, duthost.hostname))
-    duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, WARMBOOT_SCRIPT), dest=USR_BIN_DIR)
-    duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + WARMBOOT_SCRIPT)
+    for script in SAI_SCRIPTS:
+        logger.info("Copy script {} to DUT: '{}'".format(script, duthost.hostname))
+        duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, script), dest=USR_BIN_DIR)
+        duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + script)
 
 
 def __delete_sai_qualify_script(duthost):
@@ -464,14 +505,9 @@ def __delete_sai_qualify_script(duthost):
     Args:
         duthost (SonicHost): The target device.
     """
-    logger.info("Delete script {} from DUT host '{}'".format(SAISERVER_SCRIPT, duthost.hostname))
-    duthost.file(path=os.path.join(USR_BIN_DIR, SAISERVER_SCRIPT), state="absent")
-
-    logger.info("Delete script {} from DUT host '{}'".format(SERVICES_SCRIPT, duthost.hostname))
-    duthost.file(path=os.path.join(USR_BIN_DIR, SERVICES_SCRIPT), state="absent")
-
-    logger.info("Delete script {} from DUT host '{}'".format(WARMBOOT_SCRIPT, duthost.hostname))
-    duthost.file(path=os.path.join(USR_BIN_DIR, WARMBOOT_SCRIPT), state="absent")
+    for script in SAI_SCRIPTS:
+        logger.info("Delete script {} from DUT host '{}'".format(script, duthost.hostname))
+        duthost.file(path=os.path.join(USR_BIN_DIR, script), state="absent")
 
 
 def __services_env_stop_check(duthost):
@@ -543,7 +579,7 @@ def __is_image_exists(duthost, docker_image_name):
     """
     try:
         result = duthost.shell("docker images | grep {}".format(docker_image_name))
-        return bool(result["stdout_lines"][0].strip() == docker_image_name)
+        return bool(docker_image_name in result["stdout_lines"][0].strip())
     except Exception:
         logger.info("Cannot find required docker images '{}'.".format(docker_image_name))
     return False

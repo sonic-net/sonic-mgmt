@@ -71,6 +71,42 @@ def test_ptf_sai_from_ptf(
         __store_test_result(ptfhost)
 
 
+@pytest.mark.parametrize("ptf_sai_test_case", WARM_BOOT_TEST_CASE)
+def test_warm_boot_from_ptf(
+    sai_testbed, sai_test_env_check, creds, duthost, localhost, ptfhost, ptf_sai_test_case, request, create_sai_test_interface_param):
+    """
+        trigger the test here
+    """
+    Test_failed = False
+    for stage in WARM_TEST_STAGES:
+        if Test_failed:
+            break
+        if stage == WARM_TEST_STARTING:
+            check_test_env_with_retry(creds, duthost, ptfhost, request, create_sai_test_interface_param)
+        logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
+        dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        try:
+            sai_test_interface_para = create_sai_test_interface_param
+            run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request, stage)
+            if stage == WARM_TEST_SETUP:
+                #Prepare for start in next round
+                saiserver_warmboot_config(duthost, "start")                
+                warm_reboot(duthost, localhost)        
+            if stage == WARM_TEST_POST:
+                saiserver_warmboot_config(duthost, "restore")
+        except BaseException as e:
+            Test_failed = True
+            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))               
+            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
+            pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
+        finally:
+            __store_test_result(ptfhost)
+
+    if not Test_failed:        
+        if request.config.option.always_stop_sai_test_container:
+            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
+
+
 @pytest.fixture
 def sai_test_env_check(creds, duthost, ptfhost, request, create_sai_test_interface_param):
     """
@@ -86,24 +122,7 @@ def sai_test_env_check(creds, duthost, ptfhost, request, create_sai_test_interfa
         logger.info("Test env check is failed in previous check. Fails this check directly.")
         raise Exception("SAI Test env error.")
 
-    for retry in range(SAI_TEST_ENV_RESET_TIMES):
-        try:
-            sai_test_interface_para = create_sai_test_interface_param
-            if request.config.option.enable_ptf_sai_test:
-                saiv2_test_container_liveness_check(duthost, request)
-            else:
-                sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request, sai_test_interface_para)
-            break
-        except BaseException as e:  
-            logger.info("Run test env check failed, reset the env, retry: [{}/{}], failed as {}.".format(retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
-            if retry + 1 < SAI_TEST_ENV_RESET_TIMES:
-                reset_sai_test_dut(duthost, creds, request)
-                logger.info("Liveness check waiting {} sec for another retry.".format(LIVENESS_CHECK_INTERVAL_IN_SEC))
-                time.sleep(LIVENESS_CHECK_INTERVAL_IN_SEC)
-            else:
-                logger.info("Run test env check failed. Run test env is not ready. Error: {}".format(e))
-                IS_TEST_ENV_FAILED = True
-                raise e
+    check_test_env_with_retry(creds, duthost, ptfhost, request, create_sai_test_interface_param)
 
 
 @pytest.fixture(scope="module")
@@ -125,7 +144,29 @@ def sai_testbed(
             __teardown_dut(duthost, ptfhost, request)
 
 
-def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params, request):
+def check_test_env_with_retry(creds, duthost, ptfhost, request, create_sai_test_interface_param):
+    global IS_TEST_ENV_FAILED
+    for retry in range(SAI_TEST_ENV_RESET_TIMES):
+        try:
+            sai_test_interface_para = create_sai_test_interface_param
+            if request.config.option.enable_ptf_sai_test:
+                saiv2_test_container_liveness_check(duthost, request)
+            else:
+                sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request, sai_test_interface_para)
+            break
+        except BaseException as e:  
+            logger.info("Run test env check failed, reset the env, retry: [{}/{}], failed as {}.".format(retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
+            if retry + 1 < SAI_TEST_ENV_RESET_TIMES:
+                reset_sai_test_dut(duthost, creds, request)
+                logger.info("Liveness check waiting {} sec for another retry.".format(LIVENESS_CHECK_INTERVAL_IN_SEC))
+                time.sleep(LIVENESS_CHECK_INTERVAL_IN_SEC)
+            else:
+                logger.info("Run test env check failed. Run test env is not ready. Error: {}".format(e))
+                IS_TEST_ENV_FAILED = True
+                raise e
+
+
+def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params, request, warm_boot_stage=None):
     """
     Run the sai test cases from ptf.
     Args:
@@ -139,11 +180,18 @@ def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params
     logger.info("Sleep {} sec between tests.".format(TEST_INTERVAL_IN_SEC))
     time.sleep(TEST_INTERVAL_IN_SEC)
     cmds = []
-    test_para = "-t \"server='{}';port_map_file='{}'\" --test-dir {}".format(dut_ip, PORT_MAP_FILE_PATH, SAI_TEST_CONMUN_CASE_DIR_ON_PTF)
+    test_para = None
     if request.config.option.enable_ptf_sai_test:
         cmds.append("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
-        test_para = "\"--test-params=thrift_server='{}'\" --test-dir {}".format(dut_ip, SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
-    
+        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
+        if request.config.option.enable_warmboot_test:
+            test_para += "/{}".format(WARM_TEST_DIR)
+            test_para += " \"--test-params=thrift_server='{}'{}{}\"".format(dut_ip, WARM_TEST_ARGS, warm_boot_stage)
+        else:
+            test_para += " \"--test-params=thrift_server='{}'\"".format(dut_ip)
+    else: # for old community test
+        test_para = " --test-dir {} -t \"server='{}';port_map_file='{}'\"".format(SAI_TEST_CONMUN_CASE_DIR_ON_PTF, dut_ip, PORT_MAP_FILE_PATH)
+   
     cmds.append(("ptf {} {} --relax --xunit --xunit-dir {} {}")
     .format( 
         test_case, 
