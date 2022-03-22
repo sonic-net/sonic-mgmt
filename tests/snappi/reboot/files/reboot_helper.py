@@ -12,7 +12,7 @@ TGEN_AS_NUM = 65200
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
-
+aspaths = [65002, 65003]
 bgp_up_start_timer = 0
 bgp_down_start_timer = 0
 bgp_up_time = 0
@@ -204,32 +204,32 @@ def __tgen_bgp_config(cvg_api,):
     for i in range(1, num_of_devices+1):
         #server1
         d1 = config.devices.device(name='Server_1_{}'.format(i-1))[-1]
-        d1.container_name = p3.name
-        eth_1 = d1.ethernet
+        eth_1 = d1.ethernets.add()
+        eth_1.port_name = p3.name
         eth_1.name = 'Ethernet 1_{}'.format(i-1)
         eth_1.mac = conf_values['server_1_mac'][i-1]
-        ipv4_1 = d1.ethernet.ipv4
+        ipv4_1 = eth_1.ipv4_addresses.add()
         ipv4_1.name = 'IPv4 1_{}'.format(i-1)
         ipv4_1.address = conf_values['server_1_ipv4'][i-1]
         ipv4_1.gateway = '192.168.1.1'
         ipv4_1.prefix = 16
-        ipv6_1 = d1.ethernet.ipv6
+        ipv6_1 = eth_1.ipv6_addresses.add()
         ipv6_1.name = 'IPv6 1_{}'.format(i-1)
         ipv6_1.address = conf_values['server_1_ipv6'][i-1]
         ipv6_1.gateway = '5001::1'
         ipv6_1.prefix = 128
         #server2
         d2 = config.devices.device(name='Server_2_{}'.format(i-1))[-1]
-        d2.container_name = p2.name
-        eth_2 = d2.ethernet
+        eth_2 = d2.ethernets.add()
+        eth_2.port_name = p2.name
         eth_2.name = 'Ethernet 2_{}'.format(i-1)
         eth_2.mac = conf_values['server_2_mac'][i-1]
-        ipv4_2 = d2.ethernet.ipv4
+        ipv4_2 = eth_2.ipv4_addresses.add()
         ipv4_2.name = 'IPv4 2_{}'.format(i-1)
         ipv4_2.address = conf_values['server_2_ipv4'][i-1]
         ipv4_2.gateway = '192.168.1.1'
         ipv4_2.prefix = 16
-        ipv6_2 = d2.ethernet.ipv6
+        ipv6_2 = eth_2.ipv6_addresses.add()
         ipv6_2.name = 'IPv6 2_{}'.format(i-1)
         ipv6_2.address = conf_values['server_2_ipv6'][i-1]
         ipv6_2.gateway = '5001::1'
@@ -237,37 +237,52 @@ def __tgen_bgp_config(cvg_api,):
 
     #T1
     d3 = config.devices.device(name="T1")[-1]
-    d3.container_name = lag3.name
-    eth_3 = d3.ethernet
+    eth_3 = d3.ethernets.add()
+    eth_3.port_name = lag3.name
     eth_3.name = 'Ethernet 3'
     eth_3.mac = "00:14:01:00:00:01"
-    ipv4_3 = eth_3.ipv4
+    ipv4_3 = eth_3.ipv4_addresses.add()
     ipv4_3.name = 'IPv4 3'
     ipv4_3.address = temp_tg_port[1]['ip']
     ipv4_3.gateway = temp_tg_port[1]['peer_ip']
     ipv4_3.prefix = 24
-    ipv6_3 = eth_3.ipv6
+    ipv6_3 = eth_3.ipv6_addresses.add()
     ipv6_3.name = 'IPv6 3'
-
     ipv6_3.address = temp_tg_port[1]['ipv6']
     ipv6_3.gateway = temp_tg_port[1]['peer_ipv6']
     ipv6_3.prefix = 128
-    bgpv4_stack = ipv4_3.bgpv4
-    bgpv4_stack.name = 'BGP 3'
-    bgpv4_stack.as_type = BGP_TYPE
-    bgpv4_stack.dut_address = temp_tg_port[1]['peer_ip']
-    bgpv4_stack.local_address = temp_tg_port[1]['ip']
-    bgpv4_stack.as_number = int(TGEN_AS_NUM)
-    route_range1 = bgpv4_stack.bgpv4_routes.bgpv4route(name="Network Group 1")[-1]
-    route_range1.addresses.bgpv4routeaddress(address='200.1.0.1', prefix=32, count=4000)
-    bgpv6_stack = ipv6_3.bgpv6
-    bgpv6_stack.name = r'BGP+_3'
-    bgpv6_stack.as_type = BGP_TYPE
-    bgpv6_stack.dut_address = temp_tg_port[1]['peer_ipv6']
-    bgpv6_stack.local_address = temp_tg_port[1]['ipv6']
-    bgpv6_stack.as_number = int(TGEN_AS_NUM)
-    route_range2 = bgpv6_stack.bgpv6_routes.bgpv6route(name="Network Group 2")[-1]
-    route_range2.addresses.bgpv6routeaddress(address='3000::1', prefix=128, count=3000)
+
+    bgpv4_stack = d3.bgp
+    bgpv4_stack.router_id = temp_tg_port[1]['peer_ip']
+    bgpv4_int = bgpv4_stack.ipv4_interfaces.add()
+    bgpv4_int.ipv4_name = ipv4_3.name
+    bgpv4_peer = bgpv4_int.peers.add()
+    bgpv4_peer.name = 'BGP 3'
+    bgpv4_peer.as_type = BGP_TYPE
+    bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv4_peer.as_number = int(TGEN_AS_NUM)
+    route_range1 = bgpv4_peer.v4_routes.add(name="Network Group 1")
+    route_range1.addresses.add(address='200.1.0.1', prefix=32, count=4000)
+    as_path = route_range1.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
+
+    bgpv6_stack = d3.bgp
+    bgpv6_stack.router_id = temp_tg_port[1]['peer_ip']
+    bgpv6_int = bgpv6_stack.ipv6_interfaces.add()
+    bgpv6_int.ipv6_name = ipv6_3.name
+    bgpv6_peer = bgpv6_int.peers.add()
+    bgpv6_peer.name = 'BGP 3'
+    bgpv6_peer.as_type = BGP_TYPE
+    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv6_peer.as_number = int(TGEN_AS_NUM)
+    route_range2 = bgpv4_peer.v6_routes.add(name="Network Group 2")
+    route_range2.addresses.add(address='3000::1', prefix=128, count=3000)
+    as_path = route_range2.as_path
+    as_path_segment = as_path.segments.add()
+    as_path_segment.type = as_path_segment.AS_SEQ
+    as_path_segment.as_numbers = aspaths
 
     def createTrafficItem(traffic_name, src, dest, rate=50):
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
@@ -422,6 +437,11 @@ def get_convergence_for_reboot_test(duthost,
     cs = cvg_api.convergence_state()
     flow_names = ["IPv4_1-IPv4_2", "IPv6_2-IPv6_1", "IPv4_1-T1", "IPv6_2-T1", "T1-IPv4_1", "T1-IPv6_2"]
     cs.transmit.flow_names = flow_names
+    logger.info('Starting Protocol')
+    time.sleep(10)
+    cs.protocol.state = cs.protocol.START
+    cvg_api.set_state(cs)
+    logger.info('Starting Traffic')
     cs.transmit.state = cs.transmit.START
     cvg_api.set_state(cs)
     wait(TIMEOUT-10, "For Traffic To start")
@@ -498,5 +518,6 @@ def cleanup_config(duthost):
     logger.info('Cleaning up config')
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT+30, "For Cleanup to complete \n")
+    logger.info("Wait until all critical services are fully started")
+    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
     logger.info('Convergence Test Completed')
