@@ -362,7 +362,7 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
             bgpv4_peer.as_number = int(TGEN_AS_NUM)
-            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
+            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) 
             route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
@@ -497,7 +497,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
             assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
@@ -582,7 +582,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
             assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
@@ -673,7 +673,7 @@ def get_rib_in_convergence(cvg_api,
         flows = get_flow_stats(cvg_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
-            rx_frate.append(flow.frames_tx_rate)
+            rx_frate.append(flow.frames_rx_rate)
         assert sum(tx_frate) == sum(rx_frate), "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
 
@@ -784,7 +784,7 @@ def get_RIB_IN_capacity(cvg_api,
                 bgpv4_peer.as_type = BGP_TYPE
                 bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) #snappi object named Network Group 2 not found in internal db
+                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) 
                 route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
