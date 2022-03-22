@@ -391,7 +391,7 @@ class Parse_Lab_Graph():
         """
         if hostname in self.devices:
             ret = {}
-            for key in ['PSU1', 'PSU2']:
+            for key in ['PSU1', 'PSU2', 'PSU3', 'PSU4']:
                 try:
                     ret.update({key : self.devices[self.pdulinks[hostname][key]['peerdevice']]})
                 except KeyError:
