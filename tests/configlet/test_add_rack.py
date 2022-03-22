@@ -3,10 +3,12 @@
 import pytest
 import sys
 
+from tests.configlet.util.base_test import restore_orig_minigraph, backup_minigraph, do_test_add_rack
+from tests.configlet.util.helpers import log_info
+
 sys.path.append("./configlet/util")
 
-from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from helpers import log_info
+
 
 pytestmark = [
         pytest.mark.topology("t1")
@@ -31,8 +33,9 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip('Generic patch updater does not support multiasic')
 
     log_info("sys.version={}".format(sys.version))
-    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'],
-            hack_apply=True)
+    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'])
 

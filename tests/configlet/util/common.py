@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import inspect
 import json
 import os
 import re
@@ -7,6 +8,10 @@ import sys
 import time
 
 from helpers import *
+
+__all__ = ["patch_add_t0_dir", "patch_rm_t0_dir", "RELOAD_WAIT_TIME", "tor_data", "do_pause", "PAUSE_INTF_DOWN", "PAUSE_CLET_APPLY", "PAUSE_INTF_UP",
+           "DB_COMP_WAIT_TIME", "db_comp", "chk_bgp_session", "no_t0_db_dir", "orig_db_dir", "base_dir", "managed_files", "chk_for_pfc_wd", "report_error",
+           "take_DB_dumps", "init_global_data", "init_data", "config_db_data_orig"]
 
 CONFIG_DB_FILE = "etc/sonic/config_db.json"
 MINIGRAPH_FILE = "etc/sonic/minigraph.xml"
@@ -158,7 +163,8 @@ def init_global_data():
 
 
 def report_error(m):
-    log_error("failure: {}".format(m))
+    log_error("failure: {}:{}: {}".format(inspect.stack()[1][1],
+        inspect.stack()[1][2], m))
     assert False, m
 
 

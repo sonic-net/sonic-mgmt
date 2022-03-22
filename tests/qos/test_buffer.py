@@ -215,6 +215,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_EXTRA_OVERHEAD
     global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
+    global MAX_SPEED_8LANE_PORT
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -228,6 +229,7 @@ def load_test_parameters(duthost):
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(duthost.facts['platform'])
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
@@ -293,6 +295,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     duthost = duthosts[rand_one_dut_hostname]
+    detect_buffer_model(duthost)
     if not is_mellanox_device(duthost):
         yield
         return
@@ -312,7 +315,6 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
         logging.info("Shutting down BGP neighbors and waiting for all routing entries withdrawn")
         time.sleep(60)
 
-    detect_buffer_model(duthost)
     enable_shared_headroom_pool = request.config.getoption("--enable_shared_headroom_pool")
     need_to_disable_shared_headroom_pool_after_test = False
     if BUFFER_MODEL_DYNAMIC:
@@ -748,9 +750,9 @@ def make_expected_profile_name(speed, cable_length, **kwargs):
     if ASIC_TYPE == 'mellanox':
         number_of_lanes = kwargs.get('number_of_lanes')
         if number_of_lanes is not None:
-            if number_of_lanes == 8 and speed != '400000':
+            if number_of_lanes == 8 and speed != MAX_SPEED_8LANE_PORT:
                 expected_profile += '8lane_'
-        elif NUMBER_OF_LANES == 8 and speed != '400000':
+        elif NUMBER_OF_LANES == 8 and speed != MAX_SPEED_8LANE_PORT:
             expected_profile += '8lane_'
     expected_profile += 'profile'
     return expected_profile
@@ -2038,7 +2040,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
         logging.info('[Find out the longest cable length the port can support]')
-        cable_length = 300
+        cable_length = int(original_cable_len[:-1])
         cable_length_step = 128
         while True:
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
@@ -2427,7 +2429,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"]
-            elif is_broadcom_device(duthost) and asic_type in ['td2']:
+            elif is_broadcom_device(duthost) and (asic_type in ['td2'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
                 buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]
@@ -2643,9 +2645,10 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     xon_value = 0
     headroom_size = 0
     speed_overhead = 0
+    pipeline_latency = PIPELINE_LATENCY
 
     if is_8lane:
-        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
+        pipeline_latency = PIPELINE_LATENCY * 2 - 1024
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
@@ -2671,7 +2674,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
     xoff_value = math.ceil(xoff_value / 1024) * 1024
-    xon_value = PIPELINE_LATENCY
+    xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:

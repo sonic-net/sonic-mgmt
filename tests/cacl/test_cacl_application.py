@@ -366,9 +366,10 @@ def generate_expected_rules(duthost, docker_network, asic_index):
 
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
+    if "master" not in duthost.os_version:
+        iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
+        ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
     # Generate control plane rules from device config
     rules_applied_from_config = 0
@@ -681,11 +682,9 @@ def generate_scale_rules(duthost, ip_type):
     # to call check_iptable_rules every 10s to keep ssh session alive, it just calls
     # duthost.command to active ssh connection.
     # In this way, we can active ssh connection and wait as long as we want.
-    if duthost.is_multi_asic:
-        # For multi-asic, it has to wait enough long
-        wait_until(200, 10, 2, check_iptable_rules, duthost)
-    else:
-        wait_until(30, 10, 2, check_iptable_rules, duthost)
+
+    # It has to wait cacl rules to be effective.
+    wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 

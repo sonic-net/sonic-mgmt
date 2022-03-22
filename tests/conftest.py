@@ -44,7 +44,7 @@ from tests.common.utilities import str2bool
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
-
+from ptf import testutils # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -314,6 +314,20 @@ def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
+def selected_rand_one_per_hwsku_hostname(request):
+    """
+    Return the selected hostnames for the given module.
+    This fixture will return the list of selected dut hostnames
+    when another fixture like enum_rand_one_per_hwsku_hostname 
+    or enum_rand_one_per_hwsku_frontend_hostname is used.
+    """
+    if request.module in _hosts_per_hwsku_per_module:
+        return _hosts_per_hwsku_per_module[request.module]
+    else:
+        return []
+
+
+@pytest.fixture(scope="module")
 def rand_one_dut_portname_oper_up(request):
     oper_up_ports = generate_port_lists(request, "oper_up_ports")
     if len(oper_up_ports) > 1:
@@ -574,7 +588,10 @@ def creds_on_dut(duthost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    console_login_creds = getattr(hostvars, "console_login", {})
+    if "console_login" not in hostvars.keys():
+        console_login_creds = {}
+    else:
+        console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
 
@@ -1004,6 +1021,42 @@ def generate_dut_feature_container_list(request):
     return container_list
 
 
+def generate_dut_feature_list(request, duts_selected, asics_selected):
+    """
+    Generate a list of features.
+    The list of features willl be obtained from
+    metadata file.
+    This list will be features that can be stopped
+    or restarted.
+    """
+    meta = get_testbed_metadata(request)
+    tuple_list = []
+
+    if meta is None:
+        return tuple_list
+
+    skip_feature_list = ['database', 'database-chassis', 'gbsyncd']
+
+    for a_dut_index, a_dut in enumerate(duts_selected):
+        if len(asics_selected):
+            for a_asic in asics_selected[a_dut_index]:
+                # Create tuple of dut and asic index
+                if "features" in meta[a_dut]:
+                    for a_feature in meta[a_dut]["features"].keys():
+                        if a_feature not in skip_feature_list:
+                            tuple_list.append((a_dut, a_asic, a_feature))
+                else:
+                    tuple_list.append((a_dut, a_asic, None))
+        else:
+            if "features" in meta[dut]:
+                for a_feature in meta[dut]["features"].keys():
+                    if a_feature not in skip_feature_list:
+                        tuple_list.append((a_dut, None, a_feature))
+            else:
+                tuple_list.append((a_dut, None, None))
+    return tuple_list
+
+
 def generate_dut_backend_asics(request, duts_selected):
     dut_asic_list = []
 
@@ -1099,8 +1152,13 @@ def pytest_generate_tests(metafunc):
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
 
+    # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
+    if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
+        tuple_list = generate_dut_feature_list(metafunc, duts_selected, asics_selected)
+        feature_fixture = "enum_dut_feature"
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name + "," + feature_fixture, tuple_list, scope="module", indirect=True)
     # Create parameterization tuple of dut_fixture_name and asic_fixture_name to parameterize
-    if dut_fixture_name and asic_fixture_name:
+    elif dut_fixture_name and asic_fixture_name:
         # parameterize on both - create tuple for each
         tuple_list = []
         for a_dut_index, a_dut in enumerate(duts_selected):
@@ -1144,7 +1202,6 @@ def pytest_generate_tests(metafunc):
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
 
-
 ### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
 @pytest.fixture(scope="module")
 def enum_dut_hostname(request):
@@ -1183,19 +1240,32 @@ def enum_rand_one_asic_index(request):
     return request.param
 
 @pytest.fixture(scope="module")
-def duthost_console(localhost, creds, request):
-    dut_hostname = request.config.getoption("ansible_host_pattern")
+def enum_dut_feature(request):
+    return request.param
 
-    vars = localhost.host.options['inventory_manager'].get_host(dut_hostname).vars
+@pytest.fixture(scope="module")
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_hostname = duthost.hostname
+    if duthost.facts["asic_type"] == "vs":
+        pytest.skip("Real console session is supported on physical testbed.")
+    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
+    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
+
+    console_type = "console_" + console_type
+
     # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get("ansible_altpassword")
-    host = ConsoleHost(console_type=vars['console_type'],
-                       console_host=vars['console_host'],
-                       console_port=vars['console_port'],
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
+        "ansible_altpassword")
+    host = ConsoleHost(console_type=console_type,
+                       console_host=console_host,
+                       console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=creds['console_user'][vars['console_type']],
-                       console_password=creds['console_password'][vars['console_type']])
+                       console_username=console_username,
+                       console_password=creds['console_password'][console_type])
     yield host
     host.disconnect()
 
@@ -1366,5 +1436,100 @@ def get_reboot_cause(duthost):
     yield
     uptime_end = duthost.get_up_time()
     if not uptime_end == uptime_start:
-        duthost.show_and_parse("show reboot-cause history")
+        if "201811" in duthost.os_version or "201911" in duthost.os_version:
+            duthost.show_and_parse("show reboot-cause")
+        else:
+            duthost.show_and_parse("show reboot-cause history")
 
+def collect_db_dump_on_duts(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        dut_file_path = "/tmp/db_dump"
+        docker_file_path = "./logs/db_dump"
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
+
+        # Collect DB config
+        dbs = set()
+        result = duthosts[0].command(argv=["cat", "/var/run/redis/sonic-db/database_config.json"])
+        db_config = json.loads(result['stdout'])
+        state_db_id = db_config['DATABASES']['STATE_DB']['id']
+        for db in db_config['DATABASES']:
+            db_id = db_config['DATABASES'][db]['id']
+            # Skip STATE_DB dump on release 201911.
+            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
+            # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
+            # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
+            # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
+            # to avoid raising exception when dumping the STATE_DB.
+            if db_id == state_db_id and duthosts[0].sonic_release in ['201911']:
+                continue
+            dbs.add(db_id)
+
+        namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
+        if namespace_list:
+            for namespace in namespace_list:
+                # Collect DB dump
+                db_dump_path = os.path.join(dut_file_path, namespace, request.module.__name__, request.node.name)
+                duthosts.file(path=db_dump_path, state="directory")
+                for i in dbs:
+                    duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
+        else:
+            # Collect DB dump
+            db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+            duthosts.file(path = db_dump_path, state="directory")
+            for i in dbs:
+                duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
+
+        #compress dump file and fetch to docker
+        duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
+        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
+        #remove dump file from dut
+        duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
+
+@pytest.fixture(autouse=True)
+def collect_db_dump(request, duthosts):
+    '''
+        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''
+    yield
+    collect_db_dump_on_duts(request, duthosts)
+
+def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
+    """
+    Check that a packet is received on _any_ of the specified ports belonging to
+    the given device (default device_number is 0).
+
+    Also verifies that the packet is not received on any other ports for this
+    device, and that no other packets are received on the device (unless --relax
+    is in effect).
+
+    The function is redefined here to workaround code bug in testutils.verify_packets_any
+    """
+    received = False
+    failures = []
+    for device, port in testutils.ptf_ports():
+        if device != device_number:
+            continue
+        if port in ports:
+            logging.debug("Checking for pkt on device %d, port %d", device_number, port)
+            result = testutils.dp_poll(test, device_number=device, port_number=port, exp_pkt=pkt)
+            if isinstance(result, test.dataplane.PollSuccess):
+                received = True
+            else:
+                failures.append((port, result))
+        else:
+            testutils.verify_no_packet(test, pkt, (device, port))
+    testutils.verify_no_other_packets(test)
+
+    if not received:
+        def format_failure(port, failure):
+            return "On port %d:\n%s" % (port, failure.format())
+        failure_report = "\n".join([format_failure(*f) for f in failures])
+        test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
+                    % (ports, device_number, failure_report))
+
+# HACK: testutils.verify_packets_any to workaround code bug
+# TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
+testutils.verify_packets_any = verify_packets_any_fixed
