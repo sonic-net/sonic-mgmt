@@ -164,7 +164,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
+def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -355,8 +355,9 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
-            _subnets = ipaddress.ip_network(u"10.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
-            subnets = (_ for _ in _subnets if _ not in used_subnets)
+            # Use a subnet which doesnt conflict with other subnets used in minigraph
+            subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
@@ -376,14 +377,14 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
                 conn["namespace"] = DEFAULT_NAMESPACE
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
-                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][member_intf]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
                     conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
                 elif constants.VLAN_SUB_INTERFACE_SEPARATOR in intf:
                     orig_intf, vlan_id = intf.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
                     ptf_port_index = str(mg_facts["minigraph_port_indices"][orig_intf])
                     conn["neighbor_intf"] = "eth" + ptf_port_index + constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
                 else:
-                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][intf]
+                    conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][intf]
                 connections.append(conn)
 
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
@@ -435,7 +436,7 @@ def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo):
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     with setup_func(mg_facts, peer_count) as connections:
         yield connections

@@ -285,7 +285,7 @@ class TrafficSendVerify(object):
             self.exp_pkts.append(tmp_pkt)
             # if inft is a sub interface, tuple be like ("Eth0.10", "Eth0")
             # if inft is a general interface, tuple be like ("Eth0", "Eth0")
-            self.pkt_map[pkt] = (intf, get_intf_by_sub_intf(intf, vlan_id))
+            self.pkt_map[str(pkt)] = (intf, get_intf_by_sub_intf(intf, vlan_id), pkt)
 
     def _parseCntrs(self):
         """
@@ -333,7 +333,7 @@ class TrafficSendVerify(object):
         self._verifyIntfCounters(pretest=True)
         for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
             self.ptfadapter.dataplane.flush()
-            out_intf = self.pkt_map[pkt][0]
+            out_intf = self.pkt_map[str(pkt)][0]
             src_port = self.ptf_ports[out_intf][0]
             logger.info("Sending traffic on intf {}".format(out_intf))
             testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)

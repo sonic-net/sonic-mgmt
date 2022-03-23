@@ -152,8 +152,8 @@ class TestChassisApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
         revision = chassis.get_revision(platform_api_conn)
-        pytest_assert(revision is not None, "Unable to retrieve chassis serial number")
-        pytest_assert(isinstance(revision, STRING_TYPE), "Chassis serial number appears incorrect")
+        pytest_assert(revision is not None, "Unable to retrieve chassis revision")
+        pytest_assert(isinstance(revision, STRING_TYPE), "Revision appears incorrect")
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         status = chassis.get_status(platform_api_conn)
@@ -511,15 +511,7 @@ class TestChassisApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_thermal_manager(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        thermal_manager_available = True
-        if duthost.facts.get("chassis"):
-            thermal_manager_available = duthost.facts.get("chassis").get("thermal_manager", True)
-
-        if not thermal_manager_available:
-            pytest.skip("skipped as thermal manager is not available")
-
+    def test_get_thermal_manager(self, localhost, platform_api_conn, thermal_manager_enabled):
         thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
         pytest_assert(thermal_mgr is not None, "Failed to retrieve thermal manager")
 

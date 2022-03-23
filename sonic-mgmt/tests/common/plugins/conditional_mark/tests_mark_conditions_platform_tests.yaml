@@ -563,13 +563,11 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:
-    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
+    # Cisco platforms use different mechanism to generate thermal policy, current method is not applicable
+    # Multi ASIC platform running 201911 release doesn't have thermalctld
+    reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000'"
-  skip:
-    reason: "Multi ASIC platfrom running 201911 release doesn't have thermalctld"
-    conditions:
-      - "is_multi_asic==True and release in ['201911']"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   xfail:
@@ -580,13 +578,11 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:
-    reason: "Cisco platforms use different mechanism to generate thermal policy, current method is not applicable"
+    # Cisco platforms use different mechanism to generate thermal policy, current method is not applicable
+    # Multi ASIC platform running 201911 release doesn't have thermalctld
+    reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000'"
-  skip:
-    reason: "Multi ASIC platfrom running 201911 release doesn't have thermalctld"
-    conditions:
-      - "is_multi_asic==True and release in ['201911']"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
 #######################################
 #####        test_reboot.py       #####

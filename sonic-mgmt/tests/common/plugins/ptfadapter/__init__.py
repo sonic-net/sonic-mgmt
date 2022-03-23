@@ -176,7 +176,7 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
     Start the ptf nn services in neighbor devices and register them in ptfadapter.
     """
     if request.config.getoption("--neighbor_type") != "sonic":
-        pytest.fail("Neighbor devices aren't SONiC so that the ptf nn service cannot be started")
+        pytest.skip("Neighbor devices aren't SONiC so that the ptf nn service cannot be started")
     device_sockets = ptf.config['device_sockets']
     current_file_dir = os.path.dirname(os.path.realpath(__file__))
     for name, attr in nbrhosts.items():

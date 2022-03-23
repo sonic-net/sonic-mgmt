@@ -84,6 +84,12 @@ sonic_s6000:
     vlab-06:
       ansible_host: 10.250.0.111
       ansible_hostv6: fec0::ffff:afa:b
+    vlab-09:
+      ansible_host: 10.250.0.115
+      ansible_hostv6: fec0::ffff:afb:1
+    vlab-10:
+      ansible_host: 10.250.0.117
+      ansible_hostv6: fec0::ffff:afb:3
     vlab-t2-01:
       ansible_host: 10.250.0.120
       ansible_hostv6: fec0::ffff:afa:10

@@ -54,9 +54,9 @@ def log_bgp_updates(duthost, iface, save_path):
 
 
 @pytest.fixture
-def is_quagga(duthosts, rand_one_dut_hostname):
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.shell("vtysh -c 'show version'")
     return "Quagga" in show_res["stdout"]
 
@@ -67,9 +67,9 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces):
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
@@ -136,7 +136,7 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_dut_hostname,
+def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                           toggle_all_simulator_ports_to_rand_selected_tor_m):
 
     def bgp_update_packets(pcap_file):
@@ -190,7 +190,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_d
         else:
             return False
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
     try:
