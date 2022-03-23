@@ -2,6 +2,7 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +94,6 @@ def test_secret_removed_from_show_techsupport(
     # check *.cer *.crt *.pem *.key not exist in dump files
     find_command = "find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)".format(dump_extract_path)
     check_no_result(duthost, find_command)
+
+    config_reload(duthost)
+
