@@ -13,6 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
+from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -592,3 +593,7 @@ def pytest_generate_tests(metafunc):
                 metafunc.parametrize('power_off_delay', delay_list)
             except ValueError:
                 metafunc.parametrize('power_off_delay', default_delay_list)
+
+
+def pytest_addoption(parser):
+     add_counterpoll_cpu_usage_args(parser)
