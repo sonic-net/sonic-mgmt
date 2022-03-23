@@ -131,7 +131,7 @@ def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
+def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
     """
     send ethernet packet and verify it on dest_port
     :param ptfadapter: PTF adapter object
@@ -177,8 +177,10 @@ def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, sr
         except:
             pass
     else:
-        pytest_assert(False, "Expected packet was not received on ports {}".format(dest_ports))
-
+        result = duthost.command("show mac", module_ignore_errors=True)
+        logger.debug("Show mac results {}".format(result['stdout']))
+        pytest_assert(False, "Expected packet was not received on ports {}"
+                             "Dest MAC in fdb is {}".format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
     """
@@ -324,7 +326,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             src_ports = src['port_index']
             dst_ports = dst['port_index']
             for src_mac, dst_mac in itertools.product(fdb[src_ports[0]], fdb[dst_ports[0]]):
-                send_recv_eth(ptfadapter, src_ports, src_mac, dst_ports, dst_mac, src_vlan, dst_vlan)
+                send_recv_eth(duthost, ptfadapter, src_ports, src_mac, dst_ports, dst_mac, src_vlan, dst_vlan)
 
     # Should we have fdb_facts ansible module for this test?
     fdb_fact = duthost.fdb_facts()['ansible_facts']
