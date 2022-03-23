@@ -58,7 +58,8 @@ def loganalyzer(duthosts, request):
     yield analyzers
 
     # Skip LogAnalyzer if case is skipped
-    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped:
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
+            "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
     logging.info("Starting to analyse on all DUTs")
     parallel_run(analyze_logs, [analyzers, markers], {}, duthosts, timeout=120)
