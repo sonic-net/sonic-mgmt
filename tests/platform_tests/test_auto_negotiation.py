@@ -275,7 +275,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_dut_portname_module_fix
 
     # Advertise all supported speeds in fanout port
     success = fanout.set_speed(fanout_port, None)
-    pytest_require(success, 'Failed to advertise speed on fanout port {}, speed {}'.format(fanout_port, speed))
+    pytest_require(success, 'Failed to advertise speed on fanout port {}'.format(fanout_port))
 
     logger.info('Trying to get a common supported speed set among dut port, fanout port and cable')
     supported_speeds = get_supported_speeds_for_port(duthost, dut_port, fanout, fanout_port)
