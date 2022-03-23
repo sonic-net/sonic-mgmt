@@ -1,8 +1,11 @@
 import json
 import logging
+import re
 import pytest
 
 from datetime import datetime
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY
 
@@ -128,7 +131,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
             duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
         apply_dut_config_files(duthost, vnet_test_params)
-
+        # Check arp table status in a loop with delay.
+        pytest_assert(wait_until(60, 10, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":
@@ -147,6 +151,23 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
             testWrArp.Teardown(duthost)
 
     return vxlan_enabled, request.param
+
+
+def is_neigh_reachable(duthost, vnet_config):
+    expected_neigh_list = vnet_config["vnet_nbr_list"]
+    ip_neigh_cmd_output = duthost.shell("sudo ip -4 neigh")['stdout']
+    for exp_neigh in expected_neigh_list:
+        if exp_neigh["ifname"].startswith("Vlan"):
+            regexp = '{}.*{}.*?REACHABLE'.format(exp_neigh["ip"], exp_neigh["ifname"])
+            if re.search(regexp, ip_neigh_cmd_output):
+                logger.info('Neigh {} {} is reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+            else:
+                logger.error('Neigh {} {} is not reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+                return False
+        else:
+            logger.warning('Neighbor expected but not found: {} {}'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+    return True
+
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
     """
