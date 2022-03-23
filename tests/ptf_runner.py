@@ -5,6 +5,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def ptf_collect(host, log_file):
+    host.fetch(src=log_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
+    pcap_file = log_file[0:-3] + 'pcap'
+    host.fetch(src=pcap_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
+
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0,
@@ -33,6 +38,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
 
     if log_file:
         cmd += " --log-file {}".format(log_file)
+        ptf_collect(host, log_file)
 
     if socket_recv_size:
         cmd += " --socket-recv-size {}".format(socket_recv_size)
