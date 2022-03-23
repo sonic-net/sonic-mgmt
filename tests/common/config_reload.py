@@ -80,7 +80,14 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     wait = max(wait, 240) if modular_chassis else wait
 
     if safe_reload:
-        assert wait_until(wait, 20, 0, duthost.critical_services_fully_started), \
-                "All critical services should be fully started!"
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+                "All critical services should be fully started!")
+        if config_source == 'minigraph':
+            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
+                    "PFC_WD is missing in CONFIG-DB")
     else:
         time.sleep(wait)
