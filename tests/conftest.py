@@ -1151,6 +1151,9 @@ def pytest_generate_tests(metafunc):
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+    elif "enum_rand_one_frontend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_rand_one_frontend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
 
     # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
     if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
@@ -1241,6 +1244,10 @@ def enum_rand_one_asic_index(request):
 
 @pytest.fixture(scope="module")
 def enum_dut_feature(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_frontend_asic_index(request):
     return request.param
 
 @pytest.fixture(scope="module")
