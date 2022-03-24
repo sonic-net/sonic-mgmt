@@ -6,7 +6,7 @@ import sys
 
 DEFAULT_LOCK_HOURS = 36
 
-def get_token(client_id, client_secret):
+def get_token(client_id, client_secret, proxies):
     token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -23,6 +23,17 @@ def get_token(client_id, client_secret):
     except Exception as e:
         print('Get token failed with exception: {}'.format(repr(e)))
     return None
+
+
+def get_testbed(testbed, token, proxies):
+    try:
+        url = 'https://tbshare.azurewebsites.net/api/testbed/{}'.format(testbed)
+        headers = {
+            'Authorization': 'Bearer ' + token
+        }
+        return requests.get(url, headers=headers, proxies=proxies, timeout=10).json()
+    except:
+        return {}
 
 
 def lock_release(testbed, action, token, proxies, hours, user, reason, force, absolute):
@@ -103,7 +114,7 @@ if __name__ == '__main__':
         dest='force',
         required=False,
         default="yes",
-        help='Force lock. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
+        help='Force lock/release. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
 
     parser.add_argument('-b', '--absolute',
         type=str,
@@ -111,6 +122,12 @@ if __name__ == '__main__':
         required=False,
         default="yes",
         help='Absolute lock. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
+
+    parser.add_argument('-R',
+        action='store_true',
+        dest='brutal_release',
+        required=False,
+        help='Brutal force release flag.')
 
     args = parser.parse_args()
 
@@ -132,8 +149,22 @@ if __name__ == '__main__':
         'https': os.environ.get('http_proxy')
     }
 
-    token = get_token(client_id, client_secret)
+    token = get_token(client_id, client_secret, proxies)
     if not token:
-        sys.exit(1)
+        sys.exit(2)
 
-    sys.exit(lock_release(args.testbed, args.action, token, proxies, args.hours, args.user, args.reason, args.force, args.absolute))
+    if not args.brutal_release:
+        sys.exit(lock_release(args.testbed, args.action, token, proxies, args.hours, args.user, args.reason, args.force, args.absolute))
+    else:
+        testbed_res = get_testbed(args.testbed, token, proxies)
+
+        if testbed_res.get('failed', True):
+            print('Failed to get testbed details')
+            sys.exit(3)
+
+        locked_by = testbed_res.get('testbed').get('locked_by')
+        if not locked_by:
+            print('Testbed "{}" is not locked by anyone'.format(args.testbed))
+            sys.exit(0)
+
+        sys.exit(lock_release(args.testbed, 'release', token, proxies, args.hours, locked_by, args.reason, args.force, args.absolute))

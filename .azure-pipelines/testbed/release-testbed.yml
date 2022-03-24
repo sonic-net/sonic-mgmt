@@ -1,0 +1,32 @@
+# This job is for releasing a testbed when we can't release it from the testbed booking system.
+
+name: ReleaseTestbed_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed name"
+
+stages:
+  - stage: ReleaseTestbed
+    jobs:
+      - job: ReleaseTestbed
+        pool: nightly
+        timeoutInMinutes: 30
+        workspace:
+          clean: all
+        variables:
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+        steps:
+
+          - script: |
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -R
+            env:
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            displayName: Release Testbed
