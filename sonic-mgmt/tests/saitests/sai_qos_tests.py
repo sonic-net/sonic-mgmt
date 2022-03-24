@@ -677,12 +677,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # get a snapshot of PG drop packets counter
-        if '201811' not in sonic_version and 'mellanox' in asic_type:
-            # According to SONiC configuration lossless dscps are classified as follows:
-            # dscp  3 -> pg 3
-            # dscp  4 -> pg 4
-            pg_dropped_cntrs_old = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
-        if '201811' not in sonic_version and 'cisco-8000' in asic_type:
+        if '201811' not in sonic_version and ('mellanox' in asic_type or 'cisco-8000' in asic_type):
             # According to SONiC configuration lossless dscps are classified as follows:
             # dscp  3 -> pg 3
             # dscp  4 -> pg 4
