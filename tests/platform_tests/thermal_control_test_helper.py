@@ -111,7 +111,7 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
         platform = dut.facts['platform']
         mocker_object = None
 
-        if 'mlnx' in platform:
+        if 'mlnx' in platform or 'nvidia' in platform:
             from tests.platform_tests.mellanox import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
