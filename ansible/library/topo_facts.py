@@ -283,6 +283,11 @@ class ParseTestbedTopoinfo():
         else:
             vm_topo_config['DUT'] = {}
 
+        if 'devices_interconnect_interfaces' in topo_definition['topology']:
+            vm_topo_config['devices_interconnect_interfaces'] = topo_definition['topology']['devices_interconnect_interfaces']
+        else:
+            vm_topo_config['devices_interconnect_interfaces'] = []
+
         self.vm_topo_config = vm_topo_config
         self.asic_topo_config = asic_topo_config
         return vm_topo_config, asic_topo_config

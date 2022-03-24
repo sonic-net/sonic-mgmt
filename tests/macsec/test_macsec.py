@@ -298,10 +298,8 @@ class TestInteropProtocol():
 
         # select one macsec link
         for ctrl_port, nbr in ctrl_links.items():
-            # TODO: vsonic vm has issue on lldp
-            if not isinstance(nbr["host"], EosHost):
-                pytest.skip("test_lldp has issue with vsonic neighbor")
-            assert nbr["name"] in get_lldp_list(duthost)
+            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                            lambda: nbr["name"] in get_lldp_list(duthost))
 
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])

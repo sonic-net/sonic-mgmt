@@ -44,7 +44,7 @@ from tests.common.utilities import str2bool
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
-
+from ptf import testutils # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1182,7 +1182,7 @@ def pytest_generate_tests(metafunc):
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
     if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "all_ports"), scope="module", indirect=True)
+        metafunc.parametrize("enum_dut_portname_module_fixture", generate_port_lists(metafunc, "admin_up_ports"), scope="module", indirect=True)
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -1438,26 +1438,45 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
-        db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
-        db_dump_tarfile = "{}.tar.gz".format(dut_file_path)
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
 
         # Collect DB config
         dbs = set()
-        result = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")
+        result = duthosts[0].command(argv=["cat", "/var/run/redis/sonic-db/database_config.json"])
         db_config = json.loads(result['stdout'])
+        state_db_id = db_config['DATABASES']['STATE_DB']['id']
         for db in db_config['DATABASES']:
             db_id = db_config['DATABASES'][db]['id']
+            # Skip STATE_DB dump on release 201911.
+            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
+            # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
+            # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
+            # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
+            # to avoid raising exception when dumping the STATE_DB.
+            if db_id == state_db_id and duthosts[0].sonic_release in ['201911']:
+                continue
             dbs.add(db_id)
 
-        # Collect DB dump
-        duthosts.file(path = db_dump_path, state="directory")
-        for i in dbs:
-            duthosts.shell("redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i))
-        duthosts.shell("tar czf {} {}".format(db_dump_tarfile, dut_file_path))
-        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
+        namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
+        if namespace_list:
+            for namespace in namespace_list:
+                # Collect DB dump
+                db_dump_path = os.path.join(dut_file_path, namespace, request.module.__name__, request.node.name)
+                duthosts.file(path=db_dump_path, state="directory")
+                for i in dbs:
+                    duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
+        else:
+            # Collect DB dump
+            db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+            duthosts.file(path = db_dump_path, state="directory")
+            for i in dbs:
+                duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
 
+        #compress dump file and fetch to docker
+        duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
+        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
         #remove dump file from dut
-        duthosts.shell("rm -rf {} {}".format(dut_file_path, db_dump_tarfile))
+        duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
 
 @pytest.fixture(autouse=True)
 def collect_db_dump(request, duthosts):
@@ -1466,3 +1485,41 @@ def collect_db_dump(request, duthosts):
     '''
     yield
     collect_db_dump_on_duts(request, duthosts)
+
+def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
+    """
+    Check that a packet is received on _any_ of the specified ports belonging to
+    the given device (default device_number is 0).
+
+    Also verifies that the packet is not received on any other ports for this
+    device, and that no other packets are received on the device (unless --relax
+    is in effect).
+
+    The function is redefined here to workaround code bug in testutils.verify_packets_any
+    """
+    received = False
+    failures = []
+    for device, port in testutils.ptf_ports():
+        if device != device_number:
+            continue
+        if port in ports:
+            logging.debug("Checking for pkt on device %d, port %d", device_number, port)
+            result = testutils.dp_poll(test, device_number=device, port_number=port, exp_pkt=pkt)
+            if isinstance(result, test.dataplane.PollSuccess):
+                received = True
+            else:
+                failures.append((port, result))
+        else:
+            testutils.verify_no_packet(test, pkt, (device, port))
+    testutils.verify_no_other_packets(test)
+
+    if not received:
+        def format_failure(port, failure):
+            return "On port %d:\n%s" % (port, failure.format())
+        failure_report = "\n".join([format_failure(*f) for f in failures])
+        test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
+                    % (ports, device_number, failure_report))
+
+# HACK: testutils.verify_packets_any to workaround code bug
+# TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
+testutils.verify_packets_any = verify_packets_any_fixed
