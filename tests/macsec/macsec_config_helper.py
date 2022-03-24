@@ -82,7 +82,7 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
             if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
                 return False
         return True
-    assert wait_until(180, 5, 5, check_macsec_enabled)
+    assert wait_until(180, 5, 10, check_macsec_enabled)
 
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
@@ -119,6 +119,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         set_macsec_profile(nbr["host"], profile_name, priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        wait_until(20, 3, 0,
+                   lambda: duthost.iface_macsec_ok(dut_port) and
+                           nbr["host"].iface_macsec_ok(nbr["port"]))
         i += 1
 
 

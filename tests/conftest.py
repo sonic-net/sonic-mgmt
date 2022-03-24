@@ -3,17 +3,15 @@ import glob
 import json
 import logging
 import getpass
-import string
 import random
 import re
-import natsort
 
 import pytest
 import yaml
 import jinja2
 
 from datetime import datetime
-from ipaddress import ip_interface, IPv4Interface, ip_address, IPv4Address
+from ipaddress import ip_interface, IPv4Interface
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -46,11 +44,6 @@ from tests.common.utilities import str2bool
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
-from tests.macsec.macsec_config_helper import enable_macsec_feature
-from tests.macsec.macsec_config_helper import disable_macsec_feature
-from tests.macsec.macsec_config_helper import setup_macsec_configuration
-from tests.macsec.macsec_config_helper import cleanup_macsec_configuration
-
 from ptf import testutils # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
@@ -70,6 +63,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
+                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -153,12 +147,6 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
-
-    ############################
-    #   macsec options         #
-    ############################
-    parser.addoption("--enable_macsec", action="store_true", default=False,
-                     help="Enable macsec on some links of testbed")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -1497,124 +1485,6 @@ def collect_db_dump(request, duthosts):
     '''
     yield
     collect_db_dump_on_duts(request, duthosts)
-
-
-def find_links(duthost, tbinfo, filter):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        filter(interface, neighbor, mg_facts, tbinfo)
-
-
-def find_links_from_nbr(duthost, tbinfo, nbrhosts):
-    links = collections.defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if neighbor["name"] not in nbrhosts.keys():
-            return
-        port = mg_facts["minigraph_neighbors"][interface]["port"]
-        links[interface] = {
-            "name": neighbor["name"],
-            "host": nbrhosts[neighbor["name"]]["host"],
-            "port": port
-        }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
-@pytest.fixture(scope="session")
-def ctrl_links(duthost, tbinfo, nbrhosts):
-    assert len(nbrhosts) > 1
-    ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
-    logging.info("Controlled links {}".format(ctrl_nbr_names))
-    nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
-    return find_links_from_nbr(duthost, tbinfo, nbrhosts)
-
-@pytest.fixture(scope="session")
-def macsec_nbrhosts(ctrl_links):
-    return {nbr["name"]: nbr for nbr in ctrl_links.values()}
-
-@pytest.fixture(scope="session")
-def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
-    unctrl_nbr_names = set(nbrhosts.keys())
-    for _, nbr in ctrl_links.items():
-        if nbr["name"] in unctrl_nbr_names:
-            unctrl_nbr_names.remove(nbr["name"])
-    logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
-    nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
-    return find_links_from_nbr(duthost, tbinfo, nbrhosts)
-
-
-@pytest.fixture(scope="session")
-def downstream_links(duthost, tbinfo, nbrhosts):
-    links = collections.defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
-            port = mg_facts["minigraph_neighbors"][interface]["port"]
-            links[interface] = {
-                "name": neighbor["name"],
-                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "port": port
-            }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
-@pytest.fixture(scope="session")
-def upstream_links(duthost, tbinfo, nbrhosts):
-    links = collections.defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
-            for item in mg_facts["minigraph_bgp"]:
-                if item["name"] == neighbor["name"]:
-                    if isinstance(ip_address(item["addr"]), IPv4Address):
-                        local_ipv4_addr = item["addr"]
-                        peer_ipv4_addr = item["peer_addr"]
-                        break
-            port = mg_facts["minigraph_neighbors"][interface]["port"]
-            links[interface] = {
-                "name": neighbor["name"],
-                "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
-                "local_ipv4_addr": local_ipv4_addr,
-                "peer_ipv4_addr": peer_ipv4_addr,
-                "port": port,
-                "host": nbrhosts[neighbor["name"]]["host"]
-            }
-    find_links(duthost, tbinfo, filter)
-    return links
-
-
-@pytest.fixture(scope="session")
-def macsec_profile(creds):
-    profile = creds["macsec_profile"]
-    profile['primary_cak'] = ''.join(random.sample(string.hexdigits * 10, 32))
-    profile['primary_ckn'] = ''.join(random.sample(string.hexdigits * 10, 64))
-    return profile
-
-
-@pytest.fixture(scope="session", autouse=True)
-def macsec_setup(request, duthost, ctrl_links, macsec_nbrhosts, macsec_profile):
-    '''
-        setup macsec links
-    '''
-    if not request.config.getoption("--enable_macsec"):
-        yield
-        return
-
-    enable_macsec_feature(duthost, macsec_nbrhosts)
-
-    profile = macsec_profile
-    setup_macsec_configuration(duthost, ctrl_links,
-            profile['name'], profile['priority'], profile['cipher_suite'],
-            profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-            profile['send_sci'])
-    logger.info("Setup macsec links {} on {}".format(ctrl_links.keys(), duthost))
-    yield
-
-    cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
-    disable_macsec_feature(duthost, macsec_nbrhosts)
-
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
