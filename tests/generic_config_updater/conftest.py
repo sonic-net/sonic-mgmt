@@ -2,6 +2,15 @@ import pytest
 
 from tests.common.utilities import skip_release
 
+def pytest_configure(config):
+    """ JsonPatch ordering will discard incorrect ordering and continue
+        on next ordering. But LogAnalyzer will analyze failure on discarded
+        ordering log, we will disable it for GCU and use our own ways of
+        verification.
+    """
+    if not config.option.disable_loganalyzer:
+        config.option.disable_loganalyzer = True
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
