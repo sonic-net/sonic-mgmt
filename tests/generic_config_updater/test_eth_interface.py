@@ -144,6 +144,9 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 
 @pytest.mark.parametrize("fec", ["rs", "fc"])
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        pytest.skip("Not supported on virtual switch")
+
     json_patch = [
         {
             "op": "replace",
