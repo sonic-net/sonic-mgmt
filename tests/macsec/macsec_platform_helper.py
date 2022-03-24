@@ -1,5 +1,4 @@
 import ast
-import collections
 import re
 from multiprocessing.pool import ThreadPool
 

@@ -1,6 +1,7 @@
 import pytest
 import os
 import natsort
+import json
 import collections
 from ipaddress import ip_address, IPv4Address
 
@@ -10,12 +11,8 @@ from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
 
 logger = logging.getLogger(__name__)
-#macsec_profiles = {}
-import json
-    #global macsec_profiles
 with open(os.path.dirname(__file__) + '/profile.json') as f:
     macsec_profiles = json.load(f)
-
 
 
 def get_macsec_profile_list():
@@ -65,6 +62,9 @@ def macsec_feature(request, duthost, macsec_nbrhosts):
         enable_macsec_feature(duthost, macsec_nbrhosts)
         yield
         disable_macsec_feature(duthost, macsec_nbrhosts)
+    else:
+        yield
+        return
 
 
 @pytest.fixture(scope="session", autouse=True)
