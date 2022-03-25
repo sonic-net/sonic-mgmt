@@ -140,8 +140,6 @@ test_t0() {
       popd
     else
       tests="\
-      generic_config_updater/test_aaa.py \
-      generic_config_updater/test_bgpl.py \
       generic_config_updater/test_bgp_prefix.py \
       generic_config_updater/test_bgp_speaker.py \
       generic_config_updater/test_dhcp_relay.py \
@@ -149,6 +147,8 @@ test_t0() {
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
+      generic_config_updater/test_aaa.py \
+      generic_config_updater/test_bgpl.py \
       ssh/test_ssh_stress.py \
       ssh/test_ssh_ciphers.py \
       syslog/test_syslog.py\

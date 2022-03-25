@@ -12,7 +12,8 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     if loganalyzer:
          ignoreRegex = [
              ".*ERR sonic_yang.*",
-             ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*",
+             ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*", # test_bgpl
+             ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED 'SET' message with no prefixes specified: {'NULL': 'NULL'}.*", # test_bgp_prefix
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
