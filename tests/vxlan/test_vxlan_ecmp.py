@@ -58,7 +58,8 @@ HOST_MASK = {'v4' : 32, 'v6' : 128}
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
 # This list is used in many locations in the script.
-SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+SUPPORTED_ENCAP_TYPES_V4 = ['v4_in_v4', 'v6_in_v4']
+SUPPORTED_ENCAP_TYPES_V6 = ['v4_in_v6', 'v6_in_v6']
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
@@ -314,10 +315,7 @@ def setup_vnet_intf(duthost, selected_interfaces, vnet_list, minigraph_data):
     apply_config_in_dut(duthost, full_config, "vnet_intf")
     return ret_list
 
-def configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=None):
-    if dutmac == None:
-        #dutmac = duthost.facts['router_mac']
-        dutmac = "aa:bb:cc:dd:ee:ff"
+def configure_vxlan_switch(duthost, dutmac, vxlan_port=4789):
 
     switch_config = '''
 [
@@ -473,122 +471,122 @@ def get_ethernet_ports(intf_list, minigraph_data):
 
     return ret_list
 
-@pytest.fixture(scope="module")
-def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
-          tbinfo):
 
-    global Constants
-    # Should I keep the temporary files copied to DUT?
-    Constants['KEEP_TEMP_FILES'] = request.config.option.keep_temp_files
-
-    # Is debugging going on, or is it a production run? If it is a
-    # production run, use time-stamped file names for temp files.
-    Constants['DEBUG'] = request.config.option.debug_enabled
-
-    # The host id in the ip addresses for DUT. It can be anything,
-    # but helps to keep as a single number that is easy to identify
-    # as DUT.
-    Constants['DUT_HOSTID'] = request.config.option.dut_hostid
-
-    Logger.info("Constants to be used in the script:%s", Constants)
-
-    data = {}
-    data['ptfhost'] = ptfhost
-    data['tbinfo'] = tbinfo
-    data['duthost'] = duthosts[rand_one_dut_hostname]
-    data['minigraph_facts'] = data['duthost'].get_extended_minigraph_facts(tbinfo)
-    data['dut_mac'] = data['duthost'].facts['router_mac']
-    data['vxlan_port'] = request.config.option.vxlan_port
-    configure_vxlan_switch(data['duthost'], vxlan_port=data['vxlan_port'], dutmac=data['dut_mac'])
-
-    selected_interfaces = {}
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = get_outer_layer_version(encap_type)
-        selected_interfaces[encap_type] = select_required_interfaces(
-            data['duthost'],
-            number_of_required_interfaces=1,
-            minigraph_data=minigraph_facts,
-            af=outer_layer_version)
-
-    # To store the names of the tunnels, for every outer layer version.
-    tunnel_names = {}
-    # To track the vnets for every outer_layer_version.
-    vnet_af_map = {}
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = get_outer_layer_version(encap_type)
-        try:
-            tunnel_names[outer_layer_version]
-        except KeyError:
-            tunnel_names[outer_layer_version] = create_vxlan_tunnel(data['duthost'], minigraph_data=minigraph_facts, af=outer_layer_version)
-
-        payload_version = get_payload_version(encap_type)
-        encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
-        encap_type_data = {}
-        encap_type_data['selected_interfaces'] = selected_interfaces[encap_type]
-
-        try:
-            encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
-        except KeyError:
-            vnet_af_map[outer_layer_version] = create_vnets(data['duthost'],
-                                                            tunnel_name=tunnel_names[outer_layer_version],
-                                                            vnet_count=1, # default scope can take only one vnet.
-                                                            vnet_name_prefix="Vnet_" + encap_type,
-                                                            scope="default",
-                                                            vni_base=10000)
-            encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
-
-        encap_type_data['vnet_intf_map'] = setup_vnet_intf(data['duthost'],
-                                                           selected_interfaces=encap_type_data['selected_interfaces'],
-                                                           vnet_list=encap_type_data['vnet_vni_map'].keys(),
-                                                           minigraph_data=minigraph_facts)
-        encap_type_data['intf_to_ip_map'] = assign_intf_ip_address(selected_interfaces=encap_type_data['selected_interfaces'], af=payload_version)
-        encap_type_data['t2_ports'] = get_t2_ports(data['duthost'], minigraph_facts)
-        encap_type_data['neighbor_config'] = configure_vnet_neighbors(data['duthost'], encap_type_data['intf_to_ip_map'], minigraph_data=minigraph_facts, af=payload_version)
-        encap_type_data['dest_to_nh_map'] = create_vnet_routes(data['duthost'], encap_type_data['vnet_vni_map'].keys(),
-                                                               nhs_per_destination=request.config.option.ecmp_nhs_per_destination,
-                                                               number_of_available_nexthops=request.config.option.total_number_of_endpoints,
-                                                               number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
-                                                               dest_af=payload_version,
-                                                               dest_net_prefix=150, # Hardcoded to avoid conflicts with topology networks.
-                                                               nexthop_prefix=100, # Hardcoded to avoid conflicts with topology networks.
-                                                               nh_af=outer_layer_version)
-
-        data[encap_type] = encap_type_data
-
-    # This data doesn't change per testcase, so we copy
-    # it as a seperate file. The test-specific config
-    # data will be copied on testase basis.
-    data['ptfhost'].copy(content=json.dumps(
-        {
-            'minigraph_facts':    data['minigraph_facts'],
-            'tbinfo' : data['tbinfo']
-        },
-        indent=4), dest="/tmp/vxlan_topo_info.json")
-
-    yield data
-
-    # Cleanup code.
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = get_outer_layer_version(encap_type)
-        payload_version = get_payload_version(encap_type)
-
-        encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
-        set_routes_in_dut(data['duthost'], data[encap_type]['dest_to_nh_map'], payload_version, "DEL")
-
-        for intf in data[encap_type]['selected_interfaces']:
-            redis_string = "INTERFACE"
-            if "PortChannel" in intf > 0:
-                redis_string = "PORTCHANNEL_INTERFACE"
-            data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
-
-        for vnet in data[encap_type]['vnet_vni_map'].keys():
-            data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
-
-    for tunnel in tunnel_names.values():
-        data['duthost'].shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
-
-@pytest.mark.parametrize("encap_type", SUPPORTED_ENCAP_TYPES)
 class Test_VxLAN:
+
+    @pytest.fixture(scope="class")
+    def setUp(self, duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
+            tbinfo):
+        global Constants
+        # Should I keep the temporary files copied to DUT?
+        Constants['KEEP_TEMP_FILES'] = request.config.option.keep_temp_files
+
+        # Is debugging going on, or is it a production run? If it is a
+        # production run, use time-stamped file names for temp files.
+        Constants['DEBUG'] = request.config.option.debug_enabled
+
+        # The host id in the ip addresses for DUT. It can be anything,
+        # but helps to keep as a single number that is easy to identify
+        # as DUT.
+        Constants['DUT_HOSTID'] = request.config.option.dut_hostid
+
+        Logger.info("Constants to be used in the script:%s", Constants)
+
+        data = {}
+        data['ptfhost'] = ptfhost
+        data['tbinfo'] = tbinfo
+        data['duthost'] = duthosts[rand_one_dut_hostname]
+        data['minigraph_facts'] = data['duthost'].get_extended_minigraph_facts(tbinfo)
+        data['dut_mac'] = data['duthost'].facts['router_mac']
+        data['vxlan_port'] = request.config.option.vxlan_port
+        configure_vxlan_switch(data['duthost'], dutmac=data['dut_mac'], vxlan_port=data['vxlan_port'])
+
+        selected_interfaces = {}
+        for encap_type in self.SUPPORTED_ENCAP_TYPES:
+            outer_layer_version = get_outer_layer_version(encap_type)
+            selected_interfaces[encap_type] = select_required_interfaces(
+                data['duthost'],
+                number_of_required_interfaces=1,
+                minigraph_data=minigraph_facts,
+                af=outer_layer_version)
+
+        # To store the names of the tunnels, for every outer layer version.
+        tunnel_names = {}
+        # To track the vnets for every outer_layer_version.
+        vnet_af_map = {}
+        for encap_type in self.SUPPORTED_ENCAP_TYPES:
+            outer_layer_version = get_outer_layer_version(encap_type)
+            try:
+                tunnel_names[outer_layer_version]
+            except KeyError:
+                tunnel_names[outer_layer_version] = create_vxlan_tunnel(data['duthost'], minigraph_data=minigraph_facts, af=outer_layer_version)
+
+            payload_version = get_payload_version(encap_type)
+            encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
+            encap_type_data = {}
+            encap_type_data['selected_interfaces'] = selected_interfaces[encap_type]
+
+            try:
+                encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
+            except KeyError:
+                vnet_af_map[outer_layer_version] = create_vnets(data['duthost'],
+                                                                tunnel_name=tunnel_names[outer_layer_version],
+                                                                vnet_count=1, # default scope can take only one vnet.
+                                                                vnet_name_prefix="Vnet_" + encap_type,
+                                                                scope="default",
+                                                                vni_base=10000)
+                encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
+
+            encap_type_data['vnet_intf_map'] = setup_vnet_intf(data['duthost'],
+                                                            selected_interfaces=encap_type_data['selected_interfaces'],
+                                                            vnet_list=encap_type_data['vnet_vni_map'].keys(),
+                                                            minigraph_data=minigraph_facts)
+            encap_type_data['intf_to_ip_map'] = assign_intf_ip_address(selected_interfaces=encap_type_data['selected_interfaces'], af=payload_version)
+            encap_type_data['t2_ports'] = get_t2_ports(data['duthost'], minigraph_facts)
+            encap_type_data['neighbor_config'] = configure_vnet_neighbors(data['duthost'], encap_type_data['intf_to_ip_map'], minigraph_data=minigraph_facts, af=payload_version)
+            encap_type_data['dest_to_nh_map'] = create_vnet_routes(data['duthost'], encap_type_data['vnet_vni_map'].keys(),
+                                                                nhs_per_destination=request.config.option.ecmp_nhs_per_destination,
+                                                                number_of_available_nexthops=request.config.option.total_number_of_endpoints,
+                                                                number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
+                                                                dest_af=payload_version,
+                                                                dest_net_prefix=150, # Hardcoded to avoid conflicts with topology networks.
+                                                                nexthop_prefix=100, # Hardcoded to avoid conflicts with topology networks.
+                                                                nh_af=outer_layer_version)
+
+            data[encap_type] = encap_type_data
+
+        # This data doesn't change per testcase, so we copy
+        # it as a seperate file. The test-specific config
+        # data will be copied on testase basis.
+        data['ptfhost'].copy(content=json.dumps(
+            {
+                'minigraph_facts':    data['minigraph_facts'],
+                'tbinfo' : data['tbinfo']
+            },
+            indent=4), dest="/tmp/vxlan_topo_info.json")
+
+        yield data
+
+        # Cleanup code.
+        for encap_type in self.SUPPORTED_ENCAP_TYPES:
+            outer_layer_version = get_outer_layer_version(encap_type)
+            payload_version = get_payload_version(encap_type)
+
+            encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
+            set_routes_in_dut(data['duthost'], data[encap_type]['dest_to_nh_map'], payload_version, "DEL")
+
+            for intf in data[encap_type]['selected_interfaces']:
+                redis_string = "INTERFACE"
+                if "PortChannel" in intf > 0:
+                    redis_string = "PORTCHANNEL_INTERFACE"
+                data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
+
+            for vnet in data[encap_type]['vnet_vni_map'].keys():
+                data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+
+        for tunnel in tunnel_names.values():
+            data['duthost'].shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+
 
     def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success):
         '''
@@ -626,7 +624,21 @@ class Test_VxLAN:
                    qlen=1000,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(tcname, encap_type, datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
 
-class Test_VxLAN_route_tests(Test_VxLAN):
+
+@pytest.mark.parametrize("encap_type", SUPPORTED_ENCAP_TYPES_V4)
+class Test_VxLAN_v4(Test_VxLAN):
+    SUPPORTED_ENCAP_TYPES = SUPPORTED_ENCAP_TYPES_V4
+
+    def test_vxlan_single_endpoint(self, setUp, encap_type):
+        self.setup = setUp
+        Logger.info("tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.")
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True)
+
+
+@pytest.mark.parametrize("encap_type", SUPPORTED_ENCAP_TYPES_V6)
+class Test_VxLAN_v6(Test_VxLAN):
+    SUPPORTED_ENCAP_TYPES = SUPPORTED_ENCAP_TYPES_V6
+
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         self.setup = setUp
         Logger.info("tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.")
