@@ -277,7 +277,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         ptfhost.shell('supervisorctl stop garp_service')
 
 
-def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
+def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts):
     active_dut_map = {}
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
@@ -296,7 +296,8 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-
+    
+    asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
         if str(ptf_port) in disabled_ptf_ports:
@@ -310,14 +311,26 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
             target_dut_index = int(active_dut_map[ptf_port])
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac']
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac'],
+                'target_src_mac': router_macs[target_dut_index],
+                'asic_idx': asic_idx
             }
         else:
             # PTF port is mapped to single DUT
             target_dut_index = int(dut_intf_map.keys()[0])
+            target_dut_port = int(dut_intf_map.values()[0])
+            router_mac = router_macs[target_dut_index]
+            if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
+                for idx, mg_facts in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                    if target_dut_port in mg_facts['minigraph_port_indices'].values():
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        asic_idx = idx
+                        break
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_mac': router_macs[target_dut_index]
+                'target_dest_mac': router_mac,
+                'target_src_mac': router_mac,
+                'asic_idx': asic_idx
             }
 
     logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))

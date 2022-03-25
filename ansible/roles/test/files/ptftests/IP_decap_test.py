@@ -93,7 +93,6 @@ class DecapPacketTest(BaseTest):
 
         self.lo_ips = self.test_params.get('lo_ips')
         self.lo_ipv6s = self.test_params.get('lo_ipv6s')
-        self.router_macs = self.test_params.get('router_macs')
         self.dscp_mode = self.test_params.get('dscp_mode')
         self.ttl_mode = self.test_params.get('ttl_mode')
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
@@ -204,8 +203,7 @@ class DecapPacketTest(BaseTest):
 
         src_mac =  self.dataplane.get_mac(0, src_port)
         dst_mac = '00:11:22:33:44:55'
-        router_mac = self.router_macs[dut_index]
-        target_mac = self.ptf_test_port_map[str(src_port)]['target_mac']  # Outer dest mac
+        router_mac = target_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']  # Outer dest mac
 
         active_dut_index = int(self.ptf_test_port_map[str(src_port)]['target_dut'])
         lo_ip = self.lo_ips[active_dut_index]
