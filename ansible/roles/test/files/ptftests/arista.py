@@ -174,11 +174,13 @@ class Arista(object):
                     continue
                 if cmd == 'cpu_down':
                     last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
-                    self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
+                    if last_lacppdu_time_before_reboot is not None:
+                        self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
                 if (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
                     # control plane is back up, start polling for new lacp-pdu
                     last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
-                    if int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
+                    if last_lacppdu_time_before_reboot is not None and last_lacppdu_time_after_reboot is not None and \
+                            int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
                         self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
                         self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
 
