@@ -12,6 +12,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     if loganalyzer:
          ignoreRegex = [
              ".*ERR sonic_yang.*",
+             ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*",
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
