@@ -3,7 +3,7 @@
         "priority": 64,
         "cipher_suite": "GCM-AES-128",
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
-        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
         "send_sci": "false"
     },
@@ -19,7 +19,7 @@
         "priority": 64,
         "cipher_suite": "GCM-AES-XPN-128",
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
-        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
         "send_sci": "false"
     },
@@ -35,7 +35,7 @@
         "priority": 64,
         "cipher_suite": "GCM-AES-128",
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
-        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
         "send_sci": "true"
     },
@@ -51,7 +51,7 @@
         "priority": 64,
         "cipher_suite": "GCM-AES-XPN-128",
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
-        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
         "send_sci": "true"
     },

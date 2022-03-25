@@ -15,6 +15,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
             lines = [
                 'cipher {}'.format(eos_cipher_suite[cipher_suite]),
                 'key {} 0 {}'.format(primary_ckn, primary_cak),
+                'mka key-server priority {}'.format(priority),
                 'sci'
                 ],
             parents=['mac security', 'profile {}'.format(profile_name)])

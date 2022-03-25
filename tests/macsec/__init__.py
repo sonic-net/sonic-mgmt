@@ -78,9 +78,6 @@ def macsec_setup(request, duthost, ctrl_links, macsec_profile, macsec_feature):
 
     profile = macsec_profiles[macsec_profile]
     if request.config.getoption("neighbor_type") == "eos":
-        if "XPN" in profile['cipher_suite']:
-            pytest.skip("{} is not supported on neighbor EOS".format(
-                profile['cipher_suite']))
         if profile['send_sci'] == "false":
             pytest.skip(
                 "EOS with send_sci false does not work due to portchannel mac not matching ether port mac!")
