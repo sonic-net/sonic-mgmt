@@ -14,6 +14,13 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR sonic_yang.*",
              ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*", # test_bgpl
              ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED 'SET' message with no prefixes specified: {'NULL': 'NULL'}.*", # test_bgp_prefix
+             ".*ERR.*Failed to start dhcp_relay container.*", # test_dhcp_relay
+             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # test_dhcp_relay test_syslog
+             ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
+             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
+             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
+             ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
+             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
