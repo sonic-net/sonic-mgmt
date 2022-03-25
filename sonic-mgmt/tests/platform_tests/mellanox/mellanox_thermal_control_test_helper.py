@@ -1154,3 +1154,29 @@ class PsuMocker(object):
 
     def mock_psu_status(self, psu_index, status):
         self.mock_helper.mock_thermal_value(self.PSU_PRESENCE.format(psu_index), '1' if status else '0')
+
+
+@mocker('CpuThermalMocker')
+class CpuThermalMocker(object):
+    LOW_THRESHOLD = 80000
+    HIGH_THRESHOLD = 95000
+    MIN_COOLING_STATE = 2
+    MAX_COOLING_STATE = 10
+    CPU_COOLING_STATE_FILE = '/var/run/hw-management/thermal/cooling2_cur_state'
+    CPU_PACK_TEMP_FILE = '/var/run/hw-management/thermal/cpu_pack'
+
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+
+    def deinit(self):
+        """
+        Destructor of CpuThermalMocker.
+        :return:
+        """
+        self.mock_helper.deinit()
+
+    def mock_cpu_pack_temperature(self, temperature):
+        self.mock_helper.mock_value(self.CPU_PACK_TEMP_FILE, temperature)
+
+    def get_cpu_cooling_state(self):
+        return int(self.mock_helper.read_value(self.CPU_COOLING_STATE_FILE))

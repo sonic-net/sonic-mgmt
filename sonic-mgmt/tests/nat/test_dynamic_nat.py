@@ -439,7 +439,7 @@ class TestDynamicNat(object):
                                    handshake=True)
         # Check that NAT entries are present in iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
-        pattern = r"SNAT.*({0}:{1} fullcone)"
+        pattern = r"SNAT.*({0}:{1})"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
                                             "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 3, "IP Tables rules were not created")
@@ -473,7 +473,7 @@ class TestDynamicNat(object):
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
         # Check that NAT entries are present in iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
-        pattern = r"SNAT.*({0}:{1} fullcone)"
+        pattern = r"SNAT.*({0}:{1})"
         entries = re.findall(pattern.format(get_public_ip(setup_data, interface_type),
                                             "{0}-{1}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)), output)
         pytest_assert(len(entries) == 3, "IP Tables rules were not created")
@@ -636,13 +636,13 @@ class TestDynamicNat(object):
         acl_subnet = setup_data[interface_type]["acl_subnet"]
         public_ip = setup_data[interface_type]["public_ip"]
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                   portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -791,13 +791,13 @@ class TestDynamicNat(object):
         acl_subnet = setup_data[interface_type]["acl_subnet"]
         public_ip = setup_data[interface_type]["public_ip"]
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                   portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -818,7 +818,7 @@ class TestDynamicNat(object):
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
         # Check that NAT entries are not present in iptables after removing binding
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -886,11 +886,11 @@ class TestDynamicNat(object):
         iptables_output = dut_nat_iptables_status(duthost)
         iptables_rules = {
             "prerouting": [
-                'DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+                'DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
             "postrouting": [
-                "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange),
-                "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange),
-                "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip, portrange)]
+                "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip, portrange),
+                "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip, portrange),
+                "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip, portrange)]
             }
         pytest_assert(iptables_rules == iptables_output,
                       "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
@@ -902,7 +902,7 @@ class TestDynamicNat(object):
         dut_interface_control(duthost, "ip remove", setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
         # Check that NAT entries are not present in iptables after removing interface IP
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -937,7 +937,7 @@ class TestDynamicNat(object):
 
         # Check, if iptables is empty
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -953,13 +953,13 @@ class TestDynamicNat(object):
         write_json(duthost, nat_session, 'dynamic_binding')
         # Check iptables
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  port_range),
-                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  port_range),
-                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x1 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                   port_range)]
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -971,13 +971,13 @@ class TestDynamicNat(object):
         nat_zones_config(duthost, setup_data, interface_type)
         # Check iptables
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  port_range),
-                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  port_range),
-                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                   port_range)]
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -1020,13 +1020,13 @@ class TestDynamicNat(object):
         acl_subnet = setup_data[interface_type]["acl_subnet"]
         public_ip = setup_data[interface_type]["public_ip"]
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT tcp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT udp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                  portrange),
-                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(acl_subnet, public_ip,
+                              "SNAT icmp -- {} 0.0.0.0/0 mark match 0x2 to:{}:{}".format(acl_subnet, public_ip,
                                                                                                   portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -1041,7 +1041,7 @@ class TestDynamicNat(object):
         pytest_assert(len(get_cli_show_nat_config_output(duthost, "bindings")) == 0, "Nat bindings is not empty")
         # Check, if iptables is empty
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                          }
         pytest_assert(iptables_rules == iptables_output,
@@ -1057,13 +1057,13 @@ class TestDynamicNat(object):
         public_ip = setup_data[interface_type]["public_ip"]
         portrange = "{}-{}".format(POOL_RANGE_START_PORT, POOL_RANGE_END_PORT)
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": [
-                              "SNAT tcp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                              "SNAT tcp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{}".format(public_ip,
                                                                                                         portrange),
-                              "SNAT udp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                              "SNAT udp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{}".format(public_ip,
                                                                                                         portrange),
-                              "SNAT icmp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{} fullcone".format(public_ip,
+                              "SNAT icmp -- 0.0.0.0/0 0.0.0.0/0 mark match 0x2 to:{}:{}".format(public_ip,
                                                                                                          portrange)]
                          }
         pytest_assert(iptables_rules == iptables_output,

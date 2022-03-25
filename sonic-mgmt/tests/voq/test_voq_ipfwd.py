@@ -27,7 +27,7 @@ from voq_helpers import asic_cmd
 from voq_helpers import get_port_by_ip
 from voq_helpers import get_sonic_mac
 from voq_helpers import get_ptf_port
-
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -563,7 +563,7 @@ class TestTableValidation(object):
                 routes = ipv4_routes
 
             for route in routes:
-                if route.startswith("{} via {} dev {} proto bgp".format(str(lbip.ip), str(neigh_ip), local_port)):
+                if re.match("{}.*via {} dev {} proto bgp".format(str(lbip.ip), str(neigh_ip), local_port), route):
                     logger.info("Matched route for %s", str(lbip.ip))
                     break
             else:
