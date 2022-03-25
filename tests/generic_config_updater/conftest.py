@@ -2,6 +2,19 @@ import pytest
 
 from tests.common.utilities import skip_release
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+    """
+    # When loganalyzer is disabled, the object could be None
+    if loganalyzer:
+         ignoreRegex = [
+             ".*ERR sonic_yang.*",
+         ]
+         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
