@@ -19,6 +19,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
              ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
              ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
+             ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
              ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
              ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
          ]
