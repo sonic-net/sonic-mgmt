@@ -22,6 +22,8 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
              ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
              ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
+             ".*ERR.*Failed to apply Json change.*", # validator need updater submodule
+             ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
