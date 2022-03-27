@@ -194,6 +194,7 @@ Verify standby device changes its LACP system ID to be the same as active device
 ### Test objective
 
 Verify data forwarding is correct when mclag enabled interface status change to down
+![mclag_intf_down](https://user-images.githubusercontent.com/73100001/160277837-54e54d67-9e72-4baf-8302-4adf65becedb.gif)
 
 ### Test set up
 
@@ -236,6 +237,7 @@ Verify data forwarding is correct when mclag enabled interface status change to 
 ### Test objective
 
 Verify data forwarding is correct when keepalive link is in down state
+![keepalive_down](https://user-images.githubusercontent.com/73100001/160277878-8b2d6b50-8627-4098-bcff-446b50132307.gif)
 
 ### Test set up
 
@@ -280,6 +282,7 @@ Verify that session_timeout can be changed
 ### Test objective
 
 Verify data forwarding is correct when active device of mclag status change
+![active_down](https://user-images.githubusercontent.com/73100001/160277894-cb6eb2c3-e281-4301-a316-9c8d22b6c8b5.gif)
 
 ### Test set up
 
@@ -304,6 +307,7 @@ Verify data forwarding is correct when active device of mclag status change
 ### Test objective
 
 Verify data forwarding is correct when standby device of mclag status change
+![standby_down](https://user-images.githubusercontent.com/73100001/160277900-c47e68b9-36cb-43c3-afd4-cb86c933fd57.gif)
 
 ### Test set up
 
@@ -327,6 +331,7 @@ Verify data forwarding is correct when standby device of mclag status change
 ### Test objective
 
 Verify data forwarding is correct when peerlink is lost
+![peerlink_down](https://user-images.githubusercontent.com/73100001/160277912-6714281c-0366-4369-a59f-05358999d7aa.gif)
 
 ### Test set up
 
