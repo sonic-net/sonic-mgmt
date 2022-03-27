@@ -429,9 +429,8 @@ class DHCPTest(DataplaneBaseTest):
                 if self.option82 in pkt_options:
                     self.verified_option82 = True
 
-    def Sniffer(self):
-        scapy2.sniff(iface="eth29", filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=3)
-
+    def Sniffer(self,iface):
+        scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=3)
 
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
@@ -586,8 +585,14 @@ class DHCPTest(DataplaneBaseTest):
         testutils.verify_packet(self, masked_ack, self.client_port_index)
 
     def runTest(self):
-        t = Thread(target=self.Sniffer)
-        t.start()
+        t1 = Thread(target=self.Sniffer, args=("eth28",))
+        t1.start()
+        t2 = Thread(target=self.Sniffer, args=("eth29",))
+        t2.start()
+        t3 = Thread(target=self.Sniffer, args=("eth30",))
+        t3.start()
+        t4 = Thread(target=self.Sniffer, args=("eth31",))
+        t4.start()
         self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
         self.verify_relayed_discover()
         self.server_send_offer()
