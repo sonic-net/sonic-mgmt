@@ -41,6 +41,11 @@ def setup_mclag(duthost1, duthost2, ptfhost, mg_facts, collect, get_routes, keep
         get_routes: Dict with advertised routes for each DUT
         tear_down: Fixture that performs tear down
     """
+    feature_status1, _ = duthost1.get_feature_status()
+    feature_status2, _ = duthost2.get_feature_status()
+    if 'iccpd' not in feature_status1 or 'iccpd' not in feature_status2:
+        pytest.skip("iccpd feature is not present in Sonic image")
+
     duthost1.shell("cp {} {}".format(CONFIG_DB_TEMP, CONFIG_DB_BACKUP))
     duthost2.shell("cp {} {}".format(CONFIG_DB_TEMP, CONFIG_DB_BACKUP))
 
@@ -78,6 +83,9 @@ def setup_mclag(duthost1, duthost2, ptfhost, mg_facts, collect, get_routes, keep
     duthost1.shell('config save -y')
     duthost2.shell('config save -y')
 
+    duthost1.critical_services.append('iccpd')
+    duthost2.critical_services.append('iccpd')
+
 
 class TestVerifyMclagStatus(object):
     def test_check_keepalive_link(self, duthost1, duthost2):
@@ -104,13 +112,15 @@ class TestMclagMemberPortStatusChange(object):
         dut2_to_shut = [mclag_info[i]['member_to_shut'] for i in mclag_info if mclag_info[i]['link_down_on_dut'] == duthost2.hostname]
         duthost1.shutdown_multiple(dut1_to_shut)
         duthost2.shutdown_multiple(dut2_to_shut)
-        wait_until(120, 5, 0, check_partner_lag_member, ptfhost, mclag_info, "DOWN")
+        pytest_assert(wait_until(140, 5, 0, check_partner_lag_member, ptfhost, mclag_info, "DOWN"),
+                      "Expected Lag partner members isn't down")
 
         yield mclag_info
 
         duthost1.no_shutdown_multiple(dut1_to_shut)
         duthost2.no_shutdown_multiple(dut2_to_shut)
-        wait_until(90, 5, 0, check_partner_lag_member, ptfhost, mclag_info)
+        pytest_assert(wait_until(120, 5, 0, check_partner_lag_member, ptfhost, mclag_info, "UP"),
+                      "Expected Lag partner members isn't up")
 
 
     def test_mclag_intf_status_down(self, duthost1, duthost2, ptfhost, ptfadapter, get_routes, collect, pre_setup,
@@ -191,10 +201,13 @@ class TestKeepAliveStatusChange(object):
         Verify that MCLAG session_timeout can be changed
         """
         duthost2_router_mac = duthost2.facts["router_mac"]
-        # Wait new session timeout and verify that standby device changed its MAC to default MAC on MCLAG inetrfaces
-        time.sleep(NEW_SESSION_TIMEOUT + 2)
+        # Wait default session timeout and verify that MCLAG status still will be OK
+        time.sleep(DEFAULT_SESSION_TIMEOUT)
+        check_keepalive_link(duthost1, duthost2, 'OK')
 
-        # Verify that keepalive link status will be ERROR after keepalive link is set down
+        # Wait new session timeout and verify that MCLAG status will be ERROR
+        # and that MAC on standby will be changed
+        time.sleep((NEW_SESSION_TIMEOUT - DEFAULT_SESSION_TIMEOUT) + 1)
         check_keepalive_link(duthost1, duthost2, 'ERROR')
 
         for lag in collect[duthost1.hostname]['mclag_interfaces']:
@@ -215,13 +228,17 @@ class TestActiveDeviceStatusChange():
         duthost1.shutdown_multiple(ports_to_shut)
         duthost1.shell("config save -y")
         duthost1.shell("sudo /sbin/reboot", module_ignore_errors=True)
-        wait_until(140, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "DOWN")
+        pytest_assert(wait_until(140, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "DOWN"),
+                      "Expected partner Lag members isnt down")
 
         yield
 
         duthost1.no_shutdown_multiple(ports_to_shut)
         duthost1.shell("config save -y")
-        wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP")
+        pytest_assert(wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP"),
+                                 "Expected partner Lag members isnt up")
+        pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),
+                      "All critical services should fully started!{}".format(duthost1.critical_services))
 
 
     def test_active_down(self, duthost1, duthost2, ptfadapter, ptfhost, collect, get_routes, mclag_intf_num,
@@ -260,13 +277,17 @@ class TestStandByDeviceStatusChange():
         duthost2.shutdown_multiple(ports_to_shut)
         duthost2.shell("config save -y")
         duthost2.shell("sudo /sbin/reboot", module_ignore_errors=True)
-        wait_until(140, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "DOWN")
+        pytest_assert(wait_until(140, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "DOWN"),
+                      "Expected partner Lag members isnt down")
 
         yield
 
         duthost2.no_shutdown_multiple(ports_to_shut)
         duthost2.shell("config save -y")
-        wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP")
+        pytest_assert(wait_until(120, 5, 0, check_partner_lag_member, ptfhost, check_portchannels, "UP"),
+                      "Expected partner Lag members isnt up")
+        pytest_assert(wait_until(300, 20, 0, duthost2.critical_services_fully_started),
+                      "All critical services should fully started!{}".format(duthost2.critical_services))
 
 
     def test_standby_down(self, duthost1, duthost2, ptfadapter, ptfhost, collect, get_routes, mclag_intf_num,

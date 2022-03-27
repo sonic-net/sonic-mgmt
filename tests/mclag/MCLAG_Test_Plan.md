@@ -197,7 +197,7 @@ Verify data forwarding is correct when mclag enabled interface status change to 
 
 ### Test set up
 
-- pre_setup(scope='function'): Shut down MCLAG interface members on both DUTs, checks that links changed status from PTF side
+- Shut down MCLAG interface members on both DUTs, checks that links changed status from PTF side
 
 ### Test steps
 
@@ -207,7 +207,7 @@ Verify data forwarding is correct when mclag enabled interface status change to 
 
 ### Test teardown
 
-- pre_setup(scope='function'): Start up MCLAG interface members on both DUTs, checks that links changed status from PTF side
+- Start up MCLAG interface members on both DUTs, checks that links changed status from PTF side
 
 
 ## Test case test_mclag_intf_status_up
@@ -266,9 +266,9 @@ Verify that session_timeout can be changed
 
 ### Test steps
 
-- Verify that session-timeout is changed to new value
-- Verify that MAC of MCLAG interfaces on standby device changed to its default MAC
-- Verify that MCLAG status is ERROR on both PEERs
+- Verify that after default session-timeout MCLAG status is still OK
+- Verify after new session-timeout MCLAG status changed to ERROR
+- Verify MAC of MCLAG interfaces on standby device changed to its default MAC
 
 ### Test teardown
 
