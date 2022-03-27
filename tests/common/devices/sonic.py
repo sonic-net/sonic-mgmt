@@ -181,6 +181,7 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
+        facts["switch_type"] = self._get_switch_type()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -243,6 +244,13 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
+   
+    def _get_switch_type(self):
+       try:
+           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
+                  "utf-8").lower()
+       except Exception:
+           return ''
 
     def _get_platform_info(self):
         """
@@ -1193,6 +1201,20 @@ Totals               6450                 6449
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
 
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            cmd = 'sonic-db-cli STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return False
+
     def get_container_autorestart_states(self):
         """
         @summary: Get container names and their autorestart states by analyzing
@@ -1454,6 +1476,42 @@ Totals               6450                 6449
                 vlan_intfs.append(intf)
 
         return vlan_intfs
+
+    def get_interfaces_status(self):
+        '''
+        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+
+        Example output:
+            {
+                "Ethernet0": {
+                    "oper": "down",
+                    "lanes": "25,26,27,28",
+                    "fec": "N/A",
+                    "asym pfc": "off",
+                    "admin": "down",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "fortyGigE0/0",
+                    "interface": "Ethernet0",
+                    "speed": "40G"
+                },
+                "PortChannel101": {
+                    "oper": "up",
+                    "lanes": "N/A",
+                    "fec": "N/A",
+                    "asym pfc": "N/A",
+                    "admin": "up",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "N/A",
+                    "interface": "PortChannel101",
+                    "speed": "40G"
+                }
+            }
+        '''
+        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
 
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts

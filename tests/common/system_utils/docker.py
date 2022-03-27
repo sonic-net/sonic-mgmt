@@ -126,15 +126,25 @@ def swap_syncd(duthost, creds):
 
     _perform_swap_syncd_shutdown_check(duthost)
 
-    registry = load_docker_registry_info(duthost, creds)
-    download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+    is_syncdrpc_present_locally = duthost.command('docker image inspect '+docker_rpc_image, module_ignore_errors=True)['rc'] == 0
 
-    tag_image(
-        duthost,
-        "{}:latest".format(docker_syncd_name),
-        "{}/{}".format(registry.host, docker_rpc_image),
-        duthost.os_version
-    )
+    if is_syncdrpc_present_locally:
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            docker_rpc_image,
+            'latest'
+        )
+    else:
+        registry = load_docker_registry_info(duthost, creds)
+        download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            "{}/{}".format(registry.host, docker_rpc_image),
+            duthost.os_version
+        )
 
     logger.info("Reloading config and restarting swss...")
     config_reload(duthost)

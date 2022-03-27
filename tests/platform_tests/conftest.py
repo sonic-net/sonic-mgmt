@@ -13,6 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
+from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -568,6 +569,16 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         outputs.append(res)
     logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
 
+@pytest.fixture()
+def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    thermal_manager_available = True
+    if duthost.facts.get("chassis"):
+        thermal_manager_available = duthost.facts.get("chassis").get("thermal_manager", True)
+    if not thermal_manager_available:
+        pytest.skip("skipped as thermal manager is not available")
+
 
 def pytest_generate_tests(metafunc):
     if 'power_off_delay' in metafunc.fixturenames:
@@ -582,3 +593,7 @@ def pytest_generate_tests(metafunc):
                 metafunc.parametrize('power_off_delay', delay_list)
             except ValueError:
                 metafunc.parametrize('power_off_delay', default_delay_list)
+
+
+def pytest_addoption(parser):
+     add_counterpoll_cpu_usage_args(parser)
