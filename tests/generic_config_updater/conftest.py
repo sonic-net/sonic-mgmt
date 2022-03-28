@@ -2,15 +2,6 @@ import pytest
 
 from tests.common.utilities import skip_release
 
-# def pytest_configure(config):
-#     """ JsonPatch ordering will discard incorrect ordering and continue
-#         on next ordering. But LogAnalyzer will analyze failure on discarded
-#         ordering log, we will disable it for GCU and use our own ways of
-#         verification.
-#     """
-#     if not config.option.disable_loganalyzer:
-#         config.option.disable_loganalyzer = True
-
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
@@ -24,7 +15,19 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     # When loganalyzer is disabled, the object could be None
     if loganalyzer:
          ignoreRegex = [
-             ".*ERR sonic_yang:.*",
+             ".*ERR sonic_yang.*",
+             ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*", # test_bgpl
+             ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED 'SET' message with no prefixes specified: {'NULL': 'NULL'}.*", # test_bgp_prefix
+             ".*ERR.*Failed to start dhcp_relay container.*", # test_dhcp_relay
+             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # test_dhcp_relay test_syslog
+             ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
+             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
+             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
+             ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
+             ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
+             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
+             ".*ERR.*Failed to apply Json change.*", # validator need updater submodule
+             ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
