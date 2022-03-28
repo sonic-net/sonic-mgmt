@@ -196,7 +196,7 @@ class TestFaultHandling():
             assert dut_egress_sa_table_orig != dut_egress_sa_table_new
             assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
             return True
-        assert wait_until(12, 1, 0, check_new_mka_session)
+        assert wait_until(30, 5, 2, check_new_mka_session)
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -264,13 +264,13 @@ class TestInteropProtocol():
         # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
         duthost.command("sudo config portchannel member del {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: get_portchannel(
+        assert wait_until(20, 1, 0, lambda: get_portchannel(
             duthost)[pc["name"]]["status"] == "Dw")
 
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
         duthost.command("sudo config portchannel member add {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+        assert wait_until(20, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
     def test_lldp(self, duthost, ctrl_links, profile_name):
