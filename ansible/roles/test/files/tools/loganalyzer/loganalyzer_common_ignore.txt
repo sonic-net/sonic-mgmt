@@ -18,3 +18,5 @@ r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not implemented attribute SA
 r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not supported attribute SAI_SWITCH_ATTR_AVAILABLE_IPMC_ENTRY.*"
 r, ".* WARNING syncd#SDK:.* sai_get_attributes: Failed attribs check.*"
 r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG profile for port Ethernet(128|132|256|260).*"
+r, ".* ERR teamd#tlm_teamd: :- get_dump: Can't get dump for LAG 'PortChannel999'\. Skipping.*"
+r, ".* ERR sonic_yang: All Keys are not parsed in TACPLUS.*"
