@@ -156,7 +156,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-       - asic_type=="cisco-8000"
+      - asic_type=="cisco-8000"
 
 #######################################
 #####           qos               #####
