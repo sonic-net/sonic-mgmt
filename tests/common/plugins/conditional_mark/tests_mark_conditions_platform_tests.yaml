@@ -272,7 +272,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####    api/test_psu_fans.py     #####
@@ -338,7 +338,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
   skip:
@@ -380,7 +380,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_fault:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
   skip:
@@ -411,6 +411,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202012']"
 
 #######################################
 #####     api/test_thermal.py     #####
