@@ -138,10 +138,11 @@ def get_report_summary(analyze_result, reboot_type):
                               _parse_timestamp(marker_first_time)).total_seconds()
         time_spans_summary.update({entity.lower(): str(time_taken)})
 
-    lacp_sessions_waittime = analyze_result.get(\
-        "controlplane", {"lacp_sessions": []}).pop("lacp_sessions")
+    lacp_sessions_dict = analyze_result.get("controlplane")
+    lacp_sessions_waittime = lacp_sessions_dict.pop("lacp_sessions")\
+        if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "", "arp_ping": "", "lacp_session_max_wait": ""}
-    if len(lacp_sessions_waittime) > 0:
+    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
         max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
         analyze_result.get(\
             "controlplane", controlplane_summary).update(
@@ -436,16 +437,14 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
         # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
         target_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-        upgrade_out_201811 = "SONiC-OS-201811" in base_os_version and "SONiC-OS-201811" not in target_os_version
         if 'SONiC-OS-201811' in target_os_version:
             bgpd_log = "/var/log/quagga/bgpd.log"
         else:
             bgpd_log = "/var/log/frr/bgpd.log"
-        if upgrade_out_201811 and not logs_in_tmpfs:
-            # if upgrade from 201811 to future branch is done there are two cases:
-            # 1. Small disk devices: previous quagga logs don't exist anymore, handled in restore_backup.
-            # 2. Other devices: prev quagga log to be copied to a common place, for ansible extract to work:
-            duthost.shell("cp {} {}".format(
+        if 'SONiC-OS-201811' in base_os_version and "SONiC-OS-201811" not in target_os_version\
+            and hwsku not in SMALL_DISK_SKUS:
+            # for upgrade path scenario in large-disk devices, bgpd logs should be moved from quagga to frr
+            duthost.shell("mv {} {}".format(
                 "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log.99"), module_ignore_errors=True)
         additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''}
         loganalyzer.additional_files = list(additional_files.keys())
@@ -557,7 +556,7 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stdout')
         res.pop('stderr')
         outputs.append(res)
-    logging.info("Counters before reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+    logging.debug("Counters before reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
 
     yield
 
@@ -567,17 +566,7 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stdout')
         res.pop('stderr')
         outputs.append(res)
-    logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
-
-@pytest.fixture()
-def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    thermal_manager_available = True
-    if duthost.facts.get("chassis"):
-        thermal_manager_available = duthost.facts.get("chassis").get("thermal_manager", True)
-    if not thermal_manager_available:
-        pytest.skip("skipped as thermal manager is not available")
+    logging.debug("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
 
 
 def pytest_generate_tests(metafunc):
