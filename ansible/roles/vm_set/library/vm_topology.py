@@ -186,58 +186,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
     return t_int_if
 
 
-class HostInterfaces(object):
-    """Data descriptor that supports multi-DUTs interface definition."""
-
-    def __set_name__(self, owner, name):
-        self._name = '_' + name
-
-    def __get__(self, obj, objtype=None):
-        return getattr(obj, self._name)
-
-    def __set__(self, obj, host_interfaces):
-        """
-        Parse and set host interfaces.
-
-        for single DUT, host interface like [0, 1, 2, ...],
-        where the number is the port index starting from 0.
-
-        For multi DUT, host interface like [(0, 1), (0, 2), (1, 1), (1, 2), ...],
-        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
-        where the tuple is (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index), both starting
-        from 0.
-
-        For dual-tor, host interface look like [[(0, 1), (1, 1)], [(0, 2), (1,2)], ...],
-        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
-        where one interface consists of multiple ports to DUT.
-
-        Example: [[(0, 2, 2), (1, 2, 2)], ] means that the PTF host interface 2 connects to port2@dut0 and port2@dut1
-
-        Example: [[(0, 1), (1, 1)], ] means the PTF host interface connects to port1@dut0 and port1@dut1.
-        """
-        if obj._is_multi_duts:
-            _host_interfaces = []
-            for intf in host_interfaces:
-                intfs = intf.split(',')
-                # re.split('\.|@', s) is to split string 's' by characters '.' or '@' and return a list.
-                # The tuple may has 2 or 3 items:
-                # (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index)
-                if len(intfs) > 1:
-                    _host_interfaces.append(
-                        [tuple(map(int, re.split(r'\.|@', x.strip()))) for x in intfs])
-                else:
-                    _host_interfaces.append(
-                        tuple(map(int, re.split(r'\.|@', intfs[0].strip()))))
-            setattr(obj, self._name, _host_interfaces)
-        else:
-            setattr(obj, self._name, host_interfaces)
-
-
 class VMTopology(object):
-
-    host_interfaces = HostInterfaces()
-    disabled_host_interfaces = HostInterfaces()
-    host_interfaces_active_active = HostInterfaces()
 
     def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo):
         self.vm_names = vm_names
@@ -245,6 +194,9 @@ class VMTopology(object):
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
         self.topo = topo
+        self._host_interfaces = None
+        self._disabled_host_interfaces = None
+        self._host_interfaces_active_active = None
         return
 
     def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
@@ -318,6 +270,67 @@ class VMTopology(object):
             else:
                 self._dut_type = None
         return self._dut_type
+
+    def _parse_host_interfaces(self, host_interfaces):
+        """
+        Parse host interfaces.
+
+        for single DUT, host interface like [0, 1, 2, ...],
+        where the number is the port index starting from 0.
+
+        For multi DUT, host interface like [(0, 1), (0, 2), (1, 1), (1, 2), ...],
+        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
+        where the tuple is (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index), both starting
+        from 0.
+
+        For dual-tor, host interface look like [[(0, 1), (1, 1)], [(0, 2), (1,2)], ...],
+        or [[(0, 1, 1), (1, 1, 1)], [(0, 2, 2), (1, 2, 2)]]
+        where one interface consists of multiple ports to DUT.
+
+        Example: [[(0, 2, 2), (1, 2, 2)], ] means that the PTF host interface 2 connects to port2@dut0 and port2@dut1
+
+        Example: [[(0, 1), (1, 1)], ] means the PTF host interface connects to port1@dut0 and port1@dut1.
+        """
+        if self._is_multi_duts:
+            _host_interfaces = []
+            for intf in host_interfaces:
+                intfs = intf.split(',')
+                # re.split('\.|@', s) is to split string 's' by characters '.' or '@' and return a list.
+                # The tuple may has 2 or 3 items:
+                # (dut_index, dut_port_index) or (dut_index, dut_port_index, ptf_port_index)
+                if len(intfs) > 1:
+                    _host_interfaces.append(
+                        [tuple(map(int, re.split(r'\.|@', x.strip()))) for x in intfs])
+                else:
+                    _host_interfaces.append(
+                        tuple(map(int, re.split(r'\.|@', intfs[0].strip()))))
+            return _host_interfaces
+        else:
+            return host_interfaces
+
+    @property
+    def host_interfaces(self):
+        return self._host_interfaces
+
+    @host_interfaces.setter
+    def host_interfaces(self, value):
+        self._host_interfaces = self._parse_host_interfaces(value)
+
+    @property
+    def disabled_host_interfaces(self):
+        return self._disabled_host_interfaces
+
+    @disabled_host_interfaces.setter
+    def disabled_host_interfaces(self, value):
+        self._disabled_host_interfaces = self._parse_host_interfaces(value)
+
+    @property
+    def host_interfaces_active_active(self):
+        return self._host_interfaces_active_active
+
+    @host_interfaces_active_active.setter
+    def host_interfaces_active_active(self, value):
+        self._host_interfaces_active_active = self._parse_host_interfaces(value)
 
     def extract_vm_vlans(self):
         vlans = {}
