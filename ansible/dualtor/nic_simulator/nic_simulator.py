@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
+"""
+_   _ _____ _____    _____ _____ __  __ _    _ _            _______ ____  _____  
+| \ | |_   _/ ____|  / ____|_   _|  \/  | |  | | |        /\|__   __/ __ \|  __ \ 
+|  \| | | || |      | (___   | | | \  / | |  | | |       /  \  | | | |  | | |__) |
+| . ` | | || |       \___ \  | | | |\/| | |  | | |      / /\ \ | | | |  | |  _  / 
+| |\  |_| || |____   ____) |_| |_| |  | | |__| | |____ / ____ \| | | |__| | | \ \ 
+|_| \_|_____\_____| |_____/|_____|_|  |_|\____/|______/_/    \_\_|  \____/|_|  \_\
+
+"""
 import abc
 import argparse
 import contextlib
-import functools
-import json
-import logging
 import fcntl
 import functools
 import grpc
+import json
+import logging
 import os
 import re
 import socket
@@ -60,8 +68,8 @@ def run_command(cmd, check=True):
     )
     result.stdout = result.stdout.decode()
     result.stderr = result.stderr.decode()
-    logging.debug("COMMAND STDOUT: %s\n", result.stdout)
-    logging.debug("COMMAND_STDERR: %s\n", result.stderr)
+    logging.debug("COMMAND STDOUT:\n%s\n", result.stdout)
+    logging.debug("COMMAND STDERR:\n%s\n", result.stderr)
     return result
 
 
@@ -69,12 +77,12 @@ class OVSCommand(object):
     """OVS related commands."""
 
     OVS_VSCTL_LIST_BR_CMD = "ovs-vsctl list-br"
-    OVS_VSCTL_LIST_PORTS = "ovs-vsctl list-ports {bridge_name}"
-    OVS_OFCTL_DEL_FLOWS = "ovs-ofctl del-flows {bridge_name}"
-    OVS_OFCTL_ADD_FLOWS = "ovs-ofctl add-flow {bridge_name} {flow}"
-    OVS_OFCTL_DEL_GROUPS = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
-    OVS_OFCTL_ADD_GROUP = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
-    OVS_OFCTL_MOD_GROUP = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
+    OVS_VSCTL_LIST_PORTS_CMD = "ovs-vsctl list-ports {bridge_name}"
+    OVS_OFCTL_DEL_FLOWS_CMD = "ovs-ofctl del-flows {bridge_name}"
+    OVS_OFCTL_ADD_FLOWS_CMD = "ovs-ofctl add-flow {bridge_name} {flow}"
+    OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
+    OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
+    OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
 
     @staticmethod
     def ovs_vsctl_list_br():
@@ -82,27 +90,27 @@ class OVSCommand(object):
 
     @staticmethod
     def ovs_vsctl_list_ports(bridge_name):
-        return run_command(OVSCommand.OVS_VSCTL_LIST_PORTS.format(bridge_name=bridge_name))
+        return run_command(OVSCommand.OVS_VSCTL_LIST_PORTS_CMD.format(bridge_name=bridge_name))
 
     @staticmethod
     def ovs_ofctl_del_flows(bridge_name):
-        return run_command(OVSCommand.OVS_OFCTL_DEL_FLOWS.format(bridge_name=bridge_name))
+        return run_command(OVSCommand.OVS_OFCTL_DEL_FLOWS_CMD.format(bridge_name=bridge_name))
 
     @staticmethod
     def ovs_ofctl_add_flow(bridge_name, flow):
-        return run_command(OVSCommand.OVS_OFCTL_ADD_FLOWS.format(bridge_name=bridge_name, flow=flow))
+        return run_command(OVSCommand.OVS_OFCTL_ADD_FLOWS_CMD.format(bridge_name=bridge_name, flow=flow))
 
     @staticmethod
     def ovs_ofctl_add_group(bridge_name, group):
-        return run_command(OVSCommand.OVS_OFCTL_ADD_GROUP.format(bridge_name=bridge_name, group=group))
+        return run_command(OVSCommand.OVS_OFCTL_ADD_GROUP_CMD.format(bridge_name=bridge_name, group=group))
 
     @staticmethod
     def ovs_ofctl_del_groups(bridge_name):
-        return run_command(OVSCommand.OVS_OFCTL_DEL_GROUPS.format(bridge_name=bridge_name))
+        return run_command(OVSCommand.OVS_OFCTL_DEL_GROUPS_CMD.format(bridge_name=bridge_name))
 
     @staticmethod
     def ovs_ofctl_mod_groups(bridge_name, group):
-        return run_command(OVSCommand.OVS_OFCTL_MOD_GROUP.format(bridge_name=bridge_name, group=group))
+        return run_command(OVSCommand.OVS_OFCTL_MOD_GROUP_CMD.format(bridge_name=bridge_name, group=group))
 
 
 class StrObj(abc.ABC):
@@ -111,11 +119,11 @@ class StrObj(abc.ABC):
     __slots__ = ("_str",)
 
     @abc.abstractmethod
-    def to_string():
+    def to_string(self):
         pass
 
-    def reinit(self):
-        """Re-initialize object string representation."""
+    def reset(self):
+        """Reset object string representation."""
         with contextlib.suppress(AttributeError):
             del self._str
 
@@ -175,8 +183,8 @@ class OVSFlow(StrObj):
         return ",".join(flow_parts)
 
 
-class ToRState(object):
-    """ToR's admin forwarding state"""
+class ForwardingState(object):
+    """Forwarding state"""
     STANDBY = False
     ACTIVE = True
     STATE_LABELS = {
@@ -198,13 +206,13 @@ class UpstreamECMPGroup(OVSGroup):
 
     def __init__(
         self, group_id, upper_tor_port, lower_tor_port,
-        upper_tor_forwarding_state=ToRState.ACTIVE,
-        lower_tor_forwarding_state=ToRState.ACTIVE
+        upper_tor_forwarding_state=ForwardingState.ACTIVE,
+        lower_tor_forwarding_state=ForwardingState.ACTIVE
     ):
         output_ports = []
-        if upper_tor_forwarding_state == ToRState.ACTIVE:
+        if upper_tor_forwarding_state == ForwardingState.ACTIVE:
             output_ports.append(upper_tor_port)
-        if lower_tor_forwarding_state == ToRState.ACTIVE:
+        if lower_tor_forwarding_state == ForwardingState.ACTIVE:
             output_ports.append(lower_tor_port)
         super(UpstreamECMPGroup, self).__init__(group_id, "select", output_ports=output_ports)
         self.upper_tor_port = upper_tor_port
@@ -214,28 +222,28 @@ class UpstreamECMPGroup(OVSGroup):
         self.group_str_cache = {}
 
     def set_upper_tor_forwarding_state(self, state):
-        if state == ToRState.ACTIVE:
-            if self.upper_tor_forwarding_state == ToRState.STANDBY:
+        if state == ForwardingState.ACTIVE:
+            if self.upper_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.upper_tor_port)
-                self.upper_tor_forwarding_state = ToRState.ACTIVE
-                self.reinit()
-        elif state == ToRState.STANDBY:
-            if self.upper_tor_forwarding_state == ToRState.ACTIVE:
+                self.upper_tor_forwarding_state = ForwardingState.ACTIVE
+                self.reset()
+        elif state == ForwardingState.STANDBY:
+            if self.upper_tor_forwarding_state == ForwardingState.ACTIVE:
                 self.output_ports.remove(self.upper_tor_port)
-                self.upper_tor_forwarding_state = ToRState.STANDBY
-                self.reinit()
+                self.upper_tor_forwarding_state = ForwardingState.STANDBY
+                self.reset()
 
     def set_lower_tor_forwarding_state(self, state):
-        if state == ToRState.ACTIVE:
-            if self.lower_tor_forwarding_state == ToRState.STANDBY:
+        if state == ForwardingState.ACTIVE:
+            if self.lower_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.lower_tor_port)
-                self.lower_tor_forwarding_state = ToRState.ACTIVE
-                self.reinit()
-        elif state == ToRState.STANDBY:
-            if self.lower_tor_forwarding_state == ToRState.ACTIVE:
+                self.lower_tor_forwarding_state = ForwardingState.ACTIVE
+                self.reset()
+        elif state == ForwardingState.STANDBY:
+            if self.lower_tor_forwarding_state == ForwardingState.ACTIVE:
                 self.output_ports.remove(self.lower_tor_port)
-                self.lower_tor_forwarding_state = ToRState.STANDBY
-                self.reinit()
+                self.lower_tor_forwarding_state = ForwardingState.STANDBY
+                self.reset()
 
     def __str__(self):
         return self.group_str_cache.setdefault(
@@ -247,7 +255,7 @@ class UpstreamECMPGroup(OVSGroup):
 class UpstreamECMPFlow(OVSFlow):
     """Object to represent an upstream ECMP flow that selects one of its output ports to send packets."""
 
-    __slots__ = ("upper_tor_port", "lower_tor_port", "upper_tor_forwarding_state", "lower_tor_forwarding_state")
+    __slots__ = ()
 
     def __init__(self, in_port, group):
         super(UpstreamECMPFlow, self).__init__(in_port, group=group)
@@ -272,7 +280,7 @@ class OVSBridge(object):
                             +--------------+
             PTF (host_if) --+              +----- upper_if
                             |  OVS bridge  |
-    simulator netns (NiC) --+              +----- lower_if
+    simulator netns (server_nic) --+              +----- lower_if
                             +--------------+
     """
 
@@ -306,6 +314,7 @@ class OVSBridge(object):
         self._init_flows()
 
     def _init_ports(self):
+        """Initialize ports."""
         self.ports = self._get_ports()
         if len(self.ports) != 4:
             raise ValueError("Unhealthy bridge: %s, ports: %s" % (self.bridge_name, self.ports))
@@ -332,6 +341,7 @@ class OVSBridge(object):
         )
 
     def _init_flows(self):
+        """Initialize OVS flows for the bridge."""
         logging.info("Init flows for bridge %s", self.bridge_name)
         self._del_flows()
         self._del_groups()
@@ -384,17 +394,19 @@ class OVSBridge(object):
         return flow
 
     def set_forwarding_state(self, states):
+        """Set forwarding state."""
         with self.lock:
-            logging.info("Set bridge %s forwarding state: %s", self.bridge_name, tuple(ToRState.STATE_LABELS[_] for _ in states))
+            logging.info("Set bridge %s forwarding state: %s", self.bridge_name, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
             self.upstream_ecmp_flow.set_upper_tor_forwarding_state(states[0])
             self.upstream_ecmp_flow.set_lower_tor_forwarding_state(states[1])
             OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
             return self.query_forwarding_state()
 
     def query_forwarding_state(self):
+        """Query forwarding state."""
         with self.lock:
             states = (self.upstream_ecmp_flow.get_upper_tor_forwarding_state(), self.upstream_ecmp_flow.get_lower_tor_forwarding_state())
-            logging.info("Query bridge %s forwarding state: %s", self.bridge_name, tuple(ToRState.STATE_LABELS[_] for _ in states))
+            logging.info("Query bridge %s forwarding state: %s", self.bridge_name, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
             return states
 
 
@@ -461,31 +473,6 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
         bridges = [_ for _ in result.stdout.split() if self.vm_set in _ and _.startswith(ACTIVE_ACTIVE_INTERFACE_PATTERN[0])]
         return bridges
 
-    def _find_target_server(self, context):
-        for meta in context.invocation_metadata():
-            if meta.key == "grpc_server":
-                return meta.value
-        return None
-
-    def _validate_client(self, context):
-        return True
-
-    def _generate_error_response(context, status_code, details):
-        context.set_code(status_code)
-        context.set_details(details)
-
-    def _init_admin_response(self):
-        return nic_simulator_grpc_service_pb2.AdminReply(
-            portid=[0, 1],
-            state=[False, False]
-        )
-
-    def _init_operation_reponse(self):
-        return nic_simulator_grpc_service_pb2.OperationReply(
-            portid=[0, 1],
-            state=[False, False]
-        )
-
     @validate_request_target(nic_simulator_grpc_service_pb2.AdminReply())
     @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def QueryAdminPortState(self, request, context):
@@ -507,6 +494,8 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
         )
         return response
 
+    @validate_request_target(nic_simulator_grpc_service_pb2.OperationReply())
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
     def QueryOperationPortState(self, request, context):
         # TODO: Add QueryOperationPortState implementation
         return nic_simulator_grpc_service_pb2.OperationReply()
@@ -586,17 +575,7 @@ def config_env():
 
 
 def main():
-    title = \
-        """
-    _   _ _____ _____    _____ _____ __  __ _    _ _            _______ ____  _____  
-    | \ | |_   _/ ____|  / ____|_   _|  \/  | |  | | |        /\|__   __/ __ \|  __ \ 
-    |  \| | | || |      | (___   | | | \  / | |  | | |       /  \  | | | |  | | |__) |
-    | . ` | | || |       \___ \  | | | |\/| | |  | | |      / /\ \ | | | |  | |  _  / 
-    | |\  |_| || |____   ____) |_| |_| |  | | |__| | |____ / ____ \| | | |__| | | \ \ 
-    |_| \_|_____\_____| |_____/|_____|_|  |_|\____/|______/_/    \_\_|  \____/|_|  \_\
-
-    """
-    print(title)
+    print(sys.modules[__name__].__doc__)
     args = parse_args()
     logging.debug("Start nic_simulator with args: %s", args)
     config_env()
