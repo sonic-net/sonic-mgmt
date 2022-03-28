@@ -136,7 +136,7 @@ test_t0() {
       tacacs/test_accounting.py"
 
       pushd $SONIC_MGMT_DIR/tests
-      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -q 0
       popd
     else
       tests="\
@@ -164,7 +164,7 @@ test_t0() {
       show_techsupport/test_techsupport_no_secret.py"
 
       pushd $SONIC_MGMT_DIR/tests
-      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -q 0
       popd
 
       # Run test cases against two vlan configuration in part-2
@@ -181,7 +181,7 @@ test_t0() {
       dhcp_relay/test_dhcpv6_relay.py"
 
       pushd $SONIC_MGMT_DIR/tests
-      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+      ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -q 0
       popd
     fi
 }
@@ -195,14 +195,14 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"  -q 0
     popd
 }
 
 test_t2() {
     tgname=t2-setup
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -E -c "test_vs_chassis_setup.py" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -E -c "test_vs_chassis_setup.py" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"  -q 0
     popd
 
     tgname=t2
@@ -210,7 +210,7 @@ test_t2() {
     voq/test_voq_init.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e "--skip_sanity --disable_loganalyzer"  -q 0
     popd
 }
 
@@ -238,7 +238,7 @@ test_t1_lag() {
     pc/test_lag_2.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname  -q 0
     popd
 }
 
@@ -259,7 +259,7 @@ test_multi_asic_t1_lag() {
 
     pushd $SONIC_MGMT_DIR/tests
     # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u  -q 0
     popd
 }
 
