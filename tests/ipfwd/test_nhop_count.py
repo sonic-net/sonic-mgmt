@@ -7,6 +7,7 @@ import time
 from collections import namedtuple
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import skip_release
