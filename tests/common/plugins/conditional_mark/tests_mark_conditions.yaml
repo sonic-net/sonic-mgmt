@@ -153,7 +153,7 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
      reason: "Forward action not supported in cisco-8000"
      conditions:
-        - asic_type=="cisco-8000"
+        - "asic_type in ['cisco-8000']"
 #######################################
 #####           qos               #####
 #######################################
