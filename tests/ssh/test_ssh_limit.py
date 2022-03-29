@@ -74,24 +74,24 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
     duthost = duthosts[rand_one_dut_hostname]
 
     # if template file not exist on duthost, ignore this UT
-    if not limit_template_exist(duthost):
-        return
+    template_file_exist = limit_template_exist(duthost)
+    if template_file_exist:
+        setup_local_user(duthost, tacacs_creds)
 
-    setup_local_user(duthost, tacacs_creds)
+        # Modify templates and restart hostcfgd to render config files
+        modify_templates(duthost, tacacs_creds, creds)
+        restart_hostcfgd(duthost)
 
-    # Modify templates and restart hostcfgd to render config files
-    modify_templates(duthost, tacacs_creds, creds)
-    restart_hostcfgd(duthost)
-
-    # for debug, print rendered config file
-    config_file_content = duthost.shell('sudo cat /etc/security/limits.conf', module_ignore_errors=False)['stdout_lines']
-    logging.debug("Updated config file: {0}".format(config_file_content))
+        # for debug, print rendered config file
+        config_file_content = duthost.shell('sudo cat /etc/security/limits.conf', module_ignore_errors=False)['stdout_lines']
+        logging.debug("Updated config file: {0}".format(config_file_content))
 
     yield
 
-    # Restore SSH session limit
-    restore_templates(duthost)
-    restart_hostcfgd(duthost)
+    if template_file_exist:
+        # Restore SSH session limit
+        restore_templates(duthost)
+        restart_hostcfgd(duthost)
 
 def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     """
