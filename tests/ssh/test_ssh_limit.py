@@ -74,6 +74,7 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
     duthost = duthosts[rand_one_dut_hostname]
 
     # if template file not exist on duthost, ignore this UT
+    # However still need yield, if not yield, UT will failed with StopIteration error.
     template_file_exist = limit_template_exist(duthost)
     if template_file_exist:
         setup_local_user(duthost, tacacs_creds)
