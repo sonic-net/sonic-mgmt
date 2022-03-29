@@ -23,9 +23,7 @@ pytestmark = [
     pytest.mark.topology("ptf")
 ]
 
-TEST_INTERFACE_PARAMS = "--interface '0@eth0' --interface '1@eth1' --interface '2@eth2' \
---interface '3@eth3' --interface '4@eth4' --interface '5@eth5' --interface '6@eth6' \
---interface '7@eth7'"
+
 SAI_TEST_ENV_RESET_TIMES = 3
 LIVENESS_CHECK_RETRY_TIMES = 12
 LIVENESS_CHECK_INTERVAL_IN_SEC = 5
@@ -33,25 +31,48 @@ CONFIG_RELOAD_INTERVAL_IN_SEC = 30
 TEST_INTERVAL_IN_SEC = 1
 
 
-@pytest.mark.parametrize("test_case", COMMUN_TEST_CASE)
-def test_sai_from_ptf(
-    sai_testbed, sai_test_env_check, creds, duthost, ptfhost, test_case, request):
+@pytest.mark.parametrize("community_test_case", COMMUN_TEST_CASE)
+def test_commun_sai_from_ptf(
+    sai_testbed, sai_test_env_check, creds, duthost, ptfhost, community_test_case, request, create_sai_test_interface_param):
     """
         trigger the test here
     """
     logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     try:
-        run_case_from_ptf(dut_ip, ptfhost, test_case)
+        sai_test_interface_para = create_sai_test_interface_param
+        run_case_from_ptf(duthost, dut_ip, ptfhost, community_test_case, sai_test_interface_para, request)
     except BaseException as e:
-        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(test_case, e))               
+        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(community_test_case, e))               
         stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
-        pytest.fail("Test case [{}] failed".format(test_case), e)
+        pytest.fail("Test case [{}] failed".format(community_test_case), e)
     finally:
-        _store_test_result(ptfhost)
+        __store_test_result(ptfhost)
+
+
+@pytest.mark.parametrize("ptf_sai_test_case", PTF_SAI_TEST_CASE)
+def test_ptf_sai_from_ptf(
+    sai_testbed, sai_test_env_check, creds, duthost, ptfhost, ptf_sai_test_case, request, create_sai_test_interface_param):
+    """
+        trigger the test here
+    """
+    logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
+    dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    try:
+        sai_test_interface_para = create_sai_test_interface_param
+        run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request)
+        if request.config.option.always_stop_sai_test_container:
+            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
+    except BaseException as e:
+        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(ptf_sai_test_case, e))               
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
+        pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
+    finally:
+        __store_test_result(ptfhost)
+
 
 @pytest.fixture
-def sai_test_env_check(creds, duthost, ptfhost, request):
+def sai_test_env_check(creds, duthost, ptfhost, request, create_sai_test_interface_param):
     """
         Check the sai test environment.
         In this function, it will make a liveness check test to check if the sai test container is ready for test.
@@ -67,7 +88,11 @@ def sai_test_env_check(creds, duthost, ptfhost, request):
 
     for retry in range(SAI_TEST_ENV_RESET_TIMES):
         try:
-            sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request)
+            sai_test_interface_para = create_sai_test_interface_param
+            if request.config.option.enable_ptf_sai_test:
+                saiv2_test_container_liveness_check(duthost, request)
+            else:
+                sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request, sai_test_interface_para)
             break
         except BaseException as e:  
             logger.info("Run test env check failed, reset the env, retry: [{}/{}], failed as {}.".format(retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
@@ -92,34 +117,40 @@ def sai_testbed(
         Pytest fixture to handle setup and cleanup for the SAI tests.
     """
     try:        
-        _setup_dut(ptfhost, request)
+        __setup_dut(ptfhost, request)
         yield  
     finally:  
-        _store_test_result(ptfhost)
+        __store_test_result(ptfhost)
         if not request.config.option.sai_test_keep_test_env:
-            _teardown_dut(duthost, ptfhost, request)
+            __teardown_dut(duthost, ptfhost, request)
 
 
-def run_case_from_ptf(dut_ip, ptfhost, test_case):
+def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params, request):
     """
     Run the sai test cases from ptf.
     Args:
+        duthost (SonicHost): The target device.
         dut_ip: dut ip address.
         ptfhost (AnsibleHost): The PTF server.
         test_case: Test case name used to make test.
+        test_interface_params: Testbed switch interface
     """
     logger.info("Running test: {0}".format(test_case))
     logger.info("Sleep {} sec between tests.".format(TEST_INTERVAL_IN_SEC))
     time.sleep(TEST_INTERVAL_IN_SEC)
-    ptfhost.shell(("ptf --test-dir {0} {1} {2} --relax --xunit --xunit-dir {3} " + 
-        "-t \"server='{4}';port_map_file='{5}'\"")
-    .format(
-        SAI_TEST_CASE_DIR_ON_PTF, 
+    cmds = []
+    test_para = "-t \"server='{}';port_map_file='{}'\" --test-dir {}".format(dut_ip, PORT_MAP_FILE_PATH, SAI_TEST_CONMUN_CASE_DIR_ON_PTF)
+    if request.config.option.enable_ptf_sai_test:
+        cmds.append("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
+        test_para = "\"--test-params=thrift_server='{}'\" --test-dir {}".format(dut_ip, SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
+    
+    cmds.append(("ptf {} {} --relax --xunit --xunit-dir {} {}")
+    .format( 
         test_case, 
-        TEST_INTERFACE_PARAMS,
+        test_interface_params,
         SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
-        dut_ip, 
-        PORT_MAP_FILE_PATH))
+        test_para))
+    ptfhost.shell_cmds(cmds=cmds)
     logger.info("Test case [{}] passed.".format(test_case))
 
 
@@ -134,16 +165,16 @@ def reset_sai_test_dut(duthost, creds, request):
     """
     logger.info("Start to reset dut environment to default.")
     stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
-    revert_sai_test_container(duthost, creds, get_sai_test_container_name(request))    
+    revert_sai_test_container(duthost, creds, get_sai_test_container_name(request), request)    
     reload_dut_config(duthost)
     logger.info("Resetting Dut env, waiting {} sec for env gets ready ...".format(CONFIG_RELOAD_INTERVAL_IN_SEC))
     time.sleep(CONFIG_RELOAD_INTERVAL_IN_SEC)
     stop_dockers(duthost)
-    prepare_sai_test_container(duthost, creds, get_sai_test_container_name(request))
+    prepare_sai_test_container(duthost, creds, get_sai_test_container_name(request), request)
     start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
 
 
-def sai_test_container_liveness_check(duthost, ptfhost, test_case, request):
+def sai_test_container_liveness_check(duthost, ptfhost, test_case, request, sai_test_interface_para):
     """
         Run a liveness check.
         This function will run a simple test to check if the sai test container is ready.
@@ -152,13 +183,14 @@ def sai_test_container_liveness_check(duthost, ptfhost, test_case, request):
         ptfhost (AnsibleHost): The PTF server.
         test_case: Test case name used to make the liveness check.
         request: Pytest request. 
+        test_interface_params: Testbed switch interface
     """
     logger.info("Checking test environment before running test.")
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
     for retry in range(LIVENESS_CHECK_RETRY_TIMES):
         try:
-            run_case_from_ptf(dut_ip, ptfhost, test_case)
+            run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, sai_test_interface_para, request)
             break
         except BaseException as e:  
             logger.info("Run liveness check [{}], retry: [{}/{}] failed as {}".format(test_case, retry + 1, LIVENESS_CHECK_RETRY_TIMES,  e))
@@ -170,7 +202,24 @@ def sai_test_container_liveness_check(duthost, ptfhost, test_case, request):
                 raise e
 
 
-def _setup_dut(ptfhost, request):
+def saiv2_test_container_liveness_check(duthost, request):
+    """
+        Run a liveness check.
+        This function will run a simple test to check if the sai test container is ready.
+    Args:
+        duthost (SonicHost): The target device.        
+        test_case: Test case name used to make the liveness check.
+        request: Pytest request. 
+    """
+    logger.info("Checking test environment before running test.")
+    try:
+        start_sai_test_conatiner_with_retry(duthost, get_sai_test_container_name(request))
+    except BaseException as e:  
+        logger.info("Liveness check failed. TestBed is not ready. Error: {}".format(e))
+        raise e
+
+
+def __setup_dut(ptfhost, request):
     """
         Sets up the SAI tests.
     Args:
@@ -179,30 +228,30 @@ def _setup_dut(ptfhost, request):
     """
     logger.info("Set up SAI tests.")
 
-    _prepare_test_cases(ptfhost, request)
+    __prepare_test_cases(ptfhost, request)
 
 
-def _teardown_dut(duthost, ptfhost, request):
+def __teardown_dut(duthost, ptfhost, request):
     """
         Tears down the SAI test.
     """
     logger.info("Teardown SAI tests.")
-    _collect_test_result(duthost, ptfhost, request)
-    _cleanup_ptf(ptfhost)
+    __collect_test_result(duthost, ptfhost, request)
+    __cleanup_ptf(ptfhost, request)
 
 
-def _cleanup_ptf(ptfhost):
+def __cleanup_ptf(ptfhost, request):
     """
     Cleanup PTF server, including delete test cases and root test folder.
 
     Args:
         ptfhost (AnsibleHost): The PTF server.
     """
-    _delete_sai_test_cases(ptfhost)
-    _delete_sai_test_folder(ptfhost)
+    __delete_sai_test_cases(ptfhost, request)
+    __delete_sai_test_folder(ptfhost)
 
 
-def _delete_sai_test_cases(ptfhost):
+def __delete_sai_test_cases(ptfhost, request):
     """
     Delete SAI test cases on PTF.
 
@@ -210,10 +259,13 @@ def _delete_sai_test_cases(ptfhost):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Delete SAI tests cases")
-    ptfhost.file(path="{0}".format(SAI_TEST_CASE_DIR_ON_PTF), state="absent")
+    if request.config.option.enable_ptf_sai_test:
+        ptfhost.file(path="{0}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF), state="absent")
+    else:
+        ptfhost.file(path="{0}".format(SAI_TEST_CONMUN_CASE_DIR_ON_PTF), state="absent")
 
 
-def _delete_sai_test_folder(ptfhost):
+def __delete_sai_test_folder(ptfhost):
     """
     Delete SAI test root folder on PTF.
 
@@ -224,7 +276,7 @@ def _delete_sai_test_folder(ptfhost):
     ptfhost.file(path=PTF_TEST_ROOT_DIR, state="absent")
 
 
-def _prepare_test_cases(ptfhost, request):
+def __prepare_test_cases(ptfhost, request):
     """
     Prepare SAI test env including create root test folder and copy cases.
 
@@ -232,11 +284,11 @@ def _prepare_test_cases(ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
     """
     logger.info("Preparing SAI test environment.")
-    _create_sai_test_folders(ptfhost)
-    _copy_sai_test_cases(ptfhost, request)
+    __create_sai_test_folders(ptfhost)
+    __copy_sai_test_cases(ptfhost, request)
 
 
-def _create_sai_test_folders(ptfhost):
+def __create_sai_test_folders(ptfhost):
     """
     Create SAI test root folder on PTF server.
 
@@ -249,7 +301,7 @@ def _create_sai_test_folders(ptfhost):
     ptfhost.shell("mkdir -p {0}".format(SAI_TEST_REPORT_DIR_ON_PTF))
 
 
-def _copy_sai_test_cases(ptfhost, request):
+def __copy_sai_test_cases(ptfhost, request):
     """
     Copy SAI test cases to PTF server.
 
@@ -260,7 +312,7 @@ def _copy_sai_test_cases(ptfhost, request):
     ptfhost.copy(src=request.config.option.sai_test_dir, dest=PTF_TEST_ROOT_DIR + "/")
 
 
-def _collect_test_result(duthost, ptfhost, request):
+def __collect_test_result(duthost, ptfhost, request):
     """
     Collect SAI test resport from DUT and PTF server.
 
@@ -270,11 +322,11 @@ def _collect_test_result(duthost, ptfhost, request):
     """
     logger.info("Collecting test result and related information.")
     # TODO : collect DUT test report
-    _collect_sonic_os_and_platform_info(duthost, request)
-    _collect_sai_test_report_xml(ptfhost, request)
+    __collect_sonic_os_and_platform_info(duthost, request)
+    __collect_sai_test_report_xml(ptfhost, request)
 
 
-def _collect_sonic_os_and_platform_info(duthost, request):
+def __collect_sonic_os_and_platform_info(duthost, request):
     """
     Collect SONiC OS and Testbed info.
 
@@ -284,10 +336,10 @@ def _collect_sonic_os_and_platform_info(duthost, request):
     logger.info("Getting SONiC OS version and Testbed platform info.")
 
     out = duthost.shell("cd {0} && show version".format(DUT_WORKING_DIR))
-    _parse_info(out['stdout'], request.config.option.sai_test_report_dir)
+    __parse_info(out['stdout'], request.config.option.sai_test_report_dir)
 
 
-def _parse_info(content, report_path):
+def __parse_info(content, report_path):
     OS_VERSION=""
     PLT_VERSION=""
 
@@ -309,7 +361,7 @@ def _parse_info(content, report_path):
     logger.info('##vso[task.setvariable variable=PLT_VERSION]{}'.format(PLT_VERSION))
 
 
-def _store_test_result(ptfhost):
+def __store_test_result(ptfhost):
     """
         Backup the test result
     
@@ -324,7 +376,7 @@ def _store_test_result(ptfhost):
 		SAI_TEST_REPORT_DIR_ON_PTF))
 
 
-def _collect_sai_test_report_xml(ptfhost, request):
+def __collect_sai_test_report_xml(ptfhost, request):
     """
     Collect SAI test report.
 

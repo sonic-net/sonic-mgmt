@@ -137,8 +137,6 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
 def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    #clear FDB and arp cache on DUT
-    duthost.shell('sonic-clear arp; fdbclear')
     if request.param == "Enabled":
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
         duthost.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
@@ -149,6 +147,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         duthost.shell('docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tunnelVxlan"')
         return False, request.param
     else:
+        #clear FDB and arp cache on DUT
+        duthost.shell('sonic-clear arp; fdbclear')
         return False, request.param
 
 

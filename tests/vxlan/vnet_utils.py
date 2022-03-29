@@ -4,8 +4,9 @@ import logging
 from jinja2 import Template
 from os import path
 from time import sleep
-from .vnet_constants import *
-from .vnet_constants import VXLAN_PORT, VXLAN_MAC
+from vnet_constants import *
+from vnet_constants import VXLAN_PORT, VXLAN_MAC
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,10 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
 
     logger.info("Generating config files and copying to DUT")
 
+    sport = vnet_test_params[VXLAN_UDP_SPORT_KEY]
+    mask = vnet_test_params[VXLAN_UDP_SPORT_MASK_KEY]
+    pytest_assert(sport & ( 0xff >> (8-mask)) == 0, "Mask is not valid for current src port base")
+
     vnet_switch_config = [{
         "SWITCH_TABLE:switch": {
             "vxlan_port": VXLAN_PORT,
@@ -88,6 +93,14 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
         "OP": "SET"
     }]
 
+    vxlan_range_config = [{
+        "SWITCH_TABLE:switch": {
+            "vxlan_sport": sport,
+            "vxlan_mask": mask
+        },
+        "OP": "SET"
+    }]
+    duthost.copy(content=json.dumps(vxlan_range_config, indent=4), dest=DUT_VXLAN_RANGE_JSON)
     duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_JSON)
 
     render_template_to_host("vnet_vxlan.j2", duthost, DUT_VNET_CONF_JSON, vnet_config, mg_facts, vnet_test_params)
@@ -114,6 +127,11 @@ def apply_dut_config_files(duthost, vnet_test_params):
         duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_JSON))
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
+
+        if vnet_test_params[VXLAN_RANGE_ENABLE_KEY]:
+            logger.info("VXLAN src port range enable. Set params 'sport' and 'mask'")
+            duthost.shell("docker cp {} swss:/vxlan_range.json".format(DUT_VXLAN_RANGE_JSON))
+            duthost.shell("docker exec swss sh -c \"swssconfig /vxlan_range.json\"")
         sleep(3)
     else:
         logger.info("Skip applying config files on DUT")

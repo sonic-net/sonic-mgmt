@@ -40,9 +40,9 @@ class VNET(BaseTest):
         self.max_routes_wo_scaling = 1000
         self.vnet_batch = 8
         self.packets = []
+        self.vxlan_srcport= 0
+        self.vxlan_srcport_mask = 8
         self.vxlan_srcport_range_enabled = False
-        self.vxlan_srcport_lower_bound = 0
-        self.vxlan_srcport_upper_bound = 65535
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -192,14 +192,14 @@ class VNET(BaseTest):
         if 'routes_removed' in self.test_params and self.test_params['routes_removed']:
             self.routes_removed = True
 
-        if 'vxlan_srcport_range_enabled' in self.test_params and self.test_params['vxlan_srcport_range_enabled']:
-            self.vxlan_srcport_range_enabled = self.test_params['vxlan_srcport_range_enabled']
+        if 'vxlan_udp_sport' in self.test_params and self.test_params['vxlan_udp_sport']:
+            self.vxlan_srcport = self.test_params['vxlan_udp_sport']
 
-        if 'lower_bound_port' in self.test_params and self.test_params['lower_bound_port']:
-            self.vxlan_srcport_lower_bound = self.test_params['lower_bound_port']
+        if 'vxlan_udp_sport_mask' in self.test_params and self.test_params['vxlan_udp_sport_mask'] >=0:
+            self.vxlan_srcport_mask = self.test_params['vxlan_udp_sport_mask']
 
-        if 'upper_bound_port' in self.test_params and self.test_params['upper_bound_port']:
-            self.vxlan_srcport_upper_bound = self.test_params['upper_bound_port']
+        if 'vxlan_range_enable' in self.test_params:
+            self.vxlan_srcport_range_enabled = self.test_params['vxlan_range_enable']
 
         config = self.test_params['config_file']
 
@@ -498,8 +498,9 @@ class VNET(BaseTest):
                 status, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
                 if self.vxlan_srcport_range_enabled:
                     scapy_pkt  = Ether(received_pkt)
-                    assert (self.vxlan_srcport_lower_bound <= scapy_pkt.sport) and (self.vxlan_srcport_upper_bound >=  scapy_pkt.sport), ("Received packet has UDP src port {} "
-                        "that is not in expected range {} - {}".format(scapy_pkt.sport, self.vxlan_srcport_lower_bound, self.vxlan_srcport_upper_bound))
+                    upper_bound  = self.vxlan_srcport | (0xff >> (8 - self.vxlan_srcport_mask))
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and  (upper_bound >=  scapy_pkt.sport), ("Received packet has UDP src port {} "
+                        "that is not in expected range {} - {}".format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
