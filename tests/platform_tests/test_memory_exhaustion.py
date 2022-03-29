@@ -6,6 +6,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
