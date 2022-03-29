@@ -1,5 +1,4 @@
 from tabulate import tabulate
-from statistics import mean
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 import json
@@ -689,7 +688,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
             assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
@@ -747,14 +746,13 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
         bgp_config: tgen_bgp_config
     """
     try:
-        tx_frate, rx_frate = [], []
         cvg_api.set_config(bgp_config)
         run_traffic(cvg_api)
     except SnappiIxnException:
         duthost.command("sudo config save -y")
         reboot(duthost, localhost,reboot_type='fast')
         logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(360, 10, duthost.critical_services_fully_started), "Not all critical services are fully started")
+        pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
         run_traffic(cvg_api)
     finally:
         flow_stats = get_flow_stats(cvg_api)
