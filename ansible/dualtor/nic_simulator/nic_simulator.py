@@ -277,11 +277,11 @@ class OVSBridge(object):
     """
     Object to represent the OVS bridge for the active-active port testbed setup.
 
-                            +--------------+
-            PTF (host_if) --+              +----- upper_if
-                            |  OVS bridge  |
+                                   +--------------+
+                   PTF (host_if) --+              +----- upper_if
+                                   |  OVS bridge  |
     simulator netns (server_nic) --+              +----- lower_if
-                            +--------------+
+                                   +--------------+
     """
 
     __slots__ = (
@@ -428,6 +428,7 @@ def validate_request_target(response):
             elif grpc_server not in nic_simulator.ovs_bridges:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details("grpc_server not found by nic_simulator")
+                return response
             else:
                 context.grpc_server = grpc_server
                 return rpc_func(nic_simulator, request, context)
