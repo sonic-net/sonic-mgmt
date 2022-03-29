@@ -21,15 +21,22 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.helpers.dut_utils import get_program_info
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor")
+    pytest.mark.topology("dualtor"),
+    pytest.mark.usefixtures('run_garp_service',
+                            'run_icmp_responder',
+                            'run_arp_responder'
+                            )
 ]
 
 PACKET_COUNT = 1000
 swss_mem_percent = 0
-
+# It's normal to see the mem usage increased a little bit
+# set threshold buffer to 0.01%
+MEM_THRESHOLD_BUFFER = 0.01
 
 def validate_neighbor_entry_exist(duthost, neighbor_addr):
     """Validate if neighbor entry exist on duthost
@@ -93,7 +100,7 @@ def check_memory_leak(duthost):
         logging.info("SWSS container original MEM USAGE:{} original percent: {}%"
                     .format(mem_usage, swss_mem_percent))
         return False
-    elif mem_percent > swss_mem_percent:
+    elif mem_percent > swss_mem_percent + MEM_THRESHOLD_BUFFER:
         logging.error("SWSS container MEM percent is increased. current percent:{}%, original percent: {}%"
                     .format(mem_percent, swss_mem_percent))
         return True
