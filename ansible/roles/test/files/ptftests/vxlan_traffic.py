@@ -70,7 +70,7 @@ class VXLAN(BaseTest):
         # The ECMP check fails occasionally if there is not enough packets.
         # We should keep the packet count atleast MIN_PACKET_COUNT.
         if self.packet_count < MIN_PACKET_COUNT:
-            logger.warn("Packet_count is below minimum, resetting to {}", MIN_PACKET_COUNT)
+            logger.warning("Packet_count is below minimum, resetting to {}", MIN_PACKET_COUNT)
             self.packet_count = MIN_PACKET_COUNT
 
         self.random_mac = "00:aa:bb:cc:dd:ee"
@@ -152,10 +152,10 @@ class VXLAN(BaseTest):
         '''
         # Check #1 : All addresses have been used.
         if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
-            logger.info ("    Each address has been used")
-            logger.info ("Packets sent:{} distribution:".format(self.packet_count))
+            logger.info("    Each address has been used")
+            logger.info("Packets sent:{} distribution:".format(self.packet_count))
             for nh_address in returned_ip_addresses.keys():
-                logger.info ("      {} : {}".format(nh_address, returned_ip_addresses[nh_address]))
+                logger.info("      {} : {}".format(nh_address, returned_ip_addresses[nh_address]))
             # Check #2 : The packets are almost equally distributed.
             # Every next-hop should have received within 1% of the packets that we sent per nexthop(which is self.packet_count).
             # This check is valid only if there are large enough number of packets(300). Any lower number will need higher tolerance(more than 2%).
@@ -289,7 +289,7 @@ class VXLAN(BaseTest):
 
                     else:
                         check_ecmp = False
-                        logger.info ("Verifying no packet")
+                        logger.info("Verifying no packet")
                         verify_no_packet_any(self, masked_exp_pkt, self.t2_ports)
 
             # Verify ECMP:
