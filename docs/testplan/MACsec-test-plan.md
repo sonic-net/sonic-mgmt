@@ -9,33 +9,33 @@
   - [Dynamic Key(MKA)](#dynamic-keymka)
 - [Test cases](#test-cases)
   - [Testcase : Macsec Functionality](#testcase--macsec-functionality)
-    - [Check Control plane](#check-control-plane)
-    - [Check the Data plane](#check-the-data-plane)
-    - [Refresh SAK](#refresh-sak)
-    - [MACsec Key rotation, Primary/Fallback CAK](#macsec-key-rotation-primaryfallback-cak)
-    - [MACsec Counters](#macsec-counters)
-    - [COPP](#copp)
-  - [Testcase : Macsec feature interop with other protocols](#testcase--macsec-feature-interop-with-other-protocols)
-    - [Verify Port Channel is created with macsec configuration](#verify-port-channel-is-created-with-macsec-configuration)
-    - [Verify LLDP neighbors are created with macsec configuration](#verify-lldp-neighbors-are-created-with-macsec-configuration)
-    - [Verify the BGP neighbourship is created with macsec configuration](#verify-the-bgp-neighbourship-is-created-with-macsec-configuration)
-    - [Verify PFC in MACsec](#verify-pfc-in-macsec)
+    - [Check Control plane [Done]](#check-control-plane-done)
+    - [Check the Data plane [Done]](#check-the-data-plane-done)
+    - [Refresh SAK [Ongoing]](#refresh-sak-ongoing)
+    - [MACsec Key rotation, Primary/Fallback CAK [Not start]](#macsec-key-rotation-primaryfallback-cak-not-start)
+    - [MACsec Counters [Not start]](#macsec-counters-not-start)
+    - [COPP [Not start]](#copp-not-start)
+  - [Testcase : Macsec feature interop with other protocols [Ongoing]](#testcase--macsec-feature-interop-with-other-protocols-ongoing)
+    - [Verify Port Channel is created with macsec configuration [Done]](#verify-port-channel-is-created-with-macsec-configuration-done)
+    - [Verify LLDP neighbors are created with macsec configuration [Done]](#verify-lldp-neighbors-are-created-with-macsec-configuration-done)
+    - [Verify the BGP neighbourship is created with macsec configuration [Done]](#verify-the-bgp-neighbourship-is-created-with-macsec-configuration-done)
+    - [Verify PFC in MACsec [Not start]](#verify-pfc-in-macsec-not-start)
       - [Bypass mode](#bypass-mode)
       - [Encrypt mode](#encrypt-mode)
       - [Strict mode](#strict-mode)
-    - [Verify SNMP request/response works across interface with macsec configuration](#verify-snmp-requestresponse-works-across-interface-with-macsec-configuration)
-  - [Testcase : Deployment usecases and fault handling scenario's](#testcase--deployment-usecases-and-fault-handling-scenarios)
-    - [Link flap on an interface with macsec configured](#link-flap-on-an-interface-with-macsec-configured)
-    - [Link flap on a portchannel member which has macsec configured](#link-flap-on-a-portchannel-member-which-has-macsec-configured)
-    - [Testcases: Operation portchannel remove and re-add members to fix CRC error](#testcases-operation-portchannel-remove-and-re-add-members-to-fix-crc-error)
-    - [MACsec session cannot be established under wrong MKA configuration](#macsec-session-cannot-be-established-under-wrong-mka-configuration)
-    - [Config reload done on DUT with macsec configuration](#config-reload-done-on-dut-with-macsec-configuration)
-    - [Everflow, port mirroring on macsec enabled interfaces](#everflow-port-mirroring-on-macsec-enabled-interfaces)
-  - [Testcase : Macsec scenario's for multi-asic, multi-dut](#testcase--macsec-scenarios-for-multi-asic-multi-dut)
+    - [Verify SNMP request/response works across interface with macsec configuration [Done]](#verify-snmp-requestresponse-works-across-interface-with-macsec-configuration-done)
+  - [Testcase : Deployment usecases and fault handling scenario's [Done]](#testcase--deployment-usecases-and-fault-handling-scenarios-done)
+    - [Link flap on an interface with macsec configured [Done]](#link-flap-on-an-interface-with-macsec-configured-done)
+    - [Link flap on a portchannel member which has macsec configured [Done]](#link-flap-on-a-portchannel-member-which-has-macsec-configured-done)
+    - [Testcases: Operation portchannel remove and re-add members to fix CRC error [Removed]](#testcases-operation-portchannel-remove-and-re-add-members-to-fix-crc-error-removed)
+    - [MACsec session cannot be established under wrong MKA configuration [Done]](#macsec-session-cannot-be-established-under-wrong-mka-configuration-done)
+    - [Config reload done on DUT with macsec configuration [Done]](#config-reload-done-on-dut-with-macsec-configuration-done)
+    - [Everflow, port mirroring on macsec enabled interfaces [Removed]](#everflow-port-mirroring-on-macsec-enabled-interfaces-removed)
+  - [Testcase : Macsec scenario's for multi-asic, multi-dut [Not start]](#testcase--macsec-scenarios-for-multi-asic-multi-dut-not-start)
   - [Testcase : Scale tests](#testcase--scale-tests)
-    - [Large number of interfaces having macsec enabled on the DUT/linecard](#large-number-of-interfaces-having-macsec-enabled-on-the-dutlinecard)
-    - [Simultaneous rekeying in all macsec sessions](#simultaneous-rekeying-in-all-macsec-sessions)
-    - [Macsec enabled on all interfaces and the DUT is rebooted](#macsec-enabled-on-all-interfaces-and-the-dut-is-rebooted)
+    - [Large number of interfaces having macsec enabled on the DUT/linecard [Not start]](#large-number-of-interfaces-having-macsec-enabled-on-the-dutlinecard-not-start)
+    - [Simultaneous rekeying in all macsec sessions [Not start]](#simultaneous-rekeying-in-all-macsec-sessions-not-start)
+    - [Macsec enabled on all interfaces and the DUT is rebooted [Not start]](#macsec-enabled-on-all-interfaces-and-the-dut-is-rebooted-not-start)
 
 ## Testbed
 
@@ -120,7 +120,7 @@ About the detail to set the testbed, please refer the doc: https://github.com/Az
 
 This testcase covers the macsec/MKA protocol functionality
 
-#### Check Control plane
+#### Check Control plane [Done]
 
 - Enable macsec on the interface on the DUT and remote VM.
 - Check the process, `wpa_supplicant`, for the target port is running in the devices.
@@ -153,7 +153,7 @@ This testcase covers the macsec/MKA protocol functionality
        - In the physical SONiC switch: `show macsec` (SONiC CLI)
     2. Check the MACsec session is consistent with configuration.
 
-#### Check the Data plane
+#### Check the Data plane [Done]
 
 ```txt
 +-----------------------------------------------------------------------------------+
@@ -243,7 +243,7 @@ All VMs and PTF docker in the host need to install PTF NN agent. So, SONiC-mgmt-
     4. VM1 should receive at least one expected above packet
     5. Check the interface stats with macsec counters.
 
-#### Refresh SAK
+#### Refresh SAK [Ongoing]
 
 The thresholds of rekey packet number are `0xC0000000ULL` to 32bits packet number and `0xC000000000000000ULL` to 64bits packet number(XPN). It's impossible to really send many packets to trigger the rekey action. So, We use the attribute `next_pn` of `MACSEC_EGRESS_SA` in APP_DB to cheat MKA protocol for rekey action.
 
@@ -306,25 +306,25 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
     4. Check whether the new AN is next expected AN.
     5. Expect no packet loss on the ping result.
 
-#### MACsec Key rotation, Primary/Fallback CAK
+#### MACsec Key rotation, Primary/Fallback CAK [Not start]
 
    TODO
 
-#### MACsec Counters
+#### MACsec Counters [Not start]
 
    TODO
 
-#### COPP
+#### COPP [Not start]
 
    TODO
 
-### Testcase : Macsec feature interop with other protocols
+### Testcase : Macsec feature interop with other protocols [Ongoing]
 
   This testcase covers the behavior of slow protocols when mac security is configured on interfaces
 
   **Note:** Below test expectations are based on assumption that physical interface remains up when macsec profile is attached to an interface.
 
-#### Verify Port Channel is created with macsec configuration
+#### Verify Port Channel is created with macsec configuration [Done]
 
 - Configure the macsec profile and apply them on a selected interface. Let the MKA session be establised
     - Add this macsec enabled interface as member of a Portchannel
@@ -335,21 +335,21 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
     - Expect the portchannel to go down if time taken for mka session establishment is > 3*30sec.
         - Portchannel interface goes oper UP after the MKA session is established
  
-#### Verify LLDP neighbors are created with macsec configuration
+#### Verify LLDP neighbors are created with macsec configuration [Done]
 
 - Configure the macsec profile on interface where LLDP neighborship was already present
     - Expect the LLDP neighborship is maintained as long as mka session establishment happens within 4*30sec which is default LLDP hold time interval
 - Remove the macsec profile from the interface
     - Check the LLDP neighborship exists even after the removal of macsec config.
 
-#### Verify the BGP neighbourship is created with macsec configuration
+#### Verify the BGP neighbourship is created with macsec configuration [Done]
 
 - Check the behaviour when macsec is enabled on an interface where BGP session was already established with peer.
     - Expect to see BGP neighbors remain established state as long as mka session establishment happens within the BGP hold time interval 
 - Remove the macsec profile from the interface
     - Check the BGP sessions are established again after removal of macsec config.
 
-#### Verify PFC in MACsec
+#### Verify PFC in MACsec [Not start]
 
 ![MACsec_PFC_test](images/MACsec_PFC_test.png)  
 
@@ -397,49 +397,49 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 4. Send encrypted PFC frame on the PTF injected port
    - The DUT expects to capture the clear PFC packet
 
-#### Verify SNMP request/response works across interface with macsec configuration
+#### Verify SNMP request/response works across interface with macsec configuration [Done]
 
 - Configure the macsec profile on interface and check if the snmp walk succeeds from the peer VM.
 
-### Testcase : Deployment usecases and fault handling scenario's
+### Testcase : Deployment usecases and fault handling scenario's [Done]
 
   This testcase covers the various fault scenario's and the expected behavior. The link flap will happen in both local and remote interface down/up.
 
-#### Link flap on an interface with macsec configured
+#### Link flap on an interface with macsec configured [Done]
 
 - MKA session can be recovered from the link flap if the port comes back up in < 6 secs (MKA lietime)
 - If the port is down for more than 6 sec, MKA session will create a new session.
 
-#### Link flap on a portchannel member which has macsec configured
+#### Link flap on a portchannel member which has macsec configured [Done]
 
 - When the member interface flaps and it is the only portchannel member
    - Expect the Portchannel to go down and come up depending on whether the member port comes back in 6 secs (MKA lietime)
 - When one member interface flaps, but the Portchannel has more member ports which are macsec enabled.
    - Expect Portchannel to remain up.
 
-#### Testcases: Operation portchannel remove and re-add members to fix CRC error
+#### Testcases: Operation portchannel remove and re-add members to fix CRC error [Removed]
 
   The portchannel member is removed from the portchannel, add/remove IP address. Add the interface back to portchannel with macsec enabled.
   Check the behavior back
 
-#### MACsec session cannot be established under wrong MKA configuration
+#### MACsec session cannot be established under wrong MKA configuration [Done]
 
 - If the CAK is mis-matched between DUT and peer, the MKA session cannot be established.
    - Control plane protocols eg: BGP session will not be established.
 
-#### Config reload done on DUT with macsec configuration
+#### Config reload done on DUT with macsec configuration [Done]
 
 - The macsec sessions will be reconfigured, MKA session created again with a new SAK key.
 - The control protocol sessions like LACP, LLDP, BGP get established again over the macsec configured interfaces.
 
-#### Everflow, port mirroring on macsec enabled interfaces
+#### Everflow, port mirroring on macsec enabled interfaces [Removed]
 
 - This test is to verify 2 cases
    - configure mirroring on interfaces where macsec is configured.
    - configure macsec on the outgoing interface ( in case of Everflow ).
      - TODO add expected behavior
 
-### Testcase : Macsec scenario's for multi-asic, multi-dut
+### Testcase : Macsec scenario's for multi-asic, multi-dut [Not start]
 
 - Verify that macsec dockers are coming up in different namespaces.
 - Verify macsec packet flow where the Ingress and Egress ports are on different Linecards.
@@ -447,7 +447,7 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 
 ### Testcase : Scale tests
 
-#### Large number of interfaces having macsec enabled on the DUT/linecard
+#### Large number of interfaces having macsec enabled on the DUT/linecard [Not start]
 
 - Use the "configure feature macsec enabled" command to turn ON macsec, with all ports having macsec profile attached.
    - Check the CPU, ASIC behavior when there are multiple wpa_supplicant processes being spawned.
@@ -455,11 +455,11 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 - When all the interfaces flap together, how much time it takes for Portchannels/BGP sessions to be up
     -Expect the macsec sessions all come up. Measure the time taken.
 
-#### Simultaneous rekeying in all macsec sessions
+#### Simultaneous rekeying in all macsec sessions [Not start]
 
 - Enable macsec on multiple interfaces so that they have same rekey period.
 - Check the sessions are coming back up and there is no traffic loss during h/w progamming.
 
-#### Macsec enabled on all interfaces and the DUT is rebooted
+#### Macsec enabled on all interfaces and the DUT is rebooted [Not start]
 
 - Check the macsec docker comes up and macsec sessions are established.
