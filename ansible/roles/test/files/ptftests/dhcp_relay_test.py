@@ -419,7 +419,7 @@ class DHCPTest(DataplaneBaseTest):
 
     def pkt_callback(self, pkt):
         if pkt.haslayer(scapy2.IP) and pkt.haslayer(scapy2.DHCP):
-            if pkt.getlayer(scapy2.IP).dst in ['192.0.0.1','192.0.0.2','192.0.0.3','192.0.0.4'] and pkt.getlayer(scapy2.DHCP) is not None:
+            if pkt.getlayer(scapy2.IP).dst in [self.server_ip] and pkt.getlayer(scapy2.DHCP) is not None:
                 self.verified_option82 = False
                 pkt_options = ''
                 for option in pkt.getlayer(scapy2.DHCP).options:
