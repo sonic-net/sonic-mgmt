@@ -142,6 +142,7 @@ test_t0() {
       tests="\
       ssh/test_ssh_stress.py \
       ssh/test_ssh_ciphers.py \
+      ssh/test_ssh_limit.py \
       syslog/test_syslog.py\
       telemetry/test_telemetry.py \
       test_features.py \
