@@ -2,6 +2,7 @@ import pytest
 
 from tests.common.utilities import skip_release
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
