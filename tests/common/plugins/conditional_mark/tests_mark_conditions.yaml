@@ -298,4 +298,4 @@ macsec/test_macsec.py:
   skip:
     reason: "This test can only run on 7280 CR3"
     conditions:
-      - "platform not in ['x86_64-arista_7280cr3k_32p4']"
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4']"
