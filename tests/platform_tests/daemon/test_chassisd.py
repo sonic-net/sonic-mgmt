@@ -23,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2'),
-    pytest.mark.sanity_check(skip_sanity=True),
-    pytest.mark.disable_loganalyzer
 ]
 
 expected_running_status = "RUNNING"
@@ -106,8 +104,6 @@ def test_pmon_chassisd_running_status(duthosts, enum_rand_one_per_hwsku_hostname
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    skip_release(duthost, ["201811", "201911", "202012"])
-
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status == expected_running_status,
@@ -124,8 +120,6 @@ def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, enum
     @summary: This test case is to check the chassisd stopped and restarted status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    skip_release(duthost, ["201811", "201911", "202012"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
@@ -165,8 +159,6 @@ def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, enum
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    skip_release(duthost, ["201811", "201911", "202012"])
-
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
@@ -190,8 +182,6 @@ def test_pmon_chassisd_kill_and_start_status(check_daemon_status, duthosts, enum
     @summary: This test case is to check the chassisd killed unexpectedly (automatically restarted) status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    skip_release(duthost, ["201811", "201911", "202012"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
