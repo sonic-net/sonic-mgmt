@@ -131,6 +131,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                            nbr["host"].iface_macsec_ok(nbr["port"]))
         i += 1
 
+    # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
+    # protocols. To hold some time for protocol recovery.
+    time.sleep(60)
 
 def startup_all_ctrl_links(ctrl_links):
     # The ctrl links may be shutdowned by unexpected exit on the TestFaultHandling
