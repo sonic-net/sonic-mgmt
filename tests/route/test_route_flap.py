@@ -13,22 +13,33 @@ import ptf.testutils as testutils
 import ptf.packet as scapy
 
 from ptf.mask import Mask
+from natsort import natsorted
+
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.device_type('vs')
+]
+
+logger = logging.getLogger(__name__)
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 1,
-    'basic': 5,
-    'confident': 25,
-    'thorough': 50,
-    'diagnose': 100
+    'basic': 3,
+    'confident': 10,
+    'thorough': 20,
+    'diagnose': 50
 }
 
-logger = logging.getLogger(__name__)
+WAIT_EXPECTED_PACKET_TIMEOUT = 5
+EXABGP_BASE_PORT = 5000
+
 
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
+
 
 def announce_route(ptfip, neighbor, route, nexthop, port):
     change_route("announce", ptfip, neighbor, route, nexthop, port)
@@ -38,122 +49,120 @@ def withdraw_route(ptfip, neighbor, route, nexthop, port):
     change_route("withdraw", ptfip, neighbor, route, nexthop, port)
 
 
-def get_send_port(duthost, tbinfo, port_info):
-	dev_port = port_info[0][1]
-	mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-	logger.info("mg_facts: %s" % mg_facts)
-	member_port = mg_facts['minigraph_portchannels'][dev_port]['members']
-	logger.info("member_port: %s" % member_port)
-	send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
-	logger.info("src_port: %d" % send_port)
-	return send_port
+def get_ptf_recv_ports(duthost, tbinfo):
+    """The collector IP is a destination reachable by default. 
+    So we need to collect the uplink ports to do a packet capture
+    """
+    recv_ports = []
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for ptf_idx in mg_facts["minigraph_ptf_indices"].values():
+        recv_ports.append(ptf_idx)
+    return recv_ports
 
 
-def send_recv_ping_packet(ptfadapter, src_port, dst_mac, dst_ip):
-	pkt = testutils.simple_icmp_packet(
-									eth_dst = dst_mac, 
-									ip_dst = dst_ip, 
-									icmp_type=8)
+def get_ptf_send_ports(duthost, tbinfo, dev_port):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    member_port = mg_facts['minigraph_portchannels'][dev_port]['members']
+    send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
+    return send_port
 
-	ext_pkt = pkt.copy()
-	ext_pkt['Ether'].src = dst_mac
 
-	masked_exp_pkt = Mask(ext_pkt)
-	masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"ttl")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-	masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
+def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, src_ip, dst_ip):
+    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_data="")
 
-	logger.info('send ping request packet source port id {} dmac: {} dip: {}'.format(src_port, dst_mac, dst_ip))
-	testutils.send(ptfadapter, src_port, pkt)
-	testutils.verify_packet(ptfadapter, masked_exp_pkt, src_port, timeout=None)
+    ext_pkt = pkt.copy()
+    ext_pkt['Ether'].src = dst_mac
+
+    masked_exp_pkt = Mask(ext_pkt)
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"flags")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"frag")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"ttl")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+
+    masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "code")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "chksum")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "id")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "seq")
+
+    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+    testutils.send(ptfadapter, ptf_send_port, pkt)
+    testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def get_ip_route_info(duthost):
-	output = duthost.command("ip route")['stdout']
-	output.replace('\n', ' ').replace('\r', ' ')
-	return output
+    output = json.loads(duthost.shell('vtysh -c "show ip route json"', verbose=False)['stdout'])
+    return output
 
 
-def get_url_port(duthost, ptfhost, nexthop):
-	bgp_output = duthost.shell("show ip bgp summary | grep %s" % nexthop)['stdout']
-	bgp_info = re.findall(r"ARISTA(\S+)", bgp_output)
-	logger.info("bgp_info = %s" % bgp_info)
-
-	path = "ARISTA" + bgp_info[0] + ".conf"
-
-	#get url port from /etc/exabgp/
-	res = ptfhost.shell('cat /etc/exabgp/{}'.format(path))['stdout']
-	logger.info("res = %s" % res)
-
-	res.replace('\n', ' ').replace('\r', ' ')
-	port_info = re.findall(r"run /usr/bin/python /usr/share/exabgp/http_api.py ((\d+))", res)
-
-	port = int(port_info[0][0].encode("utf-8"))
-	logger.info("port = %d" % port)
-	return port
+def get_exabgp_port(tbinfo, nbrhosts):
+    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys()])
+    tor1 = tor_neighbors[0]
+    tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
+    tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
+    return tor1_exabgp_port
 
 
-def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter, get_function_conpleteness_level):
-	ptf_ip = tbinfo['ptf_ip']
+def test_route_flap(duthost, tbinfo, nbrhosts, ptfhost, ptfadapter, get_function_conpleteness_level):
+    ptf_ip = tbinfo['ptf_ip']
+    #dst mac = router mac
+    dut_mac = duthost.facts['router_mac']
 
-	#dst mac = router mac
-	dst_mac = duthost.facts['router_mac']
+    #get neighbor
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
-	#stdout of ip route
-	iproute_info = get_ip_route_info(duthost)
+    #get dst_prefix_list and nexthop
+    iproute_info = get_ip_route_info(duthost)
+    dst_prefix_list = []
+    for route_prefix, route_info in iproute_info.items():
+        if "/25" in route_prefix:
+            dst_prefix_list.append(route_prefix.strip('/25'))
+        for nexthops, nexthops_info in route_info[0].items():
+            if nexthops == 'nexthops':
+                for key, value in nexthops_info[0].items():
+                    if key == 'ip':
+                        nexthop = value
+                    if key == 'interfaceName':
+                        dev_port = value
 
-	#example: nexthop via 10.0.0.57 dev PortChannel101 weight 1
-	port_info = re.findall(r"nexthop via (\S+) dev (\S+) weight (\d+)", iproute_info)
-	#example: 192.168.8.0/25 (nhid 84669) proto bgp src 10.1.0.32 metric 20
-	route_nhid_info = re.findall(r"(\S+) proto bgp src (\S+)", iproute_info)
-	route_list = [x[0] for x in route_nhid_info]
-	route_str = " ".join(route_list)
-	#get route ip address without nhid(if have)
-	route_info = re.findall(r"(\S+)/25", route_str)
-	logger.info("route_info %s" % route_info)
-	
-	nexthop = port_info[0][0]
+    route_nums = len(dst_prefix_list)
+    logger.info("route_nums = %d" % route_nums)
 
-	#choose one ptf port to send msg
-	src_port = get_send_port(duthost, tbinfo, port_info)
-	
-	route_nums = len(route_info)
+    #choose one ptf port to send msg
+    ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
+    ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
 
-	#ptf url port
-	url_port = get_url_port(duthost, ptfhost, nexthop)
+    exabgp_port = get_exabgp_port(tbinfo, nbrhosts)
+    logger.info("exabgp_port = %d" % exabgp_port)
 
-	normalized_level = get_function_conpleteness_level
-	if normalized_level is None:
-		normalized_level = 'basic'
+    normalized_level = get_function_conpleteness_level
+    if normalized_level is None:
+        normalized_level = 'basic'
 
-	loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-	while loop_times > 0:
-		logger.info("Round %s" % loop_times)
-		route_index = route_nums - route_nums / 2
-		while route_index < route_nums:
-			#neighbor = lo address
-			neighbor = route_info[route_index][len(route_nhid_info[0])]
-			#example: dst_prefix = 192.168.8.0
-			dst_prefix = route_info[route_index][0]
-			ping_ip = route_info[2][0]
+    while loop_times > 0:
+        logger.info("Round %s" % loop_times)
+        route_index = 1
+        while route_index < route_nums/10:
+            dst_prefix = dst_prefix_list[route_index]
+            ping_ip = dst_prefix_list[0]
 
-			#test link status
-			send_recv_ping_packet(ptfadapter, src_port, dst_mac, ping_ip)
+            #test link status
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
 
-			withdraw_route(ptf_ip, neighbor, dst_prefix, nexthop, url_port)
-			send_recv_ping_packet(ptfadapter, src_port, dst_mac, ping_ip)
-			
-			announce_route(ptf_ip, neighbor, dst_prefix, nexthop, url_port)
-			send_recv_ping_packet(ptfadapter, src_port, dst_mac, ping_ip)
+            withdraw_route(ptf_ip, neighbor, dst_prefix, nexthop, exabgp_port)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            
+            announce_route(ptf_ip, neighbor, dst_prefix, nexthop, exabgp_port)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
 
-			route_index += 1
-			
-		loop_times -= 1
-	
-	logger.info("End")
-	
+            route_index += 1
+            
+        loop_times -= 1
+    
+    logger.info("End")
