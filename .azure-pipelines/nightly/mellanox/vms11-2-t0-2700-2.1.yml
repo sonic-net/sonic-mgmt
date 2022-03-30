@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-2700
+    default: vms11-2-t0
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests"'
+    default: '-I "platform_tests"'
     displayName: Testbed specific
 
 stages:
