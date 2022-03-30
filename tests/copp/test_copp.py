@@ -267,7 +267,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip,
-              "randip": generate_ip_through_default_route(duthost, [test_params.peerip]),
+              "randip": generate_ip_through_default_route(dut, [test_params.peerip]),
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap}
 
