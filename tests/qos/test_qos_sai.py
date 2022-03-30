@@ -839,6 +839,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
 
