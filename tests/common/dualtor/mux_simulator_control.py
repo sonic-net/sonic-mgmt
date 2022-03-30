@@ -7,7 +7,8 @@ import uuid
 import requests
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type, CableType
+from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 

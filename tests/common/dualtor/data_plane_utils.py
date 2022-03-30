@@ -3,7 +3,7 @@ import pytest
 import json
 import time
 
-from tests.common.dualtor.dual_tor_common import cable_type
+from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_io import DualTorIOActiveStandby
 from tests.common.helpers.assertions import pytest_assert
