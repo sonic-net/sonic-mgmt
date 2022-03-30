@@ -79,6 +79,7 @@ def test_warm_boot_from_ptf(
     """
     Test_failed = False
     for stage in WARM_TEST_STAGES:
+        logger.info("Warm reboot test, run in stage: {}.".format(stage))
         if Test_failed:
             break
         if stage == WARM_TEST_STARTING:
@@ -96,7 +97,7 @@ def test_warm_boot_from_ptf(
                 saiserver_warmboot_config(duthost, "restore")
         except BaseException as e:
             Test_failed = True
-            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))               
+            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))
             stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
             pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
         finally:

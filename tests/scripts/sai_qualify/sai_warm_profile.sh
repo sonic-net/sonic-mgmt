@@ -7,7 +7,6 @@ back_profile(){
     echo "backup profile: $profile"
     if [[ -f "$profile.bak" ]]; then
         echo "Skip backup profile: $profile, $profile.bak alredy exist."
-        exit 1 # Exit script
     else
         cp $profile $profile.bak
     fi
@@ -27,7 +26,6 @@ config_warmboot_init(){
     echo "change $profile for warmboot init"
     echo "SAI_WARM_BOOT_WRITE_FILE=/var/warmboot/sai-warmboot.bin" >> $profile
     echo "SAI_WARM_BOOT_READ_FILE=/var/warmboot/sai-warmboot.bin" >> $profile
-    echo "SAI_BOOT_TYPE=1" >> $profile
 }
 
 config_warmboot_start(){

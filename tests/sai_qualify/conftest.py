@@ -147,6 +147,18 @@ def create_sai_test_interface_param(duthost):
         interfaces_list.append(interface_tmp)
     interfaces_para = " --interface ".join(interfaces_list)
     interfaces_para = "--interface " + interfaces_para
+
+    if not interfaces_list:
+        interfaces_para = __generate_default_interfaces()
+    return interfaces_para
+
+def __generate_default_interfaces():
+    interfaces_list = []
+    for index in range(32):
+        interface_tmp = "\'0-{0}@eth{0}\'".format(index)
+        interfaces_list.append(interface_tmp)
+    interfaces_para = " --interface ".join(interfaces_list)
+    interfaces_para = "--interface " + interfaces_para
     return interfaces_para
 
 
