@@ -283,4 +283,4 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
         with open(filepath, 'w') as yf:
             json.dump(cadidate_test_ports, yf, indent=4)
     except Exception as e:
-        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+        logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
