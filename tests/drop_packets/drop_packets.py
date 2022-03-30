@@ -1,6 +1,5 @@
 import logging
 import os
-import importlib
 import netaddr
 import pytest
 import random
@@ -10,12 +9,13 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts  # lgtm[py/unused-import]
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import get_inventory_files
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
+
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -31,6 +31,7 @@ LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
 LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def sai_acl_drop_adj_enabled(rand_selected_dut):
 
 
 @pytest.fixture
-def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
+def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -68,22 +69,22 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
     'fanouthost' instance should not be used in test case logic.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    fanout = None
-    # Check that class to handle fanout config is implemented
-    if "mellanox" == duthost.facts["asic_type"]:
-        for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
-            # Import fanout configuration handler based on vendor name
-            if "mellanox" in file_name:
-                module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
-                fanout = module.FanoutHandler(duthost, localhost, get_inventory_files(request))
-                if not fanout.is_mellanox:
-                    fanout = None
-                break
-
+    fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
+    if not fanout:
+        pytest.skip('Did not find fanout')
     yield fanout
+    if fanout:
+        if hasattr(fanout, 'restore_drop_counter_config'):
+            fanout.restore_drop_counter_config()
 
-    if fanout is not None:
-        fanout.restore_config()
+
+def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
+    fanout_obj = None
+    for fanout_name, fanout_obj in fanouthosts.items():
+        for interface, interface_info in conn_graph_facts['device_conn'][duthost.hostname].items():
+            if fanout_name == interface_info.get('peerdevice'):
+                break
+    return fanout_obj
 
 
 @pytest.fixture(scope="module")
@@ -391,23 +392,22 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
     time.sleep(1)
 
 
-def test_equal_smac_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
-    duthost = duthosts[rand_one_dut_hostname]
-
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
-    if "mellanox" == duthost.facts["asic_type"]:
+    if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
+        fanouthost.prepare_drop_counter_config(
+            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -426,29 +426,27 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostna
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
     )
-
     do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
-def test_multicast_smac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
     """
     @summary: Create a packet with multicast SMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
-    duthost = duthosts[rand_one_dut_hostname]
-
     multicast_smac = "01:00:5e:00:01:02"
     src_mac = multicast_smac
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
-    if "mellanox" == duthost.facts["asic_type"]:
+    if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+        fanouthost.prepare_drop_counter_config(
+            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
