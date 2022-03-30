@@ -21,6 +21,19 @@ PREFIXES_V6_DUMMY = "fc01:30::/64"
 PREFIXES_V4_RE    = "ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
 PREFIXES_V6_RE    = "ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
 
+def get_bgp_prefix_config(duthost):
+    """ Get bgp prefix config
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "'{}' failed with rc={}".format(cmds, output['rc'])
+    )
+
+    bgp_prefix_pattern = r".*prefix-list.*"
+    bgp_prefix_config = re.findall(bgp_prefix_pattern, output['stdout'])
+    return bgp_prefix_config
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -30,6 +43,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    original_bgp_prefix_config = get_bgp_prefix_config(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -37,6 +51,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        current_bgp_prefix_config = get_bgp_prefix_config(duthost)
+        pytest_assert(set(original_bgp_prefix_config) == set(current_bgp_prefix_config),
+            "bgp prefix config are not suppose to change after test"
+        )
     finally:
         delete_checkpoint(duthost)
 

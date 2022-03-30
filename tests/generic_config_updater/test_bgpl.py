@@ -14,6 +14,19 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+def get_bgp_listener_config(duthost):
+    """ Get bgp listener config
+    """
+    cmds = "show ip bgp summary"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "'{}' failed with rc={}".format(cmds, output['rc'])
+    )
+
+    bgp_listener_pattern = r".*BGPMonitor.*"
+    bgp_listener_config = re.findall(bgp_listener_pattern, output['stdout'])
+    return bgp_listener_config
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -23,6 +36,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    original_bgp_listener_config = get_bgp_listener_config(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -30,6 +44,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        current_bgp_listener_config = get_bgp_listener_config(duthost)
+        pytest_assert(set(original_bgp_listener_config) == set(current_bgp_listener_config),
+            "bgp listener config are not suppose to change after test"
+        )
     finally:
         delete_checkpoint(duthost)
 
