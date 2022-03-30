@@ -149,6 +149,11 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
 
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
 #######################################
 #####           qos               #####
 #######################################
