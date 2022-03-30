@@ -21,7 +21,7 @@ The active-active testbed setup is similar to dualtor testbed setup.
     * If either of the ToR goes standby, the server NiC will choose the uplink to the active ToR to send/receive traffic.
 * Each ToR will be connected to 8 T1s.
     * Both the upper ToR and the lower ToR are advertising the same VLAN to the upstream T1s, so the downstream traffic to the server will be forwarded by ECMP via both ToRs(as T1 will see 2 available nexthops for the VLAN)
-* If either of the ToR goes standby, there will be a Vxlan tunnel from the standby ToR to active ToR to redirects the downstream traffic from standby ToR to the active ToR.
+* For a server, if one of the ToRs' forwarding state goes standby, there will be a Vxlan tunnel from the standby ToR to active ToR to redirect all the downstream traffic to the server from standby ToR to the active ToR, then the active ToR will forward those traffic to the server.
 
 ### Server NiC
 The testcases defined here are under the assumptions that the server NiC is functioning correctly:
