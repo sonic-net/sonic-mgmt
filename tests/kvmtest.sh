@@ -85,7 +85,7 @@ RUNTEST_CLI_COMMON_OPTS="\
 -k debug \
 -l warning \
 -m individual \
--q 1 \
+-q 0 \
 -a False \
 -O \
 -r"
@@ -108,7 +108,7 @@ test_t0() {
       bgp/test_bgp_speaker.py \
       bgp/test_bgpmon.py \
       bgp/test_bgp_update_timer.py \
-      container_checker/test_container_checker.py \"
+      container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
       cacl/test_ebtables_application.py \
@@ -159,7 +159,7 @@ test_t0() {
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
       process_monitoring/test_critical_process_monitoring.py \
-      show_techsupport/test_techsupport_no_secret.py \"
+      show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py"
 
       pushd $SONIC_MGMT_DIR/tests
@@ -229,7 +229,7 @@ test_t1_lag() {
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
-    pc/test_lag_2.py \"
+    pc/test_lag_2.py \
     platform_tests/test_cpu_memory_usage.py \
     process_monitoring/test_critical_process_monitoring.py \
     route/test_default_route.py \
@@ -249,7 +249,7 @@ test_multi_asic_t1_lag() {
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
     snmp/test_snmp_queue.py \
-    tacacs/test_accounting.py \"
+    tacacs/test_accounting.py \
     tacacs/test_authorization.py \
     tacacs/test_jit_user.py \
     tacacs/test_ro_disk.py \
