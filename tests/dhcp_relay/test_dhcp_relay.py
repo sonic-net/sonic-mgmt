@@ -108,9 +108,17 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                         uplink_interfaces.append(iface_name)
                     uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
 
+        other_client_ports_indices = []
+        for iface_name in vlan_info_dict['members'] :
+            if mg_facts['minigraph_ptf_indices'][iface_name] == client_iface['port_idx']:
+                pass
+            else :
+                other_client_ports_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
+
         dhcp_relay_data = {}
         dhcp_relay_data['downlink_vlan_iface'] = downlink_vlan_iface
         dhcp_relay_data['client_iface'] = client_iface
+        dhcp_relay_data['other_client_ports'] = other_client_ports_indices
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
         dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
@@ -261,6 +269,9 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                    platform_dir="ptftests",
                    params={"hostname": duthost.hostname,
                            "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           ## This port is introduced to test DHCP relay packet received
+                           ## on other client port
+                           "other_client_port": repr(dhcp_relay['other_client_ports']),
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
