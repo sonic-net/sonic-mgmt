@@ -100,7 +100,12 @@ class DHCPTest(DataplaneBaseTest):
         self.test_params = testutils.test_params_get()
 
         self.hostname = self.test_params['hostname']
+<<<<<<< HEAD
         self.verified_option82 = False
+=======
+        if self.test_params.has_key('other_client_port'):
+            self.other_client_port = ast.literal_eval(self.test_params['other_client_port'])
+>>>>>>> 70b53ec0b72fbfb4d0867c2e6a68dcce41d001ec
 
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
@@ -584,6 +589,84 @@ class DHCPTest(DataplaneBaseTest):
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
 
+    def verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        # Form and send DHCP Relay packet
+        dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
+        testutils.send_packet(self, self.client_port_index, dhcp_request)
+
+        # Mask off fields we don't care about matching
+        masked_request = Mask(dhcp_request)
+        masked_request.set_do_not_care_scapy(scapy.Ether, "src")
+
+        masked_request.set_do_not_care_scapy(scapy.IP, "version")
+        masked_request.set_do_not_care_scapy(scapy.IP, "ihl")
+        masked_request.set_do_not_care_scapy(scapy.IP, "tos")
+        masked_request.set_do_not_care_scapy(scapy.IP, "len")
+        masked_request.set_do_not_care_scapy(scapy.IP, "id")
+        masked_request.set_do_not_care_scapy(scapy.IP, "flags")
+        masked_request.set_do_not_care_scapy(scapy.IP, "frag")
+        masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_request.set_do_not_care_scapy(scapy.IP, "proto")
+        masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.IP, "src")
+        masked_request.set_do_not_care_scapy(scapy.IP, "dst")
+        masked_request.set_do_not_care_scapy(scapy.IP, "options")
+
+        masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
+        masked_request.set_do_not_care_scapy(scapy.DHCP, "options")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "yiaddr")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "ciaddr")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "siaddr")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "giaddr")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "chaddr")
+
+        try :
+            testutils.verify_packets_any(self, masked_request, self.other_client_port)
+        except Exception:
+            self.assertTrue(False,"DHCP Relay packet not matched  or Padded extra on client side")
+
+    def verify_dhcp_relay_pkt_on_server_port_with_no_padding(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
+        # Form and send DHCP Relay packet
+        dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
+        testutils.send_packet(self, self.client_port_index, dhcp_request)
+
+        # Mask off fields we don't care about matching
+        # Create a packet resembling a relayed DCHPREQUEST packet
+        dhcp_request_relayed = self.create_dhcp_request_relayed_packet()
+
+        # Mask off fields we don't care about matching
+        masked_request = Mask(dhcp_request_relayed)
+        masked_request.set_do_not_care_scapy(scapy.Ether, "dst")
+
+        masked_request.set_do_not_care_scapy(scapy.IP, "version")
+        masked_request.set_do_not_care_scapy(scapy.IP, "ihl")
+        masked_request.set_do_not_care_scapy(scapy.IP, "tos")
+        masked_request.set_do_not_care_scapy(scapy.IP, "len")
+        masked_request.set_do_not_care_scapy(scapy.IP, "id")
+        masked_request.set_do_not_care_scapy(scapy.IP, "flags")
+        masked_request.set_do_not_care_scapy(scapy.IP, "frag")
+        masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_request.set_do_not_care_scapy(scapy.IP, "proto")
+        masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.IP, "src")
+        masked_request.set_do_not_care_scapy(scapy.IP, "dst")
+        masked_request.set_do_not_care_scapy(scapy.IP, "options")
+
+        masked_request.set_do_not_care_scapy(scapy.UDP, "chksum")
+        masked_request.set_do_not_care_scapy(scapy.UDP, "len")
+
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
+
+        try :
+            testutils.verify_packets_any(self, masked_request, self.server_port_indices)
+        except Exception:
+            self.assertTrue(False,"DHCP Relay packet not matched or Padded extra on server side")
+
     def runTest(self):
         t1 = Thread(target=self.Sniffer, args=("eth28",))
         t1.start()
@@ -603,3 +686,7 @@ class DHCPTest(DataplaneBaseTest):
         self.verify_ack_received()
         self.assertTrue(self.verified_option82,"Failed: Verifying option 82")
 
+        ## Below verification will be done only when client port is set in ptf_runner
+        if self.test_params.has_key('other_client_port'):
+            self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
+            self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)

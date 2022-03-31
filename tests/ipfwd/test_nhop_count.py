@@ -7,6 +7,7 @@ import time
 from collections import namedtuple
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import skip_release
@@ -267,11 +268,19 @@ def test_nhop(request, duthost, tbinfo):
     - Add IP route and nexthop
     - check CRM resource
     - clean up
-    - Verify no erros and crash
+    - Verify no errors and crash
     """
     skip_release(duthost, ["201811", "201911"])
 
-    default_max_nhop_paths = 32
+    # Set of parameters for Cisco-8000 devices
+    if is_cisco_device(duthost):
+        default_max_nhop_paths = 10
+        polling_interval = 1
+        sleep_time = 380
+    else:
+        default_max_nhop_paths = 32
+        polling_interval = 10
+        sleep_time = 120
     nhop_group_limit = 1024
     # program more than the advertised limit
     extra_nhops = 10
@@ -286,7 +295,11 @@ def test_nhop(request, duthost, tbinfo):
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
-    nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
+    if is_cisco_device(duthost):
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available"]
+    else:
+        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
@@ -318,7 +331,7 @@ def test_nhop(request, duthost, tbinfo):
     crm_before = get_crm_info(duthost, asic)
 
     # increase CRM polling time
-    asic.command("crm config polling interval 10")
+    asic.command("crm config polling interval {}".format(polling_interval))
 
     logging.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
 
@@ -336,7 +349,7 @@ def test_nhop(request, duthost, tbinfo):
 
         nhop.program_routes()
         # wait for routes to be synced and programmed
-        time.sleep(120)
+        time.sleep(sleep_time)
         crm_after = get_crm_info(duthost, asic)
 
     finally:
