@@ -302,8 +302,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
             target_mac = duthost.facts['router_mac']
         ptf_test_port_map[str(port)] = {
             'target_dut': 0,
-            'target_dest_mac': target_mac,
-            'target_src_mac': duthost.facts['router_mac']
+            'target_mac': target_mac
         }
     ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
@@ -313,7 +312,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
                 "ptftests",
                 "fib_test.FibTest",
                 platform_dir="ptftests",
-                params={"ptf_test_port_map": PTF_TEST_PORT_MAP,
+                params={"router_macs": [duthost.facts['router_mac']],
+                        "ptf_test_port_map": PTF_TEST_PORT_MAP,
                         "fib_info_files": ["/root/bgp_speaker_route_%s.txt" % family],
                         "ipv4": ipv4,
                         "ipv6": ipv6,
