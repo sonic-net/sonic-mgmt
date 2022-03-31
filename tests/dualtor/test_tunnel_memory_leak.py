@@ -27,8 +27,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
 pytestmark = [
     pytest.mark.topology("dualtor"),
     pytest.mark.usefixtures('run_garp_service',
-                            'run_icmp_responder',
-                            'run_arp_responder'
+                            'run_arp_responder',
+                            'run_icmp_responder'
                             )
 ]
 
@@ -183,7 +183,7 @@ def test_tunnel_memory_leak(
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-
+                time.sleep(3)
             pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
                         "Received {} expected packets for server {}, drop more than 50%."
                         .format(len(server_traffic_monitor.matched_packets), server_ipv4))
