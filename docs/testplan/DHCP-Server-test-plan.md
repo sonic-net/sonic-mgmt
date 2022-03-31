@@ -8,6 +8,7 @@
   - [Server/Relay test case](#serverrelay-test-case)
   - [Default test case](#default-test-case)
   - [Emulate port change](#emulate-port-change)
+  - [Multi-Vlan](#multi-vlan)
 
 ## Overview
 
@@ -62,9 +63,21 @@ Verify transactions between DHCP client and server are valid. Client is assigned
 ## Emulate port change
 
 Once all clients are assigned an IP:
-- Run default test on the client
-- Offer received from DHCP Server should retain the same IP Address
+- Change the MAC address of the interface in the ptf container
+- Sends DISCOVER packet from the changed MAC interface
+- Offer received from DHCP Server should retain the same IP address
 
 ### Test objective
 
 This test simluates a device being unplugged from a port and replaced with a new device. New device should expect the same address as before.
+
+## Multi-Vlan
+
+Run default tests on 3 Vlans
+- Add two more Vlans
+- At least one ptf port is mapped to each Vlan
+- Check that the ports that's mapped'to each VLAN receive the corresponding expected IP Addresses
+
+### Test objective
+
+This test checks that dnsmasq distributes corresponding IP depending on the subnet mapped to each VLAN in minigraph to the ports in ptf
