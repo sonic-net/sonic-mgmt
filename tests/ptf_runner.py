@@ -7,8 +7,11 @@ logger = logging.getLogger(__name__)
 
 def ptf_collect(host, log_file):
     host.fetch(src=log_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
-    pcap_file = log_file[0:-3] + 'pcap'
-    host.fetch(src=pcap_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
+    pos = log_file.rfind('.') + 1
+    pcap_file = log_file[0:pos] + 'pcap'
+    output = host.shell("[ -f {} ] && echo exist || echo null".format(pcap_file))['stdout']
+    if output == 'exist':
+        host.fetch(src=pcap_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
