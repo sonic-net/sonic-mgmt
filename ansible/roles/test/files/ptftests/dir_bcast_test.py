@@ -59,7 +59,9 @@ class BcastTest(BaseTest):
         if self.test_params['testbed_type'] == 't0-52':
             self.src_ports = range(0, 52)
         if self.test_params['testbed_type'] == 't0-56':
-            self.src_ports = range(0, 32)
+            self.src_ports = range(0, 2) + range(4, 6) + range(8, 10) + range(12, 18) + range(20, 22) + \
+                             range(24, 26) + range(28, 30) + range(32, 34) + range(36, 38) + range(40, 46) + \
+                             range(48, 50) + range(52, 54)
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
         if self.test_params['testbed_type'] == 't0-116':
