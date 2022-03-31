@@ -77,10 +77,12 @@ def macsec_setup(request, duthost, ctrl_links, macsec_profile, macsec_feature):
         return
 
     profile = macsec_profiles[macsec_profile]
-    if request.config.getoption("neighbor_type") == "eos":
+    if request.config.getoption("neighbor_type") == "eos" and duthost.facts["asic_type"] == "vs":
         if profile['send_sci'] == "false":
-            pytest.skip(
-                "EOS with send_sci false does not work due to portchannel mac not matching ether port mac!")
+            # On EOS, portchannel mac is not same as the member port mac (being as SCI),
+            # then src mac is not equal to SCI in its sending packet. The receiver of vSONIC
+            # will drop it for macsec kernel module does not correctly handle it.
+            pytest.skip("macsec on dut vsonic, neighbor eos, send_sci false")
 
     cleanup_macsec_configuration(duthost, ctrl_links, macsec_profile)
     setup_macsec_configuration(duthost, ctrl_links,

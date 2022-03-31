@@ -34,7 +34,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
     for k, v in macsec_profile.items():
         cmd += " '{}' '{}' ".format(k, v)
     host.command(cmd)
-    if send_sci is "false":
+    if send_sci == "false":
         # The MAC address of SONiC host is locally administrated
         # So, LLDPd will use an arbitrary fixed value (00:60:08:69:97:ef) as the source MAC address of LLDP packet (https://lldpd.github.io/usage.html)
         # But the MACsec driver in Linux used by SONiC VM has a bug that cannot handle the packet with different source MAC address to SCI if the send_sci = false
