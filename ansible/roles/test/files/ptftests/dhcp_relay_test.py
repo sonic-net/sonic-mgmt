@@ -100,12 +100,10 @@ class DHCPTest(DataplaneBaseTest):
         self.test_params = testutils.test_params_get()
 
         self.hostname = self.test_params['hostname']
-<<<<<<< HEAD
         self.verified_option82 = False
-=======
+        
         if self.test_params.has_key('other_client_port'):
             self.other_client_port = ast.literal_eval(self.test_params['other_client_port'])
->>>>>>> 70b53ec0b72fbfb4d0867c2e6a68dcce41d001ec
 
         # These are the interfaces we are injected into that link to out leaf switches
         self.server_port_indices = ast.literal_eval(self.test_params['leaf_port_indices'])
@@ -690,3 +688,4 @@ class DHCPTest(DataplaneBaseTest):
         if self.test_params.has_key('other_client_port'):
             self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
+        
