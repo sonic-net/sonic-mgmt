@@ -47,7 +47,7 @@ class TestWRDynamicInnerHashing():
             balancing_test_times = 200
             balancing_range = 0.3
 
-            reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
+            reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm', 10, 0, 0, True, True,))
             reboot_thr.start()
 
             ptf_runner(ptfhost,
@@ -88,7 +88,7 @@ class TestWRStaticInnerHashing():
         outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-        reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm',))
+        reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm', 10, 0, 0, True, True,))
         reboot_thr.start()
 
         ptf_runner(ptfhost,
