@@ -401,7 +401,7 @@ class DHCP6TopoT1Test(PolicyTest):
             ipv6_src='::1',
             ipv6_dst='ff02::1:2',
             udp_sport=546,
-            udp_dport=547,
+            udp_dport=547
         )
 
         return packet
