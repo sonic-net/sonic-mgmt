@@ -379,11 +379,11 @@ class DHCP6Test(NoPolicyTest):
 
         return packet
     
-  #SONIC configuration has no packets to CPU for DHCPv6-T1 Topo
+ #SONIC configuration has no packets to CPU for DHCPv6-T1 Topo
 class DHCP6TopoT1Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # T1 DHCP no packet to packet to CPU so police rate is 0
+        # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
 
