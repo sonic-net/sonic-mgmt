@@ -15,22 +15,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
-          primary_cak, primary_ckn, policy, send_sci, request):
-    all_links = {}
-    all_links.update(ctrl_links)
-    all_links.update(unctrl_links)
-    startup_all_ctrl_links(ctrl_links)
-    cleanup_macsec_configuration(duthost, all_links, profile_name)
-    setup_macsec_configuration(duthost, ctrl_links, profile_name,
-                               default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
-    logger.info(
-        "Setup MACsec configuration with arguments:\n{}".format(locals()))
-    yield
-    cleanup_macsec_configuration(duthost, all_links, profile_name)
-
-
 class TestControlPlane():
     def test_wpa_supplicant_processes(self, duthost, ctrl_links):
         def _test_wpa_supplicant_processes():
@@ -212,7 +196,7 @@ class TestFaultHandling():
             assert dut_egress_sa_table_orig != dut_egress_sa_table_new
             assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
             return True
-        assert wait_until(12, 1, 0, check_new_mka_session)
+        assert wait_until(30, 5, 2, check_new_mka_session)
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -280,13 +264,13 @@ class TestInteropProtocol():
         # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
         duthost.command("sudo config portchannel member del {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: get_portchannel(
+        assert wait_until(20, 1, 0, lambda: get_portchannel(
             duthost)[pc["name"]]["status"] == "Dw")
 
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
         duthost.command("sudo config portchannel member add {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+        assert wait_until(20, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
     def test_lldp(self, duthost, ctrl_links, profile_name):

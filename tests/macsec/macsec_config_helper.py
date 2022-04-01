@@ -15,6 +15,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
             lines = [
                 'cipher {}'.format(eos_cipher_suite[cipher_suite]),
                 'key {} 0 {}'.format(primary_ckn, primary_cak),
+                'mka key-server priority {}'.format(priority),
                 'sci'
                 ],
             parents=['mac security', 'profile {}'.format(profile_name)])
@@ -33,7 +34,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
     for k, v in macsec_profile.items():
         cmd += " '{}' '{}' ".format(k, v)
     host.command(cmd)
-    if send_sci is "false":
+    if send_sci == "false":
         # The MAC address of SONiC host is locally administrated
         # So, LLDPd will use an arbitrary fixed value (00:60:08:69:97:ef) as the source MAC address of LLDP packet (https://lldpd.github.io/usage.html)
         # But the MACsec driver in Linux used by SONiC VM has a bug that cannot handle the packet with different source MAC address to SCI if the send_sci = false
@@ -75,6 +76,26 @@ def disable_macsec_port(host, port):
     host.command(cmd)
 
 
+def enable_macsec_feature(duthost, macsec_nbrhosts):
+    nbrhosts = macsec_nbrhosts
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+
+    def check_macsec_enabled():
+        for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+            if isinstance(nbr, EosHost):
+                continue
+            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != 1:
+                return False
+            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != 1:
+                return False
+        return True
+    assert wait_until(180, 5, 10, check_macsec_enabled)
+
+
+def disable_macsec_feature(duthost, macsec_nbrhosts):
+    global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
+
+
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     devices.add(duthost)
@@ -105,8 +126,14 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         set_macsec_profile(nbr["host"], profile_name, priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        wait_until(20, 3, 0,
+                   lambda: duthost.iface_macsec_ok(dut_port) and
+                           nbr["host"].iface_macsec_ok(nbr["port"]))
         i += 1
 
+    # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
+    # protocols. To hold some time for protocol recovery.
+    time.sleep(60)
 
 def startup_all_ctrl_links(ctrl_links):
     # The ctrl links may be shutdowned by unexpected exit on the TestFaultHandling
