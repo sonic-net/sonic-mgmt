@@ -120,6 +120,15 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
       - "platform in ['x86_64-cel_e1031-r0']"
 
 #######################################
+#####           MACSEC            #####
+#######################################
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
+
+#######################################
 #####           ntp               #####
 #######################################
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
@@ -154,6 +163,16 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+#######################################
+#####        auto negotiation     #####
+#######################################
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation doesn't work for broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
+
 #######################################
 #####           qos               #####
 #######################################
@@ -290,21 +309,3 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
     reason: "This test can only run on 4600c and 8102"
     conditions:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
-
-#######################################
-#####           MACSEC            #####
-#######################################
-macsec/test_macsec.py:
-  skip:
-    reason: "This test can only run on 7280 CR3"
-    conditions:
-      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
-
-#######################################
-#####        auto negotiation     #####
-#######################################
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: "auto negotiation doesn't work for broadcom platform"
-    conditions:
-      - "asic_type in ['broadcom']"
