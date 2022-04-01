@@ -155,6 +155,15 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
 #######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####           qos               #####
 #######################################
 qos/test_buffer_traditional.py:
