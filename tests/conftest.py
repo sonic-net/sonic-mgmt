@@ -1415,7 +1415,10 @@ def duts_minigraph_facts(duthosts, tbinfo):
 
     Returns:
         dict: {
-            <dut hostname>: {dut_minigraph_facts}
+            <dut hostname>: [
+                {asic0_mg_facts},
+                {asic1_mg_facts}
+            ]
         }
     """
     mg_facts = {}
@@ -1427,7 +1430,6 @@ def duts_minigraph_facts(duthosts, tbinfo):
             asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
             mg_facts[duthost.hostname].append(asic_mg_facts)
 
- 
     return mg_facts
 
 @pytest.fixture(scope="module", autouse=True)

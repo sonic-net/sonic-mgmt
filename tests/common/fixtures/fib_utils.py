@@ -111,14 +111,20 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                     if remote_neigh_intf.startswith('PortChannel'):
                                         # The nexthop is a system lag.
                                         if dut_port_channels[remote_duthost_name].has_key(remote_neigh_intf):
-                                            oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][x])
-                                                          for x in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']])
+                                            oport_list = []
+                                            for a_member in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']:
+                                                for a_asic_mg_facts in remote_dut_mg_facts:
+                                                    if a_member in a_asic_mg_facts['minigraph_port_indices']:
+                                                        oport_list.append(str(a_asic_mg_facts['minigraph_ptf_indices'][a_member]))
+                                            oports.append(oport_list)
                                         else:
                                             pytest_assert(False, "Coundn't find {} in the config of {}".format(
                                                remote_neigh_intf, remote_duthost_name) )
                                     else:
                                         # The nexthop is a system neighbor.
-                                        oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
+                                        for a_asic_mg_facts in remote_dut_mg_facts:
+                                            if remote_neigh_intf in a_asic_mg_facts['minigraph_port_indices']:
+                                                oports.append([str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
                                 else:
                                     oports.append([str(mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
                                     skip = False
@@ -192,15 +198,15 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                             if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
                         if sub_interfaces.has_key(ifname):
-                            oports.append([str(duts_mg_facts['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                            oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname.split('.')[0]])])
                         elif ports.has_key(ifname):
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts['minigraph_ptf_indices'][ifname])])
+                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
                         else:
                             logger.info("Route point to non front panel port {}:{}".format(k, v))
                             skip = True
