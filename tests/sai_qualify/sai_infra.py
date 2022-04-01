@@ -179,26 +179,31 @@ def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params
     logger.info("Running test: {0}".format(test_case))
     logger.info("Sleep {} sec between tests.".format(TEST_INTERVAL_IN_SEC))
     time.sleep(TEST_INTERVAL_IN_SEC)
-    cmds = []
-    test_para = None
+    test_para = ''
     if request.config.option.enable_ptf_sai_test:
-        cmds.append("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
+        if(ptfhost.shell("echo $PLATFORM")["stdout_lines"][0].strip() != get_sai_running_vendor_id(duthost)):
+            ptfhost.shell("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
         test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
         if request.config.option.enable_warmboot_test:
             test_para += "/{}".format(WARM_TEST_DIR)
-            test_para += " \"--test-params=thrift_server='{}'{}{}\"".format(dut_ip, WARM_TEST_ARGS, warm_boot_stage)
+            test_para += " \"--test-params=thrift_server='{}'{}{}\"".format(dut_ip,
+            WARM_TEST_ARGS,
+            warm_boot_stage)
         else:
             test_para += " \"--test-params=thrift_server='{}'\"".format(dut_ip)
     else: # for old community test
-        test_para = " --test-dir {} -t \"server='{}';port_map_file='{}'\"".format(SAI_TEST_CONMUN_CASE_DIR_ON_PTF, dut_ip, PORT_MAP_FILE_PATH)
+        test_para = " --test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
+        SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
+        dut_ip,
+        PORT_MAP_FILE_PATH)
    
-    cmds.append(("ptf {} {} --relax --xunit --xunit-dir {} {}")
+    ptfhost.shell(("ptf {} {} --relax --xunit --xunit-dir {} {}")
     .format( 
         test_case, 
         test_interface_params,
         SAI_TEST_REPORT_TMP_DIR_ON_PTF, 
         test_para))
-    ptfhost.shell_cmds(cmds=cmds)
+    ptfhost.shell("sed -i \'/export PLATFORM={}/d\' ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
     logger.info("Test case [{}] passed.".format(test_case))
 
 
