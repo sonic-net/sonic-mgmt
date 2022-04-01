@@ -63,6 +63,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
+                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -402,7 +403,7 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
@@ -601,9 +602,8 @@ def creds_on_dut(duthost):
 
     return creds
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+@pytest.fixture(scope="session")
+def creds(duthost):
     return creds_on_dut(duthost)
 
 
