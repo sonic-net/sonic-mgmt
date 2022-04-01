@@ -221,7 +221,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
-    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0" or duthost.facts['asic_type'] == "cisco-8000":
         led_status_list = ["N/A"]
     else:
         led_status_list = ["green", "amber", "red", "off"]
@@ -344,6 +344,9 @@ def verify_show_platform_firmware_status_output(raw_output_lines, hostname):
     """
     NUM_EXPECTED_COLS = 5
 
+    # Skip if command not implemented for platform
+    if len(raw_output_lines) <= 2:
+        pytest.skip("show platform firmware status not implemented")
     pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output on '{}'".format(hostname))
     second_line = raw_output_lines[1]
     field_ranges = util.get_field_range(second_line)

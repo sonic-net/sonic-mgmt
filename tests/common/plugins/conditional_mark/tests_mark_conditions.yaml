@@ -1,4 +1,15 @@
 #######################################
+#####            acl              #####
+#######################################
+acl/test_acl_outer_vlan.py:
+  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000 
+  #For the current release, will mark the related test cases as XFAIL
+  xfail:
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+    conditions:
+      - asic_type=="cisco-8000"
+       
+#######################################
 #####            cacl             #####
 #######################################
 cacl/test_cacl_application.py::test_cacl_application:
@@ -27,11 +38,17 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 #####            decap            #####
 #######################################
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
+  skip:
+    reason: "Not supported on broadcom after 201911 release and mellanox all releases"
+    conditions:
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox'])"
+
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
-    reason: "Not supported on backend"
+    reason: "Not supported on backend and broadcom before 202012 release"
     conditions:
-      - "topo_name in ['t1-backend', 't0-backend']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 #######################################
 #####         dhcp_relay          #####
@@ -43,7 +60,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-      
+
 #######################################
 #####           dualtor           #####
 #######################################
@@ -52,16 +69,6 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_to
     reason: "Image issue on Boradcom platforms, but not consistently failing"
     conditions:
       - "asic_type in ['broadcom']"
-
-dualtor/test_tor_ecn.py::test_dscp_to_queue_during_decap_on:
-  xfail:
-    reason: "Image issue on Boradcom platforms, only fail on some dscp values"
-    conditions:
-      - "asic_type in ['broadcom']"
-
-dualtor/test_tor_ecn.py::test_ecn_during_decap_on:
-  xfail:
-    reason: "Test flaky"
 
 #######################################
 #####             ecmp            #####
@@ -123,6 +130,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####         pfc_asym            #####
+#######################################
+pfc_asym/test_pfc_asym.py:
+  skip:
+    reason: 'pfc_asym test is only supported on Mellanox platform'
+    conditions:
+      - "asic_type not in ['mellanox']"
+
+#######################################
 #####         pfcwd               #####
 #######################################
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
@@ -133,9 +149,29 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
 
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
+#######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####           qos               #####
 #######################################
+qos/test_buffer_traditional.py:
+  skip:
+    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -145,17 +181,11 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
-qos/test_buffer_traditional.py:
-  skip:
-    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
-
 qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo"
     conditions:
-      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+      - "asic_type in ['barefoot'] and topo_name in ['t1']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
   xfail:
@@ -175,6 +205,11 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  skip:
+    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 #######################################
 #####         restapi             #####
 #######################################
@@ -197,7 +232,7 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####      show_techsupport       #####
 #######################################
-show_techsupport/test_techsupport.py::test_techsupport[:
+show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
     reason: "Generic internal image issue"
     strict: True
@@ -254,3 +289,27 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           VxLAN             #####
+#######################################
+vxlan/test_vxlan_ecmp.py:
+  skip:
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
+vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
+  skip:
+    reason: "This test can only run on 4600c and 8102"
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
+
+#######################################
+#####           MACSEC            #####
+#######################################
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"

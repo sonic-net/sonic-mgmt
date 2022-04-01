@@ -572,6 +572,10 @@ class SonicAsic(object):
         val = self.get_bgp_statistic(stat)
         return val == value
 
+    def get_router_mac(self):
+        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
+               .decode("utf-8").lower())
+ 
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':
