@@ -18,3 +18,4 @@ r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not implemented attribute SA
 r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not supported attribute SAI_SWITCH_ATTR_AVAILABLE_IPMC_ENTRY.*"
 r, ".* WARNING syncd#SDK:.* sai_get_attributes: Failed attribs check.*"
 r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG profile for port Ethernet(128|132|256|260).*"
+r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
