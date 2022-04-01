@@ -116,14 +116,14 @@ class TestPsuFans(PlatformApiTestBase):
                     platform_file_check = {}
                     try:
                         #
-                        # Check if the JSON file exists in the specific path. Return 0 if it DOES NOT exist.
+                        # Check if the JSON file exists in the specific path. Return 0 if it DOES exist.
                         # The command function throws exception if rc is non-zero, so handle it.
                         #
-                        platform_file_check = duthost.command("[ ! -f {} ]".format(platform_file_path))
+                        platform_file_check = duthost.command("[ -f {} ]".format(platform_file_path))
                     except:
-                        # The JSON file exists.. so set rc to 1.
+                        # The JSON file does not exist, so set rc to 1.
                         platform_file_check['rc'] = 1
-                    if platform_file_check.get('rc') != 0:
+                    if platform_file_check.get('rc') == 0:
                         logging.info("{} has a platform.json file. Running comparison with platform facts.".format(duthost._facts.get("platform")))
                         self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
                     else:
