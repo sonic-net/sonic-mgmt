@@ -36,7 +36,7 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT_MAX = PPS_LIMIT * 1.3
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
-    TASK_TIMEOUT = 300  # Wait up to 5 minutes for tasks to complete
+    TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
 
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 10
@@ -119,9 +119,9 @@ class ControlPlaneBaseTest(BaseTest):
                 testutils.send_packet(self, send_intf, packet)
                 pre_send_count += 1
 
-            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=0.01)
+            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=5)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (pre_send_count, rcv_pkt_cnt))
-            self.dataplane.flush()
+
 
         pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
@@ -132,6 +132,7 @@ class ControlPlaneBaseTest(BaseTest):
         end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
 
         send_count = 0
+        self.dataplane.flush()
         while datetime.datetime.now() < end_time:
             testutils.send_packet(self, send_intf, packet)
             send_count += 1
@@ -143,7 +144,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
 
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)  # Wait a little bit for all the packets to make it through
-        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0])
+        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=10)
 
         post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
@@ -253,7 +254,7 @@ class PolicyTest(ControlPlaneBaseTest):
              str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
         )
 
-        assert(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX)
+        assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
 
 
 # SONIC config contains policer CIR=600 for ARP
