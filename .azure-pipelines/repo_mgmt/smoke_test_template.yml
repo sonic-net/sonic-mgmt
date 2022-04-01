@@ -1,0 +1,575 @@
+parameters:
+  - name: TESTBED_NAME
+    type: string
+
+  - name: TESTBED_FILE
+    type: string
+    default: testbed.yaml
+    values:
+      - testbed.csv
+      - testbed.yaml
+
+  - name: SMOKE_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 24 hours
+
+  # ============ Upgrade parameters ============
+  - name: IMAGE_URL
+    type: string
+    default: ""
+
+  - name: PREV_IMAGE_URL
+    type: string
+    default: ""
+
+  - name: ALWAYS_INSTALL_NEW_IMAGE
+    type: boolean
+    default: true
+
+  - name: UPGRADE_TYPE
+    type: string
+    default: sonic
+    values:
+      - sonic
+      - onie
+
+  - name: PAUSE_TIME
+    type: number
+    default: 0
+
+  # Control the behavior if power cycle unreachable DUT
+  # is allowed. Default: allowed (true)
+  - name: POWER_CYCLE_UNREACHABLE_DUTS
+    type: boolean
+    default: true
+
+  # Control the behavior of power cycle DUT before tests. If set to true,
+  # DUTs will always be power cycled before tests. Default: false
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: false
+
+  # ============ Deploy parameters ============
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: true
+
+  # ============ Test Parameters ============
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: ""
+
+  - name: PTF_PORTMAP
+    type: string
+    default: ""
+
+  # This is for the extra parameters to be passed to pytest by the "-e" option of run_tests.sh. For example,
+  # to skip sanity check and disable log analyzer, the job yaml file calling this template can pass value
+  # "--skip_sanity --disable_loganalyzer" to this EXTRA_PARAMS parameter.
+  - name: EXTRA_PARAMS
+    type: string
+    default: ""
+
+  # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
+  # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
+  # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
+  # this TESTBED_SPECIFIC parameter.
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: ""
+
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
+    type: string
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py"
+
+  # Individual nightly test scheduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
+
+  # ============ Test & Merge Control ============
+
+  # Sometimes we may just want to merge the changes from Github, then we can set this parameter to true
+  # to skip the smoke test job which takes time.
+  - name: SKIP_RUNNING_TEST
+    type: boolean
+    default: false
+
+  # Individual nightly test scheduler file could override this variable
+  # to skip uploading test results to kusto.
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+
+  # Sometimes we may just want to run a smoke test to see if the new changes from Github do not break anything,
+  # then we can specify this parameter to
+  - name: SKIP_MERGE_GITHUB
+    type: boolean
+    default: false
+
+  # ============ Merge Parameters ============
+  - name: GITHUB_SONIC_MGMT_BRANCH
+    type: string
+    default: master
+
+  - name: MSSONIC_SONIC_MGMT_BRANCH
+    type: string
+    default: internal
+
+stages:
+
+  - stage: Test
+    jobs:
+
+      - job: SmokeTest
+        pool: nightly
+        timeoutInMinutes: ${{ parameters.SMOKE_TEST_TIMEOUT }}
+        workspace:
+          clean: all
+        variables:
+          - group: TBSHARE_SECRETS
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+        condition: eq('${{ parameters.SKIP_RUNNING_TEST }}', 'false')
+
+        steps:
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - script: |
+              set -ex
+
+              git gc --auto || true
+
+              git config --global user.email "svc-acs@microsoft.com"
+              git config --global user.name "Sonic Automation"
+
+              CURRENT_HEAD=$(git rev-parse --short HEAD)
+              echo "##vso[task.setvariable variable=CURRENT_HEAD;]${CURRENT_HEAD}"
+
+              git remote remove public  || true
+              git remote remove mssonic || true
+              git remote add public https://github.com/Azure/sonic-mgmt.git
+              git remote add mssonic "https://reposync:${MSSONIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int" || true
+              git remote remove origin || true
+
+              git fetch --tags --prune --prune-tags --no-recurse-submodules public
+              git fetch --tags --prune --prune-tags --no-recurse-submodules mssonic
+
+              git reset --hard mssonic/internal || true
+
+              git branch -D temp-smoke-test-branch || true
+              git checkout -b temp-smoke-test-branch
+
+              local_head_commit=$(git log -1 --format=%H)
+              common_ancestor_commit=$(git merge-base $local_head_commit public/master)
+
+              # Find out all the test scripts that are updated by the changes to be merged.
+              # Deleted test scripts are excluded.
+              git diff --name-status $common_ancestor_commit public/master | sed -nr "s/^[^D]\s+tests\/(.*\/test_[^\/].*\.py$)/\1/p" > github_updated_files.txt
+              cat github_updated_files.txt
+
+              git merge public/master
+            env:
+              MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+            displayName: Get changes from Github
+
+          - task: PythonScript@0
+            displayName: Parse Testbed Info
+            inputs:
+              scriptSource: 'inline'
+              script: |
+                from __future__ import print_function
+                import os, imp, sys
+
+                testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
+                testbed_name = '${{ parameters.TESTBED_NAME }}'
+                testbed_file = '${{ parameters.TESTBED_FILE }}'
+                tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
+                target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+                if not target_testbed:
+                    print('Testbed {} not found!'.format(testbed_name))
+                    sys.exit(1)
+                dut_list = target_testbed.get('duts', [])
+                dut_list_str = ' '.join(x for x in dut_list)
+
+                print('Basic info of testbed {}:'.format(testbed_name))
+                print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
+                print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
+                print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+                print('          DUT_LIST={}'.format(dut_list_str))
+
+                # Below code can create dynamic azure pipeline variables
+                # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
+                print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
+                print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+                print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
+
+          - script: |
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest
+            env:
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            displayName: Lock Testbed
+
+          - task: Bash@3
+            displayName: "Upgrade Image"
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -ex
+
+                if [[ -z "$IMAGE_URL" ]]; then
+                    echo "Skipping image upgrading ..."
+                    exit 0
+                fi
+
+                if [[ -z "$PREV_IMAGE_URL" ]]; then
+                    PREV_IMAGE_URL="$IMAGE_URL.PREV.1"
+                fi
+
+                cd ansible
+
+                if [[ ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }} == True ]]; then
+                    for dut in $(DUT_LIST); do
+                        echo "Power cycling ${dut} ..."
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                        sleep 10
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                    done
+
+                    # Add some sleep to allow power cycled DUTs to come back
+                    sleep 180
+                elif [[ ${{ parameters.POWER_CYCLE_UNREACHABLE_DUTS }} == True ]]; then
+                    NEEDS_SLEEP='No'
+                    for dut in $(DUT_LIST); do
+                        echo "Checking DUT ${dut} ..."
+                        RC=0
+                        ./devutils -i $(INVENTORY_NAME) -a ping -j -l ${dut} | grep -q Success || RC=$?
+                        if [[ RC -ne 0 ]]; then
+                            echo "Power cycling ${dut} ..."
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                            sleep 10
+                            ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                            NEEDS_SLEEP='Yes'
+                        fi
+                    done
+                    if [[ x"${NEEDS_SLEEP}" == x"Yes" ]]; then
+                        # Add some sleep to allow power cycled DUTs to come back
+                        sleep 180
+                    fi
+                fi
+
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                        -i $(INVENTORY_NAME) \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e image_url="$PREV_IMAGE_URL" \
+                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                        --vault-password-file password.txt \
+                        -e pause_time=60 -vv || true
+                fi
+                ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                    -i $(INVENTORY_NAME) \
+                    -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                    -e image_url=$IMAGE_URL \
+                    -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                    --vault-password-file password.txt \
+                    -e pause_time=${{ parameters.PAUSE_TIME }} -vv
+
+                sleep 180
+            env:
+              IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+
+          - task: Bash@3
+            displayName: Deploy Minigraph
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -ex
+
+                if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
+                else
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
+                fi
+                cd ansible
+
+                http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                sleep 180
+            env:
+              INVENTORY_NAME: $(INVENTORY_NAME)
+
+          - task: Bash@3
+            displayName: Run Tests
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                BASE_PATH=`pwd`
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean"
+
+                if [[ -n $PY_SAITHRIFT_URL ]]; then
+                    PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
+                fi
+
+                if [[ -n $PTF_PORTMAP ]]; then
+                    PARAMS="$PARAMS --ptf_portmap=$PTF_PORTMAP"
+                fi
+
+                if [[ -n $EXTRA_PARAMS ]]; then
+                    PARAMS="$PARAMS $EXTRA_PARAMS"
+                fi
+
+                EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
+                if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
+                fi
+
+                if [[ "$TOPOLOGY_NAME" == *"dualtor"* ]]; then
+                    EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,dualtor"
+                fi
+
+                rm -fr results     # Clear any possible collected results of previous run
+
+                github_updated_files=$(cat github_updated_files.txt)
+
+                cd tests
+
+                # Run the scripts updated in the changes to be merged
+                if [[ $github_updated_files != "" ]]; then
+                    http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                    -c "$github_updated_files" \
+                    -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+                    -m individual \
+                    -t "$EXECUTION_TOPOLOGY" \
+                    -r \
+                    ${{ parameters.TESTBED_SPECIFIC }} \
+                    -e "$PARAMS"
+                fi
+
+                # Skip unstable tests
+                SKIP_FOLDERS="platform_tests sub_port_interfaces qos pfc_asym"
+
+                # SKIP scripts that have been covered in PR testing
+                SKIP_COVERED_SCRIPTS=""
+                if [[ "$EXECUTION_TOPOLOGY" == *"t0"* ]]; then
+                    SKIP_COVERED_SCRIPTS="\
+                    arp/test_arp_dualtor.py \
+                    arp/test_neighbor_mac.py \
+                    arp/test_neighbor_mac_noptf.py\
+                    bgp/test_bgp_fact.py \
+                    bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
+                    bgp/test_bgp_speaker.py \
+                    bgp/test_bgpmon.py \
+                    bgp/test_bgp_update_timer.py \
+                    container_checker/test_container_checker.py \
+                    cacl/test_cacl_application.py \
+                    cacl/test_cacl_function.py \
+                    cacl/test_ebtables_application.py \
+                    dhcp_relay/test_dhcp_relay.py \
+                    dhcp_relay/test_dhcpv6_relay.py \
+                    iface_namingmode/test_iface_namingmode.py \
+                    lldp/test_lldp.py \
+                    monit/test_monit_status.py \
+                    ntp/test_ntp.py \
+                    pc/test_po_cleanup.py \
+                    pc/test_po_update.py \
+                    platform_tests/test_advanced_reboot.py::test_warm_reboot \
+                    platform_tests/test_cpu_memory_usage.py \
+                    route/test_default_route.py \
+                    route/test_static_route.py \
+                    snmp/test_snmp_cpu.py \
+                    snmp/test_snmp_default_route.py \
+                    snmp/test_snmp_interfaces.py \
+                    snmp/test_snmp_lldp.py \
+                    snmp/test_snmp_loopback.py \
+                    snmp/test_snmp_pfc_counters.py \
+                    snmp/test_snmp_queue.py \
+                    ssh/test_ssh_ciphers.py \
+                    syslog/test_syslog.py\
+                    tacacs/test_accounting.py \
+                    tacacs/test_authorization.py \
+                    tacacs/test_jit_user.py \
+                    tacacs/test_ro_disk.py \
+                    tacacs/test_ro_user.py \
+                    tacacs/test_rw_user.py \
+                    telemetry/test_telemetry.py \
+                    test_features.py \
+                    test_interfaces.py \
+                    test_procdockerstatsd.py \
+                    generic_config_updater/test_aaa.py \
+                    generic_config_updater/test_bgpl.py \
+                    generic_config_updater/test_bgp_prefix.py \
+                    generic_config_updater/test_bgp_speaker.py \
+                    generic_config_updater/test_dhcp_relay.py \
+                    generic_config_updater/test_lo_interface.py \
+                    generic_config_updater/test_portchannel_interface.py \
+                    generic_config_updater/test_syslog.py \
+                    generic_config_updater/test_vlan_interface.py \
+                    process_monitoring/test_critical_process_monitoring.py \
+                    show_techsupport/test_techsupport_no_secret.py \
+                    system_health/test_system_status.py"
+                elif [[ "$EXECUTION_TOPOLOGY" == *"t1"* ]]; then
+                    SKIP_COVERED_SCRIPTS="\
+                    bgp/test_bgp_allow_list.py \
+                    bgp/test_bgp_bbr.py \
+                    bgp/test_bgp_bounce.py \
+                    bgp/test_bgp_fact.py \
+                    bgp/test_bgp_multipath_relax.py \
+                    bgp/test_bgp_update_timer.py \
+                    bgp/test_bgpmon.py \
+                    bgp/test_traffic_shift.py \
+                    container_checker/test_container_checker.py \
+                    http/test_http_copy.py \
+                    ipfwd/test_mtu.py \
+                    lldp/test_lldp.py \
+                    monit/test_monit_status.py \
+                    pc/test_lag_2.py \
+                    platform_tests/test_cpu_memory_usage.py \
+                    process_monitoring/test_critical_process_monitoring.py \
+                    route/test_default_route.py \
+                    scp/test_scp_copy.py \
+                    test_interfaces.py"
+                fi
+
+                # If the previous test is executed, then we can skip pretest for this round.
+                RUN_PRETEST=""
+                if [[ $github_updated_files != "" ]]; then
+                  RUN_PRETEST="-u"
+                fi
+
+                # Run rest of the tests.
+                # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
+                http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }} $github_updated_files $SKIP_COVERED_SCRIPTS" \
+                    -S "$SKIP_FOLDERS" \
+                    -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+                    -m individual \
+                    -t "$EXECUTION_TOPOLOGY" \
+                    -r $RUN_PRETEST \
+                    ${{ parameters.TESTBED_SPECIFIC }} \
+                    -e "$PARAMS"
+                exit 0
+            env:
+              PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+              PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
+              EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+
+          - publish: tests/logs
+            displayName: "Archive test logs"
+            artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
+            condition: always()
+
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            inputs:
+              testResultsFiles: 'tests/logs/**/*.xml'
+              testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
+            condition: always()
+
+          - script: |
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest
+            env:
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            displayName: Release Testbed
+            condition: always()
+
+          - task: CopyFiles@2
+            displayName: Collect result files
+            inputs:
+              Contents: |
+                tests/logs/**/*.xml
+                tests/logs/platform_tests/test_*_reboot*.json
+              TargetFolder: results
+              CleanTargetFolder: true
+            condition: always()
+
+          - task: Bash@3
+            displayName: Parse Test Results
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                echo "Activate python3 virtual environment"
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_reporting
+                pip3 install -r requirements.txt
+
+                python3 junit_xml_parser.py -d ../results -o tr.json
+            condition: always()
+
+          - task: Bash@3
+            displayName: Upload Test Results
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                echo "Activate python3 virtual environment"
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_reporting
+                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SonicTestData
+            condition: eq('${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}', 'false')
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+
+          - script: |
+              set -x
+
+              echo "Activate python3 virtual environment"
+              source /var/AzDevOps/env-python3/bin/activate
+
+              git checkout $(CURRENT_HEAD)
+
+              python ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+            displayName: Analyze Test Results
+            condition: always()
+
+      - job:
+        displayName: "Merge sonic-mgmt"
+        timeoutInMinutes: 30
+        dependsOn:
+        - SmokeTest
+        variables:
+          - group: GIT_SECRETS
+          - name: smokeTestResult
+            value: $[ dependencies.SmokeTest.result ]
+        condition: eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false')
+
+        steps:
+        - script: |
+            set -xe
+
+            if [[ $(smokeTestResult) == "Succeeded" || $(smokeTestResult) == "Skipped" ]]; then
+              echo "Smoke test is Succeeded or Skipped"
+              git gc --auto || true
+              /bin/bash .azure-pipelines/repo_mgmt/merge.sh ${{ parameters.GITHUB_SONIC_MGMT_BRANCH }} ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }} ${MSSONIC_TOKEN}
+            else
+              echo "Smoke test failed"
+              exit 1
+            fi
+
+          env:
+            MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+          displayName: Merge sonic-mgmt

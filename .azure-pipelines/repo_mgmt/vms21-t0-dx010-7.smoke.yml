@@ -1,0 +1,86 @@
+name: SmokeTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 12 * * 0-5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms21-t0-dx010-7
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_PUBLIC)
+    displayName: "Image URL"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_PUBLIC)
+    displayName: "py_saithrift URL"
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "pfc_wd/test_pfcwd_warm_reboot.py pfcwd/test_pfcwd_timer_accuracy.py"
+    displayName: "Skip Scripts"
+
+  # ==============================================================
+  - name: SKIP_RUNNING_TEST
+    type: boolean
+    default: false
+    displayName: "Skip running test"
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip test results uploading"
+
+  # ==============================================================
+  - name: SKIP_MERGE_GITHUB
+    type: boolean
+    default: false
+    displayName: "Skip merging from Github"
+
+  - name: GITHUB_SONIC_MGMT_BRANCH
+    type: string
+    default: master
+    displayName: "Source Github sonic-mgmt branch"
+
+  - name: MSSONIC_SONIC_MGMT_BRANCH
+    type: string
+    default: internal
+    displayName: "Destination mssonic sonic-mgmt branch"
+
+stages:
+  - template: ./smoke_test_template.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_RUNNING_TEST: ${{ parameters.SKIP_RUNNING_TEST }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      SKIP_MERGE_GITHUB: ${{ parameters.SKIP_MERGE_GITHUB }}
+      GITHUB_SONIC_MGMT_BRANCH: ${{ parameters.GITHUB_SONIC_MGMT_BRANCH }}
+      MSSONIC_SONIC_MGMT_BRANCH: ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
