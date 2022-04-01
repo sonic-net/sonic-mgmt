@@ -620,6 +620,15 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
         - "topo_name not in ['t1-lag']"
 
 #######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
