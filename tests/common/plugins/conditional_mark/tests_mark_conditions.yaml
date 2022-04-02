@@ -16,7 +16,7 @@ bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb"
     conditions:
-     - "'backend' not in topo_name or 'mgmttor' not in topo_name"
+     - "'backend' in topo_name or 'mgmttor' in topo_name"
 
 #######################################
 #####            cacl             #####
