@@ -43,34 +43,34 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds"
+    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds"
+    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds"
+    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds"
+    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_loopback_filter:

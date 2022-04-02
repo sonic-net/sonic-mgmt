@@ -92,9 +92,13 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
     logger.info("Configuring the DUT")
     # Add dummy rsyslog destination for testing
     if dummy_syslog_server_ip_a is not None:
+        if "201911" in duthost.os_version and ":" in dummy_syslog_server_ip_a:
+            pytest.skip("IPv6 syslog server IP not supported on 201911")
         duthost.shell("sudo config syslog add {}".format(dummy_syslog_server_ip_a))
         logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_a))
     if dummy_syslog_server_ip_b is not None:
+        if "201911" in duthost.os_version and ":" in dummy_syslog_server_ip_b:
+            pytest.skip("IPv6 syslog server IP not supported on 201911")
         duthost.shell("sudo config syslog add {}".format(dummy_syslog_server_ip_b))
         logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_b))
 

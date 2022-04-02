@@ -206,7 +206,8 @@ def check_no_routes_from_nexthop(asic, nexthop):
         ver = '-6'
     else:
         ver = '-4'
-    cmd = "ip {} route show | grep -w {} | wc -l".format(ver, nexthop)
+    special_nexthop = nexthop.replace('.', '\.')
+    cmd = "ip {} route show | grep -w {} | wc -l".format(ver, special_nexthop)
     if asic.namespace is not None:
         fullcmd = "sudo ip netns exec {} {}".format(asic.namespace, cmd)
         output = asic.sonichost.shell(fullcmd)

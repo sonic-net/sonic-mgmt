@@ -63,6 +63,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
+                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -402,7 +403,7 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
@@ -601,9 +602,8 @@ def creds_on_dut(duthost):
 
     return creds
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+@pytest.fixture(scope="session")
+def creds(duthost):
     return creds_on_dut(duthost)
 
 
@@ -1425,17 +1425,7 @@ def duts_minigraph_facts(duthosts, tbinfo):
             <dut hostname>: {dut_minigraph_facts}
         }
     """
-    mg_facts = {}
-    for duthost in duthosts:
-        mg_facts[duthost.hostname] = []
-        for asic in duthost.asics:
-            if asic.is_it_backend():
-                continue
-            asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
-            mg_facts[duthost.hostname].append(asic_mg_facts)
-
- 
-    return mg_facts
+    return duthosts.get_extended_minigraph_facts(tbinfo)
 
 @pytest.fixture(scope="module", autouse=True)
 def get_reboot_cause(duthost):

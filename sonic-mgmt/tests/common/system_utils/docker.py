@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,8 @@ def _get_vendor_id(duthost):
         vendor_id = "brcm"
     elif is_mellanox_device(duthost):
         vendor_id = "mlnx"
+    elif is_cisco_device(duthost):
+        vendor_id = "cisco"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

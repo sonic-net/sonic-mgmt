@@ -206,8 +206,8 @@ class DhcpPktFwdBase:
             packet: DHCP Request packet
         """
         ether = scapy.Ether(dst=dutMac, src=self.DHCP_RELAY["mac"], type=0x0800)
-        ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=336, ttl=64)
-        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=316)
+        ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=308)
         bootp = scapy.BOOTP(
             op=1,
             htype=1,

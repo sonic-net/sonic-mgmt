@@ -574,7 +574,6 @@ def __is_image_exists(duthost, docker_image_name):
 
         Args:
             duthost (AnsibleHost): device under test
-            script_path: the required script path
             service_name: the required service's name.
     """
     try:
