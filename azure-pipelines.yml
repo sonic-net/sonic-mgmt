@@ -13,7 +13,7 @@ stages:
 
   variables:
   - name: inventory
-    value: ../ansible/veos_vtb
+    value: veos_vtb
   - name: testbed_file
     value: vtestbed.csv
 

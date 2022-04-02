@@ -30,7 +30,7 @@ Example:
 EOF
 }
 
-inventory="veos_vtb"
+inventory="../ansible/veos_vtb"
 testbed_file="vtestbed.csv"
 refresh_dut=true
 exit_on_error=""
