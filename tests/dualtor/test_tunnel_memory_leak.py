@@ -21,6 +21,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.helpers.dut_utils import get_program_info
+from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder
 
 
 pytestmark = [
@@ -171,7 +172,7 @@ def test_tunnel_memory_leak(
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
-                conn_graph_facts, exp_pkt, existing=True, is_mocked=True
+                conn_graph_facts, exp_pkt, existing=True, is_mocked=False
             )
             with rm_neighbor, server_traffic_monitor:
                 testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
@@ -182,7 +183,6 @@ def test_tunnel_memory_leak(
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-                time.sleep(3)
             pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
                         "Received {} expected packets for server {}, drop more than 50%."
                         .format(len(server_traffic_monitor.matched_packets), server_ipv4))
