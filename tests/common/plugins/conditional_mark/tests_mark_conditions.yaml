@@ -120,7 +120,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
       - "platform in ['x86_64-cel_e1031-r0']"
 
 #######################################
-#####           MACSEC            #####
+#####           macsec            #####
 #######################################
 macsec/test_macsec.py:
   skip:
