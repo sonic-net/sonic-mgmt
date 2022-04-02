@@ -25,11 +25,7 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_respo
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor"),
-    pytest.mark.usefixtures('run_garp_service',
-                            'run_arp_responder',
-                            'run_icmp_responder'
-                            )
+    pytest.mark.topology("dualtor")
 ]
 
 PACKET_COUNT = 1000
@@ -109,7 +105,8 @@ def check_memory_leak(duthost):
 def test_tunnel_memory_leak(
     toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, ptfhost, 
-    ptfadapter, conn_graph_facts, tbinfo, vmhost
+    ptfadapter, conn_graph_facts, tbinfo, vmhost,
+    run_arp_responder
 ):
     """
     Test if there is memory leak for service tunnel_packet_handler.
