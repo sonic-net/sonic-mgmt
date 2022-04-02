@@ -67,8 +67,7 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Generic internal image feature missing"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'mgmttor']"
 
 #######################################
 #####           dualtor           #####
