@@ -80,7 +80,7 @@
         - software-properties-common
         - libvirt-clients
 
-    - name:
+    - name: Install necessary packages
       apt:
         pkg:
         - python
@@ -90,7 +90,7 @@
       become: yes
       when: host_distribution_version.stdout == "18.04"
 
-    - name:
+    - name: Install necessary packages
       apt:
         pkg:
         - python3-libvirt
@@ -115,7 +115,7 @@
   pip: name=docker-py state=absent executable={{ pip_executable }}
   environment: "{{ proxy_env | default({}) }}"
   ignore_errors: yes
-  
+
 - include_tasks: docker.yml
   when: package_installation|bool
 
