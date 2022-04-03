@@ -48,30 +48,39 @@ def clean_passw_one_policy_user(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="function")
 def clean_passw_len_min(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    res_adduser_simple_0 = config_user(duthost=duthost, username=test_passw_hardening.USERNAME_LEN_MIN, mode='del')
+    res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_LEN_MIN, mode='del')
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_hostname] # TODO: maybe can rm this line
-    res_adduser_simple_0 = config_user(duthost=duthost, username=test_passw_hardening.USERNAME_LEN_MIN, mode='del')
+    res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_LEN_MIN, mode='del')
 
 @pytest.fixture(scope="function")
 def clean_passw_age(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    res_user_clean = config_user(duthost=duthost, username=test_passw_hardening.USERNAME_AGE, mode='del')
+    res_user_clean = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_AGE, mode='del')
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_hostname] # TODO: maybe can rm this line
-    res_user_clean = config_user(duthost=duthost, username=test_passw_hardening.USERNAME_AGE, mode='del')
+    res_user_clean = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_AGE, mode='del')
 
 @pytest.fixture(scope="function")
 def clean_passw_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    res_adduser_simple_1 = config_user(duthost=duthost, username=username_simple_1, mode='del')
-    res_adduser_simple_0 = config_user(duthost=duthost, username=username_simple_0, mode='del')
-    res_adduser_strong = config_user(duthost=duthost, username=username_strong, mode='del')
+    # mv this init to module instead function.(save just the cleaning)
+    res_adduser_simple_1 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_SIMPLE_0, mode='del')
+    res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_SIMPLE_1, mode='del')
+    res_adduser_strong = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_STRONG, mode='del')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_SIMPLE_0+':/d /etc/security/opasswd')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_SIMPLE_1+':/d /etc/security/opasswd')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_STRONG+':/d /etc/security/opasswd')
+
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_hostname] # TODO: maybe can rm this line
-    res_adduser_simple_1 = config_user(duthost=duthost, username=username_simple_1, mode='del')
-    res_adduser_simple_0 = config_user(duthost=duthost, username=username_simple_0, mode='del')
-    res_adduser_strong = config_user(duthost=duthost, username=username_strong, mode='del')
+    res_adduser_simple_1 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_SIMPLE_0, mode='del')
+    res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_SIMPLE_1, mode='del')
+    res_adduser_strong = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_STRONG, mode='del')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_SIMPLE_0+':/d /etc/security/opasswd')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_SIMPLE_1+':/d /etc/security/opasswd')
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_STRONG+':/d /etc/security/opasswd')
+
 
 
 @pytest.fixture(scope="function")

@@ -319,7 +319,7 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
     if passw_bad_test:
         user_bad_flow = 'User_bad_flow'
         if passw_bad_test == 'reject_user_passw_match':
-            passw_bad_test = user_bad_flow
+            passw_bad_test = USERNAME_ONE_POLICY
 
         res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_ONE_POLICY+':'+passw_bad_test+' | chpasswd')
         
@@ -332,7 +332,7 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
 def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     
     # config one policy, check show CLI, test policy configured in switch
-    config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_LEN_MIN_ONLY_EXPECTED):
+    config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_LEN_MIN_ONLY_EXPECTED)
     
     # create user
     passw_test = '20212022\n20212022'
@@ -355,7 +355,7 @@ def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     pytest_assert(expected_login_error in res_login_enc, "Fail: the username='{}' could login, even though, this msg was expected='{}'".format(USERNAME_AGE, expected_login_error, expected_login_error))
 
 
-def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies):
+def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_en_dis_policies):
     """
         Test password hardening policies default.
         Test passw policies configured in CLI (Verify output of `show passw-hardening policies`)
@@ -410,10 +410,7 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
 
     # clean new users
     res_adduser_simple_1 = config_user(duthost=duthost, username=USERNAME_SIMPLE_1, mode='del')
-
-    pytest_assert((res_adduser_strong and res_adduser_simple_0 and res_adduser_simple_1),
-                "Fail: users: '{}','{}', '{}'  was not deleted correctly"
-                .format(USERNAME_STRONG, res_adduser_simple_0, res_adduser_simple_1))
+    pytest_assert(res_adduser_simple_1, "Fail: users: '{}'  was not deleted correctly".format(res_adduser_simple_1))
 
     # disable feature
     passw_hardening_dis_ob = PasswHardening(state='disabled',
@@ -557,7 +554,7 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, dut
                                         special_class='false')
     
     # config one policy, check show CLI, test policy configured in switch
-    config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_LEN_MIN_ONLY_EXPECTED):
+    config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_LEN_MIN_ONLY_EXPECTED)
     
     passw_test = '19892022\n19892022'
 
@@ -603,7 +600,7 @@ def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostn
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     passw_test = '19892022\n19892022'
     passw_bad_test = 'b_a_d_passw_no_digs'
-    passw_exp_error = 'New password: BAD PASSWORD: is too simple'
+    passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = PasswHardening(state='enabled',
@@ -692,7 +689,7 @@ def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     passw_test = '19892022\n19892022'
     passw_bad_test = 'reject_user_passw_match'
-    passw_exp_error='New password: BAD PASSWORD: contains the user name in some form'
+    passw_exp_error='BAD PASSWORD: contains the user name in some form'
     
     # set new passw hardening policies values
     passw_hardening_ob = PasswHardening(state='enabled',
@@ -703,7 +700,7 @@ def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_
                                         reject_user_passw_match='true',
                                         lower_class='false',
                                         upper_class='false',
-                                        digit_class="true",
+                                        digit_class="false",
                                         special_class='false')
 
     review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_bad_test, passw_exp_error, PAM_PASSWORD_CONF_REJECT_USER_PASSW_MATCH_EXPECTED)
