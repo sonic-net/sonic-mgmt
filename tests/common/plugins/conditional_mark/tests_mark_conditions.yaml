@@ -322,3 +322,12 @@ macsec/test_macsec.py:
     reason: "This test can only run on 7280 CR3"
     conditions:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
+
+#######################################
+#####            platform_tests   #####
+#######################################
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: "chassisd platform daemon introduced in 202106"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
