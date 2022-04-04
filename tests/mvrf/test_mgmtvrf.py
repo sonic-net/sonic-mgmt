@@ -244,7 +244,7 @@ class TestReboot():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
-        pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
+        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
 
     @pytest.mark.disable_loganalyzer
