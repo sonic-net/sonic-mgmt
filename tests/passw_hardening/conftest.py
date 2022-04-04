@@ -1,7 +1,5 @@
 import pytest
 import test_passw_hardening
-# TODO: this import not working
-# from tests.common.helpers.assertions import pytest_assert
 
 def set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -22,12 +20,8 @@ def set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostn
     passw_policies_show_dict = test_passw_hardening.show_pass_policies(duthost)
 
     cli_passw_policies_cmp = cmp(passw_hardening_ob_dis.policies, passw_policies_show_dict)
-    # TODO: maybe do assert or raise error if cmp failed?
-    # pytest_assert(cli_passw_policies_cmp == 0, "Fail: expected: passw polices='{}',not equal to current: passw polices='{}'"
-    #                                             .format(passw_hardening_ob_dis.policies, passw_policies_show_dict))
 
 
-# TODO add this fixture to test the init flow
 @pytest.fixture(scope="module", autouse=True)
 def passw_policies_init(duthosts, enum_rand_one_per_hwsku_hostname):
     set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostname)
@@ -41,9 +35,12 @@ def clean_passw_policies(duthosts, enum_rand_one_per_hwsku_hostname):
 def clean_passw_one_policy_user(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_ONE_POLICY, mode='del')    
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_ONE_POLICY+':/d /etc/security/opasswd')
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     res_adduser_simple_0 = test_passw_hardening.config_user(duthost=duthost, username=test_passw_hardening.USERNAME_ONE_POLICY, mode='del')    
+    res_chpasswd = test_passw_hardening.run_remote_command(duthost, 'sed -i /^'+test_passw_hardening.USERNAME_ONE_POLICY+':/d /etc/security/opasswd')
+
 
 @pytest.fixture(scope="function")
 def clean_passw_len_min(duthosts, enum_rand_one_per_hwsku_hostname):

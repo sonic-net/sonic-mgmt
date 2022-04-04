@@ -67,10 +67,11 @@ USERNAME_AGE = 'user_test'
 USERNAME_HISTORY = 'user_history_test'
 USERNAME_LEN_MIN = 'user_test'
 
+
 class PasswHardening:
-    def __init__(self, state, expiration, expiration_warning, history, len_min,
-                 reject_user_passw_match, lower_class, upper_class,
-                 digit_class, special_class):
+    def __init__(self, state='disabled', expiration='100', expiration_warning='15', history='12',
+                        len_min='8', reject_user_passw_match='true', lower_class='true',
+                        upper_class='true', digit_class='true', special_class='true'):
 
         self.policies = {
                        "state": state,
@@ -85,11 +86,6 @@ class PasswHardening:
                        "special-class": special_class
         }
 
-@pytest.fixture(scope='module')
-def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
-    inv_files = get_inventory_files(request)
-    dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
-    yield dut_vars
 
 def run_diff(file1, file2):
     try:
@@ -304,7 +300,6 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
     config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected)
     
     # 2. test good flow - create new user with good passw
-    USERNAME_ONE_POLICY = 'user_one_policy_test'
     res_adduser_simple = config_user(duthost, USERNAME_ONE_POLICY, passw_test, 'add')
     res_chpasswd = False, False
 
@@ -317,17 +312,14 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
 
     # 4. test bad flow - create new user with bad passw
     if passw_bad_test:
-        user_bad_flow = 'User_bad_flow'
         if passw_bad_test == 'reject_user_passw_match':
             passw_bad_test = USERNAME_ONE_POLICY
 
         res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_ONE_POLICY+':'+passw_bad_test+' | chpasswd')
         
-        # 5. test user was not created succefully.
-        pytest_assert(passw_exp_error in res_chpasswd[1],"Fail: username='{}' with password='{}' was set, even though, strong policy configured, passw_exp_error = '{}'".format(user_bad_flow, passw_bad_test, passw_exp_error))
+        # 5. test user was not change passw succefully.
+        pytest_assert(passw_exp_error in res_chpasswd[1],"Fail: username='{}' with password='{}' was set, even though, strong policy configured, passw_exp_error = '{}'".format(USERNAME_ONE_POLICY, passw_bad_test, passw_exp_error))
 
-        # clean new user (todo mv it to fixture)
-        res_adduser_simple_0 = config_user(duthost=duthost, username=user_bad_flow, mode='del')
     
 def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     
@@ -355,7 +347,7 @@ def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     pytest_assert(expected_login_error in res_login_enc, "Fail: the username='{}' could login, even though, this msg was expected='{}'".format(USERNAME_AGE, expected_login_error, expected_login_error))
 
 
-def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_en_dis_policies):
+def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_en_dis_policies):
     """
         Test password hardening policies default.
         Test passw policies configured in CLI (Verify output of `show passw-hardening policies`)
@@ -378,16 +370,7 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
                                             .format(USERNAME_SIMPLE_0, simple_passw_0))
 
     # enable passw hardening policies
-    passw_hardening_ob = PasswHardening(state='enabled',
-                                        expiration='100',
-                                        expiration_warning='15',
-                                        history='12',
-                                        len_min='8',
-                                        reject_user_passw_match='true',
-                                        lower_class='true',
-                                        upper_class='true',
-                                        digit_class="true",
-                                        special_class='true')
+    passw_hardening_ob = PasswHardening(state='enabled')
 
     # config one policy, check show CLI, test policy configured in switch
     config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_EXPECTED)
@@ -413,16 +396,7 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
     pytest_assert(res_adduser_simple_1, "Fail: users: '{}'  was not deleted correctly".format(res_adduser_simple_1))
 
     # disable feature
-    passw_hardening_dis_ob = PasswHardening(state='disabled',
-                                        expiration='100',
-                                        expiration_warning='15',
-                                        history='12',
-                                        len_min='8',
-                                        reject_user_passw_match='true',
-                                        lower_class='true',
-                                        upper_class='true',
-                                        digit_class="true",
-                                        special_class='true')
+    passw_hardening_dis_ob = PasswHardening(state='disabled')
 
     configure_passw_policies(duthost, passw_hardening_dis_ob)
 
@@ -437,7 +411,7 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
                                             .format(USERNAME_SIMPLE_1, simple_passw_1))
 
 
-def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_history):
+def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_history):
     """ Test password hardening history, flow:
         1. set new policies for history passw support
         2. create user
@@ -485,7 +459,7 @@ def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, dut
     pytest_assert('Password has been already used. Choose another.' in res_chpasswd[1], "Fail : username='{}' with strong password='{}' was set with an old passw, even though, history was configured".format(USERNAME_HISTORY, strong_passw))
 
 
-def test_passw_hardening_age_expiration(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_age):
+def test_passw_hardening_age_expiration(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_age):
     """ 
         Test password hardening age expiration, by change the last passw change of the user to a date old by 100 days
         then the test will try to login and its expected a failure beacause the passw is expered, other the test will fail.
@@ -509,7 +483,7 @@ def test_passw_hardening_age_expiration(duthosts, enum_rand_one_per_hwsku_hostna
     verify_age_flow(duthost, passw_hardening_ob, expected_login_error)
 
     
-def test_passw_hardening_age_expiration_warning(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_age):
+def test_passw_hardening_age_expiration_warning(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_age):
     """ 
         Test password hardening age expiration, by change the last passw change of the user to a date old by 100 days
         then the test will try to login and its expected a failure beacause the passw is expered, other the test will fail.
@@ -534,7 +508,7 @@ def test_passw_hardening_age_expiration_warning(duthosts, enum_rand_one_per_hwsk
     expected_login_error = 'Warning: your password will expire in 40 days.'
     verify_age_flow(duthost, passw_hardening_ob, expected_login_error)
 
-def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_len_min):
+def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_len_min):
     """ Test password hardening len min
         1. good flow: set min len and password according
         2. bad flow: set longer len min, and set small passw"""
@@ -594,7 +568,7 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, dut
     pytest_assert('BAD PASSWORD: is too simple' in res_chpasswd[1], "Fail : password='{}' was set with an small len than the policy, even though, it was configured".format(passw_bad_test))
 
 
-def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_one_policy_user):
+def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
     """ Test password hardening digits class """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -617,7 +591,7 @@ def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostn
     review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_bad_test, passw_exp_error, PAM_PASSWORD_CONF_DIGITS_ONLY_EXPECTED)
 
 
-def test_passw_hardening_policies_lower_class(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_one_policy_user):
+def test_passw_hardening_policies_lower_class(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
     """ Test password hardening digits class """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -639,12 +613,12 @@ def test_passw_hardening_policies_lower_class(duthosts, enum_rand_one_per_hwsku_
 
     review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_bad_test, passw_exp_error, PAM_PASSWORD_CONF_LOWER_LETTER_ONLY_EXPECTED)
 
-def test_passw_hardening_policies_upper_class(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_one_policy_user):
+def test_passw_hardening_policies_upper_class(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
     """ Test password hardening digits class """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    passw_test = 'NVI_DIA_NV\nNVI_DIA_NV'
-    passw_bad_test = 'l_o_w_l_\nl_o_w_l_'
+    passw_test = 'NVI_DI_A_UP#\nNVI_DI_A_UP#'
+    passw_bad_test = 'l_o_w_l_#_e#t1'
     passw_exp_error = 'BAD PASSWORD: is too simple'
     
     # set new passw hardening policies values
@@ -661,7 +635,7 @@ def test_passw_hardening_policies_upper_class(duthosts, enum_rand_one_per_hwsku_
 
     review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_bad_test, passw_exp_error, PAM_PASSWORD_CONF_UPPER_LETTER_ONLY_EXPECTED)
 
-def test_passw_hardening_policies_special_class(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_one_policy_user):
+def test_passw_hardening_policies_special_class(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
     """ Test password hardening digits class """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -683,7 +657,7 @@ def test_passw_hardening_policies_special_class(duthosts, enum_rand_one_per_hwsk
 
     review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_bad_test, passw_exp_error, PAM_PASSWORD_CONF_SPECIAL_LETTER_ONLY_EXPECTED)
 
-def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars, clean_passw_policies, clean_passw_one_policy_user):
+def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
     """ Test password hardening digits class """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
