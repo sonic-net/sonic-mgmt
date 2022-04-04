@@ -8,7 +8,16 @@ acl/test_acl_outer_vlan.py:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests"
     conditions:
       - asic_type=="cisco-8000"
-       
+
+#######################################
+#####            bgp              #####
+#######################################
+bgp/test_bgp_slb.py:
+  skip:
+    reason: "Skip over topologies which doesn't support slb"
+    conditions:
+     - "'backend' in topo_name or 'mgmttor' in topo_name"
+
 #######################################
 #####            cacl             #####
 #######################################
