@@ -3,7 +3,6 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
