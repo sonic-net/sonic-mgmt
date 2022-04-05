@@ -80,3 +80,11 @@ class NxosHost(AnsibleHostBase):
             parents='interface %s' % interface_name)
         logging.info('No shut interface [%s]' % interface_name)
         return out
+    
+    def shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.shutdown(intf_str)
+    
+    def no_shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.no_shutdown(intf_str)
