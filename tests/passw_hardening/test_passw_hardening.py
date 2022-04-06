@@ -6,25 +6,15 @@ Tests Password Hardening Feature in SONiC:
 """
 
 
-
-import json
 import logging
 import re
-
 import pytest
-
-from pkg_resources import parse_version
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.daemon_utils import check_pmon_daemon_status
-from tests.common.platform.device_utils import get_dut_psu_line_pattern
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
-from tests.common.utilities import skip_release_for_platform
-import subprocess
 import os
 import sys
-import filecmp
 import datetime
 import difflib
+from tests.common.helpers.assertions import pytest_assert
+
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -39,6 +29,7 @@ ETC_LOGIN_DEF = "/etc/login.defs"
 PAM_PASSWORD_CONF = "/etc/pam.d/common-password"
 
 # Sample/Expected files
+PAM_PASSWORD_CONF_DEFAULT_EXPECTED = CURR_DIR+'/sample/passw_hardening_default/common-password'
 PAM_PASSWORD_CONF_EXPECTED = CURR_DIR+'/sample/passw_hardening_enable/common-password'
 PAM_PASSWORD_CONF_HISTORY_ONLY_EXPECTED =  CURR_DIR+'/sample/passw_hardening_history/common-password' 
 PAM_PASSWORD_CONF_REJECT_USER_PASSW_MATCH_EXPECTED = CURR_DIR+'/sample/passw_hardening_reject_user_passw_match/common-password'
@@ -67,6 +58,9 @@ USERNAME_AGE = 'user_test'
 USERNAME_HISTORY = 'user_history_test'
 USERNAME_LEN_MIN = 'user_test'
 
+FAIL_CODE = -1 # custom error code
+SUCCESS_CODE = 0
+FIRST_LINE = 0
 
 class PasswHardening:
     def __init__(self, state='disabled', expiration='100', expiration_warning='15', history='12',
@@ -86,138 +80,78 @@ class PasswHardening:
                        "special-class": special_class
         }
 
+def config_user(duthost, username, mode='add'):
+    """ Function add or rm users using useradd/userdel tool. """
 
-def run_diff(file1, file2):
-    try:
-        diff_out = subprocess.check_output('diff -ur {} {} || true'.format(file1, file2), shell=True)
-        return diff_out
-    except subprocess.CalledProcessError as err:
-        syslog.syslog(syslog.LOG_ERR, "{} - failed: return code - {}, output:\n{}".format(err.cmd, err.returncode, err.output))
-        return -1
-
-def run_remote_command(duthost, command):
-    '''Running cmd from remote (switch).
-    If the command fail, the test module will not crash, the function will return false, other true'''
-    cmd = None
-    try:
-        logging.debug('DUT command = {}'.format(command))
-        cmd = duthost.shell(command)
-        logging.debug('command output lines = {}'.format(cmd["stdout_lines"]))
-        return True, cmd["stdout_lines"]
-    except Exception as e:
-        logging.error('command={} fail, error={}'.format(command, e))
-        return False, e.results['stderr_lines']
-
-def config_user(duthost, username, password=None, mode='add'):
     username = username.strip()
-    cmd_res = False, False
-    if mode == 'add':
-        command = "useradd {}".format(username)
-        res_add_user = run_remote_command(duthost, command)
-        # TODO: add some condition about user succcess
-        cmd_res = change_username_password(duthost, password, username)
-    elif mode == 'del':
-        command = "userdel {}".format(username)
-        cmd_res = run_remote_command(duthost, command)
-    return cmd_res
+    command = "user{} {}".format(mode, username)
+    user_cmd = duthost.shell(command, module_ignore_errors=True)
+    return user_cmd
 
-def change_username_password(duthost, password, username):
-    passwd_cmd = "echo -e \'"+password+"\' | passwd "+username
-    cmd_res = run_remote_command(duthost, passwd_cmd)
-    return cmd_res
+def config_user_and_passw(duthost, username, password):
+    """ Config users and set password. """
+    
+    username = username.strip()
+    config_user(duthost, username)
+    user_passw_cmd = change_password(duthost, password, username)
+    return user_passw_cmd
+
+def change_password(duthost, password, username):
+    command = "echo -e \'"+password+"\' | passwd "+username
+    # TODO: maybe use just chpasswd instead passwd?
+    passwd_cmd = duthost.shell(command, module_ignore_errors=True)
+    return passwd_cmd
 
 def get_user_expire_time_global(duthost, age_type):
-    """ Function verify that the current age expiry policy values are equal from the old one
-        Return update_age_status 'True' value meaning that was a modification from the last time, and vice versa.
+    """ Function get the expire/expire warning days from linux filename login.def
+        according the age_type.
     """
+
+    DAY_INDEX = 1
     days_num = -1
+
     regex_days = AGE_DICT[age_type]['REGEX_DAYS']
     days_type = AGE_DICT[age_type]['DAYS']
-
-    # get login.def from remote switch
     command = regex_days+ ' /etc/login.defs'
-    try:
-        grep_max_days = duthost.command(command)
-        grep_max_days_out = grep_max_days["stdout_lines"]
 
-        # get max days value
-        days_num = grep_max_days["stdout_lines"][0].split()[1]
-        logging.debug('command output lines = {}'.format(grep_max_days["stdout_lines"]))
-    except Exception as e:
-        logging.error('command={} fail, error={}'.format(command, e))
-        return days_num
+    grep_max_days_out = duthost.command(command)["stdout_lines"][FIRST_LINE].encode()
+    
+    days_num = grep_max_days_out.split()[DAY_INDEX]
+    logging.debug('command output lines = {}'.format(grep_max_days_out))
 
     return days_num
 
 def modify_last_password_change_user(duthost, normal_account):
+    "Modify the passw change day of a user (subtract 100 days)."
 
     days_to_subtract = 100
     old_date = datetime.date.today() - datetime.timedelta(days=days_to_subtract)
-    try:
-        command = 'chage '+ normal_account + ' -i --lastday ' + str(old_date.isoformat())
-        chage = duthost.command(command)
-        chage_data = chage["stdout_lines"]
-
-    except Exception as ex:
-        logging.error('useradd fail, error={}'.format(ex))
-        return False
-
-    return True
+    
+    command = 'chage '+ normal_account + ' -i --lastday ' + str(old_date.isoformat())
+    chage_cmd = duthost.command(command)
+    return
 
 def get_passw_expire_time_existing_user(duthost, normal_account):
     last_passw_change = ''
     REGEX_MAX_PASSW_CHANGE = r'^Maximum number of days between password change[ \t]*:[ \t]*(?P<max_passw_change>.*)'
 
-    try:
+    command = 'chage -l '+ normal_account
+    chage_stdout = duthost.command(command)["stdout_lines"]
 
-        command = 'chage -l '+ normal_account
-        chage = duthost.command(command)
-        chage_data = chage["stdout_lines"]
-
-        for line in chage_data:
-            m1 = re.match(REGEX_MAX_PASSW_CHANGE, line.decode('utf-8'))
-            if m1:
-                last_passw_change = m1.group("max_passw_change").decode('utf-8')
-                break
-
-    except Exception as ex:
-        logging.error('useradd fail, error={}'.format(ex))
+    for line in chage_stdout:
+        m1 = re.match(REGEX_MAX_PASSW_CHANGE, line.decode('utf-8'))
+        if m1:
+            last_passw_change = m1.group("max_passw_change").decode('utf-8')
+            break
 
     return last_passw_change
 
 def configure_passw_policies(duthost, passw_hardening_ob):
-    # config password hardening policies
     for key, value in passw_hardening_ob.policies.items():
-        logging.info("configuration to be set: key={}, value={}".format(key, value))
+        logging.debug("configuration to be set: key={}, value={}".format(key, value))
         cmd_config = 'sudo config passw-hardening policies ' + key + ' ' + value
-        try:
-            passw_policies_config_res = duthost.command(cmd_config)
-
-        except Exception as e:
-            logging.error("fail when setting cmd: {}".format(cmd_config))
-            logging.error(e)
-            return False
+        passw_policies_config_res = duthost.command(cmd_config)
     return True
-
-def show_pass_policies(duthost):
-    # show password hardening policies
-    passw_policies_show_dict = {}
-    try:
-        cmd_show = 'show passw-hardening policies'
-        passw_policies_show_res = duthost.command(cmd_show)
-        passw_policies_show_out = passw_policies_show_res["stdout_lines"]
-        passw_policies_show_out[0] = passw_policies_show_out[0].encode().lower()
-        passw_policies_keys = re.split(r'\s{2,}', passw_policies_show_out[0])
-        passw_policies_keys = [key.replace(' ','-') for key in passw_policies_keys]
-        passw_policies_values = passw_policies_show_out[2].encode().split()
-        passw_policies_show_dict = {passw_policies_keys[i]: passw_policies_values[i] for i in range(len(passw_policies_keys))}
-        logging.debug("show password policies output: {}".format(passw_policies_show_out))
-
-    except Exception as e:
-        logging.error("fail when setting cmd: {}".format(cmd_show))
-        logging.error(e)
-        return -1
-    return passw_policies_show_dict
 
 def compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, username=None):
     '''
@@ -237,7 +171,7 @@ def compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, username=None):
                   "Fail: expected max days exp='{}' ! current max days exp='{}' was not set, even though, matching policy configured".format(
                       passw_hardening_ob.policies['expiration-warning'], passw_warn_days_global))
 
-     # --- compare exist user age ---
+    # --- compare exist user age ---
     if username:
         passw_max_days_exist_username = get_passw_expire_time_existing_user(duthost, username)
 
@@ -246,20 +180,16 @@ def compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, username=None):
                         passw_hardening_ob.policies['expiration'], passw_max_days_exist_username))
 
 def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF_EXPECTED):
+    """Compare DUT common-password with the expected one."""
+
     command_password_stdout = ''
-    # need to compare DUT common-password with the expected one.
-
     read_command_password = 'cat ' + PAM_PASSWORD_CONF
-    try:
-        logging.debug('DUT command = {}'.format(read_command_password))
-        cmd_command_password = duthost.command(read_command_password)
-        command_password_stdout = cmd_command_password["stdout_lines"]
-        command_password_stdout = [line.encode('utf-8') for line in command_password_stdout]
-    except Exception as e:
-        logging.error('command={} fail, error={}'.format(read_command_password, e))
 
-    if not os.path.isfile(pam_file_expected):
-        raise ValueError('filename: %s not exits' % (pam_file_expected))
+    logging.debug('DUT command = {}'.format(read_command_password))
+    read_command_password_cmd = duthost.command(read_command_password)
+    command_password_stdout = read_command_password_cmd["stdout_lines"]
+    command_password_stdout = [line.encode('utf-8') for line in command_password_stdout]
+
     common_password_expected = []
     with open(pam_file_expected, 'r') as expected_common_password_file:
         for line in expected_common_password_file:
@@ -272,16 +202,21 @@ def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF
     pytest_assert(len(common_password_diff) == 0, common_password_diff)
 
 def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):
-    # config policy
+    """
+    1. Config passw hardening policies
+    2. Show passw hardening policies
+    3. Compare passw hardening polices from show cli to the expected (configured)
+    4. Verify polices in PAM files was set according the configured
+    """
     configure_passw_policies(duthost, passw_hardening_ob)
-
-    # show policy
-    passw_policies_show_dict = show_pass_policies(duthost)
-
+    
+    curr_show_policies = duthost.show_and_parse('show passw-hardening policies')[FIRST_LINE]
+    exp_show_policies = dict((k.replace('-', ' '), v) for k, v in passw_hardening_ob.policies.items())
+    
     # ~~ test passw policies in show CLI ~~
-    cli_passw_policies_cmp = cmp(passw_hardening_ob.policies, passw_policies_show_dict)
-    pytest_assert(cli_passw_policies_cmp == 0, "Fail: expected: passw polices='{}',not equal to current: passw polices='{}'"
-                                                .format(passw_hardening_ob.policies, passw_policies_show_dict))
+    cli_passw_policies_cmp = cmp(exp_show_policies, curr_show_policies)
+    pytest_assert(cli_passw_policies_cmp == 0, "Fail: exp_show_policies='{}',not equal to curr_show_policies='{}'"
+                                                .format(exp_show_policies, curr_show_policies))
 
     # ~~ test passw policies in PAM files ~~
     compare_passw_policies_in_linux(duthost, pam_file_expected)
@@ -296,56 +231,66 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
     4. test bad flow - create new user with bad passw
     5. test user was not created succefully.
     """
+
+    chpasswd_cmd = {}
+    chpasswd_cmd['rc'] = FAIL_CODE
+
     # 1. config one policy, check show CLI, test policy configured in switch
     config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected)
     
     # 2. test good flow - create new user with good passw
-    res_adduser_simple = config_user(duthost, USERNAME_ONE_POLICY, passw_test, 'add')
-    res_chpasswd = False, False
-
-    if res_adduser_simple[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple[1]):
-        passw_test_force = passw_test.split('\n')[0]
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_ONE_POLICY+':'+passw_test_force+' | chpasswd')
+    res_adduser_simple = config_user_and_passw(duthost, USERNAME_ONE_POLICY, passw_test)
     
+    if ( (res_adduser_simple['rc'] == SUCCESS_CODE) or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple['stderr']) ):
+        passw_test_force = passw_test.split('\n')[0]
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_ONE_POLICY+':'+passw_test_force+' | chpasswd', module_ignore_errors=True) 
+
     # 3. test user created succefully.
-    pytest_assert(res_adduser_simple[0] or res_chpasswd[0], "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_ONE_POLICY, passw_test))
+    pytest_assert(( (res_adduser_simple['rc'] == SUCCESS_CODE) or (chpasswd_cmd['rc'] == SUCCESS_CODE) ), "Fail creating user: username={} with strong password={}".format(USERNAME_ONE_POLICY, passw_test))
 
     # 4. test bad flow - create new user with bad passw
     if passw_bad_test:
         if passw_bad_test == 'reject_user_passw_match':
             passw_bad_test = USERNAME_ONE_POLICY
 
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_ONE_POLICY+':'+passw_bad_test+' | chpasswd')
-        
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_ONE_POLICY+':'+passw_bad_test+' | chpasswd', module_ignore_errors=True)
+
         # 5. test user was not change passw succefully.
-        pytest_assert(passw_exp_error in res_chpasswd[1],"Fail: username='{}' with password='{}' was set, even though, strong policy configured, passw_exp_error = '{}'".format(USERNAME_ONE_POLICY, passw_bad_test, passw_exp_error))
+        pytest_assert(passw_exp_error in chpasswd_cmd['stderr'],"Fail: username='{}' with password='{}' was set, even though, strong policy configured, passw_exp_error = '{}'".format(USERNAME_ONE_POLICY, passw_bad_test, passw_exp_error))
 
     
 def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
-    
+    login_response = ''
+
     # config one policy, check show CLI, test policy configured in switch
     config_and_review_policies(duthost, passw_hardening_ob, PAM_PASSWORD_CONF_LEN_MIN_ONLY_EXPECTED)
     
     # create user
     passw_test = '20212022\n20212022'
-    res_adduser_simple = config_user(duthost, USERNAME_AGE, passw_test, 'add')
-    res_chpasswd = False, False
-    if res_adduser_simple[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple[1]):
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_AGE+':'+passw_test+' | chpasswd')
+    res_adduser_simple = config_user_and_passw(duthost, USERNAME_AGE, passw_test)
+    chpasswd_cmd = {}
+    chpasswd_cmd['rc'] = FAIL_CODE
 
-    pytest_assert(res_adduser_simple[0] or res_chpasswd[0], "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_AGE, passw_test))
-    
+    if res_adduser_simple['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple['stderr']):
+        chpasswd_cmd =  duthost.shell('echo '+USERNAME_AGE+':'+passw_test+' | chpasswd', module_ignore_errors=True)
+
+    pytest_assert(res_adduser_simple['rc'] == SUCCESS_CODE or chpasswd_cmd['rc'] == SUCCESS_CODE, "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_AGE, passw_test))
+
     # (mimic passw is old by rest 100 days)
-    last_passw_chg_date_user0 = modify_last_password_change_user(duthost, USERNAME_AGE)
-    
+    modify_last_password_change_user(duthost, USERNAME_AGE)
+
     # verify Age configuration in Linux files
     compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, USERNAME_AGE)
 
     # login expecting to require passw change
-    res_login = run_remote_command(duthost, 'echo '+passw_test+' | sudo -S su '+USERNAME_AGE)
-    res_login_enc = [i.encode() for i in res_login[1]]
-    pytest_assert(expected_login_error in res_login_enc, "Fail: the username='{}' could login, even though, this msg was expected='{}'".format(USERNAME_AGE, expected_login_error, expected_login_error))
-
+    login_cmd =  duthost.shell('echo '+passw_test+' | sudo -S su '+USERNAME_AGE, module_ignore_errors=True)
+    
+    # test login results
+    if 'Warning' in expected_login_error: # expiration warning time case, the cmd is not failing
+        login_response = login_cmd['stdout']
+    else: # expiration time case the cmd is failing
+        login_response = login_cmd['stderr']
+    pytest_assert(expected_login_error in login_response, "Fail: the username='{}' could login by error, expected_login_error={} , but got this msg={}".format(USERNAME_AGE, expected_login_error, login_response))
 
 def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_en_dis_policies):
     """
@@ -358,15 +303,14 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
 
     # ~~ test default values (when feature disabled) ~~
     # create user when passw policies are disable. 
-    USERNAME_SIMPLE_0 = 'user_test0'
     simple_passw_0 = '12345678\n12345678'
 
-    res_adduser0_simple = config_user(duthost, USERNAME_SIMPLE_0, simple_passw_0, 'add')
-    res_chpasswd = False, False
-    if res_adduser0_simple[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser0_simple[1]):
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_SIMPLE_0+':'+simple_passw_0+' | chpasswd')
+    res_adduser0_simple = config_user_and_passw(duthost, USERNAME_SIMPLE_0, simple_passw_0)
+    chpasswd_cmd = {}
+    if res_adduser0_simple['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser0_simple['stderr']):
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_SIMPLE_0+':'+simple_passw_0+' | chpasswd')
 
-    pytest_assert(res_adduser0_simple[0] or res_chpasswd[0], "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
+    pytest_assert(res_adduser0_simple['rc']==SUCCESS_CODE or chpasswd_cmd['rc']==SUCCESS_CODE, "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
                                             .format(USERNAME_SIMPLE_0, simple_passw_0))
 
     # enable passw hardening policies
@@ -379,21 +323,21 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
 
     # ~~ test user with weak passw (only digits) bad flow ~~
     simple_passw_1 = '12345678'
-    res_adduser_simple = config_user(duthost, USERNAME_SIMPLE_1, simple_passw_1, 'add')
-    pytest_assert("New password: BAD PASSWORD: it is too simplistic/systematic" in res_adduser_simple[1],"Fail: username='{}' with simple password='{}' was set, even though, strong policy configured".format(USERNAME_SIMPLE_1, simple_passw_1))
+    res_adduser_simple = config_user_and_passw(duthost, USERNAME_SIMPLE_1, simple_passw_1)
+    pytest_assert("New password: BAD PASSWORD: it is too simplistic/systematic" in res_adduser_simple['stderr'],"Fail: username='{}' with simple password='{}' was set, even though, strong policy configured".format(USERNAME_SIMPLE_1, simple_passw_1))
 
     # ~~ test user with strong password (digits, lower class, upper class, special class) ~~
     strong_passw = 'Nvi_d_ia_2020\nNvi_d_ia_2020'
-    res_adduser_strong = config_user(duthost, USERNAME_STRONG, strong_passw, 'add')
-    res_chpasswd = False, False
-    if res_adduser_strong[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_strong[1]):
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_STRONG+':'+strong_passw.split('\n')[0]+' | chpasswd')
+    res_adduser_strong = config_user_and_passw(duthost, USERNAME_STRONG, strong_passw)
+    chpasswd_cmd = {}
+    if res_adduser_strong['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_strong['stderr']):
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_STRONG+':'+strong_passw.split('\n')[0]+' | chpasswd')
         
-    pytest_assert(res_adduser_strong[0] or res_chpasswd[0], "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_STRONG, strong_passw))
+    pytest_assert(res_adduser_strong['rc']==SUCCESS_CODE or chpasswd_cmd['rc']==SUCCESS_CODE, "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_STRONG, strong_passw))
 
     # clean new users
     res_adduser_simple_1 = config_user(duthost=duthost, username=USERNAME_SIMPLE_1, mode='del')
-    pytest_assert(res_adduser_simple_1, "Fail: users: '{}'  was not deleted correctly".format(res_adduser_simple_1))
+    pytest_assert(res_adduser_simple_1['rc']==SUCCESS_CODE, "Fail: users: '{}'  was not deleted correctly".format(res_adduser_simple_1))
 
     # disable feature
     passw_hardening_dis_ob = PasswHardening(state='disabled')
@@ -402,12 +346,12 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
 
     # ~~ test password hardening feature when- state: disabled ~~
     # testing it by trying to set a weak passw after feature disabled
-    res_adduser_simple = config_user(duthost, USERNAME_SIMPLE_1, simple_passw_1, 'add')
-    res_chpasswd = False, False
-    if res_adduser0_simple[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser0_simple[1]):
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_SIMPLE_1+':'+simple_passw_1+' | chpasswd')
+    res_adduser_simple = config_user_and_passw(duthost, USERNAME_SIMPLE_1, simple_passw_1)
+    chpasswd_cmd = {}
+    if res_adduser0_simple['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser0_simple['stderr']):
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_SIMPLE_1+':'+simple_passw_1+' | chpasswd')
 
-    pytest_assert(res_adduser0_simple[0] or res_chpasswd[0], "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
+    pytest_assert(res_adduser0_simple['rc']==SUCCESS_CODE or chpasswd_cmd['rc']==SUCCESS_CODE, "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
                                             .format(USERNAME_SIMPLE_1, simple_passw_1))
 
 
@@ -439,24 +383,25 @@ def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, cle
 
     # 2. create user
     strong_passw = 'Nvidia_2020\nNvidia_2020'
-    res_adduser_strong = config_user(duthost, USERNAME_HISTORY, strong_passw, 'add')
-    res_chpasswd = False, False
-    if res_adduser_strong[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_strong[1]):
+    res_adduser_strong = config_user_and_passw(duthost, USERNAME_HISTORY, strong_passw)
+    chpasswd_cmd = {}
+    chpasswd_cmd['rc'] = FAIL_CODE
+    if res_adduser_strong['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_strong['stderr']):
         # 3. set passw
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_HISTORY+':'+strong_passw.split('\n')[0]+' | chpasswd')
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_HISTORY+':'+strong_passw.split('\n')[0]+' | chpasswd')
 
-    pytest_assert(res_adduser_strong[0] or res_chpasswd[0], "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_HISTORY, strong_passw))
+    pytest_assert(res_adduser_strong['rc']==SUCCESS_CODE or chpasswd_cmd['rc']==SUCCESS_CODE, "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_HISTORY, strong_passw))
 
     # 4. set other passw
     strong_passw_2 = 'So_nic_p1'
-    res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_HISTORY+':'+strong_passw_2+' | chpasswd')
-    pytest_assert(res_chpasswd[0], "Fail changing passw with: username='{}' with strong password='{}'".format(USERNAME_HISTORY, strong_passw_2))
+    chpasswd_cmd = duthost.shell('echo '+USERNAME_HISTORY+':'+strong_passw_2+' | chpasswd')
+    pytest_assert(chpasswd_cmd['rc']==SUCCESS_CODE, "Fail changing passw with: username='{}' with strong password='{}'".format(USERNAME_HISTORY, strong_passw_2))
 
     # 5. try to set the first passw
-    res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_HISTORY+':'+strong_passw.split('\n')[0]+' | chpasswd')
+    chpasswd_cmd = duthost.shell('echo '+USERNAME_HISTORY+':'+strong_passw.split('\n')[0]+' | chpasswd', module_ignore_errors=True)
     
     # 6. expected "fail" because the firsts passw was already used.
-    pytest_assert('Password has been already used. Choose another.' in res_chpasswd[1], "Fail : username='{}' with strong password='{}' was set with an old passw, even though, history was configured".format(USERNAME_HISTORY, strong_passw))
+    pytest_assert('Password has been already used. Choose another.' in chpasswd_cmd['stderr'], "Fail : username='{}' with strong password='{}' was set with an old passw, even though, history was configured".format(USERNAME_HISTORY, strong_passw))
 
 
 def test_passw_hardening_age_expiration(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_age):
@@ -532,13 +477,14 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, cle
     
     passw_test = '19892022\n19892022'
 
-    res_adduser_simple = config_user(duthost, USERNAME_LEN_MIN, passw_test, 'add')
-    res_chpasswd = False, False
-    if res_adduser_simple[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple[1]):
+    res_adduser_simple = config_user_and_passw(duthost, USERNAME_LEN_MIN, passw_test)
+    chpasswd_cmd = {}
+    chpasswd_cmd['rc'] = FAIL_CODE
+    if res_adduser_simple['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_adduser_simple['stderr']):
         passw_test_force = passw_test.split('\n')[0]
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_LEN_MIN+':'+passw_test_force+' | chpasswd')
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_LEN_MIN+':'+passw_test_force+' | chpasswd', module_ignore_errors=True)
 
-    pytest_assert(res_adduser_simple[0] or res_chpasswd[0], "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_LEN_MIN, passw_test))
+    pytest_assert(res_adduser_simple['rc'] == SUCCESS_CODE or chpasswd_cmd['rc'] == SUCCESS_CODE, "Fail creating user: username='{}' with strong password='{}'".format(USERNAME_LEN_MIN, passw_test))
 
     # --- Bad Flow ---
     # set new passw hardening policies values
@@ -553,19 +499,18 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, cle
                                         digit_class="true",
                                         special_class='false')
 
-    # config policy
     configure_passw_policies(duthost, passw_hardening_ob_len_min_big)
 
     # test user with len min small than config
     passw_bad_test = 'asDD@@12\nasDD@@12'
 
     # test settig smaller passw than config
-    res_chg_passw1 = change_username_password(duthost, passw_bad_test, USERNAME_LEN_MIN)
-    if res_chg_passw1[0]==True or ('New password: Retype new password: Sorry, passwords do not match.' in res_chg_passw1[1]):
+    res_chg_passw1 = change_password(duthost, passw_bad_test, USERNAME_LEN_MIN)
+    if res_chg_passw1['rc']==SUCCESS_CODE or ('New password: Retype new password: Sorry, passwords do not match.' in res_chg_passw1['stderr']):
         passw_test_force = passw_bad_test.split('\n')[0]
-        res_chpasswd = run_remote_command(duthost, 'echo '+USERNAME_LEN_MIN+':'+passw_test_force+' | chpasswd')
+        chpasswd_cmd = duthost.shell('echo '+USERNAME_LEN_MIN+':'+passw_test_force+' | chpasswd', module_ignore_errors=True)
         
-    pytest_assert('BAD PASSWORD: is too simple' in res_chpasswd[1], "Fail : password='{}' was set with an small len than the policy, even though, it was configured".format(passw_bad_test))
+    pytest_assert('BAD PASSWORD: is too simple' in chpasswd_cmd['stderr'], "Fail : password='{}' was set with an small len than the policy, even though, it was configured".format(passw_bad_test))
 
 
 def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_one_policy_user):
