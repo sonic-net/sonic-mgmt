@@ -79,22 +79,35 @@ def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
     if 'dualtor' in tbinfo['topo']['name']:
         request.getfixturevalue('run_garp_service')
 
-
-@pytest.fixture(scope="module")
-def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_tor_tables, copy_arp_responder_py):
-    """Run arp_responder to enable ptf to respond neighbor solicitation messages"""
+def _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, ip_type):
+    logging.info('Setup ARP responder in the PTF container  {}'\
+        .format(ptfhost.hostname))
     duthost = rand_selected_dut
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     minigraph_ptf_indices = mg_facts['minigraph_ptf_indices']
     mux_config = mux_cable_server_ip(duthost)
-
-    arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv6"].split("/")[0]] for port, config in mux_config.items()}
+    if ip_type == 'ipv4':
+        arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv4"].split("/")[0]] for port, config in mux_config.items()}
+    else:
+        arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv6"].split("/")[0]] for port, config in mux_config.items()}
     ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
+
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
     ptfhost.shell('supervisorctl reread && supervisorctl update')
     ptfhost.shell('supervisorctl restart arp_responder')
 
+@pytest.fixture(scope="module")
+def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_tor_tables):
+    """Run arp_responder to enable ptf to respond neighbor solicitation messages"""
+    _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv6')
+    yield
+
+    ptfhost.shell('supervisorctl stop arp_responder')
+
+@pytest.fixture(scope="module")
+def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
+    _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv4')
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder')
