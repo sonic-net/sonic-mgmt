@@ -218,9 +218,6 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
-    debugger: always
-
-  - pause:
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
