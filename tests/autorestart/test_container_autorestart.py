@@ -28,13 +28,15 @@ POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     yield
-    config_reload(duthost)
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        config_reload(duthost)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
-                                          enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                          enum_dut_feature, loganalyzer):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -98,12 +100,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
         'teamd' : swss_syncd_teamd_regex,
     }
 
-    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
-                   "Skips testing auto-restart of container '{}' on DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
-    duthost = duthosts[dut_name]
-    feature = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
+    feature = enum_dut_feature
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
@@ -332,7 +330,7 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
 
     bgp_check = wait_until(
         POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-        duthost.check_bgp_session_state, up_bgp_neighbors, "established"
+        duthost.check_bgp_session_state_all, up_bgp_neighbors, "established"
     )
 
     return critical_proceses, bgp_check
@@ -357,8 +355,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     is_running = is_container_running(duthost, container_name)
     pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
 
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     logger.info("Start testing the container '{}'...".format(container_name))
 
@@ -439,18 +436,16 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
 
     logger.info("End of testing the container '{}'".format(container_name))
 
-
-def test_containers_autorestart(duthosts, enum_dut_feature_container,
-                                enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                enum_dut_feature, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    dut_name, container_name = decode_dut_port_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name != "unknown",
-                   "Skips testing auto-restart of container '{}' on DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
-    duthost = duthosts[dut_name]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    service_name = enum_dut_feature
+    container_name = asic.get_docker_name(service_name)
 
     run_test_on_single_container(duthost, container_name, tbinfo)
