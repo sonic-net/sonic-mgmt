@@ -92,8 +92,8 @@ stages:
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
+        dut: vlab-02
+        tbname: vms-kvm-t0-64-32
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
