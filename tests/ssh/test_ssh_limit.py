@@ -115,13 +115,13 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
 
     # Create multiple login session to test maxlogins limit, first session will success
     ssh_session_1 = ssh_connect_remote(dut_ip, local_user, local_user_password)
-    login_message_1 = ssh_session_1.invoke_shell().recv(1024)
-    logging.debug("Login session 1 result: {0}".format(login_message_1))
+    login_message_1 = ssh_session_1.invoke_shell().recv(4096)
+    logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
 
     # The second session will be disconnect by device
     ssh_session_2 = ssh_connect_remote(dut_ip, local_user, local_user_password)
-    login_message_2 = ssh_session_2.invoke_shell().recv(1024)
-    logging.debug("Login session 2 result: {0}".format(login_message_2))
+    login_message_2 = ssh_session_2.invoke_shell().recv(4096)
+    logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
     pytest_assert("There were too many logins for" in login_message_2)
 
     ssh_session_1.close()
