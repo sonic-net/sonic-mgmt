@@ -45,7 +45,7 @@ If dhcp_server flag is disabled:
 
 ### Test objective
 
-Verify that DHCP Server/DHCP Relay is running accordingly based on dhcp_server flag in minigraph
+Verify that DHCP Server/DHCP Relay is running accordingly based on dhcp_server flag in config_db
 
 ## Default test case
 
@@ -77,6 +77,11 @@ Run default tests on 3 Vlans
 - Add two more Vlans
 - At least one ptf port is mapped to each Vlan
 - Check that the ports that's mapped'to each VLAN receive the corresponding expected IP Addresses
+
+Expected response from dhcp server:
+- ip address
+- subnet mask
+- gateway ip address (should match vlan interface ip)
 
 ### Test objective
 
