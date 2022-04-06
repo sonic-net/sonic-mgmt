@@ -105,6 +105,15 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
       - "asic_type=='cisco-8000'"
 
 #######################################
+#####   generic_config_updater    #####
+#######################################
+generic_config_updater/test_eth_interface.py::test_replace_fec:
+  skip:
+    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    conditions:
+      - "platform in ['x86_64-kvm_x86_64-r0']"
+
+#######################################
 #####      iface_namingmode       #####
 #######################################
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
