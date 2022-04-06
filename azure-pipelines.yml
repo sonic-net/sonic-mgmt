@@ -50,7 +50,6 @@ stages:
 
   - job:
     displayName: "kvmtest-t0"
-    timeoutInMinutes: 400
     dependsOn:
     - t0_part1
     - t0_part2
