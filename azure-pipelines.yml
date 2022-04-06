@@ -49,7 +49,6 @@ stages:
         section: part-2
 
   - job:
-    pool: sonictest
     displayName: "kvmtest-t0"
     timeoutInMinutes: 400
     dependsOn:
