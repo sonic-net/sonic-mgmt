@@ -23,7 +23,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -916,10 +916,82 @@ class QosSaiBase(QosBase):
             testParams=dutTestParams["basicParams"]
         )
 
+    def __loadSwssConfig(self, duthost):
+        """
+            Load SWSS configuration on DUT
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Raises:
+                asserts if the load SWSS config failed
+
+            Returns:
+                None
+        """
+        duthost.shell(argv=[
+            "docker",
+            "exec",
+            "swss",
+            "bash",
+            "-c",
+            "swssconfig /etc/swss/config.d/switch.json"
+        ])
+
+    def __deleteTmpSwitchConfig(self, duthost):
+        """
+            Delete temporary switch.json cofiguration files
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        result = duthost.find(path=["/tmp"], patterns=["switch.json*"])
+        for file in result["files"]:
+            duthost.file(path=file["path"], state="absent")
+
+    @pytest.fixture(scope='class', autouse=True)
+    def handleFdbAging(self, duthosts, rand_one_dut_hostname):
+        """
+            Disable FDB aging and reenable at the end of tests
+
+            Set fdb_aging_time to 0, update the swss configuration, and restore SWSS configuration afer
+            test completes
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        fdbAgingTime = 0
+
+        self.__deleteTmpSwitchConfig(duthost)
+        duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
+        duthost.replace(
+            dest='/tmp/switch.json',
+            regexp='"fdb_aging_time": ".*"',
+            replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
+            backup=True
+        )
+        duthost.shell(argv=["docker", "cp", "/tmp/switch.json", "swss:/etc/swss/config.d/switch.json"])
+        self.__loadSwssConfig(duthost)
+
+        yield
+
+        result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
+        if result["matched"] > 0:
+            duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
+            self.__loadSwssConfig(duthost)
+        self.__deleteTmpSwitchConfig(duthost)
+
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging,
     ):
         """
             Update ARP entries of QoS SAI test ports
