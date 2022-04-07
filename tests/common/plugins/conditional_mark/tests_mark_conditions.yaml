@@ -203,6 +203,15 @@ platform_tests/test_auto_negotiation.py:
     conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
 #######################################
+#####           configlet         #####
+#######################################
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
+#######################################
 #####           qos               #####
 #######################################
 qos/test_buffer_traditional.py:
