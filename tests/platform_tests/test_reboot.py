@@ -55,12 +55,15 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
- 
+
     logging.info("Sync reboot cause history queue with DUT reboot cause history queue")
     sync_reboot_history_queue_with_dut(dut)
 
     logging.info("Run %s reboot on DUT" % reboot_type)
     reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
+
+    # Append the last reboot type to the queue
+    logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)

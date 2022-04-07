@@ -26,7 +26,7 @@ def get_ifaces():
         # Skip not FP interfaces and vlan interface, like eth1.20
         if ETH_PFX not in iface:
             continue
-        
+
         ifaces.append(iface)
 
     # Sort before return
@@ -57,7 +57,7 @@ def build_ifaces_map(ifaces):
     if ptf_port_mapping_mode == "use_sub_interface":
         # override those interfaces that has sub interfaces
         for i, si in sub_ifaces:
-            iface_map[(0, i)] = si;
+            iface_map[(0, i)] = si
         return iface_map
     elif ptf_port_mapping_mode == "use_orig_interface":
         return iface_map
