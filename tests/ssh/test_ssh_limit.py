@@ -17,6 +17,9 @@ pytestmark = [
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
 HOSTSERVICE_RELOADING_TIME = 5
 
+LOGIN_MESSAGE_TIMEOUT = 10
+LOGIN_MESSAGE_BUFFER_SIZE = 1000
+
 TEMPLATE_BACKUP_COMMAND = "sudo mv {0} {0}.backup"
 TEMPLATE_RESTORE_COMMAND = "sudo mv {0}.backup {0}"
 TEMPLATE_CREATE_COMMAND = "sudo touch {0}"
@@ -94,6 +97,22 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
         restore_templates(duthost)
         restart_hostcfgd(duthost)
 
+def get_login_result(ssh_session):
+    login_channel = ssh_session.invoke_shell()
+    login_message = ""
+    start_time = time.time()
+    while (time.time() - start_time) <= LOGIN_MESSAGE_TIMEOUT:
+        if login_channel.recv_ready():
+            data = login_channel.recv(LOGIN_MESSAGE_BUFFER_SIZE)
+            if len(data) == 0:
+                # when receive zero length data, channel closed
+                break
+            login_message += data
+
+        time.sleep(1)
+
+    return login_message
+
 def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     """
         This test case will test following 2 scenarios:
@@ -115,13 +134,16 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
 
     # Create multiple login session to test maxlogins limit, first session will success
     ssh_session_1 = ssh_connect_remote(dut_ip, local_user, local_user_password)
-    login_message_1 = ssh_session_1.invoke_shell().recv(4096)
-    logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
+    login_message_1 = get_login_result(ssh_session_1)
+
+    logging.warning("Login session 1 result:\n{0}\n".format(login_message_1))
+    pytest_assert("There were too many logins for" not in login_message_1)
 
     # The second session will be disconnect by device
     ssh_session_2 = ssh_connect_remote(dut_ip, local_user, local_user_password)
-    login_message_2 = ssh_session_2.invoke_shell().recv(4096)
-    logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
+    login_message_2 = get_login_result(ssh_session_2)
+
+    logging.warning("Login session 2 result:\n{0}\n".format(login_message_2))
     pytest_assert("There were too many logins for" in login_message_2)
 
     ssh_session_1.close()
