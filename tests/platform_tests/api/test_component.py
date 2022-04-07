@@ -29,8 +29,6 @@ pytestmark = [
 ]
 
 image_list = [
-    "current",
-    "next"
 ]
 
 
