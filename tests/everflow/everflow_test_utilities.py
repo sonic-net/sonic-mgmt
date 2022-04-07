@@ -764,6 +764,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] in ["cisco-8000"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
+            expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
