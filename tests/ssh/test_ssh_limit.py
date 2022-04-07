@@ -136,14 +136,14 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     ssh_session_1 = ssh_connect_remote(dut_ip, local_user, local_user_password)
     login_message_1 = get_login_result(ssh_session_1)
 
-    logging.warning("Login session 1 result:\n{0}\n".format(login_message_1))
+    logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1)
 
     # The second session will be disconnect by device
     ssh_session_2 = ssh_connect_remote(dut_ip, local_user, local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
-    logging.warning("Login session 2 result:\n{0}\n".format(login_message_2))
+    logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
     pytest_assert("There were too many logins for" in login_message_2)
 
     ssh_session_1.close()
