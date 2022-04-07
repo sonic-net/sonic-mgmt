@@ -142,6 +142,7 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
     json_patch = [
