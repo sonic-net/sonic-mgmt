@@ -15,20 +15,18 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def show_bgp_monitor(duthost):
+def get_bgp_monitor_runningconfig(duthost):
     """ Get bgp listener config
     """
-    cmds = "show ip bgp summary"
+    cmds = "show runningconfiguration bgp"
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'],
         "'{}' failed with rc={}".format(cmds, output['rc'])
     )
 
     # Sample:
-    # Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
-    # -----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-    # 11.0.0.1       4  65100          0          0         0      0       0  never      Connect         BGPMonitor
-    bgp_listener_pattern = r".*BGPMonitor.*"
+    # neighbor 11.0.0.1 description BGPMonitor
+    bgp_listener_pattern = r"\s+neighbor.*description BGPMonitor"
     bgp_listener_config = re.findall(bgp_listener_pattern, output['stdout'])
     return bgp_listener_config
 
@@ -41,7 +39,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    original_bgp_listener_config = show_bgp_monitor(duthost)
+    original_bgp_listener_config = get_bgp_monitor_runningconfig(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -49,7 +47,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
-        current_bgp_listener_config = show_bgp_monitor(duthost)
+        current_bgp_listener_config = get_bgp_monitor_runningconfig(duthost)
         pytest_assert(set(original_bgp_listener_config) == set(current_bgp_listener_config),
             "bgp listener config are not suppose to change after test"
         )
