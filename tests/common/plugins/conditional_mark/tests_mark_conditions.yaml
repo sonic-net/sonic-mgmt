@@ -158,6 +158,15 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####           configlet         #####
+#######################################
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
+#######################################
 #####           qos               #####
 #######################################
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
