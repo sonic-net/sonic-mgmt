@@ -11,13 +11,15 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
             "GCM-AES-XPN-128": "aes128-gcm-xpn",
             "GCM-AES-XPN-256": "aes256-gcm-xpn"
         }
+        lines = [
+            'cipher {}'.format(eos_cipher_suite[cipher_suite]),
+            'key {} 0 {}'.format(primary_ckn, primary_cak),
+            'mka key-server priority {}'.format(priority)
+            ]
+        if send_sci == 'true':
+            lines.append('sci')
         host.eos_config(
-            lines = [
-                'cipher {}'.format(eos_cipher_suite[cipher_suite]),
-                'key {} 0 {}'.format(primary_ckn, primary_cak),
-                'mka key-server priority {}'.format(priority),
-                'sci'
-                ],
+            lines = lines,
             parents=['mac security', 'profile {}'.format(profile_name)])
         return
 
