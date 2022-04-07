@@ -41,7 +41,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, ["201811", "201911", "202012", "202106"])
+    skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
