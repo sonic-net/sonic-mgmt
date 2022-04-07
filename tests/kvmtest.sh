@@ -156,10 +156,12 @@ test_t0() {
       generic_config_updater/test_bgpl.py \
       generic_config_updater/test_bgp_prefix.py \
       generic_config_updater/test_bgp_speaker.py \
+      generic_config_updater/test_cacl.py \
       generic_config_updater/test_dhcp_relay.py \
       generic_config_updater/test_eth_interface.py \
       generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
+      generic_config_updater/test_monitor_config.py \
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
