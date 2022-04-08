@@ -131,10 +131,11 @@ def consume_memory(duthost, container_name, vm_workers):
     duthost.shell("docker exec {} stress -m {}".format(container_name, vm_workers), module_ignore_errors=True)
 
 
-def consume_memory_and_restart_container(duthost, container_name, vm_workers, loganalyzer, marker):
+def consume_memory_and_loganalyzer(duthost, container_name, vm_workers, loganalyzer, marker):
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
-    and checks whether the container can be stopped and restarted. Loganalyzer was leveraged
-    to check whether the log messages related to container stopped were generated.
+    and checks the syslog message to see whether the container can be stopped and restarted.
+    Loganalyzer was leveraged to verify whether the log messages related to container restarting
+    were generated or not.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -152,17 +153,10 @@ def consume_memory_and_restart_container(duthost, container_name, vm_workers, lo
     logger.info("Sleep 100 seconds to wait for the alerting messages from syslog...")
     time.sleep(100)
 
-    logger.info("Checking the alerting messages related to container stopped ...")
-    loganalyzer.analyze(marker)
-    logger.info("Found all the expected alerting messages from syslog!")
+    logger.info("Checking the alerting messages related to '{}' restart  ...".format(container_name))
+    analyzing_result = loganalyzer.analyze(marker, fail=False)
 
-    logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
-    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                           CONTAINER_CHECK_INTERVAL_SECS,
-                           0,
-                           check_container_state, duthost, container_name, True)
-    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
-    logger.info("'{}' container is restarted.".format(container_name))
+    return analyzing_result
 
 
 def check_critical_processes(duthost, container_name):
@@ -233,17 +227,45 @@ def test_memory_checker(duthosts, enum_dut_feature_container, creds, enum_rand_o
                    "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
     expected_alerting_messages = []
+    match_alerting_messages = []
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_restart_due_to_memory")
     loganalyzer.expect_regex = []
+    loganalyzer.match_regex = []
+
     expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
     expected_alerting_messages.append(".*Stopping Telemetry container.*")
     expected_alerting_messages.append(".*Stopped Telemetry container.*")
+    expected_alerting_messages.append(".*Started Telemetry container.*")
+    match_alerting_messages.append(".*ERR syncd#syncd.* err: BUSY Redis is busy running.*")
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
+    loganalyzer.match_regex.extend(match_alerting_messages)
     marker = loganalyzer.init()
 
     install_stress_utility(duthost, creds, container_name)
-    consume_memory_and_restart_container(duthost, container_name, vm_workers, loganalyzer, marker)
+    analyzing_result = consume_memory_and_loganalyzer(duthost, container_name, vm_workers, loganalyzer, marker)
+
+    if analyzing_result["total"]["match"] >= len(match_alerting_messages):
+        logger.info("Issuing the command 'sudo config reload -y' to restart containers ...")
+        cmd_result = duthost.shell("sudo config reload -y")
+        exit_code = cmd_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to execture 'sudo config reload -y' command!")
+        pytest.fail("Found error message indicating syncd process is being crashed!")
+
+    if analyzing_result["total"]["expected_match"] >= len(expected_alerting_messages):
+        logger.info("Found all the expected alerting messages from syslog!")
+
+        logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
+        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                               CONTAINER_CHECK_INTERVAL_SECS,
+                               0,
+                               check_container_state, duthost, container_name, True)
+        pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
+        logger.info("'{}' container is restarted.".format(container_name))
+    else:
+        pytest.fail("Failed to find some expected log messages and loganalyzer result is '{}'"
+                    .format(analyzing_result))
 
     remove_stress_utility(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
