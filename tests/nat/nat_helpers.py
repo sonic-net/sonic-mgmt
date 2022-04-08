@@ -41,7 +41,8 @@ ACL_TABLE_GLOBAL_NAME = "test_acl_table"
 DYNAMIC_BINDING_NAME = "test_binding"
 ACL_SUBNET = "192.168.0.0/24"
 BR_MAC = ["22:22:22:22:22:21"]
-VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": "PortChannel0001", "port_id": {"t0": ["28"],
+PORT_CHANNEL_TEMP = 'PortChannel10{}'
+VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1), "port_id": {"t0": ["28"],
                                                                                                                         "t0-64": ["0", "1"],
                                                                                                                         "t0-64-32": ["0", "1"]
                                                                                                                        }
