@@ -43,6 +43,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
+    host.create_macsec_info()
+
     try:
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
         if module_ignore_errors:

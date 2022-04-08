@@ -1,0 +1,68 @@
+import os
+import pickle
+import cryptography.exceptions
+
+import ptf
+import scapy.all as scapy
+import scapy.contrib.macsec as scapy_macsec
+
+MACSEC_INFO_FILE = "macsec_info.pickle"
+
+MACSEC_INFOS = {}
+
+
+def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
+    sa = scapy_macsec.MACsecSA(sci=sci,
+                               an=an,
+                               pn=pn,
+                               key=sak,
+                               icvlen=16,
+                               encrypt=encrypt,
+                               send_sci=send_sci,
+                               xpn_en=xpn_en,
+                               ssci=ssci,
+                               salt=salt)
+    try:
+        pkt = sa.decrypt(macsec_pkt)
+    except cryptography.exceptions.InvalidTag:
+        # Invalid MACsec packets
+        return None
+    pkt = sa.decap(pkt)
+    return pkt
+
+
+def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
+    recent_packets = []
+    packet_count = 0
+    end_time = time.time() + timeout
+    while True:
+        cur_time = time.time()
+        if cur_time > end_time:
+            break
+        ret = __origin_dp_poll(
+            test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
+        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
+        if isinstance(ret, test.dataplane.PollFailure) or exp_pkt is None or ret.device != 0:
+            return ret
+        pkt = scapy.Ether(ret.packet)
+        if pkt[scapy.Ether].type != 0x88e5:
+            if exp_pkt.pkt_match(pkt):
+                return ret
+            else:
+                continue
+        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
+        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                               send_sci, 0, xpn_en, ssci, salt)
+        if exp_pkt.pkt_match(pkt):
+            return ret
+        recent_packets.append(pkt)
+        packet_count += 1
+    return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
+
+
+__origin_dp_poll = ptf.testutils.dp_poll
+ptf.testutils.dp_poll = macsec_dp_poll
+
+if os.path.exists(MACSEC_INFO_FILE):
+    with open(MACSEC_INFO_FILE, "rb") as f:
+        MACSEC_INFOS = pickle.load(f)
