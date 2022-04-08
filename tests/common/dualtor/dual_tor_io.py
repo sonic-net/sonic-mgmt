@@ -12,7 +12,6 @@ import ptf.testutils as testutils
 from operator import itemgetter
 from itertools import groupby
 
-from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.utilities import InterruptableThread
 from natsort import natsorted
 from collections import defaultdict
@@ -28,9 +27,7 @@ LAG_BASE_MAC_PATTERN = '5c010203{:04}'
 logger = logging.getLogger(__name__)
 
 
-class DualTorIOActiveStandby:
-    """Class to conduct IO over ports in `active-standby` mode."""
-
+class DualTorIO:
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
                 io_ready, tor_vlan_port=None, send_interval=0.01):
         self.tor_pc_intf = None
@@ -77,14 +74,11 @@ class DualTorIOActiveStandby:
         self.vlan_mac = vlan_table[vlan_name]['mac']
         self.mux_cable_table = config_facts['MUX_CABLE']
 
-        self.test_interfaces = self._select_test_interfaces()
-
         self.ptf_intf_to_server_ip_map = self._generate_vlan_servers()
         self.__configure_arp_responder()
 
         logger.info("VLAN interfaces: {}".format(str(self.vlan_interfaces)))
         logger.info("PORTCHANNEL interfaces: {}".format(str(self.tor_pc_intfs)))
-        logger.info("Selected testing interfaces: %s", self.test_interfaces)
 
         self.time_to_listen = 300.0
         self.sniff_time_incr = 0
@@ -105,7 +99,7 @@ class DualTorIOActiveStandby:
         if self.tor_vlan_intf:
             self.packets_per_server = self.packets_to_send
         else:
-            self.packets_per_server = self.packets_to_send // len(self.test_interfaces)
+            self.packets_per_server = self.packets_to_send // len(self.vlan_interfaces)
 
         self.all_packets = []
 
@@ -120,21 +114,13 @@ class DualTorIOActiveStandby:
         logger.info("ALL server address:\n {}".format(server_ip_list))
 
         ptf_to_server_map = dict()
-        for i, vlan_intf in enumerate(natsorted(self.test_interfaces)):
+        for i, vlan_intf in enumerate(natsorted(self.vlan_interfaces)):
             ptf_intf = self.tor_to_ptf_intf_map[vlan_intf]
             addr = server_ip_list[i]
             ptf_to_server_map[ptf_intf] = [str(addr)]
 
         logger.debug('VLAN intf to server IP map: {}'.format(json.dumps(ptf_to_server_map, indent=4, sort_keys=True)))
         return ptf_to_server_map
-
-    def _select_test_interfaces(self):
-        """Select DUT interfaces that is in `active-standby` cable type."""
-        test_interfaces = []
-        for port, port_config in natsorted(self.mux_cable_table.items()):
-            if port_config.get("cable_type", CableType.active_standby) == CableType.active_standby:
-                test_interfaces.append(port)
-        return test_interfaces
 
     def __configure_arp_responder(self):
         """
@@ -272,7 +258,7 @@ class DualTorIOActiveStandby:
             # use only the connected server
         else:
             # Otherwise send packets to all servers
-            vlan_src_intfs = self.test_interfaces
+            vlan_src_intfs = self.vlan_interfaces
 
         ptf_intf_to_mac_map = {}
 
@@ -660,42 +646,3 @@ class DualTorIOActiveStandby:
             return True
         except Exception as err:
             return False
-
-
-class DualTorIOActiveActive(object):
-    """Class to conduct IO over ports in `active-active` mode."""
-
-    def generate_from_server_to_t1(self):
-        """
-        @summary: Generate (not send) the packets to be sent from server to T1
-        """
-        pass
-
-    def generate_from_t1_to_server(self):
-        """
-        @summary: Generate (not send) the packets to be sent from T1 to server
-        """
-        pass
-
-    def start_io_test(self, traffic_generator=None):
-        """
-        @summary: The entry point to start the TOR dataplane I/O test.
-        Args:
-            traffic_generator (function): A callback function to decide the
-                traffic direction (T1 to server / server to T1)
-                Allowed values: self.generate_from_t1_to_server or
-                self.generate_from_server_to_t1
-        """
-        pass
-
-    def examine_flow(self):
-        """
-        @summary: This method examines packets collected by sniffer thread
-            The method compares TCP payloads of the packets one by one (assuming all
-            payloads are consecutive integers), and the losses if found - are treated
-            as disruptions in Dataplane forwarding. All disruptions are saved to
-            self.lost_packets dictionary, in format:
-            disrupt_start_id = (missing_packets_count, disrupt_time,
-            disrupt_start_timestamp, disrupt_stop_timestamp)
-        """
-        pass
