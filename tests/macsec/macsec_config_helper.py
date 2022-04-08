@@ -1,6 +1,20 @@
+import time
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from macsec_helper import *
+from macsec_platform_helper import global_cmd
+from macsec_helper import get_mka_session
+
+
+__all__ = [
+    'enable_macsec_feature',
+    'disable_macsec_feature',
+    'setup_macsec_configuration',
+    'cleanup_macsec_configuration',
+    'set_macsec_profile',
+    'delete_macsec_profile',
+    'enable_macsec_port',
+    'disable_macsec_port'
+]
 
 
 def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
@@ -111,7 +125,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     for d in devices:
         if isinstance(d, EosHost):
             continue
-        assert wait_until(30, 1, 0, lambda: not get_mka_session(d))
+        assert wait_until(30, 1, 0, lambda d=d: not get_mka_session(d))
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
@@ -136,13 +150,3 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
-
-def startup_all_ctrl_links(ctrl_links):
-    # The ctrl links may be shutdowned by unexpected exit on the TestFaultHandling
-    # So, startup all ctrl links
-    for _, nbr in ctrl_links.items():
-        if isinstance(nbr["host"], EosHost):
-            continue
-        nbr_eth_port = get_eth_ifname(
-            nbr["host"], nbr["port"])
-        nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))

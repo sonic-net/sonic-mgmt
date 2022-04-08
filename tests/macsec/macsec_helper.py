@@ -10,8 +10,22 @@ import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from macsec_common_helper import *
-from macsec_platform_helper import *
+from macsec_common_helper import convert_on_off_to_boolean
+from macsec_platform_helper import sonic_db_cli
+
+
+__all__ = [
+    'check_wpa_supplicant_process',
+    'check_appl_db',
+    'check_mka_session',
+    'check_macsec_pkt',
+    'create_pkt',
+    'create_exp_pkt',
+    'get_appl_db',
+    'get_macsec_attr',
+    'get_mka_session',
+    'get_sci'
+]
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
