@@ -1,12 +1,12 @@
 """
-The 'stress' utility is leveraged to increase memory usage of a container continuously, then
+The 'stress' utility is leveraged to increase th memory usage of a container continuously, then
 1) Test whether that container can be restarted by the script ran by Monit.
-2) Test whether that container can be restarted; If that container was restarted, then
-   test the script ran by Monit was unable to restart the container anymore due to Monit
-   failed to reset its internal counter.
-3) Test whether that container can be restarted; If that container was restarted, then
-   test the script ran by Monit was able to restart the container with the help of new
-   Monit syntax although Monit failed to reset its internal counter.
+2) Test whether that container can be restarted by the script ran by Monit; If that container
+   was restarted, then test the script ran by Monit was unable to restart the container anymore
+   due to Monit failed to reset its internal counter.
+3) Test whether that container can be restarted by the script ran by Monit; If that container
+   was restarted, then test the script ran by Monit was able to restart the container with the
+   help of new Monit syntax although Monit failed to reset its internal counter.
 """
 import logging
 from multiprocessing.pool import ThreadPool
@@ -86,12 +86,11 @@ def restore_monit_config_files(duthost):
 
     Returns:
         None.
-
     """
     logger.info("Restoring original Monit configuration files on DuT '{}' ...".format(duthost.hostname))
     duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
     duthost.shell("sudo mv -f /tmp/monit_telemetry /etc/monit/conf.d/")
-    logger.info("Original Monit configuration files on DuT '{}' is restored.".format(duthost.hostname))
+    logger.info("Original Monit configuration files on DuT '{}' are restored.".format(duthost.hostname))
 
 
 def restart_monit_service(duthost):
@@ -101,7 +100,6 @@ def restart_monit_service(duthost):
 
     Returns:
         None.
-
     """
     logger.info("Restarting Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -125,7 +123,7 @@ def install_stress_utility(duthost, creds, container_name):
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
 
     # Shutdown bgp for having ability to install stress tool
-    logger.info("Shuting down all BGP sessions ...")
+    logger.info("Shutting down all BGP sessions ...")
     duthost.shell("config bgp shutdown all")
     logger.info("All BGP sessions are shut down!...")
     install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy={} \
@@ -138,12 +136,12 @@ def install_stress_utility(duthost, creds, container_name):
 
 
 def remove_stress_utility(duthost, container_name):
-    """Removes the 'stress' utility from the container and brings up BGP sessions
+    """Removes the 'stress' utility from container and brings up BGP sessions
     on DuT.
 
     Args:
         duthost: The AnsibleHost object of DuT.
-        container_name: Name of container.
+        container_name: A string represents the name of container.
 
     Returns:
         None.
@@ -162,7 +160,7 @@ def remove_stress_utility(duthost, container_name):
 @pytest.fixture
 def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
                            enum_rand_one_per_hwsku_frontend_hostname, request):
-    """Backups Monit configuration files, customizes configuration files and
+    """Backups Monit configuration files, customizes Monit configuration files and
     restarts Monit service before testing. Restores original Monit configuration files
     and restart Monit service after testing.
 
@@ -179,8 +177,8 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
     duthost = duthosts[dut_name]
 
     install_stress_utility(duthost, creds, container_name)
-    backup_monit_config_files(duthost)
 
+    backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, request.param)
     restart_monit_service(duthost)
 
@@ -188,6 +186,7 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
+
     restart_container(duthost, container_name)
     remove_stress_utility(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
@@ -248,18 +247,17 @@ def postcheck_critical_processes(duthost, container_name):
 
 def consumes_memory_and_checks_container_restart(duthost, container_name, vm_workers):
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
-    and checks whether the container can be stopped and restarted. Loganalyzer was leveraged
+    and checks whether the container can be stopped and restarted. Loganalyzer is leveraged
     to check whether the log messages related to container stopped were generated.
 
     Args:
         duthost: The AnsibleHost object of DuT.
-        container_name: Name of container.
+        container_name: A string represents the name of container.
         vm_workers: Number of workers which does the spinning on malloc()/free()
           to consume memory.
 
     Returns:
         None.
-
     """
     expected_alerting_messages = []
     expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
@@ -318,7 +316,7 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
     and checks whether the container can be stopped and restarted. After container was restarted,
     'stress' utility will be invoked again to consume memory and checks whether Monit was able to
-    restart this contianer or not with or without help of new syntax.
+    restart this contianer with or without help of new syntax.
     Loganalyzer is leveraged to check whether the log messages related to container stopped
     and started were generated.
 
@@ -327,10 +325,11 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
         container_name: Name of container.
         vm_workers: Number of workers which does the spinning on malloc()/free()
           to consume memory.
+        new_syntax_enabled: Checks to make sure container will be restarted if it is set to be 
+          `True`.
 
     Returns:
         None.
-
     """
     expected_alerting_messages = []
     expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
