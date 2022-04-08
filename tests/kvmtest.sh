@@ -85,10 +85,11 @@ RUNTEST_CLI_COMMON_OPTS="\
 -k debug \
 -l warning \
 -m individual \
--q 0 \
+-q 1 \
 -a False \
 -O \
--r"
+-r \
+-e --allow_recover"
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
