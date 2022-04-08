@@ -2119,48 +2119,64 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if actual_pkts_num_leak_out > pkts_num_leak_out:
                     send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
-            q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
-            if pkts_num_fill_min:
-                assert(q_wm_res[queue] == 0)
+            if asic_type == 'cisco-8000':
+                pkt_count_list = [50,1000,4000,7000,12500]
+                q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+                q_wm_res_base = q_wm_res[queue]
+                for pkt_cnt in pkt_count_list:
+                    q_wm_res_base = q_wm_res[queue]
+                    sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+                    send_packet(self, src_port_id, pkt, pkt_cnt)
+                    sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+                    time.sleep(8)
+                    q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+                    # verify if new wm value is greater than or equal to base wm value
+                    # Also verify that new wm value is greater than or equal to the number of packets sent
+                    assert(q_wm_res[queue] >= q_wm_res_base)
+                    assert((q_wm_res[queue]/cell_size) >= pkt_cnt)
             else:
-                assert(q_wm_res[queue] <= 1 * cell_size)
+                q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+                print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
+                if pkts_num_fill_min:
+                    assert(q_wm_res[queue] == 0)
+                else:
+                    assert(q_wm_res[queue] <= 1 * cell_size)
 
-            # send packet batch of fixed packet numbers to fill queue shared
-            # first round sends only 1 packet
-            expected_wm = 0
-            total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
-            pkts_inc = (total_shared / cell_occupancy) >> 2
-            pkts_num = 1 + margin
-            fragment = 0
-            while (expected_wm < total_shared - fragment):
-                expected_wm += pkts_num * cell_occupancy
-                if (expected_wm > total_shared):
-                    diff = (expected_wm - total_shared + cell_occupancy - 1) / cell_occupancy
-                    pkts_num -= diff
-                    expected_wm -= diff * cell_occupancy
-                    fragment = total_shared - expected_wm
-                print >> sys.stderr, "pkts num to send: %d, total pkts: %d, queue shared: %d" % (pkts_num, expected_wm, total_shared)
+                # send packet batch of fixed packet numbers to fill queue shared
+                # first round sends only 1 packet
+                expected_wm = 0
+                total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
+                pkts_inc = (total_shared / cell_occupancy) >> 2
+                pkts_num = 1 + margin
+                fragment = 0
+                while (expected_wm < total_shared - fragment):
+                    expected_wm += pkts_num * cell_occupancy
+                    if (expected_wm > total_shared):
+                        diff = (expected_wm - total_shared + cell_occupancy - 1) / cell_occupancy
+                        pkts_num -= diff
+                        expected_wm -= diff * cell_occupancy
+                        fragment = total_shared - expected_wm
+                    print >> sys.stderr, "pkts num to send: %d, total pkts: %d, queue shared: %d" % (pkts_num, expected_wm, total_shared)
 
+                    send_packet(self, src_port_id, pkt, pkts_num)
+                    time.sleep(8)
+                    # these counters are clear on read, ensure counter polling
+                    # is disabled before the test
+                    q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+                    print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
+                    assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
+                    assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
+
+                    pkts_num = pkts_inc
+
+                # overflow the shared pool
                 send_packet(self, src_port_id, pkt, pkts_num)
                 time.sleep(8)
-                # these counters are clear on read, ensure counter polling
-                # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
+                print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
+                assert(fragment < cell_occupancy)
+                assert(expected_wm * cell_size <= q_wm_res[queue])
                 assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
-                assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
-
-                pkts_num = pkts_inc
-
-            # overflow the shared pool
-            send_packet(self, src_port_id, pkt, pkts_num)
-            time.sleep(8)
-            q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
-            print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
-            assert(fragment < cell_occupancy)
-            assert(expected_wm * cell_size <= q_wm_res[queue])
-            assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
