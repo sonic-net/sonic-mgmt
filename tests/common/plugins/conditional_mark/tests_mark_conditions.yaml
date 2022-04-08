@@ -1,4 +1,24 @@
 #######################################
+#####            acl              #####
+#######################################
+acl/test_acl_outer_vlan.py:
+  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000 
+  #For the current release, will mark the related test cases as XFAIL
+  xfail:
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+    conditions:
+      - asic_type=="cisco-8000"
+
+#######################################
+#####            bgp              #####
+#######################################
+bgp/test_bgp_slb.py:
+  skip:
+    reason: "Skip over topologies which doesn't support slb"
+    conditions:
+     - "'backend' in topo_name or 'mgmttor' in topo_name"
+
+#######################################
 #####            cacl             #####
 #######################################
 cacl/test_cacl_application.py::test_cacl_application:
@@ -85,6 +105,15 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
       - "asic_type=='cisco-8000'"
 
 #######################################
+#####   generic_config_updater    #####
+#######################################
+generic_config_updater/test_eth_interface.py::test_replace_fec:
+  skip:
+    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    conditions:
+      - "platform in ['x86_64-kvm_x86_64-r0']"
+
+#######################################
 #####      iface_namingmode       #####
 #######################################
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
@@ -107,6 +136,15 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+#######################################
+#####           macsec            #####
+#######################################
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####           ntp               #####
@@ -138,9 +176,50 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
 
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
+
+#######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: "chassisd platform daemon introduced in 202106"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
+    conditions: https://github.com/Azure/sonic-mgmt/issues/5447
+
+#######################################
+#####           configlet         #####
+#######################################
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 #######################################
 #####           qos               #####
 #######################################
+qos/test_buffer_traditional.py:
+  skip:
+    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -149,12 +228,6 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # traffic generator to generate pause frames, skipping this here.
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
-
-qos/test_buffer_traditional.py:
-  skip:
-    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
 
 qos/test_qos_sai.py:
   skip:
@@ -180,6 +253,11 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  skip:
+    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 #######################################
 #####         restapi             #####
 #######################################
@@ -202,7 +280,7 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####      show_techsupport       #####
 #######################################
-show_techsupport/test_techsupport.py::test_techsupport[:
+show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
     reason: "Generic internal image issue"
     strict: True

@@ -152,9 +152,19 @@ test_t0() {
       container_checker/test_container_checker.py \
       process_monitoring/test_critical_process_monitoring.py \
       system_health/test_system_status.py \
+      generic_config_updater/test_aaa.py \
+      generic_config_updater/test_bgpl.py \
+      generic_config_updater/test_bgp_prefix.py \
+      generic_config_updater/test_bgp_speaker.py \
+      generic_config_updater/test_cacl.py \
+      generic_config_updater/test_dhcp_relay.py \
+      generic_config_updater/test_eth_interface.py \
+      generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
-      generic_config_updater/test_vlan_interface.py \
+      generic_config_updater/test_monitor_config.py \
       generic_config_updater/test_portchannel_interface.py \
+      generic_config_updater/test_syslog.py \
+      generic_config_updater/test_vlan_interface.py \
       show_techsupport/test_techsupport_no_secret.py"
 
       pushd $SONIC_MGMT_DIR/tests
@@ -189,7 +199,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec"
     popd
 }
 
