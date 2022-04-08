@@ -1,5 +1,5 @@
 """
-The 'stress' utility is leveraged to increase th memory usage of a container continuously, then
+The 'stress' utility is leveraged to increase the memory usage of a container continuously, then
 1) Test whether that container can be restarted by the script ran by Monit.
 2) Test whether that container can be restarted by the script ran by Monit; If that container
    was restarted, then test the script ran by Monit was unable to restart the container anymore
