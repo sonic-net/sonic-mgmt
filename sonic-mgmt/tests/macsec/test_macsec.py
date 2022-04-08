@@ -1,8 +1,12 @@
 from time import sleep
 import pytest
 import logging
+import re
+import scapy.all as scapy
+import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
+from tests.common.devices.eos import EosHost
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *

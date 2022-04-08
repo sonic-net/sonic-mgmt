@@ -21,6 +21,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.helpers.dut_utils import get_program_info
+from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder # lgtm[py/unused-import]
 
 
 pytestmark = [
@@ -29,7 +30,9 @@ pytestmark = [
 
 PACKET_COUNT = 1000
 swss_mem_percent = 0
-
+# It's normal to see the mem usage increased a little bit
+# set threshold buffer to 0.02%
+MEM_THRESHOLD_BUFFER = 0.02
 
 def validate_neighbor_entry_exist(duthost, neighbor_addr):
     """Validate if neighbor entry exist on duthost
@@ -93,7 +96,7 @@ def check_memory_leak(duthost):
         logging.info("SWSS container original MEM USAGE:{} original percent: {}%"
                     .format(mem_usage, swss_mem_percent))
         return False
-    elif mem_percent > swss_mem_percent:
+    elif mem_percent > swss_mem_percent + MEM_THRESHOLD_BUFFER:
         logging.error("SWSS container MEM percent is increased. current percent:{}%, original percent: {}%"
                     .format(mem_percent, swss_mem_percent))
         return True
@@ -102,7 +105,8 @@ def check_memory_leak(duthost):
 def test_tunnel_memory_leak(
     toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, ptfhost, 
-    ptfadapter, conn_graph_facts, tbinfo, vmhost
+    ptfadapter, conn_graph_facts, tbinfo, vmhost,
+    run_arp_responder
 ):
     """
     Test if there is memory leak for service tunnel_packet_handler.
@@ -165,7 +169,7 @@ def test_tunnel_memory_leak(
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
-                conn_graph_facts, exp_pkt, existing=True, is_mocked=True
+                conn_graph_facts, exp_pkt, existing=True, is_mocked=False
             )
             with rm_neighbor, server_traffic_monitor:
                 testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
@@ -176,7 +180,6 @@ def test_tunnel_memory_leak(
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-
             pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
                         "Received {} expected packets for server {}, drop more than 50%."
                         .format(len(server_traffic_monitor.matched_packets), server_ipv4))

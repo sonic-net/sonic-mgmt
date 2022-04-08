@@ -9,6 +9,8 @@ import ptf.testutils as testutils
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+import scapy.all as scapy2
+from threading import Thread
 
 
 # Helper function to increment an IP address
@@ -98,6 +100,8 @@ class DHCPTest(DataplaneBaseTest):
         self.test_params = testutils.test_params_get()
 
         self.hostname = self.test_params['hostname']
+        self.verified_option82 = False
+        
         if self.test_params.has_key('other_client_port'):
             self.other_client_port = ast.literal_eval(self.test_params['other_client_port'])
 
@@ -412,6 +416,26 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
         testutils.send_packet(self, self.client_port_index, dhcp_discover)
 
+    #Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and 
+    #once the packet is recieved checking for the destination and looking into options and verifying 
+    #the option82 info
+
+    def pkt_callback(self, pkt):
+        if pkt.haslayer(scapy2.IP) and pkt.haslayer(scapy2.DHCP):
+            if pkt.getlayer(scapy2.IP).dst in [self.server_ip] and pkt.getlayer(scapy2.DHCP) is not None:
+                self.verified_option82 = False
+                pkt_options = ''
+                for option in pkt.getlayer(scapy2.DHCP).options:
+                    if option[0] == 'relay_agent_Information':
+                        pkt_options = option[1]
+                        break
+                if self.option82 in pkt_options:
+                    self.verified_option82 = True
+
+    def Sniffer(self,iface):
+        scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=3)
+
+
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
     # packet.
@@ -642,6 +666,14 @@ class DHCPTest(DataplaneBaseTest):
             self.assertTrue(False,"DHCP Relay packet not matched or Padded extra on server side")
 
     def runTest(self):
+        t1 = Thread(target=self.Sniffer, args=("eth28",))
+        t1.start()
+        t2 = Thread(target=self.Sniffer, args=("eth29",))
+        t2.start()
+        t3 = Thread(target=self.Sniffer, args=("eth30",))
+        t3.start()
+        t4 = Thread(target=self.Sniffer, args=("eth31",))
+        t4.start()
         self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
         self.verify_relayed_discover()
         self.server_send_offer()
@@ -650,9 +682,10 @@ class DHCPTest(DataplaneBaseTest):
         self.verify_relayed_request()
         self.server_send_ack()
         self.verify_ack_received()
+        self.assertTrue(self.verified_option82,"Failed: Verifying option 82")
 
         ## Below verification will be done only when client port is set in ptf_runner
         if self.test_params.has_key('other_client_port'):
             self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
-
+        

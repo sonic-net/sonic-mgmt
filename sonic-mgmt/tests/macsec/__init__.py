@@ -3,6 +3,7 @@ import os
 import natsort
 import json
 import collections
+import logging
 from ipaddress import ip_address, IPv4Address
 
 from macsec_config_helper import enable_macsec_feature
@@ -121,7 +122,7 @@ def find_links_from_nbr(duthost, tbinfo, nbrhosts):
 def ctrl_links(duthost, tbinfo, nbrhosts):
     assert len(nbrhosts) > 1
     ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
-    logging.info("Controlled links {}".format(ctrl_nbr_names))
+    logger.info("Controlled links {}".format(ctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
 
@@ -137,7 +138,7 @@ def unctrl_links(duthost, tbinfo, nbrhosts, ctrl_links):
     for _, nbr in ctrl_links.items():
         if nbr["name"] in unctrl_nbr_names:
             unctrl_nbr_names.remove(nbr["name"])
-    logging.info("Uncontrolled links {}".format(unctrl_nbr_names))
+    logger.info("Uncontrolled links {}".format(unctrl_nbr_names))
     nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
     return find_links_from_nbr(duthost, tbinfo, nbrhosts)
 

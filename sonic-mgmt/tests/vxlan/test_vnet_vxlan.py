@@ -131,7 +131,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
             duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
         apply_dut_config_files(duthost, vnet_test_params)
         # Check arp table status in a loop with delay.
-        pytest_assert(wait_until(60, 10, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
+        pytest_assert(wait_until(120, 20, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":

@@ -7,6 +7,18 @@ import pytest
 from tests.common.devices.eos import EosHost
 
 
+__all__ = [
+    'find_portchannel_from_member',
+    'get_eth_ifname',
+    'get_macsec_ifname',
+    'get_portchannel',
+    'get_lldp_list',
+    'get_platform',
+    'global_cmd',
+    'sonic_db_cli'
+]
+
+
 def global_cmd(duthost, nbrhosts, cmd):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(duthost.command, args=(cmd,))
