@@ -12,6 +12,7 @@ from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 logger = logging.getLogger(__name__)
 
+
 class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
@@ -124,11 +125,9 @@ class snmpPduController(PduControllerBase):
         else:
             pass
 
-
     def _build_outlet_maps(self, port_oid, label):
         self.port_oid_dict[port_oid] = { 'label' : label }
         self.port_label_dict[label] = { 'port_oid' : port_oid }
-
 
     def _probe_lane(self, lane_id, cmdGen, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
@@ -151,7 +150,6 @@ class snmpPduController(PduControllerBase):
                     label = val.prettyPrint().lower()
                     self._build_outlet_maps(port_oid, label)
 
-
     def _get_pdu_ports(self):
         """
         @summary: Helper method for getting PDU ports connected to PSUs of DUT
@@ -169,7 +167,6 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-
     def __init__(self, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
@@ -183,7 +180,6 @@ class snmpPduController(PduControllerBase):
         self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
-
 
     def turn_on_outlet(self, outlet):
         """
@@ -239,10 +235,9 @@ class snmpPduController(PduControllerBase):
             (port_oid, rfc1902.Integer(self.CONTROL_OFF))
         )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
+            logging.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
-
 
     def _get_one_outlet_power(self, cmdGen, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
@@ -265,7 +260,6 @@ class snmpPduController(PduControllerBase):
                 status['output_watts'] = current_val
                 return
 
-
     def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
@@ -286,7 +280,6 @@ class snmpPduController(PduControllerBase):
                 return status
 
         return None
-
 
     def get_outlet_status(self, outlet=None, hostname=None):
         """
