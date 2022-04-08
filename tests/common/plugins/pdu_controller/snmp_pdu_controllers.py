@@ -54,6 +54,8 @@ class snmpPduController(PduControllerBase):
             self.pduType = "APC"
         if 'Emerson' in pdu:
             self.pduType = 'Emerson'
+        if 'Vertiv Geist Upgradeable PDU' in pdu:
+            self.pduType = 'Vertiv'
         return
 
     def pduCntrlOid(self):
@@ -77,6 +79,11 @@ class snmpPduController(PduControllerBase):
         SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1"
         SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.2"
         SENTRY4_PORT_POWER_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.9"
+        # MIB OID for 'Vertiv Geist Upgradeable PDU'
+        VERTIV_PORT_NAME_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.3"
+        VERTIV_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.4"
+        VERTIV_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.6"
+        VERTIV_PORT_POWER_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.6.1.12"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -102,6 +109,16 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID    = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = SENTRY4_PORT_CONTROL_BASE_OID
             self.PORT_POWER_BASE_OID     = SENTRY4_PORT_POWER_BASE_OID
+            self.has_lanes = False
+            self.max_lanes = 1
+        elif self.pduType == "Vertiv":
+            self.PORT_NAME_BASE_OID = VERTIV_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = VERTIV_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = VERTIV_PORT_CONTROL_BASE_OID
+            self.PORT_POWER_BASE_OID = VERTIV_PORT_POWER_BASE_OID
+            self.STATUS_OFF = "2"
+            self.CONTROL_ON = "2"
+            self.CONTROL_OFF = "4"
             self.has_lanes = False
             self.max_lanes = 1
         else:
