@@ -367,27 +367,44 @@ class DHCP6Test(NoPolicyTest):
     def contruct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
-        packet = testutils.simple_udp_packet(
+        packet = testutils.simple_udpv6_packet(
             pktlen=100,
             eth_dst='33:33:00:01:00:02',
             eth_src=src_mac,
-            dl_vlan_enable=False,
-            vlan_vid=0,
-            vlan_pcp=0,
-            dl_vlan_cfi=0,
-            ip_src='::1',
-            ip_dst='ff02::1::2',
-            ip_tos=0,
-            ip_ttl=64,
+            ipv6_src='::1',
+            ipv6_dst='ff02::1:2',
             udp_sport=546,
-            udp_dport=547,
-            ip_ihl=None,
-            ip_options=False,
-            with_udp_chksum=True
+            udp_dport=547
         )
 
         return packet
+    
+ #SONIC configuration has no packets to CPU for DHCPv6-T1 Topo
+class DHCP6TopoT1Test(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # T1 DHCP6 no packet to packet to CPU so police rate is 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
 
+    def runTest(self):
+        self.log("DHCP6TopoT1Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udpv6_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            ipv6_src='::1',
+            ipv6_dst='ff02::1:2',
+            udp_sport=546,
+            udp_dport=547
+        )
+
+        return packet
 
 # SONIC configuration has no policer limiting for LLDP
 class LLDPTest(NoPolicyTest):
