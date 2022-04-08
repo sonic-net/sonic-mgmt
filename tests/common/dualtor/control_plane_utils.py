@@ -1,9 +1,7 @@
 """Contains functions used to verify control plane(APP_DB, STATE_DB) values."""
-import collections
 import json
 import logging
 
-from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -41,7 +39,7 @@ DB_CHECK_FIELD_MAP = {
 
 class DBChecker:
 
-    def __init__(self, duthost, state, health, intf_names='all', cable_type=CableType.active_standby):
+    def __init__(self, duthost, state, health, intf_names='all'):
         """
         Create a DBChecker object
         Args:
@@ -53,14 +51,11 @@ class DBChecker:
                         MUX_LINKMGR_TABLE table (only needed for STATE_DB)
             intf_names: A list of the PORTNAME to check in each table, or 'all'
                         (by default) to check all MUX_CABLE interfaces
-            cable_type: Select ports with specified cable_type to check.
         """
         self.duthost = duthost
         self.state = state
         self.health = health
         self.intf_names = intf_names
-        self.cable_type = cable_type
-        self._parse_intf_names()
         self.mismatch_ports = {}
 
     def _dump_db(self, db, key_pattern):
@@ -82,19 +77,6 @@ class DBChecker:
                                         indent=4,
                                         sort_keys=True)))
 
-    def _parse_intf_names(self):
-        mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
-        selected_intfs = set(
-            _ for _ in mux_cable_table if mux_cable_table[_].get("cable_type", CableType.active_standby) == self.cable_type
-        )
-        if self.intf_names == 'all':
-            self.intf_names = selected_intfs
-        else:
-            for intf in self.intf_names:
-                if intf not in selected_intfs:
-                    raise ValueError("Interface %s not in %s cable type" % (intf, self.cable_type))
-            self.intf_names = set(self.intf_names)
-
     def get_mismatched_ports(self, db):
         """
         Query db on `tor_host` and check if the mux-related fields match the
@@ -109,6 +91,10 @@ class DBChecker:
         logger.info("Verifying {} values on {}: "
                     "expected state = {}, expected health = {}".format(
                                 DB_NAME_MAP[db], self.duthost, self.state, self.health))
+        if self.intf_names == 'all':
+            mux_intfs = self.duthost.get_running_config_facts()['MUX_CABLE'].keys()
+        else:
+            mux_intfs = self.intf_names
 
         mismatch_ports = {}
         separator = DB_SEPARATOR_MAP[db]
@@ -126,7 +112,7 @@ class DBChecker:
             else:
                 target_value = self.state
 
-            for intf_name in self.intf_names:
+            for intf_name in mux_intfs:
                 table_key = '{}{}{}'.format(table, separator, intf_name)
 
                 if db_dump[table_key]['value'][field] != target_value:
@@ -137,33 +123,17 @@ class DBChecker:
         return not bool(mismatch_ports)
 
 
-def verify_tor_states(
-    expected_active_host, expected_standby_host,
-    expected_standby_health='healthy', intf_names='all',
-    cable_type=CableType.active_standby
-):
+def verify_tor_states(expected_active_host, expected_standby_host,
+                      expected_standby_health='healthy', intf_names='all'):
     """
     Verifies that the expected states for active and standby ToRs are
     reflected in APP_DB and STATE_DB on each device
     """
-    if isinstance(expected_active_host, collections.Iterable):
-        for duthost in expected_active_host:
-            db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
-            db_checker.verify_db(APP_DB)
-            db_checker.verify_db(STATE_DB)
-    elif expected_active_host is not None:
-        duthost = expected_active_host
-        db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
-        db_checker.verify_db(APP_DB)
-        db_checker.verify_db(STATE_DB)
 
-    if isinstance(expected_standby_host, collections.Iterable):
-        for duthost in expected_standby_host:
-            db_checker = DBChecker(duthost, 'standby', expected_standby_health, intf_names=intf_names, cable_type=cable_type)
-            db_checker.verify_db(APP_DB)
-            db_checker.verify_db(STATE_DB)
-    elif expected_standby_host is not None:
-        duthost = expected_standby_host
-        db_checker = DBChecker(duthost, 'standby', expected_standby_health, intf_names=intf_names)
-        db_checker.verify_db(APP_DB)
-        db_checker.verify_db(STATE_DB)
+    active_db_checker = DBChecker(expected_active_host, 'active', 'healthy', intf_names=intf_names)
+    standby_db_checker = DBChecker(expected_standby_host, 'standby', expected_standby_health, intf_names=intf_names)
+
+    active_db_checker.verify_db(APP_DB)
+    active_db_checker.verify_db(STATE_DB)
+    standby_db_checker.verify_db(APP_DB)
+    standby_db_checker.verify_db(STATE_DB)
