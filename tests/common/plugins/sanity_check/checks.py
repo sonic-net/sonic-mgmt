@@ -269,7 +269,10 @@ def _check_monit_services_status(check_result, monit_services_status):
     check_result["services_status"] = {}
     for service_name, service_info in monit_services_status.items():
         check_result["services_status"].update({service_name: service_info["service_status"]})
-        if service_info["service_status"] == "Not monitored":
+        # Temporarily skips checking the service status of `acms|acms` since `acms`
+        # process in ACMS container was not running in lab devices. We will check
+        # again once `acms` process is able to run in lab devices.
+        if service_name == "acms|acms" or service_info["service_status"] == "Not monitored":
             continue
         if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
             or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
