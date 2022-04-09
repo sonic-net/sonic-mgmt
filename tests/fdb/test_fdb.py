@@ -165,20 +165,23 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, des
     # on server side during this period. So tolerant to retry 3 times before complain the assert.
 
     retry_count = 3
+    pkt_count = 1
     for _ in range(retry_count):
         try:
             ptfadapter.dataplane.flush()
-            testutils.send(ptfadapter, source_ports[0], pkt)
+            testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
             if len(dest_ports) == 1:
                 testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             else:
                 testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             break
         except:
+            # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
+            pkt_count = 10
             pass
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
-        logger.debug("Show mac results {}".format(result['stdout']))
+        logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
                              "Dest MAC in fdb is {}".format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
 
