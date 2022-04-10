@@ -790,7 +790,7 @@ class VMTopology(object):
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, dut_iface_id, injected_iface_id))
         else:
             # Add flow from external iface to a VM and a ptf container
-            # Allow BGP, IPinIP, ICMP, SNMP packets and layer2 packets from DUT to neighbors
+            # Allow BGP, IPinIP, fragmented packets, ICMP, SNMP packets and layer2 packets from DUT to neighbors
             # Block other traffic from DUT to EOS for EOS's stability,
             # Allow all traffic from DUT to PTF.
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tp_src=179,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
@@ -798,6 +798,8 @@ class VMTopology(object):
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,tcp6,in_port=%s,tp_src=179,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,tcp6,in_port=%s,tp_dst=179,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=4,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,ip,in_port=%s,nw_frag=yes,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,ipv6,in_port=%s,nw_frag=yes,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,icmp,in_port=%s,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,icmp6,in_port=%s,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=8,udp,in_port=%s,udp_src=161,action=output:%s,%s" % (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
