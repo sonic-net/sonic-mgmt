@@ -93,6 +93,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci):
+    # If setup new MACsec configuration, forcefully reload MACsec information
     set_macsec_profile(duthost, profile_name, default_priority,
                        cipher_suite, primary_cak, primary_ckn, policy, send_sci)
     i = 0

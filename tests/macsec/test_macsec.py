@@ -93,6 +93,8 @@ class TestDataPlane():
         down_link = downstream_links.values()[0]
         dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
 
+        setattr(ptfadapter, "force_reload_macsec", True)
+
         for portchannel in get_portchannel(duthost).values():
             members = portchannel["members"]
 

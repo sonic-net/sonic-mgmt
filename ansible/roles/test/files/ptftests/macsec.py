@@ -1,6 +1,7 @@
 import os
 import pickle
 import cryptography.exceptions
+import time
 
 import ptf
 import scapy.all as scapy
@@ -34,13 +35,13 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
     recent_packets = []
     packet_count = 0
-    end_time = time.time() + timeout
+    if timeout is None:
+        timeout = ptf.ptfutils.default_timeout
     while True:
-        cur_time = time.time()
-        if cur_time > end_time:
-            break
+        start_time = time.time()
         ret = __origin_dp_poll(
             test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
+        timeout -= time.time() - start_time
         # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
         if isinstance(ret, test.dataplane.PollFailure) or exp_pkt is None or ret.device != 0:
             return ret
@@ -57,6 +58,8 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
             return ret
         recent_packets.append(pkt)
         packet_count += 1
+        if timeout <= 0:
+            break
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 

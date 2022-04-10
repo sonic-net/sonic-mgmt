@@ -36,7 +36,7 @@ class PTFHost(AnsibleHostBase):
         for port_name, injected_port_id in self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items():
             try:
                 macsec_info[injected_port_id] = load_macsec_info(
-                    self.duthost, port_name)
+                    self.duthost, port_name, force_reload=True)
             except KeyError:
                 # If key error, It means the MACsec info isn't enabled in the specified port.
                 logging.info(
