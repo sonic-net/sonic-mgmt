@@ -32,11 +32,13 @@ class DisableLogrotateCronContext:
 
     def __enter__(self):
         """
-        Disable logrotate cron task and make sure the running logrotate is stopped.
+        Disable logrotate cron task / systemd timer and make sure the running logrotate is stopped.
         """
+        # Disable logrotate systemd timer
+        self.ansible_host.command("systemctl stop logrotate.timer")
         # Disable logrotate cron task
         self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
-        logging.debug("Waiting for logrotate from previous cron task run to finish")
+        logging.debug("Waiting for logrotate from previous cron task or systemd timer run to finish")
         # Wait for logrotate from previous cron task run to finish
         end = time.time() + 60
         while time.time() < end:
@@ -53,10 +55,12 @@ class DisableLogrotateCronContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Restore logrotate cron task.
+        Restore logrotate cron task and systemd timer.
         """
         # Enable logrotate cron task back
         self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+        # Enable logrotate systemd timer
+        self.ansible_host.command("systemctl start logrotate.timer")
 
 
 class LogAnalyzerError(Exception):
