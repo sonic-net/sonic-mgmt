@@ -68,7 +68,7 @@ NEXTHOP_PREFIX = 100
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
+    pytest.mark.topology("t1"),
     pytest.mark.sanity_check(post_check=True)
 ]
 
@@ -346,9 +346,9 @@ def apply_config_in_swss(duthost, config, name="swss_"):
 
     duthost.copy(content=config, dest="/tmp/{}".format(filename))
     duthost.shell('docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(filename))
+    time.sleep(int(0.0005*getsizeof(config)) + 1)
     if not Constants['KEEP_TEMP_FILES']:
         duthost.shell("rm /tmp/{}".format(filename))
-    time.sleep(1)
 
 def get_list_of_nexthops(number, af, prefix=100):
     nexthop_list = []
@@ -462,6 +462,8 @@ def bgp_established(duthost, ignore_list=[]):
         if v['state'] != 'established' and k not in ignore_list:
             logger.info("Neighbor %s not established yet: %s", k, v['state'])
             return False
+    # Now wait for the routes to be updated.
+    time.sleep(10)
     return True
 
 def get_downed_bgp_neighbors(shut_intf_list, minigraph_data):
@@ -583,8 +585,8 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
                                                                number_of_available_nexthops=request.config.option.total_number_of_endpoints,
                                                                number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
                                                                dest_af=payload_version,
-                                                               dest_net_prefix=DESTINATION_PREFIX, 
-                                                               nexthop_prefix=NEXTHOP_PREFIX, 
+                                                               dest_net_prefix=DESTINATION_PREFIX,
+                                                               nexthop_prefix=NEXTHOP_PREFIX,
                                                                nh_af=outer_layer_version)
 
         data[encap_type] = encap_type_data
@@ -615,7 +617,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
                 redis_string = "PORTCHANNEL_INTERFACE"
             data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
 
-    # Our setup code re-uses same vnets for v4inv4 and v6inv4.
+    # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for encap_type in SUPPORTED_ENCAP_TYPES:
@@ -648,7 +650,6 @@ class Test_VxLAN:
             },
             indent=4), dest=config_filename)
 
-        time.sleep(int(0.00005*getsizeof(self.setup[encap_type]['dest_to_nh_map'])) + 1)
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VXLAN",

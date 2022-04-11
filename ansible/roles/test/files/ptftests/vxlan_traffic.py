@@ -215,7 +215,6 @@ class VXLAN(BaseTest):
                         pkt_opts.update(options_v6)
                         pkt = simple_tcpv6_packet(**pkt_opts)
                         pkt_opts['ipv6_hlim'] = 63
-                        pkt_opts['eth_dst'] = self.dut_mac
                         pkt_opts['eth_src'] = self.dut_mac
                         exp_pkt = simple_tcpv6_packet(**pkt_opts)
                     else:
@@ -288,7 +287,7 @@ class VXLAN(BaseTest):
             # Verify ECMP:
             if check_ecmp:
                 self.verify_all_addresses_used_equally(nhs, returned_ip_addresses)
-                
+
             pkt.load = '0' * 60 + str(len(self.packets))
             self.packets.append((ptf_port, str(pkt).encode("base64")))
 
