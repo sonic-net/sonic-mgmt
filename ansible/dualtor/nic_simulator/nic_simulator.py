@@ -26,10 +26,15 @@ import threading
 
 from concurrent import futures
 from logging.handlers import RotatingFileHandler
+# from grpc_reflection.v1alpha import reflection
 
 import nic_simulator_grpc_service_pb2
 import nic_simulator_grpc_service_pb2_grpc
+import nic_simulator_grpc_mgmt_service_pb2
+import nic_simulator_grpc_mgmt_service_pb2_grpc
 
+
+THREAD_CONCURRENCY_PER_SERVER = 2
 
 # name templates
 ACTIVE_ACTIVE_BRIDGE_TEMPLATE = "baa-%s-%d"
@@ -410,32 +415,6 @@ class OVSBridge(object):
             return states
 
 
-def validate_request_target(response):
-    """Decorator to validate target gRPC server address is included in request metadata."""
-    def _validate_request_target(rpc_func):
-        @functools.wraps(rpc_func)
-        def _decorated(nic_simulator, request, context):
-            logging.debug("Validate request metadata includes 'grpc_server'")
-            grpc_server = None
-            for meta in context.invocation_metadata():
-                if meta.key == "grpc_server":
-                    grpc_server = meta.value
-                    break
-            if not grpc_server:
-                context.set_code(grpc.StatusCode.NOT_FOUND)
-                context.set_details("grpc_server metadata not found in the request")
-                return response
-            elif grpc_server not in nic_simulator.ovs_bridges:
-                context.set_code(grpc.StatusCode.NOT_FOUND)
-                context.set_details("grpc_server not found by nic_simulator")
-                return response
-            else:
-                context.grpc_server = grpc_server
-                return rpc_func(nic_simulator, request, context)
-        return _decorated
-    return _validate_request_target
-
-
 def validate_request_certificate(response):
     """Decorator to validate client certificate."""
     def _validate_request_certificate(rpc_func):
@@ -448,14 +427,193 @@ def validate_request_certificate(response):
     return _validate_request_certificate
 
 
+class InterruptableThread(threading.Thread):
+    """Thread class that can be interrupted by Exception raised."""
+
+    def __init__(self, **kwargs):
+        super(InterruptableThread, self).__init__(**kwargs)
+        self._e = None
+
+    def set_error_handler(self, error_handler):
+        """Add error handler callback that will be called when the thread exits with error."""
+        self.error_handler = error_handler
+
+    def run(self):
+        """
+        @summary: Run the target function, call `start()` to start the thread
+                  instead of directly calling this one.
+        """
+        try:
+            threading.Thread.run(self)
+        except Exception as e:
+            self._e = e
+            if getattr(self, "error_handler", None) is not None:
+                self.error_handler(self._e)
+
+    def join(self, timeout=None, suppress_exception=False):
+        """
+        @summary: Join the thread, if `target` raises an exception, reraise it.
+        @timeout: Wait timeout for `target` to finish.
+        @suppress_exception: Default False, reraise the exception raised in
+                             `target`. If True, return the exception instead of
+                             raising.
+        """
+        threading.Thread.join(self, timeout=timeout)
+        if self._e:
+            if suppress_exception:
+                return self._e
+            else:
+                raise(self._e) from None
+
+
+class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer, threading.Thread):
+    """gRPC for a NiC."""
+
+    def __init__(self, nic_addr, ovs_bridge):
+        self.nic_addr = nic_addr
+        self.ovs_bridge = ovs_bridge
+        self.server = None
+        self.thread = None
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
+    def QueryAdminPortState(self, request, context):
+        logging.debug("QueryAdminPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+        response = nic_simulator_grpc_service_pb2.AdminReply(
+            portid=[0, 1],
+            state=self.ovs_bridge.query_forwarding_state()
+        )
+        logging.debug("QueryAdminPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
+        return response
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
+    def SetAdminPortState(self, request, context):
+        logging.debug("SetAdminPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+        response = nic_simulator_grpc_service_pb2.AdminReply(
+            portid=[0, 1],
+            state=self.ovs_bridge.set_forwarding_state(request.state)
+        )
+        logging.debug("SetAdminPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
+        return response
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
+    def QueryOperationPortState(self, request, context):
+        # TODO: Add QueryOperationPortState implementation
+        return nic_simulator_grpc_service_pb2.OperationReply()
+
+    def _run_server(self, binding_port):
+        """Run the gRPC server."""
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
+        nic_simulator_grpc_service_pb2_grpc.add_DualTorServiceServicer_to_server(
+            self,
+            self.server
+        )
+        self.server.add_insecure_port("%s:%s" % (self.nic_addr, binding_port))
+        self.server.start()
+        self.server.wait_for_termination()
+
+    def start(self, binding_port):
+        """Start the gRPC server thread."""
+        self.thread = InterruptableThread(target=self._run_server, args=(binding_port,))
+        self.thread.start()
+
+    def stop(self):
+        """Stop the gRPC server thread."""
+        self.server._state.termination_event.set()
+
+    def join(self, timeout=None, suppress_exception=False):
+        """Wait the gRPC server thread termination."""
+        self.thread.join(timeout=timeout, suppress_exception=suppress_exception)
+
+
+class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServicer):
+    """Management gRPC server to interact with sonic-mgmt."""
+
+    def __init__(self, binding_address, binding_port):
+        self.binding_address = binding_address
+        self.binding_port = binding_port
+        self.client_stubs = {}
+        self.server = None
+
+    def _get_client_stub(self, nic_address):
+        if nic_address in self.client_stubs:
+            client_stub = self.client_stubs[nic_address]
+        else:
+            client_stub = nic_simulator_grpc_service_pb2_grpc.DualTorServiceStub(
+                grpc.insecure_channel("%s:%s" % (nic_address, self.binding_port))
+            )
+            self.client_stubs[nic_address] = client_stub
+        return client_stub
+
+    def QueryAdminPortState(self, request, context):
+        nic_addresses = request.nic_addresses
+        logging.debug("QueryAdminPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
+        query_responses = []
+        for nic_address in nic_addresses:
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                state = client_stub.QueryAdminPortState(
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, True]
+                    )
+                )
+                query_responses.append(state)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details("Error in QueryAdminPortState to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply()
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply(
+            nic_addresses=nic_addresses,
+            admin_replies=query_responses
+        )
+        logging.debug("QueryAdminPortState[mgmt]: response of query: %s", response)
+        return response
+
+    def SetAdminPortState(self, request, context):
+        nic_addresses = request.nic_addresses
+        admin_requests = request.admin_requests
+        logging.debug("SetAdminPortState[mgmt]: request set admin port state: %s\n", request)
+        set_responses = []
+        for nic_address, admin_request in zip(nic_addresses, admin_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                state = client_stub.SetAdminPortState(
+                    admin_request
+                )
+                set_responses.append(state)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details("Error in QueryAdminPortState to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest()
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply(
+            nic_addresses=nic_addresses,
+            admin_replies=set_responses
+        )
+        logging.debug("QueryAdminPortState[mgmt]: response of query: %s", response)
+        return response
+
+    def QueryOperationPortState(self, request, context):
+        return nic_simulator_grpc_mgmt_service_pb2.ListOfOperationReply()
+
+    def start(self):
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
+        nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(self, self.server)
+        self.server.add_insecure_port("%s:%s" % (self.binding_address, self.binding_port))
+        self.server.start()
+        self.server.wait_for_termination()
+
+
 class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
     """NiC simulator class, define all the gRPC calls."""
 
-    def __init__(self, vm_set):
+    def __init__(self, vm_set, mgmt_port, binding_port):
         self.vm_set = vm_set
         self.server_nics = self._find_all_server_nics()
         self.server_nic_addresses = {nic: get_ip_address(nic) for nic in self.server_nics}
+        self.mgmt_port = mgmt_port
+        self.mgmt_port_address = get_ip_address(mgmt_port)
         self.ovs_bridges = {}
+        self.binding_port = binding_port
         for bridge_name in self._find_all_bridges():
             index = bridge_name.split("-")[-1]
             server_nic = NETNS_IFACE_TEMPLATE % index
@@ -464,42 +622,34 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
                 server_nic_addr = self.server_nic_addresses[server_nic]
                 if server_nic_addr is not None:
                     self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name)
-        logging.info("Starting NiC simulator that receives for requests to: %s", json.dumps(list(self.ovs_bridges.keys()), indent=4))
+        logging.info("Starting NiC simulator to manipulate OVS bridges: %s", json.dumps(list(self.ovs_bridges.keys()), indent=4))
+
+        self.servers = {}
+        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge) for nic_addr, ovs_bridge in self.ovs_bridges.items()}
+        self.mgmt_server = MgmtServer(self.mgmt_port_address, binding_port)
 
     def _find_all_server_nics(self):
         return [_ for _ in os.listdir('/sys/class/net') if re.search(NETNS_IFACE_PATTERN, _)]
 
     def _find_all_bridges(self):
         result = OVSCommand.ovs_vsctl_list_br()
-        bridges = [_ for _ in result.stdout.split() if self.vm_set in _ and _.startswith(ACTIVE_ACTIVE_INTERFACE_PATTERN[0])]
+        bridges = [_ for _ in result.stdout.split() if self.vm_set in _ and _.startswith(ACTIVE_ACTIVE_BRIDGE_TEMPLATE[0])]
         return bridges
 
-    @validate_request_target(nic_simulator_grpc_service_pb2.AdminReply())
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
-    def QueryAdminPortState(self, request, context):
-        target_server = context.grpc_server
-        response = nic_simulator_grpc_service_pb2.AdminReply(
-            portid=[0, 1],
-            state=self.ovs_bridges[target_server].query_forwarding_state()
-        )
-        logging.debug("QueryAdminPortState: response to client %s:\n%s", context.peer(), response)
-        return response
+    def start_nic_servers(self):
+        for nic_addr, server in self.servers.items():
+            logging.debug("Starting gRPC server on NiC %s", nic_addr)
+            server.start(self.binding_port)
 
-    @validate_request_target(nic_simulator_grpc_service_pb2.AdminReply())
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
-    def SetAdminPortState(self, request, context):
-        target_server = context.grpc_server
-        response = nic_simulator_grpc_service_pb2.AdminReply(
-            portid=[0, 1],
-            state=self.ovs_bridges[target_server].set_forwarding_state(request.state)
-        )
-        return response
+    def stop_nic_servers(self):
+        for nic_addr, server in self.servers.items():
+            logging.debug("Stopping gRPC server on NiC %s", nic_addr)
+            server.stop()
+            server.join()
 
-    @validate_request_target(nic_simulator_grpc_service_pb2.OperationReply())
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
-    def QueryOperationPortState(self, request, context):
-        # TODO: Add QueryOperationPortState implementation
-        return nic_simulator_grpc_service_pb2.OperationReply()
+    def start_mgmt_server(self):
+        logging.debug("Starting gRPC server on mgmt port %s", self.mgmt_port_address)
+        self.mgmt_server.start()
 
 
 def parse_args():
@@ -581,14 +731,12 @@ def main():
     logging.debug("Start nic_simulator with args: %s", args)
     config_env()
     config_logging(args.vm_set, args.log_level.upper(), args.stdout_log)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    nic_simulator_grpc_service_pb2_grpc.add_DualTorServiceServicer_to_server(
-        NiCSimulator(args.vm_set),
-        server
-    )
-    server.add_insecure_port("0.0.0.0:%s" % args.port)
-    server.start()
-    server.wait_for_termination()
+    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port)
+    nic_simulator.start_nic_servers()
+    try:
+        nic_simulator.start_mgmt_server()
+    except KeyboardInterrupt:
+        nic_simulator.stop_nic_servers()
 
 
 if __name__ == "__main__":
