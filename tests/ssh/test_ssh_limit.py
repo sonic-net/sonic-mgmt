@@ -125,7 +125,7 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
 
     # if template file not exist on duthost, ignore this UT
     if not limit_template_exist(duthost):
-        logging.debug("Template file {0} not exist, ignore test case.".format(LIMITS_CONF_TEMPLATE_PATH))
+        pytest.skip("Template file {0} not exist, ignore test case.".format(LIMITS_CONF_TEMPLATE_PATH))
         return
 
     dut_ip = duthost.mgmt_ip
