@@ -88,7 +88,8 @@ RUNTEST_CLI_COMMON_OPTS="\
 -q 1 \
 -a False \
 -O \
--r"
+-r \
+-e --allow_recover"
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
@@ -100,58 +101,55 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      monit/test_monit_status.py \
-      platform_tests/test_advanced_reboot.py::test_warm_reboot \
-      test_interfaces.py \
       arp/test_arp_dualtor.py \
+      arp/test_neighbor_mac.py \
+      arp/test_neighbor_mac_noptf.py\
       bgp/test_bgp_fact.py \
       bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
       bgp/test_bgp_speaker.py \
+      bgp/test_bgpmon.py \
       bgp/test_bgp_update_timer.py \
-      cacl/test_ebtables_application.py \
+      container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
+      cacl/test_ebtables_application.py \
       dhcp_relay/test_dhcp_relay.py \
       dhcp_relay/test_dhcpv6_relay.py \
+      iface_namingmode/test_iface_namingmode.py \
       lldp/test_lldp.py \
+      monit/test_monit_status.py \
       ntp/test_ntp.py \
       pc/test_po_cleanup.py \
       pc/test_po_update.py \
+      platform_tests/test_advanced_reboot.py::test_warm_reboot \
+      platform_tests/test_cpu_memory_usage.py \
       route/test_default_route.py \
       route/test_static_route.py \
-      arp/test_neighbor_mac.py \
-      arp/test_neighbor_mac_noptf.py\
       snmp/test_snmp_cpu.py \
+      snmp/test_snmp_default_route.py \
       snmp/test_snmp_interfaces.py \
       snmp/test_snmp_lldp.py \
+      snmp/test_snmp_loopback.py \
       snmp/test_snmp_pfc_counters.py \
       snmp/test_snmp_queue.py \
-      snmp/test_snmp_loopback.py \
-      snmp/test_snmp_default_route.py \
-      tacacs/test_rw_user.py \
-      tacacs/test_ro_user.py \
-      tacacs/test_ro_disk.py \
-      tacacs/test_jit_user.py \
+      ssh/test_ssh_ciphers.py \
+      syslog/test_syslog.py\
+      tacacs/test_accounting.py \
       tacacs/test_authorization.py \
-      tacacs/test_accounting.py"
+      tacacs/test_jit_user.py \
+      tacacs/test_ro_disk.py \
+      tacacs/test_ro_user.py \
+      tacacs/test_rw_user.py \
+      telemetry/test_telemetry.py \
+      test_features.py \
+      test_interfaces.py \
+      test_procdockerstatsd.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
       popd
     else
       tests="\
-      ssh/test_ssh_stress.py \
-      ssh/test_ssh_ciphers.py \
-      syslog/test_syslog.py\
-      telemetry/test_telemetry.py \
-      test_features.py \
-      test_procdockerstatsd.py \
-      iface_namingmode/test_iface_namingmode.py \
-      platform_tests/test_cpu_memory_usage.py \
-      bgp/test_bgpmon.py \
-      container_checker/test_container_checker.py \
-      process_monitoring/test_critical_process_monitoring.py \
-      system_health/test_system_status.py \
       generic_config_updater/test_aaa.py \
       generic_config_updater/test_bgpl.py \
       generic_config_updater/test_bgp_prefix.py \
@@ -165,7 +163,9 @@ test_t0() {
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
-      show_techsupport/test_techsupport_no_secret.py"
+      process_monitoring/test_critical_process_monitoring.py \
+      show_techsupport/test_techsupport_no_secret.py \
+      system_health/test_system_status.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -221,25 +221,25 @@ test_t2() {
 test_t1_lag() {
     tgname=t1_lag
     tests="\
-    monit/test_monit_status.py \
-    test_interfaces.py \
-    bgp/test_bgp_fact.py \
     bgp/test_bgp_allow_list.py \
-    bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \
+    bgp/test_bgp_fact.py \
+    bgp/test_bgp_multipath_relax.py \
     bgp/test_bgp_update_timer.py \
+    bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
+    container_checker/test_container_checker.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
-    route/test_default_route.py \
+    monit/test_monit_status.py \
+    pc/test_lag_2.py \
     platform_tests/test_cpu_memory_usage.py \
-    bgp/test_bgpmon.py \
-    container_checker/test_container_checker.py \
     process_monitoring/test_critical_process_monitoring.py \
+    route/test_default_route.py \
     scp/test_scp_copy.py \
-    pc/test_lag_2.py"
+    test_interfaces.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -250,16 +250,16 @@ test_multi_asic_t1_lag() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    snmp/test_snmp_default_route.py \
+    snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
     snmp/test_snmp_queue.py \
-    snmp/test_snmp_loopback.py \
-    snmp/test_snmp_default_route.py \
-    tacacs/test_rw_user.py \
-    tacacs/test_ro_user.py \
-    tacacs/test_ro_disk.py \
-    tacacs/test_jit_user.py \
+    tacacs/test_accounting.py \
     tacacs/test_authorization.py \
-    tacacs/test_accounting.py"
+    tacacs/test_jit_user.py \
+    tacacs/test_ro_disk.py \
+    tacacs/test_ro_user.py \
+    tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
     # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
