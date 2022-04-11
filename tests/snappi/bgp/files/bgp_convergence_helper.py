@@ -498,7 +498,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 5000 , "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500 , "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
             request = cvg_api.convergence_request()
@@ -587,7 +587,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 5000, "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
@@ -681,7 +681,7 @@ def get_rib_in_convergence(cvg_api,
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
             rx_frate.append(flow.frames_rx_rate)
-        assert abs(sum(tx_frate) - sum(rx_frate)) < 5000, "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+        assert abs(sum(tx_frate) - sum(rx_frate)) < 500, "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
 
         """ Get RIB-IN convergence """
