@@ -281,13 +281,13 @@ test_dualtor(){
     dualtor/test_standby_tor_upstream_mux_toggle.py \
     dualtor/test_toggle_mux.py \
     dualtor/test_tor_ecn.py \
-    dualtor/test_tunnel_memory_leak.py \
-    dualtor_io/test_heartbeat_failure.py \
-    dualtor_io/test_link_drop.py \
-    dualtor_io/test_link_failure.py \
-    dualtor_io/test_normal_op.py \
-    dualtor_io/test_tor_bgp_failure.py \
-    dualtor_io/test_tor_failure.py"
+    dualtor/test_tunnel_memory_leak.py "
+#    dualtor_io/test_heartbeat_failure.py \
+#    dualtor_io/test_link_drop.py \
+#    dualtor_io/test_link_failure.py \
+#    dualtor_io/test_normal_op.py \
+#    dualtor_io/test_tor_bgp_failure.py \
+#    dualtor_io/test_tor_failure.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
