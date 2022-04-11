@@ -61,15 +61,18 @@ parameters:
     default: false
     displayName: "Skip merging from Github"
 
-  - name: GITHUB_SONIC_MGMT_BRANCH
-    type: string
-    default: master
-    displayName: "Source Github sonic-mgmt branch"
-
   - name: MSSONIC_SONIC_MGMT_BRANCH
     type: string
     default: internal
     displayName: "Destination mssonic sonic-mgmt branch"
+
+  - name: FORCE_PUSH
+    type: string
+    default: NO
+    values:
+      - YES
+      - NO
+    displayName: "Whether to use option '--force' while run 'git push'"
 
 stages:
   - template: ./smoke_test_template.yml
@@ -82,5 +85,5 @@ stages:
       SKIP_RUNNING_TEST: ${{ parameters.SKIP_RUNNING_TEST }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
       SKIP_MERGE_GITHUB: ${{ parameters.SKIP_MERGE_GITHUB }}
-      GITHUB_SONIC_MGMT_BRANCH: ${{ parameters.GITHUB_SONIC_MGMT_BRANCH }}
       MSSONIC_SONIC_MGMT_BRANCH: ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
+      FORCE_PUSH: ${{ parameters.FORCE_PUSH }}

@@ -110,13 +110,16 @@ parameters:
     default: false
 
   # ============ Merge Parameters ============
-  - name: GITHUB_SONIC_MGMT_BRANCH
-    type: string
-    default: master
-
   - name: MSSONIC_SONIC_MGMT_BRANCH
     type: string
     default: internal
+
+  - name: FORCE_PUSH
+    type: string
+    default: NO
+    values:
+      - YES
+      - NO
 
 stages:
 
@@ -148,35 +151,9 @@ stages:
               git config --global user.email "svc-acs@microsoft.com"
               git config --global user.name "Sonic Automation"
 
-              CURRENT_HEAD=$(git rev-parse --short HEAD)
-              echo "##vso[task.setvariable variable=CURRENT_HEAD;]${CURRENT_HEAD}"
-
-              git remote remove public  || true
-              git remote remove mssonic || true
-              git remote add public https://github.com/Azure/sonic-mgmt.git
-              git remote add mssonic "https://reposync:${MSSONIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int" || true
-              git remote remove origin || true
-
-              git fetch --tags --prune --prune-tags --no-recurse-submodules public
-              git fetch --tags --prune --prune-tags --no-recurse-submodules mssonic
-
-              git reset --hard mssonic/internal || true
-
-              git branch -D temp-smoke-test-branch || true
-              git checkout -b temp-smoke-test-branch
-
-              local_head_commit=$(git log -1 --format=%H)
-              common_ancestor_commit=$(git merge-base $local_head_commit public/master)
-
-              # Find out all the test scripts that are updated by the changes to be merged.
-              # Deleted test scripts are excluded.
-              git diff --name-status $common_ancestor_commit public/master | sed -nr "s/^[^D]\s+tests\/(.*\/test_[^\/].*\.py$)/\1/p" > github_updated_files.txt
-              cat github_updated_files.txt
-
-              git merge public/master
-            env:
-              MSSONIC_TOKEN: $(MSSONIC_TOKEN)
-            displayName: Get changes from Github
+              git branch -D ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage || true
+              git checkout -b ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage origin/${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage
+            displayName: Checkout stage branch
 
           - task: PythonScript@0
             displayName: Parse Testbed Info
@@ -340,21 +317,7 @@ stages:
 
                 rm -fr results     # Clear any possible collected results of previous run
 
-                github_updated_files=$(cat github_updated_files.txt)
-
                 cd tests
-
-                # Run the scripts updated in the changes to be merged
-                if [[ $github_updated_files != "" ]]; then
-                    http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -c "$github_updated_files" \
-                    -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
-                    -m individual \
-                    -t "$EXECUTION_TOPOLOGY" \
-                    -r \
-                    ${{ parameters.TESTBED_SPECIFIC }} \
-                    -e "$PARAMS"
-                fi
 
                 # Skip unstable tests
                 SKIP_FOLDERS="platform_tests sub_port_interfaces qos pfc_asym"
@@ -441,12 +404,6 @@ stages:
                     test_interfaces.py"
                 fi
 
-                # If the previous test is executed, then we can skip pretest for this round.
-                RUN_PRETEST=""
-                if [[ $github_updated_files != "" ]]; then
-                  RUN_PRETEST="-u"
-                fi
-
                 # Run rest of the tests.
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
@@ -455,7 +412,7 @@ stages:
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
                     -t "$EXECUTION_TOPOLOGY" \
-                    -r $RUN_PRETEST \
+                    -r \
                     ${{ parameters.TESTBED_SPECIFIC }} \
                     -e "$PARAMS"
                 exit 0
@@ -535,8 +492,6 @@ stages:
               echo "Activate python3 virtual environment"
               source /var/AzDevOps/env-python3/bin/activate
 
-              git checkout $(CURRENT_HEAD)
-
               python ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
@@ -547,7 +502,7 @@ stages:
             condition: always()
 
       - job:
-        displayName: "Merge sonic-mgmt"
+        displayName: "Push sonic-mgmt"
         timeoutInMinutes: 30
         dependsOn:
         - SmokeTest
@@ -564,12 +519,27 @@ stages:
             if [[ $(smokeTestResult) == "Succeeded" || $(smokeTestResult) == "Skipped" ]]; then
               echo "Smoke test is Succeeded or Skipped"
               git gc --auto || true
-              /bin/bash .azure-pipelines/repo_mgmt/merge.sh ${{ parameters.GITHUB_SONIC_MGMT_BRANCH }} ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }} ${MSSONIC_TOKEN}
+
+              if [[ ${{ parameters.FORCE_PUSH }} == "YES"  ]]; then
+                force_push="--force"
+              else
+                force_push=""
+              fi
+
+              git config --global user.email "svc-acs@microsoft.com"
+              git config --global user.name "Sonic Automation"
+
+              git branch -D ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage || true
+              git checkout -b ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage origin/${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage
+
+              git remote remove mssonic || true
+              git remote add mssonic "https://reposync:${MSSONIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int" || true
+
+              git push $force_push mssonic HEAD:${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
             else
               echo "Smoke test failed"
               exit 1
             fi
-
           env:
             MSSONIC_TOKEN: $(MSSONIC_TOKEN)
-          displayName: Merge sonic-mgmt
+          displayName: Push sonic-mgmt
