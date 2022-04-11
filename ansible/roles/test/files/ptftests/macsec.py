@@ -47,14 +47,14 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
             return ret
         pkt = scapy.Ether(ret.packet)
         if pkt[scapy.Ether].type != 0x88e5:
-            if exp_pkt.pkt_match(pkt):
+            if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
             else:
                 continue
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
         pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
                                send_sci, 0, xpn_en, ssci, salt)
-        if exp_pkt.pkt_match(pkt):
+        if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
             return ret
         recent_packets.append(pkt)
         packet_count += 1
