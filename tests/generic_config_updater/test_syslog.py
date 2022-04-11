@@ -52,7 +52,7 @@ def syslog_config_add_default(duthost):
         add_syslog_server = duthost.shell("config syslog add {}".format(syslog_server),
             module_ignore_errors=True)
         pytest_assert(not add_syslog_server['rc'],
-            "syslog server '{}' is not deleted successfully".format(syslog_server))
+            "syslog server '{}' is not added successfully".format(syslog_server))
 
 @pytest.fixture(scope="module")
 def original_syslog_servers(duthost, tbinfo):
