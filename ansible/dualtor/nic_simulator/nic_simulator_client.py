@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
+from urllib import response
 import grpc
 
 from collections import namedtuple
 
 import nic_simulator_grpc_service_pb2
 import nic_simulator_grpc_service_pb2_grpc
+import nic_simulator_grpc_mgmt_service_pb2
+import nic_simulator_grpc_mgmt_service_pb2_grpc
 
 
 class MetadataInterceptor(grpc.UnaryUnaryClientInterceptor):
@@ -56,6 +59,13 @@ def parse_args():
         required=True,
         help="gRPC server port"
     )
+    parser.add_argument(
+        "-m",
+        "--test_mgmt",
+        default=False,
+        action="store_true",
+        help="Test mgmt gRPC server"
+    )
     return parser.parse_args()
 
 
@@ -63,23 +73,74 @@ def main():
     args = parse_args()
     server = args.server
     port = args.server_port
-    with grpc.insecure_channel("%s:%s" % (server, port)) as insecure_channel:
-        metadata_interceptor = MetadataInterceptor(("grpc_server", "192.168.0.101"))
-        with grpc.intercept_channel(insecure_channel, metadata_interceptor) as channel:
+    test_mgmt = args.test_mgmt
+    with grpc.insecure_channel("%s:%s" % (server, port)) as channel:
+        # metadata_interceptor = MetadataInterceptor(("grpc_server", "192.168.0.101"))
+        # with grpc.intercept_channel(insecure_channel, metadata_interceptor) as channel:
+        if test_mgmt:
+            stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
+            request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
+                nic_addresses=["192.168.0.3", "192.168.0.5"],
+                admin_requests=[
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, True]
+                    ),
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, True]
+                    ),
+                ]
+            )
+            response = stub.QueryAdminPortState(request)
+            print(response)
+
+            request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
+                nic_addresses=["192.168.0.3", "192.168.0.5"],
+                admin_requests=[
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[False, True]
+                    ),
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, False]
+                    ),
+                ]
+            )
+            response = stub.SetAdminPortState(request)
+            print(response)
+
+            request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
+                nic_addresses=["192.168.0.3", "192.168.0.5"],
+                admin_requests=[
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, True]
+                    ),
+                    nic_simulator_grpc_service_pb2.AdminRequest(
+                        portid=[0, 1],
+                        state=[True, True]
+                    ),
+                ]
+            )
+            response = stub.QueryAdminPortState(request)
+            print(response)
+        else:
             stub = nic_simulator_grpc_service_pb2_grpc.DualTorServiceStub(channel)
-            state = nic_simulator_grpc_service_pb2.AdminRequest(
+            request = nic_simulator_grpc_service_pb2.AdminRequest(
                 portid=[0, 1],
                 state=[True, True]
             )
-            state = stub.QueryAdminPortState(state)
-            print(state)
+            response = stub.QueryAdminPortState(request)
+            print(response)
 
-            state = nic_simulator_grpc_service_pb2.AdminRequest(
+            request = nic_simulator_grpc_service_pb2.AdminRequest(
                 portid=[0, 1],
                 state=[True, False]
             )
-            state = stub.SetAdminPortState(state)
-            print(state)
+            response = stub.SetAdminPortState(request)
+            print(response)
 
 
 if __name__ == "__main__":
