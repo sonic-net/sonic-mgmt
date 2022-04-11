@@ -106,7 +106,7 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     logger.info("Reload config to recover configuration.")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 def is_acl_rule_empty(duthost):
     """
