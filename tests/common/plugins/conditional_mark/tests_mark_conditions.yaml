@@ -60,14 +60,13 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 #######################################
-#####         dhcp_relay          #####
+#####         dhcpv6_relay        #####
 #######################################
 dhcp_relay/test_dhcpv6_relay.py:
   xfail:
-    reason: "Generic internal image feature missing"
+    reason: "Not supported on dualtor"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 #######################################
@@ -168,6 +167,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 #####         pfcwd               #####
 #######################################
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
+
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   xfail:
     reason: "Test flaky"
@@ -175,12 +180,6 @@ pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
-
-pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
-   skip:
-     reason: "Forward action not supported in cisco-8000"
-     conditions:
-        - "asic_type in ['cisco-8000']"
 
 #######################################
 #####         platform_tests      #####
@@ -247,17 +246,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  skip:
+    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
     reason: "Image issue on Arista platforms"
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  skip:
-    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
-    conditions:
-      - "asic_type in ['cisco-8000']"
 #######################################
 #####         restapi             #####
 #######################################
