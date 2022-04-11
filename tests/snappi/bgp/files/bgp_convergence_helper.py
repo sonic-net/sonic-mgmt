@@ -498,7 +498,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 5000 , "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
             request = cvg_api.convergence_request()
@@ -514,6 +514,10 @@ def get_convergence_for_local_link_failover(cvg_api,
             cs.link.port_names = [port_name]
             cs.link.state = cs.link.UP
             cvg_api.set_state(cs)
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-10, "For Traffic To Stop")
         table.append('%s Link Failure' % port_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -583,7 +587,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 5000, "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
@@ -600,7 +604,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
             cs.route.state = cs.route.ADVERTISE
             cvg_api.set_state(cs)
             logger.info('Readvertise {} routes back at the end of iteration {}'.format(route_name, i+1))
-
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To Stop")
         table.append('%s route withdraw' % route_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -674,7 +681,7 @@ def get_rib_in_convergence(cvg_api,
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
             rx_frate.append(flow.frames_rx_rate)
-        assert sum(tx_frate) == sum(rx_frate), "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+        assert abs(sum(tx_frate) - sum(rx_frate)) < 5000, "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
 
         """ Get RIB-IN convergence """
