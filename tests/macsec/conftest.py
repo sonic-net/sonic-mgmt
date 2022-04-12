@@ -37,7 +37,6 @@ def send_sci(macsec_profile):
     return macsec_profiles[macsec_profile]['send_sci']
 
 
-# @pytest.fixture(scope="module", params=[0, 60])
-@pytest.fixture(scope="module", params=[60])
-def rekey_period(request):
-    return request.param
+@pytest.fixture(scope="module")
+def rekey_period(macsec_profile):
+    return macsec_profiles[macsec_profile]['rekey_period']
