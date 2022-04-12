@@ -1419,7 +1419,7 @@
   topo: dualtor
   ptf_image_name: docker-ptf
   ptf: svc1-3
-  ptf_ip: 10.206.144.138/24
+  ptf_ip: 10.206.144.140/24
   ptf_ipv6:
   server: server_svc_1
   vm_base: VM10048
@@ -1435,7 +1435,7 @@
   topo: dualtor-56
   ptf_image_name: docker-ptf
   ptf: svc1-4
-  ptf_ip: 10.206.144.139/24
+  ptf_ip: 10.206.144.141/24
   ptf_ipv6:
   server: server_svc_1
   vm_base: VM10052
