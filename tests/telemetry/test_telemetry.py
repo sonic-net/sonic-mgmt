@@ -142,16 +142,15 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
+    status = duthost.shell('redis-cli -n 4 HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
     status_value_list = status_list[1::2]
     status_dict = dict(zip(status_key_list, status_value_list))
-    for k, v in status_dict.items():
-        if str(k) == "status":
-            status_expected = "enabled"
-            pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
+    if 'state' in status_dict:
+        status_expected = "enabled";
+        pytest_assert(str(status_dict['state']) == status_expected, "Telemetry feature is not enabled")
 
 def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
     """Run pyclient from ptfdocker and show gnmi server outputself.
