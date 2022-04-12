@@ -83,8 +83,8 @@ def send_sci(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=[0, 60])
-# @pytest.fixture(scope="module", params=[60])
+# @pytest.fixture(scope="module", params=[0, 60])
+@pytest.fixture(scope="module", params=[60])
 def rekey_period(request):
     return request.param
 
@@ -108,6 +108,7 @@ def downstream_links(duthost, tbinfo, nbrhosts):
 @pytest.fixture(scope="module")
 def upstream_links(duthost, tbinfo, nbrhosts):
     links = collections.defaultdict(dict)
+
     def filter(interface, neighbor, mg_facts, tbinfo):
         if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
             for item in mg_facts["minigraph_bgp"]:
