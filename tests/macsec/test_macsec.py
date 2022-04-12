@@ -80,7 +80,7 @@ class TestControlPlane():
             _, _, _, last_nbr_egress_sa_table, last_nbr_ingress_sa_table = get_appl_db(
                 nbr["host"], nbr["port"], duthost, port_name)
             up_link = upstream_links[port_name]
-            output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["ipv4_addr"], rekey_period * 2))["stdout_lines"]
+            output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
             _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
                 duthost, port_name, nbr["host"], nbr["port"])
             _, _, _, new_nbr_egress_sa_table, new_nbr_ingress_sa_table = get_appl_db(

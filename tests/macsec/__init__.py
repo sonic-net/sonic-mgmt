@@ -168,7 +168,9 @@ def upstream_links(duthost, tbinfo, nbrhosts):
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ip_address(item["addr"]), IPv4Address):
+                        # The address of neighbor device
                         local_ipv4_addr = item["addr"]
+                        # The address of DUT
                         peer_ipv4_addr = item["peer_addr"]
                         break
             port = mg_facts["minigraph_neighbors"][interface]["port"]
