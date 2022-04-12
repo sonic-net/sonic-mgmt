@@ -466,7 +466,7 @@ class InterruptableThread(threading.Thread):
                 raise(self._e) from None
 
 
-class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer, threading.Thread):
+class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
     """gRPC for a NiC."""
 
     def __init__(self, nic_addr, ovs_bridge):
