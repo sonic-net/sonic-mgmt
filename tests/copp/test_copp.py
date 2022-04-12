@@ -30,6 +30,7 @@ from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
+from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
@@ -57,7 +58,7 @@ _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
 _SUPPORTED_T2_TOPOS = ["t2"]
-_TOR_ONLY_PROTOCOL = ["DHCP"]
+_TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT = 600
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,8 @@ class TestCOPP(object):
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
                                           "SNMP",
-                                          "SSH"])
+                                          "SSH",
+                                          "DHCPOTHERIP"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
@@ -90,6 +92,8 @@ class TestCOPP(object):
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
+                                          "DHCPIP2ME",
+                                          "DHCP6",
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
@@ -263,6 +267,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip,
+              "randip": generate_ip_through_default_route(duthost, [test_params.peerip]),
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap}
 

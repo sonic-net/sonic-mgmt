@@ -7,6 +7,9 @@
 # ARPTest
 # DHCPTest
 # DHCPTopoT1Test
+# DHCPIP2METest
+# DHCPOTHERIPTest
+# DHCP6Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -54,6 +57,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
+        self.randip = test_params.get('randip', None)
         self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
@@ -345,6 +349,110 @@ class DHCPTest(NoPolicyTest):
             ip_ttl=64,
             udp_sport=68,
             udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+class DHCPIP2METest(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCPIP2METest")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        dst_mac = self.peer_mac[port_number]
+        dst_ip = self.peerip
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_src=src_mac,
+            eth_dst=dst_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='0.0.0.0',
+            ip_dst=dst_ip,
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=68,
+            udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+class DHCPOTHERIPTest(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # Police rate is expected to be 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
+
+    def runTest(self):
+        self.log("DHCPOTHERIPTest")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+        dst_mac = self.peer_mac[port_number]
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='0.0.0.0',
+            ip_dst=self.randip,
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=68,
+            udp_dport=67,
+            ip_ihl=None,
+            ip_options=False,
+            with_udp_chksum=True
+        )
+
+        return packet
+
+
+# SONIC configuration has no policer limiting for DHCPv6
+class DHCP6Test(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCP6Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udp_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            dl_vlan_cfi=0,
+            ip_src='::1',
+            ip_dst='ff02::1::2',
+            ip_tos=0,
+            ip_ttl=64,
+            udp_sport=546,
+            udp_dport=547,
             ip_ihl=None,
             ip_options=False,
             with_udp_chksum=True

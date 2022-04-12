@@ -21,10 +21,11 @@ from Queue import Queue
 import ptf
 from ptf.base_tests import BaseTest
 from ptf import config
+from ptf.mask import Mask
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 from device_connection import DeviceConnection
-
+import ipaddress
 
 class ArpTest(BaseTest):
     def __init__(self):
@@ -145,13 +146,15 @@ class ArpTest(BaseTest):
 
         return res
 
-    def generatePkts(self, gw, port_ip, port_mac):
+    def generatePkts(self, gw, port_ip, port_mac, vlan_id):
         pkt = testutils.simple_arp_packet(
                         ip_snd=port_ip,
                         ip_tgt=gw,
                         eth_src=port_mac,
                         hw_snd=port_mac,
-                       )
+                        vlan_vid=vlan_id
+                        )
+        
         exp_pkt = testutils.simple_arp_packet(
                         ip_snd=gw,
                         ip_tgt=port_ip,
@@ -160,9 +163,12 @@ class ArpTest(BaseTest):
                         hw_snd=self.dut_mac,
                         hw_tgt=port_mac,
                         arp_op=2,
+                        vlan_vid=vlan_id
                        )
-
-        return str(pkt), str(exp_pkt)
+        masked_exp_pkt = Mask(exp_pkt)
+        # Ignore the Ethernet padding zeros
+        masked_exp_pkt.set_ignore_extra_bytes()
+        return pkt, masked_exp_pkt
 
     def generatePackets(self):
         self.gen_pkts = {}
@@ -171,7 +177,12 @@ class ArpTest(BaseTest):
                 gw = test['vlan_gw']
                 port_ip  = test['vlan_ip_prefixes'][port]
                 port_mac = self.ptf_mac_addrs['eth%d' % port]
-                self.gen_pkts[port] = self.generatePkts(gw, port_ip, port_mac)
+                tagging_mode = test['tagging_mode'][port]
+                if tagging_mode == 'tagged':
+                    vlan_id = test['vlan_id']
+                else:
+                    vlan_id = 0
+                self.gen_pkts[port] = self.generatePkts(gw, port_ip, port_mac, vlan_id)
 
         return
 
@@ -208,24 +219,34 @@ class ArpTest(BaseTest):
 
         self.tests = []
         vni_base = 0
-        for name, data in graph['minigraph_vlans'].items():
+        for vlan, config in graph['vlan_facts'].items():
             test = {}
-            test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
-            vlan_id = int(name.replace('Vlan', ''))
-            test['vni'] = vni_base + vlan_id
+            test['acc_ports'] = []
+            test['tagging_mode'] = {}
+            for member, mode in config['members'].items():
+                ptf_port_idx = graph['minigraph_port_indices'][member]
+                test['acc_ports'].append(ptf_port_idx)
+                test['tagging_mode'].update(
+                    {
+                        ptf_port_idx: mode['tagging_mode']
+                    }
+                )
+            test['vlan_id'] = int(config['vlanid'])
+            test['vni'] = vni_base + test['vlan_id']
 
-            gw = None
             prefixlen = None
-            for d in graph['minigraph_vlan_interfaces']:
-                if d['attachto'] == name:
-                    gw = d['addr']
+            for d in config['interfaces']:
+                if sys.version_info < (3, 0):
+                        ip = ipaddress.ip_address(d['addr'].decode('utf8'))
+                else:
+                        ip = ipaddress.ip_address(d['addr'])
+                if ip.version == 4:
+                    test['vlan_gw'] = d['addr']
                     prefixlen = int(d['prefixlen'])
+                    test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(d['addr'], prefixlen, test['acc_ports'])
                     break
             else:
-                raise Exception("Vlan '%s' is not found" % name)
-
-            test['vlan_gw'] = gw
-            test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(gw, prefixlen, test['acc_ports'])
+                raise Exception("No invalid IPv4 address found for Vlan '%s'" % vlan)
 
             self.tests.append(test)
 
