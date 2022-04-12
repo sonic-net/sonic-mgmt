@@ -9,6 +9,7 @@ from nat_helpers import GLOBAL_NAT_TIMEOUT
 from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
 from nat_helpers import FULL_CONE_TEST_SUBNET
+from nat_helpers import PORT_CHANNEL_TEMP
 from nat_helpers import conf_ptf_interfaces
 from nat_helpers import teardown_test_env
 from nat_helpers import exec_command
@@ -85,6 +86,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     config_port_indices = cfg_facts['port_index_map']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+    port_channel_1_name = PORT_CHANNEL_TEMP.format(1)
     # Get outer port indices
     for port_id in config_portchannels.keys():
         port = config_portchannels[port_id]['members'][0]
@@ -118,8 +120,8 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                          "indices_to_ports_config": indices_to_ports_config,
                          "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
                          "config_portchannels": config_portchannels,
-                         "pch_ips": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address']},
-                         "pch_masks": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['netmask']},
+                         "pch_ips": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'.format(port_channel_1_name)]['ipv4']['address']},
+                         "pch_masks": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'.format(port_channel_1_name)]['ipv4']['netmask']},
                          "outer_vrf": ["red"],
                          "inner_vrf": ["blue", "yellow"],
                          interface_type: {"vrf_conf": SETUP_CONF[interface_type]["vrf"],
