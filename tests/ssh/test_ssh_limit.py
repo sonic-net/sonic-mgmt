@@ -3,7 +3,7 @@ import logging
 import paramiko
 import pytest
 import time
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.tacacs.test_authorization import ssh_connect_remote
 from tests.tacacs.conftest import tacacs_creds
 from tests.tacacs.utils import setup_local_user
@@ -124,9 +124,7 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     duthost = duthosts[rand_one_dut_hostname]
 
     # if template file not exist on duthost, ignore this UT
-    if not limit_template_exist(duthost):
-        pytest.skip("Template file {0} not exist, ignore test case.".format(LIMITS_CONF_TEMPLATE_PATH))
-        return
+    pytest_require(limit_template_exist(duthost), "Template file {0} not exist, ignore test case.".format(LIMITS_CONF_TEMPLATE_PATH))
 
     dut_ip = duthost.mgmt_ip
     local_user = tacacs_creds['local_user']
