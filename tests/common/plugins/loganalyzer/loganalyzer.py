@@ -1,4 +1,3 @@
-import sys
 import logging
 import os
 import re
@@ -9,7 +8,6 @@ from . import system_msg_handler
 
 from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
-from os.path import normpath
 
 ANSIBLE_LOGANALYZER_MODULE = system_msg_handler.__file__.replace(r".pyc", ".py")
 COMMON_MATCH = join(split(__file__)[0], "loganalyzer_common_match.txt")
@@ -32,11 +30,13 @@ class DisableLogrotateCronContext:
 
     def __enter__(self):
         """
-        Disable logrotate cron task and make sure the running logrotate is stopped.
+        Disable logrotate cron task / systemd timer and make sure the running logrotate is stopped.
         """
+        # Disable logrotate systemd timer
+        self.ansible_host.command("systemctl stop logrotate.timer")
         # Disable logrotate cron task
         self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
-        logging.debug("Waiting for logrotate from previous cron task run to finish")
+        logging.debug("Waiting for logrotate from previous cron task or systemd timer run to finish")
         # Wait for logrotate from previous cron task run to finish
         end = time.time() + 60
         while time.time() < end:
@@ -53,10 +53,12 @@ class DisableLogrotateCronContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Restore logrotate cron task.
+        Restore logrotate cron task and systemd timer.
         """
         # Enable logrotate cron task back
         self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
+        # Enable logrotate systemd timer
+        self.ansible_host.command("systemctl start logrotate.timer")
 
 
 class LogAnalyzerError(Exception):
@@ -152,6 +154,7 @@ class LogAnalyzer:
         self.match_regex = self.ansible_loganalyzer.create_msg_regex([COMMON_MATCH])[1]
         self.ignore_regex = self.ansible_loganalyzer.create_msg_regex([COMMON_IGNORE])[1]
         self.expect_regex = self.ansible_loganalyzer.create_msg_regex([COMMON_EXPECT])[1]
+        logging.debug('Loaded common config.')
 
     def parse_regexp_file(self, src):
         """
@@ -270,6 +273,9 @@ class LogAnalyzer:
         expect_messages_regex = re.compile('|'.join(self.expect_regex)) if len(self.expect_regex) else None
 
         logging.debug("Analyze files {}".format(file_list))
+        logging.debug('    match_regex="{}"'.format(match_messages_regex.pattern if match_messages_regex else ''))
+        logging.debug('    ignore_regex="{}"'.format(ignore_messages_regex.pattern if ignore_messages_regex else ''))
+        logging.debug('    expect_regex="{}"'.format(expect_messages_regex.pattern if expect_messages_regex else ''))
         analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
         # Print file content and remove the file
         for folder in file_list:
@@ -277,8 +283,6 @@ class LogAnalyzer:
                 logging.debug("{} file content:\n\n{}".format(folder, fo.read()))
             os.remove(folder)
 
-        total_match_cnt = 0
-        total_expect_cnt = 0
         expected_lines_total = []
         unused_regex_messages = []
 
@@ -300,6 +304,7 @@ class LogAnalyzer:
                 unused_regex_messages.append(regex)
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
+        logging.debug("Analyzer summary: {}".format(pprint.pformat(analyzer_summary)))
 
         if fail:
             self._verify_log(analyzer_summary)
