@@ -30,6 +30,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
              ".*getResAvailableCounters.*", # test_monitor_config
              ".*objectTypeGetAvailability.*", # test_monitor_config
+             ".*ERR dhcp_relay.*", # test_dhcp_relay
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
