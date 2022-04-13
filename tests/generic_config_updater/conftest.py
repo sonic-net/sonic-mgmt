@@ -28,6 +28,8 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
              ".*ERR.*Failed to apply Json change.*", # validator need updater submodule
              ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
+             ".*getResAvailableCounters.*", # test_monitor_config
+             ".*objectTypeGetAvailability.*", # test_monitor_config
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
