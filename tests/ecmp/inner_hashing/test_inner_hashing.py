@@ -106,8 +106,8 @@ class TestDynamicInnerHashing():
                            socket_recv_size=16384)
 
             retry_call(check_pbh_counters,
-                       fargs=[duthost, swapped_outer_ipver, swapped_inner_ipver,
-                              balancing_test_times, symmetric_hashing, hash_keys],
+                       fargs=[duthost, swapped_outer_ipver, swapped_inner_ipver, balancing_test_times,
+                              symmetric_hashing, hash_keys, lag_mem_ptf_ports_groups],
                        tries=5,
                        delay=5)
 
