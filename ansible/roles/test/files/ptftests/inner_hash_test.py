@@ -147,12 +147,15 @@ class InnerHashTest(BaseTest):
 
     def check_matched_ports(self, matched_port, rMatched_port):
         logging.info("matched_port:  {}, rMatched_port: {}".format(matched_port, rMatched_port))
+        matched_port_in_any_group = False
         for ports_group in self.exp_port_groups:
             if matched_port in ports_group:
-                assert (rMatched_port in ports_group, 'The matched_port {} and rMatched_port {} not in same group {}'.
-                        format(matched_port, rMatched_port, ports_group))
+                assert rMatched_port in ports_group, 'The matched_port {} and rMatched_port {} not in the same group {}'.\
+                    format(matched_port, rMatched_port, ports_group)
+                matched_port_in_any_group = True
                 break
-        assert (False, "matched port {} not in expected ports {}".format(matched_port, self.exp_port_groups))
+        assert matched_port_in_any_group, "The matched port {} not in expected ports list {}".\
+            format(matched_port, self.exp_port_groups)
 
 
     def _get_ip_proto(self, ipv6=False):
