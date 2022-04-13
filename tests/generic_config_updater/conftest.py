@@ -18,11 +18,12 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     if loganalyzer:
          ignoreRegex = [
              ".*ERR sonic_yang.*",
-             ".*ERR.*Failed to start dhcp_relay container.*", # test_dhcp_relay
-             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # test_dhcp_relay test_syslog
+             ".*ERR.*Failed to start dhcp_relay container.*", # Valid test_dhcp_relay
+             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # Valid test_dhcp_relay test_syslog
+             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
 
              ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
-             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
+
              ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
              ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
              ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
