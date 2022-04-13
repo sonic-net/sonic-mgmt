@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "5 4 * * 0,1,2,4"
+  - cron: "10 8 * * 3"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,13 +18,13 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-dual-t0-7050-3
+    default: vms24-dual-t0-7050-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
   # Deploy parameters
@@ -35,7 +35,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
   - name: SKIP_SCRIPTS
@@ -47,7 +47,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces dualtor_io platform_tests"'
+    default: '-I "dualtor_io platform_tests"'
     displayName: Testbed specific
 
 stages:
