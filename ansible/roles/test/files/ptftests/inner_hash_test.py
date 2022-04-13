@@ -149,7 +149,7 @@ class InnerHashTest(BaseTest):
         logging.info("matched_port:  {}, rMatched_port: {}".format(matched_port, rMatched_port))
         for ports_group in self.exp_port_groups:
             if matched_port in ports_group:
-                assert (rMatched_port in ports_group, 'The matched_port {} and rMatched_port {} not in same group'.
+                assert (rMatched_port in ports_group, 'The matched_port {} and rMatched_port {} not in same group {}'.
                         format(matched_port, rMatched_port, ports_group))
                 break
         assert (False, "matched port {} not in expected ports {}".format(matched_port, self.exp_port_groups))
