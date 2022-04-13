@@ -300,7 +300,7 @@ sonic:
     sonic_arista64_100:
     sonic_arista_lc_100G:
     sonic_arista_sup:
-    sonic_cisco_lc_100G: 
+    sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
     sonic_nokia_7215:
@@ -1231,7 +1231,7 @@ sonic_dell_z9332f:
         "0x26": "1"
         "0x27": "A01"
         "0x28": "x86_64-dellemc_z9332f_d1508-r0"
-        "0x29": "0.0.3"
+        "0x29": "2021.03.05.0.0.5"
         "0x2A": "384"
         "0x2B": "CET00"
         "0x2C": "TH"
@@ -1239,7 +1239,7 @@ sonic_dell_z9332f:
         "0x2E": "0.5.1"
         "0x2F": "2FRXCW2"
         "0xFD": ""
-        "0xFE": "0x4FCF505B"
+        "0xFE": "0x8DDCF4AB"
       pdu_host: pdu-111
     str2-z9332f-01:
       ansible_host: 10.3.146.248
@@ -1256,7 +1256,7 @@ sonic_dell_z9332f:
         "0x26": "1"
         "0x27": "A01"
         "0x28": "x86_64-dellemc_z9332f_d1508-r0"
-        "0x29": "0.0.3"
+        "0x29": "2021.03.05.0.0.5"
         "0x2A": "384"
         "0x2B": "CET00"
         "0x2C": "TH"
@@ -1264,7 +1264,7 @@ sonic_dell_z9332f:
         "0x2E": "0.5.1"
         "0x2F": "9DRXCW2"
         "0xFD": ""
-        "0xFE": "0x5E7C686F"
+        "0xFE": "0x8D29EEBB"
       pdu_host: pdu-111
 server:
   hosts:
