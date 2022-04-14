@@ -34,6 +34,7 @@ r, ".* ERR syncd#syncd.*collectMACsecSACounters: Failed to get stats of MACsec S
 r, ".* ERR syncd#syncd.*meta_sai_validate_oid.*"
 r, ".* ERR syncd#syncd.*meta_validate_stats: object.*don't exists.*"
 r, ".* ERR syncd#syncd.*translateVidToRid: unable to get RID for VID.*"
+r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 
 # White list below messages found on physical devices for now. Need to address them later.
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
