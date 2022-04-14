@@ -2,7 +2,7 @@ import pytest
 
 from tests.common.utilities import skip_release
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
        Ignore expected yang validation failure during test execution
@@ -28,9 +28,9 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
              ".*ERR.*Failed to apply Json change.*", # validator need updater submodule
              ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
-             ".*getResAvailableCounters.*", # test_monitor_config
-             ".*objectTypeGetAvailability.*", # test_monitor_config
-             ".*ERR dhcp_relay.*", # test_dhcp_relay
+             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*", # test_monitor_config
+             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*", # test_monitor_config
+             ".*ERR dhcp_relay[0-9]*#dhcrelay.*", # test_dhcp_relay
          ]
          loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -39,7 +39,7 @@ def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
 
     Args:
-        duthost: Hostname of DUT.
+        duthost: DUT host object.
 
     Returns:
         None.
