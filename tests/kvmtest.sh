@@ -133,6 +133,7 @@ test_t0() {
       snmp/test_snmp_pfc_counters.py \
       snmp/test_snmp_queue.py \
       ssh/test_ssh_ciphers.py \
+      ssh/test_ssh_limit.py \
       syslog/test_syslog.py\
       tacacs/test_accounting.py \
       tacacs/test_authorization.py \
