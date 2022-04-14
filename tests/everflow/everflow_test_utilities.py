@@ -744,15 +744,28 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["barefoot", "cisco-8000"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
-        expected_packet = testutils.simple_gre_packet(
-            eth_src=setup["router_mac"],
-            ip_src=mirror_session["session_src_ip"],
-            ip_dst=mirror_session["session_dst_ip"],
-            ip_dscp=int(mirror_session["session_dscp"]),
-            ip_id=0,
-            ip_ttl=int(mirror_session["session_ttl"]),
-            inner_frame=payload
-        )
+        #Add vendor specific ttl check ,reused pkts in mirror session has 1 decrement in TTL 
+        if duthost.facts["asic_type"] in ["cisco-8000"] and (int(mirror_session["session_ttl"]) >= 1):
+            expected_packet = testutils.simple_gre_packet(
+               eth_src=setup["router_mac"],
+               ip_src=mirror_session["session_src_ip"],
+               ip_dst=mirror_session["session_dst_ip"],
+               ip_dscp=int(mirror_session["session_dscp"]),
+               ip_id=0,
+               ip_ttl=(int(mirror_session["session_ttl"]) -1),
+               inner_frame=payload
+            )
+        else:
+            expected_packet = testutils.simple_gre_packet(
+               eth_src=setup["router_mac"],
+               ip_src=mirror_session["session_src_ip"],
+               ip_dst=mirror_session["session_dst_ip"],
+               ip_dscp=int(mirror_session["session_dscp"]),
+               ip_id=0,
+               ip_ttl=int(mirror_session["session_ttl"]),
+               inner_frame=payload
+            )
+
 
         expected_packet["GRE"].proto = mirror_session["session_gre"]
 
@@ -764,7 +777,6 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] in ["cisco-8000"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
-            expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
 
