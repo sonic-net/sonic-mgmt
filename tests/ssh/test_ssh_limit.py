@@ -15,7 +15,7 @@ pytestmark = [
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
-HOSTSERVICE_RELOADING_TIME = 30
+SERVICE_RELOADING_TIME = 30
 
 LOGIN_MESSAGE_TIMEOUT = 30
 LOGIN_MESSAGE_BUFFER_SIZE = 1000
@@ -67,7 +67,7 @@ def restore_templates(duthost):
 
 def restart_hostcfgd(duthost):
     duthost.shell(HOSTSERVICE_RELOADING_COMMAND)
-    time.sleep(HOSTSERVICE_RELOADING_TIME)
+    time.sleep(SERVICE_RELOADING_TIME)
 
 def limit_template_exist(duthost):
     return duthost.stat(path=LIMITS_CONF_TEMPLATE_PATH).get('stat', {}).get('exists', False)
@@ -88,10 +88,13 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
 
         # wait for limits.conf updated
         config_file_content = []
-        while len(config_file_content) == 0
+        while len(config_file_content) == 0:
             config_file_content = duthost.shell('sudo cat /etc/security/limits.conf', module_ignore_errors=False)['stdout_lines']
             logging.debug("Updated config file: {0}".format(config_file_content))
             time.sleep(1)
+
+        # wait for PAM&SSH reload new config file
+        time.sleep(SERVICE_RELOADING_TIME)
 
     yield
 
