@@ -15,7 +15,7 @@ pytestmark = [
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
-HOSTSERVICE_RELOADING_TIME = 20
+SERVICE_RELOADING_TIME = 20
 
 LOGIN_MESSAGE_TIMEOUT = 20
 LOGIN_MESSAGE_BUFFER_SIZE = 1000
@@ -75,7 +75,7 @@ def restore_templates(duthost):
 
 def restart_hostcfgd(duthost):
     duthost.shell(HOSTSERVICE_RELOADING_COMMAND)
-    time.sleep(HOSTSERVICE_RELOADING_TIME)
+    time.sleep(SERVICE_RELOADING_TIME)
 
 def limit_template_exist(duthost):
     return duthost.stat(path=LIMITS_CONF_TEMPLATE_PATH).get('stat', {}).get('exists', False)
