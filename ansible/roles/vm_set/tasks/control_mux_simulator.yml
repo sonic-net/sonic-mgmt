@@ -14,10 +14,12 @@
   - name: Set default Flask version
     set_fact:
       flask_version: "1.1.2"
+      python_command: "python"
 
   - name: Use newer Flask version for pip3
     set_fact:
       flask_version: "2.0.3"
+      python_command: "python3"
     when: pip_executable == "pip3"
 
   - name: Install flask
