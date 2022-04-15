@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 
-def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci):
+def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period = 0):
     if isinstance(host, EosHost):
         eos_cipher_suite = {
             "GCM-AES-128": "aes128-gcm",
@@ -44,6 +44,7 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite, primary_cak, 
         "primary_ckn": primary_ckn,
         "policy": policy,
         "send_sci": send_sci,
+        "rekey_period": rekey_period,
     }
     cmd = "sonic-db-cli CONFIG_DB HMSET 'MACSEC_PROFILE|{}' ".format(
         profile_name)
@@ -129,9 +130,9 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy, send_sci):
+                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
     set_macsec_profile(duthost, profile_name, default_priority,
-                       cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
     i = 0
     for dut_port, nbr in ctrl_links.items():
         enable_macsec_port(duthost, dut_port, profile_name)
@@ -140,7 +141,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         else:
             priority = default_priority + 1
         set_macsec_profile(nbr["host"], profile_name, priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
         wait_until(20, 3, 0,
                    lambda: duthost.iface_macsec_ok(dut_port) and
