@@ -97,3 +97,17 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
+
+  - job:
+    pool: sonictest-dualtor
+    displayName: "kvmtest-dualtor"
+    timeoutInMinutes: 360
+
+    steps:
+      - template: .azure-pipelines/run-test-template.yml
+        parameters:
+          dut: all
+          tbname: vms-kvm-dual-t0
+          ptf_name: ptf-04
+          tbtype: dualtor
+          vmtype: ceos
