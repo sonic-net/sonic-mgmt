@@ -14,6 +14,10 @@ from macsec_config_helper import cleanup_macsec_configuration
 logger = logging.getLogger(__name__)
 with open(os.path.dirname(__file__) + '/profile.json') as f:
     macsec_profiles = json.load(f)
+    # Set default value
+    for k, v in macsec_profiles.items():
+        if "rekey_period" not in v:
+            macsec_profiles[k]["rekey_period"] = 0
 
 
 def get_macsec_profile_list():
@@ -78,18 +82,20 @@ def macsec_setup(request, duthost, ctrl_links, macsec_profile, macsec_feature):
         return
 
     profile = macsec_profiles[macsec_profile]
-    if request.config.getoption("neighbor_type") == "eos" and duthost.facts["asic_type"] == "vs":
-        if profile['send_sci'] == "false":
+    if request.config.getoption("neighbor_type") == "eos":
+        if duthost.facts["asic_type"] == "vs" and profile['send_sci'] == "false":
             # On EOS, portchannel mac is not same as the member port mac (being as SCI),
             # then src mac is not equal to SCI in its sending packet. The receiver of vSONIC
             # will drop it for macsec kernel module does not correctly handle it.
             pytest.skip("macsec on dut vsonic, neighbor eos, send_sci false")
+        if profile['rekey_period'] > 0:
+            pytest.skip("Rekey period hasn't been supported in EOS platform")
 
     cleanup_macsec_configuration(duthost, ctrl_links, macsec_profile)
     setup_macsec_configuration(duthost, ctrl_links,
                                macsec_profile, profile['priority'], profile['cipher_suite'],
                                profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                               profile['send_sci'])
+                               profile['send_sci'], profile['rekey_period'])
     logger.info(
         "Setup MACsec configuration with arguments:\n{}".format(locals()))
     yield
@@ -168,7 +174,9 @@ def upstream_links(duthost, tbinfo, nbrhosts):
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ip_address(item["addr"]), IPv4Address):
+                        # The address of neighbor device
                         local_ipv4_addr = item["addr"]
+                        # The address of DUT
                         peer_ipv4_addr = item["peer_addr"]
                         break
             port = mg_facts["minigraph_neighbors"][interface]["port"]

@@ -35,3 +35,8 @@ def policy(macsec_profile):
 @pytest.fixture(scope="module")
 def send_sci(macsec_profile):
     return macsec_profiles[macsec_profile]['send_sci']
+
+
+@pytest.fixture(scope="module")
+def rekey_period(macsec_profile):
+    return macsec_profiles[macsec_profile]['rekey_period']
