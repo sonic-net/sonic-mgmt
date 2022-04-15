@@ -50,7 +50,7 @@ def modify_template(admin_session, template_path, additional_content, hwsku, typ
         stdin, stdout, stderr = admin_session.exec_command('sudo cat {0}'.format(template_path))
         config_file_content = stdout.readlines()
     
-    logging.warning("Updated template file: {0}".format(config_file_content))
+    logging.info("Updated template file: {0}".format(config_file_content))
 
 def modify_templates(duthost, tacacs_creds, creds):
     dut_ip = duthost.mgmt_ip
