@@ -15,9 +15,9 @@ pytestmark = [
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
-HOSTSERVICE_RELOADING_TIME = 30
+HOSTSERVICE_RELOADING_TIME = 20
 
-LOGIN_MESSAGE_TIMEOUT = 30
+LOGIN_MESSAGE_TIMEOUT = 20
 LOGIN_MESSAGE_BUFFER_SIZE = 1000
 
 TEMPLATE_BACKUP_COMMAND = "sudo mv {0} {0}.backup"
@@ -42,7 +42,15 @@ def get_device_type(duthost):
 def modify_template(admin_session, template_path, additional_content, hwsku, type):
     admin_session.exec_command(TEMPLATE_BACKUP_COMMAND.format(template_path))
     admin_session.exec_command(TEMPLATE_CREATE_COMMAND.format(template_path))
-    admin_session.exec_command(LIMITS_CONF_TEMPLATE.format(hwsku, type, additional_content, template_path))
+
+    # run update template command and wait for template updated
+    config_file_content = []
+    while len(config_file_content) == 0:
+        admin_session.exec_command(LIMITS_CONF_TEMPLATE.format(hwsku, type, additional_content, template_path))
+        stdin, stdout, stderr = admin_session.exec_command('sudo cat {0}'.format(template_path))
+        config_file_content = stdout.readlines()
+    
+    logging.warning("Updated template file: {0}".format(config_file_content))
 
 def modify_templates(duthost, tacacs_creds, creds):
     dut_ip = duthost.mgmt_ip
@@ -85,13 +93,6 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
         # Modify templates and restart hostcfgd to render config files
         modify_templates(duthost, tacacs_creds, creds)
         restart_hostcfgd(duthost)
-
-        # wait for limits.conf updated
-        config_file_content = []
-        while len(config_file_content) == 0
-            config_file_content = duthost.shell('sudo cat /etc/security/limits.conf', module_ignore_errors=False)['stdout_lines']
-            logging.debug("Updated config file: {0}".format(config_file_content))
-            time.sleep(1)
 
     yield
 
