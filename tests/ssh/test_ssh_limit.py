@@ -15,9 +15,9 @@ pytestmark = [
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"
-SERVICE_RELOADING_TIME = 20
+HOSTSERVICE_RELOADING_TIME = 10
 
-LOGIN_MESSAGE_TIMEOUT = 20
+LOGIN_MESSAGE_TIMEOUT = 10
 LOGIN_MESSAGE_BUFFER_SIZE = 1000
 
 TEMPLATE_BACKUP_COMMAND = "sudo mv {0} {0}.backup"
@@ -46,10 +46,12 @@ def modify_template(admin_session, template_path, additional_content, hwsku, typ
     # run update template command and wait for template updated
     config_file_content = []
     while len(config_file_content) == 0:
-        admin_session.exec_command(LIMITS_CONF_TEMPLATE.format(hwsku, type, additional_content, template_path))
+        stdin, stdout, stderr = admin_session.exec_command(LIMITS_CONF_TEMPLATE.format(hwsku, type, additional_content, template_path))
+        time.sleep(1)
+
         stdin, stdout, stderr = admin_session.exec_command('sudo cat {0}'.format(template_path))
         config_file_content = stdout.readlines()
-    
+
     logging.info("Updated template file: {0}".format(config_file_content))
 
 def modify_templates(duthost, tacacs_creds, creds):
@@ -75,7 +77,7 @@ def restore_templates(duthost):
 
 def restart_hostcfgd(duthost):
     duthost.shell(HOSTSERVICE_RELOADING_COMMAND)
-    time.sleep(SERVICE_RELOADING_TIME)
+    time.sleep(HOSTSERVICE_RELOADING_TIME)
 
 def limit_template_exist(duthost):
     return duthost.stat(path=LIMITS_CONF_TEMPLATE_PATH).get('stat', {}).get('exists', False)
