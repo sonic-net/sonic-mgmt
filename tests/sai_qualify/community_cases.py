@@ -126,5 +126,9 @@ PTF_SAI_TEST_CASE = [
         "saisanity.L2SanityTest"
         ]
 
+WARM_BOOT_TEST_CASE = [
+        "warm_saisanity.WarmL2SanityTest"
+        ]
+
 
 PROBE_TEST_CASE = "sail3.L3IPv4HostTest"

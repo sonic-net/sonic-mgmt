@@ -677,7 +677,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # get a snapshot of PG drop packets counter
-        if '201811' not in sonic_version and 'mellanox' in asic_type:
+        if '201811' not in sonic_version and ('mellanox' in asic_type or 'cisco-8000' in asic_type):
             # According to SONiC configuration lossless dscps are classified as follows:
             # dscp  3 -> pg 3
             # dscp  4 -> pg 4
@@ -819,6 +819,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info("Dropped packet counters on port #{} :{} {} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], pg_dropped_cntrs_old[dscp], dscp))
                 # Check that counters per lossless PG increased
                 assert pg_dropped_cntrs[dscp] > pg_dropped_cntrs_old[dscp]
+            if '201811' not in sonic_version and 'cisco-8000' in asic_type:
+                pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
+                logging.info("Dropped packet counters on port #{} :{} {} packets, current dscp: {}".format(src_port_id, pg_dropped_cntrs[dscp], pg_dropped_cntrs_old[dscp], dscp))
+                # check that counters per lossless PG increased
+                # Also make sure only relevant dropped pg counter increased and no other pg's
+                for i in range(len(pg_dropped_cntrs)):
+                    if i == dscp:
+                        assert pg_dropped_cntrs[i] > pg_dropped_cntrs_old[i]
+                    else:
+                        assert pg_dropped_cntrs[i] == pg_dropped_cntrs_old[i]
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
@@ -1830,6 +1840,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+        pg_cntrs_base = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
 
         # send packets
         try:
@@ -1856,7 +1867,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if actual_pkts_num_leak_out > pkts_num_leak_out:
                     send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
+            pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
             pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+            print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, pg_shared_wm_res[pg])
 
             if pkts_num_fill_min:
@@ -1890,6 +1903,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # these counters are clear on read, ensure counter polling
                 # is disabled before the test
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+                pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+                print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
                 assert(pg_shared_wm_res[pg] <= (expected_wm + margin) * cell_size)
                 assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
@@ -1900,6 +1915,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+            pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+            print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg])
             assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
@@ -2092,6 +2109,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         xmit_counters_base, queue_counters_base = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+        pg_cntrs_base = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
 
         # send packets
         try:
@@ -2120,7 +2138,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+            pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, q_wm_res[queue])
+            print >> sys.stderr, "Received packets: %d" % (pg_cntrs[queue] - pg_cntrs_base[queue])
             if pkts_num_fill_min:
                 assert(q_wm_res[queue] == 0)
             else:
@@ -2147,6 +2167,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # these counters are clear on read, ensure counter polling
                 # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+                pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+                print >> sys.stderr, "Received packets: %d" % (pg_cntrs[queue] - pg_cntrs_base[queue])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
                 assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
                 assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
@@ -2157,6 +2179,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
+            pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
+            print >> sys.stderr, "Received packets: %d" % (pg_cntrs[queue] - pg_cntrs_base[queue])
             print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
             assert(fragment < cell_occupancy)
             assert(expected_wm * cell_size <= q_wm_res[queue])
