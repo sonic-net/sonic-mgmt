@@ -201,11 +201,11 @@ def get_ethernet_to_neighbors(neighbor_type, minigraph_data):
     '''
 
     pattern = re.compile("{}$".format(neighbor_type))
-    ret_list = {}
+    ret_list = []
 
     for intf in minigraph_data['minigraph_neighbors']:
         if pattern.search(minigraph_data['minigraph_neighbors'][intf]['name']):
-            ret_list[intf] = minigraph_data['minigraph_neighbors'][intf]['address']
+            ret_list.append(intf)
 
     return ret_list
 
