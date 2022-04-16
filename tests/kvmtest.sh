@@ -101,7 +101,6 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      ssh/test_ssh_limit.py \
       arp/test_arp_dualtor.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
@@ -134,6 +133,7 @@ test_t0() {
       snmp/test_snmp_pfc_counters.py \
       snmp/test_snmp_queue.py \
       ssh/test_ssh_ciphers.py \
+      ssh/test_ssh_limit.py \
       syslog/test_syslog.py\
       tacacs/test_accounting.py \
       tacacs/test_authorization.py \
