@@ -229,7 +229,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                     "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][t1_ports[0]]),
                     # Downstream traffic ingress from the first portchannel,
                     # and mirror packet egress from other portchannels
-                    "dest_port": t1_ports[2:] if len(t1_dest_ports_ptf_id[0].split(',')) == 2 else t1_ports[1:],
+                    "dest_port": t1_dest_ports[1:],
                     "dest_port_ptf_id": t1_dest_ports_ptf_id[1:],
                     "dest_port_lag_name": t1_dest_lag_name[1:],
                     "namespace": server_namespace
