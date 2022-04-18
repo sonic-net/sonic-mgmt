@@ -128,7 +128,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "Arista-7060CX-32S-D48C8":
-            # All possible breakout 50G port numbers:
+            # All possible breakout 50G port numbers:Accton-AS9716-32D
             all_ports = [x for x in range(1, 33)]
 
             # 100G ports
@@ -148,6 +148,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
              hwsku == "Arista-7800R3K-48CQ-LC":
              for i in range(1, 48):
                  port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku == "Accton-AS9716-32D":
+            for i in range(1, 33):
+                port_alias_to_name_map["fourHundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 8)
         elif hwsku == "INGRASYS-S9100-C32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)

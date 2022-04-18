@@ -4,7 +4,7 @@ This module contains the snappi fixture
 import pytest
 import snappi
 import snappi_convergence
-from ipaddress import ip_address, IPv4Address
+from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.common_helpers import get_addrs_in_subnet,\
@@ -553,6 +553,19 @@ def get_multidut_snappi_ports(duthosts,
             ports.append(port)
     return ports
 
+def get_dut_interconnected_ports(conn_graph_facts, src_host, dst_host):
+    ports = []
+    for key, value in conn_graph_facts['device_conn'][src_host].items():
+        if value['peerdevice'] == dst_host:
+            ports.append((key, value['peerport']))
+    return ports
+
+def get_tgen_peer_ports(snappi_ports, hostname):
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == hostname:
+            ports.append((port['location'], port['peer_port']))
+    return ports
 
 def create_ip_list(value, count, mask=32, incr=0):
     '''
