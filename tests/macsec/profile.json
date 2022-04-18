@@ -5,7 +5,8 @@
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
-        "send_sci": "false"
+        "send_sci": "false",
+        "rekey_period": 120
     },
     "256": {
         "priority": 64,
