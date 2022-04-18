@@ -105,7 +105,6 @@ def parallel_run(
                         Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
 
-
     workers = []
     results = Manager().dict()
     start_time = datetime.datetime.now()
@@ -186,19 +185,17 @@ def parallel_run(
     # of each Process and fail
     if len(failed_processes.keys()):
         for process_name, process in failed_processes.items():
+            p_exitcode = ""
+            p_exception = ""
+            p_traceback = ""
             if 'exception' in process and process['exception']:
                 p_exception = process['exception'][0]
                 p_traceback = process['exception'][1]
                 p_exitcode = process['exit_code']
-                logger.error("""Process {} had exit code {} and exception {}
-                    and traceback {}""".format(
-                        process_name, p_exitcode, p_exception, p_traceback
-                    )
-                )
             pt_assert(
                 False,
-                'Processes "{}" had failures. Please check the logs'.format(
-                    list(failed_processes.keys())
+                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
                 )
             )
 

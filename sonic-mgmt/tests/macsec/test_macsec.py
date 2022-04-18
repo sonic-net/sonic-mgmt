@@ -71,6 +71,26 @@ class TestControlPlane():
             return True
         assert wait_until(300, 5, 3, _test_mka_session)
 
+    def test_rekey_by_period(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period == 0:
+            pytest.skip("If the rekey period is 0 which means rekey by period isn't active.")
+        for port_name, nbr in ctrl_links.items():
+            _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, last_nbr_egress_sa_table, last_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            up_link = upstream_links[port_name]
+            output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
+            _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, new_nbr_egress_sa_table, new_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            assert last_dut_egress_sa_table != new_dut_egress_sa_table
+            assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+            assert last_nbr_egress_sa_table != new_nbr_egress_sa_table
+            assert last_nbr_ingress_sa_table != new_nbr_ingress_sa_table
+            assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) == 0
+
 
 class TestDataPlane():
     BATCH_COUNT = 10

@@ -25,7 +25,7 @@ args = parser.parse_args()
 # Open SDK
 rc, handle = sx_api_open(None)
 if (rc != SX_STATUS_SUCCESS):
-    print >> sys.stderr, "Failed to open api handle.\nPlease check that SDK is running."
+    sys.stderr.write("Failed to open api handle.\nPlease check that SDK is running.\n")
     sys.exit(errno.EACCES)
 
 # Get number of ports
@@ -35,11 +35,11 @@ uint32_t_p_assign(port_cnt_p, 0)
 
 rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):
-    print >> sys.stderr, "An error returned by sx_api_port_device_get."
+    sys.stderr.write("An error returned by sx_api_port_device_get.\n")
     sys.exit()
 port_cnt = uint32_t_p_value(port_cnt_p)
 
-print >> sys.stderr, "Got port count {}".format(port_cnt)
+sys.stderr.write("Got port count {}\n".format(port_cnt))
 
 # Get list of ports
 port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)
@@ -48,7 +48,7 @@ uint32_t_p_assign(port_cnt_p, port_cnt)
 
 rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):
-    print >> sys.stderr, "An error returned by sx_api_port_device_get."
+    sys.stderr.write("An error returned by sx_api_port_device_get.\n")
     sys.exit()
 port_cnt = uint32_t_p_value(port_cnt_p)
 
@@ -68,17 +68,17 @@ else:
 if set_mode:
     rc = sx_api_port_sll_set(handle, sll_time)
     if (rc != SX_STATUS_SUCCESS):
-        print >> sys.stderr, "An error returned by sx_api_port_sll_set."
+        sys.stderr.write("An error returned by sx_api_port_sll_set.\n")
         sys.exit()
 else:
     sll_p = new_uint64_t_p()
     rc = sx_api_port_sll_get(handle, sll_p)
     if (rc != SX_STATUS_SUCCESS):
-        print >> sys.stderr, "An error returned by sx_api_port_sll_get."
+        sys.stderr.write("An error returned by sx_api_port_sll_get.\n")
         sys.exit()
     else:
         sll = uint64_t_p_value(sll_p)
-        print >> sys.stderr, ("sll_max_time=0x%X" % sll)
+        sys.stderr.write(("sll_max_time=0x%X\n" % sll))
 
 for i in range(0, port_cnt):
     port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list,i)
@@ -87,18 +87,18 @@ for i in range(0, port_cnt):
         if set_mode:
             rc = sx_api_port_hll_set(handle, log_port, hll_time, hll_stall)
             if (rc != SX_STATUS_SUCCESS):
-                print >> sys.stderr, "An error returned by sx_api_port_hll_set."
+                sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
                 sys.exit()
         else:
             hll_max_time_p = new_uint32_t_p()
             hll_stall_cnt_p = new_uint32_t_p()
             rc = sx_api_port_hll_get(handle,log_port, hll_max_time_p, hll_stall_cnt_p)
             if (rc != SX_STATUS_SUCCESS):
-                print >> sys.stderr, "An error returned by sx_api_port_hll_set."
+                sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
                 sys.exit()
             else:
                 hll_max_time = uint32_t_p_value(hll_max_time_p)
                 hll_stall_cnt = uint32_t_p_value(hll_stall_cnt_p)
-                print >> sys.stderr, ("Port%d(Ethernet%d, logical:0x%X) hll_time:0x%X, hll_stall:0x%X" %
+                sys.stderr.write(("Port%d(Ethernet%d, logical:0x%X) hll_time:0x%X, hll_stall:0x%X\n" %
                     (port_attributes.port_mapping.module_port, (port_attributes.port_mapping.module_port * 4),
-                        log_port, hll_max_time, hll_stall_cnt))
+                        log_port, hll_max_time, hll_stall_cnt)))

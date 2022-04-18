@@ -12,6 +12,7 @@ from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 logger = logging.getLogger(__name__)
 
+
 class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
@@ -56,7 +57,8 @@ class snmpPduController(PduControllerBase):
             self.pduType = 'Emerson'
         if 'PX2' in pdu:
             self.pduType = 'Raritan'
-
+        if 'Vertiv Geist Upgradeable PDU' in pdu:
+            self.pduType = 'Vertiv'
         return
 
     def pduCntrlOid(self):
@@ -84,7 +86,11 @@ class snmpPduController(PduControllerBase):
         RARITAN_PORT_NAME_BASE_OID = "1.3.6.1.4.1.13742.6.3.5.3.1.3"
         RARITAN_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.3"
         RARITAN_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.2"
-
+        # MIB OID for 'Vertiv Geist Upgradeable PDU'
+        VERTIV_PORT_NAME_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.3"
+        VERTIV_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.4"
+        VERTIV_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.6"
+        VERTIV_PORT_POWER_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.6.1.12"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -121,14 +127,22 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID    = RARITAN_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = RARITAN_PORT_CONTROL_BASE_OID
 
+        elif self.pduType == "Vertiv":
+            self.PORT_NAME_BASE_OID = VERTIV_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = VERTIV_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = VERTIV_PORT_CONTROL_BASE_OID
+            self.PORT_POWER_BASE_OID = VERTIV_PORT_POWER_BASE_OID
+            self.STATUS_OFF = "2"
+            self.CONTROL_ON = "2"
+            self.CONTROL_OFF = "4"
+            self.has_lanes = False
+            self.max_lanes = 1
         else:
             raise RuntimeError("The pduType is not supported:{}".format(self.pduType))
-
 
     def _build_outlet_maps(self, port_oid, label):
         self.port_oid_dict[port_oid] = { 'label' : label }
         self.port_label_dict[label] = { 'port_oid' : port_oid }
-
 
     def _probe_lane(self, lane_id, cmdGen, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
@@ -151,7 +165,6 @@ class snmpPduController(PduControllerBase):
                     label = val.prettyPrint().lower()
                     self._build_outlet_maps(port_oid, label)
 
-
     def _get_pdu_ports(self):
         """
         @summary: Helper method for getting PDU ports connected to PSUs of DUT
@@ -169,7 +182,6 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-
     def __init__(self, controller, pdu):
         logging.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
@@ -183,7 +195,6 @@ class snmpPduController(PduControllerBase):
         self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
-
 
     def turn_on_outlet(self, outlet):
         """
@@ -243,7 +254,6 @@ class snmpPduController(PduControllerBase):
             return False
         return True
 
-
     def _get_one_outlet_power(self, cmdGen, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
             return
@@ -265,7 +275,6 @@ class snmpPduController(PduControllerBase):
                 status['output_watts'] = current_val
                 return
 
-
     def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
@@ -286,7 +295,6 @@ class snmpPduController(PduControllerBase):
                 return status
 
         return None
-
 
     def get_outlet_status(self, outlet=None, hostname=None):
         """

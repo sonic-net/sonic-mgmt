@@ -666,14 +666,12 @@ class DHCPTest(DataplaneBaseTest):
             self.assertTrue(False,"DHCP Relay packet not matched or Padded extra on server side")
 
     def runTest(self):
-        t1 = Thread(target=self.Sniffer, args=("eth28",))
-        t1.start()
-        t2 = Thread(target=self.Sniffer, args=("eth29",))
-        t2.start()
-        t3 = Thread(target=self.Sniffer, args=("eth30",))
-        t3.start()
-        t4 = Thread(target=self.Sniffer, args=("eth31",))
-        t4.start()
+        # Start sniffer process for each server port to capture DHCP packet
+        # and then verify option 82
+        for interface_index in self.server_port_indices:
+            t1 = Thread(target=self.Sniffer, args=("eth"+str(interface_index),))
+            t1.start()
+
         self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
         self.verify_relayed_discover()
         self.server_send_offer()
