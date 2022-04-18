@@ -188,3 +188,14 @@ def keep_and_peer_link_member(duthosts, collect, mg_facts):
         res[dut.hostname]['keepalive'] = keep_alive_interface
         res[dut.hostname]['peerlink'] = peer_link_member
     return res
+
+
+@pytest.fixture(scope="module", autouse=True)
+def check_topo(tbinfo):
+    """
+    Fixture that checks if the reqired t0-mclag topo is set
+    Args:
+        tbinfo: Testbed object
+    """
+    if tbinfo['topo']['name'] != 't0-mclag':
+       pytest.skip("test requires t0-mclag topo to run, current topo - {}".format(tbinfo['topo']['name']))
