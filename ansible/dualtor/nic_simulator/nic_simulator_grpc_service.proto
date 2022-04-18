@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+service DualTorService {
+  rpc QueryAdminPortState(AdminRequest) returns (AdminReply) {}
+
+  rpc SetAdminPortState(AdminRequest) returns (AdminReply) {}
+
+  rpc QueryOperationPortState(OperationRequest) returns (OperationReply) {}
+}
+
+message AdminRequest {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message AdminReply {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message OperationRequest {
+  repeated int32 portid = 1;
+}
+
+message OperationReply {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
