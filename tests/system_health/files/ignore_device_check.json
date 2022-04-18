@@ -1,5 +1,5 @@
 {
-    "services_to_ignore": ["acms"],
+    "services_to_ignore": ["acms","CA_cert_downloader"],
     "devices_to_ignore": ["asic","fan","psu"],
     "user_defined_checkers": [],
     "polling_interval": 10,
