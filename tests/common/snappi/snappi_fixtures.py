@@ -521,4 +521,59 @@ def cvg_api(snappi_api_serv_ip,
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
-    
+
+@pytest.fixture(scope="module")
+def get_multidut_snappi_ports(duthosts,
+                                conn_graph_facts,
+                                fanout_graph_facts):
+
+    """
+    Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+    Return:
+        return tuple of duts and tgen ports
+
+    """
+    ports=[]
+    for host in duthosts:
+        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=host.hostname)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        for i in range(0,3):
+            try :
+                snappi_fanout_list.get_fanout_device_details(i)
+            except:
+                pass
+        snappi_ports = snappi_fanout_list.get_ports(peer_device = host.hostname)
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            ports.append(port)
+    return ports
+
+
+def create_ip_list(value, count, mask=32, incr=0):
+    '''
+        Create a list of ips based on the count provided
+
+        Parameters:
+            value: start value of the list
+            count: number of ips required
+            mask: subnet mask for the ips to be created
+            incr: increment value of the ip
+    '''
+    ip_list = [value]
+    for i in range(1, count):
+        if ip_address(unicode(value)).version == 4:
+            incr1 = pow(2, (32 - int(mask))) + incr
+            value = (IPv4Address(unicode(value)) + incr1).compressed
+        elif ip_address(unicode(value)).version == 6:
+            if mask == 32:
+                mask = 64
+            incr1 = pow(2, (128 - int(mask))) + incr
+            value = (IPv6Address(unicode(value)) + incr1).compressed
+        ip_list.append(value)
+
+    return ip_list
