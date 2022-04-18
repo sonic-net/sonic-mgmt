@@ -26,7 +26,7 @@ TEMPLATE_CREATE_COMMAND = "sudo touch {0}"
 
 PAM_LIMITS_TEMPLATE_PATH = "/usr/share/sonic/templates/pam_limits.j2"
 LIMITS_CONF_TEMPLATE_PATH = "/usr/share/sonic/templates/limits.conf.j2"
-LIMITS_CONF_TEMPLATE_TO_HOME = "echo \"{{% if hwsku == '{0}' and type == '{1}'%}}\n{2}\n{{% endif %}}\"  >> ~/temp_config_file"
+LIMITS_CONF_TEMPLATE_TO_HOME = "echo \"{{% if hwsku == '{0}' and type == '{1}'%}}\n{2}\n{{% endif %}}\"  > ~/temp_config_file"
 TEMPLATE_MOVE_COMMAND = "sudo mv ~/temp_config_file {0}"
 
 def get_device_type(duthost):
