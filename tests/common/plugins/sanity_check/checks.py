@@ -75,6 +75,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 def check_interfaces(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        logger.debug("Result of check_interfaces: {}".format(result))
         return result.values()
 
     @reset_ansible_local_tmp
@@ -129,6 +130,7 @@ def check_interfaces(duthosts):
         check_result["failed"] = True if len(down_ports) > 0 else False
         check_result["down_ports"] = down_ports
         results[dut.hostname] = check_result
+        logger.debug("Check_result of _check_interfaces_on_dut: {}".format(check_result))
     return _check
 
 
@@ -136,6 +138,7 @@ def check_interfaces(duthosts):
 def check_bgp(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        logger.debug("Result of check_bgp: {}".format(result))
         return result.values()
 
     @reset_ansible_local_tmp
@@ -209,6 +212,7 @@ def check_bgp(duthosts):
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
+        logger.debug("Check_result of _check_bgp_on_dut: {}".format(check_result))
 
     return _check
 
@@ -235,6 +239,7 @@ def _is_db_omem_over_threshold(command_output):
 def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600)
+        logger.debug("Result of check_dbmemory: {}".format(result))
         return result.values()
 
     @reset_ansible_local_tmp
@@ -256,6 +261,7 @@ def check_dbmemory(duthosts):
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
         results[dut.hostname] = check_result
+        logger.debug("Check_result of _check_dbmemory_on_dut: {}".format(check_result))
     return _check
 
 
@@ -572,6 +578,7 @@ def check_monit(duthosts):
     """
     def _check(*args, **kwargs):
         result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600)
+        logger.debug("Result of check_monit: {}".format(result))
         return result.values()
 
     @reset_ansible_local_tmp
@@ -628,6 +635,7 @@ def check_monit(duthosts):
 
         logger.info("Checking status of each Monit service was done on %s" % dut.hostname)
         results[dut.hostname] = check_result
+        logger.debug("Check_result of _check_monit_on_dut: {}".format(check_result))
     return _check
 
 
@@ -641,6 +649,7 @@ def check_processes(duthosts):
                 timeout = 1000
                 break
         result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout)
+        logger.debug("Result of check_processes: {}".format(result))
         return result.values()
 
     @reset_ansible_local_tmp
@@ -687,6 +696,7 @@ def check_processes(duthosts):
 
         logger.info("Done checking processes status on %s" % dut.hostname)
         results[dut.hostname] = check_result
+        logger.debug("Check_result of _check_processes_on_dut: {}".format(check_result))
     return _check
 
 @pytest.fixture(scope="module")
@@ -801,5 +811,6 @@ def check_secureboot(duthosts, request):
             check_result = {"failed": False, "check_item": "secureboot"}
             check_results.append(check_result)
 
+        logger.debug("Check_result of check_secureboot: {}".format(check_results))
         return check_results
     return _check
