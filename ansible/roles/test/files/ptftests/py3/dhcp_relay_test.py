@@ -509,10 +509,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
 
-        masked_offer.set_do_not_care_scapy(scapy.DHCP, "lease_time")
-
-        #masked_offer.set_do_not_care_scapy(scapy.PADDING, "load")
-
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
 
@@ -586,8 +582,6 @@ class DHCPTest(DataplaneBaseTest):
 
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_ack.set_do_not_care_scapy(scapy.DHCP, "lease_time")
 
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
