@@ -9,6 +9,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable                                 # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, change_mac_addresses                                      # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
+from tests.common.dualtor.dual_tor_common import cable_type 
 
 logger = logging.getLogger(__name__)
 
