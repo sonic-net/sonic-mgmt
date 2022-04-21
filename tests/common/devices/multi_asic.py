@@ -552,7 +552,7 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             for n in range(duthost.facts['num_asic']):
                 container = container_name + str(n)
-                self.shell("sudo docker exec {} bash -c {}".format(container, n, cmd))
+                self.shell("sudo docker exec {} bash -c {}".format(container, cmd))
         else:
             self.shell("sudo docker exec {} bash -c {}".format(container_name, cmd))
 
