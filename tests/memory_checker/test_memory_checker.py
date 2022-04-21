@@ -32,6 +32,7 @@ pytestmark = [
 CONTAINER_STOP_THRESHOLD_SECS = 200
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
+WAITING_SYSLOG_MSG_SECS = 130
 
 
 def restart_container(duthost, container_name):
@@ -45,7 +46,7 @@ def restart_container(duthost, container_name):
         None.
     """
     logger.info("Restarting '{}' container ...".format(container_name))
-    duthost.shell("sudo systemctl restart {}.service".format(container_name))
+    duthost.shell("systemctl restart {}.service".format(container_name))
     logger.info("'{}' is restarted.".format(container_name))
 
 
@@ -58,8 +59,9 @@ def backup_monit_config_files(duthost):
         None.
     """
     logger.info("Backing up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
-    duthost.shell("sudo cp -f /etc/monit/conf.d/monit_telemetry /tmp/")
+    duthost.shell("cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("mv -f /etc/monit/conf.d/monit_* /tmp/")
+    duthost.shell("mv -f /tmp/monit_telemetry /etc/monit/conf.d/")
     logger.info("Monit configuration files on DuT '{}' is backed up.".format(duthost.hostname))
 
 
@@ -73,9 +75,9 @@ def customize_monit_config_files(duthost, temp_config_line):
         None.
     """
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
-    duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/monit_telemetry")
-    duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/monit_telemetry".format(temp_config_line))
-    duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    duthost.shell("sed -i '$s/^./#/' /etc/monit/conf.d/monit_telemetry")
+    duthost.shell("echo '{}' | tee -a /etc/monit/conf.d/monit_telemetry".format(temp_config_line))
+    duthost.shell("sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
     logger.info("Modifying Monit config to eliminate start delay and decrease interval are done.")
 
 
@@ -88,8 +90,8 @@ def restore_monit_config_files(duthost):
         None.
     """
     logger.info("Restoring original Monit configuration files on DuT '{}' ...".format(duthost.hostname))
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
-    duthost.shell("sudo mv -f /tmp/monit_telemetry /etc/monit/conf.d/")
+    duthost.shell("mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("mv -f /tmp/monit_* /etc/monit/conf.d/")
     logger.info("Original Monit configuration files on DuT '{}' are restored.".format(duthost.hostname))
 
 
@@ -102,7 +104,7 @@ def restart_monit_service(duthost):
         None.
     """
     logger.info("Restarting Monit service ...")
-    duthost.shell("sudo systemctl restart monit")
+    duthost.shell("systemctl restart monit")
     logger.info("Monit service is restarted.")
 
 
@@ -274,8 +276,8 @@ def consumes_memory_and_checks_container_restart(duthost, container_name, vm_wor
     thread_pool = ThreadPool()
     thread_pool.apply_async(consume_memory, (duthost, container_name, vm_workers))
 
-    logger.info("Sleep 130 seconds to wait for the alerting messages from syslog ...")
-    time.sleep(130)
+    logger.info("Sleep '{}' seconds to wait for the alerting messages from syslog ...".format(WAITING_SYSLOG_MSG_SECS))
+    time.sleep(WAITING_SYSLOG_MSG_SECS)
 
     logger.info("Checking the alerting messages related to container stopped ...")
     loganalyzer.analyze(marker)
@@ -316,7 +318,7 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
     """Invokes the 'stress' utility to consume memory more than the threshold asynchronously
     and checks whether the container can be stopped and restarted. After container was restarted,
     'stress' utility will be invoked again to consume memory and checks whether Monit was able to
-    restart this contianer with or without help of new syntax.
+    restart this container with or without help of new syntax.
     Loganalyzer is leveraged to check whether the log messages related to container stopped
     and started were generated.
 
@@ -346,8 +348,8 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
     thread_pool = ThreadPool()
     thread_pool.apply_async(consume_memory, (duthost, container_name, vm_workers))
 
-    logger.info("Sleep 130 seconds to wait for the alerting messages from syslog ...")
-    time.sleep(130)
+    logger.info("Sleep '{}' seconds to wait for the alerting messages from syslog ...".format(WAITING_SYSLOG_MSG_SECS))
+    time.sleep(WAITING_SYSLOG_MSG_SECS)
 
     logger.info("Checking the alerting messages related to container restart ...")
     loganalyzer.analyze(marker)
@@ -380,7 +382,7 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
                       "Monit can reset counter and restart '{}'!".format(container_name))
         logger.info("Monit was unable to reset its counter and '{}' can not be restarted!".format(container_name))
     else:
-        pytest_assert(analyzing_result["total"]["expected_match"] == 5,
+        pytest_assert(analyzing_result["total"]["expected_match"] == len(expected_alerting_messages),
                       "Monit still can not restart '{}' with the help of new syntax!".format(container_name))
         logger.info("Monit was able to restart '{}' with the help of new syntax!".format(container_name))
 
@@ -431,8 +433,8 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
 def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
                                      enum_rand_one_per_hwsku_frontend_hostname):
     """Checks that Monit was unable to reset its counter. Specifically Monit will restart
-    the contianer if memory usage of it is larger than the threshold for specific times within
-    a sliding window. However, Monit was unable to restart the contianer anymore if memory usage is
+    the contanier if memory usage of it is larger than the threshold for specific times within
+    a sliding window. However, Monit was unable to restart the container anymore if memory usage is
     still larger than the threshold continuoulsy since Monit failed to reset its internal counter.
     The `stress` utility is leveraged as the memory stressing tool.
 
