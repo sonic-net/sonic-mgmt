@@ -38,7 +38,7 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
         client.sendcontrol('a')
         client.sendcontrol('x')
     except Exception as e:
-        pytest.fail("Not able to do reverse SSH to remote host via DUT")
+        pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
 
     pytest_assert(
         wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
@@ -69,13 +69,13 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
     except Exception as e:
-        pytest.fail("Not able to do reverse SSH to remote host via DUT")
+        pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
 
     try:
         # Force clear line from DUT
         duthost.shell('sudo sonic-clear line {}'.format(target_line))
     except Exception as e:
-        pytest.fail("Not able to do clear line for DUT")
+        pytest.fail("Not able to do clear line for DUT: {}".format(e))
 
     # Check the session ended within 5s and the line state is idle
     pytest_assert(
@@ -85,7 +85,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
     try:
         client.expect("Picocom was killed")
     except Exception as e:
-        pytest.fail("Console session not exit correctly: {}".format(str(e)))
+        pytest.fail("Console session not exit correctly: {}".format(e))
 
 def check_target_line_status(duthost, line, expect_status):
     console_facts = duthost.console_facts()['ansible_facts']['console_facts']
