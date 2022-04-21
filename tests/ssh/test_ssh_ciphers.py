@@ -14,6 +14,8 @@ pytestmark = [
 def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_cipher, creds, typename):
     duthost = duthosts[rand_one_dut_hostname]
     dutuser, dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
     dutip = duthost.mgmt_ip
 
     if typename == "enc":
@@ -34,12 +36,20 @@ def connect_with_specified_ciphers(duthosts, rand_one_dut_hostname, specified_ci
 
         i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
         pytest_assert(i == 0, "Failed to connect")
-    except pexpect.exceptions.EOF:
-        pytest.fail("EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest.fail("Timeout reached")
-    except Exception as e:
-        pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
+    except:
+        try:
+            connect = pexpect.spawn(ssh_cmd)
+            connect.expect('.*[Pp]assword:')
+            connect.sendline(sonic_admin_alt_password)
+
+            i = connect.expect('{}@{}:'.format(dutuser, duthost.hostname), timeout=10)
+            pytest_assert(i == 0, "Failed to connect")
+        except pexpect.exceptions.EOF:
+            pytest.fail("EOF reached")
+        except pexpect.exceptions.TIMEOUT:
+            pytest.fail("Timeout reached")
+        except Exception as e:
+            pytest.fail("Cannot connect to DUT host via SSH: {}".format(e))
 
 def test_ssh_protocol_version(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
