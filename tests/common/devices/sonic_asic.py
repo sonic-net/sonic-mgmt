@@ -89,32 +89,6 @@ class SonicAsic(object):
         if self.sonichost.is_multi_asic:
             return self.namespace
         return DEFAULT_NAMESPACE
-    
-    def docker_exec_for_all_asics(self, cmd, container_name):
-        """This function iterate for ALL asics and execute cmds for multi-asic duts"""
-        duthost = self.sonichost
-        if duthost.is_multi_asic:
-            for n in duthost.facts['num_asic']:
-                container = container_name + n
-                duthost.shell("sudo docker exec {} bash -c {}".format(container, n, cmd)
-        else:
-            duthost.shell("sudo docker exec {} bash -c {}".format(container_name, cmd)
-
-    def docker_copy_for_all_asics(self, container_name, src, dst, container_in_src=True):
-        """This function iterate for ALL asics and execute cmds for multi-asic duts"""
-        duthost = self.sonichost
-        if duthost.is_multi_asic:
-            for n in duthost.facts['num_asic']:
-                container = container_name + n
-                if container_in_src:
-                    duthost.shell("sudo docker cp {}:{} {}".format(container, src, dst)
-                else:
-                    duthost.shell("sudo docker cp {} {}:{}".format(src, container, dst)
-        else:
-            if container_in_src:
-                duthost.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
-            else:
-                duthost.shell("sudo docker cp {} {}:{}".format(src, container_name, dst)
 
     def bgp_facts(self, *module_args, **complex_args):
         """ Wrapper method for bgp_facts ansible module.
