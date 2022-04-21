@@ -89,6 +89,9 @@ class TestPsuApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_psus):
             name = psu.get_name(platform_api_conn, i)
+            if name in self.psu_skip_list:
+		logger.info("skipping check for {}".format(name))
+		continue
             if self.expect(name is not None, "Unable to retrieve PSU {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "PSU {} name appears incorrect".format(i))
                 self.compare_value_with_platform_facts(duthost, 'name', name, i)
@@ -110,6 +113,10 @@ class TestPsuApi(PlatformApiTestBase):
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
             model = psu.get_model(platform_api_conn, i)
+            name = psu.get_name(platform_api_conn, i)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             if self.expect(model is not None, "Unable to retrieve PSU {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "PSU {} model appears incorrect".format(i))
         self.assert_expectations()
@@ -117,6 +124,10 @@ class TestPsuApi(PlatformApiTestBase):
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
             serial = psu.get_serial(platform_api_conn, i)
+            name = psu.get_name(platform_api_conn, i)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             if self.expect(serial is not None, "Unable to retrieve PSU {} serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
         self.assert_expectations()
@@ -125,6 +136,10 @@ class TestPsuApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, i)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
                 self.expect(isinstance(revision, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
@@ -132,6 +147,10 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, i)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             status = psu.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
                 self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
@@ -139,6 +158,10 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_position_in_parent(self, platform_api_conn):
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             position = psu.get_position_in_parent(platform_api_conn, psu_id)
             if self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
                 self.expect(isinstance(position, int), "Position value must be an integer value for psu id {}".format(psu_id))
@@ -146,6 +169,10 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_is_replaceable(self, platform_api_conn):
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             replaceable = psu.is_replaceable(platform_api_conn, psu_id)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
                 self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for psu id {}".format(psu_id))
@@ -301,6 +328,9 @@ class TestPsuApi(PlatformApiTestBase):
         psus_skipped = 0
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
             led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
             if led_support == "N/A":
                 logger.info("led not supported for this psu {}".format(name))
@@ -354,6 +384,11 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_thermals(self, platform_api_conn):
         for psu_id in range(self.num_psus):
+            name = psu.get_name(platform_api_conn, psu_id)
+            if name in self.psu_skip_list:
+                logger.info("skipping check for {}".format(name))
+                continue
+
             try:
                 num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
             except Exception:
