@@ -552,9 +552,9 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             for n in range(duthost.facts['num_asic']):
                 container = container_name + n
-                duthost.shell("sudo docker exec {} bash -c {}".format(container, n, cmd))
+                self.shell("sudo docker exec {} bash -c {}".format(container, n, cmd))
         else:
-            duthost.shell("sudo docker exec {} bash -c {}".format(container_name, cmd))
+            self.shell("sudo docker exec {} bash -c {}".format(container_name, cmd))
 
     def docker_copy_for_all_asics(self, container_name, src, dst, container_in_src=True):
         """This function iterate for ALL asics and execute cmds"""
@@ -563,11 +563,11 @@ class MultiAsicSonicHost(object):
             for n in range(duthost.facts['num_asic']):
                 container = container_name + n
                 if container_in_src:
-                    duthost.shell("sudo docker cp {}:{} {}".format(container, src, dst))
+                    self.shell("sudo docker cp {}:{} {}".format(container, src, dst))
                 else:
-                    duthost.shell("sudo docker cp {} {}:{}".format(src, container, dst))
+                    self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
         else:
             if container_in_src:
-                duthost.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+                self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
             else:
-                duthost.shell("sudo docker cp {} {}:{}".format(src, container_name, dst)
+                self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst)
