@@ -547,11 +547,11 @@ class MultiAsicSonicHost(object):
             for dutasic in self.asics:
                 dutasic.run_vtysh(vty_cmd_args)
     def docker_exec_for_all_asics(self, cmd, container_name):
-        """This function iterate for ALL asics and execute cmds for multi-asic duts"""
+        """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for n in range(duthost.facts['num_asic']):
-                container = container_name + n
+                container = container_name + str(n)
                 self.shell("sudo docker exec {} bash -c {}".format(container, n, cmd))
         else:
             self.shell("sudo docker exec {} bash -c {}".format(container_name, cmd))
@@ -561,7 +561,7 @@ class MultiAsicSonicHost(object):
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for n in range(duthost.facts['num_asic']):
-                container = container_name + n
+                container = container_name + str(n)
                 if container_in_src:
                     self.shell("sudo docker cp {}:{} {}".format(container, src, dst))
                 else:
@@ -570,4 +570,4 @@ class MultiAsicSonicHost(object):
             if container_in_src:
                 self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
             else:
-                self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst)
+                self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
