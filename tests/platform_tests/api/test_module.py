@@ -88,6 +88,8 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+		continue
             if self.expect(name is not None, "Unable to retrieve module {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
@@ -109,6 +111,9 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             model = module.get_model(platform_api_conn, i)
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
         self.assert_expectations()
@@ -117,6 +122,9 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             serial = module.get_serial(platform_api_conn, i)
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
                 self.expect(isinstance(serial, STRING_TYPE), "Module {} serial number appears incorrect".format(i))
         self.assert_expectations()
@@ -125,12 +133,18 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             status = module.get_status(platform_api_conn, i)
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             if self.expect(status is not None, "Unable to retrieve module {} status".format(i)):
                 self.expect(isinstance(status, bool), "Module {} status appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_position_in_parent(self, platform_api_conn):
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             position = module.get_position_in_parent(platform_api_conn, i)
             if self.expect(position is not None, "Failed to perform get_position_in_parent for module {}".format(i)):
                 self.expect(isinstance(position, int), "Position value must be an integer value for module {}".format(i))
@@ -138,6 +152,9 @@ class TestModuleApi(PlatformApiTestBase):
 
     def test_is_replaceable(self, platform_api_conn):
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             replaceable = module.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for module {}".format(i)):
                 self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for module {}".format(i))
@@ -153,6 +170,9 @@ class TestModuleApi(PlatformApiTestBase):
         # Ensure the base MAC address of each module is sane
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             base_mac = module.get_base_mac(platform_api_conn, i)
             if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
@@ -192,6 +212,9 @@ class TestModuleApi(PlatformApiTestBase):
 
         # TODO: Add expected system EEPROM info for each module to inventory file and compare against it
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             syseeprom_info_dict = module.get_system_eeprom_info(platform_api_conn, i)
             if not self.expect(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i)):
                 continue
@@ -321,6 +344,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             description = module.get_description(platform_api_conn, i)
             if self.expect(description is not None, "Unable to retrieve module {} description".format(i)):
                 self.expect(isinstance(description, STRING_TYPE), "Module {} description appears incorrect".format(i))
@@ -337,6 +363,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             mod_type = module.get_type(platform_api_conn, i)
             if self.expect(mod_type is not None, "Unable to retrieve module {} slot id".format(i)):
                 self.expect(isinstance(mod_type, STRING_TYPE), "Module {} type format appears not correct ".format(i))
@@ -346,6 +375,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             mod_max_con_power = module.get_maximum_consumed_power(platform_api_conn, i)
             if self.expect(mod_max_con_power is not None, "Unable to retrieve module {} slot id".format(i)):
                 self.expect(isinstance(mod_max_con_power, float),
@@ -355,6 +387,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_midplane_ip(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             module_type = module.get_type(platform_api_conn, i)
             if module_type in MIDPLANE_SUPP_MODULE:
                 midplane_ip = module.get_midplane_ip(platform_api_conn, i)
@@ -375,6 +410,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_oper_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
+            name = module.get_name(platform_api_conn, i)
+            if name in self.skip_mod_list:
+                continue
             status = module.get_oper_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve module {} status".format(i)):
                 self.expect(isinstance(status, STRING_TYPE), "Module {} status appears incorrect".format(i))
