@@ -61,7 +61,7 @@ def backup_monit_config_files(duthost):
     logger.info("Backing up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
     duthost.shell("cp -f /etc/monit/monitrc /tmp/")
     duthost.shell("mv -f /etc/monit/conf.d/monit_* /tmp/")
-    duthost.shell("mv -f /tmp/monit_telemetry /etc/monit/conf.d/")
+    duthost.shell("cp -f /tmp/monit_telemetry /etc/monit/conf.d/")
     logger.info("Monit configuration files on DuT '{}' is backed up.".format(duthost.hostname))
 
 
