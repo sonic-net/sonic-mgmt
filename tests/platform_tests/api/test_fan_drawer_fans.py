@@ -8,7 +8,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
-
+from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 from platform_api_test_base import PlatformApiTestBase
 
 ###################################################
@@ -48,7 +48,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):
+    def setup(self, platform_api_conn, duthost):
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
@@ -57,7 +57,9 @@ class TestFanDrawerFans(PlatformApiTestBase):
             else:
                 if self.num_fan_drawers == 0:
                     pytest.skip("No fan drawers found on device")
-
+        stop_thermal_control_daemon(duthost)
+        yield
+        start_thermal_control_daemon(duthost)
     #
     # Helper functions
     #
