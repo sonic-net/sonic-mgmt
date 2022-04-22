@@ -76,7 +76,6 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% if switch_type is not defined or (switch_type != 'voq' and switch_type != 'chassis-packet') %}
 {% for asic_intf in front_panel_asic_ifnames %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -94,7 +93,6 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
-{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
