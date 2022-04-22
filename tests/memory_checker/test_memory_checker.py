@@ -149,7 +149,7 @@ def remove_stress_utility(duthost, container_name):
         None.
     """
     logger.info("Removing 'stress' utility from '{}' container ...".format(container_name))
-    remove_cmd_result = duthost.shell("docker exec {} apt-get remove stress -y".format(container_name))
+    remove_cmd_result = duthost.shell("docker exec {} apt-get purge stress -y".format(container_name))
     exit_code = remove_cmd_result["rc"]
     pytest_assert(exit_code == 0, "Failed to remove 'stress' utility!")
     logger.info("'stress' utility was removed.")
