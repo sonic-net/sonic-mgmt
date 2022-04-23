@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # Some constants used in this code
 MIN_PACKET_COUNT = 4
 MINIMUM_PACKETS_FOR_ECMP_VALIDATION = 300
-TEST_ECN = False
+TEST_ECN = True
 
 def get_incremental_value(key):
     global VARS
@@ -174,8 +174,9 @@ class VXLAN(BaseTest):
             options =  {'ip_ecn' : 0}
             options_v6 = {'ipv6_ecn' : 0}
             if test_ecn:
-                options = {'ip_ecn' : random.randint(0, 3)}
-                options_v6 = {'ipv6_ecn' : random.randint(0, 3)}
+                ecn = random.randint(0, 3)
+                options = {'ip_ecn' : ecn}
+                options_v6 = {'ipv6_ecn' : ecn}
 
             # ECMP support, assume it is a string of comma seperated list of addresses.
             returned_ip_addresses = {}
