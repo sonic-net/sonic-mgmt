@@ -131,9 +131,9 @@ def select_required_interfaces(duthost, number_of_required_interfaces, minigraph
     '''
      Pick the required number of interfaces to use for tests.
      These interfaces will be selected based on if they are currently running a established BGP.
-     The interfaces will be picked from the T1 facing side.
+     The interfaces will be picked from the T0 facing side.
     '''
-    bgp_interfaces = get_all_interfaces_running_bgp(duthost, minigraph_data)
+    bgp_interfaces = get_all_interfaces_running_bgp(duthost, minigraph_data, "T0")
     interface_ip_table = minigraph_data['minigraph_interfaces']
     if interface_ip_table:
         available_interfaces = interface_ip_table
@@ -216,16 +216,17 @@ def assign_intf_ip_address(selected_interfaces, af):
         intf_ip_map[intf] = ip
     return intf_ip_map
 
-def get_all_interfaces_running_bgp(duthost, minigraph_data):
+def get_all_interfaces_running_bgp(duthost, minigraph_data, neighbor_type):
     bgp_neigh_list = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
     minigraph_ip_interfaces = minigraph_data['minigraph_interfaces'] + minigraph_data['minigraph_portchannel_interfaces']
     peer_addr_map = {}
+    pattern = re.compile("{}$".format(neighbor_type))
     for x in    minigraph_ip_interfaces:
         peer_addr_map[x['peer_addr']] = {x['attachto'] : x['addr']}
 
     ret_list = {}
     for x, entry in peer_addr_map.iteritems():
-        if bgp_neigh_list[x]['state'] == 'established':
+        if bgp_neigh_list[x]['state'] == 'established' and pattern.search(bgp_neigh_list[x]['description']):
             ret_list[x] = entry
 
     return ret_list
@@ -613,7 +614,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
 
         for intf in data[encap_type]['selected_interfaces']:
             redis_string = "INTERFACE"
-            if "PortChannel" in intf > 0:
+            if "PortChannel" in intf:
                 redis_string = "PORTCHANNEL_INTERFACE"
             data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
 
