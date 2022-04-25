@@ -575,10 +575,11 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
         encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
         set_routes_in_dut(data['duthost'], data[encap_type]['dest_to_nh_map'], payload_version, "DEL")
 
-        for intf in data[encap_type]['vnet_intf_map'].keys():
-            for entry in minigraph_facts['minigraph_interfaces'] + minigraph_facts['minigraph_portchannel_interfaces']:
-                if intf == entry['attachto']:
-                    data['duthost'].shell("sudo config interface ip add {} {}".format(intf, entry['subnet']))
+        for intf in data[encap_type]['selected_interfaces']:
+            redis_string = "INTERFACE"
+            if "PortChannel" in intf > 0:
+                redis_string = "PORTCHANNEL_INTERFACE"
+            data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
 
         for vnet in data[encap_type]['vnet_vni_map'].keys():
             data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))

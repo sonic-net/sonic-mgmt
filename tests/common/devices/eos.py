@@ -133,6 +133,17 @@ class EosHost(AnsibleHostBase):
         logging.info('No shut BGP [%s]' % asn)
         return out
 
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+
+        out = self.eos_config(
+            lines=['no neighbor {} shutdown'.format(neighbor) for neighbor in neighbors],
+            parents=['router bgp {}'.format(asn)]
+        )
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return out
+
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -292,3 +303,35 @@ class EosHost(AnsibleHostBase):
         def extract_speed_only(v):
             return re.match('\d+', v.strip()).group() + '000'
         return list(map(extract_speed_only, speed_list))
+
+    def get_dut_iface_mac(self, interface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            command = 'show interfaces {} | json'.format(interface_name)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            mac = output["interfaces"][interface_name]["physicalAddress"]
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return None
+
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            command = 'show mac security interface {} | json'.format(interface_name)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            if interface_name in output["interfaces"]:
+                return output["interfaces"][interface_name]["controlledPort"]
+            return False
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return False

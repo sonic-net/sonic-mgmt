@@ -56,7 +56,7 @@ user = {{ tacacs_authorization_user }} {
         deny   -exec
         permit .*
     }
-    cmd = /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 {
+    cmd = /lib/arch-linux-abi/ld-linux-arch.so {
         deny .*
     }
     cmd = /usr/bin/dash {

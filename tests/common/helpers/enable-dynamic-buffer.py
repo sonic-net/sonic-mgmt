@@ -151,7 +151,7 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
     # By default, all pools except egress_lossless_pool are dynamic size pools
     dynamic_size_pools = ['ingress_lossless_pool', 'ingress_lossy_pool', 'egress_lossy_pool']
     pools = config_db.get_table('BUFFER_POOL')
-    shared_headroom_pool = False;
+    shared_headroom_pool = False
     for key, pool in pools.items():
         if key in dynamic_size_pools:
             config_db.set_entry('BUFFER_POOL', key, None)

@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -126,15 +127,25 @@ def swap_syncd(duthost, creds):
 
     _perform_swap_syncd_shutdown_check(duthost)
 
-    registry = load_docker_registry_info(duthost, creds)
-    download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+    is_syncdrpc_present_locally = duthost.command('docker image inspect '+docker_rpc_image, module_ignore_errors=True)['rc'] == 0
 
-    tag_image(
-        duthost,
-        "{}:latest".format(docker_syncd_name),
-        "{}/{}".format(registry.host, docker_rpc_image),
-        duthost.os_version
-    )
+    if is_syncdrpc_present_locally:
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            docker_rpc_image,
+            'latest'
+        )
+    else:
+        registry = load_docker_registry_info(duthost, creds)
+        download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            "{}/{}".format(registry.host, docker_rpc_image),
+            duthost.os_version
+        )
 
     logger.info("Reloading config and restarting swss...")
     config_reload(duthost)
@@ -205,6 +216,8 @@ def _get_vendor_id(duthost):
         vendor_id = "brcm"
     elif is_mellanox_device(duthost):
         vendor_id = "mlnx"
+    elif is_cisco_device(duthost):
+        vendor_id = "cisco"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

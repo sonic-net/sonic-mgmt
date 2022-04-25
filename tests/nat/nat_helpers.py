@@ -41,7 +41,8 @@ ACL_TABLE_GLOBAL_NAME = "test_acl_table"
 DYNAMIC_BINDING_NAME = "test_binding"
 ACL_SUBNET = "192.168.0.0/24"
 BR_MAC = ["22:22:22:22:22:21"]
-VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": "PortChannel0001", "port_id": {"t0": ["28"],
+PORT_CHANNEL_TEMP = 'PortChannel10{}'
+VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1), "port_id": {"t0": ["28"],
                                                                                                                         "t0-64": ["0", "1"],
                                                                                                                         "t0-64-32": ["0", "1"]
                                                                                                                        }
@@ -144,12 +145,11 @@ def dut_nat_iptables_status(duthost):
     index_prerouting = [i for i in range(0, len(entries)) if "PREROUTING" in entries[i]][0] + 2
     index_input = [i for i in range(0, len(entries)) if "INPUT" in entries[i]][0]
     index_postrouting = [i for i in range(0, len(entries)) if 'POSTROUTING' in entries[i]][0] + 2
-    index_output = [i for i in range(0, len(entries)) if "OUTPUT" in entries[i]][0]
     if any(['DOCKER' in entry for entry in entries]):
         index_docker = [i for i in range(0, len(entries)) if 'DOCKER' in entries[i]][0]
         postrouting = [el for el in entries[index_postrouting:index_docker] if len(el) > 1]
     else:
-        postrouting = [el for el in entries[index_postrouting:index_output] if len(el) > 1]
+        postrouting = [el for el in entries[index_postrouting:] if len(el) > 1]
     prerouting = [el for el in entries[index_prerouting:index_input] if len(el) > 0]
     nat_table_status["prerouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
                                       for el in prerouting]

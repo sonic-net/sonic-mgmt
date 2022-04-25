@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 
-
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
     """
@@ -73,9 +72,10 @@ def load_conditions(session):
         pytest.fail('There is no conditions files')
 
     try:
+        logger.debug('Trying to load test mark conditions files: {}'.format(conditions_files))
         for conditions_file in conditions_files:
             with open(conditions_file) as f:
-                logger.debug('Loaded tests skip conditions from {}'.format(conditions_files))
+                logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
                 for key, value in conditions.items():
                     conditions_list.append({key: value})
@@ -168,7 +168,7 @@ def find_longest_matches(nodeid, conditions):
     max_length = -1
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(condition.keys()[0]):
+        if nodeid.startswith(list(condition.keys())[0]):
             length = len(condition)
             if length > max_length:
                 max_length = length
@@ -312,7 +312,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in match.values()[0].items():
+                for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
                     mark_conditions = mark_details.get('conditions', None)
