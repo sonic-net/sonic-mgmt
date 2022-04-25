@@ -537,7 +537,7 @@ class MultiAsicSonicHost(object):
         ))
 
         vty_cmd_args = "-c \"configure terminal\" -c \"{} ip route {} {}\"".format(
-            op, ipaddress.ip_interface(unicode(ip + "/24")).network, nexthop
+            op, ipaddress.ip_interface(ip + "/24".encode().decode()).network, nexthop
         )
 
         if namespace != DEFAULT_NAMESPACE:

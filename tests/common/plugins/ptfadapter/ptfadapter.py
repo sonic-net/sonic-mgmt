@@ -114,11 +114,11 @@ class PtfTestAdapter(BaseTest):
         """ Close dataplane socket and kill data plane thread """
         if self.connected:
             self.dataplane.kill()
-            
+
             for injector in DataPlanePortNN.packet_injecters.values():
                 injector.socket.close()
             DataPlanePortNN.packet_injecters.clear()
-        
+
         self.connected = False
 
     def reinit(self, ptf_config=None):
@@ -182,7 +182,7 @@ class PtfTestAdapter(BaseTest):
             if len_new >= len_old:
                 return self.payload_pattern[:len_old]
             else:
-                factor = len_old/len_new + 1
+                factor = int(len_old/len_new) + 1
                 new_payload = self.payload_pattern * factor
                 return new_payload[:len_old]
         else:

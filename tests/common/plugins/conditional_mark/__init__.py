@@ -168,7 +168,7 @@ def find_longest_matches(nodeid, conditions):
     max_length = -1
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(condition.keys()[0]):
+        if nodeid.startswith(list(condition.keys())[0]):
             length = len(condition)
             if length > max_length:
                 max_length = length
@@ -312,7 +312,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in match.values()[0].items():
+                for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
                     mark_conditions = mark_details.get('conditions', None)
