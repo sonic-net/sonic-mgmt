@@ -546,28 +546,30 @@ class MultiAsicSonicHost(object):
         else:
             for dutasic in self.asics:
                 dutasic.run_vtysh(vty_cmd_args)
-    def docker_exec_for_all_asics(self, cmd, container_name):
-        """This function iterate for ALL asics and execute cmds"""
-        duthost = self.sonichost
-        if duthost.is_multi_asic:
-            for n in range(duthost.facts['num_asic']):
-                container = container_name + str(n)
-                self.shell("sudo docker exec {} bash -c {}".format(container, cmd))
-        else:
-            self.shell("sudo docker exec {} bash -c {}".format(container_name, cmd))
 
-    def docker_copy_for_all_asics(self, container_name, src, dst, container_in_src=True):
+    def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for n in range(duthost.facts['num_asic']):
                 container = container_name + str(n)
-                if container_in_src:
-                    self.shell("sudo docker cp {}:{} {}".format(container, src, dst))
-                else:
-                    self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
+                self.shell(argv=["docker", "exec", container, "bash", "-c", cmd])
         else:
-            if container_in_src:
-                self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
-            else:
-                self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
+            self.shell(argv=["docker", "exec", container_name, "bash", "-c", cmd])
+
+    def docker_copy_to_all_asics(self, container_name, src, dst):
+        """This function copy from host to ALL asics"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for n in range(duthost.facts['num_asic']):
+                container = container_name + str(n)
+                self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
+        else:
+            self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
+
+    def docker_copy_from_asic0(self, container_name, src, dst):
+        """This function copy from one asic to host"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            container_name += str(0)
+        self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
