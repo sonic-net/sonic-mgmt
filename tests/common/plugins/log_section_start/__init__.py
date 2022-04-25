@@ -105,8 +105,8 @@ def _pytest_import_callback(module):
             func = None
             if len(args) == 1 and callable(args[0]) and not kargs:
                 func = args[0]
-            elif len(kargs) == 1 and callable(kargs.values()[0]) and not args:
-                func = kargs.values()[0]
+            elif len(kargs) == 1 and callable(list(kargs.values())[0]) and not args:
+                func = list(kargs.values())[0]
             if func is not None:
                 args = ()
                 kargs = {}
