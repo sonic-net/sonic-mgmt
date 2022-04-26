@@ -929,7 +929,7 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-    duthost.docker_exec_for_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
+    duthost.docker_cmds_on_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
 
     def __deleteTmpSwitchConfig(self, duthost):
         """
@@ -963,21 +963,22 @@ class QosSaiBase(QosBase):
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.docker_copy_for_all_asics("swss", "/etc/swss/config.d/switch.json", "/tmp")
+        duthost.docker_copy_from_asic0("swss", "/etc/swss/config.d/switch.json", "/tmp")
         duthost.replace(
             dest='/tmp/switch.json',
             regexp='"fdb_aging_time": ".*"',
             replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
             backup=True
         )
-        duthost.docker_copy_for_all_asics("swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json", False)
+        duthost.docker_copy_to_all_asics("swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json")
         self.__loadSwssConfig(duthost)
 
         yield
 
         result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
         if result["matched"] > 0:
-            duthost.docker_copy_for_all_asics("swss", result["files"][0]["path"], "/etc/swss/config.d/switch.json", False)
+            src = result["files"][0]["path"]
+            duthost.docker_copy_to_all_asics("swss", src, "/etc/swss/config.d/switch.json")
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
