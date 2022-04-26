@@ -46,6 +46,7 @@ def test_normal_op_downstream_standby(upper_tor_host, lower_tor_host,
                       expected_standby_host=lower_tor_host)
 
 
+@pytest.mark.disable_loganalyzer
 def test_active_config_reload_upstream(upper_tor_host, lower_tor_host,
                                        send_server_to_t1_with_action,
                                        toggle_all_simulator_ports_to_upper_tor):
@@ -59,6 +60,7 @@ def test_active_config_reload_upstream(upper_tor_host, lower_tor_host,
                       expected_standby_host=upper_tor_host)
 
 
+@pytest.mark.disable_loganalyzer
 def test_standby_config_reload_upstream(upper_tor_host, lower_tor_host,
                                         send_server_to_t1_with_action,
                                         toggle_all_simulator_ports_to_upper_tor):
@@ -72,6 +74,7 @@ def test_standby_config_reload_upstream(upper_tor_host, lower_tor_host,
                       expected_standby_host=lower_tor_host)
 
 
+@pytest.mark.disable_loganalyzer
 def test_standby_config_reload_downstream_active(upper_tor_host,
                                                  lower_tor_host,
                                                  send_t1_to_server_with_action,
@@ -86,6 +89,7 @@ def test_standby_config_reload_downstream_active(upper_tor_host,
                       expected_standby_host=lower_tor_host)
 
 
+@pytest.mark.disable_loganalyzer
 def test_active_config_reload_downstream_standby(upper_tor_host,
                                                  lower_tor_host,
                                                  send_t1_to_server_with_action,

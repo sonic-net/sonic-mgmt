@@ -36,6 +36,7 @@ def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):
     return lambda: toggle_pdu_outlet(pdu_controller)
 
 
+@pytest.mark.disable_loganalyzer
 def test_active_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,
@@ -56,6 +57,7 @@ def test_active_tor_reboot_upstream(
     )
 
 
+@pytest.mark.disable_loganalyzer
 def test_active_tor_reboot_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,
@@ -76,6 +78,7 @@ def test_active_tor_reboot_downstream_standby(
     )
 
 
+@pytest.mark.disable_loganalyzer
 def test_standby_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,
@@ -96,6 +99,7 @@ def test_standby_tor_reboot_upstream(
     )
 
 
+@pytest.mark.disable_loganalyzer
 def test_standby_tor_reboot_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,
