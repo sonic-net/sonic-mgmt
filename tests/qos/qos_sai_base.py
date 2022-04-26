@@ -929,7 +929,7 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-    duthost.docker_cmds_on_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
+        duthost.docker_cmds_on_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
 
     def __deleteTmpSwitchConfig(self, duthost):
         """
