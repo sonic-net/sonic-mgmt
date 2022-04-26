@@ -36,22 +36,89 @@ r, ".* ERR syncd#syncd.*meta_validate_stats: object.*don't exists.*"
 r, ".* ERR syncd#syncd.*translateVidToRid: unable to get RID for VID.*"
 r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 
-# White list below messages found on physical devices for now. Need to address them later.
+##### White list below messages found on physical devices for now. Need to address them later.
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233968
+r, ".* ERR lldp#lldp-syncd.*Could not infer system information from.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233547
+r, ".* ERR mux#linkmgrd: link_manager/LinkManagerStateMachine.*LinkProberWaitMuxUnknownLinkUpTransitionFunction.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233548
 r, ".* ERR mux#linkmgrd: link_manager/LinkManagerStateMachine.*Received unsolicited MUX state.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233594
+r, ".* ERR monit.*Unix socket /var/run/monit.sock connection error.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233936
+r, ".* ERR pmon#thermalctld.*Caught exception while running thermal policy - AttributeError.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233549
 r, ".* ERR pmon#ycable.*executing the cli for prbs thread.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233550
 r, ".* ERR pmon#ycable.*URLError.*No route to host.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233937
+r, ".* ERR rsyslogd: omfwd.*Network is unreachable.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233551
 r, ".* ERR swss#buffermgrd.*doSpeedUpdateTask: Unable to create/update PG profile for port.*No PG profile configured for speed.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233939
+r, ".* ERR swss#orchagent.*applyDscpToTcMapToSwitch: Switch level DSCP to TC QoS map configuration is not supported.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233552
 r, ".* ERR swss#orchagent.*getPort.*Failed to get bridge port ID for FDB entry.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233940
+r, ".* ERR swss#orchagent.*getResAvailability: Failed to get availability counter for.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233553
 r, ".* ERR swss#orchagent.*handleSaiGetStatus: Encountered failure in get operation.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233554
 r, ".* ERR swss#orchagent.*handleSaiSetStatus: Encountered failure in set operation.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233555
 r, ".* ERR swss#orchagent.*meta_generic_validation_get.*object key.*doesn't exist.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233556
 r, ".* ERR swss#orchagent.*removeLag.*Failed to remove ref count.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233557
 r, ".* ERR swss#orchagent.*set status.*SAI_STATUS_.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233558
 r, ".* ERR swss#orchagent.*setState: State transition from active to active is not-handled.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233559
 r, ".* ERR swss#orchagent.*setState: State transition from standby to standby is not-handled.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233560
 r, ".* ERR syncd#syncd.*check_fdb_event_notification_data.*is not present on local ASIC DB.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233562
 r, ".* ERR syncd#syncd.*getSaiAttrFromDefaultValue.*serialization type.*is not supported yet.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233941
+r, ".* ERR syncd#syncd.*getSupportedBufferPoolCounters.*is not supported on buffer pool oid.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233570
 r, ".* ERR syncd#syncd.*SAI_API_PORT:brcm_sai_get_port_stats_ext.*Ext Stat Get failed.*"
+r, ".* ERR syncd#syncd.*SAI_API_PORT:brcm_sai_get_port_stats.*Multi stats get failed with error.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233568
+r, ".* ERR syncd#syncd.*SAI_API_BUFFER.*Unknown or unsupported stat type.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233942
+r, ".* ERR syncd#syncd.*SAI_API_SWITCH.*Error in capability query for obj type.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233574
 r, ".* INFO systemd.*Finished Kernel crash dump capture service.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233575
 r, ".* INFO systemd.*Starting Kernel crash dump capture service.*"
