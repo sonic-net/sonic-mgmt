@@ -40,7 +40,7 @@ pytest [test script files or directories containing test script files] [options 
 
 For example:
 ```
-pytest test_announce_routes.py --inventory veos_vtb --host-pattern vlab-01 --testbed_file vtestbed.csv --log-cli-level info
+pytest test_announce_routes.py --inventory ../ansible/veos_vtb --host-pattern all --testbed_file vtestbed.yaml --log-cli-level info
 ```
 
 Please ensure that the command line options extended in sonic-mgmt are always added **AFTER** the test script files or directories containing test script files. Otherwise, pytest may complain that the options defined in `conftest.py` of sub-folders are unrecognized.
@@ -50,13 +50,15 @@ The reason is that pytest will do a pre-parse for all of the supplied command li
 For example, if the pytest command line is like this:
 
 ```
-pytest --inventory veos_vtb --host-pattern vlab-01 --testbed vms-kvm-t0 --testbed_file vtestbed.csv --log-cli-level debug --disable_loganalyzer --skip_sanity example/test_example.py --example_option1 my_value1
+pytest example/test_example.py --inventory ../ansible/veos_vtb --host-pattern all --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --log-cli-level debug --disable_loganalyzer --skip_sanity --example_option1 my_value1
 ```
 
 Arguments that are known to pytest during pre-parse phase:
-* `--inventory veos_vtb`
-* `--host-pattern vlab-01`
+* `--inventory ../ansible/veos_vtb`
+* `--host-pattern all`
 * `--log-cli-level debug`
+
+Please be noted that although there is a symbolic link `tests/veos_vtb` pointing to `ansible/veos_vtb`, we still have to specify `../ansible/veos_vtb`. The reason is that under the hood, ansible will try to locate some group and host variables under the same folder of the inventory file. Currently, all the ansible group and host variables are stored under the `ansible` folder. If we run `pytest` under the `tests` folder and specify inventory file using argumetn like `--inventory veos_vtb`, ansible will try to find group and host variables under `tests` folder. Consequently, lost access to group and host variables under the `ansible` folder.
 
 Rest of the arguments are unknown to pytest yet.
 
@@ -67,7 +69,7 @@ After pre-parse is done, pytest will try to locate all the `conftest.py` files r
 If we run the command like below, then there is no problem.
 
 ```
-pytest --inventory veos_vtb --host-pattern vlab-01 example/test_example.py --testbed vms-kvm-t0 --testbed_file vtestbed.csv --log-cli-level debug --disable_loganalyzer --skip_sanity --example_option1 my_value1
+pytest example/test_example.py --inventory ../ansible/veos_vtb --host-pattern vlab-01 --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --log-cli-level debug --disable_loganalyzer --skip_sanity --example_option1 my_value1
 ```
 
 During pre-parse, pytest recognizes that `example/test_example.py ` is a test script. Then pytest will try to load file `sonic-mgmt/tests/try_opt/conftest.py`. After this conftest.py file is loaded, there is no problem of parsing argument `--example_option1`.

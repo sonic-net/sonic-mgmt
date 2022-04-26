@@ -39,12 +39,12 @@ stages:
   - name: inventory
     value: veos_vtb
   - name: testbed_file
-    value: vtestbed.csv
+    value: vtestbed.yaml
   - name: image_file_path
-    value: https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-multiasic-vs-image-201911/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz 
+    value: https://sonic-jenkins.westus2.cloudapp.azure.com/job/vs/job/buildimage-multiasic-vs-image-201911/lastSuccessfulBuild/artifact/target/sonic-vs.img.gz
 
   jobs:
-  - job: four_asic_vs_test 
+  - job: four_asic_vs_test
     displayName: "kvmmultiasictest"
     timeoutInMinutes: 0
     steps:
@@ -107,10 +107,10 @@ stages:
             cp $img $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.img
             virsh -c qemu:///system undefine ${{ parameters.dut }}
         fi
-    
+
       displayName: "Collect kvmdump"
       condition: failed()
-    
+
     - script: |
         docker ps
         pushd  /data/sonic-mgmt
@@ -119,17 +119,17 @@ stages:
         sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
       displayName: "Collect test logs"
       condition: succeededOrFailed()
-    
+
     - publish: $(Build.ArtifactStagingDirectory)/kvmdump
       artifact: sonic-buildimage.kvmtest.$(tbtype).memdump@$(System.JobAttempt)
       displayName: "Archive sonic kvm memdump"
       condition: failed()
-    
+
     - publish: $(Build.ArtifactStagingDirectory)/logs
       artifact: sonic-buildimage.kvmtest.$(tbtype).log@$(System.JobAttempt)
       displayName: "Archive sonic kvm logs"
       condition: succeededOrFailed()
-    
+
     - task: PublishTestResults@2
       inputs:
         testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
