@@ -15,7 +15,7 @@ stages:
   - name: inventory
     value: veos_vtb
   - name: testbed_file
-    value: vtestbed.csv
+    value: vtestbed.yaml
 
   jobs:
   - job: t0_part1
