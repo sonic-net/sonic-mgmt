@@ -31,8 +31,6 @@
 
 - hosts: servers:&vm_host
   gather_facts: no
-  vars_files:
-    - vars/docker_registry.yml
   pre_tasks:
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"
@@ -76,6 +74,9 @@
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
+
+  - name: Load docker variables
+    include_vars: "vars/docker_registry.yml"
 
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"

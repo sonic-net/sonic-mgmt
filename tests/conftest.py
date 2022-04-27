@@ -63,6 +63,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
+                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -418,7 +419,7 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
@@ -617,9 +618,8 @@ def creds_on_dut(duthost):
 
     return creds
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+@pytest.fixture(scope="session")
+def creds(duthost):
     return creds_on_dut(duthost)
 
 
@@ -1461,7 +1461,10 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
-        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
+        # Convert '/' to '-', in case '/' be recognized as path and lead to compression error
+        nodename = request.node.name.replace('/', '-')
+        modulename = request.module.__name__.replace('/', '-')
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, nodename)
 
         # Collect DB config
         dbs = set()
@@ -1484,13 +1487,13 @@ def collect_db_dump_on_duts(request, duthosts):
         if namespace_list:
             for namespace in namespace_list:
                 # Collect DB dump
-                db_dump_path = os.path.join(dut_file_path, namespace, request.module.__name__, request.node.name)
+                db_dump_path = os.path.join(dut_file_path, namespace, modulename, nodename)
                 duthosts.file(path=db_dump_path, state="directory")
                 for i in dbs:
                     duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
         else:
             # Collect DB dump
-            db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+            db_dump_path = os.path.join(dut_file_path, modulename, nodename)
             duthosts.file(path = db_dump_path, state="directory")
             for i in dbs:
                 duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])

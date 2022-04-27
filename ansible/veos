@@ -99,6 +99,9 @@ all:
           - mgmttor
           - t2
           - t1-64-itpac
+          - dualtor-mixed
+          - dualtor-mixed-56
+          - dualtor-mixed-120
 
 vm_host_1:
   hosts:

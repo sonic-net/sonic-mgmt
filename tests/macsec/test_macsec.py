@@ -1,8 +1,12 @@
 from time import sleep
 import pytest
 import logging
+import re
+import scapy.all as scapy
+import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
+from tests.common.devices.eos import EosHost
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *
@@ -13,22 +17,6 @@ pytestmark = [
     pytest.mark.macsec_required,
     pytest.mark.topology("t0"),
 ]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup(duthost, ctrl_links, unctrl_links, enable_macsec_feature, profile_name, default_priority, cipher_suite,
-          primary_cak, primary_ckn, policy, send_sci, request):
-    all_links = {}
-    all_links.update(ctrl_links)
-    all_links.update(unctrl_links)
-    startup_all_ctrl_links(ctrl_links)
-    cleanup_macsec_configuration(duthost, all_links, profile_name)
-    setup_macsec_configuration(duthost, ctrl_links, profile_name,
-                               default_priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci)
-    logger.info(
-        "Setup MACsec configuration with arguments:\n{}".format(locals()))
-    yield
-    cleanup_macsec_configuration(duthost, all_links, profile_name)
 
 
 class TestControlPlane():
@@ -82,6 +70,26 @@ class TestControlPlane():
                                   policy, cipher_suite, send_sci)
             return True
         assert wait_until(300, 5, 3, _test_mka_session)
+
+    def test_rekey_by_period(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period == 0:
+            pytest.skip("If the rekey period is 0 which means rekey by period isn't active.")
+        for port_name, nbr in ctrl_links.items():
+            _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, last_nbr_egress_sa_table, last_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            up_link = upstream_links[port_name]
+            output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
+            _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"])
+            _, _, _, new_nbr_egress_sa_table, new_nbr_ingress_sa_table = get_appl_db(
+                nbr["host"], nbr["port"], duthost, port_name)
+            assert last_dut_egress_sa_table != new_dut_egress_sa_table
+            assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+            assert last_nbr_egress_sa_table != new_nbr_egress_sa_table
+            assert last_nbr_ingress_sa_table != new_nbr_ingress_sa_table
+            assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) == 0
 
 
 class TestDataPlane():
@@ -212,7 +220,7 @@ class TestFaultHandling():
             assert dut_egress_sa_table_orig != dut_egress_sa_table_new
             assert dut_ingress_sa_table_orig != dut_ingress_sa_table_new
             return True
-        assert wait_until(12, 1, 0, check_new_mka_session)
+        assert wait_until(30, 5, 2, check_new_mka_session)
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -280,13 +288,13 @@ class TestInteropProtocol():
         # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
         duthost.command("sudo config portchannel member del {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: get_portchannel(
+        assert wait_until(20, 1, 0, lambda: get_portchannel(
             duthost)[pc["name"]]["status"] == "Dw")
 
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
         duthost.command("sudo config portchannel member add {} {}".format(
             pc["name"], ctrl_port))
-        assert wait_until(6, 1, 0, lambda: find_portchannel_from_member(
+        assert wait_until(20, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
     def test_lldp(self, duthost, ctrl_links, profile_name):
