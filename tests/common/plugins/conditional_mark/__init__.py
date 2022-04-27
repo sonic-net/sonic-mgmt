@@ -192,7 +192,7 @@ def update_issue_status(condition_str):
     Returns:
         str: New condition string with issue URLs already replaced with 'True' or 'False'.
     """
-    issues = re.findall('https?://[^ ]+', condition_str)
+    issues = re.findall('https?://[^ )]+', condition_str)
     if not issues:
         logger.debug('No issue specified in condition')
         return condition_str
