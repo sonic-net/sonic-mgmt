@@ -57,6 +57,10 @@ class OnyxHost(AnsibleHostBase):
         out = self.host.onyx_command(commands=[cmd])
         return out
 
+    def config(self, cmd):
+        out = self.host.onyx_config(commands=[cmd])
+        return out
+
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.host.onyx_config(
             lines=['lacp rate %s' % mode],
