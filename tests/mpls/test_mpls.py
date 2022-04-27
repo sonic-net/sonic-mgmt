@@ -119,7 +119,6 @@ class BaseMplsTest(object):
             )
         )
 
-         
     def expected_mask_ip_packet(self, pkt):
         """ return mask for ip packet """
    
@@ -163,6 +162,7 @@ class BaseMplsTest(object):
         exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
         
         return exp_pkt
+    
     def config_interface_mpls(self, setup,  config_file, enable=True):
         """ enable/disable mpls on interface """
         duthost=setup['duthost']
