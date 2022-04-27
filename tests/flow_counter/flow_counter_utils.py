@@ -1,3 +1,4 @@
+import allure
 import logging
 import random
 from tests.common.helpers.assertions import pytest_assert
@@ -27,16 +28,18 @@ class RouteFlowCounterTestContext:
         self.route_pattern_list = route_pattern_list
         self.expected_stats = expected_stats
         self.interval = interval
+        self.is_route_flow_counter_supported = is_route_flow_counter_supported(dut)
 
     def __enter__(self):
         """Enable route flow counter and configure route pattern
         """
-        if not is_route_flow_counter_supported(self.dut):
+        if not self.is_route_flow_counter_supported:
             return
-        set_route_flow_counter_interval(self.dut, self.interval)
-        set_route_flow_counter_status(self.dut, True)
-        for route_pattern in self.route_pattern_list:
-            set_route_flow_counter_pattern(self.dut, route_pattern)
+        with allure.step('Enable route flow counter and config route flow pattern: {}'.format(','.join(self.route_pattern_list))):
+            set_route_flow_counter_interval(self.dut, self.interval)
+            set_route_flow_counter_status(self.dut, True)
+            for route_pattern in self.route_pattern_list:
+                set_route_flow_counter_pattern(self.dut, route_pattern)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Do following tasks:
@@ -48,7 +51,7 @@ class RouteFlowCounterTestContext:
             exc_val (object): not used
             exc_tb (object): not used
         """
-        if not is_route_flow_counter_supported(self.dut):
+        if not self.is_route_flow_counter_supported:
             return
 
         try:
@@ -67,34 +70,37 @@ class RouteFlowCounterTestContext:
             tuple: (status, error message)
         """
         logger.info('Checking route flow counter stats')
-        actual_stats = parse_route_flow_counter_stats(self.dut)
-        result, message = verify_route_flow_counter_stats(self.expected_stats, actual_stats)
-        if not result:
-            return result, message
-
-        if len(self.expected_stats) > 0:
-            logger.info('Checking route flow counter stats after clearing by route')
-            to_clear = random.sample(list(self.expected_stats.keys()), 1)[0]
-            clear_route_flow_counter_by_route(self.dut, to_clear)
-            for key in self.expected_stats[to_clear]:
-                self.expected_stats[to_clear][key] = '0'
+        with allure.step('Checking route flow counter stats'):
             actual_stats = parse_route_flow_counter_stats(self.dut)
             result, message = verify_route_flow_counter_stats(self.expected_stats, actual_stats)
             if not result:
                 return result, message
 
-        if len(self.expected_stats) == 1 and len(self.route_pattern_list) == 1:
-            logger.info('Checking route flow counter stats after clearing by pattern')
-            clear_route_flow_counter_by_pattern(self.dut, self.route_pattern_list[0])
-        else:
-            logger.info('Checking route flow counter stats after clearing all routes')
-            clear_route_flow_counter(self.dut)
-        for prefix, value in self.expected_stats.items():
-            for key in value:
-                self.expected_stats[prefix][key] = '0'
+        if len(self.expected_stats) > 0:
+            logger.info('Checking route flow counter stats after clearing by route')
+            with allure.step('Checking route flow counter stats after clearing by route'):
+                to_clear = random.sample(list(self.expected_stats.keys()), 1)[0]
+                clear_route_flow_counter_by_route(self.dut, to_clear)
+                for key in self.expected_stats[to_clear]:
+                    self.expected_stats[to_clear][key] = '0'
+                actual_stats = parse_route_flow_counter_stats(self.dut)
+                result, message = verify_route_flow_counter_stats(self.expected_stats, actual_stats)
+                if not result:
+                    return result, message
 
-        actual_stats = parse_route_flow_counter_stats(self.dut)
-        return verify_route_flow_counter_stats(self.expected_stats, actual_stats)
+        with allure.step('Checking route flow counter stats after clearing by pattern or clearing all'):
+            if len(self.expected_stats) == 1 and len(self.route_pattern_list) == 1:
+                logger.info('Checking route flow counter stats after clearing by pattern')
+                clear_route_flow_counter_by_pattern(self.dut, self.route_pattern_list[0])
+            else:
+                logger.info('Checking route flow counter stats after clearing all routes')
+                clear_route_flow_counter(self.dut)
+            for prefix, value in self.expected_stats.items():
+                for key in value:
+                    self.expected_stats[prefix][key] = '0'
+
+            actual_stats = parse_route_flow_counter_stats(self.dut)
+            return verify_route_flow_counter_stats(self.expected_stats, actual_stats)
 
 
 def is_route_flow_counter_supported(dut):
@@ -108,6 +114,7 @@ def is_route_flow_counter_supported(dut):
     """
     skip, _ = check_skip_release(dut, skip_versions)
     if skip:
+        logger.info('Route flow counter is not supported on these versions: {}'.format(skip_versions))
         return False
 
     global support_route_flow_counter
@@ -135,6 +142,9 @@ def get_route_flow_counter_capability(dut):
         support_route_flow_counter = True
     elif support == 'false':
         support_route_flow_counter = False
+    elif support:
+        # Impossible branch, just incase
+        pytest_assert(False, 'support field of FLOW_COUNTER_CAPABILITY_TABLE|route has invalid value {}'.format(support))
     return support_route_flow_counter is not None
 
 
@@ -189,6 +199,21 @@ def remove_route_flow_counter_pattern(dut, route_pattern):
         dut.command('sudo config flowcnt-route pattern remove {}'.format(items[0]))
     else:
         logger.error('Invalid route pattern {}'.format(route_pattern))
+
+def remove_all_route_flow_counter_patterns(dut):
+    """Remove all route patterns
+
+    Args:
+        dut (object): DUT object
+    """
+    data = dut.show_and_parse('show flowcnt-route config')
+    for item in data:
+        prefix = item['route pattern']
+        vrf = item['vrf']
+        if vrf != 'default':
+            dut.command('sudo config flowcnt-route pattern remove {} --vrf {}'.format(prefix, vrf))
+        else:
+            dut.command('sudo config flowcnt-route pattern remove {}'.format(prefix))
 
 
 def clear_route_flow_counter(dut):

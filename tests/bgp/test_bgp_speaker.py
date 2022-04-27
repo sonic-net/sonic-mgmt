@@ -308,8 +308,9 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
     logger.info("run ptf test")
-
-    with RouteFlowCounterTestContext(duthost, [prefix], {prefix : {'packets': 3, 'bytes': 4554}}):
+    expecte_packet_num = 3
+    packet_size = 1518
+    with RouteFlowCounterTestContext(duthost, [prefix], {prefix : {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
         ptf_runner(ptfhost,
                     "ptftests",
                     "fib_test.FibTest",
