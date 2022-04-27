@@ -60,14 +60,13 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 #######################################
-#####         dhcp_relay          #####
+#####         dhcpv6_relay        #####
 #######################################
 dhcp_relay/test_dhcpv6_relay.py:
   xfail:
-    reason: "Generic internal image feature missing"
+    reason: "Not supported on dualtor"
     strict: True
     conditions:
-      - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 #######################################
@@ -105,6 +104,15 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
       - "asic_type=='cisco-8000'"
 
 #######################################
+#####   generic_config_updater    #####
+#######################################
+generic_config_updater/test_eth_interface.py::test_replace_fec:
+  skip:
+    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    conditions:
+      - "platform in ['x86_64-kvm_x86_64-r0']"
+
+#######################################
 #####      iface_namingmode       #####
 #######################################
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
@@ -129,6 +137,15 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
       - "platform in ['x86_64-cel_e1031-r0']"
 
 #######################################
+#####           macsec            #####
+#######################################
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
+
+#######################################
 #####           ntp               #####
 #######################################
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
@@ -150,6 +167,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 #####         pfcwd               #####
 #######################################
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
+
 pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
   xfail:
     reason: "Test flaky"
@@ -158,19 +181,34 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
   xfail:
     reason: "Test flaky"
 
-pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
-   skip:
-     reason: "Forward action not supported in cisco-8000"
-     conditions:
-        - "asic_type in ['cisco-8000']"
 #######################################
 #####         platform_tests      #####
 #######################################
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: "chassisd platform daemon introduced in 202106"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
+    conditions: https://github.com/Azure/sonic-mgmt/issues/5447
+
+#######################################
+#####           configlet         #####
+#######################################
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
 
 #######################################
 #####           qos               #####
@@ -208,17 +246,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  skip:
+    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
     reason: "Image issue on Arista platforms"
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  skip:
-    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
-    conditions:
-      - "asic_type in ['cisco-8000']"
 #######################################
 #####         restapi             #####
 #######################################
@@ -313,21 +352,3 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
     reason: "This test can only run on 4600c and 8102"
     conditions:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
-
-#######################################
-#####           MACSEC            #####
-#######################################
-macsec/test_macsec.py:
-  skip:
-    reason: "This test can only run on 7280 CR3"
-    conditions:
-      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
-
-#######################################
-#####            platform_tests   #####
-#######################################
-platform_tests/daemon/test_chassisd.py:
-  skip:
-    reason: "chassisd platform daemon introduced in 202106"
-    conditions:
-      - "release in ['201811', '201911', '202012']"

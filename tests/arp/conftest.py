@@ -92,10 +92,23 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             intf1 = ports_for_test[0]
             intf2 = ports_for_test[1]
         else:
-            # Select port index 0 & 1 two interfaces for testing
-            intf1 = ports[0]
-            intf2 = ports[1]
+            # Select first 2 ports that are admin 'up'
+            intf_status = asic.show_interface(command='status')['ansible_facts']['int_status']
 
+            intf1 = None
+            intf2 = None
+            for a_port in ports:
+                if intf_status[a_port]['admin_state'] == 'up':
+                    if intf1 is None:
+                        intf1 = a_port
+                    elif intf2 is None:
+                        intf2 = a_port
+                    else:
+                        break
+
+            if intf1 is None or intf2 is None:
+                pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
+                                                                                              asic.asic_index))
             po1 = get_po(mg_facts, intf1)
             po2 = get_po(mg_facts, intf2)
 

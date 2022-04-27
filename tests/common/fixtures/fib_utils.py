@@ -75,7 +75,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
                     oports = []
                     for idx, ifname in enumerate(ifnames):
-                        if po.has_key(ifname):
+                        if ifname in po:
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
                                 if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
@@ -85,7 +85,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                     oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                                     skip = False
                         else:
-                            if ports.has_key(ifname):
+                            if ifname in ports:
                                 if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
@@ -182,7 +182,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
 
                 oports = []
                 for ifname in ifnames:
-                    if po.has_key(ifname):
+                    if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
                         if 'members' in po[ifname]:
                             if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
@@ -190,9 +190,9 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                             else:
                                 oports.append([str(duts_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
-                        if sub_interfaces.has_key(ifname):
+                        if ifname in sub_interfaces:
                             oports.append([str(duts_mg_facts['minigraph_ptf_indices'][ifname.split('.')[0]])])
-                        elif ports.has_key(ifname):
+                        elif ifname in ports:
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
@@ -227,13 +227,13 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
     """
     tmp_fib_info = tempfile.NamedTemporaryFile()
     for prefix, oports in fib_info.items():
-        tmp_fib_info.write(prefix)
+        tmp_fib_info.write(prefix.encode())
         if oports:
             for op in oports:
-                tmp_fib_info.write(' [{}]'.format(' '.join(op)))
+                tmp_fib_info.write(' [{}]'.format(' '.join(op)).encode())
         else:
-            tmp_fib_info.write(' []')
-        tmp_fib_info.write('\n')
+            tmp_fib_info.write(' []'.encode())
+        tmp_fib_info.write('\n'.encode())
     tmp_fib_info.flush()
     ptfhost.copy(src=tmp_fib_info.name, dest=filename)
 
@@ -326,4 +326,4 @@ def single_fib_for_duts(tbinfo):
     if tbinfo['topo']['type'] == "t2":
         return True
     return False
- 
+
