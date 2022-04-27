@@ -80,8 +80,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
+            ".*ERR swss[0-9]*#buffermgrd.*Unable to create/update PG profile.*",
             ".*ERR snmp#snmpd.*",
-            ".*ERR dhcp_relay#dhcp6relay.*Failed to bind to socket.*",
         ]
     ignore_regex_dict = {
         'common' : [
