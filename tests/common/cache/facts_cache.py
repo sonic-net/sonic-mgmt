@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 CURRENT_PATH = os.path.realpath(__file__)
 CACHE_LOCATION = os.path.join(CURRENT_PATH, '../../../_cache')
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+if sonic_mgmt_dir is not None:
+    CACHE_LOCATION = os.path.join(sonic_mgmt_dir, '_cache')
 
 SIZE_LIMIT = 1000000000  # 1G bytes, max disk usage allowed by cache
 ENTRY_LIMIT = 1000000    # Max number of pickle files allowed in cache.

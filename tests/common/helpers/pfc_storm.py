@@ -6,6 +6,9 @@ from tests.common.errors import MissingInputError
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+if sonic_mgmt_dir is not None:
+    ANSIBLE_ROOT = os.path.join(sonic_mgmt_dir, "ansible")
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)

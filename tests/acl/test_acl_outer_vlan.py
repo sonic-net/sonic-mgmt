@@ -56,7 +56,12 @@ TYPE_COMBINE_UNTAGGED = 'COMBINE_UNTAGGED' # The interface is in two vlans
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_TABLE_REMOVE_RE = ".*Successfully deleted ACL table.*"
-ARP_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/arp_responder.py'
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+append_path = '../'
+if sonic_mgmt_dir is not None:
+    append_path = sonic_mgmt_dir
+ARP_RESPONDER_SCRIPT_SRC_PATH = os.path.join(append_path, "ansible/roles/test/files/helpers/arp_responder.py")
+
 ARP_RESPONDER_SCRIPT_DEST_PATH = '/opt/arp_responder.py'
 
 @pytest.fixture(scope="module", params=[IPV4, IPV6])

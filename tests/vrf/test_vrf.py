@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import time
 import threading
 import Queue
@@ -436,8 +436,11 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, skip_
         duthost.shell("sonic-clear arp")
         duthost.shell("sonic-clear nd")
         duthost.shell("sonic-clear fdb all")
-
-        with open("../ansible/vars/topo_{}.yml".format(tbinfo['topo']['name']), 'r') as fh:
+        topo_file_ansible = "../ansible/vars/topo_{}.yml".format(tbinfo['topo']['name'])
+        sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+        if sonic_mgmt_dir is not None:
+            topo_file_ansible = os.path.join(sonic_mgmt_dir, "ansible/vars/topo_{}.yml".format(tbinfo['topo']['name']))
+        with open(topo_file_ansible, 'r') as fh:
             g_vars['topo_properties'] = yaml.safe_load(fh)
 
         g_vars['props'] = g_vars['topo_properties']['configuration_properties']['common']

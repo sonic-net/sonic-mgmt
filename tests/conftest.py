@@ -385,7 +385,12 @@ def k8smasters(ansible_adhoc, request):
             k8s_inv_file = inv_file
     if not k8s_inv_file:
         pytest.skip("k8s inventory not found, skipping tests")
-    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    append_path = '../'
+    if sonic_mgmt_dir is not None:
+        append_path = sonic_mgmt_dir
+    kinv_file = os.path.join(append_path, "ansible/", k8s_inv_file)
+    with open(kinv_file, 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             if 'haproxy' in attributes:
@@ -543,7 +548,12 @@ def sonic():
 @pytest.fixture(scope='session')
 def pdu():
     """ read and yield pdu configuration """
-    with open('../ansible/group_vars/pdu/pdu.yml') as stream:
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    append_path = '../'
+    if sonic_mgmt_dir is not None:
+        append_path = sonic_mgmt_dir
+    stream_file = os.path.join(append_path, "ansible/group_vars/pdu/pdu.yml")
+    with open(stream_file) as stream:
         pdu = yaml.safe_load(stream)
         return pdu
 
@@ -560,8 +570,15 @@ def creds_on_dut(duthost):
         'qos\.yml',
         'mux_simulator_http_port_map\.yml'
         ]
-    files = glob.glob("../ansible/group_vars/all/*.yml")
-    files += glob.glob("../ansible/vars/*.yml")
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    append_path = '../'
+    if sonic_mgmt_dir is not None:
+        append_path = sonic_mgmt_dir
+    files = glob.glob(os.path.join(append_path, "ansible/group_vars/all/*.yml"))
+    files += glob.glob(os.path.join(append_path, "ansible/vars/*.yml"))
+    for group in groups:
+        files += glob.glob(os.path.join(append_path, "ansible/group_vars/", group, "/*.yml"))
+
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
     filtered_files = [

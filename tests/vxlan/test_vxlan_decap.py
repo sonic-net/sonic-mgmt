@@ -1,4 +1,4 @@
-import json
+import json, os
 import logging
 from datetime import datetime
 from time import sleep
@@ -36,8 +36,11 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
     """
 
     logger.info("Prepare arp_responder")
-
-    arp_responder_conf = Template(open("../ansible/roles/test/templates/arp_responder.conf.j2").read())
+    arp_responder_conf_file_path = "../ansible/roles/test/templates/arp_responder.conf.j2"
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    if sonic_mgmt_dir is not None:
+        arp_responder_conf_file_path = os.path.join(sonic_mgmt_dir, "ansible/roles/test/templates/arp_responder.conf.j2")
+    arp_responder_conf = Template(open(arp_responder_conf_file_path).read())
     ptfhost.copy(content=arp_responder_conf.render(arp_responder_args="--conf /tmp/vxlan_arpresponder.conf"),
                 dest="/etc/supervisor/conf.d/arp_responder.conf")
 

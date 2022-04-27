@@ -22,6 +22,9 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PFC_GEN_FILE_RELATIVE_PATH = r'../../ansible/roles/test/files/helpers/pfc_gen.py'
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+if sonic_mgmt_dir is not None:
+    PFC_GEN_FILE_RELATIVE_PATH = os.path.join(sonic_mgmt_dir, r'ansible/roles/test/files/helpers/pfc_gen.py')
 """ Expected PFC generator path at the leaf fanout switch """
 PFC_GEN_FILE_DEST = r'~/pfc_gen.py'
 """ Number of generated packets for each test case """

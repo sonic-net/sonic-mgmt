@@ -17,7 +17,11 @@ class AosHost():
 
     def _exec_jinja_template(self, task_name, jinja_template):
         inventory = 'lab'
-        ansible_root = '../ansible/'
+        sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+        append_path = '../'
+        if sonic_mgmt_dir is not None:
+            append_path = sonic_mgmt_dir
+        ansible_root = os.path.join(append_path, "ansible/")
         playbook_name = 'accton_os_cmd_exec.yml'
         jinja_name = 'accton_os_cmd_exec.j2'
         playbook_text = '- hosts: {}\n'.format(self.hostname) + \
