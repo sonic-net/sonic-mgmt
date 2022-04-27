@@ -73,3 +73,5 @@ pytest example/test_example.py --inventory ../ansible/veos_vtb --host-pattern vl
 ```
 
 During pre-parse, pytest recognizes that `example/test_example.py ` is a test script. Then pytest will try to load file `sonic-mgmt/tests/try_opt/conftest.py`. After this conftest.py file is loaded, there is no problem of parsing argument `--example_option1`.
+
+[tests/run_test.sh](/tests/run_tests.sh) uses a environment variable `SONIC_MGMT` to get the absolute path of the root sonic_mgmt folder to access some files neccessary for tests. If not set explicitly, uses `/data/sonic-mgmt/` by default. 
