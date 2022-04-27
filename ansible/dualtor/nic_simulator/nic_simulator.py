@@ -466,7 +466,7 @@ class InterruptableThread(threading.Thread):
                 raise(self._e) from None
 
 
-class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
+class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """gRPC for a NiC."""
 
     def __init__(self, nic_addr, ovs_bridge):
@@ -500,10 +500,20 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
         # TODO: Add QueryOperationPortState implementation
         return nic_simulator_grpc_service_pb2.OperationReply()
 
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.LinkStateReply())
+    def QueryLinkState(self, request, context):
+        # TODO: add QueryLinkState implementation
+        return nic_simulator_grpc_service_pb2.LinkStateReply()
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.ServerVersionReply())
+    def QueryServerVersion(self, request, context):
+        # TODO: add QueryServerVersion implementation
+        return nic_simulator_grpc_service_pb2.ServerVersionReply()
+
     def _run_server(self, binding_port):
         """Run the gRPC server."""
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
-        nic_simulator_grpc_service_pb2_grpc.add_DualTorServiceServicer_to_server(
+        nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
             self.server
         )
@@ -538,7 +548,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         if nic_address in self.client_stubs:
             client_stub = self.client_stubs[nic_address]
         else:
-            client_stub = nic_simulator_grpc_service_pb2_grpc.DualTorServiceStub(
+            client_stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(
                 grpc.insecure_channel("%s:%s" % (nic_address, self.binding_port))
             )
             self.client_stubs[nic_address] = client_stub
@@ -603,7 +613,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         self.server.wait_for_termination()
 
 
-class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
+class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
     def __init__(self, vm_set, mgmt_port, binding_port):
