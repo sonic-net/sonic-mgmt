@@ -27,13 +27,17 @@ def ansible_stdout_to_str(ansible_stdout):
         result += x.encode('UTF8')
     return result
 
-def eos_to_linux_intf(eos_intf_name):
+def eos_to_linux_intf(eos_intf_name, hwsku=None):
     """
     @Summary: Map EOS's interface name to Linux's interface name
     @param eos_intf_name: Interface name in EOS
     @return: Return the interface name in Linux
     """
-    return eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
+    if hwsku == "MLNX-OS":
+        linux_intf_name = eos_intf_name.replace("ernet 1/", "sl1p").replace("/", "sp")
+    else:
+        linux_intf_name = eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
+    return linux_intf_name
 
 def get_phy_intfs(host_ans):
     """
