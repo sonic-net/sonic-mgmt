@@ -6,3 +6,5 @@
     * any: test case can run on both t0 and t1 topology.
     * util: test case is a utility, eitehr pre-test or post-test. Usually only need to be run once per test session.
     * t0-soak: special test case that could take very long time to finish and applicable to t0 topology.
+
+* Use `SONIC_MGMT` environment variable to get absolute path of the sonic-mgmt root directory in case it is located at a non-standard path. By default, [tests/run_test.sh](/tests/run_tests.sh) sets this variable to `/data/sonic-mgmt`.
