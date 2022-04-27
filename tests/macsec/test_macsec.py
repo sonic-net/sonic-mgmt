@@ -89,7 +89,7 @@ class TestControlPlane():
             assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
             assert last_nbr_egress_sa_table != new_nbr_egress_sa_table
             assert last_nbr_ingress_sa_table != new_nbr_ingress_sa_table
-            assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) == 0
+            assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
 
 
 class TestDataPlane():
