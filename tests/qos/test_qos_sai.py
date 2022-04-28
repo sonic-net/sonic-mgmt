@@ -28,9 +28,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
-from qos_sai_base import QosSaiBase, QosSaiBaseMasic
+from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
 
@@ -911,66 +909,3 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
-
-
-class TestQosSaiMasic(QosSaiBaseMasic):
-
-    def test_qos_masic_dscp_queue_mapping(
-        self, duthosts, rand_one_dut_hostname, enum_backend_asic_index,
-        ptfhost, dutTestParams, get_test_ports
-    ):
-        duthost = duthosts[rand_one_dut_hostname]
-        src_asic = get_test_ports["src_asic"]
-
-        if not duthost.sonichost.is_multi_asic:
-            pytest.skip("Test applies to only multi ASIC platform")
-
-        if enum_backend_asic_index is None:
-            pytest.skip("Backend ASIC is None")
-
-        try:
-            # Bring down port (channel) towards ASICs other than the ASIC
-            # under test, so that traffic always goes via ASIC under test
-            self.backend_ip_if_admin_state(
-                duthost, enum_backend_asic_index, src_asic, "shutdown"
-            )
-
-            test_params = dict()
-            test_params.update(dutTestParams["basicParams"])
-            test_params.update(get_test_ports)
-            logger.debug(test_params)
-
-            # ensure the test destination IP has a path to backend ASIC
-            pytest_assert(
-                wait_until(
-                    30, 1, 0, self.check_v4route_backend_nhop, duthost,
-                    test_params["src_asic"], test_params["dst_port_ip"]
-                ),
-                "Route {} doesn't have backend ASIC nexthop on ASIC {}".format(
-                    test_params["dst_port_ip"], test_params["src_asic"]
-                )
-            )
-
-            duthost.asic_instance(
-                enum_backend_asic_index
-            ).create_ssh_tunnel_sai_rpc()
-
-            # find traffic src/dst ports on the ASIC under test
-            test_params.update(
-                self.find_asic_traffic_ports(duthost, ptfhost, test_params)
-            )
-
-            self.runPtfTest(
-                ptfhost, testCase="sai_qos_tests.DscpMappingPB",
-                testParams=test_params
-            )
-
-        finally:
-            # bring up the backed IFs
-            self.backend_ip_if_admin_state(
-                duthost, enum_backend_asic_index, src_asic, "startup"
-            )
-
-            duthost.asic_instance(
-                enum_backend_asic_index
-            ).remove_ssh_tunnel_sai_rpc()
