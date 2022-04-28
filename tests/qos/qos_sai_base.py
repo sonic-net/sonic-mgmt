@@ -945,7 +945,7 @@ class QosSaiBase(QosBase):
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.docker_copy_from_asic0("swss", "/etc/swss/config.d/switch.json", "/tmp")
+        duthost.docker_copy_from_asic("swss", "/etc/swss/config.d/switch.json", "/tmp")
         duthost.replace(
             dest='/tmp/switch.json',
             regexp='"fdb_aging_time": ".*"',
