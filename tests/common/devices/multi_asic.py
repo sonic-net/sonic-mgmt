@@ -588,9 +588,9 @@ class MultiAsicSonicHost(object):
         else:
             self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
 
-    def docker_copy_from_asic0(self, container_name, src, dst):
+    def docker_copy_from_asic(self, container_name, src, dst, asic_id = 0):
         """This function copy from one asic to host"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
-            container_name += str(0)
+            container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
