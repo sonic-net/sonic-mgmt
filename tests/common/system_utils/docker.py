@@ -148,7 +148,7 @@ def swap_syncd(duthost, creds):
         )
 
     logger.info("Reloading config and restarting swss...")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
     _perform_syncd_liveness_check(duthost)
 
