@@ -182,7 +182,7 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
         file.write("# ptf host interface @ switch front port name\n")
         file.writelines(
             map(
-                    lambda (index, port): "{0}@{1}\n".format(index, port),
+                    lambda index, port: "{0}@{1}\n".format(index, port),
                     enumerate(portList)
                 )
             )
@@ -195,7 +195,7 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
 @pytest.fixture(scope="module", autouse=True)
 def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
-    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
         yield
@@ -314,7 +314,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
             }
         else:
             # PTF port is mapped to single DUT
-            target_dut_index = int(dut_intf_map.keys()[0])
+            target_dut_index = int(list(dut_intf_map.keys())[0])
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
                 'target_mac': router_macs[target_dut_index]
