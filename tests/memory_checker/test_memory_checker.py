@@ -32,6 +32,8 @@ pytestmark = [
 CONTAINER_STOP_THRESHOLD_SECS = 200
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
+MONIT_RESTART_THRESHOLD_SECS = 320
+MONIT_CHECK_INTERVAL_SECS = 5
 WAITING_SYSLOG_MSG_SECS = 130
 
 
@@ -52,6 +54,7 @@ def restart_container(duthost, container_name):
 
 def backup_monit_config_files(duthost):
     """Backs up Monit configuration files on DuT.
+
     Args:
         duthost: The AnsibleHost object of DuT.
 
@@ -67,6 +70,7 @@ def backup_monit_config_files(duthost):
 
 def customize_monit_config_files(duthost, temp_config_line):
     """Customizes the Monit configuration file on DuT.
+
     Args:
         duthost: The AnsibleHost object of DuT.
         temp_config_line: A stirng to replace the initial Monit configuration.
@@ -83,6 +87,7 @@ def customize_monit_config_files(duthost, temp_config_line):
 
 def restore_monit_config_files(duthost):
     """Restores the initial Monit configuration file on DuT.
+
     Args:
         duthost: The AnsibleHost object of DuT.
 
@@ -95,8 +100,25 @@ def restore_monit_config_files(duthost):
     logger.info("Original Monit configuration files on DuT '{}' are restored.".format(duthost.hostname))
 
 
+def check_monit_running(duthost):
+    """Checks whether Monit is running or not.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+
+    Returns:
+        Returns True if Monit is running; Otherwist, returns False.
+    """
+    monit_services_status = duthost.get_monit_services_status()
+    if not monit_services_status:
+        return False
+
+    return True
+
+
 def restart_monit_service(duthost):
     """Restarts Monit service on DuT.
+
     Args:
         duthost: The AnsibleHost object of DuT.
 
@@ -157,6 +179,31 @@ def remove_stress_utility(duthost, container_name):
     logger.info("Bringing up all BGP sessions ...")
     duthost.shell("config bgp startup all")
     logger.info("BGP sessions are started up.")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def check_monit_status(duthosts, rand_one_dut_hostname):
+    """Checks whether Monit is running or not after it was restarted.
+
+    Args:
+        duthosts: Fixture returns lists of DuT.
+        rand_one_dut_hostname: Fixture returns randomly selected DuT.
+
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    yield
+
+    logger.info("Checks whether Monit is running or not after restarted ...")
+    is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
+                                  MONIT_CHECK_INTERVAL_SECS,
+                                  0,
+                                  check_monit_running,
+                                  duthost)
+    pytest_assert(is_monit_running, "Monit is not running after restarted!")
+    logger.info("Monit is running!")
 
 
 @pytest.fixture
