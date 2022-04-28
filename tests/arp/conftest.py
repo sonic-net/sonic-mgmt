@@ -163,7 +163,7 @@ def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_ho
         yield duthost, ptfhost, router_mac
     finally:
         #Recover DUT interface IP address
-        config_reload(duthost, config_source='config_db', wait=120)
+        config_reload(duthost, config_source='config_db', safe_reload=True)
 
 @pytest.fixture
 def garp_enabled(rand_selected_dut, config_facts):

@@ -26,7 +26,7 @@ def restore_config_db(duthost):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
 
     # Reload to restore configuration
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 @pytest.fixture(scope="module")
 def check_ntp_sync(duthosts, rand_one_dut_hostname):
