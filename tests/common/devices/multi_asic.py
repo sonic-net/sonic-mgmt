@@ -547,6 +547,27 @@ class MultiAsicSonicHost(object):
             for dutasic in self.asics:
                 dutasic.run_vtysh(vty_cmd_args)
 
+    def get_internal_bgp_peers(self):
+        """
+        Get Internal BGP peers. API iterates through frontend ASIC
+        index to get the BGP internal peers from running configuration
+
+        Returns:
+              Dict of {BGP peer: Peer Info}
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        bgp_internal_neighbors = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            bgp_internal_neighbors.update(
+                config_facts.get("BGP_INTERNAL_NEIGHBOR", {})
+            )
+        return bgp_internal_neighbors
+
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost

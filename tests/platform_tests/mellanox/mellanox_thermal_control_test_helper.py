@@ -1104,6 +1104,8 @@ class MinTableMocker(object):
     FAN_AMB_PATH = 'fan_amb'
     PORT_AMB_PATH = 'port_amb'
     TRUST_PATH = 'module1_temp_fault'
+    LIST_THERMAL_ZONE_TEMPERATURE_FILE= 'ls /run/hw-management/thermal/mlxsw*/thermal_zone_temp'
+    NORMAL_TEMPERATURE = 40000
 
     def __init__(self, dut):
         self.mock_helper = MockerHelper(dut)
@@ -1130,6 +1132,12 @@ class MinTableMocker(object):
         self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))
         self.mock_helper.mock_thermal_value(self.TRUST_PATH, str(trust_value))
 
+    def mock_normal_temperature(self):
+        output = self.mock_helper.dut.shell(self.THERMAL_ZONE_TEMPERATURE_PATTERN)
+        for thermal_file in output['stdout_lines']:
+            if self.mock_helper.read_value(thermal_file) != '0':
+                self.mock_helper.mock_value(thermal_file, self.NORMAL_TEMPERATURE)
+        
     def deinit(self):
         """
         Destructor of MinTableMocker.
