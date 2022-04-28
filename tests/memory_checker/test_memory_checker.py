@@ -117,7 +117,7 @@ def check_monit_running(duthost):
 
 
 def restart_monit_service(duthost):
-    """Restarts Monit service on DuT.
+    """Restarts Monit service and polls Monit running status.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -128,6 +128,16 @@ def restart_monit_service(duthost):
     logger.info("Restarting Monit service ...")
     duthost.shell("systemctl restart monit")
     logger.info("Monit service is restarted.")
+
+    logger.info("Checks whether Monit is running or not after restarted ...")
+    is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
+                                  MONIT_CHECK_INTERVAL_SECS,
+                                  0,
+                                  check_monit_running,
+                                  duthost)
+    pytest_assert(is_monit_running, "Monit is not running after restarted!")
+    logger.info("Monit is running!")
+
 
 
 def install_stress_utility(duthost, creds, container_name):
@@ -181,31 +191,6 @@ def remove_stress_utility(duthost, container_name):
     logger.info("BGP sessions are started up.")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def check_monit_status(duthosts, rand_one_dut_hostname):
-    """Checks whether Monit is running or not after it was restarted.
-
-    Args:
-        duthosts: Fixture returns lists of DuT.
-        rand_one_dut_hostname: Fixture returns randomly selected DuT.
-
-    Returns:
-        None.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    yield
-
-    logger.info("Checks whether Monit is running or not after restarted ...")
-    is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
-                                  MONIT_CHECK_INTERVAL_SECS,
-                                  0,
-                                  check_monit_running,
-                                  duthost)
-    pytest_assert(is_monit_running, "Monit is not running after restarted!")
-    logger.info("Monit is running!")
-
-
 @pytest.fixture
 def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
                            enum_rand_one_per_hwsku_frontend_hostname, request):
@@ -220,10 +205,16 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+ 
     duthost = duthosts[dut_name]
+
 
     install_stress_utility(duthost, creds, container_name)
 
@@ -452,9 +443,14 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
     duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
@@ -495,9 +491,14 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
     duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
@@ -542,9 +543,14 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname and container_name == "telemetry",
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+ 
     duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
