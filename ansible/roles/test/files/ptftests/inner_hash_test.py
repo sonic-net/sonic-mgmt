@@ -79,6 +79,7 @@ class InnerHashTest(BaseTest):
         self.vxlan_port = self.test_params['vxlan_port']
         self.outer_encap_formats = self.test_params['outer_encap_formats']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
+        self.nvgre_tni = self.test_params.get('nvgre_tni', '')
         self.outer_dst_ip = self.outer_dst_ip_interval.get_first_ip()
 
         self.next_hop = self.fib[self.outer_dst_ip]
@@ -226,6 +227,7 @@ class InnerHashTest(BaseTest):
 
         outer_ip_src = self.outer_src_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_src_ip_interval.get_first_ip()
         outer_ip_dst = self.outer_dst_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_dst_ip_interval.get_first_ip()
+        nvgre_tni = self.nvgre_tni if self.nvgre_tni else random.randint(1, 254) + 20000
 
         pkt = self.generate_inner_pkt(sport, dport, ip_src, ip_dst, ip_proto)
         nvgre_pkt = simple_nvgre_packet(
@@ -235,8 +237,9 @@ class InnerHashTest(BaseTest):
                     ip_src=outer_ip_src,
                     ip_dst=outer_ip_dst,
                     ip_ttl=64,
-                    nvgre_tni=random.randint(1, 254)+20000,
-                    inner_frame=pkt)
+                    inner_frame=pkt,
+                    nvgre_tni=nvgre_tni,
+                    nvgre_flowid=0)
 
         logging.info("Sending packet from port {} outer_ip_src {} outer_ip_dst {} inner_src_ip {} inner_dst_ip {} inner_sport {} inner_dport {} inner_ipproto {}"\
                 .format(src_port, outer_ip_src, outer_ip_dst, ip_src, ip_dst, sport, dport, ip_proto))
@@ -316,6 +319,7 @@ class InnerHashTest(BaseTest):
 
         outer_ip_src = self.outer_src_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_src_ip_interval.get_first_ip()
         outer_ip_dst = self.outer_dst_ip_interval.get_random_ip() if hash_key == 'outer-tuples' else self.outer_dst_ip_interval.get_first_ip()
+        nvgre_tni = self.nvgre_tni if self.nvgre_tni else random.randint(1, 254) + 20000
 
         pkt = self.generate_inner_pkt(sport, dport, ip_src, ip_dst, ip_proto)
         nvgre_pkt = self.simple_nvgrev6_packet(
@@ -323,8 +327,9 @@ class InnerHashTest(BaseTest):
                     eth_src=src_mac,
                     ipv6_src=outer_ip_src,
                     ipv6_dst=outer_ip_dst,
-                    nvgre_tni=random.randint(1, 254)+20000,
-                    inner_frame=pkt)
+                    inner_frame=pkt,
+                    nvgre_tni=nvgre_tni,
+                    nvgre_flowid=0)
 
         logging.info("Sending packet from port {} outer_ip_src {} outer_ip_dst {} inner_src_ip {} inner_dst_ip {} inner_sport {} inner_dport {} inner_ipproto {}"\
                 .format(src_port, outer_ip_src, outer_ip_dst, ip_src, ip_dst, sport, dport, ip_proto))

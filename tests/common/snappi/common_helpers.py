@@ -14,7 +14,8 @@ in .csv format etc.
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-
+from ipaddress import IPv6Network, IPv6Address
+from random import getrandbits
 
 def increment_ip_address(ip, incr=1):
     """
@@ -654,3 +655,25 @@ def enable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+    """
+    Get N IPv6 addresses in a subnet.
+    Args:
+        subnet (str): IPv6 subnet, e.g., '2001::1/64'
+        number_of_ip (int): Number of IP addresses to get
+    Return:
+        Return n IPv6 addresses in this subnet in a list.
+    """
+
+    subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
+    subnet = unicode(subnet, "utf-8")
+    ipv6_list = []
+    for i in range(number_of_ip):
+        network = IPv6Network(subnet)
+        address = IPv6Address(
+            network.network_address + getrandbits(
+                network.max_prefixlen - network.prefixlen))
+        ipv6_list.append(str(address))
+
+    return ipv6_list

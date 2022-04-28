@@ -1,5 +1,4 @@
 import ipaddress
-import json
 import logging
 import pytest
 import re
@@ -8,7 +7,6 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
@@ -23,7 +21,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -52,33 +50,17 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+    def dutTestParams(self, dut_test_params):
         """
             Prepares DUT host test params
-
-            Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
-                tbinfo (Fixture, dict): Map containing testbed information
-                ptfPortMapFile (Fxiture, str): filename residing on PTF host and contains port maps information
-
             Returns:
                 dutTestParams (dict): DUT host test params
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
-        topo = tbinfo["topo"]["name"]
+        # update router mac
+        if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
+            dut_test_params["basicParams"]["router_mac"] = ''
 
-        yield {
-            "topo": topo,
-            "hwsku": mgFacts["minigraph_hwsku"],
-            "basicParams": {
-                "router_mac": '' if topo in self.SUPPORTED_T0_TOPOS else duthost.facts["router_mac"],
-                "server": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
-                "port_map_file": ptf_portmap_file,
-                "sonic_asic_type": duthost.facts['asic_type'],
-                "sonic_version": duthost.os_version
-            }
-        }
+        yield dut_test_params
 
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
@@ -916,10 +898,82 @@ class QosSaiBase(QosBase):
             testParams=dutTestParams["basicParams"]
         )
 
+    def __loadSwssConfig(self, duthost):
+        """
+            Load SWSS configuration on DUT
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Raises:
+                asserts if the load SWSS config failed
+
+            Returns:
+                None
+        """
+        duthost.shell(argv=[
+            "docker",
+            "exec",
+            "swss",
+            "bash",
+            "-c",
+            "swssconfig /etc/swss/config.d/switch.json"
+        ])
+
+    def __deleteTmpSwitchConfig(self, duthost):
+        """
+            Delete temporary switch.json cofiguration files
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        result = duthost.find(path=["/tmp"], patterns=["switch.json*"])
+        for file in result["files"]:
+            duthost.file(path=file["path"], state="absent")
+
+    @pytest.fixture(scope='class', autouse=True)
+    def handleFdbAging(self, duthosts, rand_one_dut_hostname):
+        """
+            Disable FDB aging and reenable at the end of tests
+
+            Set fdb_aging_time to 0, update the swss configuration, and restore SWSS configuration afer
+            test completes
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        fdbAgingTime = 0
+
+        self.__deleteTmpSwitchConfig(duthost)
+        duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
+        duthost.replace(
+            dest='/tmp/switch.json',
+            regexp='"fdb_aging_time": ".*"',
+            replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
+            backup=True
+        )
+        duthost.shell(argv=["docker", "cp", "/tmp/switch.json", "swss:/etc/swss/config.d/switch.json"])
+        self.__loadSwssConfig(duthost)
+
+        yield
+
+        result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
+        if result["matched"] > 0:
+            duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
+            self.__loadSwssConfig(duthost)
+        self.__deleteTmpSwitchConfig(duthost)
+
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging,
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -1232,297 +1286,5 @@ class QosSaiBase(QosBase):
         duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.command("counterpoll watermark enable")
-        dut_asic.command("sleep 20")
+        dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
-
-
-class QosSaiBaseMasic(QosBase):
-
-    def build_port_ips(self, asic_index, ifaces, mg_facts):
-        """
-        Returns list of port index and IP address for a given ASIC
-        """
-
-        dut_port_ips = dict()
-
-        for iface, addr in ifaces.items():
-            if iface.startswith("Ethernet"):
-                portIndex = mg_facts["minigraph_ptf_indices"][iface]
-            elif iface.startswith("PortChannel"):
-                portName = mg_facts["minigraph_portchannels"][iface]["members"][0]
-                portIndex = mg_facts["minigraph_ptf_indices"][portName]
-
-            dut_port_ips.update({
-                portIndex: {
-                    "ipv4": addr["peer_ipv4"],
-                    "bgp_neighbor": addr["bgp_neighbor"]
-                }
-            })
-
-        return {asic_index: dut_port_ips}
-
-    def get_backend_ip_ifs(self, duthost, frontend_asic):
-        """
-        On a frontend ASIC return a dict of interfaces with
-        backend ASIC names
-        """
-        pytest_assert(
-            frontend_asic in duthost.get_frontend_asic_ids(),
-            "{} is not frontend ASIC ID".format(frontend_asic)
-        )
-
-        ip_ifs = duthost.asic_instance(
-            frontend_asic
-        ).show_ip_interface()["ansible_facts"]["ip_interfaces"]
-
-        # Find backend interface names
-        return {intf: ip["bgp_neighbor"].lower() for intf, ip in ip_ifs.items()
-                if ip["bgp_neighbor"].lower().startswith("asic")}
-
-    def check_v4route_backend_nhop(self, duthost, frontend_asic, route):
-        """
-        On frontend ASIC Check if v4 address has at least one backend
-        ASIC nexthop
-
-        Returns:
-          False if not nexthops with backend ASICs
-        """
-        cmd = 'vtysh -n {} -c "show ip route {} json"'.format(
-            frontend_asic, route
-        )
-        result = duthost.command(cmd)
-        pytest_assert(result["rc"] == 0, cmd)
-        route_info = json.loads(result["stdout"])
-        nhop = route_info[route_info.keys().pop()][0]
-
-        nhop_ifs = {x["interfaceName"] for x in nhop["nexthops"]}
-        backend_ifs = set(self.get_backend_ip_ifs(
-            duthost, frontend_asic).keys()
-        )
-
-        return len(nhop_ifs.intersection(backend_ifs))
-
-    def backend_ip_if_admin_state(
-        self, duthost, test_asic, frontend_asic, admin_state
-    ):
-        """
-        On a frontend ASIC bring down ports (channels) towards backend ASICs
-        other than the ASIC under test, so that traffic always goes via
-        backend ASIC under test
-        """
-
-        def is_intf_status(asic, intf, oper_state):
-            intf_status = duthost.asic_instance(asic).show_interface(
-                command="status", include_internal_intfs=True
-            )["ansible_facts"]["int_status"]
-            if intf_status[intf]["oper_state"] == oper_state:
-                return True
-            return False
-
-        oper_state = "up" if admin_state == "startup" else "down"
-        ip_ifs = self.get_backend_ip_ifs(duthost, frontend_asic)
-
-        for intf, asic in ip_ifs.items():
-            if  asic != "asic{}".format(test_asic):
-                if admin_state == "startup":
-                    duthost.asic_instance(frontend_asic).startup_interface(intf)
-                else:
-                    duthost.asic_instance(frontend_asic).shutdown_interface(intf)
-
-                # wait for port status to change
-                pytest_assert(
-                    wait_until(
-                        10, 1, 0, is_intf_status, frontend_asic, intf,
-                        oper_state
-                    ),
-                    "Failed to update port status {} {}".format(
-                        intf, admin_state
-                    )
-                )
-
-
-    def find_asic_traffic_ports(self, duthost, ptfhost, test_params):
-        """
-        For a given pair of source IP and destination IP, identify
-        the path taken by the L3 packet. Path implies the backend ASIC
-        and its tx and rx ports. The path is identified by sending
-        a burst of packets and finding the difference in interface
-        counters before and after the burst.
-
-        Assert is thrown if multiple ports or multiple backend ASICs
-        have similar interface counters.
-        """
-        def find_traffic_ports(asic_id, c1, c2, diff):
-
-            rx_port = None
-            tx_port = None
-
-            a1 = c1[asic_id]["ansible_facts"]["int_counter"]
-            a2 = c2[asic_id]["ansible_facts"]["int_counter"]
-
-            for port in a2.keys():
-                rx_diff = int(a2[port]["RX_OK"]) - int(a1[port]["RX_OK"])
-
-                if rx_diff >= diff:
-                    pytest_assert(
-                        rx_port is None,
-                        "Multiple rx ports with {} rx packets".format(diff)
-                    )
-                    rx_port = port
-
-                tx_diff = int(a2[port]["TX_OK"]) - int(a1[port]["TX_OK"])
-                if tx_diff >= diff:
-                    pytest_assert(
-                        tx_port is None,
-                        "Multiple tx ports with {} tx packets".format(diff)
-                    )
-                    tx_port = port
-
-            # return rx, tx ports that have a packet count difference of > diff
-            return rx_port, tx_port
-
-        test_params["count"] = 100
-        duthost.command("sonic-clear counters")
-        cnt_before = duthost.show_interface(
-            command="counter", asic_index="all", include_internal_intfs=True
-        )
-        # send a burst of packets from a given src IP to dst IP
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.PacketTransmit",
-            testParams=test_params
-        )
-        time.sleep(8)
-        cnt_after = duthost.show_interface(
-            command="counter", asic_index="all", include_internal_intfs=True
-        )
-
-        asic_idx = None
-        rx_port = None
-        tx_port = None
-
-        # identify the backend ASIC and the rx, tx ports on that ASIC
-        # that forwarded the traffic
-        for asic in duthost.get_backend_asic_ids():
-            rx, tx = find_traffic_ports(
-                asic, cnt_before, cnt_after, test_params["count"]
-            )
-            if rx and tx:
-                pytest_assert(
-                    rx_port is None and tx_port is None,
-                    "Multiple backend ASICs with rx/tx ports"
-                )
-                rx_port, tx_port, asic_idx  = rx, tx, asic
-
-        pytest_assert(asic_idx is not None, "ASIC, rx and tx ports not found")
-        return ({
-            "test_src_port_name": rx_port,
-            "test_dst_port_name": tx_port,
-            "asic_under_test": asic_idx,
-            }
-        )
-
-    @pytest.fixture(scope='class')
-    def build_ip_interface(
-        self, duthosts, rand_one_dut_hostname, swapSyncd, tbinfo
-    ):
-        """
-        builds a list of active IP interfaces and port index
-        for each ASIC
-
-        Returns:
-        {
-            asic_index: {
-                portIndex: {
-                    "ipv4": peer ipv4,
-                    "bgp_neighbor": BGP neighbor
-                }
-                .
-                .
-            }
-           .
-           .
-        }
-        """
-        duthost = duthosts[rand_one_dut_hostname]
-
-        topo = tbinfo["topo"]["name"]
-        if topo not in self.SUPPORTED_T1_TOPOS:
-            pytest.skip("unsupported topology {}".format(topo))
-
-        pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
-
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
-
-        port_ips = dict()
-        for idx in range(len(ip_ifaces)):
-            port_ips.update(self.build_port_ips(idx, ip_ifaces[idx], mg_facts))
-
-        yield port_ips
-
-    @pytest.fixture(scope='class')
-    def build_test_ports(self, build_ip_interface):
-        """
-        This fixture builds a list of active L3 interface ports on each
-        ASIC so that source and destination interfaces can be selected
-        from different ASICs. Returns a dict of 'src' and 'dst' interfaces
-        along with the ASIC ID
-
-        Only frontend ASCIs connected to T0 devices are reachable end
-        to end on multi ASIC platform.
-        """
-        # find asics with T0 neighbors
-        ports = dict()
-        for k, v in build_ip_interface.items():
-            try:
-                port_index = next(iter(v))
-                port_info = v[port_index]
-                if port_info["bgp_neighbor"].lower().endswith("t0"):
-                    ports.update({k: v})
-            except StopIteration:
-                continue
-
-        pytest_assert(
-            len(ports) >= 0, "Ports from at least two ASICs required"
-        )
-
-        test_ports = dict()
-        keys = ports.keys()
-        src_asic = keys.pop(0)
-        test_ports.update({"src": {src_asic: ports[src_asic]}})
-        test_ports.update({"dst": dict()})
-        for dst_asic in keys:
-            test_ports["dst"].update({dst_asic: ports[dst_asic]})
-
-        yield test_ports
-
-    @pytest.fixture(scope='class')
-    def get_test_ports(self, build_test_ports):
-        """
-        Fixture to select test ports from a given list of active L3
-        interfaces from multiple frontend ASICs. The source and
-        destination port will be on different ASICs.
-
-        Fixture also returns the source and desitnation ASCIS IDs
-        """
-
-        # source port
-        src_asic = build_test_ports["src"].keys().pop(0)
-        src_port_ids = build_test_ports["src"][src_asic].keys()
-        src_port_id = src_port_ids.pop(0)
-        src_port_ip = build_test_ports["src"][src_asic][src_port_id]["ipv4"]
-
-        # destination port
-        dst_asic = build_test_ports["dst"].keys().pop(0)
-        dst_port_ids = build_test_ports["dst"][dst_asic].keys()
-        dst_port_id = dst_port_ids.pop(0)
-        dst_port_ip = build_test_ports["dst"][dst_asic][dst_port_id]["ipv4"]
-
-        return {
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dst_port_ip,
-            "dst_asic": dst_asic,
-            "src_port_id": src_port_id,
-            "src_port_ip": src_port_ip,
-            "src_asic": src_asic,
-        }

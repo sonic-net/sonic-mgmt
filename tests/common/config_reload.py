@@ -1,6 +1,9 @@
 import time
 import logging
 
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+
 logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph']
@@ -36,7 +39,7 @@ def config_force_option_supported(duthost):
         return True
     return False
 
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True):
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -77,4 +80,15 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     modular_chassis = duthost.get_facts().get("modular_chassis")
     wait = max(wait, 240) if modular_chassis else wait
 
-    time.sleep(wait)
+    if safe_reload:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+                "All critical services should be fully started!")
+        if config_source == 'minigraph':
+            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
+                    "PFC_WD is missing in CONFIG-DB")
+    else:
+        time.sleep(wait)
