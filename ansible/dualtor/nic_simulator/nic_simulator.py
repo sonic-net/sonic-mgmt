@@ -466,7 +466,7 @@ class InterruptableThread(threading.Thread):
                 raise(self._e) from None
 
 
-class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
+class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """gRPC for a NiC."""
 
     def __init__(self, nic_addr, ovs_bridge):
@@ -476,23 +476,23 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
         self.thread = None
 
     @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
-    def QueryAdminPortState(self, request, context):
-        logging.debug("QueryAdminPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+    def QueryAdminForwardingPortState(self, request, context):
+        logging.debug("QueryAdminForwardingPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
         response = nic_simulator_grpc_service_pb2.AdminReply(
             portid=[0, 1],
             state=self.ovs_bridge.query_forwarding_state()
         )
-        logging.debug("QueryAdminPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
+        logging.debug("QueryAdminForwardingPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
         return response
 
     @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
-    def SetAdminPortState(self, request, context):
-        logging.debug("SetAdminPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+    def SetAdminForwardingPortState(self, request, context):
+        logging.debug("SetAdminForwardingPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
         response = nic_simulator_grpc_service_pb2.AdminReply(
             portid=[0, 1],
             state=self.ovs_bridge.set_forwarding_state(request.state)
         )
-        logging.debug("SetAdminPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
+        logging.debug("SetAdminForwardingPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
         return response
 
     @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
@@ -500,10 +500,20 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
         # TODO: Add QueryOperationPortState implementation
         return nic_simulator_grpc_service_pb2.OperationReply()
 
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.LinkStateReply())
+    def QueryLinkState(self, request, context):
+        # TODO: add QueryLinkState implementation
+        return nic_simulator_grpc_service_pb2.LinkStateReply()
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.ServerVersionReply())
+    def QueryServerVersion(self, request, context):
+        # TODO: add QueryServerVersion implementation
+        return nic_simulator_grpc_service_pb2.ServerVersionReply()
+
     def _run_server(self, binding_port):
         """Run the gRPC server."""
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
-        nic_simulator_grpc_service_pb2_grpc.add_DualTorServiceServicer_to_server(
+        nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
             self.server
         )
@@ -538,20 +548,20 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         if nic_address in self.client_stubs:
             client_stub = self.client_stubs[nic_address]
         else:
-            client_stub = nic_simulator_grpc_service_pb2_grpc.DualTorServiceStub(
+            client_stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(
                 grpc.insecure_channel("%s:%s" % (nic_address, self.binding_port))
             )
             self.client_stubs[nic_address] = client_stub
         return client_stub
 
-    def QueryAdminPortState(self, request, context):
+    def QueryAdminForwardingPortState(self, request, context):
         nic_addresses = request.nic_addresses
-        logging.debug("QueryAdminPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
+        logging.debug("QueryAdminForwardingPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
         query_responses = []
         for nic_address in nic_addresses:
             client_stub = self._get_client_stub(nic_address)
             try:
-                state = client_stub.QueryAdminPortState(
+                state = client_stub.QueryAdminForwardingPortState(
                     nic_simulator_grpc_service_pb2.AdminRequest(
                         portid=[0, 1],
                         state=[True, True]
@@ -560,36 +570,36 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
                 query_responses.append(state)
             except Exception as e:
                 context.set_code(grpc.StatusCode.ABORTED)
-                context.set_details("Error in QueryAdminPortState to %s: %s" % (nic_address, repr(e)))
+                context.set_details("Error in QueryAdminForwardingPortState to %s: %s" % (nic_address, repr(e)))
                 return nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply()
         response = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply(
             nic_addresses=nic_addresses,
             admin_replies=query_responses
         )
-        logging.debug("QueryAdminPortState[mgmt]: response of query: %s", response)
+        logging.debug("QueryAdminForwardingPortState[mgmt]: response of query: %s", response)
         return response
 
-    def SetAdminPortState(self, request, context):
+    def SetAdminForwardingPortState(self, request, context):
         nic_addresses = request.nic_addresses
         admin_requests = request.admin_requests
-        logging.debug("SetAdminPortState[mgmt]: request set admin port state: %s\n", request)
+        logging.debug("SetAdminForwardingPortState[mgmt]: request set admin port state: %s\n", request)
         set_responses = []
         for nic_address, admin_request in zip(nic_addresses, admin_requests):
             client_stub = self._get_client_stub(nic_address)
             try:
-                state = client_stub.SetAdminPortState(
+                state = client_stub.SetAdminForwardingPortState(
                     admin_request
                 )
                 set_responses.append(state)
             except Exception as e:
                 context.set_code(grpc.StatusCode.ABORTED)
-                context.set_details("Error in QueryAdminPortState to %s: %s" % (nic_address, repr(e)))
+                context.set_details("Error in SetAdminForwardingPortState to %s: %s" % (nic_address, repr(e)))
                 return nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest()
         response = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminReply(
             nic_addresses=nic_addresses,
             admin_replies=set_responses
         )
-        logging.debug("QueryAdminPortState[mgmt]: response of query: %s", response)
+        logging.debug("SetAdminForwardingPortState[mgmt]: response of query: %s", response)
         return response
 
     def QueryOperationPortState(self, request, context):
@@ -603,7 +613,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         self.server.wait_for_termination()
 
 
-class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualTorServiceServicer):
+class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
     def __init__(self, vm_set, mgmt_port, binding_port):

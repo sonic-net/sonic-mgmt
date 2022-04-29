@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 import nic_simulator_grpc_service_pb2 as nic__simulator__grpc__service__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%nic_simulator_grpc_mgmt_service.proto\x1a nic_simulator_grpc_service.proto\"R\n\x12ListOfAdminRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12%\n\x0e\x61\x64min_requests\x18\x02 \x03(\x0b\x32\r.AdminRequest\"M\n\x10ListOfAdminReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12\"\n\radmin_replies\x18\x02 \x03(\x0b\x32\x0b.AdminReply\"^\n\x16ListOfOperationRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12-\n\x12operation_requests\x18\x02 \x03(\x0b\x32\x11.OperationRequest\"Y\n\x14ListOfOperationReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12*\n\x11operation_replies\x18\x02 \x03(\x0b\x32\x0f.OperationReply2\xe1\x01\n\x12\x44ualTorMgmtService\x12?\n\x13QueryAdminPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12=\n\x11SetAdminPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12K\n\x17QueryOperationPortState\x12\x17.ListOfOperationRequest\x1a\x15.ListOfOperationReply\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%nic_simulator_grpc_mgmt_service.proto\x1a nic_simulator_grpc_service.proto\"R\n\x12ListOfAdminRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12%\n\x0e\x61\x64min_requests\x18\x02 \x03(\x0b\x32\r.AdminRequest\"M\n\x10ListOfAdminReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12\"\n\radmin_replies\x18\x02 \x03(\x0b\x32\x0b.AdminReply\"^\n\x16ListOfOperationRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12-\n\x12operation_requests\x18\x02 \x03(\x0b\x32\x11.OperationRequest\"Y\n\x14ListOfOperationReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12*\n\x11operation_replies\x18\x02 \x03(\x0b\x32\x0f.OperationReply2\xf5\x01\n\x12\x44ualTorMgmtService\x12I\n\x1dQueryAdminForwardingPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12G\n\x1bSetAdminForwardingPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12K\n\x17QueryOperationPortState\x12\x17.ListOfOperationRequest\x1a\x15.ListOfOperationReply\"\x00\x62\x06proto3')
 
 
 
@@ -64,5 +64,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _LISTOFOPERATIONREPLY._serialized_start=334
   _LISTOFOPERATIONREPLY._serialized_end=423
   _DUALTORMGMTSERVICE._serialized_start=426
-  _DUALTORMGMTSERVICE._serialized_end=651
+  _DUALTORMGMTSERVICE._serialized_end=671
 # @@protoc_insertion_point(module_scope)
