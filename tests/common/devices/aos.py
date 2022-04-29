@@ -146,7 +146,7 @@ class AosHost(AnsibleHostBase):
         if found_txt is None:
             _raise_err('Not able to extract interface %s speed from output: %s' % (port, output))
 
-        return speed_to_mb(found_txt)
+        return speed_gb_to_mb(found_txt)
 
     def get_supported_speeds(self, port):
         """Get supported speeds for a given interface
@@ -164,7 +164,7 @@ class AosHost(AnsibleHostBase):
             _raise_err('Failed to find port speeds list in output: %s' % output)
 
         speed_list = found_txt.split(',')
-        return list(map(speed_to_mb, speed_list))
+        return list(map(speed_gb_to_mb, speed_list))
 
     def set_speed(self, interface_name, speed):
         
@@ -173,20 +173,20 @@ class AosHost(AnsibleHostBase):
             # but in AOS autoneg activation and speeds advertisement is done via a single CLI cmd
             # so this branch left nop intentionally
             return True
-        speed = mb_to_speed(speed)
+        speed = speed_mb_to_gb(speed)
         out = self.aos_config(
                 lines=['speed {}'.format(speed)],
                 parents='interface %s' % interface_name)
         return not self._has_cli_cmd_failed(out)
 
-def speed_to_mb(speed):
+def speed_gb_to_mb(speed):
     res = re.search(r'(\d+)(\w)', speed)
     if not res:
         return speed
     speed = res.groups()[0]
     return speed + '000'
 
-def mb_to_speed(val):
+def speed_mb_to_gb(val):
     return '{}Gfull'.format(int(val) / 1000)
 
 def extract_val(prop_name, output):
