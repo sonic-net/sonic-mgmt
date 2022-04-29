@@ -3,9 +3,9 @@ syntax = "proto3";
 import "nic_simulator_grpc_service.proto";
 
 service DualTorMgmtService {
-  rpc QueryAdminPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
+  rpc QueryAdminForwardingPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
   
-  rpc SetAdminPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
+  rpc SetAdminForwardingPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
   
   rpc QueryOperationPortState(ListOfOperationRequest) returns (ListOfOperationReply) {}
 }

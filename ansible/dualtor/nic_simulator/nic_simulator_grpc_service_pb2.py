@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\x32\xb9\x01\n\x0e\x44ualTorService\x12\x33\n\x13QueryAdminPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12\x31\n\x11SetAdminPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t2\xc8\x02\n\rDualToRActive\x12=\n\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x62\x06proto3')
 
 
 
@@ -22,6 +22,10 @@ _ADMINREQUEST = DESCRIPTOR.message_types_by_name['AdminRequest']
 _ADMINREPLY = DESCRIPTOR.message_types_by_name['AdminReply']
 _OPERATIONREQUEST = DESCRIPTOR.message_types_by_name['OperationRequest']
 _OPERATIONREPLY = DESCRIPTOR.message_types_by_name['OperationReply']
+_LINKSTATEREQUEST = DESCRIPTOR.message_types_by_name['LinkStateRequest']
+_LINKSTATEREPLY = DESCRIPTOR.message_types_by_name['LinkStateReply']
+_SERVERVERSIONREQUEST = DESCRIPTOR.message_types_by_name['ServerVersionRequest']
+_SERVERVERSIONREPLY = DESCRIPTOR.message_types_by_name['ServerVersionReply']
 AdminRequest = _reflection.GeneratedProtocolMessageType('AdminRequest', (_message.Message,), {
   'DESCRIPTOR' : _ADMINREQUEST,
   '__module__' : 'nic_simulator_grpc_service_pb2'
@@ -50,7 +54,35 @@ OperationReply = _reflection.GeneratedProtocolMessageType('OperationReply', (_me
   })
 _sym_db.RegisterMessage(OperationReply)
 
-_DUALTORSERVICE = DESCRIPTOR.services_by_name['DualTorService']
+LinkStateRequest = _reflection.GeneratedProtocolMessageType('LinkStateRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LINKSTATEREQUEST,
+  '__module__' : 'nic_simulator_grpc_service_pb2'
+  # @@protoc_insertion_point(class_scope:LinkStateRequest)
+  })
+_sym_db.RegisterMessage(LinkStateRequest)
+
+LinkStateReply = _reflection.GeneratedProtocolMessageType('LinkStateReply', (_message.Message,), {
+  'DESCRIPTOR' : _LINKSTATEREPLY,
+  '__module__' : 'nic_simulator_grpc_service_pb2'
+  # @@protoc_insertion_point(class_scope:LinkStateReply)
+  })
+_sym_db.RegisterMessage(LinkStateReply)
+
+ServerVersionRequest = _reflection.GeneratedProtocolMessageType('ServerVersionRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERVERSIONREQUEST,
+  '__module__' : 'nic_simulator_grpc_service_pb2'
+  # @@protoc_insertion_point(class_scope:ServerVersionRequest)
+  })
+_sym_db.RegisterMessage(ServerVersionRequest)
+
+ServerVersionReply = _reflection.GeneratedProtocolMessageType('ServerVersionReply', (_message.Message,), {
+  'DESCRIPTOR' : _SERVERVERSIONREPLY,
+  '__module__' : 'nic_simulator_grpc_service_pb2'
+  # @@protoc_insertion_point(class_scope:ServerVersionReply)
+  })
+_sym_db.RegisterMessage(ServerVersionReply)
+
+_DUALTORACTIVE = DESCRIPTOR.services_by_name['DualToRActive']
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -62,6 +94,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _OPERATIONREQUEST._serialized_end=162
   _OPERATIONREPLY._serialized_start=164
   _OPERATIONREPLY._serialized_end=211
-  _DUALTORSERVICE._serialized_start=214
-  _DUALTORSERVICE._serialized_end=399
+  _LINKSTATEREQUEST._serialized_start=213
+  _LINKSTATEREQUEST._serialized_end=247
+  _LINKSTATEREPLY._serialized_start=249
+  _LINKSTATEREPLY._serialized_end=296
+  _SERVERVERSIONREQUEST._serialized_start=298
+  _SERVERVERSIONREQUEST._serialized_end=337
+  _SERVERVERSIONREPLY._serialized_start=339
+  _SERVERVERSIONREPLY._serialized_end=376
+  _DUALTORACTIVE._serialized_start=379
+  _DUALTORACTIVE._serialized_end=707
 # @@protoc_insertion_point(module_scope)
