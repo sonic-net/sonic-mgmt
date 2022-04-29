@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t2\xb4\x02\n\rDualToRActive\x12\x33\n\x13QueryAdminPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12\x31\n\x11SetAdminPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t2\xc8\x02\n\rDualToRActive\x12=\n\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x62\x06proto3')
 
 
 
@@ -103,5 +103,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _SERVERVERSIONREPLY._serialized_start=339
   _SERVERVERSIONREPLY._serialized_end=376
   _DUALTORACTIVE._serialized_start=379
-  _DUALTORACTIVE._serialized_end=687
+  _DUALTORACTIVE._serialized_end=707
 # @@protoc_insertion_point(module_scope)

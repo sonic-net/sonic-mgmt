@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 service DualToRActive {
-  rpc QueryAdminPortState(AdminRequest) returns (AdminReply) {}
+  rpc QueryAdminForwardingPortState(AdminRequest) returns (AdminReply) {}
 
-  rpc SetAdminPortState(AdminRequest) returns (AdminReply) {}
+  rpc SetAdminForwardingPortState(AdminRequest) returns (AdminReply) {}
 
   rpc QueryOperationPortState(OperationRequest) returns (OperationReply) {}
 

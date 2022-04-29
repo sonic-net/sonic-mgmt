@@ -14,13 +14,13 @@ class DualToRActiveStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.QueryAdminPortState = channel.unary_unary(
-                '/DualToRActive/QueryAdminPortState',
+        self.QueryAdminForwardingPortState = channel.unary_unary(
+                '/DualToRActive/QueryAdminForwardingPortState',
                 request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
                 )
-        self.SetAdminPortState = channel.unary_unary(
-                '/DualToRActive/SetAdminPortState',
+        self.SetAdminForwardingPortState = channel.unary_unary(
+                '/DualToRActive/SetAdminForwardingPortState',
                 request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
                 )
@@ -44,13 +44,13 @@ class DualToRActiveStub(object):
 class DualToRActiveServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def QueryAdminPortState(self, request, context):
+    def QueryAdminForwardingPortState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetAdminPortState(self, request, context):
+    def SetAdminForwardingPortState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -77,13 +77,13 @@ class DualToRActiveServicer(object):
 
 def add_DualToRActiveServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'QueryAdminPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryAdminPortState,
+            'QueryAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+                    servicer.QueryAdminForwardingPortState,
                     request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
                     response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
             ),
-            'SetAdminPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetAdminPortState,
+            'SetAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetAdminForwardingPortState,
                     request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
                     response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
             ),
@@ -113,7 +113,7 @@ class DualToRActive(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def QueryAdminPortState(request,
+    def QueryAdminForwardingPortState(request,
             target,
             options=(),
             channel_credentials=None,
@@ -123,14 +123,14 @@ class DualToRActive(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/DualToRActive/QueryAdminPortState',
+        return grpc.experimental.unary_unary(request, target, '/DualToRActive/QueryAdminForwardingPortState',
             nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
             nic__simulator__grpc__service__pb2.AdminReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def SetAdminPortState(request,
+    def SetAdminForwardingPortState(request,
             target,
             options=(),
             channel_credentials=None,
@@ -140,7 +140,7 @@ class DualToRActive(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/DualToRActive/SetAdminPortState',
+        return grpc.experimental.unary_unary(request, target, '/DualToRActive/SetAdminForwardingPortState',
             nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
             nic__simulator__grpc__service__pb2.AdminReply.FromString,
             options, channel_credentials,
