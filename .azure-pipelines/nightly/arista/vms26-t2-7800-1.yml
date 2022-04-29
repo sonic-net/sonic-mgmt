@@ -9,8 +9,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
-        - arlakshm/internal/arista_chassis_topo
+        - internal
     always: true
 
 variables:
