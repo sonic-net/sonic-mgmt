@@ -19,12 +19,12 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_al
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan'),
+    pytest.mark.topology('t0'),
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
-DUMMY_MAC_PREFIX = "02:11:22:33"
+DUMMY_MAC_PREFIX = "03:11:22:33"
 DUMMY_MAC_COUNT = 10
 DUMMY_MAC_COUNT_SLIM = 2
 FDB_POPULATE_SLEEP_TIMEOUT = 2
@@ -196,6 +196,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
 
     assert pkt_type in PKT_TYPES
 
+    pos = 0
     for vlan in vlan_table:
         for member in vlan_table[vlan]:
             if 'port_index' not in member or 'tagging_mode' not in member:
@@ -214,10 +215,13 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
             # put in learned MAC
             fdb[port_index] = { mac }
 
+            # Test port must be less than 256
+            assert pos < 256
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
-            # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
+            # Totally 10 dummy MACs for each vlan port, send 1 packet for each dummy MAC
+            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, pos, i)
                           for i in range(dummy_mac_count)]
+            pos += 1
 
             for dummy_mac in dummy_macs:
                 if pkt_type == "ethernet":
@@ -339,7 +343,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     total_mac_count = 0
     for k, v in fdb_fact.items():
         assert v['port'] in interface_table
-        assert v['vlan'] in interface_table[ifname]
+        assert v['vlan'] in interface_table[v['port']]
         assert validate_mac(k) == True
         assert v['type'] in ['Dynamic', 'Static']
         if DUMMY_MAC_PREFIX in k.lower():
