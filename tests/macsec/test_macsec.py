@@ -188,20 +188,31 @@ class TestFaultHandling():
         # Only pick one link for link flap test
         assert ctrl_links
         port_name, nbr = ctrl_links.items()[0]
-        _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
-            duthost, port_name, nbr["host"], nbr["port"])
         nbr_eth_port = get_eth_ifname(
             nbr["host"], nbr["port"])
+        _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+
 
         # Flap < 6 seconds
         # Not working on eos neighbour
         if not isinstance(nbr["host"], EosHost):
-            nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
-                nbr_eth_port, nbr_eth_port))
-            _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
-                duthost, port_name, nbr["host"], nbr["port"])
-            assert dut_egress_sa_table_orig == dut_egress_sa_table_new
-            assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+            # Rekey may happen during the following assertions, so we need to get the SA tables again
+            retry = 3
+            while retry > 0:
+                retry -= 1
+                try:
+                    nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
+                        nbr_eth_port, nbr_eth_port))
+                    _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+                        duthost, port_name, nbr["host"], nbr["port"])
+                    assert dut_egress_sa_table_orig == dut_egress_sa_table_new
+                    assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+                    break
+                except AssertionError as e:
+                    if retry == 0:
+                        raise e
+                dut_egress_sa_table_orig, dut_ingress_sa_table_orig = dut_egress_sa_table_new, dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds
         if isinstance(nbr["host"], EosHost):
