@@ -3,6 +3,7 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.configlet.util.common import chk_for_pfc_wd
 
 logger = logging.getLogger(__name__)
 
