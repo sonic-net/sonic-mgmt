@@ -24,6 +24,7 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # lgtm[py/unused-import]
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
@@ -1411,6 +1412,37 @@ def duts_running_config_facts(duthosts):
             cfg_facts[duthost.hostname].append(asic_cfg_facts)
     return cfg_facts
 
+@pytest.fixture(scope='class')
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+    """
+        Prepares DUT host test params
+
+        Args:
+            duthost (AnsibleHost): Device Under Test (DUT)
+            tbinfo (Fixture, dict): Map containing testbed information
+            ptfPortMapFile (Fxiture, str): filename residing
+              on PTF host and contains port maps information
+
+        Returns:
+            dut_test_params (dict): DUT host test params
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    topo = tbinfo["topo"]["name"]
+
+    yield {
+        "topo": topo,
+        "hwsku": mgFacts["minigraph_hwsku"],
+        "basicParams": {
+            "router_mac": duthost.facts["router_mac"],
+            "server": duthost.host.options['inventory_manager'].get_host(
+                        duthost.hostname
+                    ).vars['ansible_host'],
+            "port_map_file": ptf_portmap_file,
+            "sonic_asic_type": duthost.facts['asic_type'],
+            "sonic_version": duthost.os_version
+        }
+    }
 
 @pytest.fixture(scope='module')
 def duts_minigraph_facts(duthosts, tbinfo):
@@ -1445,7 +1477,10 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
-        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, request.node.name)
+        # Convert '/' to '-', in case '/' be recognized as path and lead to compression error
+        nodename = request.node.name.replace('/', '-')
+        modulename = request.module.__name__.replace('/', '-')
+        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, nodename)
 
         # Collect DB config
         dbs = set()
@@ -1468,13 +1503,13 @@ def collect_db_dump_on_duts(request, duthosts):
         if namespace_list:
             for namespace in namespace_list:
                 # Collect DB dump
-                db_dump_path = os.path.join(dut_file_path, namespace, request.module.__name__, request.node.name)
+                db_dump_path = os.path.join(dut_file_path, namespace, modulename, nodename)
                 duthosts.file(path=db_dump_path, state="directory")
                 for i in dbs:
                     duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
         else:
             # Collect DB dump
-            db_dump_path = os.path.join(dut_file_path, request.module.__name__, request.node.name)
+            db_dump_path = os.path.join(dut_file_path, modulename, nodename)
             duthosts.file(path = db_dump_path, state="directory")
             for i in dbs:
                 duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])

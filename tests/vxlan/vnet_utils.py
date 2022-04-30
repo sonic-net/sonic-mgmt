@@ -4,8 +4,8 @@ import logging
 from jinja2 import Template
 from os import path
 from time import sleep
-from vnet_constants import *
-from vnet_constants import VXLAN_PORT, VXLAN_MAC
+from .vnet_constants import *
+from .vnet_constants import VXLAN_PORT, VXLAN_MAC
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)

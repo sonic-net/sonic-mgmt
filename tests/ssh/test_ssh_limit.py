@@ -26,7 +26,8 @@ TEMPLATE_CREATE_COMMAND = "sudo touch {0}"
 
 PAM_LIMITS_TEMPLATE_PATH = "/usr/share/sonic/templates/pam_limits.j2"
 LIMITS_CONF_TEMPLATE_PATH = "/usr/share/sonic/templates/limits.conf.j2"
-LIMITS_CONF_TEMPLATE = "echo \"{{% if hwsku == '{0}' and type == '{1}'%}}\n{2}\n{{% endif %}}\"  | sudo tee {3}"
+LIMITS_CONF_TEMPLATE_TO_HOME = "echo \"{{% if hwsku == '{0}' and type == '{1}'%}}\n{2}\n{{% endif %}}\"  > ~/temp_config_file"
+TEMPLATE_MOVE_COMMAND = "sudo mv ~/temp_config_file {0}"
 
 def get_device_type(duthost):
     device_config_db = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
@@ -42,7 +43,12 @@ def get_device_type(duthost):
 def modify_template(admin_session, template_path, additional_content, hwsku, type):
     admin_session.exec_command(TEMPLATE_BACKUP_COMMAND.format(template_path))
     admin_session.exec_command(TEMPLATE_CREATE_COMMAND.format(template_path))
-    admin_session.exec_command(LIMITS_CONF_TEMPLATE.format(hwsku, type, additional_content, template_path))
+    admin_session.exec_command(LIMITS_CONF_TEMPLATE_TO_HOME.format(hwsku, type, additional_content))
+    admin_session.exec_command(TEMPLATE_MOVE_COMMAND.format(template_path))
+
+    stdin, stdout, stderr = admin_session.exec_command('sudo cat {0}'.format(template_path))
+    config_file_content = stdout.readlines()
+    logging.info("Updated template file: {0}".format(config_file_content))
 
 def modify_templates(duthost, tacacs_creds, creds):
     dut_ip = duthost.mgmt_ip
@@ -85,10 +91,6 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):
         # Modify templates and restart hostcfgd to render config files
         modify_templates(duthost, tacacs_creds, creds)
         restart_hostcfgd(duthost)
-
-        # for debug, print rendered config file
-        config_file_content = duthost.shell('sudo cat /etc/security/limits.conf', module_ignore_errors=False)['stdout_lines']
-        logging.debug("Updated config file: {0}".format(config_file_content))
 
     yield
 
