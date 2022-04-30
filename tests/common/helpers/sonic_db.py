@@ -35,6 +35,7 @@ class SonicDbCli(object):
             Empty dictionary on error.
 
         """
+        logger.debug("SONIC-DB-CLI: %s", cmd)
         result = self.host.run_sonic_db_cli_cmd(cmd)
 
         if len(result["stdout_lines"]) == 0:
@@ -235,7 +236,8 @@ class AsicDbCli(SonicDbCli):
             return self.lagid_key_list
 
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_TABLE
-        return self._run_and_raise(cmd)["stdout_lines"]
+        self.lagid_key_list =self._run_and_raise(cmd)["stdout_lines"]
+        return self.lagid_key_list
 
     def get_asic_db_lag_member_list(self):
         """Returns a list of keys in the lag member table"""
