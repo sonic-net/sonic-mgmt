@@ -99,7 +99,6 @@ def do_checks(request, check_items, *args, **kwargs):
             check_results.extend(results)
         elif results:
             check_results.append(results)
-    logger.debug("check_results {}".format(check_results))
     return check_results
 
 
