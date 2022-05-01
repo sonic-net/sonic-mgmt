@@ -595,7 +595,8 @@ def check_monit(duthosts):
                 check_result["failed"] = True
                 check_result["failed_reason"] = "Monit was not running"
                 logger.info("Checking status of each Monit service was done!")
-                return check_result
+                results[dut.hostname] = check_result
+                return
 
             check_result = _check_monit_services_status(check_result, monit_services_status)
         else:

@@ -37,6 +37,26 @@ pytestmark = [
 NEW_MAC = "00:01:94:00:00:01"
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        Grat ARP and neighbor mac change test cases cause error logs that are expected.
+
+        Args:
+            enum_rand_one_per_hwsku_frontend_hostname: DUT fixture
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # when loganalyzer is disabled, the object could be None
+    if loganalyzer:
+        ignoreRegex = [
+            ".*nbrmgrd: :- addKernelNeigh: Failed to add Nbr for.*",
+            ".*nbrmgrd: :- doStateSystemNeighTask: Neigh entry add on dev.*"
+        ]
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+
+
 def check_bgp_restored(duthosts, all_cfg_facts):
     """
     Checks for bgp neighbors to be established.
@@ -396,6 +416,38 @@ def established_arp(duthosts):
     logger.info("Ping all local neighbors to establish ARP")
     ping_all_dut_local_nbrs(duthosts)
 
+
+def change_vm_intefaces(nbrhosts, nbr_vms, state="up"):
+    """
+    Brings down/up VM interfaces so that no ARP/NDP packets from VM interfere with clear test.
+
+    Args:
+        nbrhosts: nbrhosts ficture.
+        nbr_vms: VMs to change interfaces on.
+        state: interfaces up or down.
+
+    """
+
+    # restore neighbors on duts
+    @reset_ansible_local_tmp
+    def _change_vm_interface_on_vm(nbrhosts, state="up", node=None, results=None):
+        nbr = nbrhosts[node]
+        node_results = []
+        for eos_intf in nbr['conf']['interfaces'].keys():
+            if "Loopback" in eos_intf:
+                continue
+            if state == "up":
+                logger.info("Startup EOS %s interface %s", node, eos_intf)
+                node_results.append(nbr['host'].eos_config(lines=["no shutdown"], parents=["interface %s" % eos_intf]))
+            else:
+                logger.info("Shutdown EOS %s interface %s", node, eos_intf)
+                node_results.append(nbr['host'].eos_config(lines=["shutdown"], parents=["interface %s" % eos_intf]))
+
+        results[node] = node_results
+
+    parallel_run(_change_vm_interface_on_vm, [nbrhosts], {'state': state}, nbr_vms, timeout=120)
+
+
 def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                             setup, teardown, nbrhosts, all_cfg_facts, nbr_macs, established_arp):
     """
@@ -433,21 +485,35 @@ def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
         return
 
-    asic_cmd(asic, "sonic-clear arp")
-    asic_cmd(asic, "sonic-clear ndp")
+    nbr_vms = []
+    for neigh in neighs:
+        vm_info = get_vm_with_ip(neigh, nbrhosts)
+        nbr_vms.append(vm_info['vm'])
+    nbr_vms = list(set(nbr_vms))
 
-    logger.info("Wait for clear.")
-    poll_neighbor_table_delete(duthosts, neighs)
+    try:
+        change_vm_intefaces(nbrhosts, nbr_vms, state="down")
+        time.sleep(2)
 
-    logger.info("Verify neighbors are gone.")
-    check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighs.keys())
+        asic_cmd(asic, "sonic-clear arp")
+        asic_cmd(asic, "sonic-clear ndp")
+
+        logger.info("Wait for clear. IPS: %s", neighs.keys())
+        poll_neighbor_table_delete(duthosts, neighs)
+
+        logger.info("Verify neighbors are gone.")
+        check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighs.keys())
+
+    finally:
+        change_vm_intefaces(nbrhosts, nbr_vms, state="up")
+        time.sleep(5)
 
     # relearn and check
+
     logger.info("Relearn neighbors on all nodes")
     ping_all_dut_local_nbrs(duthosts)
-    for neighbor in neighs:
-        pytest_assert(wait_until(60, 2, 0, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
-                      "STATE for neighbor {} did not change to reachable".format(neighbor))
+    pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, neighs, "REACHABLE"),
+                  "STATE for neighbors {} did not change to reachable".format(neighs))
     logger.info("Checking mac {} on all the duts".format(nbr_macs))
     check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=False)
 
@@ -528,25 +594,37 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     logger.info("We will test these neighbors: %s", nbr_to_test)
     logger.info("These neighbors should not be affected: %s", untouched_nbrs)
 
-    for neighbor in nbr_to_test:
-        logger.info(
-            "Flushing neighbor: {} on host {}/{}".format(neighbor, per_host.hostname, asic.asic_index))
-        asic_cmd(asic, "ip neigh flush to %s" % neighbor)
+    nbr_vms = []
+    for neigh in nbr_to_test:
+        vm_info = get_vm_with_ip(neigh, nbrhosts)
+        nbr_vms.append(vm_info['vm'])
+    nbr_vms = list(set(nbr_vms))
+    change_vm_intefaces(nbrhosts, nbr_vms, state="down")
+    time.sleep(2)
 
-    logger.info("Wait for flush.")
-    poll_neighbor_table_delete(duthosts, nbr_to_test)
-    logger.info("Verify neighbors are gone.")
-    check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, nbr_to_test)
+    try:
+        for neighbor in nbr_to_test:
+            logger.info(
+                "Flushing neighbor: {} on host {}/{}".format(neighbor, per_host.hostname, asic.asic_index))
+            asic_cmd(asic, "ip neigh flush to %s" % neighbor)
 
-    logger.info("Verify other neighbors are not affected.")
-    dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, untouched_nbrs, nbrhosts, all_cfg_facts, nbr_macs)
+        logger.info("Wait for flush.")
+        poll_neighbor_table_delete(duthosts, nbr_to_test)
+        logger.info("Verify neighbors are gone.")
+        check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, nbr_to_test)
+
+        logger.info("Verify other neighbors are not affected.")
+        dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, untouched_nbrs, nbrhosts, all_cfg_facts, nbr_macs)
+
+    finally:
+        change_vm_intefaces(nbrhosts, nbr_vms, state="up")
+        time.sleep(5)
 
     # relearn and check
     logger.info("Relearn neighbors on all nodes")
     ping_all_dut_local_nbrs(duthosts)
-    for neighbor in nbr_to_test:
-        pytest_assert(wait_until(60, 2, 0, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
-                      "STATE for neighbor {} did not change to reachable".format(neighbor))
+    pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, nbr_to_test, "REACHABLE"),
+                  "STATE for neighbors {} did not change to reachable".format(nbr_to_test))
     logger.info("Check neighbor relearn on all nodes.")
     check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=False)
 
@@ -601,20 +679,22 @@ def check_arptable_mac(host, asic, neighbor, mac, checkstate=True):
         return table[neighbor]['macaddress'] == mac
 
 
-def check_arptable_state(host, asic, neighbor, state):
-    logger.info("Checking arp table state {} of nbr {} on {}".format(state, neighbor, asic))
-    sonic_ping(asic, neighbor, verbose=True)
+def check_arptable_state_for_nbrs(host, asic, neighbors, state):
+    logger.info("Checking arp table state {} of nbr {} on {}".format(state, neighbors, asic))
+    #sonic_ping(asic, neighbor, verbose=True)
     arptable = asic.switch_arptable()['ansible_facts']
 
-    if ':' in neighbor:
-        table = arptable['arptable']['v6']
-    else:
-        table = arptable['arptable']['v4']
+    for neighbor in neighbors:
+        if ':' in neighbor:
+            table = arptable['arptable']['v6']
+        else:
+            table = arptable['arptable']['v4']
 
-    logger.info("Poll neighbor: %s, mac: %s, current state: %s", neighbor, table[neighbor]['macaddress'],
-                table[neighbor]['state'])
-
-    return table[neighbor]['state'] == state
+        logger.info("Poll neighbor: %s, mac: %s, current state: %s", neighbor, table[neighbor]['macaddress'],
+                    table[neighbor]['state'])
+        if table[neighbor]['state'] != state:
+            return False
+    return True
 
 
 def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
@@ -795,6 +875,7 @@ class LinkFlap(object):
 
         Args:
             dut: Instance of duthost.
+            asic: Instance of SonicAsic to admindown.
             dut_intf: Port to admin down.
 
         Raises:
@@ -812,6 +893,7 @@ class LinkFlap(object):
 
         Args:
             dut: Instance of duthost.
+            asic: Instance of SonicAsic to admin up.
             dut_intf: Port to admin up.
 
         Raises:
@@ -822,6 +904,7 @@ class LinkFlap(object):
         asic.startup_interface(dut_intf)
         pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
+
 
 
 def pick_ports(cfg_facts):
@@ -913,11 +996,10 @@ class TestNeighborLinkFlap(LinkFlap):
                 self.localport_adminup(per_host, asic, intf)
 
             for neighbor in neighbors:
-                sonic_ping(asic, neighbor)
+                sonic_ping(asic, neighbor, verbose=True)
 
-            for neighbor in neighbors:
-                pytest_assert(wait_until(60, 2, 0, check_arptable_state, per_host, asic, neighbor, "REACHABLE"),
-                              "STATE for neighbor {} did not change to reachable".format(neighbor))
+            pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, neighbors, "REACHABLE"),
+                        "STATE for neighbors {} did not change to reachable".format(neighbors))
 
             dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighbors, nbrhosts, all_cfg_facts, nbr_macs)
 

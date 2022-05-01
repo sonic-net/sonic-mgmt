@@ -1,3 +1,14 @@
+####################################################
+#####     test_configurable_drop_counters.py   #####
+####################################################
+#Link local address(169.254.xxx.xxx) as a source address as IPv4 header is not invalid in all the cases
+#Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
+drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
+  skip:
+    reason: "Cisco 8000 platform does not drop SIP link local packets"
+    conditions:
+       - asic_type=="cisco-8000"
+
 #######################################
 #####     test_drop_counters.py   #####
 #######################################

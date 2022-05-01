@@ -397,7 +397,7 @@ def teardown(duthosts, rand_one_dut_hostname):
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 class AclVlanOuterTest_Base(object):
     """
