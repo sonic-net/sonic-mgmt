@@ -1011,6 +1011,9 @@ def generate_dut_feature_container_list(request):
         if "features" not in val:
             continue
         for feature in val["features"].keys():
+            if "disabled" in val["features"][feature]:
+                continue
+
             dut_info = meta[dut]
 
             if "asic_services" in dut_info and dut_info["asic_services"].get(feature) is not None:
