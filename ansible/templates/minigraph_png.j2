@@ -77,7 +77,6 @@
 {% endfor %}
 {% endif %}
 {% for asic_intf in front_panel_asic_ifnames %}
-{% if inventory_hostname not in device_conn or port_alias[loop.index - 1] in device_conn[inventory_hostname] %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
 {% if port_alias[loop.index - 1] in port_speed %}
@@ -93,7 +92,6 @@
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
-{% endif %}
 {% endfor %}
 {% endif %}
     </DeviceInterfaceLinks>
