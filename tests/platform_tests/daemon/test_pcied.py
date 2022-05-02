@@ -100,8 +100,7 @@ def wait_data(duthost, expected_key_count):
         device_keys_found = len(shared_scope.data_after_restart['devices'])
         if device_keys_found != 0:
             logger.info("Expected PCIE device keys :{}, Current device key count {}".format(db_key_count,device_keys_found))
-        if device_keys_found == expected_key_count:
-            return True
+        return device_keys_found == expected_key_count
     pcied_pooling_interval = 60
     wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
