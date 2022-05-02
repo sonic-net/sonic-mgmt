@@ -12,8 +12,8 @@
       <Device Hostname="svcstr-n3164-acs-2" HwSku="Nexus-3164" Type="DevSonic"/>
       <Device Hostname="svcstr-7050-acs-1" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
       <Device Hostname="svcstr-7050-acs-2" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
-      <Device Hostname="svcstr-7050-acs-3" HwSku="Arista-7050CX3-32S-D48C8" Type="DevSonic"/>
-      <Device Hostname="svcstr-7050-acs-4" HwSku="Arista-7050CX3-32S-D48C8" Type="DevSonic"/>
+      <Device Hostname="svcstr-7050-acs-3" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
+      <Device Hostname="svcstr-7050-acs-4" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
       <Device Hostname="svcstr-server-1" HwSku="TestServ" Type="Server"/>
       <Device Hostname="svcstr-server-2" HwSku="TestServ" Type="Server"/>
     </Devices>

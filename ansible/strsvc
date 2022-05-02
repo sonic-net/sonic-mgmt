@@ -106,7 +106,7 @@ sonic_arista:
         "0x2F": "JPE21131315"
     svcstr-7050-acs-3:
       ansible_host: 10.206.144.133
-      hwsku: Arista-7050CX3-32S-D48C8
+      hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21130688
       base_mac: 2c:dd:e9:0f:59:24
@@ -124,7 +124,7 @@ sonic_arista:
         "0x2F": "JPE21130688"
     svcstr-7050-acs-4:
       ansible_host: 10.206.144.134
-      hwsku: Arista-7050CX3-32S-D48C8
+      hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21131246
       base_mac: 2c:dd:e9:0f:3e:d8
