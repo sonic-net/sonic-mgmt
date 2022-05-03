@@ -19,7 +19,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_al
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan'),
+    pytest.mark.topology('t0'),
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
@@ -337,15 +337,16 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     dummy_mac_count = 0
     total_mac_count = 0
-    for k, v in fdb_fact.items():
-        assert v['port'] in interface_table
-        assert v['vlan'] in interface_table[ifname]
+    for k, vl in fdb_fact.items():
         assert validate_mac(k) == True
-        assert v['type'] in ['Dynamic', 'Static']
-        if DUMMY_MAC_PREFIX in k.lower():
-            dummy_mac_count += 1
-        if "dynamic" in k.lower():
-            total_mac_count += 1
+        for v in vl:
+            assert v['port'] in interface_table
+            assert v['vlan'] in interface_table[v['port']]
+            assert v['type'] in ['Dynamic', 'Static']
+            if DUMMY_MAC_PREFIX in k.lower():
+                dummy_mac_count += 1
+            if "dynamic" in v['type'].lower():
+                total_mac_count += 1
 
     assert vlan_member_count > 0
 
