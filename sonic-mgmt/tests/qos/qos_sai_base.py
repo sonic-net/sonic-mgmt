@@ -467,7 +467,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, rand_one_dut_hostname, tbinfo,
-        enum_frontend_asic_index
+        enum_frontend_asic_index, lower_tor_host
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -480,7 +480,11 @@ class QosSaiBase(QosBase):
                 dutConfig (dict): Map of DUT config containing dut interfaces,
                 test port IDs, test port IPs, and test ports
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dutLagInterfaces = []
         dutPortIps = {}
@@ -605,9 +609,12 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def ssh_tunnel_to_syncd_rpc(
         self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
-        swapSyncd
+        swapSyncd, tbinfo, lower_tor_host
     ):
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.create_ssh_tunnel_sai_rpc()
 
@@ -617,7 +624,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def updateIptables(
-        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, swapSyncd
+        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index, swapSyncd, tbinfo, lower_tor_host
     ):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
@@ -629,7 +636,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
         ipVersions  = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
@@ -661,8 +671,8 @@ class QosSaiBase(QosBase):
                 None
         """
         if 'dualtor' in tbinfo['topo']['name']:
-            duthost = upper_tor_host
-            duthost_lower = lower_tor_host
+            duthost = lower_tor_host
+            duthost_upper = upper_tor_host
         else:
             duthost = duthosts[rand_one_dut_hostname]
 
@@ -698,7 +708,7 @@ class QosSaiBase(QosBase):
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
-            disable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+            disable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
@@ -708,7 +718,7 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(UPPER_TOR)
+            toggle_all_simulator_ports(LOWER_TOR)
 
             try:
                 duthost.shell("ls %s" % file)
@@ -718,7 +728,7 @@ class QosSaiBase(QosBase):
             except:
                 pytest.skip('file {} not found'.format(file))
 
-            duthost_lower.shell('sudo config feature state mux disabled')
+            duthost_upper.shell('sudo config feature state mux disabled')
             duthost.shell('sudo config feature state mux disabled')
 
         yield
@@ -737,12 +747,12 @@ class QosSaiBase(QosBase):
                pytest.skip('file {} not found'.format(backup_file))
 
            duthost.shell('sudo config feature state mux enabled')
-           duthost_lower.shell('sudo config feature state mux enabled')
+           duthost_upper.shell('sudo config feature state mux enabled')
            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_lower, testcase="test_qos_sai", feature_list=feature_list)
+            enable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
 
 
     @pytest.fixture(autouse=True)
@@ -817,7 +827,7 @@ class QosSaiBase(QosBase):
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-        tbinfo
+        tbinfo, lower_tor_host
     ):
         """
             Prepares DUT host QoS configuration
@@ -830,7 +840,11 @@ class QosSaiBase(QosBase):
             Returns:
                 QoSConfig (dict): Map containing DUT host QoS configuration
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
@@ -973,7 +987,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -992,7 +1006,11 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
@@ -1013,8 +1031,12 @@ class QosSaiBase(QosBase):
             )
 
     @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, rand_one_dut_hostname):
-        duthost = duthosts[rand_one_dut_hostname]
+    def dut_disable_ipv6(self, duthosts, rand_one_dut_hostname, tbinfo, lower_tor_host):
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
@@ -1023,7 +1045,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname
+        rand_one_dut_hostname, tbinfo, lower_tor_host
     ):
         """
             Retreives shared headroom pool size
@@ -1036,7 +1058,11 @@ class QosSaiBase(QosBase):
                 size: shared headroom pool size
                       none if it is not defined
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         yield self.__getSharedHeadroomPoolSize(
             request,
             duthost.asic_instance(enum_frontend_asic_index)
@@ -1045,7 +1071,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def ingressLosslessProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
     ):
         """
             Retreives ingress lossless profile
@@ -1059,7 +1085,11 @@ class QosSaiBase(QosBase):
             Returns:
                 ingressLosslessProfile (dict): Map of ingress lossless buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
@@ -1073,7 +1103,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def ingressLossyProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
     ):
         """
             Retreives ingress lossy profile
@@ -1087,7 +1117,11 @@ class QosSaiBase(QosBase):
             Returns:
                 ingressLossyProfile (dict): Map of ingress lossy buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
@@ -1101,7 +1135,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLosslessProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
     ):
         """
             Retreives egress lossless profile
@@ -1115,7 +1149,11 @@ class QosSaiBase(QosBase):
             Returns:
                 egressLosslessProfile (dict): Map of egress lossless buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
@@ -1129,7 +1167,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLossyProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
     ):
         """
             Retreives egress lossy profile
@@ -1143,7 +1181,11 @@ class QosSaiBase(QosBase):
             Returns:
                 egressLossyProfile (dict): Map of egress lossy buffer profile attributes
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         yield self.__getBufferProfile(
             request,
@@ -1157,7 +1199,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
             self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-            dutConfig
+            dutConfig, tbinfo, lower_tor_host
         ):
         """
             Retreives lossless scheduler profile
@@ -1170,7 +1212,11 @@ class QosSaiBase(QosBase):
             Returns:
                 losslessSchedProfile (dict): Map of scheduler parameters
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         yield self.__getSchedulerParam(
             duthost.asic_instance(enum_frontend_asic_index),
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
@@ -1180,7 +1226,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def lossySchedProfile(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        dutConfig
+        dutConfig, tbinfo, lower_tor_host
     ):
         """
             Retreives lossy scheduler profile
@@ -1193,7 +1239,11 @@ class QosSaiBase(QosBase):
             Returns:
                 lossySchedProfile (dict): Map of scheduler parameters
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         yield self.__getSchedulerParam(
             duthost.asic_instance(enum_frontend_asic_index),
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
@@ -1203,7 +1253,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture
     def updateSchedProfile(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
-        dutQosConfig, losslessSchedProfile, lossySchedProfile
+        dutQosConfig, losslessSchedProfile, lossySchedProfile, tbinfo, lower_tor_host
     ):
         """
             Updates lossless/lossy scheduler profiles
@@ -1217,7 +1267,11 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         def updateRedisSchedParam(schedParam):
             """
                 Helper function to updates lossless/lossy scheduler profiles
@@ -1272,7 +1326,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture
     def resetWatermark(
-        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname
+        self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname, tbinfo, lower_tor_host
     ):
         """
             Reset queue watermark
@@ -1283,7 +1337,11 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[rand_one_dut_hostname]
+
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.command("counterpoll watermark enable")
         dut_asic.command("sleep 70")
