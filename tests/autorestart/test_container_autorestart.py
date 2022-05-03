@@ -79,6 +79,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
