@@ -82,7 +82,9 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="session")
     def ctrl_links(self, duthost, tbinfo, nbrhosts):
-        assert len(nbrhosts) > 1
+        if not nbrhosts:
+            topo_name = tbinfo['topo']['name']
+            pytest.skip("None of neighbors on topology {}".format(topo_name))
         ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
