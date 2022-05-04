@@ -14,7 +14,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
+from tests.common.helpers.dut_ports import list_dut_fanout_connections
 from tests.common.utilities import skip_release
 
 pytestmark = [
@@ -85,7 +85,7 @@ def recover_ports(duthosts, fanouthosts):
 
         all_ports_by_dut[duthost.hostname] = {}
 
-        all_ports_set = build_test_candidates(duthost, fanouthosts, 'all_ports')
+        all_ports_set = list_dut_fanout_connections(duthost, fanouthosts)
 
         for dut_port, fanout, fanout_port in all_ports_set:
             all_ports_by_dut[duthost.hostname][dut_port] = (duthost, dut_port, fanout, fanout_port)
