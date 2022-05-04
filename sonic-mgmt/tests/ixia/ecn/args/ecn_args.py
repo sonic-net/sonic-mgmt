@@ -16,6 +16,15 @@ def add_ecn_args(parser):
         "--disable_ecn_test",
         action="store",
         type=str2bool,
-        default=True,
+        default=False,
         help="Control execution of ECN tests",
     )
+
+    ecn_group.addoption(
+        "--pkt_size",
+        action="store",
+        type=int,
+        default=None,
+        help="Pls provide a packet size to use"
+    )
+

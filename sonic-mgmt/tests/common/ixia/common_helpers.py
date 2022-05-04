@@ -435,6 +435,10 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
             host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
             host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
 
+        if pmax:
+            host_ans.shell('sudo ecnconfig -p {} -gdrop {}'.format(p, pmax))
+        
+
     return True
 
 def enable_ecn(host_ans, prio):
