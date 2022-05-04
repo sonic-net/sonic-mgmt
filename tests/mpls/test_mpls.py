@@ -7,8 +7,6 @@ import ptf.testutils as testutils
 import pytest
 import time
 
-from abc import ABCMeta, abstractmethod
-
 logger=logging.getLogger(__name__)
 
 pytestmark=[
@@ -22,36 +20,13 @@ LABEL_PUSH_ROUTES='label_push_routes'
 LABEL_SWAP_ROUTES='label_swap_routes'
 LABEL_DEL_ROUTES='label_del_routes'
 
-class BaseMplsTest(object):
+class TestBasicMpls:
     """
     Base class for MPLS label testing.
     Derivatives have to provide @setup_rules method to prepare DUT for MPLS traffic test and
     optionally override @teardown_rules which base implementation is simply applying empty MPLS labels
     configuration file
     """
-    __metaclass__=ABCMeta
-
-
-    @abstractmethod
-    def setup_rules(self, dut, setup):
-        """
-        setup rules for test
-        :param dut: dut host
-        :param setup: setup information
-        :return:
-        """
-        pass
-
-    def post_setup_hook(self, dut, localhost):
-        """
-        perform actions after rules are applied
-        :param dut: DUT host object
-        :param localhost: localhost object
-        :return:
-        """
-
-        pass
-
     def teardown_labels(self, setup):
         """
         teardown MPLS label after test by applying empty configuration
@@ -312,19 +287,3 @@ class BaseMplsTest(object):
             pytest.fail('MPLS swap labelstack test failed \n' + str(e))
 
         self.teardown_labels(setup)
-
-class TestBasicMpls(BaseMplsTest):
-    """
-    Basic MPLS label traffic tests.
-    Setup rules using full update, run traffic tests cases.
-    """
-
-    def setup_rules(self, dut, setup):
-        """
-        setup rules on DUT
-        :param dut: dut host
-        :param setup: setup information
-        :return:
-        """
-        
-        pass 
