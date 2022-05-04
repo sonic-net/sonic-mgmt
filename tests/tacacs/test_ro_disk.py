@@ -174,7 +174,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         # Remove file, so the reboot at the end of test will revert this logs redirect.
         duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf") 
 
-        # Enable AAA failthrough authentication so that duthost.shell can be used
+        # Enable AAA failthrough authentication so that reboot function can be used
         # to reboot DUT 
         duthost.shell("config aaa authentication failthrough enable")
 
