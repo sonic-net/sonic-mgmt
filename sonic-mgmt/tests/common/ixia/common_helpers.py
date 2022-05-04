@@ -437,7 +437,6 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
 
         if pmax:
             host_ans.shell('sudo ecnconfig -p {} -gdrop {}'.format(p, pmax))
-        
 
     return True
 
