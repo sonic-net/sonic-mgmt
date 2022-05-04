@@ -66,7 +66,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
         logger.info("Save and reload config")
 
         duthost.shell_cmds(cmds=["config save -y"])
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
         pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts, bgp_nbrs_to_portchannel),
                       "All BGP's are not established after ports removed from LAG and IP added to one of them")
         logger.info("Check interfaces after add.")
@@ -95,7 +95,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
         logger.info("Save and reload config")
 
         duthost.shell_cmds(cmds=["config save -y"])
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
         pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts, bgp_nbrs_to_portchannel),
                       "All BGP's are not established after added IP removed from a LAG member")
         logger.info("check interface is gone after config reload")
@@ -111,7 +111,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     finally:
         # restore interface from minigraph
         logger.info("Restore config from minigraph.")
-        config_reload(duthost, config_source='minigraph', safe_reload=True)
+        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
         pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts),
                       "All BGP's are not established after config reload from original minigraph")
         duthost.shell_cmds(cmds=["config save -y"])
