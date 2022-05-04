@@ -187,7 +187,7 @@ def speed_gb_to_mb(speed):
     return speed + '000'
 
 def speed_mb_to_gb(val):
-    return '{}Gfull'.format(int(val) / 1000)
+    return '{}Gfull'.format(int(val) // 1000)
 
 def extract_val(prop_name, output):
     found_txt = re.search(r'{}\s+:\s+(.+)'.format(prop_name), output)
