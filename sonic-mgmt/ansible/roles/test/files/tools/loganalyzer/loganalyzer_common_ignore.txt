@@ -22,6 +22,7 @@ r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 
 #Cisco platform ignore messages
+r, ".* INFO .*ntpd.*kernel reports TIME_ERROR: 0x41: Clock Unsynchronized.*"
 r, ".* WARNING syncd#SDK:.* sai_get_attributes: Failed attribs check.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
