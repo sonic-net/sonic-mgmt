@@ -5,7 +5,7 @@ import time
 
 from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_io import DualTorIOActiveStandby
+from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import wait_until
@@ -17,7 +17,7 @@ from natsort import natsorted
 logger = logging.getLogger(__name__)
 
 
-def get_standbyhost(duthosts, activehost):
+def get_peerhost(duthosts, activehost):
     if duthosts[0] == activehost:
         return duthosts[1]
     else:
@@ -132,27 +132,17 @@ def verify_and_report(tor_IO, verify, delay, allowed_disruption):
 
 
 def run_test(
-    duthosts, activehosts, ptfhost, ptfadapter, action,
+    duthosts, activehost, ptfhost, ptfadapter, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
     stop_after, cable_type=CableType.active_standby
 ):
     io_ready = threading.Event()
 
-    if cable_type == CableType.active_standby:
-        if isinstance(activehosts, collections.Sequence):
-            if (len(activehosts) != 1):
-                raise ValueError("One active DUT only for `active-standby` cable type!")
-            activehost = activehosts[0]
-        else:
-            activehost = activehosts
-        standbyhost = get_standbyhost(duthosts, activehost)
-        tor_IO = DualTorIOActiveStandby(
-            activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-            io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval
-        )
-    elif cable_type == CableType.active_active:
-        # TODO: initialize dual tor IO object for active-active
-        pass
+    peerhost = get_peerhost(duthosts, activehost)
+    tor_IO = DualTorIO(
+        activehost, peerhost, ptfhost, ptfadapter, tbinfo,
+        io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
+    )
 
     if traffic_direction == "server_to_t1":
         traffic_generator = tor_IO.generate_from_server_to_t1
@@ -198,7 +188,7 @@ def cleanup(ptfadapter, duthosts_list):
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -218,7 +208,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
     """
     arp_setup(ptfhost)
     
-    def t1_to_server_io_test(activehosts, tor_vlan_port=None,
+    def t1_to_server_io_test(activehost, tor_vlan_port=None,
                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
@@ -245,9 +235,10 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo):
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
 
-        tor_IO = run_test(duthosts, activehosts, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
                         action, tbinfo, tor_vlan_port, send_interval,
-                        traffic_direction="t1_to_server", stop_after=stop_after)
+                        traffic_direction="t1_to_server", stop_after=stop_after, 
+                        cable_type=cable_type)
 
         # If a delay is allowed but no numebr of allowed disruptions
         # is specified, default to 1 allowed disruption
@@ -283,7 +274,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
     """
     arp_setup(ptfhost)
 
-    def server_to_t1_io_test(activehosts, tor_vlan_port=None,
+    def server_to_t1_io_test(activehost, tor_vlan_port=None,
                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                             stop_after=None):
         """
@@ -309,7 +300,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
 
-        tor_IO = run_test(duthosts, activehosts, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
                         action, tbinfo, tor_vlan_port, send_interval,
                         traffic_direction="server_to_t1", stop_after=stop_after,
                         cable_type=cable_type)

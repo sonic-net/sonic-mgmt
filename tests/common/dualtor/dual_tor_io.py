@@ -28,11 +28,11 @@ LAG_BASE_MAC_PATTERN = '5c010203{:04}'
 logger = logging.getLogger(__name__)
 
 
-class DualTorIOActiveStandby:
+class DualTorIO:
     """Class to conduct IO over ports in `active-standby` mode."""
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, tor_vlan_port=None, send_interval=0.01):
+                io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -43,6 +43,8 @@ class DualTorIOActiveStandby:
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
         self.standby_mac = standbyhost.facts["router_mac"]
+
+        self.cable_type = cable_type
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -132,7 +134,7 @@ class DualTorIOActiveStandby:
         """Select DUT interfaces that is in `active-standby` cable type."""
         test_interfaces = []
         for port, port_config in natsorted(self.mux_cable_table.items()):
-            if port_config.get("cable_type", CableType.active_standby) == CableType.active_standby:
+            if port_config.get("cable_type", CableType.active_standby) == self.cable_type:
                 test_interfaces.append(port)
         return test_interfaces
 

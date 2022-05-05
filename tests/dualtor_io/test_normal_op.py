@@ -23,14 +23,14 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,
                             toggle_all_ports_both_tors_admin_forwarding_state_to_active,
                             cable_type):
     """Send upstream traffic and confirm no disruption or switchover occurs"""
+    send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
     if cable_type == CableType.active_standby:
-        activehosts = upper_tor_host
-    elif cable_type == CableType.active_active:
-        activehosts = [upper_tor_host, lower_tor_host]
-    send_server_to_t1_with_action(activehosts, verify=True, stop_after=60)
-    verify_tor_states(expected_active_host=upper_tor_host,
-                      expected_standby_host=lower_tor_host)
-
+        verify_tor_states(expected_active_host=upper_tor_host,
+                          expected_standby_host=lower_tor_host)
+    else:
+        verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
+                            cable_type=cable_type)
+                            
 
 def test_normal_op_downstream_active(upper_tor_host, lower_tor_host,
                                      send_t1_to_server_with_action,
