@@ -972,47 +972,6 @@ def update_dut_arp_table(duthost, ip):
     duthost.command("ping {} -c 3".format(ip), module_ignore_errors=True)
 
 
-def configure_ptf_nn_agent(ptfhost, ptfadapter, ifaces):
-    """
-    Add new interfaces to interfaces map of ptfadapter
-    Args:
-        ptfhost: PTF host object
-        ptfadapter: PTF adapter
-        ifaces: List of interface names
-    """
-    ifaces = [ifaces] if not isinstance(ifaces, list) else ifaces
-    last_iface_id = sorted(ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].keys())[-1]
-
-    for iface_id, iface in enumerate(ifaces, last_iface_id+1):
-        ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'][iface_id] = iface
-        ptfadapter.ptf_port_set.append(iface_id)
-
-    restart_ptf_nn_agent(ptfhost)
-
-    ptfadapter.reinit()
-
-
-def cleanup_ptf_nn_agent(ptfhost, ptfadapter, ifaces):
-    """
-    Remove interfaces from interfaces map of ptfadapter
-    Args:
-        ptfhost: PTF host object
-        ptfadapter: PTF adapter
-        ifaces: List of interface names
-    """
-    ifaces = [ifaces] if not isinstance(ifaces, list) else ifaces
-    ifaces_map = ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
-    config_port_indices = {v: k for k, v in ifaces_map.items()}
-
-    for iface in ifaces:
-        ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].pop(config_port_indices[iface])
-        ptfadapter.ptf_port_set.remove(config_port_indices[iface])
-
-    restart_ptf_nn_agent(ptfhost)
-
-    ptfadapter.reinit()
-
-
 def check_balancing(port_hit_cnt):
     """
     Verify load-balancing
@@ -1027,15 +986,3 @@ def check_balancing(port_hit_cnt):
         return True
 
     return False
-
-
-def restart_ptf_nn_agent(ptfhost):
-    """
-    Restart ptf_nn_agent
-    Args:
-        ptfhost: PTF host object
-    """
-    ptfhost.template(src=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE), dest='/etc/supervisor/conf.d/ptf_nn_agent.conf')
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl restart ptf_nn_agent')
