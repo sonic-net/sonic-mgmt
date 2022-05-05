@@ -6,7 +6,7 @@
         "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
         "send_sci": "false",
-        "rekey_period": 120
+        "rekey_period": 240
     },
     "256": {
         "priority": 64,
