@@ -46,8 +46,8 @@ def main():
             if host.name.startswith('VM'):
                 continue
             module.exit_json(ansible_facts={"vmhost_server_address": host.get_vars()["ansible_host"]})
-        else:
-            module.fail_json(msg="Unable to find IP address of host server {} in inventory file {}".format(vmhost_server_name, vm_file))
+
+        module.fail_json(msg="Unable to find IP address of host server {} in inventory file {}".format(vmhost_server_name, vm_file))
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":
