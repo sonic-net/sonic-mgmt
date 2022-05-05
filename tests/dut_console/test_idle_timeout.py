@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_TMOUT = "900"
 SET_TMOUT = "10"
 
-
-@pytest.fixture(scope="module")
 def test_timeout(duthost_console, duthost):
     logger.info("Get default session idle timeout")
     default_tmout = duthost_console.send_command('echo $TMOUT')
