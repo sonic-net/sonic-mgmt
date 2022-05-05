@@ -3,7 +3,6 @@ import sys
 import binascii
 import time
 
-import pytest
 import cryptography.exceptions
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -11,8 +10,22 @@ import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from macsec_common_helper import *
-from macsec_platform_helper import *
+from macsec_common_helper import convert_on_off_to_boolean
+from macsec_platform_helper import sonic_db_cli
+
+
+__all__ = [
+    'check_wpa_supplicant_process',
+    'check_appl_db',
+    'check_mka_session',
+    'check_macsec_pkt',
+    'create_pkt',
+    'create_exp_pkt',
+    'get_appl_db',
+    'get_macsec_attr',
+    'get_mka_session',
+    'get_sci'
+]
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -313,4 +326,4 @@ def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
         exp_pkt, exp_pkt.exp_pkt.show(dump=True))
     for packet in received_packets:
         fail_message += "\n{}\n".format(packet.show(dump=True))
-    pytest.fail(fail_message)
+    return fail_message

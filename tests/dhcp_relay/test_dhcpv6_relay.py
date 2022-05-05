@@ -112,7 +112,7 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
 def check_interface_status(duthost):
-    if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8"):
+    if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]:
         return True
     return False
 
@@ -123,7 +123,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
-    output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8")
+    output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
         assert "*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)
@@ -140,7 +140,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
         for message in messages:
             cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
             duthost.shell(cmd)
-        
+
         # Send the DHCP relay traffic on the PTF host
         ptf_runner(ptfhost,
                    "ptftests",
@@ -156,7 +156,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log")
-        
+
         for message in messages:
             get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
             message_count = duthost.shell(get_message)['stdout']

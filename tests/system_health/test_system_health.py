@@ -109,8 +109,9 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 
         expect_summary = SUMMARY_OK if not expect_error_dict else SUMMARY_NOT_OK
         result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, 'summary', expect_summary)
-        summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
-        assert result == True, 'Expect summary {}, got {}'.format(expect_summary, summary)
+        # Output the content of whole SYSTEM_HEALTH_INFO table for easy debug when test case failed.
+        table_output = redis_get_system_health_info(duthost, STATE_DB, HEALTH_TABLE_NAME)
+        assert result == True, 'Expect summary {}, got {}'.format(expect_summary, table_output)
 
 
 @pytest.mark.disable_loganalyzer
@@ -119,7 +120,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
-        containers = [x for x in list(processes_status.keys()) if x != "syncd" and x !="database"]
+        containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x]
         logging.info('Test containers: {}'.format(containers))
         random.shuffle(containers)
         for container in containers:
@@ -136,7 +137,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, category, expected_value)
                 assert result == True, '{} is not recorded'.format(critical_process)
                 summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
-                assert summary == SUMMARY_NOT_OK
+                assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(SUMMARY_NOT_OK, summary)
             break
 
 
@@ -357,6 +358,11 @@ def redis_get_field_value(duthost, db_id, key, field_name):
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
     return content
+
+def redis_get_system_health_info(duthost, db_id, key):
+    cmd = 'redis-cli --raw -n {} HGETALL \"{}\"'.format(db_id, key)
+    output = duthost.shell(cmd)['stdout'].strip()
+    return output
 
 def check_system_health_info(duthost, category, expected_value):
     value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)

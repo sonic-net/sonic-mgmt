@@ -40,7 +40,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t1", "t2")
+    pytest.mark.topology("t0", "t1", "t2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -365,7 +365,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
@@ -387,7 +387,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True)
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
