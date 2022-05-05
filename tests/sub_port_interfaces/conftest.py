@@ -575,3 +575,17 @@ def teardown_test_class(duthost):
     """
     yield
     config_reload(duthost)
+
+
+def pytest_generate_tests(metafunc):
+    # try to put fixture loganalyzer after fixture reload_dut_config, during
+    # teardown, loganalyzer will be executed before reload_dut_config, so any
+    # log error introduced by config load will be skipped.
+    try:
+        metafunc.fixturenames.index("loganalyzer")
+        reload_dut_config_index = metafunc.fixturenames.index("reload_dut_config")
+    except ValueError:
+        return
+    else:
+        metafunc.fixturenames.remove("loganalyzer")
+        metafunc.fixturenames.insert(reload_dut_config_index + 1, "loganalyzer")
