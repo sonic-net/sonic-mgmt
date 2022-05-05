@@ -1,5 +1,7 @@
 import pytest
 import pexpect
+import string
+
 
 from tests.common.helpers.assertions import pytest_assert
 
