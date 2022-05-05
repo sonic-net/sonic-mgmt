@@ -43,8 +43,12 @@ stages:
         steps:
 
           - script: |
+              force=""
+              if [ "${{ parameters.PUSH_BRANCH }}" == "internal-stage" ]; then
+                force="-f"
+              fi
 
-              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -t ${MSSONIC_TOKEN} -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }}
+              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -t ${MSSONIC_TOKEN} -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }} ${force}
 
             env:
               MSSONIC_TOKEN: $(MSSONIC_TOKEN)
