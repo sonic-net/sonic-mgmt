@@ -185,7 +185,7 @@ vm_host_29:
       ansible_host: 10.64.246.237
 vm_svc_host_1:
   hosts:
-    SVCSTR-SERV-1:
+    SVCSTR-SERVER-1:
       ansible_host: 10.206.144.7
 
 vms_1:
@@ -4002,7 +4002,7 @@ server_29:
     vms_29:
 server_svc_1:
   vars:
-    host_var_file: host_vars/SVCSTR-SERV-1.yml
+    host_var_file: host_vars/SVCSTR-SERVER-1.yml
   children:
     vm_svc_host_1:
     vms_svc_1:
