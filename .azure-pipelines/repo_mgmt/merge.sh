@@ -18,6 +18,7 @@ function show_help_and_exit()
     echo "    -g <github branch> : specify branch of the https://github.com/Azure/sonic-mgmt repository"
     echo "    -l <local branch>  : specify local branch of the sonic-mgmt-int repository"
     echo "    -p <push branch>   : specify the targed branch of the sonic-mgmt-int repository to be pushed to after merge"
+    echo "    -f                 : force push to target branch after merge"
     echo "    -a                 : bypass pushing pre-merge and after-merge tag"
 
     exit $1
@@ -160,7 +161,7 @@ function add_post_merge_tag()
 
 prepare_parameters
 
-while getopts "h?:t:g:l:p:a" opt; do
+while getopts "h?:t:g:l:p:f:a" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
