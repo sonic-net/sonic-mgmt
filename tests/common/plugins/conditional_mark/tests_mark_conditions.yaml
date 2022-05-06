@@ -31,15 +31,8 @@ cacl/test_cacl_application.py::test_cacl_application:
 #######################################
 #####            copp             #####
 #######################################
-copp/test_copp.py::TestCOPP::test_add_new_trap:
-  xfail:
-    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet, a 'strict' param will remind us to remove this mark condition by setting 'xpass' as 'fail'"
-    strict: True
-    conditions:
-      - "release in ['202012']"
-
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  skip:
+  xfail:
     reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "release in ['202012']"

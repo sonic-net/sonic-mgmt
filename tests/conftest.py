@@ -42,6 +42,7 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
+from tests.macsec import MacsecPlugin
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
@@ -64,7 +65,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.dualtor',
                   'tests.vxlan',
                   'tests.decap',
-                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -149,6 +149,7 @@ def pytest_addoption(parser):
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
 
+<<<<<<< HEAD
     ###############################
     # SONiC Metadata upgrade test #
     ###############################
@@ -164,6 +165,20 @@ def pytest_addoption(parser):
     parser.addoption(
         "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
     )
+=======
+    ############################
+    #   macsec options         #
+    ############################
+    parser.addoption("--enable_macsec", action="store_true", default=False,
+                     help="Enable macsec on some links of testbed")
+    parser.addoption("--macsec_profile", action="store", default="all",
+                     type=str, help="profile name list in macsec/profile.json")
+
+
+def pytest_configure(config):
+    if config.getoption("enable_macsec"):
+        config.pluginmanager.register(MacsecPlugin())
+>>>>>>> public/master
 
 
 @pytest.fixture(scope="session", autouse=True)
