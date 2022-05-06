@@ -161,7 +161,7 @@ function add_post_merge_tag()
 
 prepare_parameters
 
-while getopts "h?:t:g:l:p:f:a" opt; do
+while getopts "h?:t:g:l:p:fa" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
