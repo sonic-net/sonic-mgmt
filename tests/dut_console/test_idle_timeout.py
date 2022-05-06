@@ -13,7 +13,7 @@ SET_TMOUT = "10"
 def test_timeout(duthost_console, duthost):
     logger.info("Get default session idle timeout")
     default_tmout = duthost_console.send_command('echo $TMOUT')
-    pytest_assert(default_tmout == DEFAULT_TMOUT, "default timeout on dut is not 900 seconds")
+    pytest_assert(default_tmout == DEFAULT_TMOUT, "default timeout on dut is not {} seconds".format(DEFAULT_TMOUT))
 
     logger.info("Set session idle timeout")
     duthost_console.send_command('export TMOUT={}'.format(SET_TMOUT))
@@ -21,4 +21,4 @@ def test_timeout(duthost_console, duthost):
     pytest_assert(set_tmout == SET_TMOUT, "set timeout fail")
 
     time.sleep(15)
-    duthost_console.send_command("\n", expect_string=r"str-s6000-on-6 login:")
+    duthost_console.send_command("\n", expect_string=r"{} login:".format(duthost.hostname))
