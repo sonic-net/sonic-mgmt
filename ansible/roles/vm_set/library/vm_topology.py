@@ -137,7 +137,7 @@ NETNS_NAME_TEMPLATE = 'ns-%s'
 NETNS_IFACE_TEMPLATE = 'eth%d'
 PTF_NAME_TEMPLATE = 'ptf_%s'
 PTF_MGMT_IF_TEMPLATE = 'ptf-%s-m'
-NETNS_MGMT_IF_TEMPLATE = 'netns-%s-m'
+NETNS_MGMT_IF_TEMPLATE = 'ns-%s-m'
 PTF_BP_IF_TEMPLATE = 'ptf-%s-b'
 ROOT_BACK_BR_TEMPLATE = 'br-b-%s'
 PTF_FP_IFACE_TEMPLATE = 'eth%d'
@@ -476,6 +476,7 @@ class VMTopology(object):
         VMTopology.iface_up(int_if, pid=self.pid)
 
     def add_br_if_to_netns(self, bridge, ext_if, int_if):
+        """Create a veth pair to connect the netns to the bridge."""
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (ext_if, bridge, int_if, tmp_int_if))
