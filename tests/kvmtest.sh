@@ -15,7 +15,7 @@ Description:
   -n
        Do not refresh DUT
   -t testbed_file
-       testbed file (default: vtestbed.yaml)
+       testbed file (default: vtestbed.csv)
   -T test_suite
        test suite [t0|t1-lag] (default: t0)
   tbname
@@ -31,7 +31,7 @@ EOF
 }
 
 inventory="../ansible/veos_vtb"
-testbed_file="vtestbed.yaml"
+testbed_file="vtestbed.csv"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
@@ -200,7 +200,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=256_XPN_SCI"
     popd
 }
 
