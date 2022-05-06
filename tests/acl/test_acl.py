@@ -382,6 +382,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
 
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            # Ignore any other errors to reduce noise
+            loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
         except LogAnalyzerError as err:
@@ -471,6 +473,8 @@ class BaseAclTest(object):
 
             try:
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+                # Ignore any other errors to reduce noise
+                loganalyzer.ignore_regex = [r".*"]
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 
