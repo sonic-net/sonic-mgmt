@@ -149,7 +149,6 @@ def pytest_addoption(parser):
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
 
-<<<<<<< HEAD
     ###############################
     # SONiC Metadata upgrade test #
     ###############################
@@ -165,7 +164,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
     )
-=======
+
     ############################
     #   macsec options         #
     ############################
@@ -178,7 +177,6 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
         config.pluginmanager.register(MacsecPlugin())
->>>>>>> public/master
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -351,7 +349,7 @@ def selected_rand_one_per_hwsku_hostname(request):
     """
     Return the selected hostnames for the given module.
     This fixture will return the list of selected dut hostnames
-    when another fixture like enum_rand_one_per_hwsku_hostname 
+    when another fixture like enum_rand_one_per_hwsku_hostname
     or enum_rand_one_per_hwsku_frontend_hostname is used.
     """
     if request.module in _hosts_per_hwsku_per_module:
