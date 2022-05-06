@@ -182,7 +182,7 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
         file.write("# ptf host interface @ switch front port name\n")
         file.writelines(
             map(
-                    lambda index, port: "{0}@{1}\n".format(index, port),
+                    lambda v: "{0}@{1}\n".format(v[0], v[1]),
                     enumerate(portList)
                 )
             )
