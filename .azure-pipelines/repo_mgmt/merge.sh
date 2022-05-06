@@ -31,6 +31,7 @@ function prepare_parameters()
     LOCAL_BRANCH=""
     PUSH_BRANCH=""
     PUSH_TAG="False"
+    FORCE_PUSH="False"
     PRE_MERGE_TAG=""
 }
 
@@ -117,8 +118,14 @@ function merge_push()
     fi
 
     echo "=== Perform pushing from ${LOCAL_BRANCH} to ${PUSH_BRANCH} ==="
+
+    force=""
+    if [[ x"${FORCE_PUSH}" == x"True" ]]; then
+        force="--force"
+    fi
+
     RC=0
-    git push mssonic HEAD:${PUSH_BRANCH} || RC=$?
+    git push ${force} mssonic HEAD:${PUSH_BRANCH} || RC=$?
     if [[ ${RC} != 0 ]]; then
         git reset --hard mssonic/${LOCAL_BRANCH} || true
         echo "=== Pushing failed ==="
@@ -169,6 +176,9 @@ while getopts "h?:t:g:l:p:a" opt; do
             ;;
         p )
             PUSH_BRANCH=${OPTARG}
+            ;;
+        f )
+            FORCE_PUSH="True"
             ;;
         a )
             PUSH_TAG="True"
