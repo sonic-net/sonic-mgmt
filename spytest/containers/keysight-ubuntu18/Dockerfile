@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:18.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=US/Pacific
