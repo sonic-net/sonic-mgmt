@@ -15,7 +15,7 @@ Description:
   -n
        Do not refresh DUT
   -t testbed_file
-       testbed file (default: vtestbed.csv)
+       testbed file (default: vtestbed.yaml)
   -T test_suite
        test suite [t0|t1-lag] (default: t0)
   tbname
@@ -31,7 +31,7 @@ EOF
 }
 
 inventory="../ansible/veos_vtb"
-testbed_file="vtestbed.csv"
+testbed_file="vtestbed.yaml"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
