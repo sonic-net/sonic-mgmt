@@ -87,9 +87,12 @@ class DualTorParser:
         self.dual_tor_facts['cables'] = cables
 
     def generate_mux_cable_facts(self):
-        topology = load_topo_file(self.testbed_facts["topo"])["topology"]
-        mux_cable_facts = generate_mux_cable_facts(topology=topology)
-        self.dual_tor_facts["mux_cable_facts"] = mux_cable_facts
+        topo_name = self.testbed_facts["topo"]
+        # use mux_cable_facts only for dualtor mixed topologies
+        if "mixed" in topo_name:
+            topology = load_topo_file(topo_name)["topology"]
+            mux_cable_facts = generate_mux_cable_facts(topology=topology)
+            self.dual_tor_facts["mux_cable_facts"] = mux_cable_facts
 
     def get_dual_tor_facts(self):
         '''
