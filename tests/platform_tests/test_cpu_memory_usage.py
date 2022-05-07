@@ -25,6 +25,10 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
         memory_threshold = 80
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
+    # The CPU usage of `sx_sdk` on mellanox is expected to be higher, and the actual CPU usage
+    # is correlated with the number of ports. So we ignore the check of CPU for sx_sdk
+    if duthost.facts["asic_type"] == 'mellanox':
+        high_cpu_consume_procs['sx_sdk'] = 90
     return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
