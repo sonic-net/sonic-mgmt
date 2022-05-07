@@ -75,6 +75,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
+            ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
