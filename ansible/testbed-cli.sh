@@ -130,7 +130,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut inv_name auto_recover comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 netns_mgmt_ip server vm_base dut inv_name auto_recover comment;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -143,11 +143,12 @@ function read_yaml
   ptf=${line_arr[4]}
   ptf_ip=${line_arr[5]}
   ptf_ipv6=${line_arr[6]}
-  server=${line_arr[7]}
-  vm_base=${line_arr[8]}
-  dut=${line_arr[9]}
+  netns_mgmt_ip=${line_arr[7]}
+  server=${line_arr[8]}
+  vm_base=${line_arr[9]}
+  dut=${line_arr[10]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
-  inv_name=${line_arr[10]}
+  inv_name=${line_arr[11]}
 }
 
 function read_file
@@ -249,7 +250,7 @@ function add_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6"  -e netns_mgmt_ip="$netns_mgmt_ip" \
         $ansible_options $@
 
   if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
@@ -288,7 +289,7 @@ function remove_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
       -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
       -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" -e netns_mgmt_ip="$netns_mgmt_ip" \
       -e remove_keysight_api_server="$remove_keysight_api_server" \
       $ansible_options $@
 
@@ -350,7 +351,7 @@ function restart_ptf
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
-      -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
+      -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" -e netns_mgmt_ip="$netns_mgmt_ip" $@
 
   echo Done
 }

@@ -195,11 +195,6 @@
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
-  - name: Add network namespace for active-active dualtor
-    command: ip netns add ns-{{ vm_set_name }}
-    become: yes
-    when: "'host_interfaces_active_active' in topology"
-
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "bind"
@@ -221,6 +216,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
