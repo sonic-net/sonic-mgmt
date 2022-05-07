@@ -149,6 +149,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####           pfc               #####
+#######################################
+pfc/test_unknown_mac.py:
+  skip:
+    reason: In cisco-8000 platform, a packet with unknown MAC will be flooded, not dropped. This case will not pass in cisco-8000.
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####         pfc_asym            #####
 #######################################
 pfc_asym/test_pfc_asym.py:
