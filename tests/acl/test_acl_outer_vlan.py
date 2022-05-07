@@ -286,14 +286,14 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
     """
     # Wait for orchagent to update the ACL counters
     time.sleep(timeout)
-    result = duthost.show_and_parse('aclshow')
+    result = duthost.show_and_parse('aclshow -a')
 
     if len(result) == 0:
-        return 0
+        pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
     for rule in result:
-        if rule_name == rule['rule name']:
+        if table_name == rule['table name'] and rule_name == rule['rule name']:
             return int(rule['packets count'])
-    return 0
+    pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
 
 def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
