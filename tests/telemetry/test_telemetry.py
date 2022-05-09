@@ -8,7 +8,6 @@ import pytest
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_container_state
-from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -269,17 +268,17 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
 
 def run_gnmi_client(ptfhost, dut_ip):
     """Runs python gNMI client in the corresponding PTF docker to query valid/invalid
-    tables from 'STATE_DB'.
+    tables in 'STATE_DB'.
 
     Args:
         pfthost: PTF docker binding to the selected DuT.
-        dut_ip: Mgmt IP of DuT.
+        dut_ip: Management IP of DuT.
 
     Returns:
         None.
     """
     gnmi_cli_cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --subscribe_mode 0\
-                   -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --trigger_mem_spike &'.format(dut_ip, TELEMETRY_PORT)
+                   -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --trigger_mem_spike '.format(dut_ip, TELEMETRY_PORT)
     logger.info("Starting to run python gNMI client with command '{}' in PTF docker '{}'"
                 .format(gnmi_cli_cmd, ptfhost.mgmt_ip))
     ptfhost.shell(gnmi_cli_cmd)
@@ -362,7 +361,6 @@ def restart_monit_service(duthost):
     duthost.shell("systemctl restart monit")
     logger.info("Monit service is restarted.")
 
-    '''
     logger.info("Checks whether Monit is running or not after restarted ...")
     is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
                                   MONIT_CHECK_INTERVAL_SECS,
@@ -371,7 +369,6 @@ def restart_monit_service(duthost):
                                   duthost)
     pytest_assert(is_monit_running, "Monit is not running after restarted!")
     logger.info("Monit is running!")
-    '''
 
 
 def check_critical_processes(duthost, container_name):
@@ -418,7 +415,7 @@ def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_stre
     Args:
         duthosts: list of DUTs.
         rand_one_dut_hostname: The fixture returns a randomly selected DuT.
-        pfthost: PTF docker binding to the selected DuT.
+        setup_streaming_telemetry: Fixture to setup telemetry server authentication before testing.
 
     Returns:
         None.
@@ -439,7 +436,7 @@ def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_stre
                          ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                          indirect=["test_mem_spike_setup_and_cleanup"])
 def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setup_and_cleanup):
-    """Test whether telemetry will be restarted or not by Monit if python gNMI client
+    """Test whether telemetry container will be restarted or not by Monit if python gNMI client
     continuously creates TCP connections but did not explicitly close them.
 
     Args:
@@ -486,8 +483,12 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     time.sleep(WAITING_SYSLOG_MSG_SECS)
 
     logger.info("Checking the syslog messages related to '{}' container restarted ...".format(CONTAINER_NAME))
-    loganalyzer.analyze(marker)
-    logger.info("Found all the expected syslog messages!")
+    analyzing_result = loganalyzer.analyze(marker, fail=False)
+    if analyzing_result["total"]["expected_match"] < len(expected_alerting_messages):
+        duthost.service(name="telemetry", state="restarted")
+        pytest.fail("Failed to find all expected syslog messages!")
+    else:
+        logger.info("Found all the expected syslog messages!")
 
     logger.info("Checking whether the '{}' container is running after testing...".format(CONTAINER_NAME))
     is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
