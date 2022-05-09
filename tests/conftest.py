@@ -63,7 +63,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan',
                   'tests.decap',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
@@ -333,7 +332,7 @@ def selected_rand_one_per_hwsku_hostname(request):
     """
     Return the selected hostnames for the given module.
     This fixture will return the list of selected dut hostnames
-    when another fixture like enum_rand_one_per_hwsku_hostname 
+    when another fixture like enum_rand_one_per_hwsku_hostname
     or enum_rand_one_per_hwsku_frontend_hostname is used.
     """
     if request.module in _hosts_per_hwsku_per_module:
