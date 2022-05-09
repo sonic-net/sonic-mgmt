@@ -86,16 +86,38 @@ The expected DSCP to queue mapping is as below
 
 #### Test case 1 - Verify packets enter expected PG on lower_tor
 ##### Test steps
-1. Generate `100` packets with `DSCP = 3/4`, `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
-2. Send the `100` packets to `upper_tor` via a portchannel, and the encapped packets will be bounced to `lower_tor` via `T1`
-3. Verify the encapped packets is ingressed to the expected PG on `lower_tor` by sai_thrift api sai_thrift_read_pg_counters. (`DSCP 3 -> PG 2, DSCP 4 -> PG 6`)
+1. Generate `100` encapped packets with different various `DSCP` combinations (listed below), `target_ip = 10.1.0.33`, `src_ip = 10.1.0.32`
+2. Send the `100` packets to `lower_tor` via a portchannel
+3. Verify the packets are mapped to expected PGs on `lower_tor` by sai_thrift api `sai_thrift_read_pg_counters`.
+
+The `DSCP` combinations and expected PGs are as below
+
+|DSCP outter|DSCP inner|Expected PG|
+| ---- | ---- | --- |
+|2|3|2|
+|6|4|6|
+|0|0|0|
+|1|1|0|
+
 
 #### Test case 2 - Verify packets egressed to server at expected queue
 ##### Test steps
-1. Generate `100` packets with `DSCP = 3/4`, `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
-2. Send the `100` packets to `upper_tor` via a portchannel
-3. Verify the packets are bounced back to `lower_tor`, and the outlayer DSCP value is as expected (3->2, 4->6)
-4. Verify the decapped packets is egressed to server at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`. (`DSCP 3 -> Queue 3, DSCP 4 -> Queue 4`)
+1. Generate `100` encapped packets with different various `DSCP` combinations (listed below), `target_ip = 10.1.0.33`, `src_ip = 10.1.0.32`
+2. Send the `100` packets to `lower_tor` via a portchannel
+3. Verify the decapped packets is egressed to server at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`. 
+
+The `DSCP` combinations and expected Queues are as below
+
+|DSCP outter|DSCP inner|Expected Queue|
+| ---- | ---- | --- |
+|2|3|3|
+|6|4|4|
+|0|0|0|
+|2|2|1|
+|5|5|5|
+|6|6|6|
+|7|7|7|
+
 
 #### Test case 3 - Verify PFC frame generation at expected queue
 ##### Test steps
