@@ -32,10 +32,9 @@ def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def docker_network(duthosts, rand_one_dut_hostname):
+def docker_network(duthosts, enum_rand_one_per_hwsku_hostname):
 
-    duthost = duthosts[rand_one_dut_hostname]
-
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command("docker inspect bridge")
 
     docker_containers_info = json.loads(output['stdout'])[0]['Containers']
@@ -65,18 +64,18 @@ def docker_network(duthosts, rand_one_dut_hostname):
     return docker_network
 
 @pytest.fixture(scope="function")
-def collect_ignored_rules(duthosts, rand_one_dut_hostname):
+def collect_ignored_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Collect existing iptables rules before test, set them as ignored as they are not related to CACL test cases.
 
     Args:
         duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        enum_rand_one_per_hwsku_hostname: hostname of a random chosen dut to run test.
 
     Returns:
         None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     ignored_rules_v4 = duthost.command("iptables -S")["stdout_lines"]
     ignored_rules_v6 = duthost.command("ip6tables -S")["stdout_lines"]
@@ -87,20 +86,20 @@ def collect_ignored_rules(duthosts, rand_one_dut_hostname):
     return ignored_rules
 
 @pytest.fixture(scope="function")
-def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
+def clean_scale_rules(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules):
     """
     Clear other control ACL rules before test to avoid miscalucation,
     delete ACL template json file and clean ACL rules, recover configuration after test.
 
     Args:
         duthosts: All DUTs belong to the testbed.
-        rand_one_dut_hostname: hostname of a random chosen dut to run test.
+        enum_rand_one_per_hwsku_hostname: hostname of a random chosen dut to run test.
         collect_ignored_rules: ignored iptable/ip6table rules.
 
     Returns:
         None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     yield
 
@@ -369,7 +368,8 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    if "master" not in duthost.os_version:
+    if "2019" in duthost.os_version or "2018" in duthost.os_version \
+            or "2020" in  duthost.os_version or "2021" in duthost.os_version:
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
@@ -758,7 +758,7 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}".format(repr(unexpected_ip6tables_rules)))
 
-def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
+def test_cacl_application(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, docker_network):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly
 
@@ -766,19 +766,19 @@ def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, doc
     rules based on the DuT's configuration and comparing them against the
     actual iptables/ip6tables rules on the DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     verify_cacl(duthost, localhost, creds, docker_network)
 
-def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
+def test_multiasic_cacl_application(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
 
     if enum_frontend_asic_index is None:
         pytest.skip("Not Multi-asic platform. Skipping !!")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
-def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
+def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv4
 
@@ -786,7 +786,7 @@ def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_
     and generating our own set of expected iptables rules based on the DUT's configuration and comparing them against the actual iptables
     rules on the DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ignored_iptable_rules_v4 = collect_ignored_rules["v4"]
 
     generate_scale_rules(duthost, "ipv4")
@@ -812,7 +812,7 @@ def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_
     unexpected_iptables_rules = set(actual_iptables_rules) - set(expected_iptables_rules) - set(ignored_iptable_rules_v4)
     pytest_assert(len(unexpected_iptables_rules) == 0, "Unexpected iptables rules: {}".format(repr(unexpected_iptables_rules)))
 
-def test_cacl_scale_rules_ipv6(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
+def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv6
 
@@ -820,7 +820,7 @@ def test_cacl_scale_rules_ipv6(duthosts, rand_one_dut_hostname, collect_ignored_
     and generating our own set of expected ip6tables rules based on the DUT's configuration and comparing them against the actual ip6tables
     rules on the DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ignored_iptable_rules_v6 = collect_ignored_rules["v6"]
 
     generate_scale_rules(duthost, "ipv6")
