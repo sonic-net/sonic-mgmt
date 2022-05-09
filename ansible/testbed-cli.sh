@@ -17,6 +17,7 @@ function usage
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
+  echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -67,6 +68,7 @@ function usage
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
+  echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
