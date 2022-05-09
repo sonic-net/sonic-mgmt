@@ -1557,7 +1557,7 @@ def verify_new_core_dumps(duthost):
     else:
         coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
     if int(coredumps_count) > int(pre_existing_cores):
-        raise pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
+        pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
             coredumps_count))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
