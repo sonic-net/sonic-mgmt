@@ -36,18 +36,43 @@ The test suite is categorized into two groups.
 ### Test cases
 #### Test case 1 - Verify DSCP re-writing
 ##### Test steps
-1. Generate packet with `DSCP = 3/4`, `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
+1. Generate packet with various `DSCP` values (listed below), `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
 2. Send the packets to `upper_tor` via a portchannel
 3. Verify the packets are encaped, and bounced back to T1
-4. Verify the `DSCP` value of bounced back packet is as expected (3->2, 4->6).
+4. Verify the `DSCP` value of bounced back packet is as expected.
+
+The expected DSCP values is as below
+
+
+|DSCP| Expected DSCP after encap|TC to verify|
+| ---- | ---- | --- |
+|8|8|0|
+|0|0|1|
+|33|33|2|
+|3|2|3|
+|4|6|4|
+|5|46|5|
+|7|48|7|
 
 #### Test case 2 - Verify traffic is egressed at expected queue
 ##### Test steps
-1. Generate `100` packets with `DSCP = 3/4`, `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
+1. Generate `100` packets with various `DSCP` values (listed below), `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
 2. Clear `queuecounter` with CLI `sonic-clear queuecounters`
 3. Send the packets to `upper_tor` via a portchannel
 4. Verify the packets are encaped, and bounced back to T1
-5. Verify the bounced back traffic is egressed at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`. (`DSCP 3 -> Queue 2, DSCP 4 -> Queue 6`)
+5. Verify the bounced back traffic is egressed at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`.
+
+The expected DSCP to queue mapping is as below
+
+|DSCP| Expected outgoing queue|TC to verify|
+| ---- | ---- | --- |
+|8|0|0|
+|0|1|1|
+|33|1|2|
+|3|2|3|
+|4|6|4|
+|5|5|5|
+|7|7|7|
 
 
 ## Test case group for packet decapsulation
