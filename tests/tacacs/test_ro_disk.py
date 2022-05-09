@@ -5,6 +5,7 @@ from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
+from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
 from .utils import setup_tacacs_client
 
@@ -45,7 +46,7 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
-def do_reboot(duthost, localhost, dutip="", rw_user="", rw_pass=""):
+def do_reboot(duthost, localhost, duthosts, rw_user="", rw_pass=""):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
     #
@@ -54,15 +55,13 @@ def do_reboot(duthost, localhost, dutip="", rw_user="", rw_pass=""):
     rebooted = False
 
     for i in range(retries):
-        # Regular reboot command would not work, as it would try to
-        # collect show tech, which will fail in RO state.
         #
         try:
-            if dutip:
-                chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo /sbin/reboot")
-            else:
-                duthost.shell("/sbin/reboot")
-
+            # Reboot DUT using reboot function instead of using ssh_remote_run.
+            # ssh_remote_run gets blocked due to console messages from reboot on DUT
+            # Do not wait for ssh as next step checks if ssh is stopped to ensure DUT is
+            # is rebooting.
+            reboot(duthost, localhost, wait_for_ssh=False)
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
@@ -75,7 +74,14 @@ def do_reboot(duthost, localhost, dutip="", rw_user="", rw_pass=""):
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
     assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
             "All critical services should fully started!"
-
+    # If supervisor node is rebooted in chassis, linecards also will reboot.
+    # Check if all linecards are back up.
+    if duthost.is_supervisor_node():
+        for host in duthosts:
+            if host != duthost:
+                logger.info("checking if {} critical services are up".format(host.hostname))
+                assert wait_until(300, 20, 0, host.critical_services_fully_started), \
+                        "All critical services of {} should fully started!".format(host.hostname)
 
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
@@ -128,7 +134,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #
         logger.info("PRETEST: reboot {} to restore system state".
                 format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost)
+        do_reboot(duthost, localhost, duthosts)
         assert do_check_clean_state(duthost), "state not good even after reboot"
         do_setup_tacacs(ptfhost, duthost, tacacs_creds)
 
@@ -168,6 +174,10 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         # Remove file, so the reboot at the end of test will revert this logs redirect.
         duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf") 
 
+        # Enable AAA failthrough authentication so that reboot function can be used
+        # to reboot DUT 
+        duthost.shell("config aaa authentication failthrough enable")
+
         # Set disk in RO state
         simulate_ro(duthost)
 
@@ -203,7 +213,6 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, dutip, rw_user, rw_pass)
-        assert wait_until(600, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        do_reboot(duthost, localhost, duthosts, rw_user, rw_pass)
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
