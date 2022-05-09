@@ -1,7 +1,7 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 120
+    hours: 48
 
 devices:
   docker_ptf:
@@ -26,12 +26,12 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_16.0/sonic-cisco-8000.bin
+    onie-install: http://172.29.93.10/sonic-images/dt_drop_20.13/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-            ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-1.7.1-13798/npl
-            ConfigS1NpsuiteVer: 1.81.0
+            ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.50.10.4.18/npl
+            ConfigS1NpsuiteVer: 1.90.0
 
   sonic_mgmt :
     platform: linux
