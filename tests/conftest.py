@@ -47,6 +47,7 @@ from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_a
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import RebootHealthError
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1543,6 +1544,22 @@ def collect_db_dump(request, duthosts):
     '''
     yield
     collect_db_dump_on_duts(request, duthosts)
+
+@pytest.fixture(autouse=True)
+def verify_new_core_dumps(duthost):
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    
+    yield
+    if "20191130" in duthost.os_version:
+        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if int(coredumps_count) > int(pre_existing_cores):
+        raise pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
+            coredumps_count))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
