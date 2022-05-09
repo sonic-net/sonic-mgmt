@@ -139,12 +139,13 @@ def verify_snmp_speed(facts, snmp_facts, results):
 def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("interfaces not present on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts  = duthost.config_facts(host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
+    if 'PORT' not in config_facts:
+        pytest.skip("interfaces not present in config_db")
+
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     snmp_ifnames = [v['name'] for k, v in snmp_facts['snmp_interfaces'].items()]
@@ -165,8 +166,11 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    if 'PORT' not in config_facts:
+        pytest.skip("interfaces not present in config_db")
+
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     snmp_ifnames = [ v['name'] for k, v in snmp_facts['snmp_interfaces'].items() ]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
