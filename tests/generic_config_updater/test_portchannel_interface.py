@@ -206,11 +206,11 @@ def test_portchannel_interface_tc3_replace(duthost):
     json_patch = [
         {
             "op": "remove",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|FC00::71/126"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|FC00::71/126"])
         },
         {
             "op": "remove",
-            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|10.0.0.56/31"]),
+            "path": create_path(["PORTCHANNEL_INTERFACE", "PortChannel101|10.0.0.56/31"])
         },
         {
             "op": "add",

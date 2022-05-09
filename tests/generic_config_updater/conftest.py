@@ -20,15 +20,15 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR sonic_yang.*",
              ".*ERR.*Failed to start dhcp_relay container.*", # Valid test_dhcp_relay
              ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # Valid test_dhcp_relay test_syslog
-             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
+             ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*", # Valid test_portchannel_interface
+             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # Valid test_portchannel_interface
+             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # Valid test_portchannel_interface
+             ".*ERR kernel.*Reset adapter.*", # Valid test_portchannel_interface replace mtu
+             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # Valid test_portchannel_interface replace mtu
 
              ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
 
-             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
-             ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
-             ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
-             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
-
+             # sonic-swss/orchagent/crmorch.cpp
              ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*", # test_monitor_config
              ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*", # test_monitor_config
              ".*ERR dhcp_relay[0-9]*#dhcrelay.*", # test_dhcp_relay
