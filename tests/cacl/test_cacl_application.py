@@ -318,8 +318,9 @@ def generate_expected_rules(duthost, docker_network, asic_index):
 
     if asic_index is None:
     # Allow Communication among docker containers
-        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], docker_network['bridge']['IPv4Address']))
-        ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], docker_network['bridge']['IPv6Address']))
+        if len(docker_network['container'].items()) > 0:
+            iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], docker_network['bridge']['IPv4Address']))
+            ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], docker_network['bridge']['IPv6Address']))
         for k, v in docker_network['container'].items():
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(v['IPv4Address'], docker_network['bridge']['IPv4Address']))
             ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(v['IPv6Address'], docker_network['bridge']['IPv6Address']))
