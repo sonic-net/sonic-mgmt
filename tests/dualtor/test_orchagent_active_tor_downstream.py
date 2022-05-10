@@ -73,7 +73,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             restore = True
             neighbor_advertise_process = "garp_service"
         elif ip_version == "ipv6":
-            restore = False
+            restore = True
             neighbor_advertise_process = "arp_responder"
         else:
             raise ValueError("Unknown IP version '%s'" % ip_version)
