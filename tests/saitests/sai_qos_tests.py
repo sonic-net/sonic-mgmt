@@ -2109,7 +2109,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
             print >> sys.stderr, "pass iterations: {}, total iterations: {}, margin: {}".format(pass_iterations, iterations, margin)
-            assert pass_iterations >= int(0.75 * margin), "Passed iterations {} insufficient to meet minimum required iterations {}".format(pass_iterations, int(0.75 * margin))
+            assert pass_iterations >= int(0.75 * iterations), "Passed iterations {} insufficient to meet minimum required iterations {}".format(pass_iterations, int(0.75 * iterations))
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
