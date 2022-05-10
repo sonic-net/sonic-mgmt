@@ -36,12 +36,12 @@ devices:
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    image : /globalnobackup3/sonic/ubuntu1804_smgt.qcow2
     linux_username: 'vxr'
     linux_password : 'cisco123'
-    linux_prompt: 'vxr@ubuntu:~\$'
-    vcpu: 4
-    memory: '4G'
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 32
+    memory: '64G'
 
 device_groups:
   veos:

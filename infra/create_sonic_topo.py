@@ -107,7 +107,6 @@ def git_update(data):
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(20)
-
     ssh.close()
 
 def deploy_mg(data,base_topo_file):
@@ -709,8 +708,8 @@ def main():
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
 
-    print("********** Do a Git Update **********")
-    git_update(data)
+    #print("********** Do a Git Update **********")
+    #git_update(data)
 
     # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
