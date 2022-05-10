@@ -1,12 +1,12 @@
 import allure
 import logging
+import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, check_skip_release
 
 logger = logging.getLogger(__name__)
 
-support_route_flow_counter = None
 skip_versions = ['201811', '201911', '202012', '202106', '202111']
 CAPABILITY_WAIT_TIME_IN_SEC = 180
 CAPABILITY_CHECK_INTERVAL_IN_SEC = 5
@@ -15,7 +15,7 @@ CAPABILITY_CHECK_INTERVAL_IN_SEC = 5
 class RouteFlowCounterTestContext:
     """Allow caller to use "with" key words to run router flow counter test.
     """
-    def __init__(self, dut, route_pattern_list, expected_stats, interval=1000):
+    def __init__(self, support, dut, route_pattern_list, expected_stats, interval=1000):
         """Init RouteFlowCounterTestContext
 
         Args:
@@ -28,7 +28,7 @@ class RouteFlowCounterTestContext:
         self.route_pattern_list = route_pattern_list
         self.expected_stats = expected_stats
         self.interval = interval
-        self.is_route_flow_counter_supported = is_route_flow_counter_supported(dut)
+        self.is_route_flow_counter_supported = support
 
     def __enter__(self):
         """Enable route flow counter and configure route pattern
@@ -103,7 +103,8 @@ class RouteFlowCounterTestContext:
             return verify_route_flow_counter_stats(self.expected_stats, actual_stats)
 
 
-def is_route_flow_counter_supported(dut):
+@pytest.fixture(scope = "session")
+def is_route_flow_counter_supported(rand_selected_dut):
     """Check if route flow counter is supported on this platform
 
     Args:
@@ -112,22 +113,20 @@ def is_route_flow_counter_supported(dut):
     Returns:
         bool: True if supported
     """
-    skip, _ = check_skip_release(dut, skip_versions)
+    skip, _ = check_skip_release(rand_selected_dut, skip_versions)
     if skip:
         logger.info('Route flow counter is not supported on these versions: {}'.format(skip_versions))
         return False
 
-    global support_route_flow_counter
-    if support_route_flow_counter is None:
-        if not wait_until(CAPABILITY_WAIT_TIME_IN_SEC, CAPABILITY_CHECK_INTERVAL_IN_SEC, 0, get_route_flow_counter_capability, dut):
-            support_route_flow_counter = False
-            pytest_assert(False, 'Failed to get route flow counter capability')
-        if not support_route_flow_counter:
-            logger.info('Route flow counter is not supported on this platform')
-    return support_route_flow_counter
+    route_flow_counter_capability = [] # Use a list to store the capability
+    if not wait_until(CAPABILITY_WAIT_TIME_IN_SEC, CAPABILITY_CHECK_INTERVAL_IN_SEC, 0, get_route_flow_counter_capability, rand_selected_dut, route_flow_counter_capability):
+        pytest_assert(False, 'Failed to get route flow counter capability')
+    if not route_flow_counter_capability[0]:
+        logger.info('Route flow counter is not supported on this platform')
+    return route_flow_counter_capability[0]
 
 
-def get_route_flow_counter_capability(dut):
+def get_route_flow_counter_capability(dut, route_flow_counter_capability):
     """Get route flow counter capability from STATE DB
 
     Args:
@@ -136,16 +135,15 @@ def get_route_flow_counter_capability(dut):
     Returns:
         bool: True if capability is successfully retrieved from STATE DB
     """
-    global support_route_flow_counter
     support = dut.shell('sudo sonic-db-cli STATE_DB HGET "FLOW_COUNTER_CAPABILITY_TABLE|route" support')['stdout'].strip()
     if support == 'true':
-        support_route_flow_counter = True
+        route_flow_counter_capability.append(True)
     elif support == 'false':
-        support_route_flow_counter = False
+        route_flow_counter_capability.append(False)
     elif support:
         # Impossible branch, just incase
         pytest_assert(False, 'support field of FLOW_COUNTER_CAPABILITY_TABLE|route has invalid value {}'.format(support))
-    return support_route_flow_counter is not None
+    return len(route_flow_counter_capability) > 0
 
 
 def set_route_flow_counter_status(dut, status):

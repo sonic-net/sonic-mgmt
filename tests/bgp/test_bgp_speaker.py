@@ -15,7 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported
 
 
 pytestmark = [
@@ -252,7 +252,7 @@ def is_all_neighbors_learned(duthost, speaker_ips):
 
 def bgp_speaker_announce_routes_common(common_setup_teardown,
                                        tbinfo, duthost, ptfhost, ipv4, ipv6, mtu,
-                                       family, prefix, nexthop_ips, vlan_mac):
+                                       family, prefix, nexthop_ips, vlan_mac, is_route_flow_counter_supported):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
@@ -310,7 +310,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     logger.info("run ptf test")
     expecte_packet_num = 3
     packet_size = 1518
-    with RouteFlowCounterTestContext(duthost, [prefix], {prefix : {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
+    with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix : {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
         ptf_runner(ptfhost,
                     "ptftests",
                     "fib_test.FibTest",
@@ -334,20 +334,20 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 9114)])
-def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
+def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac, is_route_flow_counter_supported):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
     duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[3]
-    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v4", "10.10.10.0/26", nexthops, vlan_mac, is_route_flow_counter_supported)
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 9114)])
-def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac):
+def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu, vlan_mac, is_route_flow_counter_supported):
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
     duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[4]
-    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac)
+    bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6, mtu, "v6", "fc00:10::/64", nexthops, vlan_mac, is_route_flow_counter_supported)
