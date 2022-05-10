@@ -62,7 +62,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
     # Skip dualtor test cases on unsupported platform
     supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus']
