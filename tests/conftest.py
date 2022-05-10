@@ -201,8 +201,7 @@ def enhance_inventory(request):
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def config_logging(request):
+def pytest_cmdline_main(config):
 
     # Filter out unnecessary pytest_ansible plugin log messages
     pytest_ansible_logger = logging.getLogger("pytest_ansible")
@@ -226,6 +225,17 @@ def config_logging(request):
     dataplane_logger = logging.getLogger("dataplane")
     if dataplane_logger:
         dataplane_logger.setLevel(logging.ERROR)
+
+
+def pytest_collection(session):
+    """Workaround to reduce messy plugin logs generated during collection only
+
+    Args:
+        session (ojb): Pytest session object
+    """
+    if session.config.option.collectonly:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
 
 
 def get_tbinfo(request):
