@@ -17,6 +17,7 @@ function usage
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
+  echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -67,6 +68,7 @@ function usage
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
+  echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
@@ -491,6 +493,25 @@ function config_y_cable
   echo Done
 }
 
+function set_l2_mode
+{
+  testbed_name=$1
+  passfile=$2
+  shift
+  shift
+
+  read_file ${testbed_name}
+
+  echo "Set DUTs of testbed $testbed_name to l2 mode"
+  echo "Reference: https://github.com/sonic-net/SONiC/wiki/L2-Switch-mode"
+  if [[ $topo != t0* ]]; then
+    echo "Only topology type t0 is supported"
+    exit 1
+  fi
+
+  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" $@
+}
+
 function config_vm
 {
   echo "Configure VM $2"
@@ -626,6 +647,8 @@ case "${subcmd}" in
   test-mg)     test_minigraph $@
                ;;
   config-y-cable) config_y_cable $@
+               ;;
+  set-l2) set_l2_mode $@
                ;;
   cleanup-vmhost) cleanup_vmhost $@
                ;;
