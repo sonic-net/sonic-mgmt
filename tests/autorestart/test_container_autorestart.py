@@ -330,7 +330,7 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
 
     bgp_check = wait_until(
         POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-        duthost.check_bgp_session_state_all, up_bgp_neighbors, "established"
+        duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
     )
 
     return critical_proceses, bgp_check

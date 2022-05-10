@@ -481,7 +481,7 @@ class MultiAsicSonicHost(object):
 
         return False
 
-    def check_bgp_session_state_all(self, bgp_neighbors, state="established"):
+    def check_bgp_session_state_all_asics(self, bgp_neighbors, state="established"):
         """
         @summary: check if current bgp session equals to the target state in each namespace
 
