@@ -15,7 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # lgtm[py/unused-import]
 
 
 pytestmark = [

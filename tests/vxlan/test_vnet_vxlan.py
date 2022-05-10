@@ -14,7 +14,7 @@ from vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # lgtm[py/unused-import]
 import tests.arp.test_wr_arp as test_wr_arp
 
 from tests.common.config_reload import config_reload

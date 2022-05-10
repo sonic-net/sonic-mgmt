@@ -3,7 +3,7 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.flow_counter import flow_counter_utils
-from tests.flow_counter.flow_counter_utils import check_route_flow_counter_supported
+from tests.flow_counter.flow_counter_utils import check_route_flow_counter_supported # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
