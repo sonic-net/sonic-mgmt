@@ -508,7 +508,7 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     vm_workers = 6
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
+                   and ("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
                    "Test is not supported for platform Celestica E1031, 20191130 and older image versions!")
 
     logger.info("Checks whether '{}' is running ...".format(container_name))
