@@ -51,7 +51,8 @@ SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_
                          '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string.* or a number.*',
-                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
+                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*',
+                                     '.*ERR pmon#thermalctld.*Failed to get minimum ambient temperature, use pessimistic instead.*']
 
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*',
                               '.*ERR pmon#psud:.*Fail to read model number: No key PN_VPD_FIELD in.*',
