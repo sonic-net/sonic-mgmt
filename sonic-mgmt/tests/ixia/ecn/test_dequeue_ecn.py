@@ -39,6 +39,9 @@ def test_dequeue_ecn(request,
     Returns:
         N/A
     """
+    disable_test = request.config.getoption("--disable_ecn_test")
+    if disable_test:
+        pytest.skip("test_dequeue_ecn is disabled")
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')
@@ -52,18 +55,18 @@ def test_dequeue_ecn(request,
     kmin = 50000
     kmax = 51000
     pmax = 100
+    pkt_size = 1024
     pkt_cnt = 100
     pkt_to_check = 0
-    pkt_size = 1024
     cisco_platform = (duthost.facts['asic_type'] == "cisco-8000")
     if cisco_platform:
         oq_cell_count = 100      # Number of cells in OQ for this lossless priority 
         cell_size = 384
         cell_per_pkt = (pkt_size + cell_size - 1) // cell_size
-        margin_cells = 12
+        margin_cells = 25
         margin = margin_cells // cell_per_pkt
         pkt_to_oq = (oq_cell_count//cell_per_pkt) + margin # Packets forwarded to OQ
-        pkt_to_check = pkt_to_oq + margin + 1
+        pkt_to_check = pkt_to_oq + 1
     else:
         cell_size = 0
     ip_pkts = run_ecn_test(api=ixia_api,
@@ -82,7 +85,6 @@ def test_dequeue_ecn(request,
                            prio_dscp_map=prio_dscp_map,
                            iters=1)[0]
 
-    print("dut_port = {}".format(dut_port))
     """ Check if we capture all the packets """
     pytest_assert(len(ip_pkts) == pkt_cnt,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
