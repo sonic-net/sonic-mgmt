@@ -58,6 +58,7 @@ def test_dequeue_ecn(request,
     pkt_size = 1024
     pkt_cnt = 100
     pkt_to_check = 0
+
     cisco_platform = (duthost.facts['asic_type'] == "cisco-8000")
     if cisco_platform:
         oq_cell_count = 100      # Number of cells in OQ for this lossless priority 
@@ -84,6 +85,7 @@ def test_dequeue_ecn(request,
                            lossless_prio=lossless_prio,
                            prio_dscp_map=prio_dscp_map,
                            iters=1)[0]
+
 
     """ Check if we capture all the packets """
     pytest_assert(len(ip_pkts) == pkt_cnt,
