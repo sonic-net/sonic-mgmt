@@ -74,7 +74,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
             ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
-            ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
+            ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
             # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
