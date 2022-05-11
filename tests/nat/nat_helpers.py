@@ -13,6 +13,8 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from jinja2 import Environment, FileSystemLoader
 from tests.common.config_reload import config_reload
+from tests.common.pkt_filter.filter_pkt_in_buffer import FilterPktBuffer
+from tests.common.pkt_filter.filter_pkt_in_buffer import convert_pkt_to_dict
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -547,7 +549,7 @@ def conf_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, t
 
 
 def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
-                               src_port=None, dst_port=None, icmp_id=None):
+                               src_port=None, dst_port=None):
     """
     Generate expected packet
     :param pkt: packet to be sent
@@ -556,7 +558,6 @@ def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
     :param ip_dst: expected destination IP
     :param src_port: source L4 expected port
     :param dst_port: destination L4 expected port
-    :param icmp_id: id for specify ICMP dynamic connection
     :return: expected packet
     """
     # Set up all fields
@@ -567,8 +568,6 @@ def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
     if protocol_type in ["TCP", "UDP"]:
         exp_pkt[protocol_type].sport = src_port
         exp_pkt[protocol_type].dport = dst_port
-    if protocol_type == "ICMP":
-        exp_pkt[protocol_type].id = icmp_id
     exp_pkt = mask.Mask(exp_pkt)
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
@@ -854,23 +853,32 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
     # Create packet to send
     pkt = create_packet(network_data.eth_dst, network_data.eth_src, network_data.ip_dst, network_data.ip_src, protocol_type)
     # Define expected packet(ICMP request)
-    exp_pkt_request = expected_mask_nated_packet(pkt, protocol_type, network_data.exp_dst_ip, network_data.exp_src_ip, icmp_id=icmp_id)
+    exp_pkt_request = create_packet(network_data.eth_dst, network_data.eth_src, network_data.exp_dst_ip, network_data.exp_src_ip, protocol_type)
     # Reverse source and destination IPs for reply
     exp_dst_ip = get_src_ip(setup_info, direction, interface_type,
                             nat_type=nat_type, second_port=second_port)
     exp_src_ip = get_dst_ip(setup_info, direction, interface_type,
                             nat_type=nat_type)
     # Define expected packet(ICMP reply)
-    exp_pkt_reply = expected_mask_nated_packet(pkt, protocol_type, exp_dst_ip, exp_src_ip, icmp_id=0)
+    exp_pkt_reply = expected_mask_nated_packet(pkt, protocol_type, exp_dst_ip, exp_src_ip)
     exp_pkt_reply.exp_pkt[protocol_type].type = 0
+    exp_pkt_reply.exp_pkt[protocol_type].id = 0
     # clear buffer
     ptfadapter.dataplane.flush()
     # Send packet
     for port in network_data.inner_ports:
         testutils.send(ptfadapter, port, pkt, count=5)
     # Verify ICMP request packets arrive on outer ports
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt_request, ports=network_data.outer_ports)
-    # Verify ICMP peply packets arrive on inner ports
+    pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
+                                 exp_pkt=exp_pkt_request,
+                                 dst_port_numbers=network_data.outer_ports,
+                                 match_fields=[("IP", "src"), ("IP", "dst")],
+                                 ignore_fields=[("Ether", "src"), ("Ether", "dst"), ("IP", "chksum"), ("IP", "ttl")])
+    pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
+    pkt_dict = convert_pkt_to_dict(pkt_filter.received_pkt)
+    # Verify icmp_id in arrived packet
+    pytest_assert(int(pkt_dict['ICMP']['id']) in range(icmp_id, icmp_id+1000), "icmp_id: {} not in pool range".format(pkt_dict['ICMP']['id']))
+    # Verify ICMP reply packets arrive on inner ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt_reply, ports=network_data.inner_ports)
 
 
@@ -912,7 +920,7 @@ def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, inte
     # Verify ICMP request packets arrive on outer ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt_request, ports=network_data.outer_ports)
     if check_reply:
-        # Verify ICMP peply packets arrive on inner ports
+        # Verify ICMP reply packets arrive on inner ports
         testutils.verify_packet_any_port(ptfadapter, exp_pkt_reply, ports=network_data.inner_ports)
 
 
