@@ -40,7 +40,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io"'
+    default: '-I "dualtor_io platform_tests"'
     displayName: Testbed specific
 
   - name: AGENT_POOL
