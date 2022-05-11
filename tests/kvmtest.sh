@@ -15,7 +15,7 @@ Description:
   -n
        Do not refresh DUT
   -t testbed_file
-       testbed file (default: vtestbed.csv)
+       testbed file (default: vtestbed.yaml)
   -T test_suite
        test suite [t0|t1-lag] (default: t0)
   tbname
@@ -31,7 +31,7 @@ EOF
 }
 
 inventory="../ansible/veos_vtb"
-testbed_file="vtestbed.csv"
+testbed_file="vtestbed.yaml"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
@@ -230,6 +230,7 @@ test_t1_lag() {
     bgp/test_bgp_update_timer.py \
     bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
+    configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \

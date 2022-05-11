@@ -31,15 +31,8 @@ cacl/test_cacl_application.py::test_cacl_application:
 #######################################
 #####            copp             #####
 #######################################
-copp/test_copp.py::TestCOPP::test_add_new_trap:
-  xfail:
-    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet, a 'strict' param will remind us to remove this mark condition by setting 'xpass' as 'fail'"
-    strict: True
-    conditions:
-      - "release in ['202012']"
-
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  skip:
+  xfail:
     reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "release in ['202012']"
@@ -154,6 +147,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
+
+#######################################
+#####           pfc               #####
+#######################################
+pfc/test_unknown_mac.py:
+  skip:
+    reason: In cisco-8000 platform, a packet with unknown MAC will be flooded, not dropped. This case will not pass in cisco-8000.
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####         pfc_asym            #####
@@ -343,12 +345,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 #######################################
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
-      - "is_multi_asic==True"
+      - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
-  skip:
-    reason: "This test can only run on 4600c and 8102"
-    conditions:
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"

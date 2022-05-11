@@ -103,11 +103,20 @@ class ArpTest(BaseTest):
 
     def test_port_thr(self):
         self.log("test_port_thr started")
-        while time.time() < self.stop_at:
+        while True:
             for test in self.tests:
+                self.log("Looping through tests: {}".format(test))
                 for port in test['acc_ports']:
+                    if time.time() > self.stop_at:
+                        break
                     nr_rcvd = self.testPort(port)
                     self.records[port][time.time()] = nr_rcvd
+                else:
+                    continue
+                break
+            else:
+                continue
+            break
         self.log("Quiting from test_port_thr")
         return
 
@@ -298,9 +307,9 @@ class ArpTest(BaseTest):
 
         test_port_thr.join(timeout=self.how_long)
         if test_port_thr.isAlive():
-            self.log("Timed out waiting for warm reboot")
+            self.log("Timed out waiting for traffic-sender (test_port_thr thread)")
             self.req_dut('quit')
-            self.assertTrue(False, "Timed out waiting for warm reboot")
+            self.assertTrue(False, "Timed out waiting for traffic-sender (test_port_thr thread)")
 
         uptime_after = self.req_dut('uptime')
         if uptime_after.startswith('error'):
