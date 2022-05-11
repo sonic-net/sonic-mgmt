@@ -1544,7 +1544,7 @@ def collect_db_dump(request, duthosts):
     yield
     collect_db_dump_on_duts(request, duthosts)
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def verify_new_core_dumps(duthost):
     if "20191130" in duthost.os_version:
         pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
