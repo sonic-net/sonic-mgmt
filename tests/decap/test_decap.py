@@ -72,29 +72,45 @@ def ip_ver(request):
         "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
     }
 
+@pytest.fixture(params=["lo", "PortChannel", "PhysicalPort"], scope='module')
+def get_ips(request, duthosts, duts_running_config_facts, tbinfo):
+    interface = request.param
+    if interface == "lo":
+        interface_name = "LOOPBACK_INTERFACE"
+    elif interface == "PortChannel" and tbinfo["topo"]["type"] == "t0":
+        interface_name = "PORTCHANNEL_INTERFACE"
+    elif interface == "PhysicalPort" and tbinfo["topo"]["type"] == "t1":
+        interface_name = "INTERFACE"
+    else:
+        interface_name = ""
+
+    interface_ips = []
+    interface_ipv6s = []
+
+    if interface:
+        for duthost in duthosts:
+            cfg_facts = duts_running_config_facts[duthost.hostname]
+            interfaces = cfg_facts[0][interface_name]
+
+            for interface in interfaces:
+                interface_ip = None
+                interface_ipv6 = None
+
+                for addr in interfaces[interface]:
+                    ip = IPNetwork(addr).ip
+                    if ip.version == 4 and not interface_ip:
+                        interface_ip = str(ip)
+                    elif ip.version == 6 and not interface_ipv6:
+                        interface_ipv6 = str(ip)
+                interface_ips.append(interface_ip)
+                interface_ipv6s.append(interface_ipv6)
+    return {'ips': interface_ips, 'ipv6s': interface_ipv6s}
+
+
+
 
 @pytest.fixture(scope='module')
-def loopback_ips(duthosts, duts_running_config_facts):
-    lo_ips = []
-    lo_ipv6s = []
-    for duthost in duthosts:
-        cfg_facts = duts_running_config_facts[duthost.hostname]
-        lo_ip = None
-        lo_ipv6 = None
-        # Loopback0 ip is same on all ASICs
-        for addr in cfg_facts[0]["LOOPBACK_INTERFACE"]["Loopback0"]:
-            ip = IPNetwork(addr).ip
-            if ip.version == 4 and not lo_ip:
-                lo_ip = str(ip)
-            elif ip.version == 6 and not lo_ipv6:
-                lo_ipv6 = str(ip)
-        lo_ips.append(lo_ip)
-        lo_ipv6s.append(lo_ipv6)
-    return {'lo_ips': lo_ips, 'lo_ipv6s': lo_ipv6s}
-
-
-@pytest.fixture(scope='module')
-def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files, single_fib_for_duts):
+def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, get_ips, fib_info_files, single_fib_for_duts):
 
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
@@ -107,7 +123,7 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     }
 
     setup_info.update(ip_ver)
-    setup_info.update(loopback_ips)
+    setup_info.update(get_ips)
     logger.info(json.dumps(setup_info, indent=2))
 
     # Remove default tunnel
@@ -119,38 +135,41 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     restore_default_decap_cfg(duthosts)
 
 
-def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, op):
+def apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, op):
 
     decap_conf_template = Template(open("../ansible/roles/test/templates/decap_conf.j2").read())
 
     # apply test decap configuration (SET or DEL)
     for idx, duthost in enumerate(duthosts):
-        decap_conf_vars = {
-            'lo_ip': loopback_ips['lo_ips'][idx],
-            'lo_ipv6': loopback_ips['lo_ipv6s'][idx],
-            'ttl_mode': ttl_mode,
-            'dscp_mode': dscp_mode,
-            'ecn_mode': ecn_mode,
-            'op': op,
-        }
-        decap_conf_vars.update(ip_ver)
-        duthost.copy(
-            content=decap_conf_template.render(**decap_conf_vars),
-            dest='/tmp/decap_conf_{}.json'.format(op))
+        ips = get_ips['ips']
+        ipv6s = get_ips['ipv6s']
+        if ips and ipv6s:
+            decap_conf_vars = {
+                'ip': get_ips['ips'][idx],
+                'ipv6': get_ips['ipv6s'][idx],
+                'ttl_mode': ttl_mode,
+                'dscp_mode': dscp_mode,
+                'ecn_mode': ecn_mode,
+                'op': op,
+            }
+            decap_conf_vars.update(ip_ver)
+            duthost.copy(
+                content=decap_conf_template.render(**decap_conf_vars),
+                dest='/tmp/decap_conf_{}.json'.format(op))
 
-        for asic_id in duthost.get_frontend_asic_ids():
-            swss = 'swss{}'.format(asic_id if asic_id is not None else '')
-            cmds = [
-                'docker cp /tmp/decap_conf_{}.json {}:/decap_conf_{}.json'.format(op, swss, op),
-                'docker exec {} swssconfig /decap_conf_{}.json'.format(swss, op),
-                'docker exec {} rm /decap_conf_{}.json'.format(swss, op)
-            ]
-            duthost.shell_cmds(cmds=cmds)
-        duthost.shell('rm /tmp/decap_conf_{}.json'.format(op))
+            for asic_id in duthost.get_frontend_asic_ids():
+                swss = 'swss{}'.format(asic_id if asic_id is not None else '')
+                cmds = [
+                    'docker cp /tmp/decap_conf_{}.json {}:/decap_conf_{}.json'.format(op, swss, op),
+                    'docker exec {} swssconfig /decap_conf_{}.json'.format(swss, op),
+                    'docker exec {} rm /decap_conf_{}.json'.format(swss, op)
+                ]
+                duthost.shell_cmds(cmds=cmds)
+            duthost.shell('rm /tmp/decap_conf_{}.json'.format(op))
 
 
 @pytest.fixture
-def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
+def decap_config(duthosts, ttl_dscp_params, ip_ver, get_ips):
     ecn_mode = "copy_from_outer"
     ttl_mode = ttl_dscp_params['ttl']
     dscp_mode = ttl_dscp_params['dscp']
@@ -158,12 +177,12 @@ def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
         ecn_mode = 'standard'
 
     # Add test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+    apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
     yield ttl_mode, dscp_mode
 
     # Remove test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
+    apply_decap_cfg(duthosts, ip_ver, get_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
 
 
 def set_mux_side(tbinfo, mux_server_url, side):
@@ -178,7 +197,6 @@ def set_mux_side(tbinfo, mux_server_url, side):
 def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
 
-
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_server_url, set_mux_random):
 
     setup_info = setup_teardown
@@ -189,24 +207,27 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_serv
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-    ptf_runner(ptfhost,
-               "ptftests",
-               "IP_decap_test.DecapPacketTest",
-                platform_dir="ptftests",
-                params={"outer_ipv4": setup_info["outer_ipv4"],
-                        "outer_ipv6": setup_info["outer_ipv6"],
-                        "inner_ipv4": setup_info["inner_ipv4"],
-                        "inner_ipv6": setup_info["inner_ipv6"],
-                        "lo_ips": setup_info["lo_ips"],
-                        "lo_ipv6s": setup_info["lo_ipv6s"],
-                        "router_macs": setup_info["router_macs"],
-                        "ttl_mode": ttl_mode,
-                        "dscp_mode": dscp_mode,
-                        "ignore_ttl": setup_info["ignore_ttl"],
-                        "max_internal_hops": setup_info["max_internal_hops"],
-                        "fib_info_files": setup_info["fib_info_files"],
-                        "single_fib_for_duts": setup_info["single_fib_for_duts"],
-                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url)
-                        },
-                qlen=PTFRUNNER_QLEN,
-                log_file=log_file)
+    ips = setup_info["ips"]
+    ipv6s = setup_info["ipv6s"]
+    if ips and ipv6s:
+        ptf_runner(ptfhost,
+                "ptftests",
+                "IP_decap_test.DecapPacketTest",
+                    platform_dir="ptftests",
+                    params={"outer_ipv4": setup_info["outer_ipv4"],
+                            "outer_ipv6": setup_info["outer_ipv6"],
+                            "inner_ipv4": setup_info["inner_ipv4"],
+                            "inner_ipv6": setup_info["inner_ipv6"],
+                            "ips": setup_info["ips"],
+                            "ipv6s": setup_info["ipv6s"],
+                            "router_macs": setup_info["router_macs"],
+                            "ttl_mode": ttl_mode,
+                            "dscp_mode": dscp_mode,
+                            "ignore_ttl": setup_info["ignore_ttl"],
+                            "max_internal_hops": setup_info["max_internal_hops"],
+                            "fib_info_files": setup_info["fib_info_files"],
+                            "single_fib_for_duts": setup_info["single_fib_for_duts"],
+                            "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url)
+                            },
+                    qlen=PTFRUNNER_QLEN,
+                    log_file=log_file)

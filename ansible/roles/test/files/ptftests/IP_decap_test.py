@@ -11,16 +11,16 @@ topology:       Supports all the variations of t0 and t1 topologies.
 
 Usage:          Examples of how to start the test
                 ptf --test-dir /root/ptftests IP_decap_test.DecapPacketTest --platform-dir ptftests --qlen=1000 \
-                    --platform remote -t 'lo_ipv6s=["fc00:1::32", "fc00:1::33"];ttl_mode="pipe";dscp_mode="uniform";\
-                    lo_ips=["10.1.0.32", "10.1.0.33"];ignore_ttl=False;router_macs=["d4:af:f7:4d:a5:4c", \
+                    --platform remote -t 'ipv6s=["fc00:1::32", "fc00:1::33"];ttl_mode="pipe";dscp_mode="uniform";\
+                    ips=["10.1.0.32", "10.1.0.33"];ignore_ttl=False;router_macs=["d4:af:f7:4d:a5:4c", \
                     "d4:af:f7:4d:a8:64"];max_internal_hops=0;outer_ipv6=True;outer_ipv4=True;inner_ipv4=True;\
                     inner_ipv6=True;fib_info_files=["/root/fib_info_dut0.txt", "/root/fib_info_dut1.txt"];\
                     ptf_test_port_map="/root/ptf_test_port_map.json"' --relax --debug info \
                     --log-file /tmp/decap.debug.log
 
 Parameters:     fib_info_files - The fib_info files location
-                lo_ips -  The loop_back IPs that are configured in the decap rule
-                lo_ipv6s -  The loop_back IPv6 IPs that are configured in the decap rule
+                ips -  The IPs that are configured in the decap rule
+                ipv6s -  The IPv6 IPs that are configured in the decap rule
                 router_macs - The mac addresses of the DUTs.
                 dscp_mode - The rule for the dscp parameter in the decap packet that is configured in the JSON file
                             ('pipe' for inner and 'uniform' for outer)
@@ -91,8 +91,8 @@ class DecapPacketTest(BaseTest):
         self.test_inner_ipv4 = self.test_params.get('inner_ipv4', True)
         self.test_inner_ipv6 = self.test_params.get('inner_ipv6', True)
 
-        self.lo_ips = self.test_params.get('lo_ips')
-        self.lo_ipv6s = self.test_params.get('lo_ipv6s')
+        self.ips = self.test_params.get('ips')
+        self.ipv6s = self.test_params.get('ipv6s')
         self.router_macs = self.test_params.get('router_macs')
         self.dscp_mode = self.test_params.get('dscp_mode')
         self.ttl_mode = self.test_params.get('ttl_mode')
@@ -208,8 +208,8 @@ class DecapPacketTest(BaseTest):
         target_mac = self.ptf_test_port_map[str(src_port)]['target_mac']  # Outer dest mac
 
         active_dut_index = int(self.ptf_test_port_map[str(src_port)]['target_dut'])
-        lo_ip = self.lo_ips[active_dut_index]
-        lo_ipv6 = self.lo_ipv6s[active_dut_index]
+        ip = self.ips[active_dut_index]
+        ipv6 = self.ipv6s[active_dut_index]
 
         # Set DSCP value for the inner layer
         dscp_in = self.DSCP_RANGE[self.dscp_in_idx]
@@ -283,7 +283,7 @@ class DecapPacketTest(BaseTest):
                                 eth_dst=target_mac,
                                 eth_src=src_mac,
                                 ip_src='1.1.1.1',
-                                ip_dst=lo_ip,
+                                ip_dst=ip,
                                 ip_tos=tos_out,
                                 ip_ttl=outer_ttl,
                                 inner_frame=inner_pkt)
@@ -292,7 +292,7 @@ class DecapPacketTest(BaseTest):
                                 eth_dst=target_mac,
                                 eth_src=src_mac,
                                 ipv6_src='1::1',
-                                ipv6_dst=lo_ipv6,
+                                ipv6_dst=ipv6,
                                 ipv6_tc=tc_out,
                                 ipv6_hlim=outer_ttl,
                                 inner_frame=inner_pkt)

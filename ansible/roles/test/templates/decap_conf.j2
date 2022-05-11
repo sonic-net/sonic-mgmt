@@ -3,7 +3,7 @@
         {
                 "TUNNEL_DECAP_TABLE:TEST_IPINIP_V4_TUNNEL" : {
                         "tunnel_type":"IPINIP",
-                        "dst_ip":"{{ lo_ip }}",
+                        "dst_ip":"{{ ip }}",
                         "dscp_mode":"{{ dscp_mode }}",
                         "ecn_mode":"{{ ecn_mode }}",
                         "ttl_mode":"{{ ttl_mode }}"
@@ -17,7 +17,7 @@
         {
                 "TUNNEL_DECAP_TABLE:TEST_IPINIP_V6_TUNNEL" : {
                         "tunnel_type":"IPINIP",
-                        "dst_ip":"{{ lo_ipv6 }}",
+                        "dst_ip":"{{ ipv6 }}",
                         "dscp_mode":"{{ dscp_mode }}",
                         "ecn_mode":"{{ ecn_mode }}",
                         "ttl_mode":"{{ ttl_mode }}"
