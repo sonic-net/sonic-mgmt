@@ -60,7 +60,7 @@ def setup_telemetry_forpyclient(duthost):
 def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
-    cmdFormat = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
+    cmdFormat = 'python '+ GNXI_PATH + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
@@ -73,9 +73,10 @@ def assert_equal(actual, expected, message):
     pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
 
 @pytest.fixture(scope="module", autouse=True)
-def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
+def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname, ptfhost):
     """If telemetry docker is available in image then return true
     """
+    global GNXI_PATH
     docker_out_list = []
     duthost = duthosts[rand_one_dut_hostname]
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
@@ -83,6 +84,18 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
+
+    # gnxi's location is updated from /gnxi to /root/gnxi
+    # in RP https://github.com/Azure/sonic-buildimage/pull/10599.
+    # But old docker-ptf images don't have this update,
+    # it should still call /gnxi files
+    # For avoiding this conflict, check both positions
+    # Add it in this autouse fixture to make sure to set GNXI_PATH before test
+    path_exists = ptfhost.stat(path="/root/gnxi/")
+    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
+        GNXI_PATH = "/root/gnxi/"
+    else:
+        GNXI_PATH = "/gnxi/"
 
 @pytest.fixture
 def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
@@ -101,7 +114,7 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
 
     # pyclient should be available on ptfhost. If it was not available, then fail pytest.
-    file_exists = ptfhost.stat(path="/root/gnxi/gnmi_cli_py/py_gnmicli.py")
+    file_exists = ptfhost.stat(path=GNXI_PATH + "gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
 
 def skip_201911_and_older(duthost):
@@ -160,7 +173,7 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
 
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
+    cmd = 'python ' + GNXI_PATH + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
@@ -191,7 +204,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
+    cmd = 'python '+ GNXI_PATH + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
