@@ -39,7 +39,6 @@ MONIT_RESTART_THRESHOLD_SECS = 320
 MONIT_CHECK_INTERVAL_SECS = 5
 
 
-# Helper functions
 def get_dict_stdout(gnmi_out, certs_out):
     """ Extracts dictionary from redis output.
     """
@@ -60,7 +59,7 @@ def get_list_stdout(cmd_out):
 
 
 def setup_telemetry_forpyclient(duthost):
-    """ Set client_auth=false. This is needed for pyclient to sucessfully set up channel with gnmi server.
+    """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gNMI server.
         Restart telemetry process
     """
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
@@ -175,7 +174,7 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
 
 
 def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
-    """Run pyclient from ptfdocker and show gnmi server outputself.
+    """Run pyclient from ptfdocker and show gnmi server output.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -268,7 +267,7 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
 
 def run_gnmi_client(ptfhost, dut_ip):
     """Runs python gNMI client in the corresponding PTF docker to query valid/invalid
-    tables in 'STATE_DB'.
+    tables in 'STATE_DB' on the DuT.
 
     Args:
         pfthost: PTF docker binding to the selected DuT.
@@ -305,7 +304,7 @@ def customize_monit_config_files(duthost, temp_config_line):
 
     Args:
         duthost: The AnsibleHost object of DuT.
-        temp_config_line: A stirng to replace the initial Monit configuration.
+        temp_config_line: A string to replace the initial Monit configuration.
 
     Returns:
         None.
@@ -431,13 +430,13 @@ def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_stre
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
 
-
+@pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("test_mem_spike_setup_and_cleanup",
                          ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                          indirect=["test_mem_spike_setup_and_cleanup"])
 def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setup_and_cleanup):
-    """Test whether telemetry container will be restarted or not by Monit if python gNMI client
-    continuously creates TCP connections but did not explicitly close them.
+    """Test whether memory usage of telemetry container will increase and be restarted
+    or not by Monit if python gNMI client continuously creates channels with gNMI server.
 
     Args:
         duthosts: list of DUTs.
