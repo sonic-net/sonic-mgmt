@@ -248,7 +248,8 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     """
     ignoreRegex = [
         ".*snmp#snmp-subagent.*",
-        ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*"
+        ".*kernel reports TIME_ERROR: 0x4041: Clock Unsynchronized.*",
+        ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
