@@ -1421,6 +1421,7 @@
   ptf: svc1-3
   ptf_ip: 10.206.144.140/24
   ptf_ipv6:
+  netns_mgmt_ip: 10.206.144.141/24
   server: server_svc_1
   vm_base: VM10048
   dut:
@@ -1432,11 +1433,12 @@
 
 - conf-name: vmsvc1-dual-t0-7050-2
   group-name: svc1-4
-  topo: dualtor
+  topo: dualtor-mixed
   ptf_image_name: docker-ptf
   ptf: svc1-4
-  ptf_ip: 10.206.144.141/24
+  ptf_ip: 10.206.144.142/24
   ptf_ipv6:
+  netns_mgmt_ip: 10.206.144.143/24
   server: server_svc_1
   vm_base: VM10052
   dut:
