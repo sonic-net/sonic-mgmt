@@ -67,9 +67,11 @@ def setup_env(duthosts, rand_one_dut_hostname, golden_config_exists_on_dut):
 
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
-    # Restore Golden Config after test.
+    # Restore Golden Config after test, else cleanup test file.
     if golden_config_exists_on_dut:
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
+    else:
+        duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
     config_reload(duthost)
