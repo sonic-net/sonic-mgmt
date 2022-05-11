@@ -30,7 +30,7 @@ POST_CHECK_THRESHOLD_SECS = 360
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
@@ -416,7 +416,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
         duthost, container_autorestart_states, up_bgp_neighbors
     )
     if not (critical_proceses and bgp_check):
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True)
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
         processes_status = duthost.all_critical_process_status()
@@ -424,7 +424,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
             {
                 k:{
                     "status": v["status"],
-                    "exited_critical_process": processes["exited_critical_process"]
+                    "exited_critical_process": v["exited_critical_process"]
                 }
             } for k, v in processes_status.items() if v[
                 "status"
