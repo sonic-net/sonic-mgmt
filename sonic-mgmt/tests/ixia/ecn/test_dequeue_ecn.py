@@ -57,7 +57,19 @@ def test_dequeue_ecn(request,
     pmax = 100
     pkt_size = 1024
     pkt_cnt = 100
+    pkt_to_check = 0
 
+    cisco_platform = (duthost.facts['asic_type'] == "cisco-8000")
+    if cisco_platform:
+        oq_cell_count = 100      # Number of cells in OQ for this lossless priority 
+        cell_size = 384
+        cell_per_pkt = (pkt_size + cell_size - 1) // cell_size
+        margin_cells = 25
+        margin = margin_cells // cell_per_pkt
+        pkt_to_oq = (oq_cell_count//cell_per_pkt) + margin # Packets forwarded to OQ
+        pkt_to_check = pkt_to_oq + 1
+    else:
+        cell_size = 0
     ip_pkts = run_ecn_test(api=ixia_api,
                            testbed_config=testbed_config,
                            port_config_list=port_config_list,
@@ -80,7 +92,7 @@ def test_dequeue_ecn(request,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
 
     """ Check if the first packet is marked """
-    pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
+    pytest_assert(is_ecn_marked(ip_pkts[pkt_to_check]), "The {}th packet should be marked".format(pkt_to_check))
 
     """ Check if the last packet is not marked """
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
