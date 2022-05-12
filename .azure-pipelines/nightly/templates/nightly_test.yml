@@ -258,7 +258,7 @@ stages:
                 fi
                 cd ansible
 
-                http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt
+                http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
                 http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
                 sleep 180
             env:
