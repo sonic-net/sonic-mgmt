@@ -30,6 +30,9 @@ class QosBase:
     buffer_model_initialized = False
     buffer_model = None
 
+    dualtor_ports = set({})
+    dualtor_ports_initialized = False
+
     def isBufferInApplDb(self, dut_asic):
         if not self.buffer_model_initialized:
             self.buffer_model = dut_asic.run_redis_cmd(
@@ -48,6 +51,44 @@ class QosBase:
                 )
             )
         return self.buffer_model
+
+    def initDualTorPorts(self, dut_asic):
+        # Fetch dual ToR ports
+        metadata = dut_asic.run_redis_cmd(argv = ["redis-cli", "-n", "4", "hgetall", "DEVICE_METADATA|localhost"])
+        if "LeafRouter" in metadata:
+            expected_neighbor_type = "ToRRouter"
+            neighbor_suffix = "T0"
+        elif "ToRRouter" in metadata and "DualToR" in metadata:
+            expected_neighbor_type = "LeafRouter"
+            neighbor_suffix = "T1"
+        else:
+            self.dualtor_ports_initialized = True
+            return
+        device_neighbor_keys = dut_asic.run_redis_cmd(argv = ["redis-cli", "-n", "4", "keys", "DEVICE_NEIGHBOR|*"])
+        neighbors = {}
+        for key in device_neighbor_keys:
+            neighbor = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hget", key, "name"])
+            if neighbor and neighbor[0][-2:] == neighbor_suffix:
+                neighbor_key = "DEVICE_NEIGHBOR_METADATA|" + neighbor[0]
+                neighbor_type = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hget", neighbor_key, "type"])
+                if expected_neighbor_type  in neighbor_type:
+                    self.dualtor_ports.add(key.split('|')[1])
+
+        tcs = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hmget", "DSCP_TO_TC_MAP|AZURE", "6", "2", "5"])
+        dualtor_scenario_tcs = ["6", "2", "1"]
+        normal_scenario_tcs = ["1", "1", "2"]
+        if tcs == dualtor_scenario_tcs:
+            self.dualtor_scenario = True
+        elif tcs == normal_scenario_tcs:
+            self.dualtor_scenario = False
+        else:
+            pytest_assert(False, "Wrong DSCP_TO_TC map")
+        self.dualtor_ports_initialized = True
+
+    def isPortDualTor(self, dut_asic, dstport):
+        if not self.dualtor_ports_initialized:
+            self.initDualTorPorts(dut_asic);
+        return dstport in self.dualtor_ports
 
     @pytest.fixture(scope='class', autouse=True)
     def dutTestParams(self, dut_test_params):
@@ -493,6 +534,10 @@ class QosSaiBase(QosBase):
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
+        if not self.dualtor_ports_initialized:
+            self.initDualTorPorts(dut_asic);
+        dualTorPortIndexes = []
+
         testPortIds = []
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
@@ -518,6 +563,7 @@ class QosSaiBase(QosBase):
                 intf_map = mgFacts["minigraph_vlan_sub_interfaces"]
             else:
                 intf_map = mgFacts["minigraph_interfaces"]
+
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -527,6 +573,8 @@ class QosSaiBase(QosBase):
                         if 'vlan' in portConfig:
                             portIpMap['vlan_id'] = portConfig['vlan']
                         dutPortIps.update({portIndex: portIpMap})
+                        if intf in self.dualtor_ports:
+                            dualTorPortIndexes.append(portIndex)
 
             testPortIps = self.__assignTestPortIps(mgFacts)
 
@@ -593,6 +641,10 @@ class QosSaiBase(QosBase):
         except KeyError:
             pass
 
+        dualTor = request.config.getoption("--qos_dual_tor")
+        if dualTor:
+            testPortIds = dualTorPortIndexes
+
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
         yield {
             "dutInterfaces" : {
@@ -603,7 +655,9 @@ class QosSaiBase(QosBase):
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic" : dutAsic,
-            "dutTopo" : dutTopo
+            "dutTopo" : dutTopo,
+            "dualTor" : request.config.getoption("--qos_dual_tor"),
+            "dualTorScenario" : self.dualtor_scenario
         }
 
     @pytest.fixture(scope='class')
@@ -878,7 +932,8 @@ class QosSaiBase(QosBase):
                                                        ingressLossyProfile,
                                                        egressLosslessProfile,
                                                        egressLossyProfile,
-                                                       sharedHeadroomPoolSize
+                                                       sharedHeadroomPoolSize,
+                                                       dutConfig["dualTor"]
             )
             qosParams = qpm.run()
         else:
@@ -1085,13 +1140,23 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+
+        if "dynamic" in self.isBufferInApplDb(dut_asic):
+            if self.isPortDualTor(dut_asic, srcport):
+                pgs = "2-4"
+            else:
+                pgs = "3-4"
+        else:
+            pgs = "3"
+
         yield self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
-            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
-            "3-4"
+            srcport,
+            pgs
         )
 
     @pytest.fixture(scope='class', autouse=True)
@@ -1149,13 +1214,20 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+
+        if self.isPortDualTor(dut_asic, srcport):
+            queues = "2-4"
+        else:
+            queues = "3-4"
+
         yield self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
-            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
-            "3-4"
+            srcport,
+            queues
         )
 
     @pytest.fixture(scope='class', autouse=True)
@@ -1181,13 +1253,20 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+
+        if self.isPortDualTor(dut_asic, srcport):
+            queues = "0-1"
+        else:
+            queues = "0-2"
+
         yield self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
-            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
-            "0-2"
+            srcport,
+            queues
         )
 
     @pytest.fixture(scope='class')
