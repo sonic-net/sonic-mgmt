@@ -155,7 +155,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log")
+                   log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log", is_python3=True)
 
         for message in messages:
             get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
@@ -184,7 +184,7 @@ def test_dhcp_relay_default(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_r
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist):
@@ -224,7 +224,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist):
@@ -275,4 +275,4 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)

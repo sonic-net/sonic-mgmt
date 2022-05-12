@@ -754,10 +754,6 @@ class BaseEverflowTest(object):
             inner_frame=payload
         )
 
-        #Add vendor specific ttl check ,reused pkts in mirror session has 1 decrement in TTL
-        if duthost.facts["asic_type"] in ["cisco-8000"] and (int(mirror_session["session_ttl"]) >= 1):
-            expected_packet.ttl = (int(mirror_session["session_ttl"]) -1)
-
         expected_packet["GRE"].proto = mirror_session["session_gre"]
 
         expected_packet = Mask(expected_packet)
