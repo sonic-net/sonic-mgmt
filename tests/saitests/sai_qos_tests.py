@@ -2049,11 +2049,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         iterations = int(self.test_params['iterations'])
         margin = int(self.test_params['pkts_num_margin'])
 
-        hwsku = self.test_params['hwsku']
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-
-        # get counter names to query
-        ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # Prepare IP packet data
         ttl = 64
@@ -2081,7 +2077,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg_dropped_cntrs_base = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
 
                 # Send packets to trigger PFC
-                print >> sys.stderr, "sending {} packets to trigger PFC".format(pkts_num_trig_pfc)
+                print >> sys.stderr, "Iteration {}/{}, sending {} packets to trigger PFC".format(test_i + 1, iterations, pkts_num_trig_pfc)
                 send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
 
                 # Account for leakout
