@@ -55,14 +55,10 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe]:
   skip:
     reason: "Not supported uniform ttl mode"
-    conditions:
-      -
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
   skip:
     reason: "Not supported uniform ttl mode"
-    conditions:
-      -
 
 #######################################
 #####         dhcpv6_relay        #####
