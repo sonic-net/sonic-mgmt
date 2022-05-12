@@ -194,7 +194,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mu
                     qlen=PTFRUNNER_QLEN,
                     log_file=log_file)
     except Exception as detail:
-        logger.error("Except: {}".format(detail))
+        raise Exception(detail)
     finally:
         # Remove test decap configuration
         apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
