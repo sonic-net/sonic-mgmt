@@ -261,8 +261,8 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
 """
 
 def prepare_autonegtest_params(duthosts, fanouthosts):
-    from tests.common.helpers.dut_ports import list_dut_fanout_connections
-
+    from tests.common.platform.device_utils import list_dut_fanout_connections
+    
     cadidate_test_ports = {}
 
     for duthost in duthosts:

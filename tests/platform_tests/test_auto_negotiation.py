@@ -14,7 +14,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
-from tests.common.helpers.dut_ports import list_dut_fanout_connections
+from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import skip_release
 
 pytestmark = [
