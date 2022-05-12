@@ -364,6 +364,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
 
@@ -398,6 +400,10 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig[bufPool]["cell_size"],
             "buf_pool_roid": buf_pool_roid
         })
+
+        if "packet_size" in qosConfig[bufPool].keys():
+            testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
