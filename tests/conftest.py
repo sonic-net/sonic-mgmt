@@ -1553,6 +1553,22 @@ def collect_db_dump(request, duthosts):
     yield
     collect_db_dump_on_duts(request, duthosts)
 
+@pytest.fixture(scope="module", autouse=True)
+def verify_new_core_dumps(duthost):
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    
+    yield
+    if "20191130" in duthost.os_version:
+        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if int(coredumps_count) > int(pre_existing_cores):
+        pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
+            coredumps_count))
+
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
     Check that a packet is received on _any_ of the specified ports belonging to
