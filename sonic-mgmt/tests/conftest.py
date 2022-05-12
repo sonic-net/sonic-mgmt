@@ -42,6 +42,7 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
+from tests.macsec import MacsecPlugin
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
@@ -62,9 +63,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
                   'tests.common.dualtor',
-                  'tests.vxlan',
                   'tests.decap',
-                  'tests.macsec',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark')
 
@@ -149,6 +148,19 @@ def pytest_addoption(parser):
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
 
+    ############################
+    #   macsec options         #
+    ############################
+    parser.addoption("--enable_macsec", action="store_true", default=False,
+                     help="Enable macsec on some links of testbed")
+    parser.addoption("--macsec_profile", action="store", default="all",
+                     type=str, help="profile name list in macsec/profile.json")
+
+
+def pytest_configure(config):
+    if config.getoption("enable_macsec"):
+        config.pluginmanager.register(MacsecPlugin())
+
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
@@ -172,8 +184,7 @@ def enhance_inventory(request):
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def config_logging(request):
+def pytest_cmdline_main(config):
 
     # Filter out unnecessary pytest_ansible plugin log messages
     pytest_ansible_logger = logging.getLogger("pytest_ansible")
@@ -197,6 +208,17 @@ def config_logging(request):
     dataplane_logger = logging.getLogger("dataplane")
     if dataplane_logger:
         dataplane_logger.setLevel(logging.ERROR)
+
+
+def pytest_collection(session):
+    """Workaround to reduce messy plugin logs generated during collection only
+
+    Args:
+        session (ojb): Pytest session object
+    """
+    if session.config.option.collectonly:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
 
 
 def get_tbinfo(request):
@@ -320,7 +342,7 @@ def selected_rand_one_per_hwsku_hostname(request):
     """
     Return the selected hostnames for the given module.
     This fixture will return the list of selected dut hostnames
-    when another fixture like enum_rand_one_per_hwsku_hostname 
+    when another fixture like enum_rand_one_per_hwsku_hostname
     or enum_rand_one_per_hwsku_frontend_hostname is used.
     """
     if request.module in _hosts_per_hwsku_per_module:
@@ -1530,6 +1552,22 @@ def collect_db_dump(request, duthosts):
     '''
     yield
     collect_db_dump_on_duts(request, duthosts)
+
+@pytest.fixture(scope="module", autouse=True)
+def verify_new_core_dumps(duthost):
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    
+    yield
+    if "20191130" in duthost.os_version:
+        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+    else:
+        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
+    if int(coredumps_count) > int(pre_existing_cores):
+        pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
+            coredumps_count))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """

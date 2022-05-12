@@ -567,3 +567,30 @@ class MultiAsicSonicHost(object):
                 config_facts.get("BGP_INTERNAL_NEIGHBOR", {})
             )
         return bgp_internal_neighbors
+
+    def docker_cmds_on_all_asics(self, cmd, container_name):
+        """This function iterate for ALL asics and execute cmds"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for n in range(duthost.facts['num_asic']):
+                container = container_name + str(n)
+                self.shell(argv=["docker", "exec", container, "bash", "-c", cmd])
+        else:
+            self.shell(argv=["docker", "exec", container_name, "bash", "-c", cmd])
+
+    def docker_copy_to_all_asics(self, container_name, src, dst):
+        """This function copy from host to ALL asics"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for n in range(duthost.facts['num_asic']):
+                container = container_name + str(n)
+                self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
+        else:
+            self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
+
+    def docker_copy_from_asic(self, container_name, src, dst, asic_id = 0):
+        """This function copy from one asic to host"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            container_name += str(asic_id)
+        self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))

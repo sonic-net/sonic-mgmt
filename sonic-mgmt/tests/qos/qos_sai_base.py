@@ -925,14 +925,7 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost.shell(argv=[
-            "docker",
-            "exec",
-            "swss",
-            "bash",
-            "-c",
-            "swssconfig /etc/swss/config.d/switch.json"
-        ])
+        duthost.docker_cmds_on_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
 
     def __deleteTmpSwitchConfig(self, duthost):
         """
@@ -966,21 +959,22 @@ class QosSaiBase(QosBase):
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
+        duthost.docker_copy_from_asic("swss", "/etc/swss/config.d/switch.json", "/tmp")
         duthost.replace(
             dest='/tmp/switch.json',
             regexp='"fdb_aging_time": ".*"',
             replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
             backup=True
         )
-        duthost.shell(argv=["docker", "cp", "/tmp/switch.json", "swss:/etc/swss/config.d/switch.json"])
+        duthost.docker_copy_to_all_asics("swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json")
         self.__loadSwssConfig(duthost)
 
         yield
 
         result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
         if result["matched"] > 0:
-            duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
+            src = result["files"][0]["path"]
+            duthost.docker_copy_to_all_asics("swss", src, "/etc/swss/config.d/switch.json")
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 

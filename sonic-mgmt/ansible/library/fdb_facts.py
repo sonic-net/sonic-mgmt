@@ -25,11 +25,13 @@ $ fdbshow
 The output:
 {
     '24:8A:07:4C:F5:06': 
-        {
-            'vlan': '1000',
-            'type': 'Dynamic',
-            'port': 'Ethernet24'
-        }
+        [
+            {
+                'vlan': '1000',
+                'type': 'Dynamic',
+                'port': 'Ethernet24'
+            }
+        ]
 }
 
 '''
@@ -61,11 +63,13 @@ class FdbModule(object):
             if not d[0].strip().isdigit():
                 continue
             mac = d[2].strip()
-            ret[mac] = {
+            val = {
                     'vlan': int(d[1].strip()) if d[1] != "" else 0,
                     'port': d[3].strip(),
                     'type': d[4].strip()
                 }
+            ret[mac] = ret.get(mac, [])
+            ret[mac].append(val)
 
         self.module.exit_json(ansible_facts=ret)
 

@@ -60,7 +60,10 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
         mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
-    check_intf_presence_command = 'show interface transceiver presence {}'
+    if dut.is_multi_asic:
+        check_intf_presence_command = 'show interface transceiver presence -n {} {}'.format(namespace, {})
+    else:
+        check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"

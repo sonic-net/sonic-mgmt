@@ -153,6 +153,7 @@
   - name: set default dualtor facts
     set_fact:
       dual_tor_facts: {}
+      mux_cable_facts: {}
     when: "'dualtor' not in topo"
 
   - name: gather dual ToR information
@@ -165,6 +166,12 @@
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
+
+  - name: gather mux cable information
+    mux_cable_facts:
+      topo_name: "{{ topo }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
 
   - name: generate y_cable simulator driver
     include_tasks: dualtor/config_simulated_y_cable.yml

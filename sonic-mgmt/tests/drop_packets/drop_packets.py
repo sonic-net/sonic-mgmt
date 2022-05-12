@@ -24,6 +24,8 @@ L3_COL_KEY = RX_ERR
 
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
+# Ansible config files
+LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../ansible/files")))
 
 ACL_COUNTERS_UPDATE_INTERVAL = 10
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
@@ -59,7 +61,7 @@ def sai_acl_drop_adj_enabled(rand_selected_dut):
 
 
 @pytest.fixture
-def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts):
+def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -69,14 +71,48 @@ def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts):
     'fanouthost' instance should not be used in test case logic.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
-    if not fanout:
-        pytest.skip('Did not find fanout')
+    fanout = None
+    # Check that class to handle fanout config is implemented
+    if "mellanox" == duthost.facts["asic_type"]:
+        fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
+        if not is_mellanox_fanout(duthost, localhost):
+            fanout = None
+
     yield fanout
     if fanout:
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
 
+def is_mellanox_devices(hwsku):
+    """
+    A helper function to check if a given sku is Mellanox device
+    """
+    hwsku = hwsku.lower()
+    return 'mellanox' in hwsku \
+        or 'msn' in hwsku \
+        or 'mlnx' in hwsku
+
+def is_mellanox_fanout(duthost, localhost):
+    # Ansible localhost fixture which calls ansible playbook on the local host
+
+    try:
+        dut_facts = localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
+        return False
+
+    fanout_host = dut_facts["device_conn"][duthost.hostname]["Ethernet0"]["peerdevice"]
+
+    try:
+        fanout_facts = localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        return False
+
+    fanout_sku = fanout_facts['device_info'][fanout_host]['HwSku']
+    if not is_mellanox_devices(fanout_sku):
+        return False
+
+    return True
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
     fanout_obj = None

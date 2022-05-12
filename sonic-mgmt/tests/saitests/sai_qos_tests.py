@@ -155,7 +155,6 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
         max_packets = 100
         for packet_i in range(max_packets):
             send_packet(test_case, src_port_id, pkt, 1)
-            time.sleep(1)
             queue_counters = sai_thrift_read_queue_occupancy(test_case.client, dst_port_id)
             if queue_counters[queue] > queue_counters_base[queue]:
                 print >> sys.stderr, "fill_leakout_plus_one: Success, sent %d packets, queue occupancy bytes rose from %d to %d" % (packet_i + 1, queue_counters_base[queue], queue_counters[queue])
