@@ -3,7 +3,7 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.flow_counter import flow_counter_utils
-from tests.flow_counter.flow_counter_utils import check_route_flow_counter_supported # lgtm[py/unused-import]
+from tests.flow_counter.flow_counter_utils import is_route_flow_counter_supported # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +28,13 @@ added_routes = set()
 
 
 @pytest.fixture(scope='function', autouse=True)
-def skip_if_not_supported(check_route_flow_counter_supported):
+def skip_if_not_supported(is_route_flow_counter_supported):
     """Skip the test if route flow counter is not supported on this platform
 
     Args:
         rand_selected_dut (object): DUT object
     """
-    pytest_require(check_route_flow_counter_supported, 'route flow counter is not supported')
+    pytest_require(is_route_flow_counter_supported, 'route flow counter is not supported')
 
 
 @pytest.fixture(scope='function', autouse=True)
