@@ -48,15 +48,21 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
-    reason: "Not supported on backend, uniform ttl/dscp mode from 201911 release and broadcom before 202012 release"
+    reason: "Not supported on backend and broadcom before 202012 release"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (release in ['201811']) or (asic_type in ['broadcom'] and release in ['201911'])"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe]:
   skip:
-    reason: "Not supported uniform ttl/dscp mode from 201911 release and cisco-8000 all releases"
+    reason: "Not supported uniform ttl mode"
     conditions:
-      - "(release in ['201811']) or (asic_type in ['cisco-8000'])"
+      -
+
+decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
+  skip:
+    reason: "Not supported uniform ttl mode"
+    conditions:
+      -
 
 #######################################
 #####         dhcpv6_relay        #####
