@@ -28,18 +28,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-
-@pytest.fixture
-def ttl_dscp_params(duthost, supported_ttl_dscp_params):
-    if "uniform" in supported_ttl_dscp_params.values() and "201811" in duthost.os_version:
-        pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
-
-    if supported_ttl_dscp_params['dscp'] == 'pipe' and duthost.facts['asic_type'] in ['cisco-8000']:
-        pytest.skip('dscp pipe mode is currently not supported for Cisco 8000 platform')
-
-    return supported_ttl_dscp_params
-
-
 def remove_default_decap_cfg(duthosts):
     for duthost in duthosts:
         logger.info('Remove default decap cfg on {}'.format(duthost.hostname))
@@ -150,10 +138,10 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
 
 
 @pytest.fixture
-def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
+def decap_config(duthosts, supported_ttl_dscp_params, ip_ver, loopback_ips):
     ecn_mode = "copy_from_outer"
-    ttl_mode = ttl_dscp_params['ttl']
-    dscp_mode = ttl_dscp_params['dscp']
+    ttl_mode = supported_ttl_dscp_params['ttl']
+    dscp_mode = supported_ttl_dscp_params['dscp']
     if duthosts[0].facts['asic_type'] in ['mellanox']:
         ecn_mode = 'standard'
 
