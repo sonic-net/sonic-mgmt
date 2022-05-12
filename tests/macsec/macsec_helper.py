@@ -128,11 +128,11 @@ def get_mka_session(host):
     130: macsec_eth29: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
-            0: PN 1041, state on, key 0ecddfe0f462491c13400dbf7433465d
-            3: PN 2044, state off, key 0ecddfe0f462491c13400dbf7433465d
+            0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
+            3: PN 2044, state off, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
         RXSC: 525400b5be690001, state on
-            0: PN 1041, state on, key 0ecddfe0f462491c13400dbf7433465d
-            3: PN 0, state on, key 0ecddfe0f462491c13400dbf7433465d
+            0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
+            3: PN 0, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
     131: macsec_eth30: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
@@ -170,7 +170,7 @@ def get_mka_session(host):
             sc_obj = {
                 "sas": {}
             }
-            sa_pattern = r" +([0-3]): PN (\d+), state (on|off), key ([\da-fA-F]+)"
+            sa_pattern = r" +([0-3]): PN (\d+), state (on|off),.* key ([\da-fA-F]+)"
             sas = re.finditer(sa_pattern, sc.group(6))
             for sa in sas:
                 sa_obj = {
