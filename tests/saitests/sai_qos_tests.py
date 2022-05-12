@@ -2032,7 +2032,6 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
-        sonic_version = self.test_params['sonic_version']
         pg = int(self.test_params['pg'])
         queue = int(self.test_params['queue'])
         dst_port_id = int(self.test_params['dst_port_id'])
