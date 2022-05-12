@@ -132,3 +132,6 @@ r, ".* INFO systemd.*Finished Kernel crash dump capture service.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233575
 r, ".* INFO systemd.*Starting Kernel crash dump capture service.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233609
+r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
