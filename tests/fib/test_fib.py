@@ -96,7 +96,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                         "single_fib_for_duts": single_fib_for_duts},
                 log_file=log_file,
                 qlen=PTF_QLEN,
-                socket_recv_size=16384)
+                socket_recv_size=16384,
+                is_python3=True)
 
 
 def get_vlan_untag_ports(duthosts, duts_running_config_facts):
@@ -282,4 +283,5 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
                    },
             log_file=log_file,
             qlen=PTF_QLEN,
-            socket_recv_size=16384)
+            socket_recv_size=16384,
+            is_python3=True)
