@@ -16,9 +16,14 @@ def ptf_collect(host, log_file):
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0,
-               module_ignore_errors=False):
-
-    cmd = "ptf --test-dir {} {}".format(testdir, testname)
+               module_ignore_errors=False, is_python3=False):
+    # Call virtual env ptf for migrated py3 scripts.
+    # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
+    # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+    if is_python3:
+        cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+    else:
+        cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
