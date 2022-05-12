@@ -2134,10 +2134,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
             pkts_inc = (total_shared / cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
+                pkts_total = 0 # track total desired queue fill level
                 pkts_num = 1
             else:
                 pkts_num = 1 + margin
-            pkts_total = 0 # track total desired queue fill level
             fragment = 0
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
@@ -2147,13 +2147,11 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
 
-                pkts_total += pkts_num
                 if 'cisco-8000' in asic_type:
-                    # send full queue fill level
-                    pkts_num = pkts_total
                     sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
                     assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
-                    pkts_num -= 1
+                    pkts_total += pkts_num
+                    pkts_num = pkts_total - 1
 
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, queue shared: %d" % (pkts_num, expected_wm, total_shared)
 
@@ -2172,12 +2170,11 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkts_num = pkts_inc
 
-            pkts_total += pkts_num
             if 'cisco-8000' in asic_type:
-                pkts_num = pkts_total
                 sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
                 assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
-                pkts_num -= 1
+                pkts_total += pkts_num
+                pkts_num = pkts_total - 1
 
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
