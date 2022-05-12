@@ -478,6 +478,11 @@ def add_vEOS_cfg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    chan.send('unset HTTP_PROXY https_proxy http_proxy no_proxy NO_PROXY HTTPS_PROXY \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
     chan.send('./testbed-cli.sh -t testbed.csv -m veos add-topo docker-ptf password.txt\n')
     chan.settimeout(180)
     buff = ''
