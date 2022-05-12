@@ -12,8 +12,22 @@ import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from macsec_common_helper import *
-from macsec_platform_helper import *
+from macsec_common_helper import convert_on_off_to_boolean
+from macsec_platform_helper import sonic_db_cli
+
+
+__all__ = [
+    'check_wpa_supplicant_process',
+    'check_appl_db',
+    'check_mka_session',
+    'check_macsec_pkt',
+    'create_pkt',
+    'create_exp_pkt',
+    'get_appl_db',
+    'get_macsec_attr',
+    'get_mka_session',
+    'get_sci'
+]
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -116,11 +130,11 @@ def get_mka_session(host):
     130: macsec_eth29: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
-            0: PN 1041, state on, key 0ecddfe0f462491c13400dbf7433465d
-            3: PN 2044, state off, key 0ecddfe0f462491c13400dbf7433465d
+            0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
+            3: PN 2044, state off, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
         RXSC: 525400b5be690001, state on
-            0: PN 1041, state on, key 0ecddfe0f462491c13400dbf7433465d
-            3: PN 0, state on, key 0ecddfe0f462491c13400dbf7433465d
+            0: PN 1041, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
+            3: PN 0, state on, SSCI 16777216, key 0ecddfe0f462491c13400dbf7433465d
     131: macsec_eth30: protect on validate strict sc off sa off encrypt on send_sci on end_station off scb off replay off
         cipher suite: GCM-AES-128, using ICV length 16
         TXSC: 52540041303f0001 on SA 0
@@ -158,7 +172,7 @@ def get_mka_session(host):
             sc_obj = {
                 "sas": {}
             }
-            sa_pattern = r" +([0-3]): PN (\d+), state (on|off), key ([\da-fA-F]+)"
+            sa_pattern = r" +([0-3]): PN (\d+), state (on|off),.* key ([\da-fA-F]+)"
             sas = re.finditer(sa_pattern, sc.group(6))
             for sa in sas:
                 sa_obj = {

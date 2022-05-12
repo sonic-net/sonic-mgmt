@@ -1,11 +1,22 @@
 import ast
-import collections
 import re
 from multiprocessing.pool import ThreadPool
 
 import pytest
 
 from tests.common.devices.eos import EosHost
+
+
+__all__ = [
+    'find_portchannel_from_member',
+    'get_eth_ifname',
+    'get_macsec_ifname',
+    'get_portchannel',
+    'get_lldp_list',
+    'get_platform',
+    'global_cmd',
+    'sonic_db_cli'
+]
 
 
 def global_cmd(duthost, nbrhosts, cmd):
@@ -17,28 +28,6 @@ def global_cmd(duthost, nbrhosts, cmd):
         pool.apply_async(nbr["host"].command, args=(cmd, ))
     pool.close()
     pool.join()
-
-
-def find_links(duthost, tbinfo, filter):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        filter(interface, neighbor, mg_facts, tbinfo)
-
-
-def find_links_from_nbr(duthost, tbinfo, nbrhosts):
-    links = collections.defaultdict(dict)
-
-    def filter(interface, neighbor, mg_facts, tbinfo):
-        if neighbor["name"] not in nbrhosts.keys():
-            return
-        port = mg_facts["minigraph_neighbors"][interface]["port"]
-        links[interface] = {
-            "name": neighbor["name"],
-            "host": nbrhosts[neighbor["name"]]["host"],
-            "port": port
-        }
-    find_links(duthost, tbinfo, filter)
-    return links
 
 
 def sonic_db_cli(host, cmd):

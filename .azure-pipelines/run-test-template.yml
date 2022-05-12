@@ -59,6 +59,8 @@ steps:
     parent_dir=$(basename $PWD)
     docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
   displayName: "Run tests"
+  ${{ if eq(parameters.tbtype, 't0-sonic') }}:
+      continueOnError: true
 
 - script: |
     # save dut state if test fails
