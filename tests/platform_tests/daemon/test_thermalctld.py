@@ -85,16 +85,6 @@ def collect_data(duthost):
     
     return {'keys': keys, 'data': dev_data}
     
-def wait_data(duthost):
-    class shared_scope:
-        data_after_restart = {}
-    def _collect_data():
-        shared_scope.data_after_restart = collect_data(duthost)
-        return bool(shared_scope.data_after_restart['data'])
-    thermalctld_pooling_interval = 60
-    wait_until(thermalctld_pooling_interval, 6, 0, _collect_data)
-    return shared_scope.data_after_restart
-
 @pytest.fixture(scope='module')
 def data_before_restart(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
@@ -151,9 +141,6 @@ def test_pmon_thermalctld_stop_and_start_status(check_daemon_status, duthosts, r
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     
-    data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
-
 
 def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
     """
@@ -177,8 +164,6 @@ def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts, r
                           "{} expected pid is not -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
 def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -204,5 +189,3 @@ def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts, r
                           "{} expected pid is not -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
