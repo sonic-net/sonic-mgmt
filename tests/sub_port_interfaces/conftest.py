@@ -478,7 +478,8 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
         all_up_ports = set()
         for port in mg_facts['minigraph_ports'].keys():
             all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
-        src_ports = tuple(all_up_ports.difference(ptf_ports))
+        src_ports = tuple(all_up_ports.difference(set(ptf_ports.values())))
+
 
     network = u'1.1.1.0/24'
     network = ipaddress.ip_network(network)
