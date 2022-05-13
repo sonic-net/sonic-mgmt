@@ -123,10 +123,10 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-19" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet6/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-20" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-21" EndPort="enp59s0f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet22/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-24" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet24/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-24" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-25" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet25/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-26" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet26/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet27/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet24/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-28" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet53/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-29" EndPort="ens4f1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet54/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-8" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet12/1"/>
@@ -6226,10 +6226,10 @@
       <PowerControlLinkInfo EndDevice="str2-acs-serv-19" EndPort="PSU1" StartDevice="pdu-117" StartPort="14"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-20" EndPort="PSU1" StartDevice="pdu-118" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-21" EndPort="PSU1" StartDevice="pdu-118" StartPort="19"/>
-      <PowerControlLinkInfo EndDevice="str2-acs-serv-24" EndPort="PSU1" StartDevice="pdu-122" StartPort="11"/>
+      <PowerControlLinkInfo EndDevice="str2-acs-serv-24" EndPort="PSU1" StartDevice="pdu-121" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-25" EndPort="PSU1" StartDevice="pdu-122" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-26" EndPort="PSU1" StartDevice="pdu-121" StartPort="11"/>
-      <PowerControlLinkInfo EndDevice="str2-acs-serv-27" EndPort="PSU1" StartDevice="pdu-121" StartPort="12"/>
+      <PowerControlLinkInfo EndDevice="str2-acs-serv-27" EndPort="PSU1" StartDevice="pdu-122" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-28" EndPort="PSU1" StartDevice="pdu-123" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-29" EndPort="PSU1" StartDevice="pdu-123" StartPort="25"/>
       <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU1" StartDevice="pdu-111" StartPort="22"/>
