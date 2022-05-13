@@ -103,7 +103,7 @@ class RouteFlowCounterTestContext:
             return verify_route_flow_counter_stats(self.expected_stats, actual_stats)
 
 
-@pytest.fixture(scope = "session")
+@pytest.fixture(scope = "module")
 def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
     """Check if route flow counter is supported on this platform
 
