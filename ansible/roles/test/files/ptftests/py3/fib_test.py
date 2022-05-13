@@ -184,9 +184,9 @@ class FibTest(BaseTest):
 
         dst_ips = []
         dst_ips.append(ip_range.get_first_ip())
-        if ip_range.length > 1:
+        if ip_range.length() > 1:
             dst_ips.append(ip_range.get_last_ip())
-        if ip_range.length > 2:
+        if ip_range.length() > 2:
             dst_ips.append(ip_range.get_random_ip())
 
         for dst_ip in dst_ips:

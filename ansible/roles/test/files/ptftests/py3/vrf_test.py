@@ -16,11 +16,16 @@ Usage:          Examples of how to use VRF test
 #---------------------------------------------------------------------
 import logging
 import re
+import sys
 
 from ipaddress import ip_network
 from fib_test import FibTest
 import lpm
 import fib
+
+if sys.version_info[0] == 3:
+    def unicode(str):
+        return str
 
 class FwdTest(FibTest):
     _required_params = [

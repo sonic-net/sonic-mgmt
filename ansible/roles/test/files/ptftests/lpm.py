@@ -1,7 +1,12 @@
 import random
+import sys
 
 from ipaddress import ip_address, ip_network
 from SubnetTree import SubnetTree
+
+if sys.version_info[0] == 3:
+    def unicode(str):
+        return str
 
 '''
 LpmDict is a class used in FIB test for LPM and IP segmentation.

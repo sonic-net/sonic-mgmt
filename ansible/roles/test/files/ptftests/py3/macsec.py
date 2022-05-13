@@ -63,9 +63,9 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 
-__origin_dp_poll = ptf.testutils.dp_poll
-ptf.testutils.dp_poll = macsec_dp_poll
-
 if os.path.exists(MACSEC_INFO_FILE):
     with open(MACSEC_INFO_FILE, "rb") as f:
         MACSEC_INFOS = pickle.load(f)
+        if MACSEC_INFOS:
+            __origin_dp_poll = ptf.testutils.dp_poll
+            ptf.testutils.dp_poll = macsec_dp_poll

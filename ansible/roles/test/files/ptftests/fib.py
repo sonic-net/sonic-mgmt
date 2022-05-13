@@ -1,6 +1,11 @@
 import re
+import sys
 from ipaddress import ip_address, ip_network
 from lpm import LpmDict
+
+if sys.version_info[0] == 3:
+    def unicode(str):
+        return str
 
 # These subnets are excluded from FIB test
 # reference: RFC 5735 Special Use IPv4 Addresses
