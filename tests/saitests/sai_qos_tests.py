@@ -2159,6 +2159,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "Received packets: %d" % (pg_cntrs[queue] - pg_cntrs_base[queue])
             if pkts_num_fill_min:
                 assert(q_wm_res[queue] == 0)
+            elif 'cisco-8000' in asic_type:
+                assert(q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 assert(q_wm_res[queue] <= 1 * cell_size)
 
@@ -2167,7 +2169,11 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             expected_wm = 0
             total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
             pkts_inc = (total_shared / cell_occupancy) >> 2
-            pkts_num = 1 + margin
+            if 'cisco-8000' in asic_type:
+                pkts_total = 0 # track total desired queue fill level
+                pkts_num = 1
+            else:
+                pkts_num = 1 + margin
             fragment = 0
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
@@ -2176,9 +2182,20 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
+
+                if 'cisco-8000' in asic_type:
+                    sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                    pkts_total += pkts_num
+                    pkts_num = pkts_total - 1
+
                 print >> sys.stderr, "pkts num to send: %d, total pkts: %d, queue shared: %d" % (pkts_num, expected_wm, total_shared)
 
                 send_packet(self, src_port_id, pkt, pkts_num)
+
+                if 'cisco-8000' in asic_type:
+                    sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
                 time.sleep(8)
                 # these counters are clear on read, ensure counter polling
                 # is disabled before the test
@@ -2191,8 +2208,18 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkts_num = pkts_inc
 
+            if 'cisco-8000' in asic_type:
+                sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                pkts_total += pkts_num
+                pkts_num = pkts_total - 1
+
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
+
+            if 'cisco-8000' in asic_type:
+                sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
             time.sleep(8)
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
             pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
