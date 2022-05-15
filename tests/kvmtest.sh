@@ -200,7 +200,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128,256_XPN_SCI"
     popd
 }
 
@@ -230,7 +230,6 @@ test_t1_lag() {
     bgp/test_bgp_update_timer.py \
     bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
-    configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
@@ -271,19 +270,18 @@ test_multi_asic_t1_lag() {
 
 test_dualtor(){
     tgname=dualtor
-    tests="\
-    arp/test_arp_dualtor.py \
-    dualtor/test_ipinip.py \
-    dualtor/test_orch_stress.py \
-    dualtor/test_orchagent_active_tor_downstream.py \
-    dualtor/test_orchagent_mac_move.py \
-    dualtor/test_orchagent_slb.py \
-    dualtor/test_orchagent_standby_tor_downstream.py \
-    dualtor/test_server_failure.py \
-    dualtor/test_standby_tor_upstream_mux_toggle.py \
-    dualtor/test_toggle_mux.py \
-    dualtor/test_tor_ecn.py \
-    dualtor/test_tunnel_memory_leak.py "
+    tests="arp/test_arp_dualtor.py"
+#    dualtor/test_ipinip.py \
+#    dualtor/test_orch_stress.py \
+#    dualtor/test_orchagent_active_tor_downstream.py \
+#    dualtor/test_orchagent_mac_move.py \
+#    dualtor/test_orchagent_slb.py \
+#    dualtor/test_orchagent_standby_tor_downstream.py \
+#    dualtor/test_server_failure.py \
+#    dualtor/test_standby_tor_upstream_mux_toggle.py \
+#    dualtor/test_toggle_mux.py \
+#    dualtor/test_tor_ecn.py \
+#    dualtor/test_tunnel_memory_leak.py "
 #    dualtor_io/test_heartbeat_failure.py \
 #    dualtor_io/test_link_drop.py \
 #    dualtor_io/test_link_failure.py \
