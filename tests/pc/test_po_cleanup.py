@@ -54,17 +54,17 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     handle  SIGTERM gracefully
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logging.info("Disable swss/teamd Feature")
-    duthost.asic_instance(enum_asic_index).stop_service("swss")
+    logging.info("Disable swss/teamd Feature in all asics")
+    # Following will call "sudo systemctl stop swss@0", same for swss@1 ..
+    duthost.stop_service("swss")
     # Check if Linux Kernel Portchannel Interface teamdev are clean up
-    if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
-        fail_msg = "PortChannel interface still exists in kernel"
-        pytest.fail(fail_msg)
-    # Restore swss service.
-    duthost.asic_instance(enum_asic_index).start_service("swss")
-    assert wait_until(300, 20, 0, duthost.critical_services_fully_started),\
-        "Not all critical services are fully started"
-
+    for asic_id in duthost.get_asic_ids():
+        if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, asic_id):        
+            fail_msg = "PortChannel interface still exists in kernel"
+            pytest.fail(fail_msg)
+    # Restore config services
+    config_reload(duthost)
+    
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     test port channel are cleaned up correctly after config reload, with system under stress.

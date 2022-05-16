@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-YANG_IGNORED_OPTIONS    = "-i /FEATURE -i /QUEUE -i /SCHEDULER -i /BUFFER_PORT_INGRESS_PROFILE_LIST -i /BUFFER_PORT_EGRESS_PROFILE_LIST"
+YANG_IGNORED_OPTIONS    = "-i /BUFFER_PORT_INGRESS_PROFILE_LIST -i /BUFFER_PORT_EGRESS_PROFILE_LIST"
+
 
 def generate_tmpfile(duthost):
     """Generate temp file
