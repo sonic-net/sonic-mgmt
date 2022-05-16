@@ -152,7 +152,7 @@ class LogAnalyzer:
         total_dic = result["total"]
         msg_dic = result["match_messages"]
         expect_dic = result['expect_messages']
-        unused_dic = result['unused_expected_regexp']
+        unused_list = result['unused_expected_regexp']
 
         for msg_type, counter in total_dic.items():
             result_str += msg_type + ": " + str(counter) + "\n"
@@ -167,9 +167,9 @@ class LogAnalyzer:
             for expect in expect_dic:
                 result_str += '\n'.join(expect_dic[expect])
 
-        if unused_dic:
+        if unused_list:
             result_str += "\nExpected Messages that are missing:\n"
-            result_str += '\n'.join(unused_dic.values())
+            result_str += '\n'.join(unused_list)
 
         return result_str
 
