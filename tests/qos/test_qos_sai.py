@@ -757,6 +757,56 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    def testQosSaiPGDrop(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI PG drop counter
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("PG drop size test is not supported")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if "pg_drop" in dutQosConfig["param"][portSpeedCableLength].keys():
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            qosConfig = dutQosConfig["param"]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        pgDropKey = "pg_drop"
+        dst_port_id = qosConfig[pgDropKey]["dst_port_id"]
+        testParams.update({
+            "dscp": qosConfig[pgDropKey]["dscp"],
+            "ecn": qosConfig[pgDropKey]["ecn"],
+            "pg": qosConfig[pgDropKey]["pg"],
+            "queue": qosConfig[pgDropKey]["queue"],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dutConfig["testPortIps"][dst_port_id]['peer_addr'],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_trig_pfc": qosConfig[pgDropKey]["pkts_num_trig_pfc"],
+            "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
+            "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
+            "iterations": qosConfig[pgDropKey]["iterations"],
+            "hwsku":dutTestParams['hwsku']
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
+        )
+
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
