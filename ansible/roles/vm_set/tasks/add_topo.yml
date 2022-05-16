@@ -249,6 +249,12 @@
       mux_simulator_action: start
     when: "'dualtor' in topo"
 
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
   when: container_type == "PTF"
 
 - name: Save PTF image

@@ -1,5 +1,6 @@
 import ipaddress
 import math
+import os.path
 
 from ansible import errors
 
@@ -13,7 +14,8 @@ class FilterModule(object):
             'extract_hostname': extract_hostname,
             'first_n_elements': first_n_elements,
             'expand_properties': expand_properties,
-            'first_ip_of_subnet': first_ip_of_subnet
+            'first_ip_of_subnet': first_ip_of_subnet,
+            'path_join': path_join
         }
 
 
@@ -202,3 +204,8 @@ def first_ip_of_subnet(value):
         return str(subnet[1])
     else:
         return ''
+
+
+def path_join(paths):
+    """Join path strings."""
+    return os.path.join(*paths)
