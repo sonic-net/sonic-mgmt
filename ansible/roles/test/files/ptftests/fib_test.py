@@ -129,7 +129,14 @@ class FibTest(BaseTest):
 
         self.pkt_action = self.test_params.get('pkt_action', self.ACTION_FWD)
         self.ttl = self.test_params.get('ttl', 64)
-        self.ip_options = self.test_params.get('ip_options', False)
+
+        self.ip_options = False
+        ip_options_list = self.test_params.get('ip_options', False)
+        if isinstance(ip_options_list, list) and ip_options_list:
+            self.ip_options = scapy.IPOption(ip_options_list[0])
+            for opt in ip_options_list[1:]:
+                self.ip_options /= scapy.IPOption(opt)
+
         self.src_vid = self.test_params.get('src_vid', None)
         self.dst_vid = self.test_params.get('dst_vid', None)
 
