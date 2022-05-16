@@ -2078,6 +2078,92 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
+class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        pg = int(self.test_params['pg'])
+        queue = int(self.test_params['queue'])
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        # Should be set to cause at least 1 drop at ingress
+        pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
+        iterations = int(self.test_params['iterations'])
+        margin = int(self.test_params['pkts_num_margin'])
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        # Prepare IP packet data
+        ttl = 64
+        packet_length = 64
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
+
+        print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan
+        )
+
+        try:
+            pass_iterations = 0
+            assert iterations > 0, "Need at least 1 iteration"
+            for test_i in range(iterations):
+                sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+                pg_dropped_cntrs_base = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
+
+                # Send packets to trigger PFC
+                print >> sys.stderr, "Iteration {}/{}, sending {} packets to trigger PFC".format(test_i + 1, iterations, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+
+                # Account for leakout
+                if 'cisco-8000' in asic_type:
+                    queue_counters = sai_thrift_read_queue_occupancy(self.client, dst_port_id)
+                    occ_pkts = queue_counters[queue] / (packet_length + 24)
+                    leaked_pkts = pkts_num_trig_pfc - occ_pkts
+                    print >> sys.stderr, "resending leaked packets {}".format(leaked_pkts)
+                    send_packet(self, src_port_id, pkt, leaked_pkts)
+
+                # Trigger drop
+                pkt_inc = pkts_num_trig_ingr_drp + margin - pkts_num_trig_pfc
+                print >> sys.stderr, "sending {} additional packets to trigger ingress drop".format(pkt_inc)
+                send_packet(self, src_port_id, pkt, pkt_inc)
+
+                pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
+                pg_drops = pg_dropped_cntrs[pg] - pg_dropped_cntrs_base[pg]
+
+                actual_num_trig_ingr_drp = pkts_num_trig_ingr_drp + margin - (pg_drops - 1)
+                ingr_drop_diff = actual_num_trig_ingr_drp - pkts_num_trig_ingr_drp
+                if abs(ingr_drop_diff) < margin:
+                    pass_iterations += 1
+                print >> sys.stderr, "expected trig drop: {}, actual trig drop: {}, diff: {}".format(pkts_num_trig_ingr_drp, actual_num_trig_ingr_drp, ingr_drop_diff)
+
+                sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+            print >> sys.stderr, "pass iterations: {}, total iterations: {}, margin: {}".format(pass_iterations, iterations, margin)
+            assert pass_iterations >= int(0.75 * iterations), "Passed iterations {} insufficient to meet minimum required iterations {}".format(pass_iterations, int(0.75 * iterations))
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
 class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
