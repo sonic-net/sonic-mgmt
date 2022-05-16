@@ -637,6 +637,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                 if dut in devices:
                     dutDict.update({dut:
                         {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
+                        'ansible_hostv6': devices[dut].get("ansible").get("ansible_hostv6"),
                         'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
                         'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
                         'hwsku': devices[dut].get("hwsku"),
@@ -687,6 +688,7 @@ def makeLabYAML(data, devices, testbed, outfile):
             if ptfhost in testbed:
                 ptfDict.update({ptfhost:
                     {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
+                    'ansible_hostv6': testbed[ptfhost].get("ansible").get("ansible_hostv6"),
                     'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
                     'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
                     }
