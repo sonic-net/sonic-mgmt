@@ -904,7 +904,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             hysteresis = int(self.test_params['pkts_num_hysteresis'])
         else:
             hysteresis = 0
-        default_packet_length = 64
         hwsku = self.test_params['hwsku']
 
         # get a snapshot of counter values at recv and transmit ports
@@ -926,7 +925,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # create packet
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = construct_ip_pkt(default_packet_length,
+        if 'packet_size' in self.test_params:
+            packet_length = self.test_params['packet_size']
+        else:
+            packet_length = 64
+
+        pkt = construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,
                                src_port_ip,
@@ -941,7 +945,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # create packet
         pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
-        pkt2 = construct_ip_pkt(default_packet_length,
+        pkt2 = construct_ip_pkt(packet_length,
                                 pkt_dst_mac2,
                                 src_port_mac,
                                 src_port_ip,
@@ -956,7 +960,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # create packet
         pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
-        pkt3 = construct_ip_pkt(default_packet_length,
+        pkt3 = construct_ip_pkt(packet_length,
                                 pkt_dst_mac3,
                                 src_port_mac,
                                 src_port_ip,
@@ -992,6 +996,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     self, src_port_id, pkt, 
                     pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
                 )
+            elif 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+                send_packet(
+                    self, src_port_id, pkt,
+                    pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis - 1
+                )
             else:
                 send_packet(
                     self, src_port_id, pkt, 
@@ -1012,6 +1022,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     self, src_port_id, pkt2, 
                     pkts_num_egr_mem + pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
                 )
+            elif 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_2_id, pkt2, int(self.test_params['pg']), asic_type))
+                send_packet(
+                    self, src_port_id, pkt2,
+                    pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 2 + hysteresis
+                )
             else:
                 send_packet(
                     self, src_port_id, pkt2, 
@@ -1027,6 +1043,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             )
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 send_packet(self, src_port_id, pkt3, pkts_num_egr_mem + pkts_num_leak_out + 1)
+            elif 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_3_id, pkt3, int(self.test_params['pg']), asic_type))
+                send_packet(self, src_port_id, pkt3, pkts_num_leak_out)
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
@@ -1737,6 +1756,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = 0 
 
+            if asic_type == 'cisco-8000':
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+
            # send packets short of triggering egress drop
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                # send packets short of triggering egress drop
@@ -2052,6 +2074,92 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(expected_wm == total_hdrm)
             assert(pg_headroom_wm_res[pg] <= (expected_wm + margin) * cell_size)
             assert((expected_wm - margin) * cell_size <= pg_headroom_wm_res[pg])
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        pg = int(self.test_params['pg'])
+        queue = int(self.test_params['queue'])
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        # Should be set to cause at least 1 drop at ingress
+        pkts_num_trig_ingr_drp = int(self.test_params['pkts_num_trig_ingr_drp'])
+        iterations = int(self.test_params['iterations'])
+        margin = int(self.test_params['pkts_num_margin'])
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        # Prepare IP packet data
+        ttl = 64
+        packet_length = 64
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ecn=ecn,
+                               ttl=ttl)
+
+        print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan
+        )
+
+        try:
+            pass_iterations = 0
+            assert iterations > 0, "Need at least 1 iteration"
+            for test_i in range(iterations):
+                sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+                pg_dropped_cntrs_base = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
+
+                # Send packets to trigger PFC
+                print >> sys.stderr, "Iteration {}/{}, sending {} packets to trigger PFC".format(test_i + 1, iterations, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+
+                # Account for leakout
+                if 'cisco-8000' in asic_type:
+                    queue_counters = sai_thrift_read_queue_occupancy(self.client, dst_port_id)
+                    occ_pkts = queue_counters[queue] / (packet_length + 24)
+                    leaked_pkts = pkts_num_trig_pfc - occ_pkts
+                    print >> sys.stderr, "resending leaked packets {}".format(leaked_pkts)
+                    send_packet(self, src_port_id, pkt, leaked_pkts)
+
+                # Trigger drop
+                pkt_inc = pkts_num_trig_ingr_drp + margin - pkts_num_trig_pfc
+                print >> sys.stderr, "sending {} additional packets to trigger ingress drop".format(pkt_inc)
+                send_packet(self, src_port_id, pkt, pkt_inc)
+
+                pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
+                pg_drops = pg_dropped_cntrs[pg] - pg_dropped_cntrs_base[pg]
+
+                actual_num_trig_ingr_drp = pkts_num_trig_ingr_drp + margin - (pg_drops - 1)
+                ingr_drop_diff = actual_num_trig_ingr_drp - pkts_num_trig_ingr_drp
+                if abs(ingr_drop_diff) < margin:
+                    pass_iterations += 1
+                print >> sys.stderr, "expected trig drop: {}, actual trig drop: {}, diff: {}".format(pkts_num_trig_ingr_drp, actual_num_trig_ingr_drp, ingr_drop_diff)
+
+                sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+            print >> sys.stderr, "pass iterations: {}, total iterations: {}, margin: {}".format(pass_iterations, iterations, margin)
+            assert pass_iterations >= int(0.75 * iterations), "Passed iterations {} insufficient to meet minimum required iterations {}".format(pass_iterations, int(0.75 * iterations))
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
