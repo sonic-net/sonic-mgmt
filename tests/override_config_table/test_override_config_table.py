@@ -149,7 +149,6 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
 def test_load_minigraph_with_golden_config(duthost, setup_env):
     """Test Golden Config override during load minigraph
     """
-    load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
