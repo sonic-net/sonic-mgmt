@@ -5,7 +5,11 @@ import time
 
 import ptf
 import scapy.all as scapy
-import scapy.contrib.macsec as scapy_macsec
+MACSEC_SUPPORTED = False
+if hasattr(scapy, "VERSION") and tuple(map(int, scapy.VERSION.split('.'))) >= (2, 4, 5):
+    MACSEC_SUPPORTED = True
+if MACSEC_SUPPORTED:
+    import scapy.contrib.macsec as scapy_macsec
 
 MACSEC_INFO_FILE = "macsec_info.pickle"
 
@@ -63,7 +67,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 
-if os.path.exists(MACSEC_INFO_FILE):
+if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE):
     with open(MACSEC_INFO_FILE, "rb") as f:
         MACSEC_INFOS = pickle.load(f)
         if MACSEC_INFOS:

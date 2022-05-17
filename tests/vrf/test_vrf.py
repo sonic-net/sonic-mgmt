@@ -481,8 +481,7 @@ def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
                    testname=testname,
                    params=params,
                    socket_recv_size=16384,
-                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
-                   is_python3=True)
+                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
     return _partial_ptf_runner
 
 @pytest.fixture(scope="module")

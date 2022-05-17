@@ -4,10 +4,6 @@ import sys
 from ipaddress import ip_address, ip_network
 from SubnetTree import SubnetTree
 
-if sys.version_info[0] == 3:
-    def unicode(str):
-        return str
-
 '''
 LpmDict is a class used in FIB test for LPM and IP segmentation.
 
@@ -67,7 +63,7 @@ class LpmDict():
         self._boundaries = { ip_address(u'0.0.0.0') : 1} if ipv4 else { ip_address(u'::') : 1}
 
     def __setitem__(self, key, value):
-        prefix = ip_network(unicode(key))
+        prefix = ip_network(unicode(key) if sys.version_info[0] == 2 else key)
         # add the current key to self._prefix_set only when it is not the default route and it is not a duplicate key
         if prefix.prefixlen and key not in self._prefix_set:
             boundary = prefix[0]
@@ -83,7 +79,7 @@ class LpmDict():
 
     def __delitem__(self, key):
         if '/0' not in key:
-            prefix = ip_network(unicode(key))
+            prefix = ip_network(unicode(key) if sys.version_info[0] == 2 else key)
             boundary = prefix[0]
             next_boundary = prefix[-1] + 1
             self._boundaries[boundary] = self._boundaries.get(boundary) - 1

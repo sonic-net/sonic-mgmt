@@ -25,6 +25,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     else:
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
+    cmd += " --pypath {} --pypath {} ".format(testdir, testdir + "/py3")
+
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
 
