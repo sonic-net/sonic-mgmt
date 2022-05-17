@@ -94,6 +94,7 @@ def do_checks(request, check_items, *args, **kwargs):
     for item in check_items:
         check_fixture = request.getfixturevalue(item)
         results = check_fixture(*args, **kwargs)
+        logger.debug("check results of each item {}".format(results))
         if results and isinstance(results, list):
             check_results.extend(results)
         elif results:
