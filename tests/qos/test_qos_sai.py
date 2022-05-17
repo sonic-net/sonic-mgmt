@@ -120,6 +120,9 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
+        if "packet_size" in qosConfig[xoffProfile].keys():
+            testParams["packet_size"] = qosConfig[xoffProfile]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
