@@ -69,7 +69,8 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
-        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+        output = duthost.shell('config load_minigraph -y', executable="/bin/bash")
+        logger.info('reload minigraph output :{}'.format(output))
         time.sleep(60)
         if start_bgp:
             duthost.shell('config bgp startup all')

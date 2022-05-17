@@ -40,6 +40,7 @@ def get_running_config(duthost):
 
 def reload_minigraph_with_golden_config(duthost, json_data):
     duthost.copy(content=json.dumps(json_data, indent=4), dest=GOLDEN_CONFIG)
+    logger.info("file exist: {}", file_exists_on_dut(duthost, GOLDEN_CONFIG))
     config_reload(duthost, config_source="minigraph", safe_reload=True)
 
 
