@@ -2104,6 +2104,9 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         margin = int(self.test_params['pkts_num_margin'])
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
 
         # Prepare IP packet data
         ttl = 64
