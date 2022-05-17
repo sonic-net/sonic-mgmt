@@ -22,9 +22,6 @@ EXAMPLES = '''
       vmhost_server_info: vmhost_server_name='server_1' vm_file='veos'
 '''
 
-# Here we assume that the group name of host server starts with 'vm_host_'.
-VMHOST_PREFIX = "vm_host_"
-
 VM_INV_FILE = 'veos'
 
 def main():
@@ -36,15 +33,22 @@ def main():
         supports_check_mode=True
     )
     m_args = module.params
-    vmhost_group_name = VMHOST_PREFIX + m_args['vmhost_server_name'].split('_')[-1]
-    inv_mgr = InventoryManager(loader=DataLoader(), sources=m_args['vm_file'])
-    all_hosts = inv_mgr.get_hosts(pattern=vmhost_group_name)
-    if len(all_hosts) != 1:
-        module.fail_json(msg="{} host servers are found in {}, which should be 1".format(len(all_hosts), vmhost_group_name))
+    vmhost_server_name = m_args["vmhost_server_name"]
+    vm_file = m_args["vm_file"]
+
+    inv_mgr = InventoryManager(loader=DataLoader(), sources=vm_file)
+
+    all_hosts = inv_mgr.get_hosts(pattern=vmhost_server_name)
+    if len(all_hosts) == 0:
+        module.fail_json(msg="No host matches {} in inventory file {}".format(vmhost_server_name, vm_file))
     else:
-        module.exit_json(ansible_facts={'vmhost_server_address':all_hosts[0].get_vars()['ansible_host']})
+        for host in all_hosts:
+            if host.name.startswith('VM'):
+                continue
+            module.exit_json(ansible_facts={"vmhost_server_address": host.get_vars()["ansible_host"]})
+
+        module.fail_json(msg="Unable to find IP address of host server {} in inventory file {}".format(vmhost_server_name, vm_file))
 
 from ansible.module_utils.basic import *
 if __name__ == "__main__":
     main()
-

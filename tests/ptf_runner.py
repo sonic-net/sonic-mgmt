@@ -5,12 +5,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def ptf_collect(host, log_file):
+    host.fetch(src=log_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
+    pos = log_file.rfind('.')
+    pcap_file = (log_file[0:pos] if pos > -1 else log_file) + '.pcap'
+    output = host.shell("[ -f {} ] && echo exist || echo null".format(pcap_file))['stdout']
+    if output == 'exist':
+        host.fetch(src=pcap_file, dest='./logs/ptf_collect/', flat=True, fail_on_missing=False)
+
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0,
-               module_ignore_errors=False):
-
-    cmd = "ptf --test-dir {} {}".format(testdir, testname)
+               module_ignore_errors=False, is_python3=False):
+    # Call virtual env ptf for migrated py3 scripts.
+    # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
+    # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+    if is_python3:
+        cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+    else:
+        cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
@@ -33,6 +46,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
 
     if log_file:
         cmd += " --log-file {}".format(log_file)
+        ptf_collect(host, log_file)
 
     if socket_recv_size:
         cmd += " --socket-recv-size {}".format(socket_recv_size)

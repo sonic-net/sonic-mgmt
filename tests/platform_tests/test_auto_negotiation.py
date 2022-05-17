@@ -17,6 +17,7 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
 from tests.common.utilities import skip_release
+from tests.common.platform.interface_utils import get_physical_port_indices
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -275,7 +276,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_dut_portname_module_fix
 
     # Advertise all supported speeds in fanout port
     success = fanout.set_speed(fanout_port, None)
-    pytest_require(success, 'Failed to advertise speed on fanout port {}, speed {}'.format(fanout_port, speed))
+    pytest_require(success, 'Failed to advertise speed on fanout port {}'.format(fanout_port))
 
     logger.info('Trying to get a common supported speed set among dut port, fanout port and cable')
     supported_speeds = get_supported_speeds_for_port(duthost, dut_port, fanout, fanout_port)
@@ -423,7 +424,7 @@ class MlnxCableSupportedSpeedsHelper(object):
 
         if not cls.device_path:
             cls.device_path = duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
-        port_index = cls.sorted_ports[duthost].index(dut_port_name) + 1
+        port_index = get_physical_port_indices(duthost, [dut_port_name]).get(dut_port_name)
         cmd = 'mlxlink -d {} -p {} | grep "Supported Cable Speed"'.format(cls.device_path, port_index)
         output = duthost.shell(cmd)['stdout'].strip()
         # Valid output should be something like "Supported Cable Speed:0x68b1f141 (100G,56G,50G,40G,25G,10G,1G)"

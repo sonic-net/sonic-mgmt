@@ -1,6 +1,6 @@
 import ast
 import subprocess
-
+import scapy
 # Packet Test Framework imports
 import ptf
 import ptf.testutils as testutils
@@ -8,6 +8,17 @@ from ptf import config
 from ptf.base_tests import BaseTest
 
 IPv6 = scapy.layers.inet6.IPv6
+DHCP6_Solicit = scapy.layers.dhcp6.DHCP6_Solicit
+DHCP6_Request = scapy.layers.dhcp6.DHCP6_Request
+DHCP6_Confirm = scapy.layers.dhcp6.DHCP6_Confirm
+DHCP6_Renew = scapy.layers.dhcp6.DHCP6_Renew
+DHCP6_Rebind = scapy.layers.dhcp6.DHCP6_Rebind
+DHCP6_Release = scapy.layers.dhcp6.DHCP6_Release
+DHCP6_Decline = scapy.layers.dhcp6.DHCP6_Decline
+DHCP6_Advertise = scapy.layers.dhcp6.DHCP6_Advertise
+DHCP6_Reply = scapy.layers.dhcp6.DHCP6_Reply
+DHCP6_RelayReply = scapy.layers.dhcp6.DHCP6_RelayReply
+DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -97,8 +108,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
-        packet /= DHCP6OptRelayMsg()
-        packet /= message(trid=12345)
+        packet /= DHCP6OptRelayMsg(message=[message(trid=12345)])
 
         return packet
 

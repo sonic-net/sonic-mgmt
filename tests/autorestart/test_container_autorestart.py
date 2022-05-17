@@ -30,7 +30,7 @@ POST_CHECK_THRESHOLD_SECS = 360
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
@@ -75,10 +75,13 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_dut_feature_container,
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
+            ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
@@ -413,7 +416,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
         duthost, container_autorestart_states, up_bgp_neighbors
     )
     if not (critical_proceses and bgp_check):
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True)
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
         processes_status = duthost.all_critical_process_status()
@@ -421,7 +424,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
             {
                 k:{
                     "status": v["status"],
-                    "exited_critical_process": processes["exited_critical_process"]
+                    "exited_critical_process": v["exited_critical_process"]
                 }
             } for k, v in processes_status.items() if v[
                 "status"

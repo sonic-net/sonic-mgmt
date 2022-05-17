@@ -28,9 +28,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
-from qos_sai_base import QosSaiBase, QosSaiBaseMasic
+from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +120,9 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[xoffProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
+        if "packet_size" in qosConfig[xoffProfile].keys():
+            testParams["packet_size"] = qosConfig[xoffProfile]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
@@ -199,6 +200,9 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[xonProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
 
+        if "packet_size" in qosConfig[xonProfile].keys():
+            testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
@@ -271,6 +275,65 @@ class TestQosSai(QosSaiBase):
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
+            testParams=testParams
+        )
+
+    @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
+    def testQosSaiSharedReservationSize(
+        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI shared reservation size
+            Args:
+                sharedResSizeKey: qos.yml entry lookup key
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Shared reservation size test is not supported")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+
+        if not sharedResSizeKey in qosConfig.keys():
+            pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "dscps": qosConfig[sharedResSizeKey]["dscps"],
+            "ecn": qosConfig[sharedResSizeKey]["ecn"],
+            "pgs": qosConfig[sharedResSizeKey]["pgs"],
+            "queues": qosConfig[sharedResSizeKey]["queues"],
+            "src_port_ids": qosConfig[sharedResSizeKey]["src_port_ids"],
+            "src_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["src_port_ids"]],
+            "dst_port_ids": qosConfig[sharedResSizeKey]["dst_port_ids"],
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["dst_port_ids"]],
+            "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
+            "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
+            "hwsku":dutTestParams['hwsku']
+        })
+
+        if "packet_size" in qosConfig[sharedResSizeKey]:
+            testParams["packet_size"] = qosConfig[sharedResSizeKey]["packet_size"]
+
+        if "cell_size" in qosConfig[sharedResSizeKey]:
+            testParams["cell_size"] = qosConfig[sharedResSizeKey]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig[sharedResSizeKey]:
+            testParams["pkts_num_margin"] = qosConfig[sharedResSizeKey]["pkts_num_margin"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.SharedResSizeTest",
             testParams=testParams
         )
 
@@ -366,6 +429,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
 
@@ -400,6 +465,10 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig[bufPool]["cell_size"],
             "buf_pool_roid": buf_pool_roid
         })
+
+        if "packet_size" in qosConfig[bufPool].keys():
+            testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
@@ -750,6 +819,55 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    def testQosSaiPGDrop(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI PG drop counter
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("PG drop size test is not supported")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if "pg_drop" in dutQosConfig["param"][portSpeedCableLength].keys():
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            qosConfig = dutQosConfig["param"]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        pgDropKey = "pg_drop"
+        testParams.update({
+            "dscp": qosConfig[pgDropKey]["dscp"],
+            "ecn": qosConfig[pgDropKey]["ecn"],
+            "pg": qosConfig[pgDropKey]["pg"],
+            "queue": qosConfig[pgDropKey]["queue"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_trig_pfc": qosConfig[pgDropKey]["pkts_num_trig_pfc"],
+            "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
+            "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
+            "iterations": qosConfig[pgDropKey]["iterations"],
+            "hwsku":dutTestParams['hwsku']
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
+        )
+
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -839,6 +957,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
 
@@ -909,66 +1029,3 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
-
-
-class TestQosSaiMasic(QosSaiBaseMasic):
-
-    def test_qos_masic_dscp_queue_mapping(
-        self, duthosts, rand_one_dut_hostname, enum_backend_asic_index,
-        ptfhost, dutTestParams, get_test_ports
-    ):
-        duthost = duthosts[rand_one_dut_hostname]
-        src_asic = get_test_ports["src_asic"]
-
-        if not duthost.sonichost.is_multi_asic:
-            pytest.skip("Test applies to only multi ASIC platform")
-
-        if enum_backend_asic_index is None:
-            pytest.skip("Backend ASIC is None")
-
-        try:
-            # Bring down port (channel) towards ASICs other than the ASIC
-            # under test, so that traffic always goes via ASIC under test
-            self.backend_ip_if_admin_state(
-                duthost, enum_backend_asic_index, src_asic, "shutdown"
-            )
-
-            test_params = dict()
-            test_params.update(dutTestParams["basicParams"])
-            test_params.update(get_test_ports)
-            logger.debug(test_params)
-
-            # ensure the test destination IP has a path to backend ASIC
-            pytest_assert(
-                wait_until(
-                    30, 1, 0, self.check_v4route_backend_nhop, duthost,
-                    test_params["src_asic"], test_params["dst_port_ip"]
-                ),
-                "Route {} doesn't have backend ASIC nexthop on ASIC {}".format(
-                    test_params["dst_port_ip"], test_params["src_asic"]
-                )
-            )
-
-            duthost.asic_instance(
-                enum_backend_asic_index
-            ).create_ssh_tunnel_sai_rpc()
-
-            # find traffic src/dst ports on the ASIC under test
-            test_params.update(
-                self.find_asic_traffic_ports(duthost, ptfhost, test_params)
-            )
-
-            self.runPtfTest(
-                ptfhost, testCase="sai_qos_tests.DscpMappingPB",
-                testParams=test_params
-            )
-
-        finally:
-            # bring up the backed IFs
-            self.backend_ip_if_admin_state(
-                duthost, enum_backend_asic_index, src_asic, "startup"
-            )
-
-            duthost.asic_instance(
-                enum_backend_asic_index
-            ).remove_ssh_tunnel_sai_rpc()
