@@ -2043,6 +2043,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # this is the case for lossy traffic
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min + margin)
+            elif 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, pg, asic_type))
             else:
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_fill_min)
 
@@ -2056,7 +2058,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out - pkts_num_leak_out) 
 
             pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
-            pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+            pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
             print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
             print >> sys.stderr, "Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % ((pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, pg_shared_wm_res[pg])
 
@@ -2075,7 +2077,12 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
             pkts_inc = (total_shared / cell_occupancy) >> 2
-            pkts_num = 1 + margin
+            if 'cisco-8000' in asic_type:
+                # No additional packet margin needed while sending,
+                # but small margin still needed during boundary checks below
+                pkts_num = 1
+            else:
+                pkts_num = 1 + margin
             fragment = 0
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
@@ -2090,7 +2097,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 # these counters are clear on read, ensure counter polling
                 # is disabled before the test
-                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+
+                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
                 pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
                 print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
                 print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
@@ -2102,7 +2110,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
             time.sleep(8)
-            pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, port_list[src_port_id])
+            pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
             pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
             print >> sys.stderr, "Received packets: %d" % (pg_cntrs[pg] - pg_cntrs_base[pg])
             print >> sys.stderr, "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg])
