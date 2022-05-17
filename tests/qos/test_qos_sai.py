@@ -785,14 +785,13 @@ class TestQosSai(QosSaiBase):
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         pgDropKey = "pg_drop"
-        dst_port_id = qosConfig[pgDropKey]["dst_port_id"]
         testParams.update({
             "dscp": qosConfig[pgDropKey]["dscp"],
             "ecn": qosConfig[pgDropKey]["ecn"],
             "pg": qosConfig[pgDropKey]["pg"],
             "queue": qosConfig[pgDropKey]["queue"],
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dutConfig["testPortIps"][dst_port_id]['peer_addr'],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
