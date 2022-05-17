@@ -40,7 +40,8 @@ def get_running_config(duthost):
 
 def reload_minigraph_with_golden_config(duthost, json_data):
     duthost.copy(content=json.dumps(json_data, indent=4), dest=GOLDEN_CONFIG)
-    logger.info("file exist: {}", file_exists_on_dut(duthost, GOLDEN_CONFIG))
+    logger.info("file exist: {}".format(
+        file_exists_on_dut(duthost, GOLDEN_CONFIG)))
     config_reload(duthost, config_source="minigraph", safe_reload=True)
 
 
@@ -61,7 +62,7 @@ def setup_env(duthosts, rand_one_dut_hostname, golden_config_exists_on_dut):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    #config_reload(duthost, config_source="minigraph", safe_reload=True)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -75,7 +76,7 @@ def setup_env(duthosts, rand_one_dut_hostname, golden_config_exists_on_dut):
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost)
+    #config_reload(duthost)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -102,6 +103,10 @@ def load_minigraph_with_golden_partial_config(duthost):
             "10.0.0.200": {}
         }
     }
+    cmd = "config override-config-table -h"
+    output = duthost.shell(cmd)
+    logger.info("check CLI exist: {}".format(output))
+
     reload_minigraph_with_golden_config(duthost, partial_config)
 
     current_config = get_running_config(duthost)
@@ -150,6 +155,6 @@ def test_load_minigraph_with_golden_config(duthost, setup_env):
     """Test Golden Config override during load minigraph
     """
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
-    full_config = setup_env
-    load_minigraph_with_golden_full_config(duthost, full_config)
+    # load_minigraph_with_golden_new_feature(duthost)
+    # full_config = setup_env
+    # load_minigraph_with_golden_full_config(duthost, full_config)
