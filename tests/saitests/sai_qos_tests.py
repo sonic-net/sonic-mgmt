@@ -1399,6 +1399,149 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
 
+class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
+    def setUp(self):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(5)
+        switch_init(self.client)
+
+         # Parse input parameters
+        self.testbed_type = self.test_params['testbed_type']
+        self.dscps = self.test_params['dscps']
+        self.ecn = self.test_params['ecn']
+        self.router_mac = self.test_params['router_mac']
+        self.sonic_version = self.test_params['sonic_version']
+        self.pgs = self.test_params['pgs']
+        self.pg_cntr_indices = [pg + 2 for pg in self.pgs]
+        self.queues = self.test_params['queues']
+        self.src_port_ids = self.test_params['src_port_ids']
+        self.src_port_ips = self.test_params['src_port_ips']
+        print >> sys.stderr, self.src_port_ips
+        sys.stderr.flush()
+        # get counter names to query
+        self.ingress_counters, self.egress_counters = get_counter_names(self.sonic_version)
+
+        self.dst_port_ids = self.test_params['dst_port_ids']
+        self.dst_port_ips = self.test_params['dst_port_ips']
+        self.asic_type = self.test_params['sonic_asic_type']
+        self.pkt_counts = self.test_params['pkt_counts']
+        self.shared_limit_bytes = self.test_params['shared_limit_bytes']
+
+        # LACP causes slow increase in memory consumption over duration of the test, thus
+        # a margin may be needed.
+        if 'pkts_num_margin' in self.test_params:
+            self.margin = int(self.test_params['pkts_num_margin'])
+        else:
+            self.margin = 0
+
+        if 'packet_size' in self.test_params:
+            self.packet_size = self.test_params['packet_size']
+            self.cell_size = self.test_params['cell_size']
+        else:
+            self.packet_size = 64
+            self.cell_size = 350
+
+        self.dst_port_macs = [self.dataplane.get_mac(0, ptid) for ptid in self.dst_port_ids]
+        self.src_port_macs = [self.dataplane.get_mac(0, ptid) for ptid in self.src_port_ids]
+
+        time.sleep(8)
+
+    def tearDown(self):
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+
+    def runTest(self):
+        assert len(self.dscps) == len(self.pgs) == len(self.src_port_ids) == len(self.dst_port_ids) == len(self.pkt_counts)
+
+        # Need at least 2 packet send instructions
+        assert len(self.pkt_counts) >= 2
+
+        # Reservation limit should be indicated by single packet, which is then modified
+        # by the given margin
+        assert self.pkt_counts[-1] == 1
+        self.pkt_counts[-1] += 2 * self.margin
+
+        # Second to last pkt count instruction needs to be reduced by margin to avoid
+        # triggering XOFF early.
+        assert self.pkt_counts[-2] >= self.margin
+        self.pkt_counts[-2] -= self.margin
+
+        # Test configuration packet counts and sizing should accurately trigger shared limit
+        cell_occupancy = (self.packet_size + self.cell_size - 1) / self.cell_size
+        assert sum(self.pkt_counts[:-1]) * cell_occupancy * self.cell_size < self.shared_limit_bytes
+        assert sum(self.pkt_counts) * cell_occupancy * self.cell_size >= self.shared_limit_bytes
+
+        # get a snapshot of counter values at recv and transmit ports
+        recv_counters_bases = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.src_port_ids]
+        xmit_counters_bases = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.dst_port_ids]
+
+        # Disable all dst ports
+        uniq_dst_ports = list(set(self.dst_port_ids))
+        sai_thrift_port_tx_disable(self.client, self.asic_type, uniq_dst_ports)
+
+        try:
+            for i in range(len(self.src_port_ids)):
+                dscp = self.dscps[i]
+                pg = self.pgs[i]
+                queue = self.queues[i]
+                src_port_id = self.src_port_ids[i]
+                dst_port_id = self.dst_port_ids[i]
+                src_port_mac = self.src_port_macs[i]
+                dst_port_mac = self.dst_port_macs[i]
+                src_port_ip = self.src_port_ips[i]
+                dst_port_ip = self.dst_port_ips[i]
+                pkt_count = self.pkt_counts[i]
+
+                tos = (dscp << 2) | self.ecn
+                ttl = 64
+                pkt = simple_tcp_packet(pktlen=self.packet_size,
+                                        eth_dst=self.router_mac if self.router_mac != '' else dst_port_mac,
+                                        eth_src=src_port_mac,
+                                        ip_src=src_port_ip,
+                                        ip_dst=dst_port_ip,
+                                        ip_tos=tos,
+                                        ip_ttl=ttl)
+
+                if i == len(self.src_port_ids) - 1:
+                    # Verify XOFF has not been triggered on final port before sending traffic
+                    print >> sys.stderr, "Verifying XOFF hasn't been triggered yet on final iteration"
+                    sys.stderr.flush()
+                    time.sleep(8)
+                    recv_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])[0]
+                    xoff_txd = recv_counters[self.pg_cntr_indices[i]] - recv_counters_bases[i][self.pg_cntr_indices[i]]
+                    assert xoff_txd == 0, "XOFF triggered too early on final iteration, XOFF count is %d" % xoff_txd
+
+                # Send requested number of packets
+                print >> sys.stderr, "Sending %d packets for dscp=%d, pg=%d, src_port_id=%d, dst_port_id=%d" % (pkt_count, dscp, pg, src_port_id, dst_port_id)
+                sys.stderr.flush()
+                if 'cisco-8000' in self.asic_type:
+                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, self.asic_type))
+                    pkt_count -= 1 # leakout adds 1 packet, subtract from current iteration
+
+                send_packet(self, src_port_id, pkt, pkt_count)
+
+                if i == len(self.src_port_ids) - 1:
+                    # Verify XOFF has now been triggered on final port
+                    print >> sys.stderr, "Verifying XOFF has now been triggered on final iteration"
+                    sys.stderr.flush()
+                    time.sleep(8)
+                    recv_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])[0]
+                    xoff_txd = recv_counters[self.pg_cntr_indices[i]] - recv_counters_bases[i][self.pg_cntr_indices[i]]
+                    assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
+
+            # Verify no ingress/egress drops for all ports
+            recv_counters_list = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.src_port_ids]
+            xmit_counters_list = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.dst_port_ids]
+            for i in range(len(self.src_port_ids)):
+                for cntr in self.ingress_counters:
+                    drops = recv_counters_list[i][cntr] - recv_counters_bases[i][cntr]
+                    assert drops == 0, "Detected %d ingress drops" % drops
+                for cntr in self.egress_counters:
+                    drops = xmit_counters_list[i][cntr] - xmit_counters_bases[i][cntr]
+                    assert drops == 0, "Detected %d egress drops" % drops
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, self.asic_type, uniq_dst_ports)
+
 # TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):

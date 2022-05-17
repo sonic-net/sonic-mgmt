@@ -278,6 +278,65 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
+    def testQosSaiSharedReservationSize(
+        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI shared reservation size
+            Args:
+                sharedResSizeKey: qos.yml entry lookup key
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Shared reservation size test is not supported")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+
+        if not sharedResSizeKey in qosConfig.keys():
+            pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "dscps": qosConfig[sharedResSizeKey]["dscps"],
+            "ecn": qosConfig[sharedResSizeKey]["ecn"],
+            "pgs": qosConfig[sharedResSizeKey]["pgs"],
+            "queues": qosConfig[sharedResSizeKey]["queues"],
+            "src_port_ids": qosConfig[sharedResSizeKey]["src_port_ids"],
+            "src_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["src_port_ids"]],
+            "dst_port_ids": qosConfig[sharedResSizeKey]["dst_port_ids"],
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["dst_port_ids"]],
+            "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
+            "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
+            "hwsku":dutTestParams['hwsku']
+        })
+
+        if "packet_size" in qosConfig[sharedResSizeKey]:
+            testParams["packet_size"] = qosConfig[sharedResSizeKey]["packet_size"]
+
+        if "cell_size" in qosConfig[sharedResSizeKey]:
+            testParams["cell_size"] = qosConfig[sharedResSizeKey]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig[sharedResSizeKey]:
+            testParams["pkts_num_margin"] = qosConfig[sharedResSizeKey]["pkts_num_margin"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.SharedResSizeTest",
+            testParams=testParams
+        )
+
     def testQosSaiHeadroomPoolWatermark(
         self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams,
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
