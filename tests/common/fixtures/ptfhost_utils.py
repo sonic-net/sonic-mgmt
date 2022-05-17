@@ -318,7 +318,6 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
         else:
             # PTF port is mapped to single DUT
             target_dut_index = int(list(dut_intf_map.keys())[0])
-            target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
