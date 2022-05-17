@@ -701,8 +701,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Prepare IP packet data
         ttl = 64
-        default_packet_length = 64
-        pkt = construct_ip_pkt(default_packet_length,
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+        pkt = construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,
                                src_port_ip,
@@ -751,6 +754,10 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
+            elif 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+                # Send 1 less packet due to leakout filling
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 2 - margin)
             else:
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 1 - margin)
