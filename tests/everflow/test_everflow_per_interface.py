@@ -82,7 +82,7 @@ def apply_mirror_session(rand_selected_dut):
         for front_ns in rand_selected_dut.get_frontend_asic_namespace_list():
             cmd = "{} -n {}".format(single_asic_cmd, front_ns)
             monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
-            pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
+            pytest_assert(monitor_port != "", "Failed to retrieve monitor_port on multi-asic dut's frontend namespace: {}".format(front_ns))
     else:
         monitor_port = rand_selected_dut.shell(cmd=single_asic_cmd)['stdout']
         pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
