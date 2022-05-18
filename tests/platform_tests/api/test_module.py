@@ -331,7 +331,7 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             slot_id = module.get_slot(platform_api_conn, i)
             if self.expect(slot_id is not None, "Unable to retrieve module {} slot id".format(i)):
-                self.expect(isinstance(slot_id, int), "Module {} slot id is not correct ".format(i))
+                self.expect(isinstance(slot_id, int) or isinstance(slot_id, STRING_TYPE), "Module {} slot id is not correct ".format(i))
         self.assert_expectations()
 
     def test_get_type(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
