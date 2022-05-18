@@ -8,6 +8,7 @@ from tests.common.dualtor.tor_failure_utils import kill_bgpd                    
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
+from tests.common.dualtor.dual_tor_common import cable_type 
 
 pytestmark = [
     pytest.mark.topology("dualtor")

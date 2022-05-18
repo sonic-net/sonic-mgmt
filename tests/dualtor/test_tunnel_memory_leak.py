@@ -13,6 +13,7 @@ import contextlib
 from threading import Thread
 from ptf import testutils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_common import cable_type 
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.helpers.assertions import pytest_assert
