@@ -164,6 +164,7 @@ class TestCOPP(object):
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
+    @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
