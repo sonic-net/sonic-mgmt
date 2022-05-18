@@ -530,13 +530,13 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_supervisor_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             sup_slot = chassis.get_supervisor_slot(platform_api_conn)
-            pytest_assert(isinstance(sup_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(sup_slot, int) or isinstance(sup_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")
 
     def test_get_my_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             my_slot = chassis.get_my_slot(platform_api_conn)
-            pytest_assert(isinstance(my_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(my_slot, int) or isinstance(my_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")
