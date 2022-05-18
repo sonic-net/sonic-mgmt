@@ -18,6 +18,12 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_update_timer.py:
+  skip:
+    reason: "Skip for multi-asic platforms, this test does not support multi-asic"
+    conditions:
+     - "is_multi_asic==True"
+    
 #######################################
 #####            cacl             #####
 #######################################
