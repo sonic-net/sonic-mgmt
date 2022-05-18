@@ -1,9 +1,9 @@
 # **VOQ Chassis Fabric Test Plan**
 
  - [Introduction](#introduction)
- - [Scope](#scope)
- - [Assumptions](#assumptions)
- - [Test Setup](#test-setup)
+   - [Scope](#scope)
+   - [Assumptions](#assumptions)
+   - [Test Setup](#test-setup)
  - [Test Cases](#test-cases)
      
 # Introduction 
@@ -21,11 +21,73 @@ The scope of this test plan is as follows:
 
 The current SW design for fabric does not cover events like card insertion/removal or reboots. This test plan depends on fabric counter cli support (work in progress).
 
-# Test Setup
+## Test Setup
 
 These test cases will be run in the proposed [T2 topology](https://github.com/Azure/sonic-mgmt/blob/master/ansible/vars/topo_t2.yml). It is assumed that such a configuration is deployed on the chassis.
 
-tbinfo will be populated with the number of fabric links per forwarding ASIC that are expected to be up.
+These test cases will compare following two sets of data on a chassis:
+* Expected fabric link status
+* Current fabric link status
+
+The following section proposes how to store and process the expected fabric link status for testing.
+
+Using the following diagram of an example system to explain the proposal. In this system, every forwarding asic is connected to every fabric asic.
+
+![](Img/Sonic_Fabric_Link_Testing_Proposal.png)
+
+The expected fabric link status is proposed to be stored in the last section of testbed.yaml file. The related section is called fabric_link_toplogy. The expected status is stored per host and per asic and the format is as follows.
+
+```
+host:
+  asic:
+      link_id:
+         status: <connected/not_connected>
+         peer_asic: <asic id>
+         peer_id: <link id>
+         peer_status: <connected/not_connected>
+```
+
+This file can be started by only storing fabric link status ( connected or not ). It can be extended later by storing fabric link connection information.
+
+Next, let’s illustrate the proposed topology format using the above diagram again. In the example system, fabric link 105 on asic 0 of Fabric1 connects to fabric link 0 on asic 0 of Linecard5. The corresponding link status information is stored in the yaml file as follows.
+
+```
+# fabric_link_topology dictionary contains information about fabric serdes links
+# topology (which fabric link is expected to be up etc.)
+# fabric_link_topology is used to generate sonic_lab_fabric_links
+# fabric_link_topology dictionary does not cross reference with other files 
+fabric_link_topology:                      # source: sonic-mgmt/ansible/files/sonic_lab_fabric_links.csv
+  nfc407-5:
+     asic0:   
+         0: 
+           status: connected
+           peer_asic: 0
+           peer_id: 105
+           peer_status: connected
+           ...
+  ...
+  nfc407:
+     asic0:   
+         ...
+         105: 
+           status: connected
+           peer_asic: 0
+           peer_id: 0
+           peer_status: connected
+  ...
+```
+
+The TestbedProcessing.py is changed to process the fabric_link_topology section and generates the output in files/sonic_lab_fabric_links.csv by pulling host name as device, asic, link id and the expected link status. 
+
+An example of /files/sonic_lab_fabric_links.csv for the same link is as follows.
+
+```
+device,asic,link,status,peer_asic,peer_link,peer_status
+nfc407-5,0,0,connected,0,105,connected
+<snip>
+```
+
+The voq tests use the information in files/sonic_lab_fabric_links.csv as expected value, then compare with the fabric link status on a system.
 
 # Test Cases
 
