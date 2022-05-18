@@ -10,6 +10,7 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service # lgtm[py/unuse
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_common import cable_type 
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
