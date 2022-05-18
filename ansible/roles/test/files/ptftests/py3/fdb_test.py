@@ -31,7 +31,7 @@ class FdbTest(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
         self.fdb = fdb.Fdb(self.test_params['fdb_info'])
-        self.vlan_ip = ip_address(unicode(self.test_params['vlan_ip']))
+        self.vlan_ip = ip_address(str(self.test_params['vlan_ip']))
         self.dummy_mac_prefix = self.test_params["dummy_mac_prefix"]
         self.dummy_mac_number = int(self.test_params["dummy_mac_number"])
         self.dummy_mac_table = {}

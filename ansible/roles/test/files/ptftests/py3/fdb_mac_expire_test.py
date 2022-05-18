@@ -57,5 +57,4 @@ class FdbMacExpireTest(BaseTest):
         self.populateFdb()
         if self.refresh_type == REFRESH_DEST_MAC:
             self.refreshFdbWithInvalidPackets()
-	return
     #--------------------------------------------------------------------------
