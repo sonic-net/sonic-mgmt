@@ -23,7 +23,13 @@ bgp/test_bgp_update_timer.py:
     reason: "Skip for multi-asic platforms, this test does not support multi-asic"
     conditions:
      - "is_multi_asic==True"
-    
+
+bgp/test_bgp_gr_helper.py:
+  skip:
+    reason: "Skip test on multi-asic platforms for now"
+    conditions:
+     - "is_multi_asic==True"
+     
 #######################################
 #####            cacl             #####
 #######################################
