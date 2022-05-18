@@ -34,9 +34,9 @@ The following section describes how to store and process the expected fabric lin
 
 ![](Img/Sonic_Fabric_Link_Testing_Proposal.png)
 
-The above diagram illustrates an example system under test. Every forwarding asic is connected to every fabric asic.
+The above diagram illustrates an example system under test. Every forwarding ASIC is connected to every fabric ASIC.
 
-The expected fabric link status is stored in the last section of testbed.yaml file, which is called fabric_link_toplogy. The expected status is provided per host and per asic, and the format is as follows:
+The expected fabric link status is stored in the last section of testbed.yaml file, which is called fabric_link_toplogy. The expected status is provided per host and per ASIC, and the format is as follows:
 
 ```
 host:
