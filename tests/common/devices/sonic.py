@@ -1668,6 +1668,22 @@ Totals               6450                 6449
             "docker rm {}".format(service), module_ignore_errors=True
         )
 
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def no_shutdown_bgp(self, asn):
+        logging.warning("SONiC don't support `no shutdown bgp`")
+        return None
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        for nbr in neighbors:
+            command += " -c 'no neighbor {} shutdown'".format(nbr)
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return self.command(command)
+
     def is_bgp_state_idle(self):
         """
         Check if all BGP peers are in IDLE state.
