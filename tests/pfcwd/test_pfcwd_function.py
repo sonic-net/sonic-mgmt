@@ -37,14 +37,14 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function', autouse=True)
-def stop_pfcwd(duthosts, rand_one_dut_hostname):
+def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost(AnsibleHost) : dut instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
@@ -698,7 +698,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.rx_action = action
         self.tx_action = action
 
-    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         PFCwd functional test
 
@@ -711,7 +711,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost(AnsibleHost) : DUT instance
             fanouthosts(AnsibleHost): fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost
@@ -757,7 +757,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                      logger.info("--- Stop PFC WD ---")
                      self.dut.command("pfcwd stop")
 
-    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         Tests if mmu changes impact Pfcwd functionality
 
@@ -777,10 +777,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
             duthost(AnsibleHost) : DUT instance
-            rand_one_dut_hostname(string) : randomly pick a dut in multi DUT setup
+            enum_rand_one_per_hwsku_frontend_hostname(string) : randomly pick a dut in multi DUT setup
             fanouthosts(AnsibleHost): fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost
@@ -828,7 +828,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
 
-    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, tbinfo, ptfhost, duthosts, rand_one_dut_hostname, fanouthosts):
+    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, fanout_graph_facts, tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         Test PfCWD functionality after toggling port
 
@@ -852,7 +852,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost(AnsibleHost) : DUT instance
             fanouthosts(AnsibleHost): Fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         self.fanout_info = fanout_graph_facts
         self.ptf = ptfhost
