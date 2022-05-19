@@ -116,7 +116,7 @@ class LagTest:
             # Verify PortChannel interfaces are up correctly
             for po_intf in po_interfaces.keys():
                 if po_intf != intf:
-                    command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\']"' \
+                    command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print(json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\'])"' \
                     % (namespace_prefix, lag_name, po_intf)
                     wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
@@ -140,7 +140,7 @@ class LagTest:
             # Verify PortChannel interfaces are up correctly
             for po_intf in po_interfaces.keys():
                 if po_intf != intf:
-                    command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\']"'\
+                    command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print(json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\'])"'\
                               % (namespace_prefix, lag_name, po_intf)
                     wait_until(wait_timeout, delay, 0, self.__check_shell_output, self.duthost, command)
 
