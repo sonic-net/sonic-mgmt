@@ -181,9 +181,8 @@ def test_tunnel_memory_leak(
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-            pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
-                        "Received {} expected packets for server {}, drop more than 50%."
-                        .format(len(server_traffic_monitor.matched_packets), server_ipv4))
+            pytest_assert(len(server_traffic_monitor.matched_packets) > 0,
+                        "Didn't receive any expected packets for server {}.".format(server_ipv4))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
         check_result = check_memory_leak(upper_tor_host)
