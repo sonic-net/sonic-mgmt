@@ -300,7 +300,9 @@ class OVSBridge(object):
         "flows",
         "groups",
         "upstream_ecmp_flow",
-        "upstream_ecmp_group"
+        "upstream_ecmp_group",
+        "states_getter",
+        "states_setter"
     )
 
     def __init__(self, bridge_name):
@@ -317,6 +319,14 @@ class OVSBridge(object):
         self.groups = []
         self._init_ports()
         self._init_flows()
+        self.states_getter = {
+            0: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
+            1: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
+        }
+        self.states_setter = {
+            0: self.upstream_ecmp_flow.set_upper_tor_forwarding_state,
+            1: self.upstream_ecmp_flow.set_lower_tor_forwarding_state
+        }
 
     def _init_ports(self):
         """Initialize ports."""
@@ -398,20 +408,20 @@ class OVSBridge(object):
         self.flows.append(flow)
         return flow
 
-    def set_forwarding_state(self, states):
+    def set_forwarding_state(self, portids, states):
         """Set forwarding state."""
         with self.lock:
-            logging.info("Set bridge %s forwarding state: %s", self.bridge_name, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
-            self.upstream_ecmp_flow.set_upper_tor_forwarding_state(states[0])
-            self.upstream_ecmp_flow.set_lower_tor_forwarding_state(states[1])
+            for portid, state in zip(portids, states):
+                logging.info("Set bridge %s port %s forwarding state: %s", self.bridge_name, portid, ForwardingState.STATE_LABELS[state])
+                self.states_setter[portid](state)
             OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
-            return self.query_forwarding_state()
+            return self.query_forwarding_state(portids)
 
-    def query_forwarding_state(self):
+    def query_forwarding_state(self, portids):
         """Query forwarding state."""
         with self.lock:
-            states = (self.upstream_ecmp_flow.get_upper_tor_forwarding_state(), self.upstream_ecmp_flow.get_lower_tor_forwarding_state())
-            logging.info("Query bridge %s forwarding state: %s", self.bridge_name, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
+            states = [self.states_getter[portid]() for portid in portids]
+            logging.info("Query bridge %s forwarding state for ports %s: %s", self.bridge_name, portids, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
             return states
 
 
@@ -478,9 +488,10 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def QueryAdminForwardingPortState(self, request, context):
         logging.debug("QueryAdminForwardingPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+        portids = request.portid
         response = nic_simulator_grpc_service_pb2.AdminReply(
-            portid=[0, 1],
-            state=self.ovs_bridge.query_forwarding_state()
+            portid=portids,
+            state=self.ovs_bridge.query_forwarding_state(portids)
         )
         logging.debug("QueryAdminForwardingPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
         return response
@@ -488,9 +499,10 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def SetAdminForwardingPortState(self, request, context):
         logging.debug("SetAdminForwardingPortState: request to server %s from client %s\n", self.nic_addr, context.peer())
+        portids, states = request.portid, request.state
         response = nic_simulator_grpc_service_pb2.AdminReply(
-            portid=[0, 1],
-            state=self.ovs_bridge.set_forwarding_state(request.state)
+            portid=portids,
+            state=self.ovs_bridge.set_forwarding_state(portids, states)
         )
         logging.debug("SetAdminForwardingPortState: response to client %s from server %s:\n%s", context.peer(), self.nic_addr, response)
         return response
