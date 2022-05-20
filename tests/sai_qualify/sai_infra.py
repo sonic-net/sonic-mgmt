@@ -181,8 +181,7 @@ def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params
     time.sleep(TEST_INTERVAL_IN_SEC)
     test_para = ''
     if request.config.option.enable_ptf_sai_test:
-        if(ptfhost.shell("echo $PLATFORM")["stdout_lines"][0].strip() != get_sai_running_vendor_id(duthost)):
-            ptfhost.shell("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
+        ptfhost.shell("echo \"export PLATFORM={}\" >> ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
         test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
         if request.config.option.enable_warmboot_test:
             test_para += "/{}".format(WARM_TEST_DIR)
