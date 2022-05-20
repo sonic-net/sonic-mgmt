@@ -438,7 +438,7 @@ class DHCPTest(DataplaneBaseTest):
                     self.verified_option82 = True
 
     def Sniffer(self,iface):
-        scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=3)
+        scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=5)
 
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
