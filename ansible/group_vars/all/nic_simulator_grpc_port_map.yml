@@ -2,4 +2,6 @@
 # mapping from testbed name to nic simulator gRPC binding port
 
 nic_simulator_grpc_port:
-  vms-kvm-dual-mixed: 8900
+  vms-kvm-dual-mixed: 50075
+
+  vmsvc1-dual-t0-7050-1: 50075
