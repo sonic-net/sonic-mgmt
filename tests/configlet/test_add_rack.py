@@ -2,6 +2,7 @@
 
 import pytest
 import sys
+from tests.common.utilities import skip_release
 
 sys.path.append("./configlet/util")
 
