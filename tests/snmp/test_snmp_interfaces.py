@@ -167,8 +167,6 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    if 'PORT' not in config_facts:
-        pytest.skip("interfaces not present in config_db")
 
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
