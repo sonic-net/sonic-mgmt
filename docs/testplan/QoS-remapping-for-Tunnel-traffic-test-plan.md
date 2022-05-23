@@ -7,6 +7,7 @@
 - [Test Cases](#test-cases)
   - [Test case group for packet encapsulation](#test-case-group-for-packet-encapsulation)
   - [Test case group for packet decapsulation](#test-case-group-for-packet-decapsulation)
+  - [Improve the current qos_sai_test](#improve-the-current-qossaitest)
 
 ## Overview
 
@@ -37,7 +38,7 @@ The test suite is categorized into two groups.
 #### Test case 1 - Verify DSCP re-writing
 ##### Test steps
 1. Generate packet with various `DSCP` values (listed below), `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`
-2. Send the packets to `upper_tor` via a portchannel
+2. Send the packets to `standby_tor` via a portchannel
 3. Verify the packets are encaped, and bounced back to T1
 4. Verify the `DSCP` value of bounced back packet is as expected.
 
@@ -84,11 +85,11 @@ The expected DSCP to queue mapping is as below
 
 ### Test cases
 
-#### Test case 1 - Verify packets enter expected PG on lower_tor
+#### Test case 1 - Verify packets enter expected PG on active_tor
 ##### Test steps
 1. Generate `100` encapped packets with different various `DSCP` combinations (listed below), `target_ip = 10.1.0.33`, `src_ip = 10.1.0.32`
-2. Send the `100` packets to `lower_tor` via a portchannel
-3. Verify the packets are mapped to expected PGs on `lower_tor` by sai_thrift api `sai_thrift_read_pg_counters`.
+2. Send the `100` packets to `active_tor` via a portchannel
+3. Verify the packets are mapped to expected PGs on `active_tor` by sai_thrift api `sai_thrift_read_pg_counters`.
 
 The `DSCP` combinations and expected PGs are as below
 
@@ -103,7 +104,7 @@ The `DSCP` combinations and expected PGs are as below
 #### Test case 2 - Verify packets egressed to server at expected queue
 ##### Test steps
 1. Generate `100` encapped packets with different various `DSCP` combinations (listed below), `target_ip = 10.1.0.33`, `src_ip = 10.1.0.32`
-2. Send the `100` packets to `lower_tor` via a portchannel
+2. Send the `100` packets to `active_tor` via a portchannel
 3. Verify the decapped packets is egressed to server at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`. 
 
 The `DSCP` combinations and expected Queues are as below
@@ -119,11 +120,27 @@ The `DSCP` combinations and expected Queues are as below
 |7|7|7|
 
 
-#### Test case 3 - Verify PFC frame generation at expected queue
+#### Test case 3 - Verify PFC frame generation at expected priority
 ##### Test steps
-1. Disable egress for T1 facing port on `lower_tor` with sai_thrift api `sai_thrift_port_tx_disable`
-2. Generate packet with `DSCP = 3/4`, `target_ip = 192.168.0.2`, `src_ip = 1.1.1.1`. 
-3. Send the packet to `upper_tor` via a portchannel, and the traffic is bounced back to T1. The number of transmitted packets is determined by the lossless profile to ensure the pg is filled.
-4. Send the packet one more time, and verify `lower_tor` will generate PFC pause frame on expected queue with sai_thrift api `sai_thrift_read_port_counters` (`DSCP 3 -> PFC 2,  DSCP 4 -> PFC 6`).
+1. Block a random port between `active_tor` and server with sai_thrift api `sai_thrift_port_tx_disable`
+2. Generate encapsulated packet with different DSCP combinations as below, set `dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`. 
 
+|DSCP outter|DSCP inner|Expected PFC priority|
+| ---- | ---- | --- |
+|2|3|2|
+|6|4|4|
+3. Send `N` packets to `active_tor` via a portchannel to fill the shared buffer, and verify PFC pause frames are generated on expected priority
+4. Send the packets again, and check the `PG` dropcounters to verify the counter increased as expected.
 
+#### Test case 4 - Verify PFC frame generation at two priorities
+##### Test steps
+1. Block a random port between `active_tor` and server with sai_thrift api `sai_thrift_port_tx_disable`
+2. Generate one encapsulated packet with `outer_dscp=2, inner_dscp=3, dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`, and one regular packet with `dscp=3, dst_ip = 192.168.0.2, src_ip = 1.1.1.1`. 
+3. Send `N` packets to `active_tor` via a portchannel to fill the shared buffer, and verify PFC pause frames are generated on both priority 2 and 3
+4. Send the packets again, and check the `PG` dropcounters to verify the counter increased as expected.
+
+## Improve the current `qos_sai_test`
+As we are having extra lossless PG/Queue for ports between `T1` and `dualtor`, the current `qos_sai_test` will be separated into two groups
+
+1. For regular T0/T1 testbed, the test is running as before
+2. For `dualtor` testbeds,  the extra PGs and Queues are to be verified
