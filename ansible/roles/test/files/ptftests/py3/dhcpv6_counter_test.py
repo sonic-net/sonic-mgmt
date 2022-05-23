@@ -137,7 +137,7 @@ class DHCPCounterTest(DataplaneBaseTest):
     """
 
     def client_send(self):
-        client_messages = [DHCP6_Solicit, DHCP6_Request, DHCP6_Confirm, DHCP6_Renew, DHCP6_Rebind, DHCP6_Release, DHCP6_Decline, DHCP6_InfoRequest]
+        client_messages = [DHCP6_Solicit, DHCP6_Request, DHCP6_Confirm, DHCP6_Renew, DHCP6_Rebind, DHCP6_Release, DHCP6_Decline, DHCP6_Reconf, DHCP6_InfoRequest]
         for message in client_messages:
             packet = self.create_packet(message)
             testutils.send_packet(self, self.client_port_index, packet)
