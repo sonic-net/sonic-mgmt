@@ -73,6 +73,7 @@ class TestVrfAttrSrcMac():
                         'fib_info_files': ["/tmp/vrf1_neigh.txt"],
                         'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
                         'ptf_test_port_map': PTF_TEST_PORT_MAP},
+                socket_recv_size=16384,
                 log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log")
 
     def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):
