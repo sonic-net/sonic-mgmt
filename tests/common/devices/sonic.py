@@ -181,7 +181,10 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
+
+        platform_asic = self._get_platform_asic(facts["platform"])
+        if platform_asic:
+            facts["platform_asic"] = platform_asic
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -244,13 +247,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-   
-    def _get_switch_type(self):
-       try:
-           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
-                  "utf-8").lower()
-       except Exception:
-           return ''
 
     def _get_platform_info(self):
         """
@@ -1083,10 +1079,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
             m = re.match(".+\s+via\s+(\S+)\s+.*dev\s+(\S+)\s+.*src\s+(\S+)\s+", rt[0])
             if m:
-                nexthop_ip = ipaddress.ip_address(unicode(m.group(1)))
+                nexthop_ip = ipaddress.ip_address(m.group(1))
                 gw_if = m.group(2)
                 rtinfo['nexthops'].append((nexthop_ip, gw_if))
-                rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
+                rtinfo['set_src'] = ipaddress.ip_address(m.group(3))
         else:
             raise ValueError("Wrong type of dstip")
 
@@ -1458,6 +1454,17 @@ Totals               6450                 6449
 
         return asic
 
+    def _get_platform_asic(self, platform):
+        platform_asic = os.path.join(
+            "/usr/share/sonic/device", platform, "platform_asic"
+        )
+        output = self.shell(
+            "cat {}".format(platform_asic), module_ignore_errors=True
+        )
+        if output["rc"] == 0:
+            return output["stdout_lines"][0]
+        return None
+
     def get_facts(self):
         return self.facts
 
@@ -1660,6 +1667,22 @@ Totals               6450                 6449
         self.command(
             "docker rm {}".format(service), module_ignore_errors=True
         )
+
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def no_shutdown_bgp(self, asn):
+        logging.warning("SONiC don't support `no shutdown bgp`")
+        return None
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        for nbr in neighbors:
+            command += " -c 'no neighbor {} shutdown'".format(nbr)
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return self.command(command)
 
     def is_bgp_state_idle(self):
         """

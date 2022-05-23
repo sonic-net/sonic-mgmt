@@ -13,6 +13,7 @@ from tests.common.dualtor.dual_tor_utils import lower_tor_host
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import force_active_tor                                                # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_common import cable_type 
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder

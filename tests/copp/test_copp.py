@@ -30,7 +30,6 @@ from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
-from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
@@ -41,7 +40,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t1", "t2")
+    pytest.mark.topology("t0", "t1", "t2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -74,8 +73,7 @@ class TestCOPP(object):
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
                                           "SNMP",
-                                          "SSH",
-                                          "DHCPOTHERIP"])
+                                          "SSH"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
@@ -92,7 +90,6 @@ class TestCOPP(object):
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
-                                          "DHCPIP2ME",
                                           "DHCP6",
                                           "LACP",
                                           "LLDP",
@@ -167,6 +164,7 @@ class TestCOPP(object):
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
+    @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
@@ -267,7 +265,6 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip,
               "peerip": test_params.peerip,
-              "randip": generate_ip_through_default_route(duthost, [test_params.peerip]),
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap}
 
@@ -369,7 +366,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
@@ -391,7 +388,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True)
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """

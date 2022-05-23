@@ -7,7 +7,7 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY
+from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
 from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
@@ -132,7 +132,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
 
         apply_dut_config_files(duthost, vnet_test_params)
         # Check arp table status in a loop with delay.
-        pytest_assert(wait_until(60, 10, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
+        pytest_assert(wait_until(120, 20, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":
@@ -163,6 +163,8 @@ def is_neigh_reachable(duthost, vnet_config):
                 logger.info('Neigh {} {} is reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
             else:
                 logger.error('Neigh {} {} is not reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+                logger.info("Reapplying config {}".format(DUT_VNET_NBR_JSON))
+                duthost.shell("sudo config load {} -y".format(DUT_VNET_NBR_JSON))
                 return False
         else:
             logger.warning('Neighbor expected but not found: {} {}'.format(exp_neigh["ip"], exp_neigh["ifname"]))
