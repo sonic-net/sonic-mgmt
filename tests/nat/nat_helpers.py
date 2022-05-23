@@ -874,7 +874,7 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
                                  dst_port_numbers=network_data.outer_ports,
                                  match_fields=[("IP", "src"), ("IP", "dst")],
                                  ignore_fields=[("Ether", "src"), ("Ether", "dst"), ("IP", "chksum"), ("IP", "ttl")])
-    pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
+    pkt_filter.filter_pkt_in_buffer()
     pkt_dict = convert_pkt_to_dict(pkt_filter.received_pkt)
     # Verify icmp_id in arrived packet
     pytest_assert(int(pkt_dict['ICMP']['id']) in range(icmp_id, icmp_id+1000), "icmp_id: {} not in pool range".format(pkt_dict['ICMP']['id']))
