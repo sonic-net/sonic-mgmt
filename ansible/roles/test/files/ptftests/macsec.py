@@ -16,7 +16,7 @@ MACSEC_INFO_FILE = "macsec_info.pickle"
 MACSEC_INFOS = {}
 
 
-def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
+def __decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
     sa = scapy_macsec.MACsecSA(sci=sci,
                                an=an,
                                pn=pn,
@@ -36,7 +36,7 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
     return pkt
 
 
-def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
+def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
     recent_packets = []
     packet_count = 0
     if timeout is None:
@@ -56,7 +56,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
             else:
                 continue
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
-        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+        pkt = __decap_macsec_pkt(pkt, sci, an, sak, encrypt,
                                send_sci, 0, xpn_en, ssci, salt)
         if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
             return ret
@@ -72,4 +72,4 @@ if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE):
         MACSEC_INFOS = pickle.load(f)
         if MACSEC_INFOS:
             __origin_dp_poll = ptf.testutils.dp_poll
-            ptf.testutils.dp_poll = macsec_dp_poll
+            ptf.testutils.dp_poll = __macsec_dp_poll

@@ -25,8 +25,6 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     else:
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
-    cmd += " --pypath {} --pypath {} ".format(testdir, testdir + "/py3")
-
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
 
@@ -59,7 +57,9 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
-    host.create_macsec_info()
+    # MACsec is only available in Python3
+    if is_python3:
+        host.create_macsec_info()
 
     try:
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
