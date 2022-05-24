@@ -5,7 +5,7 @@
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
-        "send_sci": "false"
+        "send_sci": "true"
     },
     "256": {
         "priority": 64,
@@ -13,7 +13,7 @@
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
         "policy": "security",
-        "send_sci": "false"
+        "send_sci": "true"
     },
     "128_XPN": {
         "priority": 64,
@@ -21,7 +21,7 @@
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
-        "send_sci": "false"
+        "send_sci": "true"
     },
     "256_XPN": {
         "priority": 64,
@@ -29,7 +29,7 @@
         "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
         "policy": "security",
-        "send_sci": "false"
+        "send_sci": "true"
     },
     "128_SCI": {
         "priority": 64,
