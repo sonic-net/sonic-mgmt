@@ -351,7 +351,6 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 
 
 def verify_required_events(duthost, tbinfo, event_counters, timing_data, verification_errors):
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
             observed_start_count = timing_data.get(key).get(pattern).get("Start count")
@@ -442,7 +441,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         loganalyzer.match_regex = []
         return marker
 
-    def post_reboot_analysis(marker, reboot_oper=None, log_dir=None):
+    def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
