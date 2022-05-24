@@ -1,11 +1,6 @@
 {# Note max of 10 Backend Portchannel from one asic #}
 {% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
-{% if card_type is defined and card_type == 'supervisor' %}
-{# Note avoid PortChannel00 #}
-{{ ((1 + 16 * asic_idx + neigh_asic_idx)|string) }}
-{%- else -%}
 {{ ((40 + 10 * asic_idx + neigh_asic_idx)|string) }}
-{%- endif -%}
 {%- endmacro -%}
 {% if num_asics > 1 %}
 {% if (asic_topo_config and slot_num is defined and slot_num in asic_topo_config) or (asic_topo_config and slot_num is not defined) %}
