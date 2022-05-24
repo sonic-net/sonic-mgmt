@@ -174,13 +174,13 @@ def get_t2_info(duthosts, tbinfo):
                 for port in upstream_rifs:
                     acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table
+                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
                     #acl_table_ports[''].append(port)
             else:
                 for port in downstream_rifs:
                     acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table
+                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
                     #acl_table_ports[''].append(port)
 
         acl_table_ports_per_dut[duthost] = acl_table_ports
