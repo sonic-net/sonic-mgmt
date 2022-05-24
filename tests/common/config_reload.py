@@ -93,9 +93,9 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         if config_source == 'minigraph':
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
                     "PFC_WD is missing in CONFIG-DB")
+
+        if check_intf_up_ports:
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
-
-    if check_intf_up_ports:
-        pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
-                      "Not all ports that are admin up on are operationally up")
