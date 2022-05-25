@@ -525,7 +525,9 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
         verify_mac_jumping(test_name, analyze_result, verification_errors)
-        verify_required_events(duthost, event_counters, analyze_result, verification_errors)
+        if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+            # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
+            verify_required_events(duthost, event_counters, analyze_result, verification_errors)
         return verification_errors
 
     yield pre_reboot_analysis, post_reboot_analysis

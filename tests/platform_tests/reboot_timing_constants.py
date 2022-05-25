@@ -2,8 +2,7 @@ REQUIRED_PATTERNS = {
     "time_span": [
         "SAI_CREATE_SWITCH",
         "INIT_VIEW",
-        "APPLY_VIEW",
-        "ROUTE_DEFERRAL_TIMER"
+        "APPLY_VIEW"
     ],
     "offset_from_kexec": [
         "LAG_READY",

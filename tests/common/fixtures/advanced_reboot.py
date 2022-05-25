@@ -515,7 +515,6 @@ class AdvancedReboot:
             "SAI_CREATE_SWITCH": 1,
             "INIT_VIEW": 1,
             "APPLY_VIEW": 1,
-            "ROUTE_DEFERRAL_TIMER": len(self.duthost.get_bgp_neighbors()),
             "LAG_READY": len(self.mgFacts["minigraph_portchannels"]),
             "PORT_READY": len(self.mgFacts["minigraph_ports"]) - down_ports,
         }
