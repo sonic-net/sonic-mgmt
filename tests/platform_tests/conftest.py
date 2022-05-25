@@ -350,7 +350,7 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
             verification_errors.append("Mac expiry detected during the window when FDB ageing was disabled")
 
 
-def verify_required_events(duthost, tbinfo, event_counters, timing_data, verification_errors):
+def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
             observed_start_count = timing_data.get(key).get(pattern).get("Start count")
@@ -525,7 +525,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
         verify_mac_jumping(test_name, analyze_result, verification_errors)
-        verify_required_events(duthost, tbinfo, event_counters, analyze_result, verification_errors)
+        verify_required_events(duthost, event_counters, analyze_result, verification_errors)
         return verification_errors
 
     yield pre_reboot_analysis, post_reboot_analysis
