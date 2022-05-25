@@ -173,7 +173,7 @@
   topo: dualtor-mixed
   ptf_image_name: docker-ptf
   ptf: ptf-08
-  ptf_ip: 10.250.0.109/24
+  ptf_ip: 10.250.0.119/24
   ptf_ipv6: fec0::ffff:afa:9/64
   netns_mgmt_ip: 10.250.0.126/24
   server: server_1

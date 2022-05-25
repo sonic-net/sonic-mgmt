@@ -1108,7 +1108,7 @@ def flush_neighbor(duthost, neighbor, restore=True):
     logging.info("remove neighbor entry for %s", neighbor)
     duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
     try:
-        yield
+        yield neighbor_details
     finally:
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)

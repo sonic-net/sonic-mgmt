@@ -55,17 +55,17 @@ class BcastTest(BaseTest):
         self.router_mac = self.test_params['router_mac']
         self.setUpVlan(self.test_params['vlan_info'])
         if self.test_params['testbed_type'] == 't0':
-            self.src_ports = range(1, 25) + range(28, 32)
+            self.src_ports = list(range(1, 25)) + list(range(28, 32))
         if self.test_params['testbed_type'] == 't0-52':
-            self.src_ports = range(0, 52)
+            self.src_ports = list(range(0, 52))
         if self.test_params['testbed_type'] == 't0-56':
-            self.src_ports = range(0, 2) + range(4, 6) + range(8, 10) + range(12, 18) + range(20, 22) + \
-                             range(24, 26) + range(28, 30) + range(32, 34) + range(36, 38) + range(40, 46) + \
-                             range(48, 50) + range(52, 54)
+            self.src_ports = list(range(0, 2)) + list(range(4, 6)) + list(range(8, 10)) + list(range(12, 18)) + list(range(20, 22)) + \
+                             list(range(24, 26)) + list(range(28, 30)) + list(range(32, 34)) + list(range(36, 38)) + list(range(40, 46)) + \
+                             list(range(48, 50)) + list(range(52, 54))
         if self.test_params['testbed_type'] == 't0-64':
-            self.src_ports = range(0, 2) + range(4, 18) + range(20, 33) + range(36, 43) + range(48, 49) + range(52, 59)
+            self.src_ports = list(range(0, 2)) + list(range(4, 18)) + list(range(20, 33)) + list(range(36, 43)) + list(range(48, 49)) + list(range(52, 59))
         if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = range(24, 32)
+            self.src_ports = list(range(24, 32))
         if self.test_params['testbed_type'] == 't0-120':
             self.src_ports = [48, 49, 54, 55, 60, 61, 66, 67]
 
@@ -79,7 +79,7 @@ class BcastTest(BaseTest):
         with open(file_path, 'r') as f:
             for line in f.readlines():
                 entry = line.split(' ', 1)
-                prefix = ip_network(unicode(entry[0]))
+                prefix = ip_network(str(entry[0]))
                 if prefix.version != 4:
                     continue
                 self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]

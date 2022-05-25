@@ -44,11 +44,6 @@ DEFAULT_MUX_SERVER_PORT = 8080
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
-@pytest.fixture(scope='module')
-def router_macs(duthosts):
-    return [duthost.facts['router_mac'] for duthost in duthosts]
-
-
 @pytest.fixture(scope="module")
 def ignore_ttl(duthosts):
     # on the multi asic devices, the packet can have different ttl based on how the packet is routed
@@ -63,8 +58,8 @@ def ignore_ttl(duthosts):
 def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                    toggle_all_simulator_ports_to_random_side,
                    fib_info_files_per_function,
-                   tbinfo, mux_server_url, router_macs,
-                   ignore_ttl, single_fib_for_duts):
+                   tbinfo, mux_server_url,
+                   ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
 
     if 'dualtor' in tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -86,8 +81,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                 "fib_test.FibTest",
                 platform_dir="ptftests",
                 params={"fib_info_files": fib_info_files_per_function[:3],  # Test at most 3 DUTs
-                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
-                        "router_macs": router_macs,
+                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts),
                         "ipv4": ipv4,
                         "ipv6": ipv6,
                         "testbed_mtu": mtu,
@@ -251,8 +245,8 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
 
 def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
               toggle_all_simulator_ports_to_rand_selected_tor_m,
-              tbinfo, mux_server_url, router_macs,
-              ignore_ttl, single_fib_for_duts):
+              tbinfo, mux_server_url,
+              ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
 
     if 'dualtor' in tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -271,11 +265,10 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
             "hash_test.HashTest",
             platform_dir="ptftests",
             params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),
-                    "router_macs": router_macs,
                     "vlan_ids": VLANIDS,
                     "ignore_ttl":ignore_ttl,
                     "single_fib_for_duts": single_fib_for_duts

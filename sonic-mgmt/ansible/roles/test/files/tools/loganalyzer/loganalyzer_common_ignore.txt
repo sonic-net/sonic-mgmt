@@ -21,6 +21,9 @@ r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG prof
 r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
+r, ".* ERR syncd#SDK: :- setQueueCounterList: Queue RID oid:.* can't provide the statistic.*"
+r, ".* INFO kernel:.*"
+r, ".* INFO systemd.*"
 
 #Cisco platform ignore messages
 r, ".* INFO .*ntpd.*kernel reports TIME_ERROR: 0x41: Clock Unsynchronized.*"
@@ -75,6 +78,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
+r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -160,3 +164,9 @@ r, ".* INFO systemd.*Finished Kernel crash dump capture service.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233575
 r, ".* INFO systemd.*Starting Kernel crash dump capture service.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233609
+r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14482841
+r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"

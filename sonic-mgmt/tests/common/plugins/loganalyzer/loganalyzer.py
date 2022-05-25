@@ -64,7 +64,7 @@ class DisableLogrotateCronContext:
 class LogAnalyzerError(Exception):
     """Raised when loganalyzer found matches during analysis phase."""
     def __repr__(self):
-        return pprint.pformat(self.message)
+        return pprint.pformat("Log Analyzer Error- Matches found, please check errors in log")
 
 
 class LogAnalyzer:
@@ -127,17 +127,51 @@ class LogAnalyzer:
         """
         if not result:
             raise LogAnalyzerError("Log analyzer failed - no result.")
-        if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
-            raise LogAnalyzerError(result)
+        else:
+            result_str = self._results_repr(result)
+            if result["total"]["match"] != 0 or result["total"]["expected_missing_match"] != 0:
+                raise LogAnalyzerError(result_str)
 
-        # Check for negative case
-        if self.expect_regex and result["total"]["expected_match"] == 0:
-            raise LogAnalyzerError(result)
+            # Check for negative case
+            if self.expect_regex and result["total"]["expected_match"] == 0:
+                err_parse = 'Log Analyzer failed parsing expected messages\n'
+                raise LogAnalyzerError(err_parse + result_str)
 
-        # if the number of expected matches is provided
-        if (self.expect_regex and (self.expected_matches_target > 0)
-           and result["total"]["expected_match"] != self.expected_matches_target):
-            raise LogAnalyzerError(result)
+            # if the number of expected matches is provided
+            if (self.expect_regex and (self.expected_matches_target > 0)
+               and result["total"]["expected_match"] != self.expected_matches_target):
+                err_target = "Log analyzer expected {} messages but found only {}\n".format(self.expected_matches_target, len(self.expect_regex))
+                raise LogAnalyzerError(err_target + result_str)
+
+    def _results_repr(self, result):
+        """
+        @summary: The function converts error analysis dictionary to a readable string format.
+        @param result: Dictionary returned from analyze() function
+        """
+        result_str = ''
+        total_dic = result["total"]
+        msg_dic = result["match_messages"]
+        expect_dic = result['expect_messages']
+        unused_list = result['unused_expected_regexp']
+
+        for msg_type, counter in total_dic.items():
+            result_str += msg_type + ": " + str(counter) + "\n"
+
+        if any(msg_dic.values()):
+            result_str += "\nMatch Messages:\n"
+            for match in msg_dic:
+                result_str += '\n'.join(msg_dic[match])
+
+        if any(expect_dic.values()):
+            result_str += "\nExpected Messages:\n"
+            for expect in expect_dic:
+                result_str += '\n'.join(expect_dic[expect])
+
+        if unused_list:
+            result_str += "\nExpected Messages that are missing:\n"
+            result_str += '\n'.join(unused_list)
+
+        return result_str
 
     def update_marker_prefix(self, marker_prefix):
         """

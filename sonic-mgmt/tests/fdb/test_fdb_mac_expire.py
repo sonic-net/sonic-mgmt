@@ -91,9 +91,9 @@ class TestFdbMacExpire:
         """
         logger.info("Running PTF test case '{0}' on '{1}'".format(testCase, ptfhost.hostname))
         ptfhost.shell(argv=[
-            "ptf",
+            "/root/env-python3/bin/ptf",
             "--test-dir",
-            "ptftests",
+            "ptftests/py3",
             testCase,
             "--platform-dir",
             "ptftests",

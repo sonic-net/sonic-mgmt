@@ -77,9 +77,15 @@ def apply_mirror_session(rand_selected_dut):
     logger.info("Applying mirror session to DUT")
     BaseEverflowTest.apply_mirror_config(rand_selected_dut, mirror_session_info)
     time.sleep(10)
-    cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
-    monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
-    pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
+    single_asic_cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
+    if rand_selected_dut.is_multi_asic:
+        for front_ns in rand_selected_dut.get_frontend_asic_namespace_list():
+            cmd = "{} -n {}".format(single_asic_cmd, front_ns)
+            monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
+            pytest_assert(monitor_port != "", "Failed to retrieve monitor_port on multi-asic dut's frontend namespace: {}".format(front_ns))
+    else:
+        monitor_port = rand_selected_dut.shell(cmd=single_asic_cmd)['stdout']
+        pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
 
     yield mirror_session_info, monitor_port
 

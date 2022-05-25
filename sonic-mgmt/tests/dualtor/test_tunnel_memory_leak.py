@@ -13,6 +13,7 @@ import contextlib
 from threading import Thread
 from ptf import testutils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_common import cable_type 
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.helpers.assertions import pytest_assert
@@ -180,9 +181,8 @@ def test_tunnel_memory_leak(
                 pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                             "The server ip {} doesn't exist in neighbor table on dut {}. \
                             tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-            pytest_assert(len(server_traffic_monitor.matched_packets) > PACKET_COUNT /2, 
-                        "Received {} expected packets for server {}, drop more than 50%."
-                        .format(len(server_traffic_monitor.matched_packets), server_ipv4))
+            pytest_assert(len(server_traffic_monitor.matched_packets) > 0,
+                        "Didn't receive any expected packets for server {}.".format(server_ipv4))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
         check_result = check_memory_leak(upper_tor_host)
