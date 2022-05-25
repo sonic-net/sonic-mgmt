@@ -38,6 +38,15 @@ pytestmark = [
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(rand_one_dut_hostname, loganalyzer):
+    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_attribute:1920 updating switch mac addr failed with error -2"""
+    ignore_regex = [
+            ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
+    ]
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignore_regex)
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
