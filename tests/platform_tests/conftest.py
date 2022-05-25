@@ -416,13 +416,11 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request, tbinfo):
         if "SONiC-OS-201811" in base_os_version[0]:
             if "SONiC-OS-201811" not in get_current_sonic_version(duthost):
                 # postboot: prev=201811 (quagga), current=202012 (frr):
-                # if upgrade from 201811 to future branch is done there are two cases:
-                # 1. Small disk devices: previous quagga logs don't exist anymore, handled in restore_backup.
-                # 2. Other devices: prev quagga log to be copied to a common place, for ansible extract to work:
-                duthost.shell("mv {} {}".format(
-                    "/var/log/quagga/bgpd.log", "/var/log/bgpd.log.99"), module_ignore_errors=True)
-                duthost.shell("cp {} {}".format(
-                    "/var/log/frr/bgpd.log", "/var/log/bgpd.log"), module_ignore_errors=True)
+                # prev quagga log to be copied to a common place, for ansible extract to work.
+                # further, log_analyzer starts will quagga and ends with frr in upgrade path.
+                # Since we need previous and present log files, here they get combined and sorted to generate the log
+                duthost.shell("cat {} {} | sort -n > {}".format(
+                    "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log", "/var/log/bgpd.log"), module_ignore_errors=True)
 
         return bgpd_log
 
