@@ -10,7 +10,6 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import get_disabled_container_list
 
