@@ -119,7 +119,7 @@ class ControlPlaneBaseTest(BaseTest):
                 testutils.send_packet(self, send_intf, packet)
                 pre_send_count += 1
 
-            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=5)
+            rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (pre_send_count, rcv_pkt_cnt))
 
 
@@ -144,7 +144,8 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
 
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)  # Wait a little bit for all the packets to make it through
-        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=10)
+        recv_count = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+        self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
         post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
