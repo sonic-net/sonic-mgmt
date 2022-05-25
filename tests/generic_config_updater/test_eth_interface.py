@@ -32,27 +32,48 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def check_interface_status(duthost, field):
+def check_interface_status(duthost, field, interface='Ethernet0'):
     """
     Returns current status for Ethernet0 of specified field
 
     Args:
         duthost: DUT host object under test
         field: interface field under test
+        interface: The name of the interface to be checked
     """
 
-    cmds = "show interface status Ethernet0"
+    cmds = "show interface status {}".format(interface)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'])
     status_data = output["stdout_lines"]
-    
     field_index = status_data[0].split().index(field)
     for line in status_data:
-        if "Ethernet0" in line:
-            ethernet0_status = line.strip()
-    pytest_assert(len(ethernet0_status) > 0, "Failed to read Ethernet0 interface properties")
-    status = re.split(r" {2,}", ethernet0_status)[field_index]
+        if interface in line:
+            interface_status = line.strip()
+    pytest_assert(len(interface_status) > 0, "Failed to read {} interface properties".format(interface))
+    status = re.split(r" {2,}", interface_status)[field_index]
     return status
+
+def get_ethernet_port_not_in_portchannel(duthost):
+    """
+        Returns the name of an ethernet port which is not a member of a port channel
+
+        Args:
+            duthost: DUT host object under test
+    """
+    config_facts = duthost.get_running_config_facts()
+    port_name = ""
+    ports = config_facts['PORT'].keys()
+    port_channel_members = []
+    port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
+    for port_channel in port_channel_member_facts.keys():
+        for member in port_channel_member_facts[port_channel].keys():
+            port_channel_members.append(member)
+    for port in ports:
+        if port not in port_channel_members:
+            port_name = port
+            break
+    return port_name
 
 
 def test_remove_lanes(duthost, ensure_dut_readiness):
@@ -97,13 +118,16 @@ def test_replace_lanes(duthost, ensure_dut_readiness):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-
 def test_replace_mtu(duthost, ensure_dut_readiness):
+    # Can't directly change mtu of the port channel member
+    # So find a ethernet port that are not in a port channel
+    port_name = get_ethernet_port_not_in_portchannel(duthost)
+    pytest_assert(port_name, "No available ethernet ports, all ports are in port channels.")
     target_mtu = "1514"
     json_patch = [
         {
             "op": "replace",
-            "path": "/PORT/Ethernet0/mtu",
+            "path": "/PORT/{}/mtu".format(port_name),
             "value": "{}".format(target_mtu)
         }
     ]
@@ -114,7 +138,7 @@ def test_replace_mtu(duthost, ensure_dut_readiness):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        current_status_mtu = check_interface_status(duthost, "MTU")
+        current_status_mtu = check_interface_status(duthost, "MTU", port_name)
         pytest_assert(current_status_mtu == target_mtu, "Failed to properly configure interface MTU to requested value {}".format(target_mtu))
     finally:
         delete_tmpfile(duthost, tmpfile)
