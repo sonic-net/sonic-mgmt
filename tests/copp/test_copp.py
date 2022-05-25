@@ -108,6 +108,7 @@ class TestCOPP(object):
                      copp_testbed,
                      dut_type)
 
+    @pytest.mark.disable_loganalyzer
     def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
         """
         Validates that one new trap(bgp) can be installed
@@ -137,6 +138,7 @@ class TestCOPP(object):
             wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
+    @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
                                                   "disable_feature_status"])
     def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
