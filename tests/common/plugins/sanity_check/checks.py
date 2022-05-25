@@ -445,6 +445,10 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
 
+    if dut_upper_tor.is_multi_asic or dut_lower_tor.is_multi_asic:
+        err_msg = 'Multi-asic hwsku not supported for DualTor Topology as of now'
+        return False, err_msg, {}
+
     # Run "show mux status" on dualtor DUTs to collect mux status
     duts_mux_status = duthosts.show_and_parse('show mux status')
 
@@ -459,7 +463,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
 
         logger.info('Verify that mux ports match vlan interfaces of DUT.')
         vlan_intf_names = set()
-        for vlan in duts_minigraph_facts[dut_hostname]['minigraph_vlans'].values():
+        for vlan in duts_minigraph_facts[dut_hostname][0]['minigraph_vlans'].values():
             vlan_intf_names = vlan_intf_names.union(set(vlan['members']))
         dut_mux_intfs = []
         for row in dut_mux_status:
@@ -478,7 +482,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
 
             # Parse mux status, transform port name to port index, which is also mux index
             port_name = row['port']
-            port_idx = duts_minigraph_facts[dut_hostname]['minigraph_port_indices'][port_name]
+            port_idx = duts_minigraph_facts[dut_hostname][0]['minigraph_port_indices'][port_name]
 
             # Transform "active" and "standby" to active side which is "upper_tor" or "lower_tor"
             status = row['status']
