@@ -25,10 +25,10 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         if path_exists["stat"]["exists"]:
             cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
         else:
-            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check the docker-ptf image, make sure to use the correct one."
+            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check and update docker-ptf image, make sure to use the correct one."
             logger.error("Exception caught while executing case: {}. Error message: {}"\
             .format(testname, error_msg))
-            raise Exception
+            raise Exception(error_msg)
     else:
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
