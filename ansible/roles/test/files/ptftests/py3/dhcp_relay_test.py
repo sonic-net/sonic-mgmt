@@ -1,6 +1,7 @@
 import ast
 import struct
 import ipaddress
+import binascii
 
 # Packet Test Framework imports
 import ptf
@@ -9,13 +10,15 @@ import ptf.testutils as testutils
 from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+import scapy.all as scapy2
+from threading import Thread
 
 
 # Helper function to increment an IP address
 # ip_addr should be passed as a dot-decimal string
 # Return value is also a dot-decimal string
 def incrementIpAddress(ip_addr, by=1):
-    new_addr = ipaddress.ip_address(unicode(ip_addr))
+    new_addr = ipaddress.ip_address(str(ip_addr))
     new_addr = new_addr + by
     return str(new_addr)
 
@@ -98,7 +101,9 @@ class DHCPTest(DataplaneBaseTest):
         self.test_params = testutils.test_params_get()
 
         self.hostname = self.test_params['hostname']
-        if self.test_params.has_key('other_client_port'):
+        self.verified_option82 = False
+        
+        if 'other_client_port' in self.test_params:
             self.other_client_port = ast.literal_eval(self.test_params['other_client_port'])
 
         # These are the interfaces we are injected into that link to out leaf switches
@@ -138,7 +143,7 @@ class DHCPTest(DataplaneBaseTest):
         # Our circuit_id string is of the form "hostname:portname"
         circuit_id_string = self.hostname + ":" + self.client_iface_alias
         self.option82 = struct.pack('BB', 1, len(circuit_id_string))
-        self.option82 += circuit_id_string
+        self.option82 += circuit_id_string.encode('utf-8')
 
         # remote_id is stored as suboption 2 of option 82.
         # It consists of the following:
@@ -148,7 +153,7 @@ class DHCPTest(DataplaneBaseTest):
         # Our remote_id string simply consists of the MAC address of the port that received the request
         remote_id_string = self.relay_iface_mac
         self.option82 += struct.pack('BB', 2, len(remote_id_string))
-        self.option82 += remote_id_string
+        self.option82 += remote_id_string.encode('utf-8')
 
         # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
         # It consists of the following:
@@ -156,7 +161,7 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
         if self.dual_tor:
-            link_selection = ''.join([chr(int(byte)) for byte in self.relay_iface_ip.split('.')])
+            link_selection = bytes(list(map(int, self.relay_iface_ip.split('.'))))
             self.option82 += struct.pack('BB', 5, 4)
             self.option82 += link_selection
 
@@ -190,7 +195,8 @@ class DHCPTest(DataplaneBaseTest):
         return discover_packet
 
     def create_dhcp_discover_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
 
         # Relay modifies the DHCPDISCOVER message in the following ways:
         #  1.) Increments the hops count in the DHCP header
@@ -223,7 +229,7 @@ class DHCPTest(DataplaneBaseTest):
                     giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                     chaddr=my_chaddr)
         bootp /= scapy.DHCP(options=[('message-type', 'discover'),
-                    ('relay_agent_Information', self.option82),
+                    (82, self.option82),
                     ('end')])
 
         # If our bootp layer is too small, pad it
@@ -249,7 +255,8 @@ class DHCPTest(DataplaneBaseTest):
                     set_broadcast_bit=True)
 
     def create_dhcp_offer_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
 
         # Relay modifies the DHCPOFFER message in the following ways:
         #  1.) Replaces the source MAC with the MAC of the interface it received it on
@@ -306,7 +313,8 @@ class DHCPTest(DataplaneBaseTest):
         return request_packet
 
     def create_dhcp_request_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
 
         # Here, the actual destination MAC should be the MAC of the leaf the relay
         # forwards through and the destination IP should be the IP of the DHCP server
@@ -334,7 +342,7 @@ class DHCPTest(DataplaneBaseTest):
         bootp /= scapy.DHCP(options=[('message-type', 'request'),
                     ('requested_addr', self.client_ip),
                     ('server_id', self.server_ip),
-                    ('relay_agent_Information', self.option82),
+                    (82, self.option82),
                     ('end')])
 
         # If our bootp layer is too small, pad it
@@ -360,7 +368,8 @@ class DHCPTest(DataplaneBaseTest):
                     set_broadcast_bit=True)
 
     def create_dhcp_ack_relayed_packet(self):
-        my_chaddr = ''.join([chr(int(octet, 16)) for octet in self.client_mac.split(':')])
+        my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
+        my_chaddr += b'\x00\x00\x00\x00\x00\x00'
 
         # Relay modifies the DHCPACK message in the following ways:
         #  1.) Replaces the source MAC with the MAC of the interface it received it on
@@ -411,6 +420,26 @@ class DHCPTest(DataplaneBaseTest):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
         testutils.send_packet(self, self.client_port_index, dhcp_discover)
+
+    #Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and 
+    #once the packet is recieved checking for the destination and looking into options and verifying 
+    #the option82 info
+
+    def pkt_callback(self, pkt):
+        if pkt.haslayer(scapy2.IP) and pkt.haslayer(scapy2.DHCP):
+            if pkt.getlayer(scapy2.IP).dst in [self.server_ip] and pkt.getlayer(scapy2.DHCP) is not None:
+                self.verified_option82 = False
+                pkt_options = ''
+                for option in pkt.getlayer(scapy2.DHCP).options:
+                    if option[0] == 'relay_agent_information':
+                        pkt_options = option[1]
+                        break
+                if self.option82 in pkt_options:
+                    self.verified_option82 = True
+
+    def Sniffer(self,iface):
+        scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",prn=self.pkt_callback, store=0, timeout=5)
+
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
@@ -479,10 +508,6 @@ class DHCPTest(DataplaneBaseTest):
 
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_offer.set_do_not_care_scapy(scapy.DHCP, "lease_time")
-
-        #masked_offer.set_do_not_care_scapy(scapy.PADDING, "load")
 
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_offer, self.client_port_index)
@@ -557,8 +582,6 @@ class DHCPTest(DataplaneBaseTest):
 
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
-
-        masked_ack.set_do_not_care_scapy(scapy.DHCP, "lease_time")
 
         # NOTE: verify_packet() will fail for us via an assert, so no need to check a return value here
         testutils.verify_packet(self, masked_ack, self.client_port_index)
@@ -642,6 +665,12 @@ class DHCPTest(DataplaneBaseTest):
             self.assertTrue(False,"DHCP Relay packet not matched or Padded extra on server side")
 
     def runTest(self):
+        # Start sniffer process for each server port to capture DHCP packet
+        # and then verify option 82
+        for interface_index in self.server_port_indices:
+            t1 = Thread(target=self.Sniffer, args=("eth"+str(interface_index),))
+            t1.start()
+
         self.client_send_discover(self.dest_mac_address, self.client_udp_src_port)
         self.verify_relayed_discover()
         self.server_send_offer()
@@ -650,9 +679,9 @@ class DHCPTest(DataplaneBaseTest):
         self.verify_relayed_request()
         self.server_send_ack()
         self.verify_ack_received()
+        self.assertTrue(self.verified_option82,"Failed: Verifying option 82")
 
         ## Below verification will be done only when client port is set in ptf_runner
-        if self.test_params.has_key('other_client_port'):
+        if 'other_client_port' in self.test_params:
             self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
-

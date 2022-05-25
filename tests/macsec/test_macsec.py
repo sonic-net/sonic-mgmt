@@ -1,8 +1,12 @@
 from time import sleep
 import pytest
 import logging
+import re
+import scapy.all as scapy
+import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
+from tests.common.devices.eos import EosHost
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *
@@ -66,6 +70,22 @@ class TestControlPlane():
                                   policy, cipher_suite, send_sci)
             return True
         assert wait_until(300, 5, 3, _test_mka_session)
+
+    def test_rekey_by_period(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period == 0:
+            pytest.skip("If the rekey period is 0 which means rekey by period isn't active.")
+        assert len(ctrl_links) > 0
+        # Only pick one link to test
+        port_name, nbr = ctrl_links.items()[0]
+        _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        up_link = upstream_links[port_name]
+        output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
+        _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        assert last_dut_egress_sa_table != new_dut_egress_sa_table
+        assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
+        assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
 
 
 class TestDataPlane():
@@ -164,20 +184,31 @@ class TestFaultHandling():
         # Only pick one link for link flap test
         assert ctrl_links
         port_name, nbr = ctrl_links.items()[0]
-        _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
-            duthost, port_name, nbr["host"], nbr["port"])
         nbr_eth_port = get_eth_ifname(
             nbr["host"], nbr["port"])
+        _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+
 
         # Flap < 6 seconds
         # Not working on eos neighbour
         if not isinstance(nbr["host"], EosHost):
-            nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
-                nbr_eth_port, nbr_eth_port))
-            _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
-                duthost, port_name, nbr["host"], nbr["port"])
-            assert dut_egress_sa_table_orig == dut_egress_sa_table_new
-            assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+            # Rekey may happen during the following assertions, so we need to get the SA tables again
+            retry = 3
+            while retry > 0:
+                retry -= 1
+                try:
+                    nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
+                        nbr_eth_port, nbr_eth_port))
+                    _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
+                        duthost, port_name, nbr["host"], nbr["port"])
+                    assert dut_egress_sa_table_orig == dut_egress_sa_table_new
+                    assert dut_ingress_sa_table_orig == dut_ingress_sa_table_new
+                    break
+                except AssertionError as e:
+                    if retry == 0:
+                        raise e
+                dut_egress_sa_table_orig, dut_ingress_sa_table_orig = dut_egress_sa_table_new, dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds
         if isinstance(nbr["host"], EosHost):

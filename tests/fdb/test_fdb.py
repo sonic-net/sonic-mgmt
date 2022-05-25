@@ -19,7 +19,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_al
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan'),
+    pytest.mark.topology('t0'),
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 
@@ -165,20 +165,23 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, des
     # on server side during this period. So tolerant to retry 3 times before complain the assert.
 
     retry_count = 3
+    pkt_count = 1
     for _ in range(retry_count):
         try:
             ptfadapter.dataplane.flush()
-            testutils.send(ptfadapter, source_ports[0], pkt)
+            testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
             if len(dest_ports) == 1:
                 testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             else:
                 testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             break
         except:
+            # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
+            pkt_count = 10
             pass
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
-        logger.debug("Show mac results {}".format(result['stdout']))
+        logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
                              "Dest MAC in fdb is {}".format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
 
@@ -334,15 +337,16 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     dummy_mac_count = 0
     total_mac_count = 0
-    for k, v in fdb_fact.items():
-        assert v['port'] in interface_table
-        assert v['vlan'] in interface_table[ifname]
+    for k, vl in fdb_fact.items():
         assert validate_mac(k) == True
-        assert v['type'] in ['Dynamic', 'Static']
-        if DUMMY_MAC_PREFIX in k.lower():
-            dummy_mac_count += 1
-        if "dynamic" in k.lower():
-            total_mac_count += 1
+        for v in vl:
+            assert v['port'] in interface_table
+            assert v['vlan'] in interface_table[v['port']]
+            assert v['type'] in ['Dynamic', 'Static']
+            if DUMMY_MAC_PREFIX in k.lower():
+                dummy_mac_count += 1
+            if "dynamic" in v['type'].lower():
+                total_mac_count += 1
 
     assert vlan_member_count > 0
 

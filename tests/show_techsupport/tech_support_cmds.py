@@ -80,10 +80,10 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv6 summary'",
     "vtysh{} -c 'show bgp ipv6 neighbors'",
     "vtysh{} -c 'show bgp ipv6'",
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
+    re.compile('vtysh{}\s+-c \\\\"show ip bgp neighbors .* advertised-routes\\\\"'),
+    re.compile('vtysh{}\s+-c \\\\"show ip bgp neighbors .* routes\\\\"'),
+    re.compile('vtysh{}\s+-c \\\\"show bgp ipv6 neighbors .* advertised-routes\\\\"'),
+    re.compile('vtysh{}\s+-c \\\\"show bgp ipv6 neighbors .* routes\\\\"'),
 ]
 
 nat_cmds = [
