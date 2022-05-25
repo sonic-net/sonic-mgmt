@@ -1,5 +1,5 @@
 import re
-import sys
+import six
 
 from ipaddress import ip_address, ip_network
 from lpm import LpmDict
@@ -60,7 +60,7 @@ class Fib():
             for line in f.readlines():
                 if pattern.match(line): continue
                 entry = line.split(' ', 1)
-                prefix = ip_network(unicode(entry[0]) if sys.version_info[0] == 2 else entry[0])
+                prefix = ip_network(six.text_type(entry[0]))
                 next_hop = self.NextHop(entry[1])
                 if prefix.version is 4:
                     self._ipv4_lpm_dict[str(prefix)] = next_hop
@@ -68,14 +68,14 @@ class Fib():
                     self._ipv6_lpm_dict[str(prefix)] = next_hop
 
     def __getitem__(self, ip):
-        ip = ip_address(unicode(ip) if sys.version_info[0] == 2 else ip)
+        ip = ip_address(six.text_type(ip))
         if ip.version is 4:
             return self._ipv4_lpm_dict[str(ip)]
         elif ip.version is 6:
             return self._ipv6_lpm_dict[str(ip)]
 
     def __contains__(self, ip):
-        ip_obj = ip_address(unicode(ip) if sys.version_info[0] == 2 else ip)
+        ip_obj = ip_address(six.text_type(ip))
         if ip_obj.version == 4:
             return self._ipv4_lpm_dict.contains(ip)
         elif ip_obj.version == 6:
