@@ -117,6 +117,7 @@ def load_dut_basic_facts(session):
         else:
             inv_name = 'lab'
 
+        #get dut basic faces
         ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
@@ -126,6 +127,175 @@ def load_dut_basic_facts(session):
             results.update(json.loads(output_fields[1].strip())['ansible_facts']['dut_basic_facts'])
     except Exception as e:
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
+
+    return results
+
+def load_minigraph_facts(session):
+    """Run 'ansible -m minigraph_facts -a host={{hostname}}' command to get some basic minigraph facts.
+
+        The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
+
+        Args:
+            session (obj): The pytest session object.
+
+        Returns:
+            dict or None: Return the minigraph basic facts dict or None if something went wrong.
+    """
+    results = {}
+    logger.info('Getting minigraph basic facts')
+    try:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+
+        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+        dut_name = tbinfo['duts'][0]
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
+        # get minigraph basic faces
+        ansible_cmd = "ansible -m minigraph_facts -i ../ansible/{0} {1} -a host={1}".format(inv_name, dut_name)
+        raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
+        logger.debug('raw minigraph basic facts:\n{}'.format(raw_output))
+        output_fields = raw_output.split('SUCCESS =>', 1)
+        if len(output_fields) >= 2:
+            output_fields = json.loads(output_fields[1].strip())['ansible_facts']
+            results['minigraph_interfaces'] = output_fields['minigraph_interfaces']
+            results['minigraph_portchannels'] = output_fields['minigraph_portchannels']
+            results['minigraph_portchannel_interfaces'] = output_fields['minigraph_portchannel_interfaces']
+            results['minigraph_neighbors'] = output_fields['minigraph_neighbors']
+    except Exception as e:
+        logger.error('Failed to load minigraph basic facts, exception: {}'.format(repr(e)))
+
+    return results
+
+def load_config_facts(session):
+    """Run 'ansible -m config_facts -a 'host={{hostname}} source='persistent' ' command to get some basic config facts.
+
+        The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
+
+        Args:
+            session (obj): The pytest session object.
+
+        Returns:
+            dict or None: Return the minigraph basic facts dict or None if something went wrong.
+    """
+    results = {}
+    logger.info('Getting config basic facts')
+    try:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+
+        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+        dut_name = tbinfo['duts'][0]
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
+        # get config basic faces
+        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name), '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
+        raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
+        logger.debug('raw config basic facts:\n{}'.format(raw_output))
+        output_fields = raw_output.split('SUCCESS =>', 1)
+        if len(output_fields) >= 2:
+            output_fields = json.loads(output_fields[1].strip())['ansible_facts']
+            results['VOQ_INBAND_INTERFACE'] = output_fields.get('VOQ_INBAND_INTERFACE', {})
+            results['BGP_VOQ_CHASSIS_NEIGHBOR'] = output_fields.get('BGP_VOQ_CHASSIS_NEIGHBOR', {})
+            results['INTERFACE'] = output_fields.get('INTERFACE', {})
+    except Exception as e:
+        logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
+
+    return results
+
+def load_switch_capabilities_facts(session):
+    """Run 'ansible -m switch_capabilities_facts' command to get some basic config facts.
+
+        The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
+
+        Args:
+            session (obj): The pytest session object.
+
+        Returns:
+            dict or None: Return the minigraph basic facts dict or None if something went wrong.
+    """
+    results = {}
+    logger.info('Getting switch capabilities basic facts')
+    try:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+
+        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+        dut_name = tbinfo['duts'][0]
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
+        # get switch capabilities basic faces
+        ansible_cmd = "ansible -m switch_capabilities_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
+        logger.debug('raw switch capabilities basic facts:\n{}'.format(raw_output))
+        output_fields = raw_output.split('SUCCESS =>', 1)
+        if len(output_fields) >= 2:
+            output_fields = json.loads(output_fields[1].strip())['ansible_facts']['switch_capabilities']
+            results['switch'] = output_fields.get('switch', {})
+    except Exception as e:
+        logger.error('Failed to load switch capabilities basic facts, exception: {}'.format(repr(e)))
+
+    return results
+
+def load_console_facts(session):
+    """Run 'ansible -m console_facts' command to get some basic console facts.
+
+        The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
+
+        Args:
+            session (obj): The pytest session object.
+
+        Returns:
+            dict or None: Return the minigraph basic facts dict or None if something went wrong.
+    """
+    results = {}
+    logger.info('Getting console basic facts')
+    try:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+
+        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+        dut_name = tbinfo['duts'][0]
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
+        # get console basic faces
+        ansible_cmd = "ansible -m console_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
+        logger.debug('raw console basic facts:\n{}'.format(raw_output))
+        output_fields = raw_output.split('SUCCESS =>', 1)
+        if len(output_fields) >= 2:
+            output_fields = json.loads(output_fields[1].strip())['ansible_facts']['console_facts']
+            results = output_fields
+    except Exception as e:
+        logger.error('Failed to load console basic facts, exception: {}'.format(repr(e)))
 
     return results
 
@@ -145,6 +315,26 @@ def load_basic_facts(session):
 
     # Load DUT basic facts
     _facts = load_dut_basic_facts(session)
+    if _facts:
+        results.update(_facts)
+
+    # Load minigraph basic facts
+    _facts = load_minigraph_facts(session)
+    if _facts:
+        results.update(_facts)
+
+    # Load config basic facts
+    _facts = load_config_facts(session)
+    if _facts:
+        results.update(_facts)
+
+    # Load switch capabilities basic facts
+    _facts = load_switch_capabilities_facts(session)
+    if _facts:
+        results.update(_facts)
+
+    # Load console basic facts
+    _facts = load_config_facts(session)
     if _facts:
         results.update(_facts)
 

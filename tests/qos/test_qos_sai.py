@@ -228,8 +228,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS and dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
-            pytest.skip("Headroom pool size not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
@@ -296,8 +294,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Shared reservation size test is not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
@@ -364,7 +360,7 @@ class TestQosSai(QosSaiBase):
         """
         duthost = duthosts[rand_one_dut_hostname]
         cmd_output = duthost.shell("show headroom-pool watermark", module_ignore_errors=True)
-        if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS or cmd_output['rc'] != 0:
+        if cmd_output['rc'] != 0:
             pytest.skip("Headroom pool watermark is not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
@@ -555,9 +551,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if "backend" in dutTestParams["topo"]:
-            pytest.skip("Dscp-queue mapping is not supported on {}".format(dutTestParams["topo"]))
-
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -591,9 +584,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if "backend" not in dutTestParams["topo"]:
-            pytest.skip("Dot1p-queue mapping is not supported on {}".format(dutTestParams["topo"]))
-
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -625,8 +615,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if "backend" not in dutTestParams["topo"]:
-            pytest.skip("Dot1p-PG mapping is not supported on {}".format(dutTestParams["topo"]))
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -835,8 +823,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("PG drop size test is not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if "pg_drop" in dutQosConfig["param"][portSpeedCableLength].keys():
@@ -962,9 +948,6 @@ class TestQosSai(QosSaiBase):
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
 
-        if "backend" in dutTestParams["topo"]:
-            pytest.skip("Dscp-PG mapping is not supported on {}".format(dutTestParams["topo"]))
-
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -999,8 +982,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] == "mellanox":
-            pytest.skip("Skip DWRR weight change test on Mellanox platform")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]

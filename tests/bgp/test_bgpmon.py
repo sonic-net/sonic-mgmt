@@ -23,13 +23,6 @@ ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_test_bgpmon_on_backend(tbinfo):
-    """Skip test_bgpmon over storage backend topologies."""
-    if "backend" in tbinfo["topo"]["name"]:
-        pytest.skip("Skipping test_bgpmon. Unsupported topology %s." % tbinfo["topo"]["name"])
-
-
 def get_default_route_ports(host, tbinfo):
     mg_facts = host.get_extended_minigraph_facts(tbinfo)
     route_info = json.loads(host.shell("show ip route {} json".format(ZERO_ADDR))['stdout'])

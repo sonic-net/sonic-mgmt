@@ -223,9 +223,6 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
-        pytest.skip("Topology not supported by COPP tests")
-
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
         _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)

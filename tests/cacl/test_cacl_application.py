@@ -768,10 +768,6 @@ def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, doc
     verify_cacl(duthost, localhost, creds, docker_network)
 
 def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
-
-    if enum_frontend_asic_index is None:
-        pytest.skip("Not Multi-asic platform. Skipping !!")
-
     duthost = duthosts[rand_one_dut_hostname]
     verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)

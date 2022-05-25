@@ -39,15 +39,6 @@ def check_kernel_po_interface_cleaned(duthost, asic_index):
     res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
     return res == '0'
 
-@pytest.fixture(scope="module", autouse=True)
-def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
-    if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
-        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
-
 def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
     test port channel are cleaned up correctly and teammgrd and teamsyncd process
