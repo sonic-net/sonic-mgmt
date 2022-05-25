@@ -1,4 +1,4 @@
-# check_bgp_statistic
+# check_bgp_session_state
 
 - [Overview](#overview)
 - [Examples](#examples)

@@ -206,7 +206,7 @@ def is_hiting_start_limit(duthost, container_name):
     return False
 
 
-def clear_failed_flag_and_restart(duthost, container_name):
+def clear_failed_flag_and_restart(duthost, service_name):
     """
     @summary: If a container hits the restart limitation, then we clear the failed flag and
               restart it.
@@ -221,7 +221,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
-def verify_autorestart_with_critical_process(duthost, container_name, program_name,
+def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
                                              program_status, program_pid):
     """
     @summary: Kill a critical process in a container to verify whether the container
@@ -250,7 +250,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
                            0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
-        if is_hiting_start_limit(duthost, container_name):
+        if is_hiting_start_limit(duthost, service_name):
             clear_failed_flag_and_restart(duthost, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
@@ -336,12 +336,13 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
     return critical_proceses, bgp_check
 
 
-def run_test_on_single_container(duthost, container_name, tbinfo):
+def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     container_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_condition = disabled_containers[:]
     skip_condition.append("database")
+    skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
@@ -382,7 +383,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
             continue
 
         program_status, program_pid = get_program_info(duthost, container_name, critical_process)
-        verify_autorestart_with_critical_process(duthost, container_name, critical_process,
+        verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
                                                  program_status, program_pid)
         # Sleep 20 seconds in order to let the processes come into live after container is restarted.
         # We will uncomment the following line once the "extended" mode is added
@@ -394,7 +395,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     for critical_group in critical_group_list:
         group_program_info = get_group_program_info(duthost, container_name, critical_group)
         for program_name in group_program_info:
-            verify_autorestart_with_critical_process(duthost, container_name, program_name,
+            verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
                                                      group_program_info[program_name][0],
                                                      group_program_info[program_name][1])
             # We are currently only testing one critical program for each critical group, which is
@@ -448,4 +449,4 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     service_name = enum_dut_feature
     container_name = asic.get_docker_name(service_name)
 
-    run_test_on_single_container(duthost, container_name, tbinfo)
+    run_test_on_single_container(duthost, container_name, service_name, tbinfo)

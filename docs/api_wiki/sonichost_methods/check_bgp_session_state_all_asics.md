@@ -1,4 +1,4 @@
-# check_bgp_session_state
+# check_bgp_session_state_all_asics
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -13,7 +13,8 @@ Check whether the state of the bgp session matches a specified state for a list 
 def test_fun(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    bgp_info = duthost.get_bgp_neighbors_per_asic("established")
+    bgp_info = duthost.get_bgp_neighbors_per_asic()
+    bgp_match = duthost.check_bgp_session_state_all_asics(bgp_info, state)
 ```
 
 ## Arguments
