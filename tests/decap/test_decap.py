@@ -75,6 +75,8 @@ def loopback_ips(duthosts, duts_running_config_facts):
     lo_ips = []
     lo_ipv6s = []
     for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
         cfg_facts = duts_running_config_facts[duthost.hostname]
         lo_ip = None
         lo_ipv6 = None
@@ -99,8 +101,7 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
         "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
         "single_fib_for_duts": single_fib_for_duts,
         "ignore_ttl": True if is_multi_asic else False,
-        "max_internal_hops": 3 if is_multi_asic else 0,
-        'router_macs': [duthost.facts['router_mac'] for duthost in duthosts]
+        "max_internal_hops": 3 if is_multi_asic else 0
     }
 
     setup_info.update(ip_ver)
@@ -122,6 +123,8 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
 
     # apply test decap configuration (SET or DEL)
     for idx, duthost in enumerate(duthosts):
+        if duthost.is_supervisor_node():
+            continue
         decap_conf_vars = {
             'lo_ip': loopback_ips['lo_ips'][idx],
             'lo_ipv6': loopback_ips['lo_ipv6s'][idx],
@@ -156,7 +159,8 @@ def set_mux_side(tbinfo, mux_server_url, side):
 def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
 
-def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mux_random, supported_ttl_dscp_params, ip_ver, loopback_ips):
+def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mux_random, supported_ttl_dscp_params, ip_ver, loopback_ips,
+               duts_running_config_facts, duts_minigraph_facts):
     setup_info = setup_teardown
 
     ecn_mode = "copy_from_outer"
@@ -182,14 +186,13 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mu
                             "inner_ipv6": setup_info["inner_ipv6"],
                             "lo_ips": setup_info["lo_ips"],
                             "lo_ipv6s": setup_info["lo_ipv6s"],
-                            "router_macs": setup_info["router_macs"],
                             "ttl_mode": ttl_mode,
                             "dscp_mode": dscp_mode,
                             "ignore_ttl": setup_info["ignore_ttl"],
                             "max_internal_hops": setup_info["max_internal_hops"],
                             "fib_info_files": setup_info["fib_info_files"],
                             "single_fib_for_duts": setup_info["single_fib_for_duts"],
-                            "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url)
+                            "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts)
                             },
                     qlen=PTFRUNNER_QLEN,
                     log_file=log_file)
