@@ -2464,12 +2464,12 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
                 time.sleep(8)
+                # these counters are clear on read, ensure counter polling
+                # is disabled before the test
                 q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(self.client, port_list[dst_port_id])
                 pg_cntrs = sai_thrift_read_pg_counters(self.client, port_list[src_port_id])
                 print >> sys.stderr, "Received packets: %d" % (pg_cntrs[queue] - pg_cntrs_base[queue])
-                print >> sys.stderr, "exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (pkts_num, q_wm_res[queue], expected_wm * cell_size, (expected_wm + margin) * cell_size)
-                assert(fragment < cell_occupancy)
-                assert(expected_wm * cell_size <= q_wm_res[queue])
+                print >> sys.stderr, "lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size, q_wm_res[queue], (expected_wm + margin) * cell_size)
                 assert(q_wm_res[queue] <= (expected_wm + margin) * cell_size)
                 assert((expected_wm - margin) * cell_size <= q_wm_res[queue])
 
