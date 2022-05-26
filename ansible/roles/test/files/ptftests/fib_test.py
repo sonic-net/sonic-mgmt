@@ -72,8 +72,7 @@ class FibTest(BaseTest):
 
     _required_params = [
         'fib_info_files',
-        'ptf_test_port_map',
-        'router_macs'
+        'ptf_test_port_map'
     ]
 
     def __init__(self):
@@ -117,7 +116,6 @@ class FibTest(BaseTest):
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
 
-        self.router_macs = self.test_params.get('router_macs')
         self.pktlen = self.test_params.get('testbed_mtu', 9114)
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
@@ -145,7 +143,7 @@ class FibTest(BaseTest):
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
-        self.single_fib = self.test_params.get('single_fib_for_duts', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', "multiple-fib")
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, fib in enumerate(self.fibs):
@@ -169,10 +167,10 @@ class FibTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == "multiple-fib":
                 active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
@@ -205,6 +203,14 @@ class FibTest(BaseTest):
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
                 src_port, exp_port_list, next_hop = self.get_src_and_exp_ports(dst_ip)
+                if self.single_fib == "single-fib-multi-hop":
+                    updated_exp_port_list = []
+                    for port in exp_port_list:
+                        if (self.ptf_test_port_map[str(port)]['target_dut'] == self.ptf_test_port_map[str(src_port)]['target_dut'] and
+                            self.ptf_test_port_map[str(port)]['asic_idx'] == self.ptf_test_port_map[str(src_port)]['asic_idx']):
+                            updated_exp_port_list.append(port)
+                    if updated_exp_port_list:
+                        exp_port_list = updated_exp_port_list
                 if len(exp_port_list) <= 1:
                     # Only 1 expected output port is not enough for balancing test.
                     continue
@@ -252,7 +258,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -308,7 +314,7 @@ class FibTest(BaseTest):
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
@@ -333,7 +339,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
@@ -387,7 +393,7 @@ class FibTest(BaseTest):
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
             actual_src_mac = Ether(rcvd_pkt).src
             if actual_src_mac != exp_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
