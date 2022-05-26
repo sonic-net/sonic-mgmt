@@ -3,6 +3,7 @@ import struct
 import sys
 import binascii
 import time
+import re
 
 import cryptography.exceptions
 import ptf
@@ -347,7 +348,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         force_reload[ret.port] = False
         pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
                                send_sci, 0, xpn_en, ssci, salt)
-        if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+        if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
             return ret
         recent_packets.append(pkt)
         packet_count += 1
