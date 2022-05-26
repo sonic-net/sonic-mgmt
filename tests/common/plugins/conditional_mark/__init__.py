@@ -85,6 +85,25 @@ def load_conditions(session):
 
     return conditions_list
 
+def read_asic_name(hwsku):
+    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    try:
+        with open(asic_name_file) as f:
+            asic_name = yaml.safe_load(f)
+            logger.info(asic_name)
+
+        for key, value in asic_name.items():
+            if ('td' not in key) and ('th' not in key):
+                asic_name.pop(key)
+
+        for name, hw in asic_name.items():
+            if hwsku in hw:
+                return name.split('_')[1]
+
+        return None
+
+    except IOError as e:
+        return e
 
 def load_dut_basic_facts(session):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
@@ -124,6 +143,7 @@ def load_dut_basic_facts(session):
         output_fields = raw_output.split('SUCCESS =>', 1)
         if len(output_fields) >= 2:
             results.update(json.loads(output_fields[1].strip())['ansible_facts']['dut_basic_facts'])
+            results['asic_gen'] = read_asic_name(results['hwsku'])
     except Exception as e:
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 

@@ -53,19 +53,6 @@ def pytest_addoption(parser):
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
 
-
-@pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
-    vendor = duthost.facts["asic_type"]
-    hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
-    for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
-        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
-            pytest.skip(
-                "Skipping test since subport is not supported on {0} {1} platforms".format(vendor, asic))
-
-
 @pytest.fixture(params=['port', 'port_in_lag'])
 def port_type(request):
     """Port type to test, could be either port or port-channel."""
