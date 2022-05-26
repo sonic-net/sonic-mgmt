@@ -158,18 +158,6 @@ class TestSfpApi(PlatformApiTestBase):
     # Helper functions
     #
 
-    def get_sfp_attributes(self, duthost, sfp_idx, def_value, *keys):
-        if duthost.facts.get("chassis"):
-            sfps = duthost.facts.get("chassis").get("sfps")
-            if sfps:
-                sfp_value = sfps[sfp_idx]
-                for key in keys:
-                    value = sfp_value.get(key)
-                    if value is None:
-                        return def_value
-                return value
-        return def_value
-
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
@@ -543,17 +531,6 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
-        sfp_skipped = 0
-        num_sfps = int(chassis.get_num_sfps(platform_api_conn))
-        for j in range(num_sfps):
-            support_tx_disable_channel = self.get_sfp_attributes(duthost, j, True, "tx_disable_channel")
-            if not support_tx_disable_channel:
-                logger.info("test_sfp: tx_disable_channel is not supported")
-                sfp_skipped += 1
-                continue
-
-        if sfp_skipped == num_sfps:
-            pytest.skip("test_sfp:tx_disable_channel is not supported on all sfps")
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
