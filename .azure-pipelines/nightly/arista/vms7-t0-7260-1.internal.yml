@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 10 * * 0-4"
+  - cron: "0 2 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -18,25 +18,25 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms7-t0-7260-2
+    default: vms7-t0-7260-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests"'
+    default: '-I "platform_tests"'
     displayName: Testbed specific
 
 stages:

@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "10 8 * * 0,2,4"
+  - cron: "15 8 * * 1,5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   # Deploy parameters
@@ -35,7 +35,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: SKIP_SCRIPTS
