@@ -268,7 +268,14 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             asic.stop_service(service)
+            
+    def reset_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.reset_service(service, service)
 
+        for asic in self.asics:
+            asic.reset_service(service)
+        
     def restart_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.restart_service(service, service)
@@ -594,3 +601,9 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+        
+    def restart_bgp(self):
+        """Restart bgp services on the DUT"""
+        duthost = self.sonichost
+        self.reset_service("bgp")
+        self.restart_service("bgp")
