@@ -602,7 +602,7 @@ class MultiAsicSonicHost(object):
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
         
-    def restart_bgp(self, asic_index=DEFAULT_ASIC_ID):
+    def restart_bgp(self):
         """Restart bgp services on the DUT"""
         self.reset_service("bgp")
         self.restart_service("bgp")
