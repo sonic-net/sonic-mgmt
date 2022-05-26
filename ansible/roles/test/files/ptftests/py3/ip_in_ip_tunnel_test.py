@@ -51,7 +51,7 @@ class IpinIPTunnelTest(BaseTest):
         self.standby_tor_ip = self.test_params['standby_tor_ip']
         self.ptf_portchannel_indices = self.test_params['ptf_portchannel_indices']
         self.indice_to_portchannel = {}
-        for port_channel, indices in list(self.ptf_portchannel_indices.items()):
+        for port_channel, indices in self.ptf_portchannel_indices.items():
             for indice in indices:
                 self.indice_to_portchannel[indice] = port_channel
 
@@ -185,19 +185,19 @@ class IpinIPTunnelTest(BaseTest):
         self.logger.info("hash key = {}".format(hash_key))
         self.logger.info("%-10s \t %10s \t %10s \t" % ("port(s)", "exp_cnt", "act_cnt"))
         balance = True
-        for portchannel, count in list(pkt_distribution.items()):
+        for portchannel, count in pkt_distribution.items():
             self.logger.info("%-10s \t %10s \t %10s \t" % (portchannel, str(expect_packet_num), str(count)))
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
         if not balance:
-            print(("Check balance failed for {}".format(hash_key)))
+            print("Check balance failed for {}".format(hash_key))
         assert(balance)
 
     def send_and_verify_packets(self):
         """
         Send packet from ptf (T1) to standby ToR, and verify
         """
-        dst_ports = list(self.indice_to_portchannel.keys())
+        dst_ports = self.indice_to_portchannel.keys()
         # Select the first ptf indice as src port
         src_port = dst_ports[0]
         # Step 1. verify no packet is received from standby_tor to server
