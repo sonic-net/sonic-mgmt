@@ -159,6 +159,8 @@ class MacsecPlugin(object):
             if neighbor["name"] not in nbrhosts.keys():
                 return
             port = mg_facts["minigraph_neighbors"][interface]["port"]
+
+            # Currently in t2 topology macsec is validated on regular interfaces. To remove this once it is validated with PC.
             if tbinfo["topo"]["type"] == "t2" and is_interface_portchannel_member(mg_facts['minigraph_portchannels'], interface):
                 return
             links[interface] = {

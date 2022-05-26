@@ -91,7 +91,7 @@ class TestControlPlane():
 class TestDataPlane():
     BATCH_COUNT = 10
 
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter, tbinfo):
+    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
 
         down_link = downstream_links.values()[0]
