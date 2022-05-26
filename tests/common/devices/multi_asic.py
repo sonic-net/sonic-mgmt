@@ -602,8 +602,15 @@ class MultiAsicSonicHost(object):
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
         
-    def restart_bgp(self):
+    def restart_bgp(self, asic_index=DEFAULT_ASIC_ID):
         """Restart bgp services on the DUT"""
-        duthost = self.sonichost
-        self.reset_service("bgp")
-        self.restart_service("bgp")
+        # If any specific asic_index passed
+        if not asic_index == DEFAULT_ASIC_ID:
+            duthost.asic_instance(asic_index).reset_service("bgp")
+            duthost.asic_instance(asic_index).restart_service("bgp")
+            docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
+            pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
+        # If no specific asic_index passed, let it consider single-asic and multi-asic scenario and call corresponding function
+        else:
+            self.reset_service("bgp")
+            self.restart_service("bgp")
