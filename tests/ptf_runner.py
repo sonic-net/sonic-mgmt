@@ -21,7 +21,14 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
     if is_python3:
-        cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+        path_exists = host.stat(path="/root/env-python3/bin/ptf")
+        if path_exists["stat"]["exists"]:
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+        else:
+            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check and update docker-ptf image, make sure to use the correct one."
+            logger.error("Exception caught while executing case: {}. Error message: {}"\
+            .format(testname, error_msg))
+            raise Exception(error_msg)
     else:
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
