@@ -152,7 +152,7 @@ class TestDataPlane():
                 "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter, tbinfo):
+    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
         portchannels = get_portchannel(duthost).values()
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
@@ -180,7 +180,7 @@ class TestFaultHandling():
     MKA_TIMEOUT = 6
     LACP_TIMEOUT = 90
 
-    def test_link_flap(self, duthost, ctrl_links, tbinfo):
+    def test_link_flap(self, duthost, ctrl_links):
         # Only pick one link for link flap test
         assert ctrl_links
         port_name, nbr = ctrl_links.items()[0]
@@ -285,7 +285,7 @@ class TestInteropProtocol():
     Macsec interop with other protocols
     '''
 
-    def test_port_channel(self, duthost, ctrl_links, tbinfo):
+    def test_port_channel(self, duthost, ctrl_links):
         '''Verify lacp
         '''
         ctrl_port, _ = ctrl_links.items()[0]
@@ -332,7 +332,7 @@ class TestInteropProtocol():
             assert wait_until(1, 1, LLDP_TIMEOUT,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
-    def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name, tbinfo):
+    def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
         '''Verify BGP neighbourship
         '''
         bgp_config = duthost.get_running_config_facts()[
@@ -377,7 +377,7 @@ class TestInteropProtocol():
             assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, upstream_links[ctrl_port])
 
-    def test_snmp(self, duthost, ctrl_links, upstream_links, creds, tbinfo):
+    def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
         '''
         Verify SNMP request/response works across interface with macsec configuration
         '''

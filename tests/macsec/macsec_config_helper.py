@@ -99,12 +99,16 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
 
     def check_macsec_enabled():
-        for nbr in [n["host"] for n in nbrhosts.values()] + [duthost]:
+        if len(duthost.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < num_asics:
+            return False
+        if len(duthost.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < num_asics:
+            return False
+        for nbr in [n["host"] for n in nbrhosts.values()]:
             if isinstance(nbr, EosHost):
                 continue
-            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) != num_asics:
+            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < 1:
                 return False
-            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) != num_asics:
+            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < 1:
                 return False
         return True
     assert wait_until(180, 5, 10, check_macsec_enabled)
