@@ -7,7 +7,7 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY
+from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
 from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
@@ -163,6 +163,8 @@ def is_neigh_reachable(duthost, vnet_config):
                 logger.info('Neigh {} {} is reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
             else:
                 logger.error('Neigh {} {} is not reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+                logger.info("Reapplying config {}".format(DUT_VNET_NBR_JSON))
+                duthost.shell("sudo config load {} -y".format(DUT_VNET_NBR_JSON))
                 return False
         else:
             logger.warning('Neighbor expected but not found: {} {}'.format(exp_neigh["ip"], exp_neigh["ifname"]))

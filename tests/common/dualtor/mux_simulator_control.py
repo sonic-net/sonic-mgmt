@@ -7,6 +7,8 @@ import uuid
 import requests
 
 from tests.common import utilities
+from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
@@ -342,25 +344,29 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo):
         _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
     return _toggle
 
+
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):
     """
-    A function level fixture to toggle all ports to upper_tor
+    A function level fixture to toggle all active-standby ports to upper_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
-    _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
+    if cable_type == CableType.active_standby:
+        _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
+
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):
     """
-    A function level fixture to toggle all ports to lower_tor
+    A function level fixture to toggle all active-standby ports to lower_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
-    _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
+    if cable_type == CableType.active_standby:
+        _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
 
 
 def _are_muxcables_active(duthost):

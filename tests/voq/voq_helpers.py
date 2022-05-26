@@ -5,7 +5,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli
+from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli, SonicDbKeyNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +196,8 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
         logger.debug("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
     if present is False:
-        logger.info("outout: %s", parsed)
-        pytest_assert(parsed == {}, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
+        #logger.info("outout: %s", parsed)
+        pytest_assert(prefix not in parsed, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
         logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
 
@@ -220,7 +220,7 @@ def check_no_routes_from_nexthop(asic, nexthop):
 def verify_no_routes_from_nexthop(duthosts, nexthop):
     for dut in duthosts.frontend_nodes:
         for asic in dut.asics:
-            pytest_assert(wait_until(30, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
+            pytest_assert(wait_until(45, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
                           "Not all routes flushed from nexthop {} on asic {} on {}".format(nexthop, asic.asic_index, dut.hostname))
 
 
@@ -276,6 +276,7 @@ def check_neighbor_kernel_route(host, asicnum, ipaddr, interface, present=True):
     else:
         ipver = "ip"
         prefix = ipaddr + "/32"
+
     check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present)
     check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present)
 
@@ -333,7 +334,7 @@ def check_voq_remote_neighbor(host, asic, neighbor_ip, neighbor_mac, interface, 
     check_neighbor_kernel_route(host, asic.asic_index, neighbor_ip, interface)
 
 
-def check_rif_on_sup(sup, slot, asic, port):
+def check_rif_on_sup(systemintftable, slot, asic, port):
     """
     Checks the router interface entry on the supervisor card.
 
@@ -344,7 +345,6 @@ def check_rif_on_sup(sup, slot, asic, port):
         port: the name of the port (Ethernet1)
 
     """
-    voqdb = VoqDbCli(sup)
     slot = str(slot)
     if slot.isdigit():
         slot_str = "Linecard" + slot
@@ -358,8 +358,10 @@ def check_rif_on_sup(sup, slot, asic, port):
         asic_str = asic
 
     key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
-    voqdb.get_keys(key)
-    logger.info("Found key {} on chassisdb on supervisor card".format(key))
+    if key in systemintftable:
+        logger.info("Found key {} on chassisdb on supervisor card".format(key))
+    else:
+        raise SonicDbKeyNotFound("No keys for %s found in chassisdb SYSTEM_INTERFACE table" % key)
 
 
 def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac):
@@ -799,8 +801,8 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
             logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq", neighbor, sysport_info['slot'], sysport_info['asic'])
             fail_cnt += 1
 
-        logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful",
-                    per_host.hostname, asic.asic_index, neighbor)
+        logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful (mac: %s, idx: %s)",
+                    per_host.hostname, asic.asic_index, neighbor, neigh_mac, encaps[neighbor])
 
     return {'encaps': encaps, 'fail_cnt': fail_cnt}
 
@@ -1101,7 +1103,6 @@ def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
 
     # check remote hosts
     for rem_host in duthosts.frontend_nodes:
-
         for rem_asic in rem_host.asics:
             if rem_host == per_host and rem_asic == asic:
                 # skip remote check on local host

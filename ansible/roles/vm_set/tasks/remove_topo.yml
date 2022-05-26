@@ -20,6 +20,12 @@
       mux_simulator_action: stop
     when: "'dualtor' in topo"
 
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
     vars:
@@ -44,11 +50,6 @@
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
     become: yes
-
-  - name: Remove network namespace for active-active dualtor
-    command: ip netns delete ns-{{ vm_set_name }}
-    become: yes
-    when: "'host_interfaces_active_active' in topology"
 
   - include_tasks: remove_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"

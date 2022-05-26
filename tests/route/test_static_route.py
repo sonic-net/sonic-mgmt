@@ -242,6 +242,7 @@ def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported)
 
 
+@pytest.mark.disable_loganalyzer
 def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
@@ -258,6 +259,7 @@ def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggl
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=True)
 
 
+@pytest.mark.disable_loganalyzer
 def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = rand_selected_dut
     skip_201911_and_older(duthost)
