@@ -32,7 +32,6 @@ def apply_bgp_config(duthost, template_name):
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
     duthost.restart_bgp()
-    
     # Check if all BGPs are up
     if duthost.is_multi_asic:
         for asic_index in range(duthost.facts["num_asic"]):
@@ -79,8 +78,7 @@ def apply_default_bgp_config(duthost, copy=False):
     else:
         duthost.docker_copy_to_all_asics('bgp', bgp_config_backup, DEFAULT_BGP_CONFIG)
         # Skip 'start-limit-hit' threshold
-        duthost.shell('systemctl reset-failed bgp')
-        restart_bgp(duthost)
+        duthost.restart_bgp()
 
 def parse_exabgp_dump(host):
     """
@@ -143,7 +141,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    duthost.restart_bgp(asic_index)
 
     return bgp_neighbors
 
@@ -160,4 +158,4 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    duthost.restart_bgp(asic_index)
