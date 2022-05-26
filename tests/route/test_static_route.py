@@ -17,7 +17,6 @@ from tests.common import config_reload
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
-from pkg_resources import parse_version
 from tests.common import constants
 
 
