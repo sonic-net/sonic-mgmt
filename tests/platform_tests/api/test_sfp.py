@@ -3,7 +3,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.platform_api import chassis, sfp
+from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
