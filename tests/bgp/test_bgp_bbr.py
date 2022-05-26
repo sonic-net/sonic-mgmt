@@ -111,7 +111,6 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    t2_neighbors = [neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')]
     tor1 = tor_neighbors[0]
 
     neigh_peer_map = defaultdict(dict)
