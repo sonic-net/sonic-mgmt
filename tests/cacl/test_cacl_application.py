@@ -17,6 +17,8 @@ pytestmark = [
 
 ignored_iptable_rules = []
 
+OS_VERSION_SPORT_179 = ["2018", "2019", "2020", "2021"]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
@@ -318,11 +320,10 @@ def generate_expected_rules(duthost, docker_network, asic_index):
 
     if asic_index is None:
     # Allow Communication among docker containers
-        if len(docker_network['container'].items()) > 0:
-            iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], docker_network['bridge']['IPv4Address']))
-            ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], docker_network['bridge']['IPv6Address']))
         for k, v in docker_network['container'].items():
+            iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['bridge']['IPv4Address'], docker_network['bridge']['IPv4Address']))
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(v['IPv4Address'], docker_network['bridge']['IPv4Address']))
+            ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(docker_network['bridge']['IPv6Address'], docker_network['bridge']['IPv6Address']))
             ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT".format(v['IPv6Address'], docker_network['bridge']['IPv6Address']))
 
     else:
@@ -369,8 +370,7 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    if "2019" in duthost.os_version or "2018" in duthost.os_version \
-            or "2020" in  duthost.os_version or "2021" in duthost.os_version:
+    if any(os_ver in duthost.os_version for os_ver in OS_VERSION_SPORT_179):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
