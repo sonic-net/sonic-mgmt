@@ -41,11 +41,17 @@ def apply_bgp_config(duthost, template_name):
         pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "bgp"), "BGP not started.") 
 
 def restart_bgp(duthost, asic_index=DEFAULT_ASIC_ID):
+    """
+    Restart bgp services on the DUT
+    Args:
+        duthost: DUT host object
+    """
     duthost.asic_instance(asic_index).reset_service("bgp")
     duthost.asic_instance(asic_index).restart_service("bgp")
     docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
-    
+  
+
 def define_config(duthost, template_src_path, template_dst_path):
     """
     Define configuration of bgp on the DUT
