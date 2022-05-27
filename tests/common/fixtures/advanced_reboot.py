@@ -41,7 +41,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType']) , (
             "Please set rebootType var."
         )
 
@@ -366,17 +366,22 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        if "warm" in self.rebootType:
+            # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
+            reboot_file_prefix = "warm-reboot"
+        else:
+            reboot_file_prefix = self.rebootType
         if rebootOper is None:
-            rebootLog = '/tmp/{0}.log'.format(self.rebootType)
-            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
+            rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
+            rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
             swssRec = '/tmp/swss.rec'
         else:
-            rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
-            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
+            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
@@ -628,7 +633,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -637,7 +642,7 @@ def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, local
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):
