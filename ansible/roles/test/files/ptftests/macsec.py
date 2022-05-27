@@ -69,7 +69,7 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
 
 if MACSEC_SUPPORTED and os.path.exists(MACSEC_INFO_FILE):
     with open(MACSEC_INFO_FILE, "rb") as f:
-        MACSEC_INFOS = pickle.load(f)
+        MACSEC_INFOS = pickle.load(f, encoding="bytes")
         if MACSEC_INFOS:
             __origin_dp_poll = ptf.testutils.dp_poll
             ptf.testutils.dp_poll = __macsec_dp_poll
