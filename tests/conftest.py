@@ -1578,12 +1578,13 @@ def verify_new_core_dumps(duthost):
     else:
         cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
 
-    found_dumps = len(cur_cores) - len(pre_existing_cores)
-    new_core_dumps = [x for x in cur_cores if x not in pre_existing_cores]
+    new_core_dumps = set(cur_cores) - set(pre_existing_cores)
+    # convert to list so print msg will not contain "set()"
+    new_core_dumps = list(new_core_dumps)
 
-    if found_dumps:
-        pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed. New core dumps: {}".format(len(pre_existing_cores),\
-            found_dumps, new_core_dumps))
+    if new_core_dumps:
+        pytest.fail("Core dumps found. Expected: %s Found: %s. Test failed. New core dumps: %s" % (len(pre_existing_cores),\
+            len(cur_cores), new_core_dumps))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
