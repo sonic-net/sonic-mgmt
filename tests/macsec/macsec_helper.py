@@ -353,12 +353,14 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 return ret
             else:
                 continue
-        encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
-        force_reload[ret.port] = False
-        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
-                               send_sci, 0, xpn_en, ssci, salt)
-        if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-            return ret
+        macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+        if macsec_info:
+            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
+            force_reload[ret.port] = False
+            pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                                send_sci, 0, xpn_en, ssci, salt)
+            if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                return ret
         recent_packets.append(pkt)
         packet_count += 1
         if timeout <= 0:
@@ -367,6 +369,6 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
 
 
 __origin_dp_poll = testutils.dp_poll
-__macsec_infos = {}
+__macsec_infos = defaultdict(lambda: None)
 testutils.dp_poll = macsec_dp_poll
 
