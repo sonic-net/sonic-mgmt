@@ -10,11 +10,18 @@ parameters:
     type: string
     displayName: "Testbed name"
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+
 stages:
   - stage: ReleaseTestbed
     jobs:
       - job: ReleaseTestbed
-        pool: nightly
+        pool: {{ parameters.AGENT_POOL }}
         timeoutInMinutes: 30
         workspace:
           clean: all

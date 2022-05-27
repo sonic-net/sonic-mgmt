@@ -60,11 +60,18 @@ parameters:
     default: true
     displayName: "Run deploy-mg to deploy minigraph to DUT?"
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+
 stages:
   - stage: RedeployTopology
     jobs:
       - job: RedeployTopology
-        pool: nightly
+        pool: {{ parameters.AGENT_POOL }}
         timeoutInMinutes: 120
         variables:
           skipComponentGovernanceDetection: true

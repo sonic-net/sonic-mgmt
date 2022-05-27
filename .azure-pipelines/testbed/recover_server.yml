@@ -33,11 +33,18 @@ parameters:
     default: true
     displayName: "Dry run"
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+
 stages:
   - stage: Recover
     jobs:
       - job: RecoverServer
-        pool: nightly
+        pool: {{ parameters.AGENT_POOL }}
         timeoutInMinutes: 720
         variables:
           - name: skipComponentGovernanceDetection
