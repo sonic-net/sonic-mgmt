@@ -10,6 +10,9 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+SSH_SHUTDOWN_TIMEOUT = 360
+SSH_STARTUP_TIMEOUT = 360
+
 
 def test_memory_exhaustion(duthosts, enum_frontend_dut_hostname, localhost):
     """validate kernel will panic and reboot the DUT when runs out of memory and hits oom event"""
@@ -33,7 +36,7 @@ def test_memory_exhaustion(duthosts, enum_frontend_dut_hostname, localhost):
                              state='absent',
                              search_regex=SONIC_SSH_REGEX,
                              delay=10,
-                             timeout=120,
+                             timeout=SSH_SHUTDOWN_TIMEOUT,
                              module_ignore_errors=True)
     pytest_assert(not res.is_failed and 'Timeout' not in res.get('msg', ''),
                   'DUT {} did not shutdown'.format(hostname))
@@ -44,7 +47,7 @@ def test_memory_exhaustion(duthosts, enum_frontend_dut_hostname, localhost):
                              state='started',
                              search_regex=SONIC_SSH_REGEX,
                              delay=10,
-                             timeout=120,
+                             timeout=SSH_STARTUP_TIMEOUT,
                              module_ignore_errors=True)
     pytest_assert(not res.is_failed and 'Timeout' not in res.get('msg', ''),
                   'DUT {} did not startup'.format(hostname))
