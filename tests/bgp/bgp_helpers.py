@@ -31,7 +31,7 @@ def apply_bgp_config(duthost, template_name):
         template_name: pathname of the bgp config on the DUT
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
-    duthost.restart_bgp()
+    duthost.restart_service("bgp")
     # Check if all BGPs are up
     if duthost.is_multi_asic:
         for asic_index in range(duthost.facts["num_asic"]):
@@ -39,17 +39,6 @@ def apply_bgp_config(duthost, template_name):
             pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
     else:
         pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "bgp"), "BGP not started.") 
-
-def restart_bgp(duthost, asic_index=DEFAULT_ASIC_ID):
-    """
-    Restart bgp services on the DUT
-    Args:
-        duthost: DUT host object
-    """
-    duthost.asic_instance(asic_index).reset_service("bgp")
-    duthost.asic_instance(asic_index).restart_service("bgp")
-    docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
   
 
 def define_config(duthost, template_src_path, template_dst_path):
@@ -90,7 +79,7 @@ def apply_default_bgp_config(duthost, copy=False):
     else:
         duthost.docker_copy_to_all_asics('bgp', bgp_config_backup, DEFAULT_BGP_CONFIG)
         # Skip 'start-limit-hit' threshold
-        duthost.restart_bgp()
+        duthost.restart_service("bgp")
 
 def parse_exabgp_dump(host):
     """
@@ -153,7 +142,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    dusthost.restart_bgp_on_asic(asic_index)
 
     return bgp_neighbors
 
@@ -170,4 +159,4 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    dusthost.restart_bgp_on_asic(asic_index)
