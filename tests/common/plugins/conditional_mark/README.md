@@ -127,7 +127,7 @@ Example variables can be used in condition string:
       "branch": "master",
       "release": "master",
       "topo_type": "t0",
-      "topo_name": "t0"
+      "topo_name": "t0",
       "platform": "x86_64-kvm_x86_64-r0",
       "hwsku": "Force10-S6000",
       "build_number": 36262,
@@ -152,7 +152,7 @@ Example variables can be used in condition string:
         "gbsyncd": "enabled", 
         "syncd": "enabled", 
         "swss": "enabled"
-      }, 
+      }
     }
 ```
 
