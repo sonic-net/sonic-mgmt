@@ -2,7 +2,6 @@ import os
 import re
 import time
 import json
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
