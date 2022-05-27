@@ -142,7 +142,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
-    dusthost.restart_service_on_asic("bgp", asic_index)
+    duthost.restart_service_on_asic("bgp", asic_index)
 
     return bgp_neighbors
 
@@ -159,4 +159,4 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
-    dusthost.restart_service_on_asic("bgp", asic_index)
+    duthost.restart_service_on_asic("bgp", asic_index)
