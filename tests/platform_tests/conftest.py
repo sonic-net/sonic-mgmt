@@ -367,10 +367,6 @@ def get_current_sonic_version(duthost):
     return duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
 
 
-def get_next_sonic_version(duthost):
-    return duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
-
-
 @pytest.fixture()
 def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request, tbinfo):
     """
@@ -400,33 +396,28 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request, tbinfo):
     log_filesystem = duthost.shell("df -h | grep '/var/log'")['stdout']
     logs_in_tmpfs = True if log_filesystem and "tmpfs" in log_filesystem else False
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
-    base_os_version = list()
 
-    def bgpd_log_handler():
+    def bgpd_log_handler(preboot=False):
         # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
         current_os_version = get_current_sonic_version(duthost)
-        if 'SONiC-OS-201811' in current_os_version:
-            bgpd_log = "/var/log/quagga/bgpd.log"
+        if preboot:
+            if 'SONiC-OS-201811' in current_os_version:
+                bgpd_log = "/var/log/quagga/bgpd.log"
+            else:
+                bgpd_log = "/var/log/frr/bgpd.log"
+            additional_files={'/var/log/swss/sairedis.rec': '', bgpd_log: ''}
+            loganalyzer.additional_files = list(additional_files.keys())
+            loganalyzer.additional_start_str = list(additional_files.values())
+            return bgpd_log
         else:
-            bgpd_log = "/var/log/bgpd.log"
-        additional_files={'/var/log/swss/sairedis.rec': '', bgpd_log: ''}
-        loganalyzer.additional_files = list(additional_files.keys())
-        loganalyzer.additional_start_str = list(additional_files.values())
-
-        if "SONiC-OS-201811" in base_os_version[0]:
-            if "SONiC-OS-201811" not in get_current_sonic_version(duthost):
-                # postboot: prev=201811 (quagga), current=202012 (frr):
-                # prev quagga log to be copied to a common place, for ansible extract to work.
-                # further, log_analyzer starts will quagga and ends with frr in upgrade path.
-                # Since we need previous and present log files, here they get combined and sorted to generate the log
-                duthost.shell("cat {} {} | sort -n > {}".format(
-                    "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log", "/var/log/bgpd.log"), module_ignore_errors=True)
-
-        return bgpd_log
+            # log_analyzer may start with quagga and end with frr, and frr.log might still have old logs.
+            # To avoid missing preboot log, or analyzing old logs, combine quagga and frr log into new file
+            duthost.shell("cat {} {} | sort -n > {}".format(
+                "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log", "/var/log/bgpd.log"), module_ignore_errors=True)
+            loganalyzer.additional_files = ['/var/log/swss/sairedis.rec', '/var/log/bgpd.log']
 
     def pre_reboot_analysis():
-        base_os_version.append(get_current_sonic_version(duthost))
-        bgpd_log = bgpd_log_handler()
+        bgpd_log = bgpd_log_handler(preboot=True)
         if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
