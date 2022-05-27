@@ -147,6 +147,15 @@ macsec/test_macsec.py:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
+#####           nat               #####
+#######################################
+nat:
+  skip:
+    reason: "Nat feature is not enabled with image version"
+    conditions:
+      - "'nat' not in status or status['nat'] == 'disabled'"
+
+#######################################
 #####           ntp               #####
 #######################################
 ntp/test_ntp.py::test_ntp_long_jump_disabled:

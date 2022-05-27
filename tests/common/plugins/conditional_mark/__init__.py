@@ -129,6 +129,48 @@ def load_dut_basic_facts(session):
 
     return results
 
+def load_feature_status(session):
+    """Run 'ansible -m get_feature' command to get some basic DUT feature status.
+
+    The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
+
+    Args:
+        session (obj): The pytest session object.
+
+    Returns:
+        dict or None: Return the dut feature status dict or None if something went wrong.
+    """
+    results = {}
+    logger.info('Getting dut feature status')
+    try:
+        testbed_name = session.config.option.testbed
+        testbed_file = session.config.option.testbed_file
+
+        testbed_module = imp.load_source('testbed', 'common/testbed.py')
+        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+        results['topo_type'] = tbinfo['topo']['type']
+        results['topo_name'] = tbinfo['topo']['name']
+
+        dut_name = tbinfo['duts'][0]
+        if session.config.option.customize_inventory_file:
+            inv_name = session.config.option.customize_inventory_file
+        elif 'inv_name' in tbinfo.keys():
+            inv_name = tbinfo['inv_name']
+        else:
+            inv_name = 'lab'
+
+        ansible_cmd = 'ansible -m get_feature -i ../ansible/{} {} -o'.format(inv_name, dut_name)
+
+        raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
+        logger.info('raw dut feature status:\n{}'.format(raw_output))
+        output_fields = raw_output.split('SUCCESS =>', 1)
+        if len(output_fields) >= 2:
+            results.update(json.loads(output_fields[1].strip())['ansible_facts'])
+    except Exception as e:
+        logger.error('Failed to load dut feature status, exception: {}'.format(e.output))
+
+    return results
 
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
@@ -145,6 +187,11 @@ def load_basic_facts(session):
 
     # Load DUT basic facts
     _facts = load_dut_basic_facts(session)
+    if _facts:
+        results.update(_facts)
+
+    # Load DUT basic facts
+    _facts = load_feature_status(session)
     if _facts:
         results.update(_facts)
 
