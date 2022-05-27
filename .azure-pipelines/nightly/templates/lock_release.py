@@ -153,6 +153,7 @@ if __name__ == '__main__':
     if not token:
         sys.exit(2)
 
+    print('Args for lock_release: ' + str(args))
     if not args.brutal_release:
         sys.exit(lock_release(args.testbed, args.action, token, proxies, args.hours, args.user, args.reason, args.force, args.absolute))
     else:
