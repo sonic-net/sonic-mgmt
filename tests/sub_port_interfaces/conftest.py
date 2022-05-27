@@ -7,7 +7,6 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
 from tests.common import constants
