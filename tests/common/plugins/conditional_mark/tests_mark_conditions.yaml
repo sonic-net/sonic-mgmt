@@ -153,7 +153,7 @@ nat:
   skip:
     reason: "Nat feature is not enabled with image version"
     conditions:
-      - "'nat' not in status or status['nat'] == 'disabled'"
+      - "'nat' not in feature_status or feature_status['nat'] == 'disabled'"
 
 #######################################
 #####           ntp               #####

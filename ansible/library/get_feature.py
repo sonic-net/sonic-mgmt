@@ -22,15 +22,12 @@ $ show feature status
 Feature         State            AutoRestart     SetOwner
 --------------  ---------------  --------------  ----------
 bgp             enabled          enabled
+database        always_enabled   always_enabled
 
 The output:
 {
-    'bgp': 
-    {
-        'state': 'enabled',
-        'autorestart': 'enabled',
-        'setowner': ''
-    }
+    'bgp': 'enabled',
+    'database': 'always_enabled'
 }
 '''
 
@@ -43,7 +40,7 @@ class FeatureModule(object):
             Main method of the class
         """
 
-        command_list = ['show feature status']
+        command_list = ['show feature status', 'show features']
         for cmd in command_list:
             try:
                 rc, out, err = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
@@ -56,20 +53,15 @@ class FeatureModule(object):
                 break
 
         ret = {}
+        ret["feature_status"] = {}
         # Parse output of 'show feature status' or 'show features'
         for line in out.split('\n')[2:]:
-            logging.info(line)
             d = line.split()
-            if len(d) != 4:
+            if len(d) < 2:
                 continue
             feature = d[0].strip()
-            val = {
-                    'state': d[1].strip(),
-                    'autorestart': d[2].strip(),
-                    'setowner': d[3].strip()
-            }
-            ret[feature] = ret.get(feature, {})
-            ret[feature] = val
+            ret["feature_status"][feature] = ret.get(feature, "")
+            ret["feature_status"][feature] = d[1].strip()
 
         self.module.exit_json(ansible_facts=ret)
 

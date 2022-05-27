@@ -134,6 +134,25 @@ Example variables can be used in condition string:
       "asic_type": "vs",
       "num_asic": 1,
       "is_multi_asic": False,
+      "feature_status": {
+        "lldp": "enabled", 
+        "pmon": "enabled", 
+        "sflow": "disabled", 
+        "database": "always_enabled", 
+        "radv": "enabled", 
+        "macsec": "disabled", 
+        "telemetry": "enabled", 
+        "snmp": "enabled", 
+        "mux": "always_disabled", 
+        "bgp": "enabled", 
+        "dhcp_relay": "enabled", 
+        "mgmt-framework": "enabled", 
+        "nat": "disabled", 
+        "teamd": "enabled", 
+        "gbsyncd": "enabled", 
+        "syncd": "enabled", 
+        "swss": "enabled"
+      }, 
     }
 ```
 

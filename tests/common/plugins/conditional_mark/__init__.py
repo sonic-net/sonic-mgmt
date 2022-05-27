@@ -129,7 +129,7 @@ def load_dut_basic_facts(session):
 
     return results
 
-def load_feature_status(session):
+def load_feature_status_facts(session):
     """Run 'ansible -m get_feature' command to get some basic DUT feature status.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
@@ -163,12 +163,12 @@ def load_feature_status(session):
         ansible_cmd = 'ansible -m get_feature -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
-        logger.info('raw dut feature status:\n{}'.format(raw_output))
+        logger.debug('raw dut feature status:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
         if len(output_fields) >= 2:
             results.update(json.loads(output_fields[1].strip())['ansible_facts'])
     except Exception as e:
-        logger.error('Failed to load dut feature status, exception: {}'.format(e.output))
+        logger.error('Failed to load dut feature status, exception: {}'.format(repr(e)))
 
     return results
 
