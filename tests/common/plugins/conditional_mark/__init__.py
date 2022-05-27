@@ -19,6 +19,7 @@ from .issue import check_issues
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
+ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
 
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
@@ -86,6 +87,16 @@ def load_conditions(session):
     return conditions_list
 
 def read_asic_name(hwsku):
+    '''
+    Get asic generation name from file 'ansible/group_vars/sonic/variables'
+
+    Args:
+        hwsku (str): Dut hwsku name
+
+    Returns:
+        str or None: Return the asic generation name or None if something went wrong or nothing found in the file.
+
+    '''
     asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
     try:
         with open(asic_name_file) as f:
@@ -103,7 +114,7 @@ def read_asic_name(hwsku):
         return None
 
     except IOError as e:
-        return e
+        return None
 
 def load_dut_basic_facts(session):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
