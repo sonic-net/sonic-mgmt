@@ -113,6 +113,26 @@ class MultiAsicSonicHost(object):
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
 
+    def get_dut_iface_mac(self, iface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            if self.sonichost.facts['num_asic'] == 1:
+                cmd_prefix = " "
+            else:
+                asic = self.get_port_asic_instance(iface_name)
+                cmd_prefix = "sudo ip netns exec {} ".format(asic.namespace)
+ 
+            mac = self.command('{} cat /sys/class/net/{}/address'.format(cmd_prefix, iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
+
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
