@@ -79,6 +79,7 @@ def apply_default_bgp_config(duthost, copy=False):
     else:
         duthost.docker_copy_to_all_asics('bgp', bgp_config_backup, DEFAULT_BGP_CONFIG)
         # Skip 'start-limit-hit' threshold
+        duthost.reset_service("bgp")
         duthost.restart_service("bgp")
 
 def parse_exabgp_dump(host):
