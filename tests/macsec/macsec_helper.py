@@ -51,35 +51,44 @@ def get_sci(macaddress, port_identifer=1, order="network"):
     return str(sci)
 
 
-QUERY_MACSEC_PORT = "sonic-db-cli APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
+QUERY_MACSEC_PORT = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
 
-QUERY_MACSEC_INGRESS_SC = "sonic-db-cli APPL_DB HGETALL 'MACSEC_INGRESS_SC_TABLE:{}:{}'"
+QUERY_MACSEC_INGRESS_SC = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_INGRESS_SC_TABLE:{}:{}'"
 
-QUERY_MACSEC_EGRESS_SC = "sonic-db-cli APPL_DB HGETALL 'MACSEC_EGRESS_SC_TABLE:{}:{}'"
+QUERY_MACSEC_EGRESS_SC = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SC_TABLE:{}:{}'"
 
-QUERY_MACSEC_INGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE:{}:{}:{}'"
+QUERY_MACSEC_INGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE:{}:{}:{}'"
 
-QUERY_MACSEC_EGRESS_SA = "sonic-db-cli APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
+QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
 
+
+def getns_prefix(host, intf):
+    ns_prefix = " "
+    if host.is_multi_asic:
+        asic = host.get_port_asic_instance(intf)
+        ns = host.get_namespace_from_asic_id(asic.asic_index)
+        ns_prefix = "-n {}".format(ns)
+
+    return ns_prefix
 
 def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
-        host, QUERY_MACSEC_PORT.format(host_port_name))
+        host, QUERY_MACSEC_PORT.format(getns_prefix(host, host_port_name), host_port_name))
     host_sci = get_sci(host.get_dut_iface_mac(host_port_name))
     peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
-        host, QUERY_MACSEC_EGRESS_SC.format(host_port_name, host_sci))
+        host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, host_port_name), host_port_name, host_sci))
     ingress_sc_table = sonic_db_cli(
-        host, QUERY_MACSEC_INGRESS_SC.format(host_port_name, peer_sci))
+        host, QUERY_MACSEC_INGRESS_SC.format(getns_prefix(host, host_port_name), host_port_name, peer_sci))
     egress_sa_table = {}
     ingress_sa_table = {}
     for an in range(4):
         sa_table = sonic_db_cli(host, QUERY_MACSEC_EGRESS_SA.format(
-            host_port_name, host_sci, an))
+            getns_prefix(host, host_port_name), host_port_name, host_sci, an))
         if sa_table:
             egress_sa_table[an] = sa_table
         sa_table = sonic_db_cli(host, QUERY_MACSEC_INGRESS_SA.format(
-            host_port_name, peer_sci, an))
+            getns_prefix(host, host_port_name), host_port_name, peer_sci, an))
         if sa_table:
             ingress_sa_table[an] = sa_table
     return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
@@ -247,7 +256,7 @@ def create_exp_pkt(pkt, ttl):
 
 def get_macsec_attr(host, port):
     eth_src = host.get_dut_iface_mac(port)
-    macsec_port = sonic_db_cli(host, QUERY_MACSEC_PORT.format(port))
+    macsec_port = sonic_db_cli(host, QUERY_MACSEC_PORT.format(getns_prefix(host, port), port))
     if macsec_port["enable_encrypt"] == "true":
         encrypt = 1
     else:
@@ -259,10 +268,10 @@ def get_macsec_attr(host, port):
     xpn_en = "XPN" in macsec_port["cipher_suite"]
     sci = get_sci(eth_src)
     macsec_sc = sonic_db_cli(
-        host, QUERY_MACSEC_EGRESS_SC.format(port, sci))
+        host, QUERY_MACSEC_EGRESS_SC.format(getns_prefix(host, port), port, sci))
     an = int(macsec_sc["encoding_an"])
     macsec_sa = sonic_db_cli(
-        host, QUERY_MACSEC_EGRESS_SA.format(port, sci, an))
+        host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci, an))
     sak = binascii.unhexlify(macsec_sa["sak"])
     sci = int(get_sci(eth_src, order="host"), 16)
     if xpn_en:
