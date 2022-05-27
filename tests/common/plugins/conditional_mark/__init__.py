@@ -111,7 +111,7 @@ def read_asic_name(hwsku):
             if hwsku in hw:
                 return name.split('_')[1]
 
-        return None
+        return "unknown"
 
     except IOError as e:
         return None
