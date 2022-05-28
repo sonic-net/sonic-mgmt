@@ -164,17 +164,21 @@ class OVSGroup(StrObj):
 class OVSFlow(StrObj):
     """Object to represent an OVS flow."""
 
-    __slots__ = ("in_port", "output_ports", "group", "_str_prefix")
+    __slots__ = ("in_port", "output_ports", "group", "priority", "_str_prefix")
 
-    def __init__(self, in_port, packet_filter=None, output_ports=[], group=None):
+    def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
         self.in_port = in_port
         self.packet_filter = packet_filter
         self.output_ports = set(output_ports)
         self.group = group
+        self.priority = priority
+        self._str_prefix = []
+        if self.priority:
+            self._str_prefix.append("priority=%s" % self.priority)
         if self.packet_filter:
-            self._str_prefix = "%s,in_port=%s" % (self.packet_filter, self.in_port)
-        else:
-            self._str_prefix = "in_port=%s" % (self.in_port)
+            self._str_prefix.append(str(self.packet_filter))
+        self._str_prefix.append("in_port=%s" % self.in_port)
+        self._str_prefix = ",".join(self._str_prefix)
 
     def to_string(self):
         flow_parts = [self._str_prefix]
@@ -262,8 +266,8 @@ class UpstreamECMPFlow(OVSFlow):
 
     __slots__ = ()
 
-    def __init__(self, in_port, group):
-        super(UpstreamECMPFlow, self).__init__(in_port, group=group)
+    def __init__(self, in_port, group, priority=None):
+        super(UpstreamECMPFlow, self).__init__(in_port, group=group, priority=priority)
 
     def set_upper_tor_forwarding_state(self, state):
         self.group.set_upper_tor_forwarding_state(state)
@@ -361,17 +365,17 @@ class OVSBridge(object):
         self._del_flows()
         self._del_groups()
         # downstream flows
-        self._add_flow(self.upper_tor_port, output_ports=[self.ptf_port, self.server_nic])
-        self._add_flow(self.lower_tor_port, output_ports=[self.ptf_port, self.server_nic])
+        self._add_flow(self.upper_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
+        self._add_flow(self.lower_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
 
         # upstream flows
         # upstream packet from server NiC should be directed to both ToRs
-        self._add_flow(self.server_nic, output_ports=[self.upper_tor_port, self.lower_tor_port])
+        self._add_flow(self.server_nic, output_ports=[self.upper_tor_port, self.lower_tor_port], priority=9)
         # upstream icmp packet from ptf port should be directed to both ToRs
-        self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.upper_tor_port, self.lower_tor_port])
+        self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.upper_tor_port, self.lower_tor_port], priority=8)
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(1, self.upper_tor_port, self.lower_tor_port)
-        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group)
+        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=7)
 
     def _get_ports(self):
         result = OVSCommand.ovs_vsctl_list_ports(self.bridge_name)
@@ -387,8 +391,8 @@ class OVSBridge(object):
         self.upstream_ecmp_group = None
         self.groups.clear()
 
-    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None):
-        flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports, group=group)
+    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
+        flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports, group=group, priority=priority)
         logging.info("Add flow to bridge %s: %s", self.bridge_name, flow)
         OVSCommand.ovs_ofctl_add_flow(self.bridge_name, flow)
         self.flows.append(flow)
@@ -401,8 +405,8 @@ class OVSBridge(object):
         self.groups.append(group)
         return group
 
-    def _add_upstream_ecmp_flow(self, in_port, group):
-        flow = UpstreamECMPFlow(in_port, group)
+    def _add_upstream_ecmp_flow(self, in_port, group, priority=None):
+        flow = UpstreamECMPFlow(in_port, group, priority=priority)
         logging.info("Add upstream ecmp flow to bridge %s: %s", self.bridge_name, flow)
         OVSCommand.ovs_ofctl_add_flow(self.bridge_name, flow)
         self.flows.append(flow)
