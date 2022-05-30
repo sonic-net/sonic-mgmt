@@ -579,7 +579,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
 def cleanup(duthost, ptfhost):
     logger.info("Start cleanup")
     ptfhost.command('rm -f /tmp/fg_ecmp_persist_map.json')
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope="module")
