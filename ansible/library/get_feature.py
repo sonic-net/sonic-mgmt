@@ -1,8 +1,14 @@
 #!/usr/bin/python
+try:
+    from ansible.module_utils.parse_utils import parse_tabular_output
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from module_utils.parse_utils import parse_tabular_output
 
 DOCUMENTATION = '''
 module:         get_feature
-version_added:  "1.0"
 author:         Yutong Zhang (yutongzhang@microsoft.com)
 short_description: Retrieve features status from DUT by 'show feature status' or 'show features' command 
 description:
@@ -41,27 +47,19 @@ class FeatureModule(object):
         """
 
         command_list = ['show feature status', 'show features']
-        for cmd in command_list:
-            try:
-                rc, out, err = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
-            except Exception as e:
-                self.module.fail_json(msg=str(e))
-
-            if rc != 0:
-                self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
-            else:
-                break
+        try:
+            for cmd in command_list:
+                rc, out, err = self.module.run_command(cmd, executable='/bin/bash')
+                if rc == 0:
+                    break
+        except Exception as e:
+            self.module.fail_json(msg=str(e))
 
         ret = {}
         ret["feature_status"] = {}
-        # Parse output of 'show feature status' or 'show features'
-        for line in out.split('\n')[2:]:
-            d = line.split()
-            if len(d) < 2:
-                continue
-            feature = d[0].strip()
-            ret["feature_status"][feature] = ret.get(feature, "")
-            ret["feature_status"][feature] = d[1].strip()
+
+        for state in result:
+            ret["feature_status"][state["feature"]] = state["state"]
 
         self.module.exit_json(ansible_facts=ret)
 
@@ -70,10 +68,6 @@ def main():
     feature.run()
 
 from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()
-
-
-
-
-
