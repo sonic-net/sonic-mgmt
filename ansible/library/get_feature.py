@@ -55,6 +55,8 @@ class FeatureModule(object):
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
+        result = parse_tabular_output(out.split('\n'))
+
         ret = {}
         ret["feature_status"] = {}
 
