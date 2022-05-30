@@ -142,3 +142,6 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14482841
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14448187
+r, ".* ERR kernel: [*] ata1.00: failed to set xfermode (err_mask=0x40).*"
