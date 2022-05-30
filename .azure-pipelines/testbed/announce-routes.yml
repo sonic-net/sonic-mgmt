@@ -21,7 +21,7 @@ stages:
   - stage: AnnounceRoutes
     jobs:
       - job: AnnounceRoutes
-        pool: {{ parameters.AGENT_POOL }}
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 30
         variables:
           - name: skipComponentGovernanceDetection

@@ -44,7 +44,7 @@ stages:
   - stage: Recover
     jobs:
       - job: RecoverServer
-        pool: {{ parameters.AGENT_POOL }}
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 720
         variables:
           - name: skipComponentGovernanceDetection

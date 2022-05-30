@@ -21,7 +21,7 @@ stages:
   - stage: ReleaseTestbed
     jobs:
       - job: ReleaseTestbed
-        pool: {{ parameters.AGENT_POOL }}
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 30
         workspace:
           clean: all
