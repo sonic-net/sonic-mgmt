@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ifaces = args.ifaces
     dst_mac = args.dst_mac
 
-    max_workers = 24
+    max_workers = 24 if len(ifaces) > 24 else len(ifaces)
     sniffed_ifaces = [[] for _ in range(max_workers)]
     for i, iface in enumerate(ifaces):
         sniffed_ifaces[i % max_workers].append(iface)
