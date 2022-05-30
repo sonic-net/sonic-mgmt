@@ -38,7 +38,7 @@ SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
 VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
-PTF_QLEN = 2000
+PTF_QLEN = 20000
 DEFAULT_MUX_SERVER_PORT = 8080
 
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
@@ -90,7 +90,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                         "single_fib_for_duts": single_fib_for_duts},
                 log_file=log_file,
                 qlen=PTF_QLEN,
-                socket_recv_size=16384)
+                socket_recv_size=16384,
+                is_python3=True)
 
 
 def get_vlan_untag_ports(duthosts, duts_running_config_facts):
@@ -275,4 +276,5 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
                    },
             log_file=log_file,
             qlen=PTF_QLEN,
-            socket_recv_size=16384)
+            socket_recv_size=16384,
+            is_python3=True)

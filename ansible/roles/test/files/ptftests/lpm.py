@@ -1,4 +1,5 @@
 import random
+import six
 
 from ipaddress import ip_address, ip_network
 from SubnetTree import SubnetTree
@@ -62,7 +63,7 @@ class LpmDict():
         self._boundaries = { ip_address(u'0.0.0.0') : 1} if ipv4 else { ip_address(u'::') : 1}
 
     def __setitem__(self, key, value):
-        prefix = ip_network(unicode(key))
+        prefix = ip_network(six.text_type(key))
         # add the current key to self._prefix_set only when it is not the default route and it is not a duplicate key
         if prefix.prefixlen and key not in self._prefix_set:
             boundary = prefix[0]
@@ -78,7 +79,7 @@ class LpmDict():
 
     def __delitem__(self, key):
         if '/0' not in key:
-            prefix = ip_network(unicode(key))
+            prefix = ip_network(six.text_type(key))
             boundary = prefix[0]
             next_boundary = prefix[-1] + 1
             self._boundaries[boundary] = self._boundaries.get(boundary) - 1

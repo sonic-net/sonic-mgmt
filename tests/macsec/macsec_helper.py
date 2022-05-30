@@ -1,9 +1,12 @@
+from collections import defaultdict
 import struct
 import sys
 import binascii
 import time
+import re
 
 import cryptography.exceptions
+import ptf
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -29,7 +32,7 @@ __all__ = [
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
-    cmd = "ps aux | grep 'wpa_supplicant' | grep '{}' | grep -v 'grep'".format(
+    cmd = "ps aux | grep -w 'wpa_supplicant' | grep -w '{}' | grep -v 'grep'".format(
         ctrl_port_name)
     output = host.shell(cmd)["stdout_lines"]
     assert len(output) == 1, "The wpa_supplicant for the port {} wasn't started on the host {}".format(
@@ -303,36 +306,69 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
     return pkt
 
 
-def check_macsec_pkt(macsec_attr, test, ptf_port_id, exp_pkt, timeout=3):
+def check_macsec_pkt(test, ptf_port_id, exp_pkt, timeout=3):
     device, ptf_port = testutils.port_to_tuple(ptf_port_id)
-    received_packets = []
-    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_attr
-    end_time = time.time() + timeout
+    ret = testutils.dp_poll(
+        test, device_number=device, port_number=ptf_port, timeout=timeout, exp_pkt=exp_pkt)
+    if isinstance(ret, test.dataplane.PollSuccess):
+        return
+    else:
+        return ret.format()
+
+
+def find_portname_from_ptf_id(mg_facts, ptf_id):
+    for k, v in mg_facts["minigraph_ptf_indices"].items():
+        if ptf_id == v:
+            return k
+    return None
+
+
+def load_macsec_info(duthost, port, force_reload = None):
+    if force_reload  or port not in __macsec_infos:
+        __macsec_infos[port] = get_macsec_attr(duthost, port)
+    return __macsec_infos[port]
+
+
+def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
+    recent_packets = []
+    packet_count = 0
+    if timeout is None:
+        timeout = ptf.ptfutils.default_timeout
+    force_reload = defaultdict(lambda: False)
+    if hasattr(test, "force_reload_macsec"):
+        force_reload = defaultdict(lambda: test.force_reload_macsec)
     while True:
-        cur_time = time.time()
-        if cur_time > end_time:
-            break
-        ret = testutils.dp_poll(
-            test, device_number=device, port_number=ptf_port, timeout=end_time - cur_time, exp_pkt=None)
-        if isinstance(ret, test.dataplane.PollFailure):
-            break
-        # If the packet isn't MACsec type
+        start_time = time.time()
+        ret = __origin_dp_poll(
+            test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
+        timeout -= time.time() - start_time
+        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
+        if ret.device != 0 \
+            or isinstance(ret, test.dataplane.PollFailure) \
+                or exp_pkt is None:
+            return ret
         pkt = scapy.Ether(ret.packet)
         if pkt[scapy.Ether].type != 0x88e5:
-            continue
-        received_packets.append(pkt)
-    for i in range(len(received_packets)):
-        pkt = received_packets[i]
-        pn = 0
-        pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
-                               send_sci, pn, xpn_en, ssci, salt)
-        if not pkt:
-            continue
-        received_packets[i] = pkt
-        if exp_pkt.pkt_match(pkt):
-            return
-    fail_message = "Expect pkt \n{}\n{}\nBut received \n".format(
-        exp_pkt, exp_pkt.exp_pkt.show(dump=True))
-    for packet in received_packets:
-        fail_message += "\n{}\n".format(packet.show(dump=True))
-    return fail_message
+            if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                return ret
+            else:
+                continue
+        macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+        if macsec_info:
+            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
+            force_reload[ret.port] = False
+            pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                                send_sci, 0, xpn_en, ssci, salt)
+            if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                return ret
+        recent_packets.append(pkt)
+        packet_count += 1
+        if timeout <= 0:
+            break
+    return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
+
+
+__origin_dp_poll = testutils.dp_poll
+__macsec_infos = defaultdict(lambda: None)
+testutils.dp_poll = macsec_dp_poll
+
