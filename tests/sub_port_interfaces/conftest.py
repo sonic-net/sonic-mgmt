@@ -104,6 +104,13 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     vlan_ranges_dut = range(20, 60, 10)
     vlan_ranges_ptf = range(20, 60, 10)
 
+    # Remove acl tables when test port channel, the port with acl bindings can not be added to a port channel
+    # The removed tables will be added back in reload_dut_config
+    if 'port_in_lag' in port_type:
+        table_names = ["DATAACL", "EVERFLOW", "EVERFLOWV6"]
+        for table in table_names:
+            duthost.shell(cmd="config acl remove table {}".format(table))
+
     if 'invalid' in request.node.name:
         vlan_ranges_ptf = range(21, 41, 10)
 
