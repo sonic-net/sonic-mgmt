@@ -91,11 +91,13 @@ class TestControlPlane():
 class TestDataPlane():
     BATCH_COUNT = 10
 
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
+    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, ptfadapter):
+        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
 
         down_link = downstream_links.values()[0]
         dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
+
+        setattr(ptfadapter, "force_reload_macsec", True)
 
         for portchannel in get_portchannel(duthost).values():
             members = portchannel["members"]
@@ -128,18 +130,12 @@ class TestDataPlane():
                 "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
 
-            testutils.send_packet(
-                nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            testutils.verify_packet_any_port(
-                nbr_ptfadapter, exp_pkt, ports=peer_ports, device_number=nbr_device_numbers[up_host_name], timeout=3)
-
             fail_message = ""
             for port_name in members:
                 up_link = upstream_links[port_name]
-                macsec_attr = get_macsec_attr(duthost, port_name)
                 testutils.send_packet(
-                    nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-                result = check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
+                    ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+                result = check_macsec_pkt(test=ptfadapter,
                                           ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
                 if result is None:
                     return
@@ -152,7 +148,7 @@ class TestDataPlane():
                 "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers):
         portchannels = get_portchannel(duthost).values()
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
