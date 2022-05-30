@@ -134,6 +134,7 @@ Example variables can be used in condition string:
       "asic_type": "vs",
       "num_asic": 1,
       "is_multi_asic": False,
+      "asic_gen": "td2"
     }
 ```
 
