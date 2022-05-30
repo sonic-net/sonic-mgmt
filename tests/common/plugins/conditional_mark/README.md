@@ -152,7 +152,8 @@ Example variables can be used in condition string:
         "gbsyncd": "enabled", 
         "syncd": "enabled", 
         "swss": "enabled"
-      }
+      },
+      "asic_gen": "td2"
     }
 ```
 
