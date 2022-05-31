@@ -31,13 +31,6 @@ def apply_bgp_config(duthost, template_name):
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
     duthost.restart_service("bgp")
-    # Check if all BGPs are up
-    if duthost.is_multi_asic:
-        for asic_index in range(duthost.facts["num_asic"]):
-            docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
-            pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "{} not started.".format(docker_name))
-    else:
-        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "bgp"), "BGP not started.") 
   
 
 def define_config(duthost, template_src_path, template_dst_path):
