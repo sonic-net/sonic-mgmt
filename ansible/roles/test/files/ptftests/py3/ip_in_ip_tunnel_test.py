@@ -24,8 +24,8 @@ PACKET_NUM = 10000
 PACKET_NUM_FOR_NEGATIVE_CHECK = 100
 
 DIFF = 0.25 # The valid range for balance check
-SRC_IP_RANGE = [unicode('8.0.0.0'), unicode('8.255.255.255')]
-SRC_IPV6_RANGE = [unicode('20D0:A800:0:00::'), unicode('20D0:FFFF:0:00::FFFF')]
+SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
+SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
 TIMEOUT = 1
 
 class IpinIPTunnelTest(BaseTest):
