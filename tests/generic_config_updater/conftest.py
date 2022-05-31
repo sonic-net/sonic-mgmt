@@ -26,8 +26,6 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
              ".*ERR kernel.*Reset adapter.*", # Valid test_portchannel_interface replace mtu
              ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # Valid test_portchannel_interface replace mtu
 
-             ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
-
              # sonic-swss/orchagent/crmorch.cpp
              ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*", # test_monitor_config
              ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*", # test_monitor_config
