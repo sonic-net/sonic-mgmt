@@ -9,6 +9,7 @@ import logging
 import random
 import json
 import time
+import six
 
 from ipaddress import ip_address, ip_network
 
@@ -36,8 +37,7 @@ class HashTest(BaseTest):
 
     _required_params = [
         'fib_info_files',
-        'ptf_test_port_map',
-        'router_macs'
+        'ptf_test_port_map'
     ]
 
     def __init__(self):
@@ -67,9 +67,8 @@ class HashTest(BaseTest):
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
 
-        self.router_macs = self.test_params.get('router_macs')
-        self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
-        self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
+        self.src_ip_range = [six.text_type(x) for x in self.test_params['src_ip_range'].split(',')]
+        self.dst_ip_range = [six.text_type(x) for x in self.test_params['dst_ip_range'].split(',')]
         self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
         self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
         self.vlan_ids = self.test_params.get('vlan_ids', [])
@@ -83,7 +82,7 @@ class HashTest(BaseTest):
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
         # set the base mac here to make it persistent across calls of check_ip_route
-        self.base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
+        self.base_mac = self.dataplane.get_mac(*random.choice(list(self.dataplane.ports.keys())))
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
@@ -157,7 +156,7 @@ class HashTest(BaseTest):
             self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_list):
-        if ip_network(unicode(dst_ip)).version == 4:
+        if ip_network(six.text_type(dst_ip)).version == 4:
             (matched_index, received) = self.check_ipv4_route(hash_key, src_port, dst_port_list)
         else:
             (matched_index, received) = self.check_ipv6_route(hash_key, src_port, dst_port_list)
@@ -199,7 +198,7 @@ class HashTest(BaseTest):
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
@@ -252,7 +251,7 @@ class HashTest(BaseTest):
                     dport))
 
         rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
-        exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+        exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
         actual_src_mac = Ether(rcvd_pkt).src
         if exp_src_mac != actual_src_mac:
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
@@ -276,7 +275,7 @@ class HashTest(BaseTest):
 
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto(ipv6=True) if hash_key == "ip-proto" else None
@@ -330,7 +329,7 @@ class HashTest(BaseTest):
                     dport))
 
         rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
-        exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+        exp_src_mac = self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_src_mac']
         actual_src_mac = Ether(rcvd_pkt).src
         if exp_src_mac != actual_src_mac:
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
