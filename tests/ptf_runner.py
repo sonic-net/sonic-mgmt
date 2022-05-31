@@ -16,9 +16,21 @@ def ptf_collect(host, log_file):
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0,
-               module_ignore_errors=False):
-
-    cmd = "ptf --test-dir {} {}".format(testdir, testname)
+               module_ignore_errors=False, is_python3=False):
+    # Call virtual env ptf for migrated py3 scripts.
+    # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
+    # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+    if is_python3:
+        path_exists = host.stat(path="/root/env-python3/bin/ptf")
+        if path_exists["stat"]["exists"]:
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+        else:
+            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check and update docker-ptf image, make sure to use the correct one."
+            logger.error("Exception caught while executing case: {}. Error message: {}"\
+            .format(testname, error_msg))
+            raise Exception(error_msg)
+    else:
+        cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
@@ -51,6 +63,10 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
 
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
+
+    # MACsec is only available in Python3
+    if is_python3:
+        host.create_macsec_info()
 
     try:
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
