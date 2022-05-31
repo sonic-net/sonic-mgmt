@@ -283,7 +283,7 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def run_gnmi_client(ptfhost, dut_ip):
+def run_gnmi_client(ptfhost, dut_ip, gnxi_path):
     """Runs python gNMI client in the corresponding PTF docker to query valid/invalid
     tables in 'STATE_DB' on the DuT.
 
@@ -294,7 +294,7 @@ def run_gnmi_client(ptfhost, dut_ip):
     Returns:
         None.
     """
-    gnmi_cli_cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --subscribe_mode 0\
+    gnmi_cli_cmd = 'python ' + gnxi_path + '/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --subscribe_mode 0\
                    -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --trigger_mem_spike '.format(dut_ip, TELEMETRY_PORT)
     logger.info("Starting to run python gNMI client with command '{}' in PTF docker '{}'"
                 .format(gnmi_cli_cmd, ptfhost.mgmt_ip))
@@ -447,6 +447,7 @@ def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_stre
 
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("test_mem_spike_setup_and_cleanup",
