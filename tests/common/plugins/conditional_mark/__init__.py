@@ -45,6 +45,14 @@ def pytest_addoption(parser):
         default=False,
         help="Location of your custom inventory file. If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
 
+    parser.addoption(
+        "--enable_nat_feature",
+        action="store_true",
+        dest='enable_nat_feature',
+        default=False,
+        help="Enable NAT feature on DUT",
+    )
+
 def load_conditions(session):
     """Load the content from mark conditions file
 
@@ -101,7 +109,6 @@ def read_asic_name(hwsku):
     try:
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
-            logger.info(asic_name)
 
         for key, value in asic_name.items():
             if ('td' not in key) and ('th' not in key):
@@ -166,6 +173,16 @@ def load_feature_status(session, inv_name, dut_name):
             results.update(json.loads(output_fields[1].strip())['ansible_facts'])
     except Exception as e:
         logger.error('Failed to load dut feature status, exception: {}'.format(repr(e)))
+
+    get_nat_status = results["feature_status"].get("nat", None)
+
+    if not session.config.option.enable_nat_feature:
+        if get_nat_status == None:
+            return results
+        else:
+            results["feature_status"]["nat"] = "disabled"
+    else:
+        results["feature_status"].update({'nat', 'enabled'})
 
     return results
 
