@@ -41,7 +41,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType']) , (
             "Please set rebootType var."
         )
 

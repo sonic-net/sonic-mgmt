@@ -138,10 +138,11 @@ def get_report_summary(analyze_result, reboot_type):
                               _parse_timestamp(marker_first_time)).total_seconds()
         time_spans_summary.update({entity.lower(): str(time_taken)})
 
-    lacp_sessions_waittime = analyze_result.get(\
-        "controlplane", {"lacp_sessions": []}).pop("lacp_sessions")
+    lacp_sessions_dict = analyze_result.get("controlplane")
+    lacp_sessions_waittime = lacp_sessions_dict.pop("lacp_sessions")\
+        if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "", "arp_ping": "", "lacp_session_max_wait": ""}
-    if len(lacp_sessions_waittime) > 0:
+    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
         max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
         analyze_result.get(\
             "controlplane", controlplane_summary).update(
@@ -362,6 +363,10 @@ def overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log):
     duthost.shell(insert_backup_command)
 
 
+def get_current_sonic_version(duthost):
+    return duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+
+
 @pytest.fixture()
 def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     """
@@ -387,27 +392,38 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
-
-    base_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-    if 'SONiC-OS-201811' in base_os_version:
-        bgpd_log = "/var/log/quagga/bgpd.log"
-    else:
-        bgpd_log = "/var/log/frr/bgpd.log"
-
     hwsku = duthost.facts["hwsku"]
     log_filesystem = duthost.shell("df -h | grep '/var/log'")['stdout']
     logs_in_tmpfs = True if log_filesystem and "tmpfs" in log_filesystem else False
-    if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
-        # For small disk devices, /var/log in mounted in tmpfs.
-        # Hence, after reboot the preboot logs are lost.
-        # For log_analyzer to work, it needs logs from the shutdown path
-        # Below method inserts a step in reboot script to back up logs to /host/
-        overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name),
-                    additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''})
+    def bgpd_log_handler(preboot=False):
+        # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
+        current_os_version = get_current_sonic_version(duthost)
+        if preboot:
+            if 'SONiC-OS-201811' in current_os_version:
+                bgpd_log = "/var/log/quagga/bgpd.log"
+            else:
+                bgpd_log = "/var/log/frr/bgpd.log"
+            additional_files={'/var/log/swss/sairedis.rec': '', bgpd_log: ''}
+            loganalyzer.additional_files = list(additional_files.keys())
+            loganalyzer.additional_start_str = list(additional_files.values())
+            return bgpd_log
+        else:
+            # log_analyzer may start with quagga and end with frr, and frr.log might still have old logs.
+            # To avoid missing preboot log, or analyzing old logs, combine quagga and frr log into new file
+            duthost.shell("cat {} {} | sort -n > {}".format(
+                "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log", "/var/log/bgpd.log"), module_ignore_errors=True)
+            loganalyzer.additional_files = ['/var/log/swss/sairedis.rec', '/var/log/bgpd.log']
 
     def pre_reboot_analysis():
+        bgpd_log = bgpd_log_handler(preboot=True)
+        if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
+            # For small disk devices, /var/log in mounted in tmpfs.
+            # Hence, after reboot the preboot logs are lost.
+            # For log_analyzer to work, it needs logs from the shutdown path
+            # Below method inserts a step in reboot script to back up logs to /host/
+            overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log)
         marker = loganalyzer.init()
         loganalyzer.load_common_config()
 
@@ -422,35 +438,18 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         loganalyzer.match_regex = []
         return marker
 
-    def post_reboot_analysis(marker, reboot_oper=None, log_dir=None):
+    def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
+        bgpd_log_handler()
         if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                     "mv /host/swss.rec.99 /var/log/swss/; " +\
-                        "mv /host/bgpd.log.99 /var/log/frr/"
+                        "mv /host/bgpd.log.99 /var/log/"
             duthost.shell(restore_backup, module_ignore_errors=True)
             # find the fast/warm-reboot script path
             reboot_script_path = duthost.shell('which {}'.format("{}-reboot".format(reboot_type)))['stdout']
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path), module_ignore_errors=True)
-
-        # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
-        target_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-        upgrade_out_201811 = "SONiC-OS-201811" in base_os_version and "SONiC-OS-201811" not in target_os_version
-        if 'SONiC-OS-201811' in target_os_version:
-            bgpd_log = "/var/log/quagga/bgpd.log"
-        else:
-            bgpd_log = "/var/log/frr/bgpd.log"
-        if upgrade_out_201811 and not logs_in_tmpfs:
-            # if upgrade from 201811 to future branch is done there are two cases:
-            # 1. Small disk devices: previous quagga logs don't exist anymore, handled in restore_backup.
-            # 2. Other devices: prev quagga log to be copied to a common place, for ansible extract to work:
-            duthost.shell("cp {} {}".format(
-                "/var/log/quagga/bgpd.log", "/var/log/frr/bgpd.log.99"), module_ignore_errors=True)
-        additional_files={'/var/log/swss/sairedis.rec': 'recording on: /var/log/swss/sairedis.rec', bgpd_log: ''}
-        loganalyzer.additional_files = list(additional_files.keys())
-        loganalyzer.additional_start_str = list(additional_files.values())
-
         result = loganalyzer.analyze(marker, fail=False)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
@@ -557,7 +556,7 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stdout')
         res.pop('stderr')
         outputs.append(res)
-    logging.info("Counters before reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+    logging.debug("Counters before reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
 
     yield
 
@@ -567,7 +566,8 @@ def capture_interface_counters(duthosts, rand_one_dut_hostname):
         res.pop('stdout')
         res.pop('stderr')
         outputs.append(res)
-    logging.info("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+    logging.debug("Counters after reboot test: dut={}, cmd_outputs={}".format(duthost.hostname,json.dumps(outputs, indent=4)))
+
 
 @pytest.fixture()
 def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
