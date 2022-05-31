@@ -182,7 +182,7 @@ def load_feature_status(session, inv_name, dut_name):
         else:
             results["feature_status"]["nat"] = "disabled"
     else:
-        results["feature_status"].update({'nat', 'enabled'})
+        results["feature_status"].update({'nat':'enabled'})
 
     return results
 
