@@ -177,7 +177,7 @@ def load_feature_status(session, inv_name, dut_name):
     get_nat_status = results["feature_status"].get("nat", None)
 
     if not session.config.option.enable_nat_feature:
-        if get_nat_status == None:
+        if get_nat_status is None:
             return results
         else:
             results["feature_status"]["nat"] = "disabled"

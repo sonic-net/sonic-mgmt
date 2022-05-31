@@ -96,7 +96,7 @@ def parse_tabular_output(output_lines):
     """
     result = []
 
-    sep_line_pattern = re.compile(r"^( *-+ *)+$")
+    sep_line_pattern = re.compile(r"^( *-+ *)+$")   #lgtm [py/redos]
     sep_line_found = False
     for idx, line in enumerate(output_lines):
         if sep_line_pattern.match(line):
