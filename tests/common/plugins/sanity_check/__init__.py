@@ -103,7 +103,7 @@ def do_checks(request, check_items, *args, **kwargs):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo, startup_macsec, enable_macsec_feature):
     logger.info("Prepare sanity check")
 
     skip_sanity = False
@@ -152,6 +152,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
     if request.config.option.post_check:
         post_check = True
+
+    if request.config.option.enable_macsec:
+        enable_macsec = True
 
     cli_check_items = request.config.getoption("--check_items")
     cli_post_check_items = request.config.getoption("--post_check_items")
@@ -226,6 +229,10 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                     neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
                 for action in infra_recovery_actions:
                     action()
+
+                if enable_macsec:
+                    enable_macsec_feature()
+                    startup_macsec()
 
                 logger.info("Run sanity check again after recovery")
                 new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)

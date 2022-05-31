@@ -6,8 +6,8 @@ import collections
 import logging
 from ipaddress import ip_address, IPv4Address
 
-from macsec_config_helper import enable_macsec_feature
-from macsec_config_helper import disable_macsec_feature
+from macsec_config_helper import enable_macsec_feature as start_macsec_service
+from macsec_config_helper import disable_macsec_feature as stop_macsec_service
 from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
 
@@ -44,37 +44,62 @@ class MacsecPlugin(object):
                                  scope="session")
 
     @pytest.fixture(scope="session")
-    def macsec_feature(self, request, duthost, macsec_nbrhosts):
-        enable_macsec_feature(duthost, macsec_nbrhosts)
+    def enable_macsec_feature(self, duthost, macsec_nbrhosts):
+        def __enable_macsec_feature():
+            start_macsec_service(duthost, macsec_nbrhosts)
+        return __enable_macsec_feature
+
+    @pytest.fixture(scope="session")
+    def disable_macsec_feature(self, duthost, macsec_nbrhosts):
+        def __disable_macsec_feature():
+            stop_macsec_service(duthost, macsec_nbrhosts)
+        return __disable_macsec_feature
+
+    @pytest.fixture(scope="session")
+    def macsec_feature(self, enable_macsec_feature, disable_macsec_feature):
+        enable_macsec_feature()
         yield
-        disable_macsec_feature(duthost, macsec_nbrhosts)
+        disable_macsec_feature()
+
+    @pytest.fixture(scope="session")
+    def startup_macsec(self, request, duthost, ctrl_links, macsec_profile):
+        def __startup_macsec():
+            profile = macsec_profile
+            if request.config.getoption("neighbor_type") == "eos":
+                if duthost.facts["asic_type"] == "vs" and profile['send_sci'] == "false":
+                    # On EOS, portchannel mac is not same as the member port mac (being as SCI),
+                    # then src mac is not equal to SCI in its sending packet. The receiver of vSONIC
+                    # will drop it for macsec kernel module does not correctly handle it.
+                    pytest.skip(
+                        "macsec on dut vsonic, neighbor eos, send_sci false")
+                if profile['rekey_period'] > 0:
+                    pytest.skip(
+                        "Rekey period hasn't been supported in EOS platform")
+
+            cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+            setup_macsec_configuration(duthost, ctrl_links,
+                                        profile['name'], profile['priority'], profile['cipher_suite'],
+                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                        profile['send_sci'], profile['rekey_period'])
+            logger.info(
+                "Setup MACsec configuration with arguments:\n{}".format(locals()))
+        return __startup_macsec
+
+    @pytest.fixture(scope="session")
+    def shutdown_macsec(self, duthost, ctrl_links, macsec_profile):
+        def __shutdown_macsec():
+            profile = macsec_profile
+            cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+        return __shutdown_macsec
 
     @pytest.fixture(scope="session", autouse=True)
-    def macsec_setup(self, request, duthost, ctrl_links, macsec_profile, macsec_feature):
+    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
         '''
-        profile = macsec_profile
-        if request.config.getoption("neighbor_type") == "eos":
-            if duthost.facts["asic_type"] == "vs" and profile['send_sci'] == "false":
-                # On EOS, portchannel mac is not same as the member port mac (being as SCI),
-                # then src mac is not equal to SCI in its sending packet. The receiver of vSONIC
-                # will drop it for macsec kernel module does not correctly handle it.
-                pytest.skip(
-                    "macsec on dut vsonic, neighbor eos, send_sci false")
-            if profile['rekey_period'] > 0:
-                pytest.skip(
-                    "Rekey period hasn't been supported in EOS platform")
-
-        cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
-        setup_macsec_configuration(duthost, ctrl_links,
-                                   profile['name'], profile['priority'], profile['cipher_suite'],
-                                   profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                   profile['send_sci'], profile['rekey_period'])
-        logger.info(
-            "Setup MACsec configuration with arguments:\n{}".format(locals()))
+        startup_macsec()
         yield
-        cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+        shutdown_macsec()
 
     @pytest.fixture(scope="session")
     def macsec_nbrhosts(self, ctrl_links):
