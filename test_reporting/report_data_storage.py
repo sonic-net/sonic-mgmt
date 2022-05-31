@@ -140,6 +140,25 @@ class KustoConnector(ReportDBConnector):
                                                                                     tenant_id)
         self._ingestion_client = KustoIngestClient(kcsb)
 
+        """
+            Kusto performance depends on the work load of cluster, to improve the high availability of test result data service 
+            by hosting a backup cluster, which is optional. 
+        """
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
+        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
+        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+
+        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+            print("Could not load backup Kusto Credentials from environment")
+            self._ingestion_client_backup = None
+        else:
+            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
+                                                                                        service_id,
+                                                                                        service_key,
+                                                                                        tenant_id)
+            self._ingestion_client_backup = KustoIngestClient(kcsb)
+
     def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
         """Upload a report to the back-end data store.
 
@@ -238,3 +257,5 @@ class KustoConnector(ReportDBConnector):
                 temp.write(json.dumps(data))
             temp.seek(0)
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)
+            if self._ingestion_client_backup:
+                self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
