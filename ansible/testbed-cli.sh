@@ -262,7 +262,8 @@ function add_topo
   # Delete the obsoleted arp entry for the PTF IP
   ip neighbor flush $ptf_ip || true
 
-  if [[ $(is_cache_exist) == 0 ]]; then
+  cache_files_path_value=$(is_cache_exist)
+  if [[ -n $cache_files_path_value ]]; then
     setup_name=$(get_setup_name_by_testbed_name)
     echo "$testbed_name" > $cache_files_path_value/$setup_name
   fi
@@ -585,14 +586,14 @@ function is_cache_exist
   cache_files_path="$(pwd)/cached_topologies_path"
   if [ ! -f "$cache_files_path" ]; then
       echo "cached_topologies_path file does not exist, the path for cached topologies is mandatory to run this command. exiting..." >&2
-      echo 1
+      echo ""
       return
   fi
 
   cache_files_path_value=$(cat $cache_files_path)
   if [[ "$cache_files_path_value" == "" ]]; then
       echo "cached_topologies_path file content is empty, please add a path to cache topologies. exiting..." >&2
-      echo 1
+      echo ""
       return
   fi
 
@@ -601,7 +602,7 @@ function is_cache_exist
       mkdir -p "$cache_files_path_value"
   fi
 
-  echo 0
+  echo $cache_files_path_value
 }
 
 function deploy_topo_with_cache
@@ -610,7 +611,8 @@ function deploy_topo_with_cache
   inventory=$2
   passwd=$3
 
-  if [[ $(is_cache_exist) -ne 0 ]]; then
+  cache_files_path_value=$(is_cache_exist)
+  if [[ -z $cache_files_path_value ]]; then
     exit
   fi
 
