@@ -607,4 +607,4 @@ class MultiAsicSonicHost(object):
         """Restart services on one asic of the DUT"""
         self.asic_instance(asic_index).restart_service(service)
         docker_name = self.asic_instance(asic_index).get_docker_name(service)
-        pytest_assert(wait_until(100, 10, 0, self.is_service_fully_started, docker_name), "service {} not started.".format(service))
+        pytest_assert(wait_until(100, 10, 0, self.is_service_fully_started, docker_name), "docker {} not started.".format(docker_name))
