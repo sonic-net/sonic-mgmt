@@ -4,6 +4,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.configlet.util.common import chk_for_pfc_wd
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,8 @@ def config_force_option_supported(duthost):
         return True
     return False
 
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False):
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
+                  check_intf_up_ports=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -91,5 +93,9 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         if config_source == 'minigraph':
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
                     "PFC_WD is missing in CONFIG-DB")
+
+        if check_intf_up_ports:
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
