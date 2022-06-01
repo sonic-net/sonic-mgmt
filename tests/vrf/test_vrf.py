@@ -21,6 +21,7 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
+from tests.common.helpers.assertions import pytest_assert
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -382,6 +383,16 @@ def get_dut_vlan_ptf_ports(mg_facts):
         for member in mg_facts['minigraph_vlans'][vlan]['members']:
             ports.add(mg_facts['minigraph_port_indices'][member])
     return ports
+
+def check_vlan_members(duthost, member1, member2, exp_count):
+    out1 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))['stdout']
+    out2 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))['stdout']
+    added = int(out1) + int(out2)
+    if added >= exp_count * 2:
+        logger.info('All vlan members added')
+        return True
+    logger.info('Not all vlan members are added, {} when expected => {}'.format(added, (exp_count * 2)))
+    return False
 
 # fixtures
 
@@ -1217,7 +1228,11 @@ class TestVrfCapacity():
             duthost.template(src=src_template, dest=render_file)
             duthost.shell("sonic-cfggen -j {} --write-to-db".format(render_file))
 
-            time.sleep(attrs['add_sleep_time'])
+            if cfg_name == 'vlan_member':
+                pytest_assert(wait_until(220, 10, 0, check_vlan_members, duthost, dut_port1, dut_port2, vrf_count),
+                              "Not all vlan members were added by the end of timeout")
+            else:
+                time.sleep(attrs['add_sleep_time'])
 
         # setup static routes
         duthost.template(src='vrf/vrf_capacity_route_cfg.j2', dest='/tmp/vrf_capacity_route_cfg.sh', mode="0755")
