@@ -8,7 +8,6 @@ from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
