@@ -21,7 +21,7 @@ DHCP6_Advertise = scapy.layers.dhcp6.DHCP6_Advertise
 DHCP6_Reply = scapy.layers.dhcp6.DHCP6_Reply
 DHCP6_RelayReply = scapy.layers.dhcp6.DHCP6_RelayReply
 DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
-DHCP6OptBootFileUrl = scapy.layers.dhcp6.DHCP6OptBootFileUrl # dhcp6opt out of client scope to test malformed counters
+DHCP6OptAuth = scapy.layers.dhcp6.DHCP6OptAuth
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -110,7 +110,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         packet = Ether(src=self.client_mac, dst=self.BROADCAST_MAC)
         packet /= IPv6(src=self.client_link_local, dst=self.BROADCAST_IP)
         packet /= UDP(sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
-        packet /= message(trid=12345)/DHCP6OptBootFileUrl()
+        packet /= message(trid=12345)/DHCP6OptAuth(optcode=100) # changes optcode to be out of client scope to test malformed counters
 
         return packet
 
