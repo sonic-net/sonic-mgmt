@@ -21,7 +21,7 @@ platform_summary_data = {
     "SF_D_RP": {"platform": "x86_64-8800_rp-r0", "hwsku": "8800-RP", "asic": "cisco-8000","product_name": "8800-RP","udi_desc": "Cisco 8800 Route Processor"},
     "SF_D_LC": {"platform": "x86_64-8800_lc_48h-r0", "hwsku": "8800-LC-48H", "asic": "cisco-8000", "product_name": "8800-LC-48H","udi_desc": "Cisco 8800 48x100GE QSFP28 Line Card"},
     "mathilda32": {"platform": "x86_64-8101_32h_o-r0", "hwsku": "32x100Gb", "asic": "cisco-8000", "product_name": "8101-32H-O","udi_desc": ""},
-    "mathilda64": {"platform": "x86_64-8102_64h_o-r0", "hwsku": "64x100Gb", "asic": "cisco-8000", "product_name": "8102-64H-O","udi_desc": "Cisco 8100 64x100G QSFP28 2RU",
+    "mathilda64": {"platform": "x86_64-8102_64h_o-r0", "hwsku": "Cisco-8102-C64", "asic": "cisco-8000", "product_name": "8102-64H-O","udi_desc": "Cisco 8100 64x100G QSFP28 2RU",
     "voltage_sensors" : ["MB_GB_VDDS_L1_VIN", "MB_GB_VDDA_L2_VOUT", "MB_GB_VDDS_L1_VOUT", "CPU_U17_PVCCIN_VIN", "CPU_U17_PVCCIN_VOUT", "CPU_U17_P1P05V_VOUT", "MB_3_3V_R_L1_VIN", "MB_3_3V_R_L1_VOUT", "MB_GB_VDDCK_L2_VOUT", "MB_3_3V_L_L1_VIN", "MB_3_3V_L_L1_VOUT", "GB_PCIE_VDDH", "GB_PCIE_VDDACK", "GB_P1V8_VDDIO", "GB_P1V8_PLLVDD", "CPU_U117_P1P2V_VIN", "CPU_U117_P1P2V_VOUT", "CPU_U117_P1P05V_VOUT", "MB_A1V8", "MB_A1V", "MB_A3V3", "MB_A1V2", "MB_P3V3", "MB_GB_CORE_VIN_L1", "MB_GB_CORE_VOUT_L1", "MB_GB_CORE_IOUT_L1"],
     "current_sensors" : ["MB_GB_VDDS_L1_IIN","MB_GB_VDDS_L1_IOUT","MB_GB_VDDA_L2_IOUT","CPU_U17_PVCCIN_IIN","CPU_U17_PVCCIN_IOUT","CPU_U17_P1P05V_IOUT", "MB_3_3V_R_L1_IIN", "MB_GB_CORE_IIN_L1", "MB_3_3V_R_L1_IOUT", "MB_GB_VDDCK_L2_IOUT", "MB_3_3V_L_L1_IIN", "MB_3_3V_L_L1_IOUT", "CPU_U117_P1P2V_IIN", "CPU_U117_P1P2V_IOUT", "CPU_U117_P1P05V_IOUT"]
     },
