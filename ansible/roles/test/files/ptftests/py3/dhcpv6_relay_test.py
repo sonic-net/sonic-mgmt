@@ -21,6 +21,12 @@ DHCP6_Reply = scapy.layers.dhcp6.DHCP6_Reply
 DHCP6_RelayReply = scapy.layers.dhcp6.DHCP6_RelayReply
 DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
 DHCP6OptUnknown = scapy.layers.dhcp6.DHCP6OptUnknown
+
+DHCP6OptClientId = scapy.layers.dhcp6.DHCP6OptClientId
+DHCP6OptOptReq = scapy.layers.dhcp6.DHCP6OptOptReq
+DHCP6OptElapsedTime = scapy.layers.dhcp6.DHCP6OptElapsedTime
+DHCP6OptIA_NA = scapy.layers.dhcp6.DHCP6OptIA_NA
+DUID_LLT = scapy.layers.dhcp6.DUID_LLT
  
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -142,6 +148,10 @@ class DHCPTest(DataplaneBaseTest):
         solicit_packet /= IPv6(src=self.client_link_local, dst=self.BROADCAST_IP)
         solicit_packet /= UDP(sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
         solicit_packet /= DHCP6_Solicit(trid=12345)
+        solicit_packet /= DHCP6OptClientId(duid=DUID_LLT(lladdr=self.client_mac))
+        solicit_packet /= DHCP6OptOptReq(reqopts=[23,24,29])
+        solicit_packet /= DHCP6OptElapsedTime(elapsedtime=0)
+        solicit_packet /= DHCP6OptIA_NA()
 
         return solicit_packet
 
@@ -151,7 +161,7 @@ class DHCPTest(DataplaneBaseTest):
         solicit_relay_forward_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         solicit_relay_forward_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         solicit_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
-        solicit_relay_forward_packet /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345)])
+        solicit_relay_forward_packet /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345)/DHCP6OptClientId(duid=DUID_LLT(lladdr=self.client_mac))/DHCP6OptOptReq(reqopts=[23,24,29])/DHCP6OptElapsedTime(elapsedtime=0)/DHCP6OptIA_NA()])
 
         return solicit_relay_forward_packet
 

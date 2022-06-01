@@ -15,10 +15,13 @@ DHCP6_Renew = scapy.layers.dhcp6.DHCP6_Renew
 DHCP6_Rebind = scapy.layers.dhcp6.DHCP6_Rebind
 DHCP6_Release = scapy.layers.dhcp6.DHCP6_Release
 DHCP6_Decline = scapy.layers.dhcp6.DHCP6_Decline
+DHCP6_Reconf= scapy.layers.dhcp6.DHCP6_Reconf
+DHCP6_InfoRequest = scapy.layers.dhcp6.DHCP6_InfoRequest
 DHCP6_Advertise = scapy.layers.dhcp6.DHCP6_Advertise
 DHCP6_Reply = scapy.layers.dhcp6.DHCP6_Reply
 DHCP6_RelayReply = scapy.layers.dhcp6.DHCP6_RelayReply
 DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
+DHCP6OptAuth = scapy.layers.dhcp6.DHCP6OptAuth
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -103,6 +106,14 @@ class DHCPCounterTest(DataplaneBaseTest):
 
         return packet
 
+    def create_malformed_client_packet(self, message):
+        packet = Ether(src=self.client_mac, dst=self.BROADCAST_MAC)
+        packet /= IPv6(src=self.client_link_local, dst=self.BROADCAST_IP)
+        packet /= UDP(sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
+        packet /= message(trid=12345)/DHCP6OptAuth(optcode=100) # changes optcode to be out of client scope to test malformed counters
+
+        return packet
+
     def create_server_packet(self, message):
         packet = Ether(dst=self.relay_iface_mac)
         packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
@@ -112,25 +123,38 @@ class DHCPCounterTest(DataplaneBaseTest):
 
         return packet
 
+    def create_unknown_server_packet(self):
+        packet = Ether(dst=self.relay_iface_mac)
+        packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+        packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
+
+        return packet
+
     """
      Send functions
 
     """
 
     def client_send(self):
-        client_messages = [DHCP6_Solicit, DHCP6_Request, DHCP6_Confirm, DHCP6_Renew, DHCP6_Rebind, DHCP6_Release, DHCP6_Decline]
+        client_messages = [DHCP6_Solicit, DHCP6_Request, DHCP6_Confirm, DHCP6_Renew, DHCP6_Rebind, DHCP6_Release, DHCP6_Decline, DHCP6_Reconf, DHCP6_InfoRequest]
         for message in client_messages:
             packet = self.create_packet(message)
             testutils.send_packet(self, self.client_port_index, packet)
 
+        malformed_packet = self.create_malformed_client_packet(DHCP6_Solicit)
+        testutils.send_packet(self, self.client_port_index, malformed_packet)
+
     def server_send(self):
-        server_messages = [DHCP6_Advertise, DHCP6_Reply]
+        server_messages = [DHCP6_Advertise, DHCP6_Reply, DHCP6_Reconf]
         for message in server_messages:
             packet = self.create_server_packet(message)
             packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
             testutils.send_packet(self, self.server_port_indices[0], packet)
 
+        unknown_packet = self.create_unknown_server_packet()
+        testutils.send_packet(self, self.server_port_indices[0], unknown_packet)
+
     def runTest(self):
         self.client_send()
         self.server_send()
-
