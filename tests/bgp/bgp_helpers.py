@@ -31,7 +31,7 @@ def apply_bgp_config(duthost, template_name):
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
     duthost.restart_service("bgp")
-  
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 def define_config(duthost, template_src_path, template_dst_path):
     """
@@ -44,7 +44,7 @@ def define_config(duthost, template_src_path, template_dst_path):
     """
     duthost.shell("mkdir -p {}".format(DUT_TMP_DIR))
     duthost.copy(src=template_src_path, dest=template_dst_path)
-
+        
 
 def get_no_export_output(vm_host):
     """
@@ -73,6 +73,7 @@ def apply_default_bgp_config(duthost, copy=False):
         # Skip 'start-limit-hit' threshold
         duthost.reset_service("bgp")
         duthost.restart_service("bgp")
+        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 def parse_exabgp_dump(host):
     """
@@ -136,6 +137,7 @@ def remove_bgp_neighbors(duthost, asic_index):
 
     # Restart BGP instance on that asic
     duthost.restart_service_on_asic("bgp", asic_index)
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
     return bgp_neighbors
 
@@ -153,3 +155,4 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
 
     # Restart BGP instance on that asic
     duthost.restart_service_on_asic("bgp", asic_index)
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
