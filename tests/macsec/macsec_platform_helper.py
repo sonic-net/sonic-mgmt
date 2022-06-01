@@ -59,7 +59,7 @@ def get_all_ifnames(host, asic):
 def get_eth_ifname(host, port_name):
     if u"x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
-        asic = host.get_port_asic_instance(intf)
+        asic = host.get_port_asic_instance(port_name)
         ports = get_all_ifnames(host, asic)
         assert port_name in ports["Ethernet"]
         return ports["eth"][ports["Ethernet"].index(port_name)]
@@ -72,7 +72,7 @@ def get_macsec_ifname(host, port_name):
         logging.info(
             "Can only get the macsec ifname on the virtual SONiC switch")
         return None
-    asic = host.get_port_asic_instance(intf)
+    asic = host.get_port_asic_instance(port_name)
     ports = get_all_ifnames(host, asic)
     assert port_name in ports["Ethernet"]
     eth_port = ports["eth"][ports["Ethernet"].index(port_name)]
