@@ -604,6 +604,7 @@ class MultiAsicSonicHost(object):
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
         
     def is_service_fully_started_per_asic_or_host(self, service):
+        """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for asic_index in range(duthost.facts["num_asic"]):
@@ -615,5 +616,6 @@ class MultiAsicSonicHost(object):
             return duthost.is_service_fully_started(service)
 
     def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
+        """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
-        pytest_assert(wait_until(100, 10, 0, self.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+        
