@@ -1107,11 +1107,41 @@ sonic_cisco_sup:
       hwsku: 8800-RP-O
       num_asics: 16
       asic_name: Q100
+      skip_modules:
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD5
+            - FABRIC-CARD6
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
     str2-8800-sup-2:
       ansible_host: 10.3.147.175
       hwsku: 8800-RP-O
       num_asics: 16
       asic_name: Q200
+    str2-8800-sup-3:
+      ansible_host: 10.3.147.175
+      hwsku: 8800-RP-O
+      num_asics: 16
+      asic_name: Q200
+      skip_modules:
+          'line-cards':
+            - LINE-CARD0
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+          'fabric-cards':
+            - FABRIC-CARD1
+            - FABRIC-CARD3
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
 
 sonic_nokia_sup:
   vars:
