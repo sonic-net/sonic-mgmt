@@ -4,16 +4,16 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 2,4"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
+  - groupP: SAITHRIFT_URLS
 
 parameters:
   - name: TESTBED_NAME
@@ -24,18 +24,18 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_PUBLIC)
     displayName: "py_saithrift URL"
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces"'
+    default: '-I "platform_tests copp show_techport everflow drop_packets"'
     displayName: Testbed specific
 
 stages:

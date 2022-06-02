@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 5"
+  - cron: "10 4 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,24 +18,24 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms20-t1-7050cx3-3
+    default: vms1-t1-2700
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
+    default: $(IMAGE_MLNX_PUBLIC)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
+    default: " "
     displayName: "py_saithrift URL"
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces"'
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
 stages:
