@@ -35,6 +35,7 @@ ignored_iptable_rules = [
     '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT'
 ]
 
+IGNORE_BGP_PORT_VERSION = ["internal", "master"]
 
 @pytest.fixture(scope="module", autouse=True)
 def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
@@ -404,7 +405,9 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    if "master" not in duthost.os_version:
+
+    os_version = duthost.os_version.split('.')[0]
+    if os_version not in IGNORE_BGP_PORT_VERSION:
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
