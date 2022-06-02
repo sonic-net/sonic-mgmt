@@ -181,6 +181,7 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
+        facts["switch_type"] = self._get_switch_type()
 
         platform_asic = self._get_platform_asic(facts["platform"])
         if platform_asic:
@@ -247,6 +248,13 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
+   
+    def _get_switch_type(self):
+       try:
+           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
+                  "utf-8").lower()
+       except Exception:
+           return ''
 
     def _get_platform_info(self):
         """
@@ -1667,6 +1675,22 @@ Totals               6450                 6449
         self.command(
             "docker rm {}".format(service), module_ignore_errors=True
         )
+
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def no_shutdown_bgp(self, asn):
+        logging.warning("SONiC don't support `no shutdown bgp`")
+        return None
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        for nbr in neighbors:
+            command += " -c 'no neighbor {} shutdown'".format(nbr)
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return self.command(command)
 
     def is_bgp_state_idle(self):
         """

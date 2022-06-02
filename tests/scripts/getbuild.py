@@ -96,7 +96,7 @@ def download_artifacts(url, content_type, platform, buildid):
 def find_latest_build_id(branch):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter=succeeded&statusFilter=completed&api-version=6.0".format(branch)
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0".format(branch)
 
     resp = urlopen(builds_url)
 
