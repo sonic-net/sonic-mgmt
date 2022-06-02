@@ -310,7 +310,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
 
     logger.info("run ptf test")
     expecte_packet_num = 3
-    packet_size = 1518
+    packet_size = mtu + 4
     with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix : {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
         ptf_runner(ptfhost,
                     "ptftests",
