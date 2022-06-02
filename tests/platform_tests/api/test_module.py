@@ -94,9 +94,9 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
-            name = module.get_name(platform_api_conn, i)
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+            name = module.get_name(platform_api_conn, i)	    
             if self.expect(name is not None, "Unable to retrieve module {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
@@ -174,7 +174,6 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
-            name = module.get_name(platform_api_conn, i)
             base_mac = module.get_base_mac(platform_api_conn, i)
 	    if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
@@ -216,7 +215,6 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
-            name = module.get_name(platform_api_conn, i)
             syseeprom_info_dict = module.get_system_eeprom_info(platform_api_conn, i)
             if not self.expect(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i)):
                 continue
@@ -377,7 +375,6 @@ class TestModuleApi(PlatformApiTestBase):
     def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
-            name = module.get_name(platform_api_conn, i)
             if self.skip_absent_module(i,platform_api_conn):
                 continue
             mod_max_con_power = module.get_maximum_consumed_power(platform_api_conn, i)
