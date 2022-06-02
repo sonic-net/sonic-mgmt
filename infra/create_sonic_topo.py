@@ -80,11 +80,20 @@ def _create_parser():
                       default=False)
     return parser
 
-def git_update(data):
+def repo_update(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     chan = ssh.invoke_shell()
+    buff = ''
+    
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("ls \n")
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -92,21 +101,79 @@ def git_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("cd sonic-test \n")
+    if 'golden-code' in buff:
+        chan.send("rm -rf golden-code\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
+
+        chan.send("docker container stop golden-sonic-mgmt\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
+
+        chan.send("docker container rm golden-sonic-mgmt\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
+
+    chan.send("mkdir golden-code\n")
     buff = ''
-    while not buff.endswith(':~/sonic-test$ '):
+    while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("git config --global user.email 'sonic-test@cisco.com'; git config --global user.name 'Sonic Test'; git stash; git pull; git checkout {}; git stash apply\n".format(data['branch']))
+    chan.send("cd golden-code\n")
     buff = ''
-    while not buff.endswith(':~/sonic-test$ '):
+    while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
-    time.sleep(20)
+    time.sleep(3)
+
+    chan.send("wget http://172.27.147.152/golden-code/golden_code.tar.gz\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("utf-8")
+    time.sleep(3)
+
+    chan.send("tar -xvf golden_code.tar.gz\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("cd sonic-test/sonic-mgmt\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("docker run -v $PWD:/data --privileged --network host --name 'golden-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+
     ssh.close()
 
 def deploy_mg(data,base_topo_file):
@@ -121,15 +188,7 @@ def deploy_mg(data,base_topo_file):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("docker container start docker-sonic-mgmt \n")
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -386,22 +445,22 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client=ssh.open_sftp()
     #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
-    ftp_client.put(base_topo_file,'sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
-    ftp_client.put('testbed_add_vm_topology.yml','sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
-    ftp_client.put('password.txt','sonic-test/sonic-mgmt/ansible/password.txt')
-    ftp_client.put('veos.yml','sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
+    ftp_client.put(base_topo_file,'golden-code/sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
+    ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
+    ftp_client.put('password.txt','golden-code/sonic-test/sonic-mgmt/ansible/password.txt')
+    ftp_client.put('veos.yml','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     if device_type == 'mth32':
-        ftp_client.put('lab_connection_graph_mth32.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('sonic_lab_links_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
-        ftp_client.put('sonic_lab_devices_mth32.csv','sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
+        ftp_client.put('lab_connection_graph_mth32.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_devices_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'dualtor_mth64':
-        ftp_client.put('lab_connection_graph_dualtor_mth64.xml','sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     if topo_type in ['t0', 'dualtor-56']:
-        ftp_client.put('t0-leaf.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
+        ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
-        ftp_client.put('t1-spine.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
-        ftp_client.put('t1-tor.j2','sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
-        ftp_client.put('topo_t1.yml', 'sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+        ftp_client.put('t1-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
+        ftp_client.put('t1-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
+        ftp_client.put('topo_t1.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -465,7 +524,7 @@ def add_vEOS_cfg(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -558,7 +617,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -596,7 +655,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     later = datetime.datetime.now() + datetime.timedelta(hours=1)
     while True:
-        chan.send('cat ~/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
+        chan.send('cat ~/golden-code/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii"))
@@ -714,7 +773,7 @@ def main():
     vEOS_inital_cfg(data,vEOS_count)
 
     #print("********** Do a Git Update **********")
-    #git_update(data)
+    repo_update(data)
 
     # Create testbed file based on vxr_ports
     print("****** Create testbed file based on vxr_ports *******")
