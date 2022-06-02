@@ -31,6 +31,7 @@ steps:
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/master'
+    allowPartiallySucceededBuilds: true
   displayName: "Download sonic kvm image"
 
 - script: |

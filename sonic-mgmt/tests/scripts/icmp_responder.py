@@ -29,7 +29,7 @@ class ICMPSniffer(object):
     """Sniff ICMP packets."""
 
     TYPE_ECHO_REQUEST = 8
-    def __init__(self, iface, request_handler=None, dst_mac=None):
+    def __init__(self, ifaces, request_handler=None, dst_mac=None):
         """
         Init ICMP sniffer.
 
@@ -39,8 +39,9 @@ class ICMPSniffer(object):
         """
         self.sniff_sockets = []
         self.iface_hwaddr = {}
-        self.sniff_sockets.append(conf.L2socket(type=ETH_P_IP, iface=iface, filter="icmp"))
-        self.iface_hwaddr[iface] = get_if_hwaddr(iface)
+        for iface in ifaces:
+            self.sniff_sockets.append(conf.L2socket(type=ETH_P_IP, iface=iface, filter="icmp"))
+            self.iface_hwaddr[iface] = get_if_hwaddr(iface)
         self.request_handler = request_handler
         self.dst_mac = dst_mac
 
@@ -66,7 +67,12 @@ if __name__ == "__main__":
     ifaces = args.ifaces
     dst_mac = args.dst_mac
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
-        for iface in ifaces:
-            icmp_sniffer = ICMPSniffer(iface, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
+    max_workers = 24 if len(ifaces) > 24 else len(ifaces)
+    sniffed_ifaces = [[] for _ in range(max_workers)]
+    for i, iface in enumerate(ifaces):
+        sniffed_ifaces[i % max_workers].append(iface)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for ifaces in sniffed_ifaces:
+            icmp_sniffer = ICMPSniffer(ifaces, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
             executor.submit(icmp_sniffer)

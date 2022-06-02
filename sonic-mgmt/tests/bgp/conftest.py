@@ -496,7 +496,7 @@ def backup_bgp_config(duthost):
     try:
         apply_default_bgp_config(duthost)
     except Exception:
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         apply_default_bgp_config(duthost)
 
 @pytest.fixture(scope="module")
