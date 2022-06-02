@@ -24,7 +24,7 @@ OTHER_PATTERNS = {
         "ROUTE_DEFERRAL_TIMER|Start": re.compile(r'.*ADJCHANGE: neighbor .* in vrf default Up.*'),
         "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*'),
         "FDB_AGING_DISABLE|Start": re.compile(r'.*NOTICE swss#orchagent.*setAgingFDB: Set switch.*fdb_aging_time 0 sec'),
-        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*doAppSwitchTableTask: Set switch attribute fdb_aging_time to 600')
+        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*do.*Task: Set switch attribute fdb_aging_time to 600')
     },
     "LATEST": {
         "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),
