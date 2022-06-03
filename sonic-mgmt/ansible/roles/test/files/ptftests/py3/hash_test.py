@@ -9,6 +9,7 @@ import logging
 import random
 import json
 import time
+import six
 
 from ipaddress import ip_address, ip_network
 
@@ -66,8 +67,8 @@ class HashTest(BaseTest):
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
 
-        self.src_ip_range = [unicode(x) for x in self.test_params['src_ip_range'].split(',')]
-        self.dst_ip_range = [unicode(x) for x in self.test_params['dst_ip_range'].split(',')]
+        self.src_ip_range = [six.text_type(x) for x in self.test_params['src_ip_range'].split(',')]
+        self.dst_ip_range = [six.text_type(x) for x in self.test_params['dst_ip_range'].split(',')]
         self.src_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.src_ip_range[0]), ip_address(self.src_ip_range[1]))
         self.dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(self.dst_ip_range[0]), ip_address(self.dst_ip_range[1]))
         self.vlan_ids = self.test_params.get('vlan_ids', [])
@@ -81,7 +82,7 @@ class HashTest(BaseTest):
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
 
         # set the base mac here to make it persistent across calls of check_ip_route
-        self.base_mac = self.dataplane.get_mac(*random.choice(self.dataplane.ports.keys()))
+        self.base_mac = self.dataplane.get_mac(*random.choice(list(self.dataplane.ports.keys())))
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
@@ -155,7 +156,7 @@ class HashTest(BaseTest):
             self.check_balancing(next_hop.get_next_hop(), hit_count_map)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_list):
-        if ip_network(unicode(dst_ip)).version == 4:
+        if ip_network(six.text_type(dst_ip)).version == 4:
             (matched_index, received) = self.check_ipv4_route(hash_key, src_port, dst_port_list)
         else:
             (matched_index, received) = self.check_ipv6_route(hash_key, src_port, dst_port_list)

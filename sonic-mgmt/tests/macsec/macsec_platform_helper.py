@@ -34,8 +34,13 @@ def sonic_db_cli(host, cmd):
     return ast.literal_eval(host.shell(cmd)["stdout_lines"][0])
 
 
-def get_all_ifnames(host):
-    cmd = "ls /sys/class/net/"
+def get_all_ifnames(host, asic):
+    cmd_prefix = " "
+    if host.is_multi_asic:
+        ns = host.get_namespace_from_asic_id(asic.asic_index)
+        cmd_prefix = "sudo ip netns exec {} ".format(ns)
+
+    cmd = "{} ls /sys/class/net/".format(cmd_prefix)
     output = host.command(cmd)["stdout_lines"]
     ports = {
         "Ethernet": [],
@@ -54,7 +59,8 @@ def get_all_ifnames(host):
 def get_eth_ifname(host, port_name):
     if u"x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
-        ports = get_all_ifnames(host)
+        asic = host.get_port_asic_instance(intf)
+        ports = get_all_ifnames(host, asic)
         assert port_name in ports["Ethernet"]
         return ports["eth"][ports["Ethernet"].index(port_name)]
     # Same as port_name
@@ -66,7 +72,8 @@ def get_macsec_ifname(host, port_name):
         logging.info(
             "Can only get the macsec ifname on the virtual SONiC switch")
         return None
-    ports = get_all_ifnames(host)
+    asic = host.get_port_asic_instance(intf)
+    ports = get_all_ifnames(host, asic)
     assert port_name in ports["Ethernet"]
     eth_port = ports["eth"][ports["Ethernet"].index(port_name)]
     macsec_infname = "macsec_"+eth_port

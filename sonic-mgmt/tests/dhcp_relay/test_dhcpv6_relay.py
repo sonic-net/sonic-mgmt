@@ -133,7 +133,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201911", "202106"])
     
-    messages = ["Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release", "Decline", "Relay-Forward", "Relay-Reply"]
+    messages = ["Unknown", "Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release", "Decline", "Reconfigure", "Information-Request", "Relay-Forward", "Relay-Reply", "Malformed"]
 
     for dhcp_relay in dut_dhcp_relay_data:
 

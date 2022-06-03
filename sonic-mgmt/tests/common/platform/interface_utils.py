@@ -42,6 +42,23 @@ def parse_intf_status(lines):
     return result
 
 
+def check_interface_status_of_up_ports(duthost):
+    if duthost.is_multi_asic:
+        up_ports = []
+        for asic in duthost.frontend_asics:
+            asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running", namespace=asic.namespace)['ansible_facts']
+            asic_up_ports = [p for p, v in asic_cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
+            up_ports.extend(asic_up_ports)
+    else:
+        cfg_facts = duthost.get_running_config_facts()
+        up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
+
+    intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
+    if len(intf_facts['ansible_interface_link_down_ports']) != 0:
+        return False
+    return True
+
+
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
