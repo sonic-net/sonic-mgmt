@@ -110,7 +110,7 @@ def repo_update(data):
             print(resp.decode("ascii"))
         time.sleep(3)
 
-        chan.send("docker container stop golden-sonic-mgmt\n")
+        chan.send("docker container stop docker-sonic-mgmt\n")
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
@@ -118,7 +118,7 @@ def repo_update(data):
             print(resp.decode("ascii"))
         time.sleep(3)
 
-        chan.send("docker container rm golden-sonic-mgmt\n")
+        chan.send("docker container rm docker-sonic-mgmt\n")
         buff = ''
         while not buff.endswith(':~$ '):
             resp = chan.recv(9999)
@@ -165,7 +165,7 @@ def repo_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("docker run -v $PWD:/data --privileged --network host --name 'golden-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
+    chan.send("docker run -v $PWD:/data --privileged --network host --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
@@ -188,7 +188,7 @@ def deploy_mg(data,base_topo_file):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -524,7 +524,7 @@ def add_vEOS_cfg(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -617,7 +617,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it golden-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -653,7 +653,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
 
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    later = datetime.datetime.now() + datetime.timedelta(hours=1)
+    later = datetime.datetime.now() + datetime.timedelta(hours=2)
     while True:
         chan.send('cat ~/golden-code/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
         time.sleep(3)
@@ -665,7 +665,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
             if datetime.datetime.now() < later:
                 time.sleep(300)
             else:
-                print("Looks like test is taking longer than an hour. Check list of sanity scripts or increase time to wait")
+                print("Looks like test is taking longer than two hours. Check list of sanity scripts or increase time to wait")
                 break
     ssh.close()
     delta2 = datetime.datetime.now()
