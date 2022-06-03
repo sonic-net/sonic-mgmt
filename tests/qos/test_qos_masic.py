@@ -13,9 +13,22 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_for_single_asic(duthosts, rand_one_dut_hostname, enum_backend_asic_index):
+    duthost = duthosts[rand_one_dut_hostname]
+    pytest_require(duthost.is_multi_asic, "Test applies only to multi ASIC platform")
+    pytest_require(enum_backend_asic_index is not None, "Backend ASIC is None")
+
+@pytest.fixture(scope='module', autouse=True)
+def skip_for_unsupported_t1_topo(tbinfo):
+    supported_t1_topos = ["t1-lag", "t1-64-lag", "t1-backend"]
+
+    topo = tbinfo["topo"]["name"]
+    pytest_require(topo in supported_t1_topos, "unsupported topology {}".format(topo))
+
+
 class QosSaiBaseMasic:
 
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
 
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
@@ -259,12 +272,7 @@ class QosSaiBaseMasic:
            .
            .
         }
-        """
-        topo = tbinfo["topo"]["name"]
-        if topo not in self.SUPPORTED_T1_TOPOS:
-            pytest.skip("unsupported topology {}".format(topo))
-
-        pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
+        """ 
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
@@ -350,12 +358,6 @@ class TestQosSaiMasic(QosSaiBaseMasic):
         ptfhost, dut_test_params, swapSyncd, tbinfo
     ):
         duthost = duthosts[rand_one_dut_hostname]
-
-        if not duthost.sonichost.is_multi_asic:
-            pytest.skip("Test applies only to multi ASIC platform")
-
-        if enum_backend_asic_index is None:
-            pytest.skip("Backend ASIC is None")
 
         # Verify all external and internal BGP sessions are up
         config_facts = duthost.config_facts(
