@@ -52,7 +52,7 @@ class TestMemoryExhaustion:
         cmd = 'nohup tail /dev/zero &'
         res = duthost.shell(cmd)
         if not res.is_successful:
-            pytest.error('DUT {} run command {} failed'.format(hostname, cmd))
+            pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))
 
         # Waiting for SSH connection shutdown
         pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_ABSENT, SSH_SHUTDOWN_TIMEOUT),
