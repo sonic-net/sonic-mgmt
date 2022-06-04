@@ -66,7 +66,7 @@ class TestMemoryExhaustion:
         dut_uptime = duthost.get_up_time()
         pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
 
-    def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=10):
+    def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
         """
         Check the SSH state of DUT.
 
