@@ -540,7 +540,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
-    if fanouthost.os == 'onyx':
+    if fanouthost and fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
@@ -580,7 +580,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, eos_fanouth
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
-    if fanouthost.os == 'onyx':
+    if fanouthost and fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
