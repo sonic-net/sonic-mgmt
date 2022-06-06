@@ -103,6 +103,10 @@ parameters:
     type: boolean
     default: false
 
+  - name: RUN_BSL_TEST
+    type: boolean
+    default: false
+
 stages:
 
   - stage: Test
@@ -259,10 +263,8 @@ stages:
                 cd ansible
 
                 http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
-                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS
                 sleep 180
-            env:
-              INVENTORY_NAME: $(INVENTORY_NAME)
 
           - task: Bash@3
             displayName: Run Tests
@@ -299,7 +301,7 @@ stages:
 
                 cd tests
 
-                # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
+                # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step "Parse Testbed Info"
                 http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
                     -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
@@ -318,6 +320,59 @@ stages:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+
+          - ${{ if eq(parameters.RUN_BSL_TEST, True) }}:
+            - script: |
+                echo "=== Set DUT to l2 switch mode ==="
+
+                cd ansible
+                ./testbed-cli.sh set-l2 ${{ parameters.TESTBED_NAME }} password.txt
+              displayName: Set to L2 mode
+
+            - script: |
+                echo "=== RUN BSL specific tests in L2 mode ==="
+                BASE_PATH=`pwd`
+
+                export ANSIBLE_CONFIG=${BASE_PATH}/ansible
+                export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+                export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+                export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+                export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+
+                cd tests
+                mkdir -p logs
+                http_proxy='' https_proxy='' pytest \
+                    --inventory $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+                    --host-pattern all \
+                    --testbed ${{ parameters.TESTBED_NAME }} \
+                    --testbed_file $BASE_PATH/ansible/testbed.yaml \
+                    --log-cli-level warning \
+                    --log-file-level debug \
+                    --log-file logs/bsl.log \
+                    --junit-xml=logs/bsl.xml \
+                    --ignore=ptftests \
+                    --ignore=ptftests \
+                    --ignore=saitests \
+                    --ignore=scripts \
+                    --ignore=k8s \
+                    --ignore=sai_qualify \
+                    --showlocals \
+                    --assert plain \
+                    --show-capture no \
+                    -rav \
+                    --skip_sanity \
+                    --disable_loganalyzer \
+                    -m bsl
+                exit 0
+              displayName: "Run BSL Test"
+
+            - script: |
+                echo "=== Restore DUT from l2 switch mode ==="
+
+                cd ansible
+                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt
+              displayName: Restore from l2 mode
+              condition: always()
 
           - publish: tests/logs
             displayName: "Archive test logs"
