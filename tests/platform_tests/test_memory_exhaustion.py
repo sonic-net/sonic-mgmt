@@ -87,6 +87,10 @@ class TestMemoryExhaustion:
         return not res.is_failed and 'Timeout' not in res.get('msg', '')
 
     def pdu_reboot(self, pdu_controller):
-        pdu_controller.turn_off_outlet()
-        time.sleep(1)  # sleep 1 second to ensure there is gap between power off and on
-        pdu_controller.turn_on_outlet()
+        hostname = pdu_controller.dut_hostname
+        if not pdu_controller.turn_off_outlet():
+            logging.error("Turn off the PDU outlets of {} failed".format(hostname))
+            return
+        time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
+        if not pdu_controller.turn_on_outlet():
+            logging.error("Turn on the PDU outlets of {} failed".format(hostname))
