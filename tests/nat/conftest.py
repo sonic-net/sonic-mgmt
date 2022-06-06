@@ -27,6 +27,17 @@ def protocol_type(request):
     """
     return request.param
 
+def pytest_addoption(parser):
+    """
+    Adds options to pytest that are used by the NAT tests.
+    """
+    parser.addoption(
+        "--enable_nat_feature",
+        action="store_true",
+        default=False,
+        help="Enable NAT feature on DUT",
+    )
+
 @pytest.fixture(scope='module')
 def config_nat_feature_enabled(request, duthost):
     """
@@ -168,6 +179,9 @@ def apply_global_nat_config(duthost, config_nat_feature_enabled):
     after test run cleanup DUT's NAT configration
     :param duthost: DUT host object
     """
+    status, _ = duthost.get_feature_status()
+    if 'nat' not in status or status['nat'] == 'disabled':
+        pytest.skip('nat feature is not enabled with image version {}'.format(duthost.os_version))
 
     nat_global_config(duthost)
     yield

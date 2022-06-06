@@ -29,7 +29,7 @@ def parse_column_positions(sep_line, sep_char='-'):
 
 
 def parse_tabular_output(output_lines):
-    """Run a show command and parse the output using a generic pattern.
+    """Parse the output using a generic pattern.
 
     This method can adapt to the column changes as long as the output format follows the pattern of
     'show interface status'.

@@ -45,14 +45,6 @@ def pytest_addoption(parser):
         default=False,
         help="Location of your custom inventory file. If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
 
-    parser.addoption(
-        "--enable_nat_feature",
-        action="store_true",
-        dest='enable_nat_feature',
-        default=False,
-        help="Enable NAT feature on DUT",
-    )
-
 def load_conditions(session):
     """Load the content from mark conditions file
 
@@ -150,42 +142,6 @@ def load_dut_basic_facts(session, inv_name, dut_name):
 
     return results
 
-def load_feature_status(session, inv_name, dut_name):
-    """Run 'ansible -m get_feature' command to get some basic DUT feature status.
-
-    The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
-
-    Args:
-        session (obj): The pytest session object.
-
-    Returns:
-        dict or None: Return the dut feature status dict or None if something went wrong.
-    """
-    results = {}
-    logger.info('Getting dut feature status')
-    try:
-        ansible_cmd = 'ansible -m get_feature -i ../ansible/{} {} -o'.format(inv_name, dut_name)
-
-        raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
-        logger.debug('raw dut feature status:\n{}'.format(raw_output))
-        output_fields = raw_output.split('SUCCESS =>', 1)
-        if len(output_fields) >= 2:
-            results.update(json.loads(output_fields[1].strip())['ansible_facts'])
-    except Exception as e:
-        logger.error('Failed to load dut feature status, exception: {}'.format(repr(e)))
-
-    get_nat_status = results["feature_status"].get("nat", None)
-
-    if not session.config.option.enable_nat_feature:
-        if get_nat_status is None:
-            return results
-        else:
-            results["feature_status"]["nat"] = "disabled"
-    else:
-        results["feature_status"].update({'nat':'enabled'})
-
-    return results
-
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
 
@@ -218,11 +174,6 @@ def load_basic_facts(session):
 
     # Load DUT basic facts
     _facts = load_dut_basic_facts(session, inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
-
-    # Load DUT basic facts
-    _facts = load_feature_status(session, inv_name, dut_name)
     if _facts:
         results.update(_facts)
 
