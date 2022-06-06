@@ -82,8 +82,12 @@ def get_port_speeds_for_test(duthost):
     Args:
         duthost: DUT host object
     """
+    speeds_to_test = []
     invalid_speed = ("20a", False)
-    valid_speeds = duthost.get_supported_speeds('Ethernet0')
+    if duthost.get_facts()['asic_type'] == 'vs':
+        speeds_to_test.extend([('20000', True), ('40000', True)])
+    else:
+        valid_speeds = duthost.get_supported_speeds('Ethernet0')
     pytest_assert(valid_speeds, "Failed to get any valid port speed to test.")
     valid_speeds_to_test = random.sample(valid_speeds, 2 if len(valid_speeds) >= 2 else len(valid_speeds))
     speeds_to_test = [(speed, True) for speed in valid_speeds_to_test]
@@ -194,6 +198,7 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
+        duthost.shell(cmd='config interface fec Ethernet0 none')
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         current_status_fec = check_interface_status(duthost, "FEC")
