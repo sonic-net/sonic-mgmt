@@ -85,7 +85,7 @@ def get_port_speeds_for_test(duthost):
     speeds_to_test = []
     invalid_speed = ("20a", False)
     if duthost.get_facts()['asic_type'] == 'vs':
-        speeds_to_test.extend([('20000', True), ('40000', True)])
+        valid_speeds = ['20000', '40000']
     else:
         valid_speeds = duthost.get_supported_speeds('Ethernet0')
     pytest_assert(valid_speeds, "Failed to get any valid port speed to test.")
