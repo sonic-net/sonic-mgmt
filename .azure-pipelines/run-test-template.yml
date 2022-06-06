@@ -52,13 +52,18 @@ steps:
     rm -rf $(Build.ArtifactStagingDirectory)/*
     mkdir -p $(Build.ArtifactStagingDirectory)/pipeline
     docker exec sonic-mgmt-2 bash -c "pushd /var/src/$parent_dir/ansible;./testbed-cli.sh -d $(Build.SourcesDirectory)/sonic-vm -m $(inventory) -t $(testbed_file) -k ${{ parameters.vmtype }} refresh-dut ${{ parameters.tbname }} password.txt -v"|tee $(Build.ArtifactStagingDirectory)/pipeline/refresh-dut.log && sleep 180
+  env:
+    USER_NAME: $(USER_NAME)
+    API_TOKEN: $(API_TOKEN)
   displayName: "Setup testbed"
 
 - script: |
     pwd
+    user_name=$USER_NAME
+    api_token=$API_TOKEN
 
     parent_dir=$(basename $PWD)
-    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
+    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir -u $(user_name) -p $(api_token) ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
   displayName: "Run tests"
   ${{ if eq(parameters.tbtype, 't0-sonic') }}:
       continueOnError: true

@@ -3,7 +3,7 @@
 usage() {
     cat >&2 <<EOF
 Usage:
-  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut section
+  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] [-u user_name] [-p api_token] tbname dut section
 
 Description:
   -d SONIC_MGMT_DIR
@@ -35,9 +35,11 @@ testbed_file="vtestbed.yaml"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
+user_name=""
+api_token=""
 test_suite="t0"
 
-while getopts "d:ei:nt:T:" opt; do
+while getopts "d:ei:nt:T:u:p:" opt; do
   case $opt in
     d)
       SONIC_MGMT_DIR=$OPTARG
@@ -56,6 +58,12 @@ while getopts "d:ei:nt:T:" opt; do
       ;;
     T)
       test_suite=$OPTARG
+      ;;
+    u)
+      user_name=$OPTARG
+      ;;
+    p)
+      api_token=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -320,6 +328,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
+export USER_NAME=$user_name
+export API_TOKEN=$api_token
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs
