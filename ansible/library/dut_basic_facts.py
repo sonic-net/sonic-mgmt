@@ -2,6 +2,13 @@
 # This ansible module is for gathering basic facts from DUT of specified testbed.
 #
 # Example output:
+try:
+    from ansible.module_utils.parse_utils import parse_tabular_output
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from module_utils.parse_utils import parse_tabular_output
 
 from ansible.module_utils.basic import *
 
@@ -49,6 +56,23 @@ def main():
                     results['release'] = 'master'
                 else:
                     results['release'] = 'unknown'
+
+        # get dut feature status
+        command_list = ['show feature status', 'show features']
+        try:
+            for cmd in command_list:
+                rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
+                if rc == 0:
+                    break
+        except Exception as e:
+            module.fail_json(msg=str(e))
+
+        result = parse_tabular_output(out.split('\n'))
+
+        results["feature_status"] = {}
+
+        for state in result:
+            results["feature_status"][state["feature"]] = state["state"]
 
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:
