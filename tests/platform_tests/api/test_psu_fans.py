@@ -107,7 +107,27 @@ class TestPsuFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve psu {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "psu {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+		    self.expect(duthost._facts.get("platform") is not None, "Unable to retrieve platform name")
+                    #
+                    # Check whether platform.json file exists for this specific platform. If yes compare names.
+                    # If not, skip comparison.
+                    #
+                    platform_file_path = os.path.join("/usr/share/sonic/device", duthost._facts.get("platform"), "platform.json")
+                    platform_file_check = {}
+                    try:
+                        #
+                        # Check if the JSON file exists in the specific path. Return 0 if it DOES exist.
+                        # The command function throws exception if rc is non-zero, so handle it.
+                        #
+                        platform_file_check = duthost.command("[ -f {} ]".format(platform_file_path))
+                    except:
+                        # The JSON file does not exist, so set rc to 1.
+                        platform_file_check['rc'] = 1
+                    if platform_file_check.get('rc') == 0:
+                        logging.info("{} has a platform.json file. Running comparison with platform facts.".format(duthost._facts.get("platform")))
+                        self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+                    else:
+                        logging.info("{} does not have a platform.json file. Skipping comparison with platform facts.".format(duthost._facts.get("platform")))
 
         self.assert_expectations()
 

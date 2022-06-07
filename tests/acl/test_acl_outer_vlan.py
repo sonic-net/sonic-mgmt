@@ -284,13 +284,16 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
     Returns:
         Acl counter value for packets
     """
-    cmd = "redis-cli -n 2 hget 'COUNTERS:{}:{}' Packets"
     # Wait for orchagent to update the ACL counters
     time.sleep(timeout)
-    result = duthost.shell(cmd.format(table_name, rule_name))['stdout']
-    if result == "":
+    result = duthost.show_and_parse('aclshow -a')
+
+    if len(result) == 0:
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
-    return int(result)
+    for rule in result:
+        if table_name == rule['table name'] and rule_name == rule['rule name']:
+            return int(rule['packets count'])
+    pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
 
 def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
@@ -397,7 +400,7 @@ def teardown(duthosts, rand_one_dut_hostname):
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 class AclVlanOuterTest_Base(object):
     """

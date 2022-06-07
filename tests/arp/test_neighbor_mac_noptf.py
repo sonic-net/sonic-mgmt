@@ -77,7 +77,7 @@ class TestNeighborMacNoPtf:
         yield
 
         logger.info("Reload Config DB")
-        config_reload(duthost, config_source='config_db', wait=120)
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(params=[4, 6])
     def ipVersion(self, request):

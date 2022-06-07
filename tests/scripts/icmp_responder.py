@@ -1,5 +1,6 @@
 import argparse
 
+from concurrent.futures.thread import ThreadPoolExecutor
 from scapy.all import conf, Ether, ICMP, IP
 from scapy.arch import get_if_hwaddr
 from scapy.data import ETH_P_IP
@@ -28,7 +29,6 @@ class ICMPSniffer(object):
     """Sniff ICMP packets."""
 
     TYPE_ECHO_REQUEST = 8
-
     def __init__(self, ifaces, request_handler=None, dst_mac=None):
         """
         Init ICMP sniffer.
@@ -67,5 +67,12 @@ if __name__ == "__main__":
     ifaces = args.ifaces
     dst_mac = args.dst_mac
 
-    icmp_sniffer = ICMPSniffer(ifaces, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
-    icmp_sniffer()
+    max_workers = 24 if len(ifaces) > 24 else len(ifaces)
+    sniffed_ifaces = [[] for _ in range(max_workers)]
+    for i, iface in enumerate(ifaces):
+        sniffed_ifaces[i % max_workers].append(iface)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for ifaces in sniffed_ifaces:
+            icmp_sniffer = ICMPSniffer(ifaces, request_handler=respond_to_icmp_request, dst_mac=dst_mac)
+            executor.submit(icmp_sniffer)

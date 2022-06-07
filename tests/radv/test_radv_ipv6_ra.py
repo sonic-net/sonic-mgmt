@@ -10,6 +10,7 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service # lgtm[py/unuse
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_common import cable_type 
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
@@ -163,3 +164,58 @@ def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_
                            "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
                    log_file="/tmp/radv_ipv6_ra_test.RadvSolicitedRATest.log")
+
+
+"""
+@summary: Test validates the M flag in RADVd's periodic router advertisement sent on each VLAN interface 
+
+"""
+def test_unsolicited_router_advertisement_with_m_flag(
+                    request, tbinfo,
+                    duthost, ptfhost,
+                    radv_test_setup,
+                    ):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
+
+    for vlan_intf in radv_test_setup:
+        # Run the RADV test on the PTF host
+        logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
+                                                vlan_intf['downlink_vlan_intf']['name'],
+                                                vlan_intf['ptf_port']['port_idx'])
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "router_adv_mflag_test.RadvUnSolicitedRATest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "downlink_vlan_mac": vlan_intf['downlink_vlan_intf']['mac'],
+                           "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
+                           "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
+                           "max_ra_interval": 180},
+                   log_file="/tmp/router_adv_mflag_test.RadvUnSolicitedRATest.log")
+
+"""
+@summary: Test validates the M flag in RADVd's solicited router advertisement sent on each VLAN interface
+
+"""
+
+def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup):
+    if 'dualtor' in tbinfo['topo']['name']:
+        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
+
+    for vlan_intf in radv_test_setup:
+        # Run the RADV solicited RA test on the PTF host
+        logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
+                                                        vlan_intf['downlink_vlan_intf']['name'],
+                                                        vlan_intf['ptf_port']['port_idx'])
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "router_adv_mflag_test.RadvSolicitedRATest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "downlink_vlan_mac": vlan_intf['downlink_vlan_intf']['mac'],
+                           "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
+                           "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
+                           "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
+                           "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
+                   log_file="/tmp/router_adv_mflag_test.RadvSolicitedRATest.log")

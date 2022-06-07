@@ -404,6 +404,12 @@ def makeLab(data, devices, testbed, outfile):
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
+                        try:
+                            ansible_hostv6 = dev.get("ansible").get("ansible_hostv6")
+                            entry += "\tansible_hostv6=" + ansible_hostv6.split("/")[0]
+                        except:
+                            print("\t\t" + host + ": ansible_hostv6 not found")
+
                         if ansible_host:
                             try: # get ansible ssh username
                                 ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
@@ -631,6 +637,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                 if dut in devices:
                     dutDict.update({dut:
                         {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
+                        'ansible_hostv6': devices[dut].get("ansible").get("ansible_hostv6"),
                         'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
                         'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
                         'hwsku': devices[dut].get("hwsku"),
@@ -681,6 +688,7 @@ def makeLabYAML(data, devices, testbed, outfile):
             if ptfhost in testbed:
                 ptfDict.update({ptfhost:
                     {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
+                    'ansible_hostv6': testbed[ptfhost].get("ansible").get("ansible_hostv6"),
                     'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
                     'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
                     }
@@ -695,7 +703,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                                 }
                             },
                         'ptf': {'hosts': ptfDict},
-                        'server': serverDict
+                        'server': {'hosts': serverDict}
                         }
                     }
     })

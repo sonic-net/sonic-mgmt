@@ -19,7 +19,7 @@ from .issue import check_issues
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
-
+ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
 
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
@@ -86,6 +86,35 @@ def load_conditions(session):
 
     return conditions_list
 
+def read_asic_name(hwsku):
+    '''
+    Get asic generation name from file 'ansible/group_vars/sonic/variables'
+
+    Args:
+        hwsku (str): Dut hwsku name
+
+    Returns:
+        str or None: Return the asic generation name or None if something went wrong or nothing found in the file.
+
+    '''
+    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    try:
+        with open(asic_name_file) as f:
+            asic_name = yaml.safe_load(f)
+            logger.info(asic_name)
+
+        for key, value in asic_name.items():
+            if ('td' not in key) and ('th' not in key):
+                asic_name.pop(key)
+
+        for name, hw in asic_name.items():
+            if hwsku in hw:
+                return name.split('_')[1]
+
+        return "unknown"
+
+    except IOError as e:
+        return None
 
 def load_dut_basic_facts(session):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
@@ -125,6 +154,7 @@ def load_dut_basic_facts(session):
         output_fields = raw_output.split('SUCCESS =>', 1)
         if len(output_fields) >= 2:
             results.update(json.loads(output_fields[1].strip())['ansible_facts']['dut_basic_facts'])
+            results['asic_gen'] = read_asic_name(results['hwsku'])
     except Exception as e:
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 
@@ -169,7 +199,7 @@ def find_longest_matches(nodeid, conditions):
     max_length = -1
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
-        if nodeid.startswith(condition.keys()[0]):
+        if nodeid.startswith(list(condition.keys())[0]):
             length = len(condition)
             if length > max_length:
                 max_length = length
@@ -193,7 +223,7 @@ def update_issue_status(condition_str):
     Returns:
         str: New condition string with issue URLs already replaced with 'True' or 'False'.
     """
-    issues = re.findall('https?://[^ ]+', condition_str)
+    issues = re.findall('https?://[^ )]+', condition_str)
     if not issues:
         logger.debug('No issue specified in condition')
         return condition_str
@@ -313,7 +343,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in match.values()[0].items():
+                for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
                     mark_conditions = mark_details.get('conditions', None)

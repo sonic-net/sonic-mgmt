@@ -250,16 +250,27 @@ function run_debug_tests()
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
 
+# Extra parameters for pre/post test stage
+function pre_post_extra_params()
+{
+    local params=${EXTRA_PARAMETERS}
+    # The enable_macsec option controls the enabling of macsec links of topology.
+    # It aims to verify common test cases work as expected under macsec links.
+    # At pre/post test stage, enabling macsec only wastes time and is not needed.
+    params=${params//--enable_macsec/}
+    echo $params
+}
+
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
+    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
@@ -399,7 +410,10 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        exit ${RESULT}
+        # exit with specific code 65 for pretest failed.
+        # user-defined exit codes is the range 64 - 113.
+        # nightly test pipeline can check this code to decide if fails pipeline.
+        exit 65
     fi
 fi
 

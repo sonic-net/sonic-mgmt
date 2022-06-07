@@ -621,7 +621,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     pdu_controller.turn_off_outlet(first_outlet)
     assert wait_until(30, 5, 0, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
-    assert wait_until(180, 20, 0, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
+    assert wait_until(180, 20, 5, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
@@ -650,6 +650,10 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
             for field, sensor_tuple in PSU_SENSOR_INFO.items():
                 sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
                 # entity_sensor_mib_info is only supported in image newer than 202012
+                if sensor_oid in entity_mib_info:
+                    if psu_info['current'] == '0.0' and psu_info['voltage'] == '0.0' and psu_info['power'] == '0.0':
+                        power_off_psu_found = True
+                        break
                 if is_sensor_test_supported(duthost):
                     if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
                         power_off_psu_found = True

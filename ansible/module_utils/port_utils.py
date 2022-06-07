@@ -16,7 +16,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {} 
-    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O"]
+    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils  import load_db_config
@@ -85,7 +85,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(33, 41, 2):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
                 port_alias_to_name_map["Ethernet%d/5" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C":
+        elif hwsku == "Arista-7260CX3-C64" or hwsku == "Arista-7170-64C" or hwsku == "Arista-7260CX3-Q64":
             for i in range(1, 65):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "Arista-7060CX-32S-C32" or hwsku == "Arista-7060CX-32S-Q32" or hwsku == "Arista-7060CX-32S-C32-T1" or hwsku == "Arista-7170-32CD-C32" \
@@ -167,6 +167,12 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Accton-AS7712-32X":
             for i in range(1, 33):
                 port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku == "Accton-AS7726-32X":
+            for i in range(1, 33):
+                port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku == "montara":
+            for i in range(1, 33):
+                port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "Celestica-DX010-C32":
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
@@ -193,10 +199,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "36x100Gb":
             for i in range(0, 36):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku == "64x100Gb":
+        elif hwsku == "Cisco-8102-C64":
             for i in range(0, 64):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku == "8800-LC-48H-O":
+        elif hwsku in ["8800-LC-48H-O", "88-LC0-36FH-MO"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku in ["msft_multi_asic_vs"]:
@@ -221,10 +227,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
 
 
 def get_port_indices_for_asic(asic_id, port_name_list_sorted):
-    front_end_port_name_list = [p for p in port_name_list_sorted if 'BP' not in p]
-    back_end_port_name_list = [p for p in port_name_list_sorted if 'BP' in p]
+    front_end_port_name_list = [p for p in port_name_list_sorted if 'BP' not in p and 'IB' not in p and 'Rec' not in p]
+    back_end_port_name_list = [p for p in port_name_list_sorted if 'BP' in p or 'IB' in p or 'Rec' in p]
     index_offset = 0
-   # Create mapping between port alias and physical index
+    # Create mapping between port alias and physical index
     port_index_map = {}
     if asic_id:
         index_offset = int(asic_id) *len(front_end_port_name_list)
