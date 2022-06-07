@@ -14,7 +14,7 @@ from vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
-
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # lgtm[py/unused-import]
 import tests.arp.test_wr_arp as test_wr_arp
 
 from tests.common.config_reload import config_reload
@@ -171,7 +171,7 @@ def is_neigh_reachable(duthost, vnet_config):
     return True
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds, is_route_flow_counter_supported):
     """
     Test case for VNET VxLAN
 
@@ -207,10 +207,22 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
-    ptf_runner(ptfhost,
-               "ptftests",
-               "vnet_vxlan.VNET",
-               platform_dir="ptftests",
-               params=ptf_params,
-               qlen=1000,
-               log_file=log_file)
+    if scenario == 'Enabled' and vxlan_enabled:
+        route_pattern = 'Vnet1|100.1.1.1/32'
+        with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [route_pattern], {route_pattern: {'packets': '3'}}):
+            ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+    else:
+        ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+
