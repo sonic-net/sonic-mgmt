@@ -53,6 +53,11 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
@@ -272,7 +277,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
 
 #######################################
 #####    api/test_psu_fans.py     #####
@@ -410,7 +415,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
@@ -615,6 +620,15 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+#######################################
+#####   test_reload_config.py     #####
+#######################################
+platform_tests/test_reload_config.py:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
 
 #######################################
 ##### test_sequential_restart.py  #####
