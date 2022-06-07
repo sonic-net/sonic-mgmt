@@ -427,6 +427,10 @@ class TestChassisApi(PlatformApiTestBase):
 
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
+            if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
+                # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
+                # So we need to adjust test case accordingly
+                expected_num_sfps += 48
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
@@ -526,13 +530,13 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_supervisor_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             sup_slot = chassis.get_supervisor_slot(platform_api_conn)
-            pytest_assert(isinstance(sup_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(sup_slot, int) or isinstance(sup_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")
 
     def test_get_my_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             my_slot = chassis.get_my_slot(platform_api_conn)
-            pytest_assert(isinstance(my_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(my_slot, int) or isinstance(my_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")

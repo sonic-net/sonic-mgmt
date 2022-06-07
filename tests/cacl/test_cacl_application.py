@@ -106,7 +106,7 @@ def clean_scale_rules(duthosts, rand_one_dut_hostname, collect_ignored_rules):
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     logger.info("Reload config to recover configuration.")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 def is_acl_rule_empty(duthost):
     """
@@ -367,7 +367,9 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    if "master" not in duthost.os_version:
+
+    extra_rule_branches = ['201911', '202012', '202111']
+    if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 

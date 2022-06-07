@@ -2,17 +2,30 @@
 
 import pytest
 import sys
-
-from tests.configlet.util.base_test import restore_orig_minigraph, backup_minigraph, do_test_add_rack
-from tests.configlet.util.helpers import log_info
+from tests.common.utilities import skip_release
 
 sys.path.append("./configlet/util")
 
-
+from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from helpers import log_info
 
 pytestmark = [
         pytest.mark.topology("t1")
         ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def check_image_version(duthost):
+    """Skips this test if the SONiC image installed on DUT is older than 202111
+
+    Args:
+        duthost: DUT host object.
+
+    Returns:
+        None.
+    """
+    skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
+
 
 @pytest.fixture(scope="module")
 def configure_dut(duthosts, rand_one_dut_hostname):

@@ -7,7 +7,7 @@ This script contains re-usable functions for checking status of interfaces on SO
 import re
 import logging
 from natsort import natsorted
-from transceiver_utils import all_transceivers_detected
+from .transceiver_utils import all_transceivers_detected
 
 
 def parse_intf_status(lines):
@@ -42,6 +42,23 @@ def parse_intf_status(lines):
     return result
 
 
+def check_interface_status_of_up_ports(duthost):
+    if duthost.is_multi_asic:
+        up_ports = []
+        for asic in duthost.frontend_asics:
+            asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running", namespace=asic.namespace)['ansible_facts']
+            asic_up_ports = [p for p, v in asic_cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
+            up_ports.extend(asic_up_ports)
+    else:
+        cfg_facts = duthost.get_running_config_facts()
+        up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
+
+    intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
+    if len(intf_facts['ansible_interface_link_down_ports']) != 0:
+        return False
+    return True
+
+
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
@@ -60,7 +77,10 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
         mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
-    check_intf_presence_command = 'show interface transceiver presence {}'
+    if dut.is_multi_asic:
+        check_intf_presence_command = 'show interface transceiver presence -n {} {}'.format(namespace, {})
+    else:
+        check_intf_presence_command = 'show interface transceiver presence {}'
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
@@ -147,16 +167,16 @@ def get_physical_port_indices(duthost, logical_intfs=None):
         logging.info("physical interfaces = {}".format(logical_intfs))
 
     for asic_index in duthost.get_frontend_asic_ids():
-	# Get interfaces of this asic
-	interface_list = get_port_map(duthost, asic_index)
-	interfaces_per_asic = {k:v for k, v in interface_list.items() if k in logical_intfs}
-	#logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
-	for intf in interfaces_per_asic:
+        # Get interfaces of this asic
+        interface_list = get_port_map(duthost, asic_index)
+        interfaces_per_asic = {k: v for k, v in interface_list.items() if k in logical_intfs}
+        # logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+        for intf in interfaces_per_asic:
             if asic_index is not None:
                 cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
             else:
                 cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
-	    index = duthost.command(cmd)["stdout"]
-	    physical_port_index_dict[intf] = (int(index))
+            index = duthost.command(cmd)["stdout"]
+            physical_port_index_dict[intf] = (int(index))
 
     return physical_port_index_dict

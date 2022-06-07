@@ -1,0 +1,21 @@
+#!/bin/bash
+
+{% for l1 in ptf_map[dut1_index] %}
+{% if l1|int < ptf_map[dut1_index]|length -2 %}
+ip link add PortChannel{{ '%04d' | format(l1|int + 1) }} type bond mode 802.3ad
+ip link set eth{{ptf_map[dut1_index][l1]}} down
+ip link set eth{{ptf_map[dut2_index][l1]}} down
+ip link set eth{{ptf_map[dut1_index][l1]}} master PortChannel{{'%04d' | format(l1|int + 1)}}
+ip link set eth{{ptf_map[dut2_index][l1]}} master PortChannel{{'%04d' | format(l1|int + 1)}}
+ip addr add 172.16.{{l1|int + 1}}.2/24 dev PortChannel{{'%04d' | format(l1|int + 1)}}
+ip link set PortChannel{{'%04d' | format(l1|int + 1)}} up
+sleep 1
+{% else %}
+ip link set eth{{ptf_map[dut1_index][l1]}} down
+ip addr add 172.16.{{l1|int + 1}}.2/24 dev eth{{ptf_map[dut1_index][l1]}}
+ip link set eth{{ptf_map[dut1_index][l1]}} up
+ip link set eth{{ptf_map[dut2_index][l1]}} down
+ip addr add 172.16.{{ptf_map[dut2_index][l1]|int + 1}}.2/24 dev eth{{ptf_map[dut2_index][l1]}}
+ip link set eth{{ptf_map[dut2_index][l1]}} up
+{% endif %}
+{% endfor %}
