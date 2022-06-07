@@ -64,7 +64,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     logger.info('reloading {}'.format(config_source))
 
     if config_source == 'minigraph':
-        if start_dynamic_buffer and duthost.facts['asic_type'] == 'mellanox':
+        if start_dynamic_buffer and duthost.facts['asic_type'] in ['mellanox', 'barefoot']:
             output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model', module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
@@ -74,7 +74,8 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         if start_bgp:
             duthost.shell('config bgp startup all')
         if is_buffer_model_dynamic:
-            duthost.shell('enable-dynamic-buffer.py')
+            duthost.copy(src="./common/helpers/enable-dynamic-buffer.py", dest="/tmp/enable-dynamic-buffer.py", mode="0755")
+            duthost.shell('/tmp/enable-dynamic-buffer.py')
         duthost.shell('config save -y')
 
     if config_source == 'config_db':
