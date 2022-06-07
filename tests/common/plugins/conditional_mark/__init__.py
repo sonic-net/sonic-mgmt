@@ -101,7 +101,6 @@ def read_asic_name(hwsku):
     try:
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
-            logger.info(asic_name)
 
         for key, value in asic_name.items():
             if ('td' not in key) and ('th' not in key):
@@ -116,7 +115,7 @@ def read_asic_name(hwsku):
     except IOError as e:
         return None
 
-def load_dut_basic_facts(session):
+def load_dut_basic_facts(session, inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
@@ -130,23 +129,6 @@ def load_dut_basic_facts(session):
     results = {}
     logger.info('Getting dut basic facts')
     try:
-        testbed_name = session.config.option.testbed
-        testbed_file = session.config.option.testbed_file
-
-        testbed_module = imp.load_source('testbed', 'common/testbed.py')
-        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
-
-        results['topo_type'] = tbinfo['topo']['type']
-        results['topo_name'] = tbinfo['topo']['name']
-
-        dut_name = tbinfo['duts'][0]
-        if session.config.option.customize_inventory_file:
-            inv_name = session.config.option.customize_inventory_file
-        elif 'inv_name' in tbinfo.keys():
-            inv_name = tbinfo['inv_name']
-        else:
-            inv_name = 'lab'
-
         ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
@@ -159,7 +141,6 @@ def load_dut_basic_facts(session):
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 
     return results
-
 
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
@@ -174,8 +155,25 @@ def load_basic_facts(session):
     """
     results = {}
 
+    testbed_name = session.config.option.testbed
+    testbed_file = session.config.option.testbed_file
+
+    testbed_module = imp.load_source('testbed', 'common/testbed.py')
+    tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+    results['topo_type'] = tbinfo['topo']['type']
+    results['topo_name'] = tbinfo['topo']['name']
+
+    dut_name = tbinfo['duts'][0]
+    if session.config.option.customize_inventory_file:
+        inv_name = session.config.option.customize_inventory_file
+    elif 'inv_name' in tbinfo.keys():
+        inv_name = tbinfo['inv_name']
+    else:
+        inv_name = 'lab'
+
     # Load DUT basic facts
-    _facts = load_dut_basic_facts(session)
+    _facts = load_dut_basic_facts(session, inv_name, dut_name)
     if _facts:
         results.update(_facts)
 
