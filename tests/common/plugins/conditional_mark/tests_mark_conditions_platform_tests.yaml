@@ -213,7 +213,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
+platform_tests/api/test_chassis_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
