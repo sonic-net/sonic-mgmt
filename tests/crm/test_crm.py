@@ -270,6 +270,8 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 kwargs["th_lo"] = used_percent
                 kwargs["th_hi"] = used_percent + 1
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
+
+        kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
 
         with loganalyzer:
@@ -533,14 +535,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
 
-        # Get new "crm_stats_ipv[4/6]_route" used and available counter value
-        new_crm_stats_route_used, new_crm_stats_route_available = get_crm_stats(get_route_stats, duthost)
-
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] route" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} route".format(ip_ver=ip_ver),
-        crm_used=new_crm_stats_route_used, crm_avail=new_crm_stats_route_available)
+    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} route".format(ip_ver=ip_ver), crm_cmd=get_route_stats)
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
@@ -612,14 +610,11 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
 
-        # Get new "crm_stats_ipv[4/6]_nexthop" used and available counter value
-        new_crm_stats_nexthop_used, new_crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
-
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
-    verify_thresholds(duthost,asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver), crm_used=new_crm_stats_nexthop_used,
-        crm_avail=new_crm_stats_nexthop_available)
+    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
+                      crm_cmd=get_nexthop_stats)
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
@@ -693,14 +688,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
 
-        # Get new "crm_stats_ipv[4/6]_neighbor" used and available counter value
-        new_crm_stats_neighbor_used, new_crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
-
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
-    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver), crm_used=new_crm_stats_neighbor_used,
-        crm_avail=new_crm_stats_neighbor_available)
+    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
+                      crm_cmd=get_neighbor_stats)
 
 
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
@@ -809,13 +801,9 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
 
-        # Get new "crm_stats_ipv[4/6]_neighbor" used and available counter value
-        new_nexthop_group_used, new_nexthop_group_available = get_crm_stats(get_nexthop_group_stats, duthost)
-
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
-    verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_used=new_nexthop_group_used,
-        crm_avail=new_nexthop_group_available)
+    verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
 def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
@@ -861,11 +849,8 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
 
-        new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
-
     # Verify thresholds for "ACL entry" CRM resource
-    verify_thresholds(duthost,asichost, crm_cli_res="acl group entry", crm_used=new_crm_stats_acl_entry_used,
-        crm_avail=new_crm_stats_acl_entry_available)
+    verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
 
     # Remove ACL
     duthost.command("acl-loader delete")
@@ -941,8 +926,7 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
     crm_stats_acl_counter_available = new_crm_stats_acl_counter_available + new_crm_stats_acl_counter_used
 
     # Verify thresholds for "ACL entry" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="acl group counter", crm_used=new_crm_stats_acl_counter_used,
-        crm_avail=new_crm_stats_acl_counter_available)
+    verify_thresholds(duthost, asichost, crm_cli_res="acl group counter", crm_cmd=get_acl_counter_stats)
 
     # Remove ACL
     duthost.command("acl-loader delete")
@@ -1047,14 +1031,11 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
-        # Get new "crm_stats_fdb_entry" used and available counter value
-        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
 
         RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
 
     # Verify thresholds for "FDB entry" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="fdb", crm_used=new_crm_stats_fdb_entry_used,
-        crm_avail=new_crm_stats_fdb_entry_available)
+    verify_thresholds(duthost, asichost, crm_cli_res="fdb", crm_cmd=get_fdb_stats)
 
     # Remove FDB entry
     cmd = "fdbclear"
