@@ -748,7 +748,8 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                params=params,
                log_file=log_file,
                qlen=2000,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 
 def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip, count=1):

@@ -406,8 +406,8 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
 
-    os_version = duthost.os_version.split('.')[0]
-    if os_version not in IGNORE_BGP_PORT_VERSION:
+    extra_rule_branches = ['201911', '202012', '202111']
+    if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
 
