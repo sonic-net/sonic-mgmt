@@ -13,7 +13,7 @@ schedules:
 
 variables:
   - group: SONIC_IMAGE_URLS
-  - groupP: SAITHRIFT_URLS
+  - group: SAITHRIFT_URLS
 
 parameters:
   - name: TESTBED_NAME
