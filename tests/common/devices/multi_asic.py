@@ -288,7 +288,14 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             asic.stop_service(service)
+            
+    def reset_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.reset_service(service, service)
 
+        for asic in self.asics:
+            asic.reset_service(service)
+        
     def restart_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.restart_service(service, service)
@@ -614,3 +621,20 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+        
+    def is_service_fully_started_per_asic_or_host(self, service):
+        """This function tell if service is fully started base on multi-asic/single-asic"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic_index in range(duthost.facts["num_asic"]):
+                docker_name = self.asic_instance(asic_index).get_docker_name(service)
+                if not duthost.is_service_fully_started(docker_name): 
+                    return False
+            return True
+        else:
+            return duthost.is_service_fully_started(service)
+
+    def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
+        """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
+        self.asic_instance(asic_index).restart_service(service)
+        

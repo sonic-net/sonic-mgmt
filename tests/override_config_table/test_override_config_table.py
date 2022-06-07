@@ -158,3 +158,4 @@ def test_load_minigraph_with_golden_config(duthost, setup_env):
     # load_minigraph_with_golden_new_feature(duthost)
     # full_config = setup_env
     # load_minigraph_with_golden_full_config(duthost, full_config)
+
