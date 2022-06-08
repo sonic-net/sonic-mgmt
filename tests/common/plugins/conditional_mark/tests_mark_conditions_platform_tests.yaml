@@ -47,17 +47,18 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
+
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
