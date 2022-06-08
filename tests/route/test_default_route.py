@@ -180,7 +180,7 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
 
     # verify the default route is correct in the app db
     for af in af_list:
-        verify_default_route_in_app_db(asichost, tbinfo, af, uplink_ns)
+        verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns)
 
     duthost.command("sudo config bgp shutdown all")
     if not wait_until(120, 2, 0, duthost.is_bgp_state_idle):
@@ -188,7 +188,7 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
             'BGP Shutdown Timeout: BGP sessions not shutdown after 120 seconds')
 
     # give some more time for default route to be removed
-    if not wait_until(120, 2, 0, asichost.is_default_route_removed_from_app_db, uplink_ns):
+    if not wait_until(120, 2, 0, duthost.is_default_route_removed_from_app_db, uplink_ns):
         pytest.fail(
             'Default route is not removed from APP_DB')
 
