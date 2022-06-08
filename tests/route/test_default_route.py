@@ -73,12 +73,12 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
         asics.add(asic)
     return asics
 
-def verify_default_route_in_app_db(asichost, tbinfo, af, uplink_ns):
+def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns):
     """
     Verify the nexthops for the default routes match the ip interfaces
     configured on the peer device 
     """
-    default_route = asichost.get_default_route_from_app_db(af)
+    default_route = duthost.get_default_route_from_app_db(af)
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
     # Now we have all routes on all asics, get the uplink routes only   
