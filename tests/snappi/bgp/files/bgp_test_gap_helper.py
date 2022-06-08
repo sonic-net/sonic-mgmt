@@ -689,7 +689,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
@@ -710,19 +710,40 @@ def get_convergence_for_remote_link_failover(cvg_api,
     columns = ['Route Type', 'No. of Routes', 'Control to Data Plane Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
+def restart_traffic(cvg_api):
+    """ Stopping Protocols """
+    logger.info("L2/3 traffic apply failed,Restarting protocols and traffic")
+    cs = cvg_api.convergence_state()
+    cs.protocol.state = cs.protocol.STOP
+    cvg_api.set_state(cs)
+    wait(TIMEOUT-30, "For Protocols To stop")
+    cs = cvg_api.convergence_state()
+    cs.protocol.state = cs.protocol.START
+    cvg_api.set_state(cs)
+    wait(TIMEOUT-10, "For Protocols To start")
+    cs = cvg_api.convergence_state()
+    cs.transmit.state = cs.transmit.START
+    cvg_api.set_state(cs)
+    wait(TIMEOUT, "For Traffic To start and stabilize")
+
 def run_traffic(cvg_api):
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
     cs = cvg_api.convergence_state()
     cs.protocol.state = cs.protocol.START
     cvg_api.set_state(cs)
-    wait(TIMEOUT-15, "For Protocols To start")
+    wait(TIMEOUT-10, "For Protocols To start")
     """ Starting Traffic """
     logger.info('Starting Traffic')
-    cs = cvg_api.convergence_state()
-    cs.transmit.state = cs.transmit.START
-    cvg_api.set_state(cs)
-    wait(TIMEOUT-10, "For Traffic To start and stabilize")
+    try:
+        cs = cvg_api.convergence_state()
+        cs.transmit.state = cs.transmit.START
+        cvg_api.set_state(cs)
+        wait(TIMEOUT-10, "For Traffic To start and stabilize")
+    except Exception as e:
+        logger.info(e)
+        restart_traffic(cvg_api)
+
 
 def stop_traffic(cvg_api):
     logger.info('Stopping Traffic')
