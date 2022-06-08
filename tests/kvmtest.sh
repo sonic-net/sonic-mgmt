@@ -164,7 +164,6 @@ test_t0() {
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
-      override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py"
