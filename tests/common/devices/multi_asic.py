@@ -653,12 +653,20 @@ class MultiAsicSonicHost(object):
 
     def get_default_route_from_app_db(self, af='ipv4'):
         default_routes = dict()
-        for front_asic in self.frontend_asics:
-            default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
+        if self.sonichost.is_multi_asic:
+            for front_asic in self.frontend_asics:
+                default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
+        else:
+            default_routes = self.asic_instance(0).get_default_route_from_app_db(af)
         return default_routes
     
-    def is_default_route_removed_from_app_db(self, uplink_asics = asic0):
-        for ns in uplink_asics:
-            if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
+    def is_default_route_removed_from_app_db(self, uplink_asics = DEFAULT_NAMESPACE):
+        if self.sonichost.is_multi_asic:
+            for ns in uplink_asics:
+                if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
+                    return False
+        else:
+            if not self.asic_instance(0).is_default_route_removed_from_app_db():
                 return False
         return True
+        
