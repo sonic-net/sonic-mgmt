@@ -638,3 +638,27 @@ class MultiAsicSonicHost(object):
         """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
         
+    def get_bgp_name_to_ns_mapping(self):
+        """ This function returns mapping of bgp name -- namespace
+            e.g. {'ARISTAT2': 'asic0', ...}
+        """
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        neighbors = mg_facts['minigraph_neighbors']
+        mapping = dict()
+        for neigh in neighbors.values():
+            mapping[neigh['name']] = neigh['namespace']        
+        return mapping
+
+    def get_default_route_from_app_db(self, af='ipv4'):
+        default_routes = dict()
+        for front_asic in self.frontend_asics:
+            default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
+        return default_routes
+    
+    def is_default_route_removed_from_app_db(self, uplink_asics):
+        for ns in uplink_asics:
+            if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
+                return False
+        return True
