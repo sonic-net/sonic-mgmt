@@ -7,6 +7,7 @@ import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
+from tests.common import config_reload
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *
@@ -394,3 +395,23 @@ class TestInteropProtocol():
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
                 community, up_link["local_ipv4_addr"], sysDescr)
             assert not duthost.command(command)["failed"]
+
+
+class TestDeployment():
+    def test_config_reload(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
+        # Save the original config file
+        duthost.shell("cp /etc/sonic/config_db.json config_db.json")
+        # Save the current config file
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/config_db.json")
+        config_reload(duthost)
+        def _test_appl_db():
+            for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    continue
+                check_appl_db(duthost, port_name, nbr["host"],
+                              nbr["port"], policy, cipher_suite, send_sci)
+            return True
+        assert wait_until(300, 6, 12, _test_appl_db)
+        # Recover the original config file
+        duthost.shell("sudo cp config_db.json /etc/sonic/config_db.json")
+
