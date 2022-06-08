@@ -16,6 +16,15 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+def get_upstream_neigh_type(topo):
+    if 't0' in topo or 'dualtor' in topo:
+        return 't1'
+    elif 't1' in topo:
+        return 't2'
+    elif 't2' in topo:
+        return 't3'
+    else:
+        return None
 
 def get_upstream_neigh(tb):
     """
@@ -23,17 +32,6 @@ def get_upstream_neigh(tb):
     
     returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)} 
     """
-
-    def get_upstream_neigh_type(topo):
-        if 't0' in topo or 'dualtor' in topo:
-            return 't1'
-        elif 't1' in topo:
-            return 't2'
-        elif 't2' in topo:
-            return 't3'
-        else:
-            return None
-
     upstream_neighbors = {}
     neigh_type = get_upstream_neigh_type(tb['topo']['name'])
     logging.info("testbed topo {} upstream neigh type {}".format(
@@ -66,8 +64,16 @@ def get_upstream_neigh(tb):
         upstream_neighbors.update({neigh_name: (ipv4_addr, ipv6_addr)})
     return upstream_neighbors
 
+def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
+    neigh_type = get_upstream_neigh_type(tbinfo['topo']['name'])
+    asics = set()
+    for name, asic in bgp_name_to_ns_mapping.items():
+        if neigh_type not in name.lower():
+            continue
+        asics.add(asic)
+    return asics
 
-def verify_default_route_in_app_db(asichost, tbinfo, af):
+def verify_default_route_in_app_db(asichost, tbinfo, af, uplink_ns):
     """
     Verify the nexthops for the default routes match the ip interfaces
     configured on the peer device 
@@ -75,10 +81,12 @@ def verify_default_route_in_app_db(asichost, tbinfo, af):
     default_route = asichost.get_default_route_from_app_db(af)
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
-    # There is only one default route in app_db
-    key = default_route.keys()[0]
-
-    nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
+    # Now we have all routes on all asics, get the uplink routes only   
+    nexthops = list()
+    for ns in uplink_ns:
+        # Append all nexthops from one asic
+        nexthops += default_route[ns].values()[0]['value']['nexthop'].split(',')
+        
     pytest_assert(nexthop_list is not None, "Default route has not nexthops")
     logging.info("nexthop list in app_db {}".format(nexthop_list) )
     nexthops = set(nexthop_list.split(','))
@@ -148,7 +156,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_
                 "use link local address {} for nexthop".format(nh[0]))
 
 
-def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
+def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
@@ -160,15 +168,19 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
                 .format(tbinfo['topo']['name']))
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.asic_instance(enum_asic_index)
+    
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    
+    # Get uplink namespaces/asics
+    bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
+    uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping)
     
     af_list = ['ipv4', 'ipv6']
 
     # verify the default route is correct in the app db
     for af in af_list:
-        verify_default_route_in_app_db(asichost, tbinfo, af)
+        verify_default_route_in_app_db(asichost, tbinfo, af, uplink_ns)
 
     duthost.command("sudo config bgp shutdown all")
     if not wait_until(120, 2, 0, duthost.is_bgp_state_idle):
@@ -176,7 +188,7 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
             'BGP Shutdown Timeout: BGP sessions not shutdown after 120 seconds')
 
     # give some more time for default route to be removed
-    if not wait_until(120, 2, 0, asichost.is_default_route_removed_from_app_db):
+    if not wait_until(120, 2, 0, asichost.is_default_route_removed_from_app_db, uplink_ns):
         pytest.fail(
             'Default route is not removed from APP_DB')
 
