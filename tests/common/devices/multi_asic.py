@@ -465,6 +465,26 @@ class MultiAsicSonicHost(object):
 
         return bgp_neigh
 
+    def get_bgp_neighbors_per_asic(self, state="established"):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: 
+        state: BGP session state, return neighbor IP of sessions that match this state
+        Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            bgp_neigh[asic.namespace] = {}
+            bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+            for k, v in bgp_info.items():
+                if v["state"] != state:
+                    bgp_info.pop(k)                    
+            bgp_neigh[asic.namespace].update(bgp_info)
+
+        return bgp_neigh
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -487,6 +507,20 @@ class MultiAsicSonicHost(object):
             return True
 
         return False
+
+    def check_bgp_session_state_all_asics(self, bgp_neighbors, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state in each namespace
+
+        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }} 
+        @param state: target state
+        """
+        for asic in self.asics:
+            if asic.namespace in bgp_neighbors:
+                neigh_ips = [ k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state ]
+                if not asic.check_bgp_session_state(neigh_ips, state):
+                    return False
+        return True
 
     def get_bgp_route(self, *args, **kwargs):
         """

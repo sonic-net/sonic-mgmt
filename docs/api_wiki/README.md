@@ -119,6 +119,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [check_bgp_session_state](sonichost_methods/check_bgp_session_state.md) - Check whether the state of the bgp session matches a specified state for a list of bgp neighbors.
 
+- [check_bgp_session_state_all_asics](sonichost_methods/check_bgp_session_state_all_asics.md) - Check whether the state of the bgp session matches a specified state for a list of bgp neighbors for each asic.
+
 - [check_default_route](sonichost_methods/check_default_route.md) - Provides the status of the default route
 
 - [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
@@ -138,6 +140,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 - [get_auto_negotiation_mode](sonichost_methods/get_auto_negotiation_mode.md) - Gets the auto negotiation status for a provided interface
 
 - [get_bgp_neighbors](sonichost_methods/get_bgp_neighbors.md) - This command provides a summary of the bgp neighbors peered with the DUT. Returns a dictionary that maps the BGP address for each neighbor to another dictionary listing information on that neighbor device.
+
+- [get_bgp_neighbors_per_asic](sonichost_methods/get_bgp_neighbors_per_asic.md) - This command provides a summary of the bgp neighbors peered with the DUT for each asic. Returns a dictionary of dictionary that maps the BGP address for each neighbor to another dictionary listing information on that neighbor device for each asic namespace.
 
 - [get_bgp_neighbor_info](sonichost_methods/get_bgp_neighbor_info.md) - Provides BGP neighbor info
 
@@ -337,6 +341,8 @@ the remote host.
 - [bgp_facts](sonic_asic_methods/bgp_facts.md) - Provides BGP facts for current ASIC.
 
 - [check_bgp_statistic](sonic_asic_methods/check_bgp_statistic.md) - Checks that the BGP statistic matches some expected value.
+
+- [check_bgp_session_state](sonichost_methods/check_bgp_session_state.md) - Check whether the state of the bgp session matches a specified state for a list of bgp neighbors for the current ASIC.
 
 - [command](sonic_asic_methods/command.md) - Runs commands specified for the ASIC calling the method.
 
