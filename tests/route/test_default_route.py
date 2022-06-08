@@ -73,7 +73,7 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
         asics.add(asic)
     return asics
 
-def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns):
+def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns = asic0):
     """
     Verify the nexthops for the default routes match the ip interfaces
     configured on the peer device 
@@ -172,9 +172,10 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     
-    # Get uplink namespaces/asics
-    bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
-    uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping)
+    # Get uplink namespaces/asics for multi-asic
+    if duthost.is_multi_asic:
+        bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
+        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping)
     
     af_list = ['ipv4', 'ipv6']
 
