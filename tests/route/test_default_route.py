@@ -73,7 +73,7 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
         asics.add(asic)
     return asics
 
-def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns = asic0):
+def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns):
     """
     Verify the nexthops for the default routes match the ip interfaces
     configured on the peer device 
@@ -83,7 +83,7 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns = asic0):
     logging.info("default route from app db {}".format(default_route))
      
     nexthops = list() 
-    if duthost.is_multi_asic:
+    if uplink_ns:
         # multi-asic case: Now we have all routes on all asics, get the uplink routes only 
         for ns in uplink_ns:
             nexthops += default_route[ns].values()[0]['value']['nexthop'].split(',')
