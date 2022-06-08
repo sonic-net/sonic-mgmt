@@ -81,11 +81,16 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns = asic0):
     default_route = duthost.get_default_route_from_app_db(af)
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
-    # Now we have all routes on all asics, get the uplink routes only   
-    nexthops = list()
-    for ns in uplink_ns:
-        # Append all nexthops from one asic
-        nexthops += default_route[ns].values()[0]['value']['nexthop'].split(',')
+     
+    nexthops = list() 
+    if duthost.is_multi_asic:
+        # multi-asic case: Now we have all routes on all asics, get the uplink routes only 
+        for ns in uplink_ns:
+            nexthops += default_route[ns].values()[0]['value']['nexthop'].split(',')
+    else:
+        key = default_route.keys()[0]
+        nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
+        nexthops += list(nexthop_list.split(','))
         
     pytest_assert(nexthop_list is not None, "Default route has not nexthops")
     logging.info("nexthop list in app_db {}".format(nexthop_list) )
@@ -172,6 +177,7 @@ def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     
+    uplink_ns = None
     # Get uplink namespaces/asics for multi-asic
     if duthost.is_multi_asic:
         bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
