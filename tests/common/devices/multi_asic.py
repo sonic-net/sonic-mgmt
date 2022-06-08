@@ -657,7 +657,7 @@ class MultiAsicSonicHost(object):
             default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
         return default_routes
     
-    def is_default_route_removed_from_app_db(self, uplink_asics):
+    def is_default_route_removed_from_app_db(self, uplink_asics = asic0):
         for ns in uplink_asics:
             if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
                 return False
