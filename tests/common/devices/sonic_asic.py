@@ -595,5 +595,8 @@ class SonicAsic(object):
         for af in af_list:
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
+                # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
+                if def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                    continue
                 return False
         return True
