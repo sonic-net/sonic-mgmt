@@ -137,7 +137,7 @@ def test_radv_router_advertisement(
                            "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
-                   log_file="/tmp/radv_ipv6_ra_test.RadvUnSolicitedRATest.log")
+                   log_file="/tmp/radv_ipv6_ra_test.RadvUnSolicitedRATest.log", is_python3=True)
 
 """
 @summary: Test validates the RADVd's solicited router advertisement sent on each VLAN interface
@@ -163,7 +163,7 @@ def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
-                   log_file="/tmp/radv_ipv6_ra_test.RadvSolicitedRATest.log")
+                   log_file="/tmp/radv_ipv6_ra_test.RadvSolicitedRATest.log", is_python3=True)
 
 
 """
@@ -192,7 +192,7 @@ def test_unsolicited_router_advertisement_with_m_flag(
                            "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "max_ra_interval": 180},
-                   log_file="/tmp/router_adv_mflag_test.RadvUnSolicitedRATest.log")
+                   log_file="/tmp/router_adv_mflag_test.RadvUnSolicitedRATest.log", is_python3=True)
 
 """
 @summary: Test validates the M flag in RADVd's solicited router advertisement sent on each VLAN interface
@@ -218,4 +218,4 @@ def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, du
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
-                   log_file="/tmp/router_adv_mflag_test.RadvSolicitedRATest.log")
+                   log_file="/tmp/router_adv_mflag_test.RadvSolicitedRATest.log", is_python3=True)
