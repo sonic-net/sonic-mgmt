@@ -32,7 +32,7 @@ r, ".*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*"
 
 # bgpd.log messages
 r, ".*ADJCHANGE: neighbor .* in vrf default Up.*"
-r, ".*rcvd End-of-RIB for IPv4 Unicast from.*"
+r, ".*rcvd End-of-RIB for .* Unicast from.*"
 
 # mlnx specific syslog regexes
 r, ".* syncd.*mlnx_sai_switch.*mlnx_create_switch: Create switch.*INIT_SWITCH=true.*"
