@@ -19,16 +19,6 @@ bgp/test_bgp_slb.py:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
 #######################################
-#####            cacl             #####
-#######################################
-cacl/test_cacl_application.py::test_cacl_application:
-  xfail:
-    reason: "Image issue on Boradcom dualtor testbeds"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-
-#######################################
 #####           configlet         #####
 #######################################
 configlet/test_add_rack.py:
@@ -68,16 +58,6 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe]:
 decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
   skip:
     reason: "Not supported uniform ttl mode"
-
-#######################################
-#####         dhcpv6_relay        #####
-#######################################
-dhcp_relay/test_dhcpv6_relay.py:
-  xfail:
-    reason: "Not supported on dualtor"
-    strict: True
-    conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 #######################################
 #####           dualtor           #####
@@ -201,14 +181,6 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
 
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
-  xfail:
-    reason: "Test flaky"
-
-pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
-  xfail:
-    reason: "Test flaky"
-
 #######################################
 #####         platform_tests      #####
 #######################################
@@ -253,29 +225,11 @@ qos/test_qos_sai.py:
     conditions:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
-
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
     conditions:
       - "asic_type in ['cisco-8000']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
 
 #######################################
 #####         restapi             #####
