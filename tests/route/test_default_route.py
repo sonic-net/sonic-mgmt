@@ -91,10 +91,10 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns):
         key = default_route.keys()[0]
         nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
         nexthops += list(nexthop_list.split(','))
-        
-    pytest_assert(nexthop_list is not None, "Default route has not nexthops")
-    logging.info("nexthop list in app_db {}".format(nexthop_list) )
-    nexthops = set(nexthop_list.split(','))
+     
+    pytest_assert(nexthops is not None, "Default route has not nexthops")
+    logging.info("nexthops in app_db {}".format(nexthops) )
+    
     upstream_neigh = get_upstream_neigh(tbinfo)
     pytest_assert(upstream_neigh is not None, "No upstream neighbors in the testbed")
 
