@@ -12,6 +12,10 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
