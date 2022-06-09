@@ -6,6 +6,7 @@ import logging
 from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.barefoot_data import is_barefoot_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
@@ -216,6 +217,8 @@ def _get_vendor_id(duthost):
         vendor_id = "brcm"
     elif is_mellanox_device(duthost):
         vendor_id = "mlnx"
+    elif is_barefoot_device(duthost):
+        vendor_id = "bfn"
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
     else:

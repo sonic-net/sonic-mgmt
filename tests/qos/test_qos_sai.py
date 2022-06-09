@@ -237,7 +237,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS and dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
+        if dutTestParams["hwsku"] not in self.SUPPORTED_HEADROOM_SKUS and dutTestParams["basicParams"]["sonic_asic_type"] not in ["barefoot", "mellanox"]:
             pytest.skip("Headroom pool size not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
