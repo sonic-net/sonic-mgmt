@@ -11,6 +11,7 @@ import ipaddress
 import json
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
+from tests.common.errors import RunAnsibleModuleFail
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -91,6 +92,24 @@ def configure_switch_vxlan_cfg(duthost):
     duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
 
 
+def configure_static_pbh(duthost):
+    device_metadata = {}
+
+    device_metadata['DEVICE_METADATA'] = {}
+    device_metadata['DEVICE_METADATA']['localhost'] = {
+        "resource_type": "FPGASTP"
+    }
+
+    logger.info("static pbh programmed to DUT " + str(device_metadata))
+    duthost.copy(content=json.dumps(device_metadata, indent=2), dest="/tmp/device_metadata.json")
+    duthost.shell("sonic-cfggen -j /tmp/device_metadata.json --write-to-db")
+    
+    #Persist it so that we can re-init dut with pbh enabled
+    duthost.shell("sudo config save -y")
+
+    config_reload(duthost, config_source='config_db', safe_reload=True)
+
+
 def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix):
     if isinstance(ipaddress.ip_network(prefix), ipaddress.IPv4Network):
         fgnhg_name = 'fgnhg_v4'
@@ -168,7 +187,7 @@ def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_i
 
 def cleanup(duthost):
     logger.info("Cleanup after test...")
-    config_reload(duthost)
+    config_reload(duthost, config_source='minigraph', safe_reload=True)
 
 
 @pytest.fixture(scope="module")
@@ -183,6 +202,9 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         for name, val in mg_facts['minigraph_portchannels'].items():
             members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
+
+        # configure Static PBH
+        configure_static_pbh(duthost)
 
         # configure vxlan
         configure_switch_vxlan_cfg(duthost)
