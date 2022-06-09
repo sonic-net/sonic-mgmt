@@ -339,7 +339,23 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
 
 #### MACsec Counters
 
-   TODO
+MACsec counter helps the monitoring of MACsec frame TX/RX on protected (macsec-enabled) link. This test is to verify MACsec statistics can be collected from ASIC/NPU/PHY and it includes proper counters to indicate the status of MACsec frame handling.
+
+- Check MACsec SA counters
+    1. Send traffic continuously by referring to the test [Check the Data plane](#check-the-data-plane)
+    2. For egress SA, the following counters keep increasing:
+         - SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED
+         - SAI_MACSEC_SA_STAT_OCTETS_PROTECTED
+         - SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED
+         - SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED
+
+    3. For ingress SA, the following counters keep increasing:
+         - SAI_MACSEC_SA_STAT_IN_PKTS_OK
+         - SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED
+         - SAI_MACSEC_SA_STAT_OCTETS_PROTECTED
+
+    4. For both egress and ingress SAs, the following counter keeps increasing:
+         - SAI_MACSEC_SA_ATTR_CURRENT_XPN
 
 #### COPP
 
