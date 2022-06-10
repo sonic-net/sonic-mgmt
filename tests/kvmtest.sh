@@ -18,6 +18,10 @@ Description:
        testbed file (default: vtestbed.yaml)
   -T test_suite
        test suite [t0|t1-lag] (default: t0)
+  -u user_name
+       user_name to visit github (default: "")
+  -p api_token
+       token to visit github (default: "")
   tbname
        testbed name
   dut
