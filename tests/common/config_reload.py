@@ -31,6 +31,12 @@ def config_system_checks_passed(duthost):
         out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
         if out1['stdout'].strip() == "0":
             return False
+
+    logging.info("Checking if systemd queued job is empty")
+    out = duthost.shell("systemctl list-jobs")
+    if "No jobs running" not in out['stdout']:
+        return False
+
     logging.info("All checks passed")
     return True
 
