@@ -56,11 +56,14 @@ steps:
 
 - script: |
     pwd
-    git_user_name=$(USER_NAME)
-    git_api_token=$(API_TOKEN)
-
+    git_user_name=$GIT_USER_NAME
+    git_api_token=$GIT_API_TOKEN
+    
     parent_dir=$(basename $PWD)
-    docker exec -e GITHUB_USERNAME=$git_user_name -e GITHUB_API_TOKEN=$git_api_token sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
+    docker exec -e GIT_USER_NAME=$(git_user_name) -e GIT_API_TOKEN=$(git_api_token) sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
+  env:
+    GIT_USER_NAME: $(GIT_USER_NAME)
+    GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
   ${{ if eq(parameters.tbtype, 't0-sonic') }}:
       continueOnError: true
