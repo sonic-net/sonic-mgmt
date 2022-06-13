@@ -35,8 +35,6 @@ testbed_file="vtestbed.yaml"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
-user_name=$GITHUB_USERNAME
-api_token=$GITHUB_API_TOKEN
 test_suite="t0"
 
 while getopts "d:ei:nt:T:" opt; do
@@ -322,8 +320,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
-export GIT_USER_NAME=$user_name
-export GIT_API_TOKEN=$api_token
+export GIT_USER_NAME=$GITHUB_USERNAME
+export GIT_API_TOKEN=$GITHUB_API_TOKEN
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs

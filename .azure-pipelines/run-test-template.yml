@@ -52,9 +52,6 @@ steps:
     rm -rf $(Build.ArtifactStagingDirectory)/*
     mkdir -p $(Build.ArtifactStagingDirectory)/pipeline
     docker exec sonic-mgmt-2 bash -c "pushd /var/src/$parent_dir/ansible;./testbed-cli.sh -d $(Build.SourcesDirectory)/sonic-vm -m $(inventory) -t $(testbed_file) -k ${{ parameters.vmtype }} refresh-dut ${{ parameters.tbname }} password.txt -v"|tee $(Build.ArtifactStagingDirectory)/pipeline/refresh-dut.log && sleep 180
-#  env:
-#    GITHUB_USERNAME: $(USER_NAME)
-#    GITHUB_API_TOKEN: $(API_TOKEN)
   displayName: "Setup testbed"
 
 - script: |
