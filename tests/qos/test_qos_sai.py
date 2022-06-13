@@ -137,6 +137,78 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
+    def testContPfcFrmswithSharedHeadroom(
+        self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile
+    ):
+        """
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
+            Buffer occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Only for MLNX Platforms
+
+            Args:
+                xonProfile (pytest parameter): XON profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
+            pytest.skip("This Test Case is only meant for Mellanox ASIC")
+
+        # TODO: Check if Shared Headroom is enabled
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+            else:
+                qosConfig = dutQosConfig["param"]
+
+
+        dst_port_count = set([
+            dutConfig["testPorts"]["dst_port_id"],
+            dutConfig["testPorts"]["dst_port_2_id"]
+        ])
+
+        if len(dst_port_count) != 2:
+            pytest.skip("PFC Xon Limit test: Need at least 2 destination ports")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[xonProfile]["dscp"],
+            "ecn": qosConfig[xonProfile]["ecn"],
+            "pg": qosConfig[xonProfile]["pg"],
+            "buffer_max_size": ingressLosslessProfile["size"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "dst_port_2_id": dutConfig["testPorts"]["dst_port_2_id"],
+            "dst_port_2_ip": dutConfig["testPorts"]["dst_port_2_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
+            "pkts_margin_under_pfc": 8,
+            "pkts_num_private_headrooom": 15,
+            "hwsku":dutTestParams['hwsku']
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.PfcOccupySharedHeadroom", testParams=testParams
+        )
+
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
