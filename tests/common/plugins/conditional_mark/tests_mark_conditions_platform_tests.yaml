@@ -56,6 +56,14 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -77,10 +85,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####    api/test_component.py    #####
@@ -202,6 +213,14 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -223,10 +242,13 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
