@@ -76,12 +76,6 @@ def setup_env(duthosts, rand_one_dut_hostname, portchannel_table):
     finally:
         delete_checkpoint(duthost)
 
-# def test_abc(duthost, portchannel_table):
-#     # interface_facts = duthost.interface_facts()['ansible_facts']
-#     # logger.info("facts {}".format(interface_facts))
-#     bgp_neighbors = duthost.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
-#     logger.info("bgp {}".format(bgp_neighbors))
-#     logger.info(portchannel_table)
 
 def test_portchannel_interface_tc1_add_new_portchannel(duthost):
     """ Clean up original portchannel intf and apply-patch to default config
