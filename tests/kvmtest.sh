@@ -3,7 +3,7 @@
 usage() {
     cat >&2 <<EOF
 Usage:
-  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] [-u user_name] [-p api_token] tbname dut section
+  kvmtest.sh [-en] [-i inventory] [-t testbed_file] [-T test suite] [-d SONIC_MGMT_DIR] tbname dut section
 
 Description:
   -d SONIC_MGMT_DIR
@@ -18,10 +18,6 @@ Description:
        testbed file (default: vtestbed.yaml)
   -T test_suite
        test suite [t0|t1-lag] (default: t0)
-  -u user_name
-       user_name to visit github (default: "")
-  -p api_token
-       token to visit github (default: "")
   tbname
        testbed name
   dut
@@ -39,11 +35,11 @@ testbed_file="vtestbed.yaml"
 refresh_dut=true
 exit_on_error=""
 SONIC_MGMT_DIR=/data/sonic-mgmt
-user_name=""
-api_token=""
+user_name=$GITHUB_USERNAME
+api_token=$GITHUB_API_TOKEN
 test_suite="t0"
 
-while getopts "d:ei:nt:T:u:p:" opt; do
+while getopts "d:ei:nt:T:" opt; do
   case $opt in
     d)
       SONIC_MGMT_DIR=$OPTARG
@@ -62,12 +58,6 @@ while getopts "d:ei:nt:T:u:p:" opt; do
       ;;
     T)
       test_suite=$OPTARG
-      ;;
-    u)
-      user_name=$OPTARG
-      ;;
-    p)
-      api_token=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -332,8 +322,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
-export USER_NAME=$user_name
-export API_TOKEN=$api_token
+export GIT_USER_NAME=$user_name
+export GIT_API_TOKEN=$api_token
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs

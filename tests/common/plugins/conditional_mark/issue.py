@@ -57,8 +57,8 @@ class GitHubIssueChecker(IssueCheckerBase):
                     self.user = github_creds.get('user', '')
                     self.api_token = github_creds.get('api_token', '')
                 else:
-                    self.user = os.environ["USER_NAME"]
-                    self.api_token = os.environ["API_TOKEN"]
+                    self.user = os.environ["GIT_USER_NAME"]
+                    self.api_token = os.environ["GIT_API_TOKEN"]
         except Exception as e:
             logger.error('Load credentials from {} failed with error: {}'.format(creds_file_path, repr(e)))
 
