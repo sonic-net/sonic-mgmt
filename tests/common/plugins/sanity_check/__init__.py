@@ -221,6 +221,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                 for failed_result in failed_results:
                     if 'host' in failed_result:
                         dut_failed_results[failed_result['host']].append(failed_result)
+                    if 'hosts' in failed_result:
+                        for hostname in failed_result['hosts']:
+                            dut_failed_results[hostname].append(failed_result)
                     if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
                         if 'action' in failed_result and failed_result['action'] is not None \
                             and callable(failed_result['action']):
