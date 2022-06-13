@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 1,3,5"
+  - cron: "0 14 * * 1,3"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,26 +18,36 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-2700
+    default: vms28-t0-4600c-03
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_PUBLIC)
+    default: $(IMAGE_MLNX_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_PUBLIC)
+    default: $(SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
+
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1920    # minutes, totally 32 hours
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests"'
+    default: '-I "platform_tests"'
     displayName: Testbed specific
+
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
+    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -46,3 +56,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}

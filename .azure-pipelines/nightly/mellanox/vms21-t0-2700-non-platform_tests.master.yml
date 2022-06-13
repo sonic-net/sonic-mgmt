@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t1-2700-2
+    default: vms21-t0-2700
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -33,9 +33,10 @@ parameters:
     default: $(SAITHRIFT_MLNX_PUBLIC)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "platform_tests"'
     displayName: Testbed specific
 
 stages:
