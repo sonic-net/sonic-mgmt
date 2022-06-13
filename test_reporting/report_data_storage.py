@@ -177,6 +177,9 @@ class KustoConnector(ReportDBConnector):
         self._upload_test_cases(report_json, report_guid)
 
     def upload_reachability_data(self, ping_output: List) -> None:
+        ping_time = str(datetime.utcnow())
+        for result in ping_output:
+            result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:

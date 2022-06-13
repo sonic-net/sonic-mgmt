@@ -1,11 +1,9 @@
-import argparse
-import subprocess
 import imp
 import os
 import logging
 import sys
 import json
-from datetime import datetime
+
 
 ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
@@ -36,8 +34,6 @@ def parse_ping_result(ping_results, dut_tbname_map):
     final_results = []
     for dut_ping_result in ping_results:
         dut_result = {}
-        ping_time = str(datetime.utcnow())
-        dut_result['UTCTimestamp'] = ping_time
         dut_result['DeviceName'] = dut_ping_result['Host']
         dut_result['IP'] = dut_ping_result['Hostname']
         dut_result['IcmpReachability'] = 1 if dut_ping_result['Ping result'] == 'Success' else 0
