@@ -541,6 +541,7 @@ def check_mux_simulator(duthosts, duts_minigraph_facts, get_mux_status, reset_si
             logger.warning(err_msg)
             results['failed'] = True
             results['failed_reason'] = err_msg
+            results['hosts'] = [ dut.hostname for dut in duthosts ]
             results['action'] = reset_simulator_port
             return results
 
