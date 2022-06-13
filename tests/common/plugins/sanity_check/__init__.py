@@ -2,7 +2,6 @@
 import logging
 import copy
 import json
-import time
 
 import pytest
 
@@ -237,7 +236,6 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                 if enable_macsec:
                     start_macsec_service()
                     startup_macsec()
-                    time.sleep(720)
 
                 logger.info("Run sanity check again after recovery")
                 new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)
