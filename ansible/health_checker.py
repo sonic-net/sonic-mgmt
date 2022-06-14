@@ -3,6 +3,7 @@ import os
 import logging
 import sys
 import json
+import argparse
 
 
 ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -29,7 +30,7 @@ def get_dut_tbname_map():
 
     return dut_tbname_map
 
-def parse_ping_result(ping_results, dut_tbname_map):
+def parse_ping_result(ping_results, dut_tbname_map, skip_testbeds):
     """Parse ping results of devutils to kusto table data format."""
     final_results = []
     for dut_ping_result in ping_results:
@@ -40,14 +41,17 @@ def parse_ping_result(ping_results, dut_tbname_map):
         dut_result['ConsoleReachability'] = 0
         dut_result['SshReachability'] = 0
         if dut_result['DeviceName'] in dut_tbname_map:
-            dut_result['TestbedName'] = dut_tbname_map[dut_result['DeviceName']]
+            testbed_name = dut_tbname_map[dut_result['DeviceName']]
+            if skip_testbeds and skip_testbeds != '' and testbed_name in skip_testbeds:
+                continue
+            dut_result['TestbedName'] = testbed_name
         else:
             logging.error("Didn't find the match testbed name for host {}".format(dut_result['DeviceName']))
 
         final_results.append(dut_result)
     return final_results
 
-def run_devutils():
+def run_devutils(skip_testbeds):
     """Run devutils to check icmp reachability for testbeds"""
     groups = ['str', 'str2', 'strsvc']
 
@@ -57,19 +61,38 @@ def run_devutils():
     for group in groups:
         input_file_name ='ping_{}.json'.format(group)
         command = './devutils -i {} -a ping -g sonic -j > {}'.format(group, input_file_name)
-        output = os.system(command)
+        logging.info('Start running command %s', command)
+
+        returncode = os.system(command)
+
+        if returncode == 0:
+            logging.info('Finish running devutils')
+        else:
+            logging.error('Fail to run devutils')
 
         with open(input_file_name) as input_file:
             ping_results = json.load(input_file)
 
-        results = parse_ping_result(ping_results, dut_tbname_map)
+        results = parse_ping_result(ping_results, dut_tbname_map, skip_testbeds)
         health_results.extend(results)
  
+
     with open(SONIC_TESTBED_HEALTH_FILE, 'w') as fp:
         json.dump(health_results, fp, indent=4)
+        logging.info("Save results into file {}".format(SONIC_TESTBED_HEALTH_FILE))
     return
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Get testbed health status.')
+    parser.add_argument('--skip-testbeds', default='', type=str, required=False, help='testbeds to skip')
+    parser.add_argument('--log-level', choices=['debug', 'info', 'warn', 'error', 'critical'], default='info', help='logging output level')
+    args = parser.parse_args()
 
-    run_devutils()
+    skip_testbeds = args.skip_testbeds
+    log_level = args.log_level
+
+    handler.setLevel(getattr(logging, log_level.upper()))
+    if skip_testbeds or skip_testbeds != '':
+        skip_testbeds = skip_testbeds.split(',')
+    run_devutils(skip_testbeds)
