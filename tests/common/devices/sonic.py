@@ -23,6 +23,8 @@ from tests.common import constants
 
 logger = logging.getLogger(__name__)
 
+PLATFORM_SPECIFIC_ASIC_SERVICES = {'Nvidia-MBF2H536C': ["bgp", "database", "lldp", "swss", "syncd"]}
+
 
 class SonicHost(AnsibleHostBase):
     """
@@ -74,6 +76,7 @@ class SonicHost(AnsibleHostBase):
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
+        self._update_asic_services()
 
     def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
@@ -181,7 +184,6 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
 
         platform_asic = self._get_platform_asic(facts["platform"])
         if platform_asic:
@@ -248,13 +250,6 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-   
-    def _get_switch_type(self):
-       try:
-           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
-                  "utf-8").lower()
-       except Exception:
-           return ''
 
     def _get_platform_info(self):
         """
@@ -401,6 +396,12 @@ class SonicHost(AnsibleHostBase):
             logging.info("container {} is not running".format(service))
 
         return len(status["stdout_lines"]) > 1
+
+    def _update_asic_services(self):
+        for hwsku, services_list in PLATFORM_SPECIFIC_ASIC_SERVICES.items():
+            if hwsku == self._facts["hwsku"]:
+                self.DEFAULT_ASIC_SERVICES = services_list
+                break
 
     def critical_services_status(self):
         # Initialize service status
