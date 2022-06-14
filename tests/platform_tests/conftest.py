@@ -7,7 +7,8 @@ import logging
 from collections import OrderedDict
 from datetime import datetime
 
-from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS
+from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS,\
+    SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
@@ -93,10 +94,11 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     state_dict = state_times.get(state_name, {"timestamp": {}})
     timestamps = state_dict.get("timestamp")
     if state_status in timestamps:
-        state_dict[state_status+" count"] = state_dict.get(state_status+" count", 1) + 1
+        state_dict[state_status+" count"] = state_dict.get(state_status+" count") + 1
         # capture last occcurence - useful in calculating events end time
         state_dict["last_occurence"] = time
     elif first_after_offset:
+        state_dict[state_status+" count"] = 1
         # capture the first occurence as the one after offset timestamp and ignore the ones before
         # this is useful to find time after a specific instance, for eg. - kexec time or FDB disable time.
         if _parse_timestamp(first_after_offset) < _parse_timestamp(time):
@@ -104,6 +106,7 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     else:
         # only capture timestamp of first occurence of the entity. Otherwise, just increment the count above.
         # this is useful in capturing start point. Eg., first neighbor entry, LAG ready, etc.
+        state_dict[state_status+" count"] = 1
         timestamps[state_status] = time
     return {state_name: state_dict}
 
@@ -204,7 +207,9 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
         service_dict = service_restart_times.get(service_name, {"timestamp": {}})
         timestamps = service_dict.get("timestamp")
         if status in timestamps:
-            service_dict[status+" count"] = service_dict.get(status+" count", 1) + 1
+            service_dict[status+" count"] = service_dict.get(status+" count") + 1
+        else:
+            service_dict[status+" count"] = 1
         timestamps[status] = time
         service_restart_times.update({service_name: service_dict})
 
@@ -312,7 +317,7 @@ def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     analyze_result.update(report)
 
 
-def verify_mac_jumping(test_name, timing_data):
+def verify_mac_jumping(test_name, timing_data, verification_errors):
     mac_jumping_other_addr = timing_data.get("offset_from_kexec", {})\
         .get("FDB_EVENT_OTHER_MAC_EXPIRY",{}).get("Start count", 0)
     mac_jumping_scapy_addr = timing_data.get("offset_from_kexec", {})\
@@ -329,11 +334,11 @@ def verify_mac_jumping(test_name, timing_data):
         logging.info("MAC jumping is allowed. Jump count for expected mac: {}, unexpected MAC: {}"\
             .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
         if not mac_jumping_scapy_addr:
-            pytest.fail("MAC jumping not detected when expected for address: 00-06-07-08-09-0A")
+            verification_errors.append("MAC jumping not detected when expected for address: 00-06-07-08-09-0A")
     else:
         # MAC jumping not allowed - do not allow the SCAPY default MAC to jump
         if mac_jumping_scapy_addr:
-            pytest.fail("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC: {}"\
+            verification_errors.append("MAC jumping is not allowed. Jump count for scapy mac: {}, other MAC: {}"\
                 .format(mac_jumping_scapy_addr, mac_jumping_other_addr))
     if mac_jumping_other_addr:
         # In both mac jump allowed and denied cases unexpected MAC addresses should NOT jump between
@@ -343,7 +348,21 @@ def verify_mac_jumping(test_name, timing_data):
             " and FDB learning enabled at {}".format(fdb_aging_disable_end))
         if _parse_timestamp(mac_expiry_start) > _parse_timestamp(fdb_aging_disable_start) and\
             _parse_timestamp(mac_expiry_start) < _parse_timestamp(fdb_aging_disable_end):
-            pytest.fail("Mac expiry detected during the window when FDB ageing was disabled")
+            verification_errors.append("Mac expiry detected during the window when FDB ageing was disabled")
+
+
+def verify_required_events(duthost, event_counters, timing_data, verification_errors):
+    for key in ["time_span", "offset_from_kexec"]:
+        for pattern in REQUIRED_PATTERNS.get(key):
+            observed_start_count = timing_data.get(key).get(pattern).get("Start count")
+            observed_end_count = timing_data.get(key).get(pattern).get("End count")
+            expected_count = event_counters.get(pattern)
+            if observed_start_count != expected_count:
+                verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".\
+                    format(pattern, observed_start_count, expected_count))
+            if key == "time_span" and observed_start_count != observed_end_count:
+                verification_errors.append("FAIL: Event {} counters did not match. ".format(pattern) +\
+                    "Started {} times, and ended {} times".format(observed_start_count, observed_end_count))
 
 
 def overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log):
@@ -503,7 +522,12 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             json.dump(result_summary, fp, indent=4)
 
         # After generating timing data report, do some checks on the timing data
-        verify_mac_jumping(test_name, analyze_result)
+        verification_errors = list()
+        verify_mac_jumping(test_name, analyze_result, verification_errors)
+        if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+            # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
+            verify_required_events(duthost, event_counters, analyze_result, verification_errors)
+        return verification_errors
 
     yield pre_reboot_analysis, post_reboot_analysis
 
