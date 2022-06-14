@@ -952,17 +952,19 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
         )
 
-
+        logging.info("Diabling xmit ports: {}".format([dst_port_id, dst_port_2_id]))
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id])
 
         try:
-            # send packets to dst port 1, to occupying the buffer just under xon"
+            # send packets to dst port 1, to occupying the buffer just under xon
             xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id]
             )
 
+            num_pkts = pkts_num_trig_pfc - pkts_margin_under_pfc
+            logging.info("Send {} pkts to egress out of {}".format(num_pkts, dst_port_id))
             send_packet(
-                self, src_port_id, pkt, pkts_num_trig_pfc - pkts_margin_under_pfc
+                self, src_port_id, pkt, num_pkts
             )
 
             # send packets to dst port 2, to cross into shared headroom
@@ -970,9 +972,10 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
                 self.client, port_list[dst_port_2_id]
             )
 
+            num_pkts = pkts_margin_under_pfc + margin + pkts_num_private_headrooom
+            logging.info("Send {} pkts to egress out of {}".format(num_pkts, dst_port_2_id))
             send_packet(
-                self, src_port_id, pkt2,
-                pkts_margin_under_pfc + margin + pkts_num_private_headrooom
+                self, src_port_id, pkt2, num_pkts
             )
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -982,6 +985,10 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
             xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+
+            logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
+            logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
+            logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
 
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
@@ -993,19 +1000,33 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr])
                 assert(xmit_2_counters[cntr] == xmit_2_counters_base[cntr])
 
+            logging.info("Enable xmit port: {}".format(dst_port_2_id))
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_2_id])
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
-            # get a snapshot of counter values at recv and transmit ports
-            # queue counters value is not of our interest here
+
+            # get new base counter values at recv ports
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            # no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters[cntr] == recv_counters_base[cntr])
             recv_counters_base = recv_counters
+
+            # allow enough time for the test to check if no PFC frame was sent from Recv port
+            time.sleep(30)
+
+            # get the current snapshot of counter values at recv and transmit ports
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
             xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
 
-            # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg])
+            logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
+            logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
+            logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
+
+            # recv port pfc should not be incremented
+            assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             for cntr in ingress_counters:
                 assert(recv_counters[cntr] == recv_counters_base[cntr])
