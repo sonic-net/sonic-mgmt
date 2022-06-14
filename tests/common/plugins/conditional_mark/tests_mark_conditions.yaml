@@ -95,12 +95,6 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     conditions:
       - "platform in ['x86_64-mlnx_msn2700-r0']"
 
-ecmp/test_fgnhg.py:
-  skip:
-    reason: "Skip this test on Mellanox 2700 platform"
-    conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
-
 #######################################
 #####         everflow            #####
 #######################################
