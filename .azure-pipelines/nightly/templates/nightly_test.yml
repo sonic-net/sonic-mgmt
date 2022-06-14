@@ -274,7 +274,7 @@ stages:
                 set -x
 
                 BASE_PATH=`pwd`
-                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean"
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
 
                 if [[ -n $PY_SAITHRIFT_URL ]]; then
                     PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
