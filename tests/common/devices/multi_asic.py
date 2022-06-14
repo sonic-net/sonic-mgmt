@@ -36,7 +36,9 @@ class MultiAsicSonicHost(object):
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
         self.backend_asics = []
-        if self.sonichost.is_multi_asic:
+        if self.sonichost.is_supervisor_node():
+            self.backend_asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts["detected_asics"]]
+        elif self.sonichost.is_multi_asic:
             for asic in self.asics:
                 if asic.is_it_frontend():
                     self.frontend_asics.append(asic)

@@ -938,7 +938,9 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
         # if the params are not present treat the device as a single asic device
         dut_asic_params = [DEFAULT_ASIC_ID]
         if inv_data:
-            if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
+            if param_type == ASIC_PARAM_TYPE_ALL and DETECTED_ASICS in inv_data:
+                dut_asic_params = inv_data[DETECTED_ASICS]
+            elif param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
                 if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
                     dut_asic_params = [DEFAULT_ASIC_ID]
                 else:
