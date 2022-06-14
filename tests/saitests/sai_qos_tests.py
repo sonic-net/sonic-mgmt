@@ -883,8 +883,9 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         sonic_version = self.test_params['sonic_version']
         router_mac = self.test_params['router_mac']
 
+        pg_id = int(self.test_params['pg'])
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
-        pg = int(self.test_params['pg']) + 2
+        pg = pg_id + 2
 
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
@@ -912,6 +913,11 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[src_port_id]
+        )
+
+        # get a snapshot of ingress pg occupancy for the source port
+        queue_res, pg_shared_res_base, pg_headroom_res = sai_thrift_read_port_watermarks(
             self.client, port_list[src_port_id]
         )
 
@@ -952,7 +958,7 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
         )
 
-        logging.info("Diabling xmit ports: {}".format([dst_port_id, dst_port_2_id]))
+        logging.info("Disabling xmit ports: {}".format([dst_port_id, dst_port_2_id]))
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id])
 
         try:
@@ -985,13 +991,20 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
             xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+            # get a snapshot of ingress pg occupancy for the source port after sending pkts
+            queue_res, pg_shared_res, pg_headroom_res = sai_thrift_read_port_watermarks(
+                self.client, port_list[src_port_id]
+            )
 
             logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
             logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
             logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
+            logging.debug("Recv Ingress PG Counters: {}, Base: {}".format(pg_shared_res, pg_shared_res_base))
 
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
+            # Verify if the occupancy has crossed into shared headroom
+            assert(pg_shared_res[pg_id] > pg_shared_res_base[pg_id])
             # recv port no ingress drop
             for cntr in ingress_counters:
                 assert(recv_counters[cntr] == recv_counters_base[cntr])
