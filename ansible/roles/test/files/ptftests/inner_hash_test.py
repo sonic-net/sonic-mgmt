@@ -76,6 +76,7 @@ class InnerHashTest(BaseTest):
 
         self.hash_keys = self.test_params.get('hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = self.test_params['src_ports']
+        self.exp_port_groups = self.test_params['exp_port_groups']
         self.vxlan_port = self.test_params['vxlan_port']
         self.outer_encap_formats = self.test_params['outer_encap_formats']
         self.symmetric_hashing = self.test_params.get('symmetric_hashing', False)
@@ -96,6 +97,7 @@ class InnerHashTest(BaseTest):
         logging.info("outer_encap_formats:  {}".format(self.outer_encap_formats))
         logging.info("hash_keys:  {}".format(self.hash_keys))
         logging.info("symmetric_hashing:  {}".format(self.symmetric_hashing))
+        logging.info("exp_port_groups:  {}".format(self.exp_port_groups))
 
 
     def check_hash(self, hash_key):
@@ -115,19 +117,20 @@ class InnerHashTest(BaseTest):
                 dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
                 ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else 6
 
-                (packet_port_index, _) = self.check_ip_route(hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto)
+                (matched_port, _) = self.check_ip_route(hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto)
                 if self.symmetric_hashing and hash_key != 'ip-proto':
                     # Send the same packet with reversed tuples and validate that it lands on the same port
                     rand_src_port = int(random.choice(self.src_ports))
-                    (rPacket_port_index, _) = self.check_ip_route(hash_key, outer_encap_format, rand_src_port, ip_dst, ip_src, dport, sport, ip_proto)
-                    assert packet_port_index == rPacket_port_index
+                    (rMatched_port, _) = self.check_ip_route(hash_key, outer_encap_format, rand_src_port, ip_dst, ip_src, dport, sport, ip_proto)
+                    self.check_matched_ports(matched_port, rMatched_port)
+                    hit_count_map[rMatched_port] = hit_count_map.get(rMatched_port, 0) + 1
 
-                hit_count_map[packet_port_index] = hit_count_map.get(packet_port_index, 0) + 1
+                hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
             logging.info("outer_encap_fmts={}, hash_key={}, hit count map: {}".format(outer_encap_format, hash_key, hit_count_map))
             if hash_key == 'outer-tuples':
                 self.check_all_packets_hash_to_same_nh(self.next_hop.get_next_hop(), hit_count_map)
             else:
-                self.check_balancing(self.next_hop.get_next_hop(), hit_count_map)
+                self.check_balancing(self.next_hop.get_next_hop(), hit_count_map, hash_key)
 
 
     def check_ip_route(self, hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto):
@@ -140,6 +143,19 @@ class InnerHashTest(BaseTest):
 
         matched_port = self.exp_port_list[matched_index]
         return (matched_port, received)
+
+
+    def check_matched_ports(self, matched_port, rMatched_port):
+        logging.info("matched_port:  {}, rMatched_port: {}".format(matched_port, rMatched_port))
+        matched_port_in_any_group = False
+        for ports_group in self.exp_port_groups:
+            if matched_port in ports_group:
+                assert rMatched_port in ports_group, 'The matched_port {} and rMatched_port {} not in the same group {}'.\
+                    format(matched_port, rMatched_port, ports_group)
+                matched_port_in_any_group = True
+                break
+        assert matched_port_in_any_group, "The matched port {} not in expected ports list {}".\
+            format(matched_port, self.exp_port_groups)
 
 
     def _get_ip_proto(self, ipv6=False):
@@ -206,7 +222,7 @@ class InnerHashTest(BaseTest):
 
         assert received
 
-        logging.info("Received packet at " + str(matched_index))
+        logging.info("Received packet at index " + str(matched_index))
         time.sleep(0.02)
 
         return (matched_index, received)
@@ -361,7 +377,7 @@ class InnerHashTest(BaseTest):
 
         assert received
 
-        logging.info("Received packet at " + str(matched_index))
+        logging.info("Received packet at index" + str(matched_index))
         time.sleep(0.02)
 
         return (matched_index, received)
@@ -463,11 +479,12 @@ class InnerHashTest(BaseTest):
         return (percentage, abs(percentage) <= self.balancing_range)
 
 
-    def check_balancing(self, dest_port_list, port_hit_cnt):
+    def check_balancing(self, dest_port_list, port_hit_cnt, hash_key):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
         @param port_hit_cnt : a dict that records the number of packets each port received
+        @param hash_key : hash key
         @return bool
         '''
 
@@ -479,17 +496,15 @@ class InnerHashTest(BaseTest):
             total_entry_hit_cnt = 0
             for member in ecmp_entry:
                 total_entry_hit_cnt += port_hit_cnt.get(member, 0)
-            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
+
+            total_expected = float(total_hit_cnt) / len(dest_port_list)
+            if self.symmetric_hashing and hash_key != 'ip-proto':
+                total_expected = total_expected * 2
+
+            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, total_expected)
             logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                        % ("ECMP", str(ecmp_entry), total_hit_cnt//len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
+                        % ("ECMP", str(ecmp_entry), (total_hit_cnt//len(dest_port_list)*len(ecmp_entry)), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
-            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
-                continue
-            for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
-                logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                            % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
-                result &= r
 
         assert result
 
@@ -505,6 +520,8 @@ class InnerHashTest(BaseTest):
         logging.info("%-10s \t %10s" % ("port(s)", "cnt"))
 
         total_hit_cnt = self.balancing_test_times*len(self.exp_port_list)
+        if self.symmetric_hashing:
+            total_hit_cnt = total_hit_cnt*2
         nhs_with_packets_rcvd = 0
         for ecmp_entry in dest_port_list:
             total_entry_hit_cnt = 0
