@@ -342,6 +342,9 @@ def lower_tor_fanouthosts(lower_tor_host, fanouthosts):
     return _get_tor_fanouthosts(lower_tor_host, fanouthosts)
 
 
+fanout_intfs_to_recover = defaultdict(list)
+
+
 def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None):
     """Helper function for shutting down fanout interfaces that are connected to specified DUT interfaces.
 
@@ -392,6 +395,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
     for fanout_host, intf_list in fanout_shut_intfs.items():
         fanout_host.shutdown(intf_list)
+        fanout_intfs_to_recover[fanout_host].extend(intf_list)
 
     return fanout_shut_intfs
 
@@ -410,6 +414,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified upper_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
@@ -419,9 +424,9 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to upper_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
@@ -438,6 +443,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
@@ -447,9 +453,9 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to lower_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
@@ -467,6 +473,7 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     down_intfs = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
@@ -484,8 +491,9 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     yield shutdown
 
     logger.info('Recover fanout ports connected to tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 def _shutdown_t1_tor_intfs(tor_host, nbrhosts, tbinfo, vm_names=None):
