@@ -38,6 +38,15 @@ parameters:
     default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
+  # skip warmboot specific cases on 202205 dualtor
+  # this should be removed once dualtor warmboot is ready on 202205
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "arp/test_wr_arp.py \
+              platform_tests/test_advanced_reboot.py \
+              platform_tests/test_cont_warm_reboot.py"
+    displayName: "Skip Scripts"
+
   - name: TESTBED_SPECIFIC
     type: string
     default: '-I "dualtor_io platform_tests"'
@@ -55,6 +64,7 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       NIGHTLY_TEST_TIMEOUT: 1440  # 24 hours
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
