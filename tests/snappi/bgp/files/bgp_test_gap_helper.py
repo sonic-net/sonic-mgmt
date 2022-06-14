@@ -91,7 +91,7 @@ def run_bgp_scalability_16k_v4_routes(cvg_api,
         Run the BGP Scalability test
     """
     get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                 tgen_bgp_config,flag)
+                                tgen_bgp_config,flag)
 
 def run_bgp_scalability_8k_v6_routes(cvg_api,
                                     duthost,
@@ -314,7 +314,6 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
     """
-    start = time.time()
     global temp_tg_port
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
@@ -324,8 +323,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
         logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
 
@@ -336,20 +334,21 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
             "sudo config interface ip add PortChannel%s %s/%s\n"
             "sudo config interface ip add PortChannel%s %s/%s\n"
         )
-        portchannel_config %= (i,
-                               i,tgen_ports[i]['peer_port'], 
-                               i, tgen_ports[i]['peer_ip'],tgen_ports[i]['prefix'],
-                               i, tgen_ports[i]['peer_ipv6'], 64)
-        logger.info('Configuring %s to PortChannel%s' % (tgen_ports[i]['peer_port'],i))
+        portchannel_config %= (i+1,i+1,tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'],tgen_ports[i]['prefix'],i+1, tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.info('Configuring %s to PortChannel%s' % (tgen_ports[i]['peer_port'],i+1))
         duthost.shell(portchannel_config)
-
+    bgp_neighbors=dict()
     logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = {tgen_ports[2]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
-                                             "local_addr": tgen_ports[2]['peer_ipv6'], "nhopself": "0",
+    '''
+    bgp_neighbors = {tgen_ports[1]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
+                                             "local_addr": tgen_ports[1]['peer_ipv6'], "nhopself": "0",
                                              "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"},
-                     tgen_ports[2]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
-                                           "local_addr": tgen_ports[2]['peer_ip'], "nhopself": "0",
+                     tgen_ports[1]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
+                                           "local_addr": tgen_ports[1]['peer_ip'], "nhopself": "0",
                                            "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"}}
+    '''
+    bgp_neighbors[tgen_ports[2]['ipv6']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[2]['peer_ipv6'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
+    bgp_neighbors[tgen_ports[2]['ip']] = {"rrclient": "0","name": "ARISTA08T0","local_addr": tgen_ports[2]['peer_ip'],"nhopself": "0","holdtime": "90","asn": TGEN_AS_NUM,"keepalive": "30"}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
     for neighbor, neighbor_info in bgp_neighbors.items():
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
@@ -358,13 +357,10 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
         json.dump(cdf, fp, indent=4)
     duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
     cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
-    print(cdf)
     duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json", "/etc/sonic/config_db.json"))
     logger.info('Reloading config to apply BGP config')
     duthost.shell("sudo config reload -y \n")
     wait(TIMEOUT+20, "For Config to reload \n")
-    end = time.time()
-    logger.info('duthost_bgp_config() took {}s to complete'.format(end-start))
 
 
 def __tgen_bgp_config(cvg_api,
@@ -421,14 +417,14 @@ def __tgen_bgp_config(cvg_api,
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
     ipv4_1.name = 'IPv4_1'
-    ipv4_1.address = temp_tg_port[0]['ip']
-    ipv4_1.gateway = temp_tg_port[0]['peer_ip']
-    ipv4_1.prefix = int(temp_tg_port[0]['prefix'])
+    ipv4_1.address = temp_tg_port[1]['ip']
+    ipv4_1.gateway = temp_tg_port[1]['peer_ip']
+    ipv4_1.prefix = int(temp_tg_port[1]['prefix'])
     ipv6_1 = eth_1.ipv6_addresses.add()
     ipv6_1.name = 'IPv6_1'
-    ipv6_1.address = temp_tg_port[0]['ipv6']
-    ipv6_1.gateway = temp_tg_port[0]['peer_ipv6']
-    ipv6_1.prefix = int(temp_tg_port[0]['ipv6_prefix'])
+    ipv6_1.address = temp_tg_port[1]['ipv6']
+    ipv6_1.gateway = temp_tg_port[1]['peer_ipv6']
+    ipv6_1.prefix = int(temp_tg_port[1]['ipv6_prefix'])
 
 
     #Destination
@@ -439,14 +435,14 @@ def __tgen_bgp_config(cvg_api,
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
     ipv4_2.name = 'IPv4_2'
-    ipv4_2.address = temp_tg_port[1]['ip']
-    ipv4_2.gateway = temp_tg_port[1]['peer_ip']
-    ipv4_2.prefix = int(temp_tg_port[1]['prefix'])
+    ipv4_2.address = temp_tg_port[2]['ip']
+    ipv4_2.gateway = temp_tg_port[2]['peer_ip']
+    ipv4_2.prefix = int(temp_tg_port[2]['prefix'])
     ipv6_2 = eth_2.ipv6_addresses.add()
     ipv6_2.name = 'IPv6_2'
-    ipv6_2.address = temp_tg_port[1]['ipv6']
-    ipv6_2.gateway = temp_tg_port[1]['peer_ipv6']
-    ipv6_2.prefix = int(temp_tg_port[1]['ipv6_prefix'])
+    ipv6_2.address = temp_tg_port[2]['ipv6']
+    ipv6_2.gateway = temp_tg_port[2]['peer_ipv6']
+    ipv6_2.prefix = int(temp_tg_port[2]['ipv6_prefix'])
     
     bgpv4 = config.devices[1].bgp
     bgpv4.router_id = temp_tg_port[1]['peer_ip']
@@ -455,7 +451,7 @@ def __tgen_bgp_config(cvg_api,
     bgpv4_peer = bgpv4_int.peers.add()
     bgpv4_peer.name = 'BGP_2'
     bgpv4_peer.as_type = BGP_TYPE
-    bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv4_peer.peer_address = temp_tg_port[2]['peer_ip']
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes") 
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=v4_routes)
@@ -464,13 +460,13 @@ def __tgen_bgp_config(cvg_api,
     as_path_segment.type = as_path_segment.AS_SEQ
     as_path_segment.as_numbers = aspaths
     bgpv6 = config.devices[1].bgp
-    bgpv6.router_id = temp_tg_port[1]['peer_ip']
+    bgpv6.router_id = temp_tg_port[2]['peer_ip']
     bgpv6_int = bgpv6.ipv6_interfaces.add()
     bgpv6_int.ipv6_name = ipv6_2.name
     bgpv6_peer = bgpv6_int.peers.add()
     bgpv6_peer.name  = r'BGP+_2'
     bgpv6_peer.as_type = BGP_TYPE
-    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
+    bgpv6_peer.peer_address = temp_tg_port[2]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
     route_range2.addresses.add(address='3000::1', prefix=64, count=v6_routes)
@@ -589,7 +585,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 bgpv4_peer.as_type = BGP_TYPE
                 bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
+                route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) 
                 route_range.addresses.add(address='200.1.0.1', prefix=32, count=routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
@@ -716,7 +712,7 @@ def restart_traffic(cvg_api):
     cs = cvg_api.convergence_state()
     cs.protocol.state = cs.protocol.STOP
     cvg_api.set_state(cs)
-    wait(TIMEOUT-30, "For Protocols To stop")
+    wait(TIMEOUT-10, "For Protocols To stop")
     cs = cvg_api.convergence_state()
     cs.protocol.state = cs.protocol.START
     cvg_api.set_state(cs)
@@ -769,7 +765,8 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
     try:
         cvg_api.set_config(bgp_config)
         run_traffic(cvg_api)
-    except SnappiIxnException:
+    except Exception as e:
+        logger.info(e)
         duthost.command("sudo config save -y")
         reboot(duthost, localhost,reboot_type='fast')
         logger.info("Wait until the system is stable")
@@ -789,8 +786,7 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
         else:
             assert  float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
             logger.info('PASSED : No Loss observerd in traffic item')
-        stop_traffic()
-
+        stop_traffic(cvg_api)
 
 def cleanup_config(duthost):
     """
