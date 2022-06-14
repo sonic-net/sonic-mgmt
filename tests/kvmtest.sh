@@ -151,11 +151,11 @@ test_t0() {
       popd
     else
       tests="\
+      generic_config_updater/test_bgp_speaker.py \
       override_config_table/test_override_config_table.py \
       generic_config_updater/test_aaa.py \
       generic_config_updater/test_bgpl.py \
       generic_config_updater/test_bgp_prefix.py \
-      generic_config_updater/test_bgp_speaker.py \
       generic_config_updater/test_cacl.py \
       generic_config_updater/test_dhcp_relay.py \
       generic_config_updater/test_eth_interface.py \
