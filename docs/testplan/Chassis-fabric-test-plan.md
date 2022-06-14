@@ -17,6 +17,8 @@ The scope of this test plan is as follows:
 * Check if the fabric counters work correctly when there is data traffic.
 * Check if the fabric devices can reach all of the forwarding ASICs of the chassis (reachability)
 
+The tests are expected to be done on Linecards and Fabriccards from supervisor.
+
 ## Assumptions
 
 The current SW design for fabric does not cover events like card insertion/removal or reboots. This test plan depends on fabric counter cli support (work in progress).
@@ -31,12 +33,11 @@ These test cases will compare the following two sets of data on a chassis:
 
 The following section describes how to store and process the expected fabric link status for testing.
 
-
 ![](Img/Sonic_Fabric_Link_Testing_Proposal.png)
 
 The above diagram illustrates an example system under test. Every forwarding ASIC is connected to every fabric ASIC.
 
-The expected fabric link status is stored in the last section of testbed.yaml file, which is called fabric_link_toplogy. The expected status is provided per host and per ASIC, and the format is as follows:
+The expected fabric link status is stored in the last section of testbed.yaml file, which is called fabric_link_toplogy. This testbad.yaml file is generated dynamically when running the tests on a system. Each vendor provides their own expected fabric link information and stores in the format defined in the yaml file.  The expected status is provided per host and per ASIC, and the format is as follows:
 
 ```
 host:
@@ -45,9 +46,7 @@ host:
          status: <connected/not_connected>
          peer_asic: <asic id>
          peer_id: <link id>
-         peer_status: <connected/not_connected>
 ```
-
 Initially, testbed.yaml will contain fabric link status, such as whether or not links are connected. In the future, this information may be extended to contain fabric link connection information.
 
 In the above diagram, fabric link 105 on ASIC 0 of Fabric1 connects to fabric link 0 on ASIC 0 of Linecard5. The corresponding link status information as stored in testbed.yaml file will be encoded as follows:
@@ -64,7 +63,6 @@ fabric_link_topology:                      # source: sonic-mgmt/ansible/files/so
            status: connected
            peer_asic: 0
            peer_id: 105
-           peer_status: connected
            ...
   ...
   nfc407:
@@ -74,7 +72,6 @@ fabric_link_topology:                      # source: sonic-mgmt/ansible/files/so
            status: connected
            peer_asic: 0
            peer_id: 0
-           peer_status: connected
   ...
 ```
 
@@ -83,9 +80,9 @@ TestbedProcessing.py parses and processes the fabric_link_topology section and s
 An excerpt of the generated output (/files/sonic_lab_fabric_links.csv) for the example link described earlier is as follows:
 
 ```
-device,asic,link,status,peer_asic,peer_link,peer_status
-nfc407-5,0,0,connected,0,105,connected
-<snip>
+device,asic,link,status,peer_asic,peer_link
+nfc407-5,0,0,connected,0,105
+...
 ```
 
 The VOQ tests use the information in files/sonic_lab_fabric_links.csv as the expected value to compare with the fabric link status on a system.
