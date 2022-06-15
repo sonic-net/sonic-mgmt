@@ -137,13 +137,13 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
-    def testContPfcFrmswithSharedHeadroom(
+    def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Buffer occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
             Only for MLNX Platforms
 
             Args:

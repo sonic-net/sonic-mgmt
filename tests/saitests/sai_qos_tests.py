@@ -917,7 +917,7 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         )
 
         # get a snapshot of ingress pg occupancy for the source port
-        queue_res, pg_shared_res_base, pg_headroom_res = sai_thrift_read_port_watermarks(
+        pg_cntrs_base = sai_thrift_read_pg_shared_watermark(
             self.client, port_list[src_port_id]
         )
 
@@ -991,20 +991,20 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
             xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-            # get a snapshot of ingress pg occupancy for the source port after sending pkts
-            queue_res, pg_shared_res, pg_headroom_res = sai_thrift_read_port_watermarks(
+            # get a snapshot of ingress pg shared occupancy for the source port after sending pkts
+            pg_cntrs = sai_thrift_read_pg_shared_watermark(
                 self.client, port_list[src_port_id]
             )
 
             logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
             logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
             logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
-            logging.debug("Recv Ingress PG Counters: {}, Base: {}".format(pg_shared_res, pg_shared_res_base))
+            logging.debug("Recv Ingress PG Occupancy: {}, Base: {}".format(pg_cntrs, pg_cntrs_base))
 
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
             # Verify if the occupancy has crossed into shared headroom
-            assert(pg_shared_res[pg_id] > pg_shared_res_base[pg_id])
+            assert(pg_cntrs[pg_id] > pg_cntrs_base[pg_id])
             # recv port no ingress drop
             for cntr in ingress_counters:
                 assert(recv_counters[cntr] == recv_counters_base[cntr])
