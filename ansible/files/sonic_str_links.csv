@@ -13,7 +13,7 @@ str-7260cx3-11,Ethernet13/1,str-7260cx3-fan-03,Ethernet64/1,100000,"2011-2064,21
 str-7260cx3-11,Ethernet41/1,str-7260cx3-fan-04,Ethernet64/1,100000,"2275-2312",Trunk
 str-7260cx3-11,Ethernet53/1,str-e1031-acs-4,etp49,10000,3821-3868,Trunk
 str-7260cx3-11,Ethernet14/1,str-acs-serv-11,p4p1,40000,,Trunk
-str-7260cx3-11,Ethernet15/1,str-acs-serv-12,p4p1,40000,,Trunk
+str-7260cx3-11,Ethernet15/1,str-acs-serv-12,ens4f1np1,40000,,Trunk
 str-7260cx3-11,Ethernet16/1,str-acs-serv-13,p4p1,40000,,Trunk
 str-7260cx3-11,Ethernet17/1,str-acs-serv-03,p5p1,40000,,Trunk
 str-7260cx3-11,Ethernet18/1,str-acs-serv-03,p5p2,40000,,Trunk
