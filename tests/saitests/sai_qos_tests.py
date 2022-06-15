@@ -1061,6 +1061,8 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
 class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
 
     def runTest(self):
+        time.sleep(1)
+        switch_init(self.client)
         self.parse_test_params()
         sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
 
