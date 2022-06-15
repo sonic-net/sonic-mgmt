@@ -41,12 +41,14 @@
         Result = tostring(cases["result"]),
         ReportId = tostring(cases["id"]),
 	    Error = tobool(cases["error"]),
-        Summary = tostring(cases["summary"])
+        Summary = tostring(cases["summary"]),
+        StartTime = todatetime(cases["start"]),
+        EndTime = todatetime(cases["end"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
-                         ReportId: string, Error: bool, Summary: string)
+                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
@@ -61,6 +63,8 @@
                                                                      '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                      '{"column":"Error","Properties":{"path":"$.error"}},'
                                                                      '{"column":"Summary","Properties":{"path":"$.summary"}},'
+                                                                     '{"column":"StartTime","Properties":{"path":"$.start"}},'
+                                                                     '{"column":"EndTime","Properties":{"path":"$.end"}},'
                                                                      ']'
 
 ###############################################################################
