@@ -1,9 +1,15 @@
 Value PSU (\S+\s+\d+)
-Value Status (\S+)
+Value Model (\S+)
+Value Serial (\S+)
+Value Hw_Rev (\S+)
+Value Voltage (\S+)
+Value Current (\S+)
+Value Power (\S+)
+Value Status (NOT PRESENT|PRESENT|OK|NOT OK)
+Value LED (\S+)
 
-Start
-  ^\s*PSU\s+Status\s*$$
-  ^(-+\s*)*$$
-  ^\s*${PSU}\s+${Status}\s*$$ -> Record
-  ^$$
-  ^Error.* -> Error "Error: fail to get psu status from state DB"
+
+Start 
+  ^${PSU}\s+${Model}\s+${Serial}\s+${Voltage}\s+${Current}\s+${Power}\s+${Status}\s+${LED} -> Record
+  ^${PSU}\s+${Model}\s+${Serial}\s+${Hw_Rev}\s+${Voltage}\s+${Current}\s+${Power}\s+${Status}\s+${LED} -> Record
+  ^Error.* -> Error "Error: fail to get psu status from state DB" -> Record

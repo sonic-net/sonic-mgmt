@@ -119,7 +119,7 @@ def verify_topology(hooks, check_type, threads=True):
             results.append(result)
             exclude.append([partner, remote])
 
-        for local, partner, remote in st.get_tg_links(dut, native=use_native):
+        for local, partner, remote,_,_ in st.get_tg_links(dut, native=use_native):
             pdid = dids[partner]
             (tg, ph) = tgapi.get_handle_byname(None, tg=partner, port=remote)
 
@@ -203,7 +203,7 @@ def links_status(hooks, threads, check_type):
     v1_default = "?2?" if v1 else "NA"
     (results, exclude, (dids, palias)) = ([], [], fill_dev_ids())
     for dut in st.get_dut_names():
-        for local, partner, remote in st.get_tg_links(dut, native=use_native):
+        for local, partner, remote,_,_ in st.get_tg_links(dut, native=use_native):
             res = []
             res.append(dut)
             res.append(dids.get(dut, "?"))
@@ -218,7 +218,7 @@ def links_status(hooks, threads, check_type):
                 res.append(palias.get(remote, remote))
             res.append(v1.get("{}--{}".format(partner, remote), v1_default))
             results.append(res)
-        for local, partner, remote in st.get_dut_links(dut, native=use_native):
+        for local, partner, remote,_,_ in st.get_dut_links(dut, native=use_native):
             name = "{}--{}".format(dut, local)
             if name in exclude:
                 continue
@@ -242,7 +242,7 @@ def links_status(hooks, threads, check_type):
 def tg_links_status_using_hltapi():
     results = dict()
     for dut in st.get_dut_names():
-        for _, partner, remote in st.get_tg_links(dut, native=use_native):
+        for _, partner, remote,_,_ in st.get_tg_links(dut, native=use_native):
             (tg, ph) = tgapi.get_handle_byname(None, tg=partner, port=remote)
             name = "{}--{}".format(partner, remote)
             results[name] = get_tg_link_status(tg, ph)
@@ -252,7 +252,7 @@ def tg_links_status_using_native_calls():
     # build port list per tgen
     tg_port_dict = {}
     for dut in st.get_dut_names():
-        for _, partner, remote in st.get_tg_links(dut, native=use_native):
+        for _, partner, remote,_,_ in st.get_tg_links(dut, native=use_native):
             tg_port_dict.setdefault(partner, []).append(remote)
 
     results = dict()
@@ -294,9 +294,9 @@ def simulate_link_fail():
 
 def dut_links_status(dut, hooks):
     results, local_list = {}, []
-    for local, _, _ in st.get_dut_links(dut, native=use_native):
+    for local, _, _,_,_ in st.get_dut_links(dut, native=use_native):
         local_list.append(local)
-    for local, _, _ in st.get_tg_links(dut, native=use_native):
+    for local, _, _,_,_ in st.get_tg_links(dut, native=use_native):
         local_list.append(local)
 
     output = hooks.get_status(dut, ",".join(local_list))
@@ -312,4 +312,4 @@ def dut_links_status(dut, hooks):
         else:
             results[name] = "----"
     return results
-
+    

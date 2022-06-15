@@ -3,6 +3,7 @@ import os
 import re
 import ast
 import datetime
+import yaml
 
 from spytest import st
 from spytest.utils import filter_and_select
@@ -43,6 +44,126 @@ def get_system_status(dut, service=None, skip_error_check=False):
     return False
 
 
+def get_processes_memory(dut):
+    """
+    Author: Harsha Golla (harsgoll@cisco.com)
+    Function to get the Memory usage
+    :param dut:
+    :return:
+    """
+    command = "show processes memory"
+    return st.show(dut, command)
+
+def get_processes_cpu(dut):
+    """
+    Author: Hareesh Ganipineni (hganipin@cisco.com)
+    Function to get the CPU usage for each process
+    :param dut:
+    :return:
+    """
+    command = "show processes cpu"
+    return st.show(dut, command)
+
+def get_environment(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show environment
+    :param dut
+    :return:
+    """
+    command = "show environment"
+    return st.show(dut,command)
+
+def apply_config_reload(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get the show environment
+    :param dut
+    :return:
+    """
+    command = "config reload -y"
+    return st.config(dut,command)
+
+def apply_optics_flap(dut, port,operation='on'):
+    """
+    Author: Hareesh Ganipineni (hganipin@cisco.com)
+    Function for simulation of  optics on for specified port
+    :param dut
+    :param port number: integer
+    :operation: on/off
+    :return:
+    """
+    command = "/opt/cisco/bin/sfp.py {} {} ".format(operation,port)
+    return st.config(dut,command)
+
+def get_show_run_all(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show runningconfiguration all
+    :param dut
+    :return:
+    """
+    command = "show runningconfiguration all"
+    return st.config(dut,command)
+
+def get_interface(dut, interface_name,ctype='vtysh',asic='None'):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Fucntion to get the show interface interface_name 
+    :param dut
+    :param interface_name: Ethernet\d+
+    :return:
+    """
+    command = "show interface "+interface_name
+    if ctype == 'vtysh-multi-asic':
+        Kwargs = {}
+        Kwargs['type'] = ctype
+        Kwargs['asic'] = asic
+        return st.show(dut,command,**Kwargs)
+    else:
+        return st.show(dut,command,type=ctype)
+
+def get_int_transceiver_eeprom(dut):
+    """
+    Author: Harsha Golla (harsgoll@cisco.com)
+    Function to get the show int transciever eeprom -dom
+    :param dut:
+    :return:
+    """
+    command = "show int transceiver eeprom"
+    return st.show(dut, command)
+
+def get_sfputil_show_eeprom(dut):
+    """
+    Author: Deekshitha Kankanala(dkankana@cisco.com)
+    Function to get the sfputil show eeprom
+    :param dut:
+    :return:
+    """
+    command = "sudo sfputil show eeprom"
+    return st.show(dut, command) 
+
+def get_sfputil_reset_ethernet(dut, port):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get the sfputil reset Ethernet[/d+]
+    :param dut:
+    :return:
+    """
+    command = "sudo sfputil reset "+port
+    return st.show(dut,command)
+
+def get_sysuptime(dut):
+    """
+    :param dut:
+    :type dut:
+    :return:
+    :rtype:
+    """
+    up_time = show_version(dut)['uptime']
+    return up_time
+
+
 def get_hwsku(dut):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -78,6 +199,237 @@ def get_platform_summary(dut, value=None):
         if output:
             return output[0]
 
+def get_platform_ssdhealth(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform ssdhealth of the device.
+    :param dut:
+    :param value:  devicemodel | health | temperature
+    :return:
+    """
+    output = st.show(dut, "show platform ssdhealth")
+    if output:
+        return output[0]
+    return output
+    
+def get_platform_idprom(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "sudo show platform idprom")
+    if output:
+        return output[0]
+    return output
+
+def get_users(dut,value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get users
+    :param dut:
+    :param value:  
+    :return:
+    """
+    output = st.show(dut, "show users")
+    return output
+
+def get_platform_inventory(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform inventory")
+    if output == []:
+        output = st.show(dut, "sudo show platform inventory")
+    if value:
+        if len(output) <= 0 or value not in output[0]:
+            return None
+        out = output[0][value]
+        return out
+    else:
+        if output:
+            return output[0]
+
+def get_platform_temperature(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform temperature of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform temperature")
+    return output
+
+def get_platform_psustatus(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform psustatus")
+    return output
+
+def get_show_boot(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show boot.
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show boot")
+    if output:
+        return output[0]
+    return output
+
+def get_show_mgmt_vrf(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show mgmt-vrf")
+    if output:
+        return output[0]
+    return output
+
+def get_show_int_transceiver_presence(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show int transceiver presence
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show int transceiver presence")
+    return output
+
+def get_show_int_transceiver_lpmode(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show int transceiver presence
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show int transceiver lpmode")
+    return output
+
+def get_show_management_int_address(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show management_interface address")
+    if len(output) <= 0 :
+        return None
+    if output:
+        return output[0]
+    return output
+
+def get_show_system_memory(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show system-memory
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show system-memory")
+    if len(output) <= 0 :
+        return None
+    return output[0]
+
+def apply_install(dut, image_name):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to apply "sonic-installer install xxxxx.bin"
+    :param dut: dut
+    :param image_name: value
+    :return
+    """
+    cmd = "sonic-installer install -y "+image_name
+    output = st.config(dut, cmd)
+    return output
+
+def shutdown_dut(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to apply "shutdown -r now"
+    :param dut: dut
+    """
+    cmd = "shutdown -r now"
+    output = st.config(dut, cmd, skip_tmpl=True)
+    return output
+
+def get_show_services(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show services
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show services")
+    return output
+
+def get_show_environment(dut):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show environment
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    output = st.show(dut, "show environment")
+    return output
+
+def enable_show_mgmt_vrf(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    command = "sudo config vrf add mgmt"
+    st.config(dut, command)    
+
+def disable_show_mgmt_vrf(dut, value = None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to get show mgmt-vrf
+    :param dut:
+    :param value:  dut name 
+    :return:
+    """
+    command = "sudo config vrf del mgmt"
+    st.config(dut, command)
+
+def get_platform_fan(dut, value=None):
+    """
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    Function to ge the Platform summary of the device.
+    :param dut:
+    :param value:  hwsku | platform | asic
+    :return:
+    """
+    output = st.show(dut, "show platform fan")
+    return output
 
 def get_dut_date_time(dut):
     """
@@ -778,6 +1130,19 @@ def get_docker_ps(dut):
     output = st.show(dut, command)
     return output
 
+def get_docker_ps_container(dut, container_name):
+    """
+    Get docker ps -f name=""
+    Author: Deekshitha Kankanala (dkankana@cisco.com)
+    :param dut:
+    :return:
+    """
+    command = 'docker ps -f {}={}'.format('name', container_name)
+    output = st.show(dut, command)
+    if output:
+        return output[0]
+    return output     
+
 def get_docker_stats(dut):
     """
     Get docker ps
@@ -1428,6 +1793,8 @@ def get_number_of_lines_in_file(connection_obj, file_path, device="server"):
                 return int(match.group(0))
     return line_number
 
+def is_vsonic_device(dut):
+    return st.is_vsonic(dut)
 
 def get_config_profiles(dut):
     """
@@ -2271,3 +2638,181 @@ def flush_iptable(dut):
 
 def execute_linux_cmd(dut, cmd):
     st.show(dut, cmd, skip_tmpl=True)
+
+def ifconfig_eth(dut, interfacenumber):
+    command = "sudo ifconfig eth{}".format(interfacenumber)
+    print("command", command)
+    output = st.show(dut, command)
+    return output
+
+def update_presence_in_thermalzone(dut, val):
+    """
+    update the presence in thermal_zone.yaml
+    """
+    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
+    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
+    out1 = utils_obj.remove_last_line_from_string(out)
+    out2= yaml.safe_load(out1)
+    out2[val][0]['presence']=0
+    out3 = yaml.dump(out2)
+    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
+    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
+
+def get_platform_content_from_pmon(dut):
+    """
+    get platform json content from pmon container in dut
+    """
+    out = st.show(dut, 'docker exec -it pmon cat /usr/share/sonic/platform/platform.json', skip_tmpl=True)
+    out1 = utils_obj.remove_last_line_from_string(out)
+    out2 = json.loads(out1)
+    thermal_data = out2['chassis']['thermals']
+    temperature_cli_data = get_platform_temperature(dut)
+    sensor_data = [row['sensor'] for row in temperature_cli_data]
+    platform_json_data = [row['name'].encode('utf-8') for row in thermal_data]
+    #Check with Sachin for the comparison for platform.json and show platform temp output 
+    check =  all(item in sensor_data for item in platform_json_data)
+    return check
+
+def update_fan_tray_faulty_presence_in_thermalzone(dut, val):
+    """
+    update the faulty fan check  in thermal_zone.yaml
+    """
+    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
+    st.show(dut, 'sudo cp /opt/cisco/etc/thermal_zone.yaml /opt/cisco/', skip_tmpl=True)
+    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
+    out1 = utils_obj.remove_last_line_from_string(out)
+    out2= yaml.safe_load(out1)
+    #Check how to add an attribute in yaml in python 
+    #out2[val][0]['fans'][0]['name'] ---- fan
+    #out2[val][0]['fans'][0]['faulty'] -- 1
+    #out2[val][0]['faulty']= 1
+    #out2[val][1]['name'] --- fan tray 
+    out2[val][0]['faulty']= 1
+    out3 = yaml.dump(out2)
+    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
+    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
+
+def update_fan_faulty_presence_in_thermalzone(dut, val):
+    """
+    update the faulty fan check  in thermal_zone.yaml
+    """
+    st.show(dut, 'cp /opt/cisco/etc/thermal_zone.yaml /tmp/', skip_tmpl=True)
+    st.show(dut, 'sudo cp /opt/cisco/etc/thermal_zone.yaml /opt/cisco/', skip_tmpl=True)
+    out = st.show(dut, 'cat /tmp/thermal_zone.yaml', skip_tmpl=True)
+    out1 = utils_obj.remove_last_line_from_string(out)
+    out2= yaml.safe_load(out1)
+    #Check how to add an attribute in yaml in python 
+    #out2[val][0]['fans'][0]['name'] ---- fan
+    #out2[val][0]['fans'][0]['faulty'] -- 1
+    #out2[val][0]['faulty']= 1
+    #out2[val][1]['name'] --- fan tray 
+    out2[val][0]['fans'][0]['faulty']= 1
+    out2[val][0]['fans'][1]['faulty']= 1
+    out2[val][1]['fans'][0]['faulty']= 1
+    out3 = yaml.dump(out2)
+    st.show(dut, 'printf "%s" > /tmp/new_thermal_zone.yaml'%out3,  skip_tmpl=True)
+    st.show(dut, 'sudo cp /tmp/new_thermal_zone.yaml /opt/cisco/etc/thermal_zone.yaml',  skip_tmpl=True)
+
+
+def get_parsed_date_to_capture_syslog(dut):
+    """
+    Get Parsed date to capture syslog
+    """
+    #Start time 
+    date_string = get_dut_date_time(dut)
+    if date_string is None:
+        raise Exception("The Parsed Date object retuned None")
+    if(date_string[4] == '0'):
+        date_string = date_string.replace('0',' ', 1)
+    month = date_string[7:11]
+    date = date_string[4:7]
+    hours = date_string[16:18]
+    mins = date_string[18:21]
+    if(date_string[25:27] == "PM"):
+        hours = str(int(hours)+12)
+    result_date = month + date + hours + mins
+    return result_date
+
+def get_parsed_temp_output_grep_sensor_name(dut, sensor_name):
+    """
+    Get Parsed temp output
+    """
+    cmd = "show platform temperature | grep {}".format(sensor_name)
+    temp_data_output = st.show(dut, cmd, skip_tmpl=True)
+    if temp_data_output is None:
+        raise Exception("show plat temp for the sensor name {} output is not found ".format(sensor_name))
+    parsed_sensor_data = [s.strip().encode() for s in temp_data_output.split('  ') if s]
+    return parsed_sensor_data
+
+def capture_syslog_between_timestamps(dut, start_point, end_point, filterlog):
+    """
+    Get the expected match syslog to the filterlog
+    """
+    cmd = "sudo sed -n '/{}/,/{}/p' /var/log/syslog*|grep \"{}\"".format(start_point, end_point, filterlog)
+    syslog_data_output = st.show(dut, cmd, skip_tmpl=True)
+    length = syslog_data_output.count('\n')
+    if length >= 1:
+        return True
+    return False
+
+def get_watchdog_status(dut):
+    """
+    Get the status of watchdog
+    """
+    output = st.show(dut, "sudo watchdogutil status")
+    if len(output) <= 0:
+        return None
+    return output
+
+def change_watchdog_status_to_arm(dut):
+    """
+    Get the status of watchdog
+    """
+    output = st.show(dut, "sudo watchdogutil arm")
+    if len(output) <= 0:
+        return None
+    return output
+
+def get_uptime(dut):
+    """
+    Get the dut uptime
+    """
+    output = st.show(dut, "show uptime")
+    if len(output) <= 0:
+        return None
+    return output
+
+def get_system_led_status(dut):
+    """
+    Author: Deekshitha Kankanala
+    Get the show system health summary 
+    """
+    output = st.show(dut, "sudo show system-health summary")
+    if len(output) <= 0:
+        return None
+    return output
+
+def get_redis_cli_interface(dut):
+    """
+    Get interface details stored in redisdb
+    """
+    command = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
+    output = st.show(dut, command)
+    return output
+
+def get_redis_cli_interface_dom_sensors(dut):
+    """
+    Get presence of optic thermal sensor 
+    """
+    command = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
+    output = st.show(dut, command)
+    return output
+
+def get_redis_int_dom(dut, number):
+    """
+    Get thermal sensor data present in redisdb for given optics/interface
+    """
+    command = "redis-cli -n 6 hgetall 'TRANSCEIVER_DOM_SENSOR|Ethernet{}'".format(number)
+    output = st.show(dut, command)
+    return output
+    

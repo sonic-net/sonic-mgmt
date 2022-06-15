@@ -298,7 +298,7 @@ class Testbed(object):
     def _validate_links(self):
         pairs = dict()
         for dev in self.get_device_names():
-            for local, partner, remote in self.get_links(dev):
+            for local, partner, remote,_,_ in self.get_links(dev):
                 #alias = self.get_device_alias(dev)
                 #pair = "{}/{}".format(alias, local)
                 pair = "{}/{}".format(dev, local)
@@ -769,7 +769,7 @@ class Testbed(object):
     def get_speed(self, dut, scope=None):
         rv = self._get_dut_property(dut, "speed", "speeds", scope, None)
         if not rv: rv = SpyTestDict()
-        for local, _, _ in self.get_links(dut):
+        for local, _, _,_,_ in self.get_links(dut):
             value = self.get_link_param(dut, local, "speed", None)
             if value: rv[local] = value
         return rv
@@ -872,7 +872,7 @@ class Testbed(object):
                 bod[port] = option
 
         # override breakout mode from interfaces section
-        for port, _, _ in self.get_links(dut):
+        for port, _, _,_,_ in self.get_links(dut):
             option = self.get_link_param(dut, port, "breakout-mode", None)
             if option is not None:
                 bod[port] = option
@@ -934,6 +934,15 @@ class Testbed(object):
                 rv[2] = self.map_port_name(linfo["to_dut"], linfo["to_port"], ifmap, native_map)
         if name:
             rv.append(link)
+        if linfo.has_key('Npu'):
+            rv.append(linfo['Npu'])
+        else:
+            rv.append('False')
+
+        if  linfo.has_key('EndPortNpu'):
+            rv.append(linfo['EndPortNpu'])
+        else:
+            rv.append('False')
         return rv
 
     def _is_valid_dut(self, dut, dtype):
@@ -1072,18 +1081,25 @@ class Testbed(object):
             rv[tg_name] = tg
             tg_index = tg_index + 1
         for from_index in range(1, dut_index):
-            for to_index in range(from_index+1, dut_index):
+            for to_index in range(from_index, dut_index):
+                #iterating loop from (from_index) instead of (from_index+1)to facilitate snake connection
                 from_name = "D{}".format(from_index)
                 to_name = "D{}".format(to_index)
                 (from_dev, to_dev) = (rv[from_name], rv[to_name])
                 links = self.get_links(from_dev, to_dev)
                 lnum = 1
-                for local, _, remote in links:
+                for local, _, remote,local_npu,remote_npu in links:
                     lname1 = "{}{}P{}".format(from_name, to_name, lnum)
                     lname2 = "{}{}P{}".format(to_name, from_name, lnum)
                     lnum = lnum + 1
+                    npu_name1 = lname1+'Npu'
+                    npu_name2 = lname2+'Npu'
                     rv[lname1] = self.map_port_name(from_dev, local, ifmap, native_map)
                     rv[lname2] = self.map_port_name(to_dev, remote, ifmap, native_map)
+                    if local_npu != 'False':
+                        rv[npu_name1] = local_npu
+                    if remote_npu != 'False':
+                        rv[npu_name2] = remote_npu
         if self.common_tgen_ports:
             for to_index in range(1, dut_index):
                 lnum = 1
@@ -1092,7 +1108,7 @@ class Testbed(object):
                     to_name = "D{}".format(to_index)
                     (from_dev, to_dev) = (rv[from_name], rv[to_name])
                     links = self.get_links(from_dev, to_dev)
-                    for local, _, remote in links:
+                    for local, _, remote,_,_ in links:
                         lname1 = "T1{}P{}".format(to_name, lnum)
                         lname2 = "{}T1P{}".format(to_name, lnum)
                         lnum = lnum + 1
@@ -1137,7 +1153,7 @@ class Testbed(object):
             dinfo = self.get_device_info(dut)
             dname = dinfo.__name0__ if name0 else dinfo.__name__
             partners = OrderedDict()
-            for _, partner, _ in self.get_links(dut):
+            for _, partner, _,_,_ in self.get_links(dut):
                 partners[partner] = partners.setdefault(partner, 0) + 1
             for partner in partners:
                 if "{}--{}".format(dut, partner) in exclude:
@@ -1153,6 +1169,48 @@ class Testbed(object):
                     pval = self.get_device_param(dut, pname, None)
                     if pval: retval.append("{}{}:{}".format(dname, pname.upper(), pval))
         return ",".join(retval) if retval else "D1"
+
+    def get_platform_type(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.platform_type
+        return None
+    
+    def get_rp_ip_address(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.rpip
+        return None
+
+    def get_build_commit_hash(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.build_commit_hash
+        return None
+
+    def get_build_time(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.build_time
+        return None
+
+    def get_sdk_version(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.sdk_version
+        return None
+
+    def get_username(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.credentials.username
+        return None
+
+    def get_password(self,dut1):
+        for dut, dinfo in self.topology.devices.items():
+            if dut1 == dut:
+                return dinfo.credentials.password
+        return None
 
     def _check_min_links(self, from_type, to_type, res, errs):
         from_dev = self.get_device_name("{}{}".format(from_type, res.group(1)))
@@ -1469,7 +1527,7 @@ class Testbed(object):
             if d in props and name in props[d]:
                 return props[d][name]
         return None
-
+    
     @staticmethod
     def trace_need_has(log, dut, dut_tb, props, name, phase, need, has=None):
         if not log:
@@ -1479,7 +1537,7 @@ class Testbed(object):
         else:
             msg = "{}:{} DEV:{}/{} NEED:{} HAS:{} REQ:{}".format(phase, name, dut, dut_tb, need, has, props)
         Testbed.trace2(log, msg)
-
+    
     @staticmethod
     def check_model_prefix(log, tb, dut, dut_tb, props, prefix=""):
         model_name = "MODEL{}".format(prefix)
@@ -1816,7 +1874,7 @@ class Testbed(object):
             result.nodes.append(node)
             node_ids[d] = nid
         for d in self.get_device_names():
-            for local, partner, remote in self.get_links(d):
+            for local, partner, remote,_,_ in self.get_links(d):
                 if node_ids[d] > node_ids[partner]:
                     continue
                 lid = lid + 1
@@ -1859,7 +1917,7 @@ class Testbed(object):
                 self._copy_link_params(linfo, link_ent)
                 topology[dinfo.alias].interfaces[linfo.from_port] = link_ent
 
-            for local, partner, remote, name in self.get_links(dut, name=True):
+            for local, partner, remote, name,_,_ in self.get_links(dut, name=True):
                 pdinfo = self.get_device_info(partner)
                 link_ent = SpyTestDict()
                 if pdinfo.type == "TG":

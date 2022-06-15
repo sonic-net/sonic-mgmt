@@ -1315,6 +1315,11 @@ class WorkArea(object):
             profile_name = self.cfg.config_profile
         largs_list = [profile_name]
         self.net._apply_remote(dut, "config-profile", largs_list)
+        max_time = 240
+        apply_args = [max_time]
+
+        apply_args.append(True)
+        self._context.net._apply_remote(dut, "wait-for-ports", apply_args)
 
     def _load_image_dut(self, dut, scope):
         build = self.get_build(dut, scope)
@@ -1547,9 +1552,13 @@ class WorkArea(object):
 
     def _session_build_ports_dut(self, dut, no_recovery=True):
         errs = []
+        self._read_vars(dut)
+
+        if 'rp' in self.app_vars[dut]['hwsku'].lower():
+            print('interfacce validation skipping on RP')
 
         # read the port list
-        if not self.cfg.pde:
+        elif not self.cfg.pde:
             errs.extend(self._build_port_list(dut, 3))
 
         # check if there are any issues reported if not all is well
@@ -2668,7 +2677,7 @@ class WorkArea(object):
     def _get_device_links_local(self, dut, peer=None, dtype=None, index=None, native=None):
         retval = []
         native = self._is_ifname_native(dut, native)
-        for local, _, _ in self._get_device_links(dut, peer, dtype, native):
+        for local, _, _, _, _ in self._get_device_links(dut, peer, dtype, native):
             retval.append(local)
         if index is None:
             return retval
@@ -2931,6 +2940,62 @@ class WorkArea(object):
         if name in self.module_vars[dut]:
             return self.module_vars[dut][name]
         return default
+
+    def get_platform_type(self, dut):
+        """
+        returns the platform type as a string
+        :return: platform type string 
+        :rtype: str
+        """
+        return self._context._tb.get_platform_type(dut)
+    
+    def get_rp_ip_address(self, dut):
+        """
+        returns the platform type as a string
+        :return: platform type string
+        :rtype: str
+        """
+        return self._context._tb.get_rp_ip_address(dut)
+
+    def get_build_commit_hash(self, dut):
+        """
+        returns the build commit hash as a string
+        :return: commit hash string 
+        :rtype: str
+        """
+        return self._context._tb.get_build_commit_hash(dut)
+
+    def get_build_time(self, dut):
+        """
+        returns the build time as a string
+        :return: image build time  string 
+        :rtype: str
+        """
+        return self._context._tb.get_build_time(dut)
+
+    def get_sdk_version(self, dut):
+        """
+        returns the build sdk version as a string
+        :return: sdk version string 
+        :rtype: str
+        """
+        return self._context._tb.get_sdk_version(dut)
+
+    def get_username(self, dut):
+        """
+        returns the username as a string
+        :return: user name string 
+        :rtype: str
+        """
+        return self._context._tb.get_username(dut)
+
+    def get_password(self, dut):
+        """
+        returns the password as a string
+        :return: password string 
+        :rtype: str
+        """
+        return self._context._tb.get_password(dut)
 
     def clear_tc_results(self):
         self._context.tc_results.clear()

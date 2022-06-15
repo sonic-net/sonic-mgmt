@@ -29,6 +29,7 @@ show_interfaces_counters.tmpl, .*, sonic, sudo show interfaces counters -i .*
 show_interfaces_transceiver_eeprom.tmpl, .*, sonic, show interface(|s) transceiver eeprom\s*(Ethernet\S+|Eth\S+)*
 show_interface_status.tmpl, .*, sonic, show interface status
 show_interface_counters.tmpl, .*, sonic, sudo show interface counters -i .*
+show_interfaces_counters_per_port.tmpl, .*, sonic, portstat -i .*
 show_interfaces_transceiver_presence.tmpl, .*, sonic, show interface(|s) transceiver presence
 sfputil_show_eeprom.tmpl, .*, sonic, show interface transceiver eeprom
 show_interface_counters.tmpl, .*, sonic, show interface counters
@@ -38,7 +39,10 @@ show_interface_breakout_port.tmpl, .*, sonic, show interface breakout (port\s+\S
 show_intf_diag_reporting.tmpl, .*, sonic, show interface transceiver diagnostics reporting
 show_intf_diag_loopback_control.tmpl, .*, sonic, show interface transceiver diagnostics loopback controls
 show_intf_diag_loopback_cap.tmpl, .*, sonic, show interface transceiver diagnostics loopback capability
+show_interface_ethernet.tmpl, .*, sonic, show interface Ethernet\d+
 show_interface_transceiver.tmpl, .*, sonic, show interface transceiver
+show_l3_interface_counters.tmpl, .*, sonic, intfstat -j
+linux/ifconfig_eth.tmpl, .*, sonic, sudo ifconfig eth*
 show_interface_pfc_statistics_queue.tmpl, .*, sonic, show qos interface (Ethernet|Eth) \S+ priority-flow-control statistics queue
 show_interface_pfc_statistics.tmpl, .*, sonic, show qos interface (Ethernet|Eth) \S+ priority-flow-control statistics
 show_interface.tmpl, .*, sonic, show interface .*
@@ -92,8 +96,15 @@ show_ip_route.tmpl, .*, sonic, show ip route
 show_ip_route.tmpl, .*, sonic, show ipv6 route
 show_ip_route.tmpl, .*, sonic, show ip route vrf * ospf
 show_vlan_config.tmpl, .*, sonic, show vlan config
+watchdogutil_status.tmpl, .*, sonic, sudo watchdogutil status
+watchdogutil_arm.tmpl, .*, sonic, sudo watchdogutil arm
 show_platform_summary.tmpl, .*, sonic, show platform summary
+show_platform_idprom.tmpl, .*, sonic, sudo show platform idprom
 show_platform_temperature.tmpl, .*, sonic, show platform temperature
+show_platform_fan.tmpl, .*, sonic, show platform fan
+show_platform_inventory.tmpl, .*, sonic, .*show platform inventory
+show_platform_ssdhealth.tmpl, .*, sonic, show platform ssdhealth
+show_interfaces_status.tmpl, .*, sonic, show interfaces status
 show_bgp_ipv4_prefix.tmpl, .*, sonic, show bgp ipv4\s*([\d\.\/]+)
 show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp.*ipv4 neighbor.*
 show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp.*neighbor.*
@@ -128,6 +139,7 @@ show_arp.tmpl, .*, sonic, show arp
 show_ntp_server.tmpl, .*, sonic, show ntp server
 show_ntp_global.tmpl, .*, sonic, show ntp global
 show_ntp.tmpl, .*, sonic, show ntp.*
+show_boot.tmpl, .*, sonic, show boot
 show_ntpstat.tmpl, .*, sonic, ntpstat
 show_ntpstat.tmpl, .*, sonic, sudo cgexec -g l3mdev:mgmt ntpstat
 show_clock.tmpl, .*, sonic, show clock
@@ -138,6 +150,9 @@ pfc_show_asymmetric.tmpl, .*, sonic, pfc show asymmetric
 show_vlan_brief.tmpl, .*, sonic, show vlan brief
 show_vlan_count.tmpl, .*, sonic, show vlan count
 show_platform_psustatus.tmpl, .*, sonic, show platform psustatus
+show_processes_memory.tmpl, .*, sonic, show processes memory
+show_processes_cpu.tmpl, .*, sonic, show processes cpu
+show_int_transceiver_eeprom.tmpl, .*, sonic, show int transceiver eeprom
 show_users.tmpl, .*, sonic, show users
 show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
 show_mac_aging_time_klish.tmpl, .*, sonic, show mac address-table aging-time
@@ -150,6 +165,8 @@ show_mac_dampening_disabled_ports.tmpl, .*, sonic, show mac (dampening-disabled-
 show_mac_dampening_threshold.tmpl, .*, sonic, show mac (dampening-threshold|dampening_threshold)
 show_mac.tmpl, .*, sonic, show mac
 clear_counters.tmpl, .*, sonic, show interfaces counters -c
+clear_counters.tmpl, .*, sonic, sonic-clear counters
+clear_counters.tmpl, .*, sonic, sonic-clear rifcounters
 show_arp.tmpl, .*, sonic,show arp
 unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
 sonic_installer_list.tmpl, .*, sonic, sonic_installer list
@@ -164,6 +181,7 @@ show_bgp_neighbor.tmpl, .*,  sonic, show bgp neighbor.*
 show_uptime.tmpl, .*, sonic, show uptime
 show_ecn.tmpl, .*, sonic, show ecn
 show_environment.tmpl, .*, sonic, show environment
+show_reboot_cause_history.tmpl, .*, sonic, show reboot-cause history
 show_reboot-cause.tmpl, .*, sonic, show reboot-cause
 show_pfc_counters.tmpl, .*, sonic, show pfc counters
 show_spanning_tree_vlan_interface.tmpl, .*, sonic, show spanning-tree vlan interface
@@ -237,6 +255,7 @@ bcmcmd_l3_ip6route_show.tmpl, .*, sonic, bcmcmd 'l3 ip6route show'
 bcmcmd_l3_l3table_show.tmpl, .*, sonic, bcmcmd 'l3 l3table show'
 bcmcmd_l3_ip6host_show.tmpl, .*, sonic, bcmcmd 'l3 ip6host show'
 show_system_status.tmpl, .*, sonic, show system status
+show_system_health_summary.tmpl, .*, sonic, sudo show system-health summary
 show_error_database.tmpl, .*, sonic, show error_database
 bcmcmd_listmem_l3_entry.tmpl, .*, sonic, bcmcmd 'listmem l3_entry'
 bcmcmd_listmem_defip.tmpl, .*, sonic, bcmcmd 'listmem DEFIP'
@@ -305,6 +324,7 @@ sfputil_show_lpmode.tmpl, .*, sonic, sudo sfputil show lpmode
 sfputil_show_eeprom.tmpl, .*, sonic, sudo sfputil show eeprom
 sfputil_show_eeprom.tmpl, .*, sonic, show interface transceiver eeprom
 sfputil_show_presence.tmpl, .*, sonic, sudo sfputil show presence
+sfputil_reset_ethernet.tmpl, .*, sonic, sudo sfputil reset Ethernet\d+
 psuutil_status.tmpl, .*, sonic, sudo pddf_psuutil status
 pddf_psuutil_mfrinfo.tmpl, .*, sonic, sudo pddf_psuutil mfrinfo
 pddf_psuutil_seninfo.tmpl, .*, sonic, sudo pddf_psuutil seninfo
@@ -321,6 +341,7 @@ show_classifier.tmpl, .*, sonic, show classifier
 show_classifier.tmpl, .*, sonic, show class-map
 show_policy_type_copp.tmpl, .*, sonic, show policy type copp
 show_policy.tmpl, .*, sonic, show policy
+show_services.tmpl, .*, sonic, show services
 show_service-policy_summary.tmpl, .*, sonic, show service-policy summary
 show_service-policy_policy.tmpl, .*, sonic, show service-policy policy
 show_service-policy_interface.tmpl, .*, sonic, show service-policy Switch
@@ -346,7 +367,7 @@ show_qos_scheduler_policy.tmpl, .*, sonic, show qos scheduler-policy.*
 #These commands didn't merged from the dell_sonic
 show_system_cpu.tmpl, .*, sonic, show system cpu
 show_system_processes.tmpl, .*, sonic, show system processes
-show_system_memory.tmpl, .*, sonic, show system memory
+show_system_memory.tmpl, .*, sonic, show system.*memory
 show_system.tmpl, .*, sonic, show system
 ##-----------------------------------
 
@@ -445,10 +466,14 @@ teamdctl_portchannel_state.tmpl, .*, sonic, teamdctl PortChannel.* state
 teamdctl_portchannel_config.tmpl, .*, sonic, teamdctl PortChannel.* config dump
 show_portchannel_summary.tmpl, .*, sonic, show (p|P)ort(c|C)hannel summary.*
 show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
+show_int_transceiver_presence.tmpl, .*, sonic, show int transceiver presence
+show_int_transceiver_lpmode.tmpl, .*, sonic, show int transceiver lpmode
 show_management_vrf.tmpl, .*, sonic, show mgmt-vrf
 show_ip_prefix_list.tmpl, .*, sonic, show ip prefix-list .*
 show_ipv6_prefix_list.tmpl, .*, sonic, show ipv6 prefix-list .*
 show_ip_vrf.tmpl, .*, sonic, show ip vrf$
+show_management_interface_address.tmpl, .*, sonic, show management_interface address
+show_ip_vrf_management.tmpl, .*, sonic, show ip vrf management
 show_ip_dhcp_relay_brief.tmpl, .*, sonic, show ip dhcp-relay brief.*
 show_ip_dhcp_relay_brief.tmpl, .*, sonic, show ipv6 dhcp-relay brief.*
 show_ipv6_dhcp_relay_statistics.tmpl, .*, sonic, show ipv6 dhcp-relay statistics.*
@@ -496,6 +521,10 @@ show_lldp_redis_cli.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 4 hgetall "LLDP_PO
 show_portchannel_configdb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 4 hgetall 'PORTCHANNEL.*
 show_portchannel_appdb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 0 hgetall 'LAG_TABLE.*
 show_portchannel_statedb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'LAG_TABLE.*
+show_redis_cli_TRANSCEIVER_INFO.tmpl, .*, sonic, redis-cli -n 6 keys TRANSCEIVER_INFO*
+show_redis_cli_hget_all_interface.tmpl, .*, sonic, redis-cli -n 6 hgetall 'TRANSCEIVER_INFO.*
+show_redis-cli_TRANSCEIVER_DOM_SENSOR.tmpl, .*, sonic, redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*
+show_redis_DOM_SENSOR_Interface_details.tmpl, .*, sonic, redis-cli -n 6 hgetall 'TRANSCEIVER_DOM_SENSOR.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall '_STP_ICCP.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'STP_FASTAGEING_FLUSH.*
 show_redis_cli_transceiver_info.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall "TRANSCEIVER_INFO*
