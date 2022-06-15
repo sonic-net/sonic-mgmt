@@ -1140,14 +1140,23 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+
+        if "dynamic" in self.isBufferInApplDb(dut_asic):
+            if self.isPortDualTor(dut_asic, srcport):
+                pgs = "2-4"
+            else:
+                pgs = "3-4"
+        else:
+            pgs = "3"
 
         yield self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
-            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
-            "3-4"
+            srcport,
+            pgs
         )
 
     @pytest.fixture(scope='class', autouse=True)
@@ -1205,14 +1214,20 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+
+        if self.isPortDualTor(dut_asic, srcport):
+            queues = "2-4"
+        else:
+            queues = "3-4"
 
         yield self.__getBufferProfile(
             request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
-            dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
-            "3-4"
+            srcport,
+            queues
         )
 
     @pytest.fixture(scope='class', autouse=True)
