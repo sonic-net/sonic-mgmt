@@ -14,6 +14,12 @@ pytestmark = [
     pytest.mark.topology('t0', 't1'),
 ]
 
+
+@pytest.fixture(autouse=True, scope="module")
+def avoid_long_running_test():
+    pytest.skip("Test costs too much time. Temp skip for now.")
+
+
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthost):
     """

@@ -31,6 +31,11 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def avoid_long_running_test():
+    pytest.skip("Test costs too much time. Temp skip for now.")
+
+
 @pytest.fixture(scope="module")
 def portchannel_table(cfg_facts):
     def _is_ipv4_address(ip_addr):

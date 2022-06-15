@@ -19,6 +19,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
+@pytest.fixture(autouse=True, scope="module")
+def avoid_long_running_test():
+    pytest.skip("Test costs too much time. Temp skip for now.")
+
+
 @pytest.fixture(autouse=True)
 def cleanup_test_env(duthosts, rand_one_dut_hostname):
     """

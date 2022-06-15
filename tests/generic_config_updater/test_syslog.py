@@ -18,6 +18,12 @@ SETUP_ENV_CP                = "test_setup_checkpoint"
 CONFIG_CLEANUP              = "config_cleanup"
 CONFIG_ADD_DEFAULT          = "config_add_default"
 
+
+@pytest.fixture(autouse=True, scope="module")
+def avoid_long_running_test():
+    pytest.skip("Test costs too much time. Temp skip for now.")
+
+
 @pytest.fixture(scope="module", params=[CONFIG_CLEANUP, CONFIG_ADD_DEFAULT])
 def init_syslog_config(request):
     return request.param

@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
 
 T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
 
+
+@pytest.fixture(autouse=True, scope="module")
+def avoid_long_running_test():
+    pytest.skip("Test costs too much time. Temp skip for now.")
+
+
 def get_cacl_tables(duthost):
     """Get acl control palne tables
     """
