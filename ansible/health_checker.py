@@ -38,8 +38,9 @@ def parse_ping_result(ping_results, dut_tbname_map, skip_testbeds):
         dut_result['DeviceName'] = dut_ping_result['Host']
         dut_result['IP'] = dut_ping_result['Hostname']
         dut_result['IcmpReachability'] = 1 if dut_ping_result['Ping result'] == 'Success' else 0
-        dut_result['ConsoleReachability'] = 0
-        dut_result['SshReachability'] = 0
+        # TODO Currently, ConsoleReachability and SshReachability is not used.
+        dut_result['ConsoleReachability'] = None
+        dut_result['SshReachability'] = None
         if dut_result['DeviceName'] in dut_tbname_map:
             testbed_name = dut_tbname_map[dut_result['DeviceName']]
             if skip_testbeds and skip_testbeds != '' and testbed_name in skip_testbeds:
