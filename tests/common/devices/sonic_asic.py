@@ -617,4 +617,28 @@ class SonicAsic(object):
             return True
 
         return False
+    
+    def count_crm_resources(self, resource_type, route_tag, count_type):
+        mapping = self.sonichost.get_crm_resources(self.namespace)
+        return mapping.get(resource_type).get(route_tag, {}).get(count_type)
+
+    def docker_exec_swssconfig(self, json_name, container_name):
+        container = container_name + str(self.sonichost.asic_index)
+        return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
+                           module_ignore_errors=True)
+
+    def count_routes(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return int(self.shell(
+            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            module_ignore_errors=True, verbose=True)['stdout'])
+    
+    def get_route_key(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            verbose=False)['stdout_lines']
                      
