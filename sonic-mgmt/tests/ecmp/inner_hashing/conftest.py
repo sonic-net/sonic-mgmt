@@ -56,8 +56,6 @@ ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --desc
 DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
 ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
                         " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
-ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
-                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
 ADD_PBH_HASH_CMD = "sudo config pbh hash add '{}' --hash-field-list '{}'"
 DEL_PBH_HASH_CMD = "sudo config pbh hash delete '{}'"
@@ -189,6 +187,20 @@ def vlan_ptf_ports(config_facts, tbinfo, duthost):
             ports.append(dut_port_index)
 
     return ports
+
+
+@pytest.fixture(scope='module')
+def lag_mem_ptf_ports_groups(config_facts, tbinfo, duthost):
+    lag_mem_ptf_ports_groups = []
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for lag_members in config_facts.get('PORTCHANNEL_MEMBER', {}).values():
+        lag_group = []
+        for intf in lag_members.keys():
+            dut_port_index = mg_facts['minigraph_ptf_indices'][intf]
+            lag_group.append(dut_port_index)
+        lag_mem_ptf_ports_groups.append(lag_group)
+
+    return lag_mem_ptf_ports_groups
 
 
 @pytest.fixture(scope='module')
@@ -437,15 +449,17 @@ def get_src_dst_ip_range(ipver):
     return src_ip_range, dst_ip_range
 
 
-def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys):
+def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys, ports_groups):
     logging.info('Verify PBH counters')
     with allure.step('Verify PBH counters'):
         symmetric_multiplier = 2 if symmetric_hashing else 1
-        exp_port_multiplier = 4  # num of POs in t0 topology
+        exp_ports_multiplier = 0
+        for group in ports_groups:
+            exp_ports_multiplier += len(group)
         hash_keys_multiplier = len(hash_keys)
         # for hash key "ip-proto", the traffic sends always in one way
-        exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
-                        + (balancing_test_times * exp_port_multiplier))
+        exp_count = str((balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier-1))
+                        + (balancing_test_times * exp_ports_multiplier))
         pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
         for outer_encap_format in OUTER_ENCAP_FORMATS:
             regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)

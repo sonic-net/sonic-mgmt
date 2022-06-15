@@ -216,8 +216,14 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["twentyfiveGigE0/%d" % i] = "Ethernet%d" % i
             for i in range(49,57):
                 port_alias_to_name_map["hundredGigE0/%d" % (i-48)] = "Ethernet%d" % i
+        elif hwsku == "RA-B6510-32C":
+            for i in range(1,33):
+                port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
         elif hwsku == "RA-B6910-64C":
             for i in range(1,65):
+                port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
+        elif hwsku == "RA-B6920-4S":
+            for i in range(1,129):
                 port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
         else:
             for i in range(0, 128, 4):

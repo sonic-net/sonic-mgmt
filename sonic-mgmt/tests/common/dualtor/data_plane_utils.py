@@ -163,7 +163,15 @@ def run_test(
         logger.info("Sender and sniffer threads started, ready to execute the "\
             "callback action")
         time.sleep(15)
-        action()
+
+        try:
+            action()
+        except Exception as error:
+            logging.error("Caught exception %s during action.", repr(error))
+            tor_IO.stop_early = True
+            send_and_sniff.join()
+            raise
+
     # do not time-wait the test, if early stop is not requested (when stop_after=None)
     if stop_after is not None:
         wait_until(timeout=stop_after, interval=0.5, delay=0, condition=\

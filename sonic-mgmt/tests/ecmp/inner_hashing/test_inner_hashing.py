@@ -35,7 +35,8 @@ class TestDynamicInnerHashing():
             request.getfixturevalue("config_hash")
             request.getfixturevalue("config_rules")
 
-    def test_inner_hashing(self, request, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac, vlan_ptf_ports, symmetric_hashing, duthost):
+    def test_inner_hashing(self, request, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
+                           vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups):
         logging.info("Executing dynamic inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
@@ -46,12 +47,13 @@ class TestDynamicInnerHashing():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            balancing_test_times = 150
+            balancing_test_times = 120
             balancing_range = 0.3
 
             ptf_params = {"fib_info": FIB_INFO_FILE_DST,
                           "router_mac": router_mac,
                           "src_ports": vlan_ptf_ports,
+                          "exp_port_groups": lag_mem_ptf_ports_groups,
                           "hash_keys": hash_keys,
                           "vxlan_port": VXLAN_PORT,
                           "inner_src_ip_range": ",".join(inner_src_ip_range),
@@ -75,7 +77,8 @@ class TestDynamicInnerHashing():
                        socket_recv_size=16384)
 
             retry_call(check_pbh_counters,
-                       fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys],
+                       fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times,
+                              symmetric_hashing, hash_keys, lag_mem_ptf_ports_groups],
                        tries=5,
                        delay=5)
 
@@ -103,8 +106,8 @@ class TestDynamicInnerHashing():
                            socket_recv_size=16384)
 
             retry_call(check_pbh_counters,
-                       fargs=[duthost, swapped_outer_ipver, swapped_inner_ipver,
-                              balancing_test_times, symmetric_hashing, hash_keys],
+                       fargs=[duthost, swapped_outer_ipver, swapped_inner_ipver, balancing_test_times,
+                              symmetric_hashing, hash_keys, lag_mem_ptf_ports_groups],
                        tries=5,
                        delay=5)
 
@@ -112,7 +115,8 @@ class TestDynamicInnerHashing():
 @pytest.mark.static_config
 class TestStaticInnerHashing():
 
-    def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac, vlan_ptf_ports, symmetric_hashing):
+    def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
+                           vlan_ptf_ports, symmetric_hashing, lag_mem_ptf_ports_groups):
         logging.info("Executing static inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -129,6 +133,7 @@ class TestStaticInnerHashing():
                    params={"fib_info": FIB_INFO_FILE_DST,
                            "router_mac": router_mac,
                            "src_ports": vlan_ptf_ports,
+                           "exp_port_groups": lag_mem_ptf_ports_groups,
                            "hash_keys": hash_keys,
                            "vxlan_port": VXLAN_PORT,
                            "inner_src_ip_range": ",".join(inner_src_ip_range),
