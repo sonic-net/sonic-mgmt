@@ -672,7 +672,7 @@ class MultiAsicSonicHost(object):
         """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
     
-       def config_interface_cmd(self, operation, interf, ip):
+    def config_interface_cmd(self, operation, interf, ip):
         ns_prefix = ''
         if self.sonichost.is_multi_asic:
             asic_idx = self.get_asic_index_for_portchannel(interf)
