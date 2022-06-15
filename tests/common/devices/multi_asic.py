@@ -671,4 +671,40 @@ class MultiAsicSonicHost(object):
     def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
         """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
-        
+    
+       def config_interface_cmd(self, operation, interf, ip):
+        ns_prefix = ''
+        if self.sonichost.is_multi_asic:
+            asic_idx = self.get_asic_index_for_portchannel(interf)
+            ns_prefix = '-n asic' + str(asic_idx)
+        self.shell("sudo config interface {} ip {} {} {}".format(ns_prefix, operation, interf, ip))
+
+    def ip_neigh_replace_cmd(self, neigh, mac, interf):
+        """
+        For multi-asic it is "sudo ip -n asic0 neigh replace {neighbor} lladdr {mac} dev {interface}"
+        For single-sic it is "sudo ip neigh replace {} lladdr {} dev {}"
+        """
+        ns_prefix = ''
+        if self.sonichost.is_multi_asic:
+            asic_idx = self.get_asic_index_for_portchannel(interf)
+            ns_prefix = '-n asic' + str(asic_idx)
+        self.shell("sudo ip {} neigh replace {} lladdr {} dev {}".format(ns_prefix, neigh, mac, interf))
+
+    def ip_neigh_add_or_del_cmd(self, operation, neigh, interf):
+        """
+        For multi-asic it is "sudo ip -n asic0 neigh del {neighbor} dev {interface}"
+        """
+        ns_prefix = ''
+        if self.sonichost.is_multi_asic:
+            asic_idx = self.get_asic_index_for_portchannel(interf)
+            ns_prefix = '-n asic' + str(asic_idx)
+        self.shell("sudo ip {} neigh {} {} dev {}".format(ns_prefix, operation, neigh, interf))
+
+    def docker_exec_swssconfig(self, json_name, container_name, asic_idx):
+        if self.sonichost.is_multi_asic:
+            container = container_name + str(asic_idx)
+            return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
+                           module_ignore_errors=True)
+        else:
+            return self.shell('docker exec -i {} swssconfig {}'.format(container_name, json_name),
+                           module_ignore_errors=True)
