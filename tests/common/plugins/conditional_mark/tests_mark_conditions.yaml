@@ -58,14 +58,13 @@ bgp/test_bgpmon.py:
       - "'backend' in topo_name"
 
 #######################################
-#####            cacl             #####
+#####           configlet         #####
 #######################################
-cacl/test_cacl_application.py::test_cacl_application:
-  xfail:
-    reason: "Image issue on Boradcom dualtor testbeds"
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "is_multi_asic==True"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   xfail:
@@ -130,16 +129,6 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####         dhcpv6_relay        #####
-#######################################
-dhcp_relay/test_dhcpv6_relay.py:
-  xfail:
-    reason: "Not supported on dualtor"
-    strict: True
-    conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-
-#######################################
 #####           dualtor           #####
 #######################################
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
@@ -162,15 +151,27 @@ dut_console:
 #######################################
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master']"
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+ecmp/inner_hashing/test_inner_hashing_lag.py:
+  skip:
+    reason: "Skip this test on Mellanox 2700 platform"
+    conditions:
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master']"
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
+  skip:
+    reason: "Skip this test on Mellanox 2700 platform"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
 
 #######################################
 #####         everflow            #####
@@ -283,6 +284,15 @@ macsec/test_macsec.py:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
+#####           nat               #####
+#######################################
+nat:
+  skip:
+    reason: "Nat feature is not enabled with image version"
+    conditions:
+      - "'nat' not in feature_status"
+
+#######################################
 #####           ntp               #####
 #######################################
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
@@ -351,14 +361,6 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
-
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
-  xfail:
-    reason: "Test flaky"
-
-pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
-  xfail:
-    reason: "Test flaky"
 
 #######################################
 #####         platform_tests      #####
@@ -567,9 +569,9 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "sub port interfaces test is not yet supported on multi-ASIC platform"
+    reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True"
+      - "is_multi_asic==True or asic_gen not in ['td2']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -670,4 +672,3 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
       - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
-

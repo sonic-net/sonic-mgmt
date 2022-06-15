@@ -111,6 +111,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    enable_macsec = False
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -152,6 +153,11 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
     if request.config.option.post_check:
         post_check = True
+
+    if request.config.option.enable_macsec:
+        enable_macsec = True
+        startup_macsec = request.getfixturevalue("startup_macsec")
+        start_macsec_service = request.getfixturevalue("start_macsec_service")
 
     cli_check_items = request.config.getoption("--check_items")
     cli_post_check_items = request.config.getoption("--post_check_items")
@@ -215,6 +221,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                 for failed_result in failed_results:
                     if 'host' in failed_result:
                         dut_failed_results[failed_result['host']].append(failed_result)
+                    if 'hosts' in failed_result:
+                        for hostname in failed_result['hosts']:
+                            dut_failed_results[hostname].append(failed_result)
                     if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
                         if 'action' in failed_result and failed_result['action'] is not None \
                             and callable(failed_result['action']):
@@ -226,6 +235,10 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                     neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
                 for action in infra_recovery_actions:
                     action()
+
+                if enable_macsec:
+                    start_macsec_service()
+                    startup_macsec()
 
                 logger.info("Run sanity check again after recovery")
                 new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)

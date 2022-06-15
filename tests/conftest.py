@@ -42,7 +42,12 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
-from tests.macsec import MacsecPlugin
+
+try:
+    from tests.macsec import MacsecPlugin
+except ImportError as e:
+    logging.error(e)
+
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
@@ -386,12 +391,12 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
-        return PTFHost(ansible_adhoc, tbinfo["ptf"])
+        return PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        return PTFHost(ansible_adhoc, ptf_host)
+        return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo)
 
 
 @pytest.fixture(scope="module")
@@ -704,6 +709,14 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("platform", duthost.facts["platform"])
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
+
+def pytest_runtest_setup(item):
+    # Add start timestamp of testcase
+    item.user_properties.append(("start", datetime.utcnow()))
+
+def pytest_runtest_teardown(item):
+    # Add end timestamp of testcase
+    item.user_properties.append(("end", datetime.utcnow()))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -1477,10 +1490,22 @@ def duts_minigraph_facts(duthosts, tbinfo):
 
     Returns:
         dict: {
-            <dut hostname>: {dut_minigraph_facts}
+            <dut hostname>: [
+                {asic0_mg_facts},
+                {asic1_mg_facts}
+            ]
         }
     """
-    return duthosts.get_extended_minigraph_facts(tbinfo)
+    mg_facts = {}
+    for duthost in duthosts:
+        mg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
+            mg_facts[duthost.hostname].append(asic_mg_facts)
+
+    return mg_facts
 
 @pytest.fixture(scope="module", autouse=True)
 def get_reboot_cause(duthost):
@@ -1554,18 +1579,23 @@ def collect_db_dump(request, duthosts):
 @pytest.fixture(scope="module", autouse=True)
 def verify_new_core_dumps(duthost):
     if "20191130" in duthost.os_version:
-        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
     else:
-        pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
-    
+        pre_existing_cores = duthost.shell('ls /var/core/')['stdout'].split()
+
     yield
     if "20191130" in duthost.os_version:
-        coredumps_count = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
+        cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
     else:
-        coredumps_count = duthost.shell('ls /var/core/ | wc -l')['stdout']
-    if int(coredumps_count) > int(pre_existing_cores):
-        pytest.fail("Core dumps found. Expected: {} Found: {}. Test failed".format(pre_existing_cores,\
-            coredumps_count))
+        cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
+
+    new_core_dumps = set(cur_cores) - set(pre_existing_cores)
+    # convert to list so print msg will not contain "set()"
+    new_core_dumps = list(new_core_dumps)
+
+    if new_core_dumps:
+        pytest.fail("Core dumps found. Expected: %s Found: %s. Test failed. New core dumps: %s" % (len(pre_existing_cores),\
+            len(cur_cores), new_core_dumps))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """

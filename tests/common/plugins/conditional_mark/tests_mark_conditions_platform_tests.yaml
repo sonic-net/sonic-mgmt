@@ -56,6 +56,14 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -77,10 +85,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####    api/test_component.py    #####
@@ -202,6 +213,14 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -223,10 +242,13 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -260,13 +282,6 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_master_led:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7260cx3_64']"
-      - "branch in ['internal-202012']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
@@ -425,7 +440,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_thres
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
   skip:
@@ -543,12 +558,6 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
     conditions:
       - "release in ['201911']"
 
-platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s', 'x86_64-arista_7260cx3_64']"
-
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -563,8 +572,7 @@ platform_tests/test_memory_exhaustion.py:
   skip:
     reason: "Skip this test case until vendors fix the issue"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32', 'Celestica-E1031-T48S4']"
-      - https://github.com/Azure/sonic-buildimage/issues/10339
+      - "(hwsku in ['Celestica-DX010-C32', 'Celestica-E1031-T48S4'] and https://github.com/Azure/sonic-buildimage/issues/10339) or (hwsku in ['Force10-S6000'] and https://github.com/Azure/sonic-buildimage/issues/10921)"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -585,12 +593,6 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
-platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s', 'x86_64-arista_7050_qx32s']"
-      - "branch in ['internal-202012']"
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:
@@ -608,14 +610,6 @@ platform_tests/test_reboot.py:
     reason: "Skip reboot test for Celestica"
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4']"
-
-platform_tests/test_reboot.py::test_warm_reboot:
-  xfail:
-    reason: "Image issue on Boradcom dualtor testbeds"
-    strict: True
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 #######################################
 ##### test_sequential_restart.py  #####

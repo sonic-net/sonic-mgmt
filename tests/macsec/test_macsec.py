@@ -7,6 +7,7 @@ import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
+from tests.common import config_reload
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0"),
+    pytest.mark.topology("t0", "t2"),
 ]
 
 
@@ -91,11 +92,13 @@ class TestControlPlane():
 class TestDataPlane():
     BATCH_COUNT = 10
 
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
-        nbr_ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
+    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, ptfadapter):
+        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
 
         down_link = downstream_links.values()[0]
         dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
+
+        setattr(ptfadapter, "force_reload_macsec", True)
 
         for portchannel in get_portchannel(duthost).values():
             members = portchannel["members"]
@@ -128,18 +131,12 @@ class TestDataPlane():
                 "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
 
-            testutils.send_packet(
-                nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-            testutils.verify_packet_any_port(
-                nbr_ptfadapter, exp_pkt, ports=peer_ports, device_number=nbr_device_numbers[up_host_name], timeout=3)
-
             fail_message = ""
             for port_name in members:
                 up_link = upstream_links[port_name]
-                macsec_attr = get_macsec_attr(duthost, port_name)
                 testutils.send_packet(
-                    nbr_ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
-                result = check_macsec_pkt(macsec_attr=macsec_attr, test=nbr_ptfadapter,
+                    ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
+                result = check_macsec_pkt(test=ptfadapter,
                                           ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
                 if result is None:
                     return
@@ -152,7 +149,7 @@ class TestDataPlane():
                 "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers, nbr_ptfadapter):
+    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers):
         portchannels = get_portchannel(duthost).values()
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
@@ -257,12 +254,12 @@ class TestFaultHandling():
 
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], profile_name)
+        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
 
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
         enable_macsec_port(duthost, port_name, profile_name)
-        set_macsec_profile(nbr["host"], profile_name, default_priority,
+        set_macsec_profile(nbr["host"], nbr["port"], profile_name, default_priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
 
@@ -277,7 +274,7 @@ class TestFaultHandling():
         # Teardown
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], profile_name)
+        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
 
 
 class TestInteropProtocol():
@@ -381,6 +378,9 @@ class TestInteropProtocol():
         '''
         Verify SNMP request/response works across interface with macsec configuration
         '''
+        if duthost.is_multi_asic:
+            pytest.skip("The test is for Single ASIC devices")
+
         for ctrl_port, nbr in ctrl_links.items():
             if isinstance(nbr["host"], EosHost):
                 result = nbr["host"].eos_command(
@@ -395,3 +395,23 @@ class TestInteropProtocol():
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
                 community, up_link["local_ipv4_addr"], sysDescr)
             assert not duthost.command(command)["failed"]
+
+
+class TestDeployment():
+    def test_config_reload(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
+        # Save the original config file
+        duthost.shell("cp /etc/sonic/config_db.json config_db.json")
+        # Save the current config file
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/config_db.json")
+        config_reload(duthost)
+        def _test_appl_db():
+            for port_name, nbr in ctrl_links.items():
+                if isinstance(nbr["host"], EosHost):
+                    continue
+                check_appl_db(duthost, port_name, nbr["host"],
+                              nbr["port"], policy, cipher_suite, send_sci)
+            return True
+        assert wait_until(300, 6, 12, _test_appl_db)
+        # Recover the original config file
+        duthost.shell("sudo cp config_db.json /etc/sonic/config_db.json")
+

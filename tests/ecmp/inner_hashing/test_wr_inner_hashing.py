@@ -29,7 +29,7 @@ class TestWRDynamicInnerHashing():
             request.getfixturevalue("config_rules")
 
     def test_inner_hashing(self, duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, localhost):
+                           vlan_ptf_ports, symmetric_hashing, localhost, lag_mem_ptf_ports_groups):
         logging.info("Executing warm boot dynamic inner hash test for outer {} and inner {} with symmetric_hashing"
                      " set to {}".format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest and warm-reboot in parallel'):
@@ -57,6 +57,7 @@ class TestWRDynamicInnerHashing():
                        params={"fib_info": FIB_INFO_FILE_DST,
                                "router_mac": router_mac,
                                "src_ports": vlan_ptf_ports,
+                               "exp_port_groups": lag_mem_ptf_ports_groups,
                                "hash_keys": hash_keys,
                                "vxlan_port": VXLAN_PORT,
                                "inner_src_ip_range": ",".join(inner_src_ip_range),
@@ -78,7 +79,7 @@ class TestWRDynamicInnerHashing():
 class TestWRStaticInnerHashing():
 
     def test_inner_hashing(self, duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, localhost):
+                           vlan_ptf_ports, symmetric_hashing, localhost, lag_mem_ptf_ports_groups):
         logging.info("Executing static inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -98,6 +99,7 @@ class TestWRStaticInnerHashing():
                    params={"fib_info": FIB_INFO_FILE_DST,
                            "router_mac": router_mac,
                            "src_ports": vlan_ptf_ports,
+                           "exp_port_groups": lag_mem_ptf_ports_groups,
                            "hash_keys": hash_keys,
                            "vxlan_port": VXLAN_PORT,
                            "inner_src_ip_range": ",".join(inner_src_ip_range),
