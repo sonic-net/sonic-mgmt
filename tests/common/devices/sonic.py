@@ -645,7 +645,7 @@ class SonicHost(AnsibleHostBase):
         return all_critical_process
 
     
-        def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
+    def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
         """      
