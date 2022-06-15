@@ -136,6 +136,7 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
 
+    @pytest.mark.topology('ptf32')
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,

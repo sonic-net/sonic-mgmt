@@ -859,16 +859,6 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 # Base class used for individual PTF runs used in the following: testPfcStormWithSharedHeadroomOccupancy
 class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
 
-    def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
-        print >> sys.stderr, "dst_port_id:{}, src_port_id:{}".format(dst_port_id, src_port_id)
-        # in case dst_port_id is part of LAG, find out the actual dst port
-        # for given IP parameters
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
-        )
-        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
-        return dst_port_id
-
     def parse_test_params(self):
         # Parse pkt construction related input parameters
         self.dscp = int(self.test_params['dscp'])
@@ -881,20 +871,20 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         self.pg = self.pg_id + 2
 
-        self.dst_port_id = int(self.test_params['dst_port_id'])
-        self.dst_port_ip = self.test_params['dst_port_ip']
-        self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
         self.src_port_id = int(self.test_params['src_port_id'])
         self.src_port_ip = self.test_params['src_port_ip']
         self.src_port_vlan = self.test_params['src_port_vlan']
         self.src_port_mac = self.dataplane.get_mac(0, self.src_port_id)
 
-        self.ttl = 64
+        self.dst_port_id = int(self.test_params['dst_port_id'])
+        self.dst_port_ip = self.test_params['dst_port_ip']
+        self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
 
         self.dst_port_2_id = int(self.test_params['dst_port_2_id'])
         self.dst_port_2_ip = self.test_params['dst_port_2_ip']
         self.dst_port_2_mac = self.dataplane.get_mac(0, self.dst_port_2_id)
 
+        self.ttl = 64
         self.default_packet_length = 64
 
         #  Margin used to while crossing the shared headrooom boundary
@@ -903,24 +893,10 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         # get counter names to query
         self.ingress_counters, self.egress_counters = get_counter_names(self.sonic_version)
 
-    def update_dst_ids(self):
-        pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
-        self.dst_port_id = self.get_rx_port(
-            self.src_port_id, pkt_dst_mac, self.dst_port_ip, self.src_port_ip, self.dst_port_id, self.src_port_vlan
-        )
-
-        pkt_dst_mac2 = self.router_mac if self.router_mac != '' else self.dst_port_2_mac
-        self.dst_port_2_id = self.get_rx_port(
-            self.src_port_id, pkt_dst_mac2, self.dst_port_2_ip, self.src_port_ip, self.dst_port_2_id, self.src_port_vlan
-        )
-
-    def runTest(self):
-        pass
-
 
 class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
 
-    def get_pkt_dst_port_1(self):
+    def get_pkt_dst_port(self):
         pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
         return construct_ip_pkt(self.default_packet_length,
                                pkt_dst_mac,
@@ -955,10 +931,8 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
         pkts_num_private_headrooom = int(self.test_params['pkts_num_private_headrooom'])
 
         # Draft packets
-        pkt = self.get_pkt_dst_port_1()
+        pkt = self.get_pkt_dst_port()
         pkt2 = self.get_pkt_dst_port_2()
-
-        self.update_dst_ids()
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -970,7 +944,6 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
         pg_cntrs_base = sai_thrift_read_pg_shared_watermark(
             self.client, self.asic_type, port_list[self.src_port_id]
         )
-
 
         logging.info("Disabling xmit ports: {}".format([self.dst_port_id, self.dst_port_2_id]))
         sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
@@ -1034,7 +1007,6 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
         switch_init(self.client)
 
         self.parse_test_params()
-        self.update_dst_ids()
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -1090,7 +1062,6 @@ class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
 
     def runTest(self):
         self.parse_test_params()
-        self.update_dst_ids()
         sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
 
 
