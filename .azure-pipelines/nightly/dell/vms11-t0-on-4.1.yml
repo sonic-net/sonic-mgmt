@@ -27,6 +27,12 @@ parameters:
     default: $(IMAGE_BRCM_202012)
     displayName: "Image URL"
 
+  - name: SKIP_SCRIPTS
+    type: string
+    # skip test_memory_exhaustion because this hardware has some issue and we cannot replace a new one.
+    default: "platform_tests/test_memory_exhaustion.py"
+    displayName: "Skip test scripts"
+
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
@@ -44,4 +50,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
