@@ -200,13 +200,28 @@ class TestQosSai(QosSaiBase):
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_margin_under_pfc": 8,
-            "pkts_num_private_headrooom": 15,
-            "hwsku":dutTestParams['hwsku']
+            "pkts_num_private_headrooom": 15
         })
 
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.PfcOccupySharedHeadroom", testParams=testParams
-        )
+        try:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfFillBuffer", testParams=testParams
+            )
+
+            # TODO: Generate a PFC Storm
+
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfReleaseBuffer", testParams=testParams
+            )
+
+        except Exception as e:
+            raise e
+
+        finally:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
+            )
+
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
