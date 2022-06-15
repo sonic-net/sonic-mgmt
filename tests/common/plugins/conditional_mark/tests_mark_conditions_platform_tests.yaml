@@ -572,7 +572,7 @@ platform_tests/test_memory_exhaustion.py:
   skip:
     reason: "Skip this test case until vendors fix the issue"
     conditions:
-      - "(hwsku in ['Celestica-DX010-C32', 'Celestica-E1031-T48S4'] and https://github.com/Azure/sonic-buildimage/issues/10339) or (hwsku in ['Force10-S6000'] and https://github.com/Azure/sonic-buildimage/issues/10921)"
+      - "hwsku in ['Celestica-E1031-T48S4'] and https://github.com/Azure/sonic-buildimage/issues/10339"
 
 #######################################
 #####    test_platform_info.py    #####
