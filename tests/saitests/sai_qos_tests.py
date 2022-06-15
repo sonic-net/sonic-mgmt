@@ -918,7 +918,7 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of ingress pg occupancy for the source port
         pg_cntrs_base = sai_thrift_read_pg_shared_watermark(
-            self.client, port_list[src_port_id]
+            self.client, asic_type, port_list[src_port_id]
         )
 
         #  Margin used to cross the shared headrooom boundary
@@ -993,7 +993,7 @@ class PfcOccupySharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
             # get a snapshot of ingress pg shared occupancy for the source port after sending pkts
             pg_cntrs = sai_thrift_read_pg_shared_watermark(
-                self.client, port_list[src_port_id]
+                self.client, asic_type, port_list[src_port_id]
             )
 
             logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
