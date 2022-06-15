@@ -1142,13 +1142,10 @@ class QosSaiBase(QosBase):
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
-        if "dynamic" in self.isBufferInApplDb(dut_asic):
-            if self.isPortDualTor(dut_asic, srcport):
-                pgs = "2-4"
-            else:
-                pgs = "3-4"
+        if self.isPortDualTor(dut_asic, srcport):
+            pgs = "2-4"
         else:
-            pgs = "3"
+            pgs = "3-4"
 
         yield self.__getBufferProfile(
             request,
