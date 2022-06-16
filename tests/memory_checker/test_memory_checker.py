@@ -38,7 +38,7 @@ WAITING_SYSLOG_MSG_SECS = 130
 
 
 def remove_container(duthost, container_name):
-    """Removes the container on DuT.
+    """Removes the specified container on DuT.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -47,17 +47,20 @@ def remove_container(duthost, container_name):
     Returns:
         None.
     """
+    if not is_container_running(duthost, container_name):
+        pytest.fail("'{}' container is not running on DuT '{}'!".format(container_name, duthost.hostname))
+
     logger.info("Stopping '{}' container ...".format(container_name))
     duthost.shell("systemctl stop {}.service".format(container_name))
-    logger.info("'{}' is stopped.".format(container_name))
+    logger.info("'{}' container is stopped.".format(container_name))
 
     logger.info("Removing '{}' container ...".format(container_name))
     duthost.shell("docker rm {}".format(container_name))
-    logger.info("'{}' is removed.".format(container_name))
+    logger.info("'{}' container is removed.".format(container_name))
 
 
 def restart_container(duthost, container_name):
-    """Restarts the container on DuT.
+    """Restarts the specified container on DuT.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -68,7 +71,14 @@ def restart_container(duthost, container_name):
     """
     logger.info("Restarting '{}' container ...".format(container_name))
     duthost.shell("systemctl restart {}.service".format(container_name))
-    logger.info("'{}' is restarted.".format(container_name))
+
+    logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
+    logger.info("'{}' container is restarted.".format(container_name))
 
 
 def backup_monit_config_files(duthost):
@@ -273,24 +283,11 @@ def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
                    .format(container_name))
 
     duthost = duthosts[dut_name]
-
-    if not is_container_running(duthost, container_name):
-        pytest.fail("'{}' is nor running!".format(container_name))
-
     remove_container(duthost, container_name)
 
     yield
 
     restart_container(duthost, container_name)
-
-    logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
-    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                           CONTAINER_CHECK_INTERVAL_SECS,
-                           0,
-                           check_container_state, duthost, container_name, True)
-    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
-    logger.info("'{}' container is restarted.".format(container_name))
-
     postcheck_critical_processes(duthost, container_name)
 
 
@@ -637,7 +634,8 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
 
 
 def check_log_message(duthost, container_name):
-    """Leverages LogAanlyzer to check whether `memory_checker` can log an message into syslog or not.
+    """Leverages LogAanlyzer to check whether `memory_checker` can log the specific message
+    into syslog or not.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -666,7 +664,8 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
                                                   enum_rand_one_per_hwsku_frontend_hostname):
     """Checks whether 'memory_checker' script can log an message into syslog if
     one container is not created during device is booted/reooted. This test case will
-    remove a container manually to simulate the scenario in which container was not created.
+    remove a container explicitly to simulate the scenario in which the container was not created
+    successfully.
 
     Args:
         duthosts: The fixture returns list of DuTs.
