@@ -22,12 +22,16 @@ Parameters:
 
 import logging
 import pytest
+import time
 
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
+from tests.common.helpers.pfc_storm import PFCStorm
+from tests.pfcwd.files.pfcwd_helper import set_pfc_timers
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -136,11 +140,10 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
 
-    @pytest.mark.topology('ptf32')
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testPfcStormWithSharedHeadroomOccupancy(
-        self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile
+        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,
+        fanout_graph_facts,  dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
@@ -153,6 +156,8 @@ class TestQosSai(QosSaiBase):
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
+                fanout_graph_facts(fixture) : fanout graph info
+                fanouthosts(AnsibleHost): fanout instance
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
 
@@ -164,6 +169,9 @@ class TestQosSai(QosSaiBase):
         """
         if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("This Test Case is only meant for Mellanox ASIC")
+
+        if "lag" in dutConfig["dutTopo"]:
+            pytest.skip("Topology {} is not suppoted".format(dutConfig["dutTopo"]))
 
         # TODO: Check if Shared Headroom is enabled
 
@@ -204,13 +212,57 @@ class TestQosSai(QosSaiBase):
             "pkts_num_private_headrooom": 15
         })
 
+        # Params required for generating a PFC Storm
+        duthost = dutConfig["dutInstance"]
+        dut_eth0_ip = duthost.mgmt_ip
+        pfcwd_timers = set_pfc_timers()
+        pfcwd_test_port_id = dutConfig["testPorts"]["src_port_id"]
+        pfcwd_test_port = dutConfig["dutInterfaces"][pfcwd_test_port_id]
+        fanout_neighbors = conn_graph_facts["device_conn"][duthost.hostname]
+        peerdevice = fanout_neighbors[pfcwd_test_port]["peerdevice"]
+        peerport = fanout_neighbors[pfcwd_test_port]["peerport"]
+        peer_info = {
+            'peerdevice': peerdevice,
+            'hwsku': fanout_graph_facts[peerdevice]["device_info"]["HwSku"],
+            'pfc_fanout_interface': peerport
+        }
+
+        queue_index = qosConfig[xonProfile]["pg"]
+        frames_number = 100000000
+
+        logging.info("PFC Storm Gen Params \n DUT iface: {} Fanout iface : {}\
+                      queue_index: {} peer_info: {}".format(pfcwd_test_port,
+                                                            peerport,
+                                                            queue_index,
+                                                            peer_info))
+
+        # initialize PFC Storm Handler
+        storm_hndle = PFCStorm(duthost, fanout_graph_facts, fanouthosts,
+                               pfc_queue_idx = queue_index,
+                               pfc_frames_number = frames_number,
+                               peer_info = peer_info)
+        storm_hndle.deploy_pfc_gen()
+
+        # stop pfcwd
+        logger.info("--- Stopping Pfcwd ---")
+        duthost.command("pfcwd stop")
+
+        # set poll interval for pfcwd
+        duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_timers']['pfc_wd_poll_time']))
+
+        """
         try:
+            logger.info("---  Fill the ingress buffers ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfFillBuffer", testParams=testParams
             )
 
-            # TODO: Generate a PFC Storm
+            # Trigger PfcWd
+            storm_hndle.start_storm()
+            time.sleep(2)
+            storm_hndle.stop_storm()
 
+            logger.info("---  Re-Enable dst ifaces and verify if the PFC frames are not sent ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfReleaseBuffer", testParams=testParams
             )
@@ -222,7 +274,9 @@ class TestQosSai(QosSaiBase):
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
-
+            logger.info("--- Stopping Pfcwd ---")
+            duthost.command("pfcwd stop")
+        """
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
