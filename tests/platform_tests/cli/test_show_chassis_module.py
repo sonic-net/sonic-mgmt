@@ -66,7 +66,7 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command(cmd)
     res_mid_status = parse_chassis_module(output['stdout_lines'], expected_headers)
-    mod_key= ['line-cards']
+    mod_key= ['line-cards', 'supervisor']
     skip_mod_list = get_skip_mod_list(duthost, mod_key)
 
     for mod_idx in res_mid_status:

@@ -42,7 +42,12 @@ from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
-from tests.macsec import MacsecPlugin
+
+try:
+    from tests.macsec import MacsecPlugin
+except ImportError as e:
+    logging.error(e)
+
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
@@ -704,6 +709,14 @@ def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_pro
     record_testsuite_property("platform", duthost.facts["platform"])
     record_testsuite_property("hwsku", duthost.facts["hwsku"])
     record_testsuite_property("os_version", duthost.os_version)
+
+def pytest_runtest_setup(item):
+    # Add start timestamp of testcase
+    item.user_properties.append(("start", datetime.utcnow()))
+
+def pytest_runtest_teardown(item):
+    # Add end timestamp of testcase
+    item.user_properties.append(("end", datetime.utcnow()))
 
 
 @pytest.fixture(scope="module", autouse=True)

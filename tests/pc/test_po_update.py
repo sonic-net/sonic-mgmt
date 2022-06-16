@@ -262,13 +262,13 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             while packet_sending_flag.empty() or (not packet_sending_flag.get()):
                 time.sleep(0.2)
             asichost.config_portchannel_member(tmp_pc, pc_members[0], "del")
-            time.sleep(0.5)
+            time.sleep(2)
             asichost.config_portchannel_member(tmp_pc, pc_members[0], "add")
-            time.sleep(0.5)
+            time.sleep(4)
             asichost.config_portchannel_member(tmp_pc, pc_members[1], "del")
-            time.sleep(0.5)
+            time.sleep(2)
             asichost.config_portchannel_member(tmp_pc, pc_members[1], "add")
-            time.sleep(1)
+            time.sleep(2)
             member_update_finished_flag.put(True)
 
         t = threading.Thread(target=del_add_members, name="del_add_members_thread")
@@ -290,10 +290,12 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             stop_sending = reach_max_time or member_update_thread_finished
         t.join(20)
         time.sleep(2)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices, timeout=10)
-        logging.info("match_cnt is {}, and send_count is {}".format(match_cnt, send_count))
-        pytest_assert(match_cnt > 0, "Packets not send")
-        pytest_assert(match_cnt == send_count, "Packets lost during pc members add/removal")
+        match_count = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices, timeout=10)
+        logging.info("match_count: {}, send_count: {}".format(match_count, send_count))
+        max_loss_rate = 0.01
+        pytest_assert(match_count > send_count * (1 - max_loss_rate),
+                      "Packets lost rate > {} during pc members add/removal, send_count: {}, match_count: {}".format(
+                          max_loss_rate, send_count, match_count))
     finally:
         if add_tmp_pc_ip:
             asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
