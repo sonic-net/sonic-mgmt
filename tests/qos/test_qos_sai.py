@@ -248,9 +248,8 @@ class TestQosSai(QosSaiBase):
         duthost.command("pfcwd stop")
 
         # set poll interval for pfcwd
-        duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_timers']['pfc_wd_poll_time']))
+        duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
 
-        """
         try:
             logger.info("---  Fill the ingress buffers ---")
             self.runPtfTest(
@@ -271,12 +270,12 @@ class TestQosSai(QosSaiBase):
             raise e
 
         finally:
+            logger.info("---  Enable all dst ports ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
             logger.info("--- Stopping Pfcwd ---")
             duthost.command("pfcwd stop")
-        """
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
