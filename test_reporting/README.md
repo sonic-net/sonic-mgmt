@@ -24,6 +24,9 @@ You need to add the following environment variables first:
 
 Check out [this doc from Kusto](https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app) for more details about setting up AAD client applications for accessing Kusto.
 
+If you want to upload data into a new table, please add the related create table commands in setup.kql file and run them manually in Kusto.
+Make sure the table is created and mapping is generated sucessfully.
+
 Once these have been added, you can use the `report_uploader.py` script to upload test report data to Kusto:
 ```
 % python3 report_uploader.py -c "test_result" <path to JUnit XML files produced by pytest> <database name>
