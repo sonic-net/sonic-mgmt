@@ -12,12 +12,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
-
-
-@pytest.fixture(autouse=True, scope="module")
-def avoid_long_running_test():
-    pytest.skip("Test costs too much time. Temp skip for now.")
 
 
 @pytest.fixture(autouse=True)

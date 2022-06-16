@@ -10,6 +10,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,6 @@ SETUP_ENV_CP         = "test_setup_checkpoint"
 CONFIG_CLEANUP       = "config_cleanup"
 CONFIG_ADD_DEFAULT   = "config_add_default"
 
-
-@pytest.fixture(autouse=True, scope="module")
-def avoid_long_running_test():
-    pytest.skip("Test costs too much time. Temp skip for now.")
 
 @pytest.fixture(scope="module")
 def vlan_intfs_dict(utils_vlan_intfs_dict_orig):

@@ -8,6 +8,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
@@ -15,10 +16,6 @@ logger = logging.getLogger(__name__)
 AAA_CATEGORY = ["authentication", "authorization", "accounting"]
 DEFAULT_TACACS_SERVER = "100.127.20.21"
 
-
-@pytest.fixture(autouse=True, scope="module")
-def avoid_long_running_test():
-    pytest.skip("Test costs too much time. Temp skip for now.")
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):

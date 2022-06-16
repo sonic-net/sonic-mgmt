@@ -21,14 +21,10 @@ from tests.generic_config_updater.gu_utils import check_show_ip_intf, check_vrf_
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(autouse=True, scope="module")
-def avoid_long_running_test():
-    pytest.skip("Test costs too much time. Temp skip for now.")
 
 
 @pytest.fixture(autouse=True)
