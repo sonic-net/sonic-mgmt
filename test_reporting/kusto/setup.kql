@@ -190,3 +190,22 @@
                                                             '{"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},'
                                                             '{"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},'
                                                             '{"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'
+
+###############################################################################
+# TESTBEDREACHABILITY TABLE SETUP                                             #
+# 1. Create a TestbedReachability table to store testbed health info          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
+                                  DeviceName: string, IP: string,
+                                  IcmpReachability: bool, ConsoleReachability: bool,
+                                  SshReachability: bool)
+
+.create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
+                                                                     '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                     '{"column":"DeviceName","Properties":{"path":"$.DeviceName"}},'
+                                                                     '{"column":"IP","Properties":{"path":"$.IP"}},'
+                                                                     '{"column":"IcmpReachability","Properties":{"path":"$.IcmpReachability"}},'
+                                                                     '{"column":"ConsoleReachability","Properties":{"path":"$.ConsoleReachability"}},'
+                                                                     '{"column":"SshReachability","Properties":{"path":"$.SshReachability"}},'
+                                                                     ']'
