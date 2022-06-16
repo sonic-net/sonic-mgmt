@@ -219,12 +219,12 @@ def test_portchannel_interface_tc3_replace(duthost, portchannel_table):
         {
             "op": "remove",
             "path": create_path(["PORTCHANNEL_INTERFACE",
-                                 "PortChannel101|{}".format(org_ip)]),
+                                 "PortChannel101|{}".format(org_ip)])
         },
         {
             "op": "remove",
             "path": create_path(["PORTCHANNEL_INTERFACE",
-                                 "PortChannel101|{}".format(org_ipv6.upper())]),
+                                 "PortChannel101|{}".format(org_ipv6.upper())])
         },
         {
             "op": "add",
