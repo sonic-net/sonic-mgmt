@@ -158,8 +158,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
-        duthost.command("sonic-clear fdb all")
-        duthost.command("sonic-clear arp")
+        time.sleep(3)
         # Delete the static fdb entry
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
                             mock_server['server_dst_intf'], mock_server['server_dst_mac'],
