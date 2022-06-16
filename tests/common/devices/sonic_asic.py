@@ -622,11 +622,6 @@ class SonicAsic(object):
         mapping = self.sonichost.get_crm_resources(self.namespace)
         return mapping.get(resource_type).get(route_tag, {}).get(count_type)
 
-    def docker_exec_swssconfig(self, json_name, container_name):
-        container = container_name + str(self.sonichost.asic_index)
-        return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
-                           module_ignore_errors=True)
-
     def count_routes(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
