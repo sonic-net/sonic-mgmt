@@ -41,12 +41,14 @@
         Result = tostring(cases["result"]),
         ReportId = tostring(cases["id"]),
 	    Error = tobool(cases["error"]),
-        Summary = tostring(cases["summary"])
+        Summary = tostring(cases["summary"]),
+        StartTime = todatetime(cases["start"]),
+        EndTime = todatetime(cases["end"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
-                         ReportId: string, Error: bool, Summary: string)
+                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
@@ -61,6 +63,8 @@
                                                                      '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                      '{"column":"Error","Properties":{"path":"$.error"}},'
                                                                      '{"column":"Summary","Properties":{"path":"$.summary"}},'
+                                                                     '{"column":"StartTime","Properties":{"path":"$.start"}},'
+                                                                     '{"column":"EndTime","Properties":{"path":"$.end"}},'
                                                                      ']'
 
 ###############################################################################
@@ -186,3 +190,22 @@
                                                             '{"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},'
                                                             '{"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},'
                                                             '{"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'
+
+###############################################################################
+# TESTBEDREACHABILITY TABLE SETUP                                             #
+# 1. Create a TestbedReachability table to store testbed health info          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
+                                  DeviceName: string, IP: string,
+                                  IcmpReachability: bool, ConsoleReachability: bool,
+                                  SshReachability: bool)
+
+.create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
+                                                                     '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                     '{"column":"DeviceName","Properties":{"path":"$.DeviceName"}},'
+                                                                     '{"column":"IP","Properties":{"path":"$.IP"}},'
+                                                                     '{"column":"IcmpReachability","Properties":{"path":"$.IcmpReachability"}},'
+                                                                     '{"column":"ConsoleReachability","Properties":{"path":"$.ConsoleReachability"}},'
+                                                                     '{"column":"SshReachability","Properties":{"path":"$.SshReachability"}},'
+                                                                     ']'

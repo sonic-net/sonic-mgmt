@@ -6,8 +6,8 @@ import collections
 import logging
 from ipaddress import ip_address, IPv4Address
 
-from macsec_config_helper import enable_macsec_feature as start_macsec_service
-from macsec_config_helper import disable_macsec_feature as stop_macsec_service
+from macsec_config_helper import enable_macsec_feature
+from macsec_config_helper import disable_macsec_feature
 from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
 
@@ -44,22 +44,22 @@ class MacsecPlugin(object):
                                  scope="session")
 
     @pytest.fixture(scope="session")
-    def enable_macsec_feature(self, duthost, macsec_nbrhosts):
-        def __enable_macsec_feature():
-            start_macsec_service(duthost, macsec_nbrhosts)
-        return __enable_macsec_feature
+    def start_macsec_service(self, duthost, macsec_nbrhosts):
+        def __start_macsec_service():
+            enable_macsec_feature(duthost, macsec_nbrhosts)
+        return __start_macsec_service
 
     @pytest.fixture(scope="session")
-    def disable_macsec_feature(self, duthost, macsec_nbrhosts):
-        def __disable_macsec_feature():
-            stop_macsec_service(duthost, macsec_nbrhosts)
-        return __disable_macsec_feature
+    def stop_macsec_service(self, duthost, macsec_nbrhosts):
+        def __stop_macsec_service():
+            disable_macsec_feature(duthost, macsec_nbrhosts)
+        return __stop_macsec_service
 
     @pytest.fixture(scope="session")
-    def macsec_feature(self, enable_macsec_feature, disable_macsec_feature):
-        enable_macsec_feature()
+    def macsec_feature(self, start_macsec_service, stop_macsec_service):
+        start_macsec_service()
         yield
-        disable_macsec_feature()
+        stop_macsec_service()
 
     @pytest.fixture(scope="session")
     def startup_macsec(self, request, duthost, ctrl_links, macsec_profile):
