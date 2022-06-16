@@ -14,7 +14,7 @@ class Fdb():
             for line in f.readlines():
                 if pattern.match(line): continue
                 entry = line.split(' ', 1)
-                prefix = ip_network(unicode(entry[0]))
+                prefix = ip_network(str(entry[0]))
                 self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]
 
     def insert(self, mac, member):

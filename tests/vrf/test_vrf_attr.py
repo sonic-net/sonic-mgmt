@@ -73,6 +73,7 @@ class TestVrfAttrSrcMac():
                         'fib_info_files': ["/tmp/vrf1_neigh.txt"],
                         'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
                         'ptf_test_port_map': PTF_TEST_PORT_MAP},
+                socket_recv_size=16384,
                 log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log")
 
     def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):
@@ -154,34 +155,34 @@ class TestVrfAttrIpAction():
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
     def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf1 with ip_option should be drop
+        # verify packets in Vrf1 with ip_options should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
-            ip_option=True,
+            ip_options=[b'\x94\x04\x00\x00'], # router alert
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf1 without ip_option should be forward
+        # verify packets in Vrf1 without ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
-            ip_option=False,
+            ip_options=False,
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf2 with ip_option should be forward
+        # verify packets in Vrf2 with ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf2_neigh.txt'],
-            ip_option=True,
+            ip_options=[b'\x94\x04\x00\x00'], # router alert
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']

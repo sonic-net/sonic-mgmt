@@ -113,6 +113,26 @@ class MultiAsicSonicHost(object):
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
 
+    def get_dut_iface_mac(self, iface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            if self.sonichost.facts['num_asic'] == 1:
+                cmd_prefix = " "
+            else:
+                asic = self.get_port_asic_instance(iface_name)
+                cmd_prefix = "sudo ip netns exec {} ".format(asic.namespace)
+ 
+            mac = self.command('{} cat /sys/class/net/{}/address'.format(cmd_prefix, iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
+
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
             return [DEFAULT_ASIC_ID]
@@ -268,7 +288,14 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             asic.stop_service(service)
+            
+    def reset_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.reset_service(service, service)
 
+        for asic in self.asics:
+            asic.reset_service(service)
+        
     def restart_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.restart_service(service, service)
@@ -438,6 +465,26 @@ class MultiAsicSonicHost(object):
 
         return bgp_neigh
 
+    def get_bgp_neighbors_per_asic(self, state="established"):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: 
+        state: BGP session state, return neighbor IP of sessions that match this state
+        Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            bgp_neigh[asic.namespace] = {}
+            bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+            for k, v in bgp_info.items():
+                if v["state"] != state:
+                    bgp_info.pop(k)                    
+            bgp_neigh[asic.namespace].update(bgp_info)
+
+        return bgp_neigh
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -460,6 +507,20 @@ class MultiAsicSonicHost(object):
             return True
 
         return False
+
+    def check_bgp_session_state_all_asics(self, bgp_neighbors, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state in each namespace
+
+        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }} 
+        @param state: target state
+        """
+        for asic in self.asics:
+            if asic.namespace in bgp_neighbors:
+                neigh_ips = [ k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state ]
+                if not asic.check_bgp_session_state(neigh_ips, state):
+                    return False
+        return True
 
     def get_bgp_route(self, *args, **kwargs):
         """
@@ -594,3 +655,20 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+        
+    def is_service_fully_started_per_asic_or_host(self, service):
+        """This function tell if service is fully started base on multi-asic/single-asic"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic_index in range(duthost.facts["num_asic"]):
+                docker_name = self.asic_instance(asic_index).get_docker_name(service)
+                if not duthost.is_service_fully_started(docker_name): 
+                    return False
+            return True
+        else:
+            return duthost.is_service_fully_started(service)
+
+    def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
+        """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
+        self.asic_instance(asic_index).restart_service(service)
+        
