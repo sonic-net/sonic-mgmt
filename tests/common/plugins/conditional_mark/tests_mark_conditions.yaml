@@ -148,6 +148,15 @@ macsec/test_macsec.py:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
+#####            mpls             #####
+#######################################
+mpls/test_mpls.py:
+  skip:
+    reason: "MPLS TCs are not supported on Barefoot plarforms"
+    conditions:
+      - "asic_type in ['barefoot']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
