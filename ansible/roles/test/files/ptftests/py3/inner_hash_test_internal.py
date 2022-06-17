@@ -14,6 +14,7 @@ import socket
 import sys
 import time
 import json
+import os
 
 from ipaddress import ip_address, ip_network
 
@@ -107,7 +108,7 @@ class InnerHashTestInternal(BaseTest):
         time.sleep(3)
 
     def test_balancing(self, hit_count_map):
-        for port, exp_flows in self.exp_flow_count.items():
+        for port, exp_flows in list(self.exp_flow_count.items()):
             assert port in hit_count_map
             num_flows = hit_count_map[port]
             deviation = float(num_flows)/float(exp_flows)
@@ -116,7 +117,7 @@ class InnerHashTestInternal(BaseTest):
                     " num_flows " + str(num_flows) + " deviation " + str(deviation))
             assert deviation <= self.max_deviation
 
-    def simple_nvgrev6_packet(pktlen=300,
+    def simple_nvgrev6_packet(self, pktlen=300,
                         eth_dst='00:01:02:03:04:05',
                         eth_src='00:06:07:08:09:0a',
                         dl_vlan_enable=False,
@@ -168,10 +169,10 @@ class InnerHashTestInternal(BaseTest):
 
     def check_hash(self, inner_l3_proto):
         if inner_l3_proto == "IPv4":
-            src_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'8.0.0.0'), ip_address(u'8.255.255.255'))
-            dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(u'9.0.0.0'), ip_address(u'9.255.255.255'))
+            src_ip_interval = lpm.LpmDict.IpInterval(ip_address('8.0.0.0'), ip_address('8.255.255.255'))
+            dst_ip_interval = lpm.LpmDict.IpInterval(ip_address('9.0.0.0'), ip_address('9.255.255.255'))
         else:
-            print "Unsupport inner L3 proto " + inner_l3_proto
+            print("Unsupport inner L3 proto " + inner_l3_proto)
 
         # hash field for regular packets:
         #   src_ip, dst_ip, protocol, l4_src_port, l4_dst_port (if applicable)
@@ -224,10 +225,10 @@ class InnerHashTestInternal(BaseTest):
         # hash algorithm such that change in single tuple leads to 
         # a change in picked port per ECMP.
         if inner_l3_proto == "IPv4":
-            base_src_ip = ipaddress.ip_address(u'8.0.0.0')
-            base_dst_ip = ipaddress.ip_address(u'10.0.0.0')
+            base_src_ip = ipaddress.ip_address('8.0.0.0')
+            base_dst_ip = ipaddress.ip_address('10.0.0.0')
         else:
-            print "Unsupport inner L3 proto " + inner_l3_proto
+            print("Unsupport inner L3 proto " + inner_l3_proto)
 
         # hash field for regular packets:
         #   src_ip, dst_ip, protocol, l4_src_port, l4_dst_port (if applicable)
@@ -337,8 +338,8 @@ class InnerHashTestInternal(BaseTest):
                          ip_src, ip_dst, dst_port_list):
         src_mac = self.dataplane.get_mac(0, in_port)
         rand_int = random.randint(1, 254)
-        inner_src_ip = str(ipaddress.IPv6Address((random.getrandbits(64) << 64) + int(ipaddress.IPv4Address(ip_src.decode('unicode_escape')))))
-        inner_dst_ip = str(ipaddress.IPv6Address((random.getrandbits(64) << 64) + int(ipaddress.IPv4Address(ip_dst.decode('unicode_escape')))))
+        inner_src_ip = str(ipaddress.IPv6Address((random.getrandbits(64) << 64) + int(ipaddress.IPv4Address(ip_src))))
+        inner_dst_ip = str(ipaddress.IPv6Address((random.getrandbits(64) << 64) + int(ipaddress.IPv4Address(ip_dst))))
 
         pkt = simple_tcpv6_packet(
                             eth_dst=self.router_mac,

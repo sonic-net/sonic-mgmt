@@ -250,4 +250,5 @@ def test_fg_inner_hash(common_setup_teardown, ptfhost):
                 "outer_dst_ipv6": PREFIX_IPv6.split('/')[0],
                 "vxlan_port": VXLAN_PORT},
             qlen=1000,
-            log_file=log_file)
+            log_file=log_file,
+            is_python3=True)
