@@ -9,6 +9,7 @@ SERVER_PORT = 8000
 
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+IPTABLES_ENTRY = 'INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 
 @pytest.fixture(scope='function')
@@ -80,8 +81,9 @@ def stop_platform_api_service(duthosts):
                 duthost.command('docker exec -i pmon supervisorctl reread')
                 duthost.command('docker exec -i pmon supervisorctl update')
 
-                # Delete the iptables rule we added
-                duthost.command(IPTABLES_DELETE_RULE_CMD)
+                # Delete the iptables rule we added, if present
+                if IPTABLES_ENTRY in duthost.shell("sudo iptables --list-rules")['stdout']:
+                    duthost.command(IPTABLES_DELETE_RULE_CMD)
 
 
 @pytest.fixture(scope='function')

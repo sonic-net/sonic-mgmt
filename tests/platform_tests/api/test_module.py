@@ -469,13 +469,19 @@ class TestModuleApi(PlatformApiTestBase):
     def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         reboot_type = 'default'
         reboot_timeout = 300
+
+        support_reboot_other_modules = self.get_module_facts(duthosts[enum_rand_one_per_hwsku_hostname], True, "reboot_other_modules")
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
+
+            if chassis.get_my_slot(platform_api_conn) != module.get_slot(platform_api_conn, mod_idx) and not support_reboot_other_modules:
+                continue
+
             if mod_name in self.skip_mod_list:
                 logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                pytest_assert(module_reboot is True, "module {} reboot failed".format(mod_idx))
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
