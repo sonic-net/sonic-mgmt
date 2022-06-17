@@ -188,14 +188,16 @@ def get_port_related_data(is_mlnx, is_storage_backend):
         return ret
 
     for local_port in sonic_local_ports:
-        # Hard coded as 300m per discussion with Neetha
 
         #  "CABLE_LENGTH"
         cable[local_port] = orig_config["CABLE_LENGTH|AZURE"]['value'][local_port]
 
+        def filter_cfg_keys(target_key):
+            return [key for key in orig_config.keys() if target_key in key]
+
         # "BUFFER_PG"
-        buffer_pg["{}|0".format(local_port)] = orig_config["BUFFER_PG|{}|0".format(
-            local_port)]['value']
+        for pg in filter_cfg_keys("BUFFER_PG|" + local_port):
+            buffer_pg[pg.partition('BUFFER_PG|')[-1]] = orig_config[pg]['value']
 
         # "QUEUE"
         for i in range(7):
@@ -203,14 +205,8 @@ def get_port_related_data(is_mlnx, is_storage_backend):
                 local_port, i)]["value"]
 
         # "BUFFER_QUEUE"
-        buffer_q["{}|0-2".format(local_port)] = orig_config["BUFFER_QUEUE|{}|0-2".
-                format(local_port)]['value']
-
-        buffer_q["{}|3-4".format(local_port)] = orig_config["BUFFER_QUEUE|{}|3-4".
-                format(local_port)]['value']
-
-        buffer_q["{}|5-6".format(local_port)] = orig_config["BUFFER_QUEUE|{}|5-6".
-                format(local_port)]['value']
+        for q in filter_cfg_keys("BUFFER_QUEUE|" + local_port):
+            buffer_q[q.partition('BUFFER_QUEUE|')[-1]] = orig_config[q]['value']
 
         if is_mlnx:
             # "BUFFER_PORT_INGRESS_PROFILE_LIST"
