@@ -1,6 +1,5 @@
 from collections import defaultdict
 import struct
-import sys
 import binascii
 import time
 import re
@@ -39,19 +38,12 @@ def check_wpa_supplicant_process(host, ctrl_port_name):
         host, ctrl_port_name)
 
 
-def get_sci(macaddress, port_identifer=1, order="network"):
-    assert order in ("host", "network")
+def get_sci(macaddress, port_identifer=1):
     system_identifier = macaddress.replace(":", "").replace("-", "")
     sci = "{}{}".format(
         system_identifier,
         str(port_identifer).zfill(4))
-    if order == "host":
-        return sci
-    sci = int(sci, 16)
-    if sys.byteorder == "little":
-        sci = struct.pack(">Q", sci)
-        sci = struct.unpack("<Q", sci)[0]
-    return str(sci)
+    return sci
 
 
 QUERY_MACSEC_PORT = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
@@ -276,7 +268,7 @@ def get_macsec_attr(host, port):
     macsec_sa = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci, an))
     sak = binascii.unhexlify(macsec_sa["sak"])
-    sci = int(get_sci(eth_src, order="host"), 16)
+    sci = int(get_sci(eth_src), 16)
     if xpn_en:
         ssci = struct.pack('!I', int(macsec_sa["ssci"]))
         salt = binascii.unhexlify(macsec_sa["salt"])
