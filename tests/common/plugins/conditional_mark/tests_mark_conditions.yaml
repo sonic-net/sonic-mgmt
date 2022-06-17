@@ -5,7 +5,7 @@ acl/null_route/test_null_route_helper.py:
   skip:
     reason: "Skip running on dualtor testbed"
     conditions:
-      - "topo_name in ['dualtor']"
+      - "'dualtor' in topo_name"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000 
@@ -60,12 +60,6 @@ bgp/test_bgpmon.py:
 #######################################
 #####           configlet         #####
 #######################################
-configlet/test_add_rack.py:
-  skip:
-    reason: "AddRack is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
-
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   xfail:
     reason: "Only supported multi-asic platform"
