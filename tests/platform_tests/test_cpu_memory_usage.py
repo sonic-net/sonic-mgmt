@@ -205,7 +205,7 @@ def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter,
     if proc['cpu_percent'] >= cpu_threshold:
         logging.debug("process %s(%d) cpu usage exceeds %d%%.",
                       proc['name'], proc['pid'], cpu_threshold)
-        outstanding_procs[proc['pid']] = proc['name']
+        outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
 
 
