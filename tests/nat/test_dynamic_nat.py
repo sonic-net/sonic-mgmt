@@ -344,6 +344,13 @@ class TestDynamicNat(object):
                           network_data.ip_dst, dst_port,
                           network_data.ip_src, src_port + 2,
                           network_data.public_ip)
+        # Define dynamic source port for expected packet
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        l4_ports = get_dynamic_l4_ports(duthost, protocol_type, direction, network_data.public_ip)
+        if l4_ports.exp_src_port != POOL_RANGE_START_PORT:
+            first_exp_src_port = POOL_RANGE_START_PORT + 1
+        else:
+            first_exp_src_port = POOL_RANGE_START_PORT
         # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
         # Check new translation entry
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor', protocol_type, nat_type=nat_type,

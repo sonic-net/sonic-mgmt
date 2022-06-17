@@ -62,7 +62,8 @@ def teardown(duthost):
     # Teardown after test finished
     shutdown_cmds = ["sudo config nat remove {}".format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
     exec_command(duthost, shutdown_cmds)
-    # Clear all enries
+    # Clear all entries
+    duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
     duthost.command("sudo sonic-clear nat translations")
 
 
