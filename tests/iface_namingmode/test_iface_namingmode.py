@@ -436,15 +436,15 @@ class TestShowQueue():
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC"'.format(ifmode))['stdout']
+        queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC\|ALL"'.format(ifmode))['stdout']
         logger.info('queue_counter:\n{}'.format(queue_counter))
 
         if mode == 'alias':
             for alias in setup['port_alias']:
-                assert (re.search(r'{}\s+[U|M]C\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
         elif mode == 'default':
             for intf in setup['default_interfaces']:
-                assert (re.search(r'{}\s+[U|M]C\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -453,11 +453,11 @@ class TestShowQueue():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
-        queue_counter_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC"'.format(ifmode, test_intf))
+        queue_counter_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC\|ALL"'.format(ifmode, test_intf))
         logger.info('queue_counter_intf:\n{}'.format(queue_counter_intf))
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
-            assert re.search(r'{}\s+[U|M]C{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
+            assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
 
     def test_show_queue_persistent_watermark_multicast(self, setup, setup_config_mode):
         """
