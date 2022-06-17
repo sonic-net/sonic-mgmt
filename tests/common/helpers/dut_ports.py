@@ -14,4 +14,3 @@ def decode_dut_port_name(dut_portname):
         dutname = None
         portname = None
     return dutname, portname
-
