@@ -31,7 +31,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.pfcwd.files.pfcwd_helper import set_pfc_timers
+from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -250,6 +250,12 @@ class TestQosSai(QosSaiBase):
         # set poll interval for pfcwd
         duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
 
+        logger.info("--- Start Pfcwd on port {}".format(pfcwd_test_port))
+        start_wd_on_ports(duthost,
+                          pfcwd_test_port,
+                          pfcwd_timers['pfc_wd_restore_time'],
+                          pfcwd_timers['pfc_wd_detect_time'])
+
         try:
             logger.info("---  Fill the ingress buffers ---")
             self.runPtfTest(
@@ -258,7 +264,7 @@ class TestQosSai(QosSaiBase):
 
             # Trigger PfcWd
             storm_hndle.start_storm()
-            time.sleep(2)
+            time.sleep(10)
             storm_hndle.stop_storm()
 
             logger.info("---  Re-Enable dst ifaces and verify if the PFC frames are not sent ---")
