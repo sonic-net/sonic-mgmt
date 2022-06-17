@@ -478,7 +478,7 @@ def bgp_established(duthost, down_list=[]):
                 return False
 
     # Now wait for the routes to be updated.
-    time.sleep(10)
+    time.sleep(30)
     return True
 
 def get_downed_bgp_neighbors(shut_intf_list, minigraph_data):
