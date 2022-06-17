@@ -202,13 +202,10 @@ class TestQosSai(QosSaiBase):
             "buffer_max_size": ingressLosslessProfile["size"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            "dst_port_2_id": dutConfig["testPorts"]["dst_port_2_id"],
-            "dst_port_2_ip": dutConfig["testPorts"]["dst_port_2_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
-            "pkts_margin_under_pfc": 8,
             "pkts_num_private_headrooom": 15
         })
 

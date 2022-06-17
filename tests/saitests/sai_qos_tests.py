@@ -880,10 +880,6 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
 
-        self.dst_port_2_id = int(self.test_params['dst_port_2_id'])
-        self.dst_port_2_ip = self.test_params['dst_port_2_ip']
-        self.dst_port_2_mac = self.dataplane.get_mac(0, self.dst_port_2_id)
-
         self.ttl = 64
         self.default_packet_length = 64
 
@@ -896,9 +892,18 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
 
 class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
 
-    def get_pkt_dst_port(self):
+    def runTest(self):
+
+        time.sleep(5)
+        switch_init(self.client)
+
+        self.parse_test_params()
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        pkts_num_private_headrooom = int(self.test_params['pkts_num_private_headrooom'])
+
+        # Draft packets
         pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
-        return construct_ip_pkt(self.default_packet_length,
+        pkt = construct_ip_pkt(self.default_packet_length,
                                pkt_dst_mac,
                                self.src_port_mac,
                                self.src_port_ip,
@@ -907,32 +912,6 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
                                self.src_port_vlan,
                                ecn=self.ecn,
                                ttl=self.ttl)
-
-    def get_pkt_dst_port_2(self):
-        pkt_dst_mac2 = self.router_mac if self.router_mac != '' else self.dst_port_2_mac
-        return construct_ip_pkt(self.default_packet_length,
-                                pkt_dst_mac2,
-                                self.src_port_mac,
-                                self.src_port_ip,
-                                self.dst_port_2_ip,
-                                self.dscp,
-                                self.src_port_vlan,
-                                ecn=self.ecn,
-                                ttl=self.ttl)
-
-    def runTest(self):
-
-        time.sleep(5)
-        switch_init(self.client)
-
-        self.parse_test_params()
-        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
-        pkts_margin_under_pfc = int(self.test_params['pkts_margin_under_pfc'])
-        pkts_num_private_headrooom = int(self.test_params['pkts_num_private_headrooom'])
-
-        # Draft packets
-        pkt = self.get_pkt_dst_port()
-        pkt2 = self.get_pkt_dst_port_2()
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -945,29 +924,18 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
             self.client, self.asic_type, port_list[self.src_port_id]
         )
 
-        logging.info("Disabling xmit ports: {}".format([self.dst_port_id, self.dst_port_2_id]))
-        sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
+        logging.info("Disabling xmit ports: {}".format(self.dst_port_id))
+        sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id])
 
-        # send packets to dst port 1, to occupying the buffer just under xon
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
             self.client, port_list[self.dst_port_id]
         )
 
-        num_pkts = pkts_num_trig_pfc - pkts_margin_under_pfc
+        num_pkts = pkts_num_trig_pfc + pkts_num_private_headrooom
         logging.info("Send {} pkts to egress out of {}".format(num_pkts, self.dst_port_id))
+        # send packets to dst port 1, to cross into shared headrooom
         send_packet(
             self, self.src_port_id, pkt, num_pkts
-        )
-
-        # send packets to dst port 2, to cross into shared headroom
-        xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
-            self.client, port_list[self.dst_port_2_id]
-        )
-
-        num_pkts = pkts_margin_under_pfc + self.margin + pkts_num_private_headrooom
-        logging.info("Send {} pkts to egress out of {}".format(num_pkts, self.dst_port_2_id))
-        send_packet(
-            self, self.src_port_id, pkt2, num_pkts
         )
 
         # allow enough time for the dut to sync up the counter values in counters_db
@@ -976,11 +944,9 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
         # queue counters value is not of our interest here
         recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_id])
         xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
-        xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_2_id])
 
         logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
         logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
-        logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
 
         # recv port pfc
         assert(recv_counters[self.pg] > recv_counters_base[self.pg])
@@ -990,7 +956,6 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
         # xmit port no egress drop
         for cntr in self.egress_counters:
             assert(xmit_counters[cntr] == xmit_counters_base[cntr])
-            assert(xmit_2_counters[cntr] == xmit_2_counters_base[cntr])
 
 
 class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
@@ -1011,12 +976,8 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
             self.client, port_list[self.dst_port_id]
         )
 
-        xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
-            self.client, port_list[self.dst_port_2_id]
-        )
-
-        logging.info("Enable xmit ports: {}".format([self.dst_port_2_id, self.dst_port_id]))
-        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
+        logging.info("Enable xmit ports: {}".format(self.dst_port_id))
+        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
 
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
@@ -1034,11 +995,9 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
         # get the current snapshot of counter values at recv and transmit ports
         recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_id])
         xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
-        xmit_2_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_2_id])
 
         logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
         logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
-        logging.debug("Xmit_2 Counters: {}, Base: {}".format(xmit_2_counters, xmit_2_counters_base))
 
         # recv port pfc should not be incremented
         assert(recv_counters[self.pg] == recv_counters_base[self.pg])
@@ -1048,7 +1007,6 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
         # xmit port no egress drop
         for cntr in self.egress_counters:
             assert(xmit_counters[cntr] == xmit_counters_base[cntr])
-            assert(xmit_2_counters[cntr] == xmit_2_counters_base[cntr])
 
 
 class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
@@ -1057,7 +1015,7 @@ class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
         time.sleep(1)
         switch_init(self.client)
         self.parse_test_params()
-        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
+        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
 
 
 # This test looks to measure xon threshold (pg_reset_floor)
