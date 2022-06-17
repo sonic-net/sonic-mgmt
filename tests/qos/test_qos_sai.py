@@ -142,8 +142,8 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testPfcStormWithSharedHeadroomOccupancy(
-        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,
-        fanout_graph_facts,  dutTestParams, dutConfig, dutQosConfig, ingressLosslessProfile
+        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
+        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
@@ -173,7 +173,8 @@ class TestQosSai(QosSaiBase):
         if "lag" in dutConfig["dutTopo"]:
             pytest.skip("Topology {} is not suppoted".format(dutConfig["dutTopo"]))
 
-        # TODO: Check if Shared Headroom is enabled
+        if not sharedHeadroomPoolSize or sharedHeadroomPoolSize == "0":
+            pytest.skip("Shared Headrrom has to be enabled for this test")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
