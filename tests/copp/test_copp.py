@@ -53,10 +53,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_namespace",
                                   "send_rate_limit",
                                   "nn_target_vlanid"])
-_SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
-_SUPPORTED_T2_TOPOS = ["t2"]
+
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT = 600
 
