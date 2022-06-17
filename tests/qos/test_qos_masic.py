@@ -13,20 +13,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope='module', autouse=True)
-def skip_for_single_asic(duthosts, rand_one_dut_hostname, enum_backend_asic_index):
-    duthost = duthosts[rand_one_dut_hostname]
-    pytest_require(duthost.is_multi_asic, "Test applies only to multi ASIC platform")
-    pytest_require(enum_backend_asic_index is not None, "Backend ASIC is None")
-
-@pytest.fixture(scope='module', autouse=True)
-def skip_for_unsupported_t1_topo(tbinfo):
-    supported_t1_topos = ["t1-lag", "t1-64-lag", "t1-backend"]
-
-    topo = tbinfo["topo"]["name"]
-    pytest_require(topo in supported_t1_topos, "unsupported topology {}".format(topo))
-
-
 class QosSaiBaseMasic:
 
 
