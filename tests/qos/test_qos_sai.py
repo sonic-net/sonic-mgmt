@@ -261,19 +261,18 @@ class TestQosSai(QosSaiBase):
 
             # Trigger PfcWd
             storm_hndle.start_storm()
+            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
             time.sleep(10)
             storm_hndle.stop_storm()
+            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
 
-            logger.info("---  Re-Enable dst ifaces and verify if the PFC frames are not sent ---")
+            logger.info("---  Enable dst iface and verify if the PFC frames are not sent from src port ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfReleaseBuffer", testParams=testParams
             )
-
         except Exception as e:
             raise e
-
         finally:
-            logger.info("---  Enable all dst ports ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
