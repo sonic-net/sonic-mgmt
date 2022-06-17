@@ -6,7 +6,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1')
