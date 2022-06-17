@@ -60,6 +60,20 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts,
         logging.info("Check sysfs")
         check_sysfs(duthost)
 
+
+def check_database_status(duthost):
+    # check global database docker is running
+    if not duthost.is_service_fully_started('database'):
+        return False
+
+    # For multi-asic check each asics database
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            if not duthost.is_service_fully_started('database{}'.format(asic.asic_index)):
+                return False
+
+    return True
+
 def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to test various system checks in config reload
@@ -70,6 +84,10 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
         return
 
     reboot(duthost, localhost, reboot_type="cold", wait=5)
+
+    # Check if all database containers have started
+    wait_until(60, 1, 0, check_database_status, duthost)
+
     logging.info("Reload configuration check")
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")
     # config reload command shouldn't work immediately after system reboot
@@ -87,7 +105,11 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
 
     logging.info("Stopping swss docker and checking config reload")
-    duthost.shell("sudo service swss stop")
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell("sudo service swss@{} stop".format(asic.asic_index))
+    else:
+        duthost.shell("sudo service swss stop")
 
     # Without swss running config reload option should not proceed
     out = duthost.shell("sudo config reload -y", executable="/bin/bash")

@@ -18,18 +18,15 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     if loganalyzer:
          ignoreRegex = [
              ".*ERR sonic_yang.*",
-             ".*ERR bgp#bgpcfgd.*Can't update the peer. Only 'admin_status' attribute is supported.*", # test_bgpl
-             ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED 'SET' message with no prefixes specified: {'NULL': 'NULL'}.*", # test_bgp_prefix
-             ".*ERR.*Failed to start dhcp_relay container.*", # test_dhcp_relay
-             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # test_dhcp_relay test_syslog
-             ".*Same listen range is attached to peer-group.*", # test_bgp_speaker -> real issue
-             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # autorestart/test_container_autorestart.py test_portchannel_interface
-             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # test_portchannel_interface
-             ".*ERR teamd.*get_dump: Can't get dump for LAG.*", # test_portchannel_interface
-             ".*ERR kernel.*Reset adapter.*", # test_portchannel_interface replace mtu
-             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # test_portchannel_interface replace mtu
-             ".*ERR.*Failed to apply Json change.*", # validator need updater submodule
-             ".*ERR GenericConfigUpdater: Change Applier: service invoked.*", # validator need updater submodule
+             ".*ERR.*Failed to start dhcp_relay container.*", # Valid test_dhcp_relay
+             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*", # Valid test_dhcp_relay test_syslog
+             ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*", # Valid test_portchannel_interface
+             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*", # Valid test_portchannel_interface
+             ".*ERR swss[0-9]*#orchagent.*removeLag.*", # Valid test_portchannel_interface
+             ".*ERR kernel.*Reset adapter.*", # Valid test_portchannel_interface replace mtu
+             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*", # Valid test_portchannel_interface replace mtu
+
+             # sonic-swss/orchagent/crmorch.cpp
              ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*", # test_monitor_config
              ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*", # test_monitor_config
              ".*ERR dhcp_relay[0-9]*#dhcrelay.*", # test_dhcp_relay
