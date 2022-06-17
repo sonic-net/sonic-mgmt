@@ -37,8 +37,30 @@ MONIT_CHECK_INTERVAL_SECS = 5
 WAITING_SYSLOG_MSG_SECS = 130
 
 
+def remove_container(duthost, container_name):
+    """Removes the specified container on DuT.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: A string represents name of the container.
+
+    Returns:
+        None.
+    """
+    if not is_container_running(duthost, container_name):
+        pytest.fail("'{}' container is not running on DuT '{}'!".format(container_name, duthost.hostname))
+
+    logger.info("Stopping '{}' container ...".format(container_name))
+    duthost.shell("systemctl stop {}.service".format(container_name))
+    logger.info("'{}' container is stopped.".format(container_name))
+
+    logger.info("Removing '{}' container ...".format(container_name))
+    duthost.shell("docker rm {}".format(container_name))
+    logger.info("'{}' container is removed.".format(container_name))
+
+
 def restart_container(duthost, container_name):
-    """Restarts the container on DuT.
+    """Restarts the specified container on DuT.
 
     Args:
         duthost: The AnsibleHost object of DuT.
@@ -49,7 +71,14 @@ def restart_container(duthost, container_name):
     """
     logger.info("Restarting '{}' container ...".format(container_name))
     duthost.shell("systemctl restart {}.service".format(container_name))
-    logger.info("'{}' is restarted.".format(container_name))
+
+    logger.info("Waiting for '{}' container to be restarted ...".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
+    logger.info("'{}' container is restarted.".format(container_name))
 
 
 def backup_monit_config_files(duthost):
@@ -139,7 +168,6 @@ def restart_monit_service(duthost):
     logger.info("Monit is running!")
 
 
-
 def install_stress_utility(duthost, creds, container_name):
     """Installs 'stress' utility in the container on DuT.
 
@@ -212,9 +240,8 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
- 
-    duthost = duthosts[dut_name]
 
+    duthost = duthosts[dut_name]
 
     install_stress_utility(duthost, creds, container_name)
 
@@ -229,6 +256,38 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
     restart_container(duthost, container_name)
     remove_stress_utility(duthost, container_name)
+    postcheck_critical_processes(duthost, container_name)
+
+
+@pytest.fixture
+def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
+                                 enum_rand_one_per_hwsku_frontend_hostname):
+    """Removes and restarts 'telemetry' container from DuT.
+
+    Args:
+        duthosts: The fixture returns list of DuTs.
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        a frontend DuT from testbed.
+
+
+    Returns:
+        None.
+    """
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
+    duthost = duthosts[dut_name]
+    remove_container(duthost, container_name)
+
+    yield
+
+    restart_container(duthost, container_name)
     postcheck_critical_processes(duthost, container_name)
 
 
@@ -365,7 +424,7 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
         container_name: Name of container.
         vm_workers: Number of workers which does the spinning on malloc()/free()
           to consume memory.
-        new_syntax_enabled: Checks to make sure container will be restarted if it is set to be 
+        new_syntax_enabled: Checks to make sure container will be restarted if it is set to be
           `True`.
 
     Returns:
@@ -549,7 +608,7 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
- 
+
     duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
@@ -572,3 +631,69 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     logger.info("'{}' is running on DuT!".format(container_name))
 
     consumes_memory_and_checks_monit(duthost, container_name, vm_workers, True)
+
+
+def check_log_message(duthost, container_name):
+    """Leverages LogAanlyzer to check whether `memory_checker` can log the specific message
+    into syslog or not.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: A string represents the name of container.
+
+    Returns:
+        None.
+    """
+    expected_alerting_messages = []
+    expected_alerting_messages.append(".*\[memory_checker\] Exits without checking memory usage.*'telemetry'.*")
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="memory_checker_skip_removed_container")
+    loganalyzer.expect_regex = []
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
+    marker = loganalyzer.init()
+
+    logger.info("Sleep '{}' seconds to wait for the message from syslog ...".format(WAITING_SYSLOG_MSG_SECS))
+    time.sleep(WAITING_SYSLOG_MSG_SECS)
+
+    logger.info("Checking the syslog message written by 'memory_checker' ...")
+    loganalyzer.analyze(marker)
+    logger.info("Found the expected message from syslog!")
+
+
+def test_memory_checker_without_container_created(duthosts, enum_dut_feature_container, remove_and_restart_container,
+                                                  enum_rand_one_per_hwsku_frontend_hostname):
+    """Checks whether 'memory_checker' script can log an message into syslog if
+    one container is not created during device is booted/reooted. This test case will
+    remove a container explicitly to simulate the scenario in which the container was not created
+    successfully.
+
+    Args:
+        duthosts: The fixture returns list of DuTs.
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+          a frontend DuT from testbed.
+
+    Returns:
+        None.
+    """
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
+    duthost = duthosts[dut_name]
+
+    # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
+    # and number of vm_workers is hard coded. We will extend this testing on all containers after
+    # the feature 'memory_checker' is fully implemented.
+    container_name = "telemetry"
+
+    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
+                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+                   or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
+                   "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
+
+    check_log_message(duthost, container_name)
