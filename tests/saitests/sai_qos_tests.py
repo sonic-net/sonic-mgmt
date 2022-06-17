@@ -1015,8 +1015,8 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
             self.client, port_list[self.dst_port_2_id]
         )
 
-        logging.info("Enable xmit port: {}".format(self.dst_port_2_id))
-        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_2_id])
+        logging.info("Enable xmit ports: {}".format([self.dst_port_2_id, self.dst_port_id]))
+        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id, self.dst_port_2_id])
 
         # allow enough time for the dut to sync up the counter values in counters_db
         time.sleep(8)
