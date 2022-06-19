@@ -7,6 +7,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
+from netaddr import valid_ipv4
 
 
 logger = logging.getLogger(__name__)
@@ -251,7 +252,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # address could be IPV6 and IPV4, only need IPV4 here
-            if addr.find(':') == -1:
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
@@ -318,7 +319,12 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     Returns:
         VLAN info dict with original VLAN info
         Example:
-            {1000: {'ip':'192.168.0.1/21', 'orig': True}}
+            "Vlan1000": {
+                "fc02:1000::1/64": {},
+                "grat_arp": "enabled",
+                "proxy_arp": "enabled",
+                "192.168.0.1/21": {}
+            }
     '''
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -326,7 +332,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     for k, v in cfg_facts['VLAN'].items():
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            if addr.find(':') == -1:
+            # NOTE: here only returning IPv4.
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
