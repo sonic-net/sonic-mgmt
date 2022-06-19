@@ -38,10 +38,14 @@ def config_system_checks_passed(duthost):
 
     logging.info("Checking if delayed services are up")
     out = duthost.shell("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'")
-    for service in out['stdout'].splitlines():
-        out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
-        if out1['stdout'].strip() == "0":
-            return False
+    status = duthost.shell("systemctl is-enabled {}".format(out['stdout'].replace("\n", " ")))
+    services = [line.strip() for line in out['stdout'].splitlines()]
+    state = [line.strip() for line in status['stdout'].splitlines()]
+    for service in services:
+        if state[services.index(service)] == "enabled":
+            out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
+            if out1['stdout'].strip() == "0":
+                return False
     logging.info("All checks passed")
     return True
 
