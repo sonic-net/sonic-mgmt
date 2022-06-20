@@ -6,7 +6,6 @@ import json
 import argparse
 try:
     from ansible.parsing.dataloader import DataLoader
-    from ansible.vars.manager import VariableManager
     from ansible.inventory.manager import InventoryManager
     has_ansible = True
 except ImportError:
