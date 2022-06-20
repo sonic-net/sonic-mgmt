@@ -18,11 +18,13 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
 
 T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
+
 
 def get_cacl_tables(duthost):
     """Get acl control palne tables

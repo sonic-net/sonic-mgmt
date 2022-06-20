@@ -15,9 +15,11 @@ from tests.generic_config_updater.gu_utils import create_path, check_show_ip_int
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(autouse=True)
 def cleanup_test_env(duthosts, rand_one_dut_hostname):
