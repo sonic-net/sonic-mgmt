@@ -24,7 +24,7 @@ Then we can get the related information from [```ansible/vtestbed.csv```](/ansib
 ### Access the DUT
 
 ```
-grep 'vlab-01' ./vtestbed.yaml
+grep 'vlab-01' ./vtestbed.csv
 vms-kvm-t0,vms6-1,t0,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],veos_vtb,False,Tests virtual switch vm
 ```
 ```

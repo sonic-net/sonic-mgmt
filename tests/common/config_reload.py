@@ -17,20 +17,35 @@ def config_system_checks_passed(duthost):
         return False
 
     logging.info("Checking if Orchagent up for at least 2 min")
-    out = duthost.shell("systemctl show swss.service --property ActiveState --value")
-    if out["stdout"] != "active":
-        return False
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            out = duthost.shell("systemctl show swss@{}.service --property ActiveState --value".format(asic.asic_index))
+            if out["stdout"] != "active":
+                return False
 
-    out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
-    if int(out['stdout'].strip()) < 120:
-        return False
+            out = duthost.shell(
+                "ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value) | sed '1d'".format(asic.asic_index))
+            if int(out['stdout'].strip()) < 120:
+                return False
+    else:
+        out = duthost.shell("systemctl show swss.service --property ActiveState --value")
+        if out["stdout"] != "active":
+            return False
+
+        out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
+        if int(out['stdout'].strip()) < 120:
+            return False
 
     logging.info("Checking if delayed services are up")
     out = duthost.shell("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'")
-    for service in out['stdout'].splitlines():
-        out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
-        if out1['stdout'].strip() == "0":
-            return False
+    status = duthost.shell("systemctl is-enabled {}".format(out['stdout'].replace("\n", " ")))
+    services = [line.strip() for line in out['stdout'].splitlines()]
+    state = [line.strip() for line in status['stdout'].splitlines()]
+    for service in services:
+        if state[services.index(service)] == "enabled":
+            out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
+            if out1['stdout'].strip() == "0":
+                return False
     logging.info("All checks passed")
     return True
 

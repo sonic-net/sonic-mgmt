@@ -27,7 +27,6 @@ def protocol_type(request):
     """
     return request.param
 
-
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the NAT tests.
@@ -38,7 +37,6 @@ def pytest_addoption(parser):
         default=False,
         help="Enable NAT feature on DUT",
     )
-
 
 @pytest.fixture(scope='module')
 def config_nat_feature_enabled(request, duthost):
