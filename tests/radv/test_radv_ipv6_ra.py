@@ -31,7 +31,7 @@ the connected PTF port(s) required to setup the RADV tests
 """
 
 @pytest.fixture(scope="module", autouse=True)
-def radv_test_setup(request, duthosts, ptfhost, tbinfo):
+def radv_test_setup(request, duthosts, ptfhost, tbinfo, toggle_all_simulator_ports_to_upper_tor):
     duthost = duthosts[0]
     logging.info("radv_test_setup() DUT {}".format(duthost.hostname))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -120,9 +120,6 @@ def test_radv_router_advertisement(
                     duthost, ptfhost,
                     radv_test_setup,
                     dut_update_radv_periodic_ra_interval):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
-
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -145,9 +142,6 @@ def test_radv_router_advertisement(
 """
 
 def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
-
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -175,9 +169,6 @@ def test_unsolicited_router_advertisement_with_m_flag(
                     duthost, ptfhost,
                     radv_test_setup,
                     ):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
-
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -200,9 +191,6 @@ def test_unsolicited_router_advertisement_with_m_flag(
 """
 
 def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
-
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
