@@ -31,7 +31,7 @@ class MultiAsicSonicHost(object):
             hostname: Name of the host in the ansible inventory
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
-        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts["asics_present"]]
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
