@@ -199,8 +199,8 @@
 .create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
                                   DutName: string, DutIP: string,
                                   DutIcmpReachability: bool, ServerName: string,
-                                  ServerIcmpReachability: bool, ServerIP: string,
-                                  PtfName: string, PtfIcmpReachability: bool, PtfIP: string,
+                                  ServerIP: string, ServerIcmpReachability: bool,
+                                  PtfName: string, PtfIP: string, PtfIcmpReachability: bool,
                                   DutConsoleReachability: bool, DutSshReachability: bool)
 
 .create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
