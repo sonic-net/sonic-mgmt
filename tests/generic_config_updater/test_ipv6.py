@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
+
 
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthost):
