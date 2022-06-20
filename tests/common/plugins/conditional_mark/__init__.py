@@ -103,7 +103,7 @@ def read_asic_name(hwsku):
             asic_name = yaml.safe_load(f)
 
         for key, value in asic_name.items():
-            if ('td' not in key) and ('th' not in key):
+            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
         for name, hw in asic_name.items():

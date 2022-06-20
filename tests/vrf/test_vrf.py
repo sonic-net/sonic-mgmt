@@ -720,6 +720,16 @@ class TestVrfAclRedirect():
     c_vars = {}
 
     @pytest.fixture(scope="class", autouse=True)
+    def is_redirect_supported(self, duthosts, rand_one_dut_hostname):
+        """
+        Check if switch supports acl redirect_action, if not then skip test cases
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        acl_stage_cap  = duthost.shell('redis-cli -n 6 hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')['stdout']
+        if "REDIRECT_ACTION" not in acl_stage_cap:
+            pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
+
+    @pytest.fixture(scope="class", autouse=True)
     def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
