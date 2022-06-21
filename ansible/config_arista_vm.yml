@@ -1,0 +1,44 @@
+####################################################################################################################################################################################
+- name: set default testbed file
+  set_fact:
+    testbed_file: testbed.csv
+  when: testbed_file is not defined
+
+- name: Gathering testbed information
+  test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+  delegate_to: localhost
+
+- fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+  when: inventory_hostname not in testbed_facts['duts']
+
+- name: set testbed_type
+  set_fact:
+    topo: "{{ testbed_facts['topo'] }}"
+
+- name: Set default num_asic
+  set_fact:
+     num_asics: 1
+  when: num_asics is not defined
+
+- name: Set default dut index
+  set_fact:
+    dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+
+- name: set ptf image name
+  set_fact:
+    ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
+- name: set vm
+  set_fact:
+    vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
+
+- wan_topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name=None
+  delegate_to: localhost
+
+- name: Set ansible login user name and password
+  set_fact: ansible_ssh_user='root'  ansible_ssh_password={{ sonic_password }} 
+
+- name: copy configure to arista device 
+  template: src="arista_config.j2"
+            dest=/mnt/flash/arista-config
+

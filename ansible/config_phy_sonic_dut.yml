@@ -1,0 +1,30 @@
+- name: set default testbed file
+  set_fact:
+     testbed_file: testbed.csv
+  when: testbed_file is not defined
+
+- name: Gathering testbed information
+  test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+  delegate_to: localhost
+
+- name: set testbed_type
+  set_fact:
+    topo: "{{ testbed_facts['topo'] }}"
+
+- wan_topo_facts: topo={{ topo }} hwsku={{ hwsku }}, asic_name=None
+  delegate_to: localhost
+
+- name: create configuration for physical SONiC device
+  template: src=templates/physical_device_config.j2
+            dest=/etc/sonic/physical_device_config.json
+  become: true
+
+- name: execute cli "sudo sonic-cfggen -j isis_config.json -w" to stetup physical device configuration
+  become: true
+  shell: sudo sonic-cfggen -j /etc/sonic/physical_device_config.json -w
+
+- name: execute cli "config save -y" to save current config as startup-config
+  become: true
+  shell: config save -y
+  when: save is defined and save|bool == true
+

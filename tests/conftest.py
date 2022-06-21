@@ -25,7 +25,9 @@ from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # lgtm[py/unused-import]
-
+from tests.common.devices.cisco import CiscoHost
+from tests.common.devices.arista import AristaHost
+ 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
@@ -325,7 +327,6 @@ def duthost(duthosts, request):
 
     return duthost
 
-
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -335,6 +336,24 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
+
+@pytest.fixture(scope='session')
+def cisco(request, ansible_adhoc, tbinfo, localhost):
+    duts = []
+    for host in tbinfo['duts']:
+        data = get_host_data(request, host)
+        if 'cisco' == data.get('image'):
+            duts.append(CiscoHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+    return duts
+
+@pytest.fixture(scope='session')
+def arista(request, ansible_adhoc, tbinfo, localhost):
+    duts = []
+    for host in tbinfo['duts']:
+        data = get_host_data(request, host)
+        if 'arista' == data.get('image'):
+            duts.append(AristaHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+    return duts
 
 
 @pytest.fixture(scope="module")

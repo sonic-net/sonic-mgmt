@@ -1,0 +1,252 @@
+topology:
+  dut_num: 4
+  ovs_interfaces:
+    - 0.3@1.0
+    - 1.1@1.0
+    - 1.2@2.0
+    - 2.2@2.0
+    - 2.3@3.0
+    - 3.3@3.0
+    - 0.5@4.200
+    - 3.5@4.200
+  VMs:
+    ARISTA01T1:
+      vlans:
+        - "0.6@0"
+      vm_offset: 0
+    ARISTA02T1:
+      vlans:
+        - "3.6@1"
+      vm_offset: 1
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+        - 10.1.0.34/32
+        - 10.1.0.35/32
+      ipv6:
+        - FC00:1::32/128
+        - FC00:1::33/128
+        - FC00:1::34/128
+        - FC00:1::35/128
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: InternetBackboneRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+wan_dut_configuration:
+  vlab-01:
+    interfaces:
+      Bundle-Ether1:
+        attach_to: GigabitEthernet0/0/0/1
+        ipv4: 10.0.1.56/31
+        ipv6: fc00:1::72/126
+      Bundle-Ether2:
+        attach_to: GigabitEthernet0/0/0/4
+        ipv4: 10.0.0.56/31
+        ipv6: fc00::71/126
+    connection:
+       vlab-04:
+        fortyGigE0/20
+       vlab-02:
+        fortyGigE0/4
+  vlab-02:
+    interfaces:
+      PortChannel1001:
+        attach_to: fortyGigE0/4
+        ipv4: 10.0.1.57/31
+        ipv6: fc00:1::73/126
+      PortChannel1002: 
+        attach_to: fortyGigE0/8
+        ipv4: 10.0.3.56/31
+        ipv6: fc00:3::72/126
+    connection:
+      vlab-01:
+        fortyGigE0/4
+      vlab-03:
+        fortyGigE0/8
+  vlab-03:
+    interfaces:
+      PortChannel1001:
+        attach_to: fortyGigE0/8
+        ipv4: 10.0.3.57/31
+        ipv6: fc00:3::73/126
+      PortChannel1002:
+        attach_to: fortyGigE0/12
+        ipv4: 10.0.4.56/31
+        ipv6: fc00:4::72/126
+    connection:
+      vlab-02:
+        fortyGigE0/8
+      vlab-04:
+        fortyGigE0/12
+  vlab-04:
+    interfaces:
+      Port-Channel2:
+        attach_to: Ethernet4
+        ipv4: 10.0.4.57/31
+        ipv6: fc00:4::73/126
+      Port-Channel1: 
+        attach_to: Ethernet7
+        ipv4: 10.0.0.58/31
+        ipv6: fc00::75/126
+    connection:
+      vlab-01:
+        fortyGigE0/20
+      vlab-03:
+        fortyGigE0/12
+  owr-1:
+    interfaces:
+      PortChannel2001:
+        attach_to: Ethernet60
+        ipv4: 20.0.1.57/31
+        ipv6: fc00:20::73/126
+    connection:
+      vlab-01:
+        fortyGigE0/60
+  owr-2:
+    interfaces:
+      PortChannel2001:
+        attach_to: Ethernet60
+        ipv4: 20.0.2.57/31
+        ipv6: fc00:21::73/126
+    connection:
+      vlab-04:
+        fortyGigE0/60
+wan_isis_config:
+  vlab-01:
+     net: 49.0001.1040.4400.0245.00
+     interface:
+         - Bundle-Ether1     
+  vlab-02:
+     net: 49.0002.1040.4400.0246.00
+     interface:
+         - PortChannel1001
+         - PortChannel1002
+  vlab-03:
+     net: 49.0003.1040.4400.0247.00
+     interface:
+         - PortChannel1001
+         - PortChannel1002
+  vlab-04:
+     net: 49.0004.1040.4400.0248.00
+     interface:
+         - Port-Channel2
+  owr-1:
+     net: 49.0004.1040.4400.1248.00
+     interface:
+         - PortChannel2001
+  owr-2:
+     net: 49.0004.1040.4400.1246.00
+     interface:
+         - PortChannel2001
+wan_bgp_config:
+  vlab-01:
+    peer1:
+      asn: 64600
+      start_router: vlab-01
+      start_peer: 10.0.0.56
+      end_router: ARISTA01
+      end_peer: 10.0.0.57
+    peer2:
+      asn: 64600
+      start_router: vlab-01
+      start_peer: fc00::71
+      end_router: ARISTA01
+      end_peer: fc00::72
+    peer3:
+      asn: 65100
+      start_router: vlab-01
+      start_peer: 10.0.1.56
+      end_router: vlab-04
+      end_peer: 10.0.4.57
+    peer4:
+      asn: 65100
+      start_router: vlab-01
+      start_peer: fc00:4::72
+      end_router: vlab-04
+      end_peer: fc00:4::73
+
+  vlab-04:
+    peer1:
+      asn: 65100
+      start_router: vlab-04
+      start_peer: 10.0.4.57
+      end_router: vlab-01
+      end_peer: 10.0.1.56
+    peer2:
+      asn: 64600
+      start_router: vlab-04
+      start_peer: 10.0.0.58
+      end_router: ARISTA02
+      end_peer: 10.0.0.59
+    peer3:
+      asn: 64600
+      start_router: vlab-04
+      start_peer: fc00::75
+      end_router: ARISTA02
+      end_peer: fc00::76
+    peer4:
+      asn: 65100
+      start_router: vlab-04
+      start_peer: fc00:1::73
+      end_router: vlab-01
+      end_peer: fc00:1::72
+configuration:
+  ARISTA01T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.56
+        - FC00::71
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.29/32
+        ipv6: 2064:100::1d/128
+      Ethernet1:
+        dut_index: 0      
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.57/31
+        ipv6: fc00::72/126
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::1d/64
+
+  ARISTA02T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.58
+        - FC00::75
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.30/32
+        ipv6: 2064:100::1e/128
+      Ethernet1:
+        dut_index: 3
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.59/31
+        ipv6: fc00::76/126
+    bp_interface:
+      ipv4: 10.10.246.30/24
+      ipv6: fc0a::1e/64

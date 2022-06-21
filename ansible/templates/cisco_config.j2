@@ -1,0 +1,138 @@
+hostname {{ inventory_hostname }}
+username root
+ group root-lr
+ group cisco-support
+ secret 5 $1$/lR4$M/qeDiTMcNZHq3TxAosUm.
+!
+
+{% for dut in vm_topo_config['wan_dut_config'] %}
+{% if inventory_hostname == dut %}
+{% for intf in vm_topo_config['wan_dut_config'][dut] %}
+{% if intf != 'connect' %}
+{% set lp_ipv4 = vm_topo_config['wan_dut_config'][dut][intf]['ipv4'] %}
+{% set lp_ipv4_addr = lp_ipv4.split('/')[0] %}
+interface {{ intf }}
+ ipv4 address {{ lp_ipv4_addr }} 255.255.255.254
+ ipv6 address {{ vm_topo_config['wan_dut_config'][dut][intf]['ipv6'] }}
+ bundle minimum-active links 1
+!
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+interface Loopback0
+{% set lp_ipv4 = vm_topo_config['DUT']['loopback']['ipv4'][dut_index|int] %}
+{% set lp_ipv4_addr = lp_ipv4.split('/')[0] %}
+ ipv4 address {{ lp_ipv4_addr }} 255.255.255.255
+ ipv6 address {{ vm_topo_config['DUT']['loopback']['ipv6'][dut_index|int] }}
+!
+interface MgmtEth0/RP0/CPU0/0
+ ipv4 address {{ hostvars[inventory_hostname]['ansible_host'] }} 255.255.255.0
+!
+
+{% for dut in vm_topo_config['wan_dut_config'] %}
+{% if inventory_hostname == dut %}
+{% for intf in vm_topo_config['wan_dut_config'][dut] %}
+{% if intf != 'connect' %}
+interface {{ vm_topo_config['wan_dut_config'][dut][intf]['attach_to'] }}
+ bundle id {{ intf[-1] }} mode active
+ no shutdown
+ lldp
+  enable
+ !
+!
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+route-policy pass_all
+  pass
+end-policy
+!
+router isis test
+ is-type level-2-only
+{% for dut in vm_topo_config['wan_isis_config'] %}
+{% if inventory_hostname == dut %}
+ net {{ vm_topo_config['wan_isis_config'][dut]['net'] }}
+{% endif %}
+{% endfor %}
+ address-family ipv4 unicast
+  metric-style wide
+ !
+ address-family ipv6 unicast
+  metric-style wide
+  single-topology
+ !
+
+{% for dut in vm_topo_config['wan_isis_config'] %}
+{% if inventory_hostname == dut %}
+{% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+ interface {{ intf }}
+  circuit-type level-2-only
+  point-to-point
+  address-family ipv4 unicast
+   metric 500
+  !
+  address-family ipv6 unicast
+   metric 500
+  !
+ !
+{% endfor %}
+{% endif %}
+{% endfor %}
+ 
+ interface Loopback0
+  address-family ipv4 unicast
+   metric 500
+  !
+  address-family ipv6 unicast
+   metric 500
+  !
+ !
+!
+
+router bgp {{ vm_topo_config['dut_asn'] }}
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+ !
+
+{% for dut in vm_topo_config['wan_bgp_config'] %}
+{% if inventory_hostname == dut %}
+{% for peer in vm_topo_config['wan_bgp_config'][dut] %}
+ neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }}
+  remote-as {{ vm_topo_config['wan_bgp_config'][dut][peer]['asn'] }}
+  description {{ vm_topo_config['wan_bgp_config'][dut][peer]['asn'] }}
+{% if vm_topo_config['dut_asn'] == vm_topo_config['wan_bgp_config'][dut][peer]['asn'] %}
+  update-source Bundle-Ether1
+{% endif %}
+  address-family ipv4 unicast
+{% if vm_topo_config['dut_asn'] == vm_topo_config['wan_bgp_config'][dut][peer]['asn'] %}
+    next-hop-self
+    route-policy pass_all in
+    route-policy pass_all out
+{% else %}
+    route-policy pass_all in
+    route-policy pass_all out
+{% endif %}
+  !
+  address-family ipv6 unicast
+{% if vm_topo_config['dut_asn'] == vm_topo_config['wan_bgp_config'][dut][peer]['asn'] %}
+    next-hop-self
+    route-policy pass_all in
+    route-policy pass_all out
+{% else %}
+    route-policy pass_all in
+    route-policy pass_all out
+{% endif %}
+  !
+ ! 
+{% endfor %}
+{% endif %}
+{% endfor %}
+!
+ssh server v2
+end
+

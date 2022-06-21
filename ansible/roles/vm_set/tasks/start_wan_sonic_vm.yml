@@ -1,0 +1,194 @@
+- name: Set image location
+  set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/cisco-vm"
+  when: hostvars[dut_name]['image'] == 'cisco'
+
+- name: Set image location 
+  set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/juniper-vm"
+  when: hostvars[dut_name]['image'] == 'juniper'
+
+- name: Set image location
+  set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
+  when: hostvars[dut_name]['image'] == 'sonic'
+
+- name: Set image location
+  set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/arista-vm"
+  when: hostvars[dut_name]['image'] == 'arista'
+
+- name: Create directory for vm images and vm disks
+  file: path={{ item }} state=directory mode=0755
+  become: yes
+  with_items:
+    - "{{ sonic_vm_storage_location }}/images"
+    - "{{ sonic_vm_storage_location }}/disks"
+
+- name: Create Sonic OVS network
+  become: yes
+  wan_vm_topology:
+    cmd:        'create_ovs'
+    vm_names:   "{{dut_name}}"
+    duts_name: "{{ duts_name.split(',') }}"
+    fp_mtu: "{{ fp_mtu_size }}"
+
+- set_fact:
+    src_disk_image: "{{ sonic_vm_storage_location }}/images/{{ hostvars[dut_name]['image'] }}-vs.img"
+    disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
+    mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
+    mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
+    serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
+    hwsku: "{{ hostvars[dut_name].hwsku }}"
+    num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+
+- name: Remove arp entry for {{ dut_name }}
+  shell: arp -d {{ mgmt_ip_address }}
+  become: yes
+  ignore_errors: yes
+
+- name: Device debug output
+  debug: msg="hostname = {{ dut_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
+
+- name: Check destination file existance
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy sonic disk image for {{ dut_name }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  become: yes
+
+- name: Get DUT port alias
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
+  delegate_to: localhost
+  when: hostvars[dut_name]['image'] == 'sonic'
+
+- name: Define SONiC vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/sonic.xml.j2') }}"
+        uri=qemu:///system
+  when: dut_name not in vm_list_defined.list_vms and hostvars[dut_name]['image'] == 'sonic'
+  become: yes
+
+- name: Define cisco vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/cisco.xml.j2') }}"
+        uri=qemu:///system
+  when: dut_name not in vm_list_defined.list_vms and hostvars[dut_name]['image'] == 'cisco'
+  become: yes
+
+- name: Define juniper vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/juniper.xml.j2') }}"
+        uri=qemu:///system
+  when: dut_name not in vm_list_defined.list_vms and hostvars[dut_name]['image'] == 'juniper'
+  become: yes
+
+- name: Define arista vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/arista_vm.xml.j2') }}"
+        uri=qemu:///system
+  when: dut_name not in vm_list_defined.list_vms and hostvars[dut_name]['image'] == 'arista'
+  become: yes
+
+- name: Start dut vm {{ dut_name }}
+  virt: name={{ dut_name }}
+        state=running
+        uri=qemu:///system
+  become: yes
+  register: sonic_vm_start
+  when: dut_name not in vm_list_running.list_vms
+
+- include_vars: ../../group_vars/all/creds.yml
+
+- block:
+  - name: Wait until vm {{ dut_name }} is loaded
+    sonic_kickstart: telnet_port={{ serial_port }}
+             login={{ sonic_login }}
+             passwords={{ sonic_default_passwords }}
+             hostname={{ dut_name }}
+             mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+             mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+             new_password={{ sonic_password }}
+             num_asic={{ num_asic }}
+    register: kickstart_output
+  
+  - name: Fail if kickstart gives error for {{ dut_name }}
+    fail: msg="Start sonic vm weren't succesfull"
+    when: kickstart_output.kickstart_code != 0 
+  when: hostvars[dut_name]['image'] == 'sonic'
+
+- block:
+  - name: Disable Veos zerotouch
+    arista_kickstart: telnet_port={{ serial_port }}
+              login={{ eos_default_login }}
+              password={{ eos_default_password }}
+              hostname={{ dut_name }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_login={{ eos_default_login }}
+              new_password={{ sonic_password }}
+              new_root_password={{ sonic_password }}
+    register: kickstart_output
+    ignore_errors: true
+  
+  - name: Wait until vm {{ dut_name }} is loaded
+    kickstart: telnet_port={{ serial_port }}
+              login={{ eos_default_login }}
+              password={{ eos_default_password }}
+              hostname={{ dut_name }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_login={{ eos_default_login }}
+              new_password={{ sonic_password }}
+              new_root_password={{ sonic_password }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    retries: 5
+    delay: 10
+    ignore_errors: true
+ 
+  - name: Set VM to autostart
+    command: "virsh autostart {{ dut_name }}"
+    become: yes
+  when: dut_name not in vm_list_running.list_vms and hostvars[dut_name]['image'] == 'arista'
+
+- block:
+  - name: Wait until Juniper vm {{ dut_name }} is loaded
+    juniper_kickstart: telnet_port={{ serial_port }}
+              login={{ junos_default_login }}
+              password={{ junos_default_password }}
+              hostname={{ dut_name }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_login={{ junos_default_login }}
+              new_password={{ junos_password }}
+              new_root_password={{ junos_password }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    retries: 60
+    delay: 10
+  when: dut_name not in vm_list_running.list_vms and hostvars[dut_name]['image'] == 'juniper'
+
+- block:
+  - name: Wait until Cisco vm {{ dut_name }} is loaded
+    cisco_kickstart: telnet_port={{ serial_port }}
+              login={{ cisco_default_login }}
+              password={{ cisco_password }}
+              hostname={{ dut_name }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+              new_login={{ cisco_default_login }}
+              new_password={{ cisco_password }}
+              new_root_password={{ cisco_password }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    retries: 60
+    delay: 10
+  when: dut_name not in vm_list_running.list_vms and hostvars[dut_name]['image'] == 'cisco'
+
+

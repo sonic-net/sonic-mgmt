@@ -1,0 +1,206 @@
+
+system {
+    host-name vlab-01;
+    root-authentication {
+        encrypted-password "$6$OaxHv5eF$lzcXWZ9UZy6E8.IgSZ7Vwo29/3bGMsOggZhoVdYNId8Dho0PHKgXxfv7wToXrw6o10QlUKxzKykTY4hLWEpub1"; ## SECRET-DATA
+    }
+    services {
+        ssh {
+            root-login allow;
+        }
+        telnet {
+            authentication-order password;
+        }
+        web-management {
+            http {
+                interface fxp0.0;
+            }
+            https {
+                system-generated-certificate;
+                interface fxp0.0;
+            }
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any any;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+    license {
+        autoupdate {
+            url https://ae1.juniper.net/junos/key_retrieval;
+        }
+    }
+}
+chassis {
+    aggregated-devices {
+        ethernet {
+            device-count 2;             
+        }
+    }
+}
+security {
+    forwarding-options {
+        family {
+            iso {
+                mode packet-based;
+            }
+        }
+    }
+    policies {
+        from-zone trust to-zone trust {
+            policy default-permit {
+                match {
+                    source-address any;
+                    destination-address any;
+                    application any;
+                }
+                then {
+                    permit;
+                }
+            }
+        }
+        from-zone trust to-zone untrust {
+            policy default-permit {
+                match {
+                    source-address any;
+                    destination-address any;
+                    application any;
+                }
+                then {
+                    permit;
+                }
+            }
+        }
+        default-policy {
+            permit-all;
+        }
+    }
+    zones {
+        security-zone trust {
+            host-inbound-traffic {
+                system-services {
+                    all;                
+                }
+                protocols {
+                    all;
+                }
+            }
+            interfaces {
+                ae0.0;
+                ae1.0;
+                lo0.0;
+            }
+        }
+        security-zone untrust;
+    }
+}
+interfaces {
+    ge-0/0/3 {
+        gigether-options {
+            802.3ad ae0;
+        }
+    }
+    ge-0/0/6 {
+        gigether-options {
+            802.3ad ae1;
+        }
+    }
+    ae0 {
+        mtu 1518;
+        aggregated-ether-options {
+            minimum-links 1;
+            lacp {
+                active;
+            }
+        }
+        unit 0 {
+            family inet {
+                address 10.0.1.56/31;
+            }
+            family iso;
+            family inet6 {
+                address fec0::ffff:afa:1/128;
+            }
+        }
+    }
+    ae1 {
+        aggregated-ether-options {      
+            minimum-links 1;
+            lacp {
+                active;
+            }
+        }
+        unit 0 {
+            family inet {
+                address 10.0.0.56/31;
+            }
+        }
+    }
+    fxp0 {
+        unit 0 {
+            family inet {
+                address 10.250.0.101/24;
+            }
+        }
+    }
+    lo0 {
+        unit 0 {
+            family inet {
+                address 10.1.0.32/32;
+            }
+            family iso {
+                address 49.0001.1040.4400.0245.00;
+            }
+        }
+    }
+}
+policy-options {
+    policy-statement next-hop-self {
+        then {
+            next-hop self;
+        }
+    }
+}
+protocols {
+    bgp {
+        group external-peers {
+            type external;
+            peer-as 64600;
+            neighbor 10.0.0.57;
+        }
+        group internal-peers {
+            export next-hop-self;
+            neighbor 10.0.4.57 {
+                peer-as 65100;
+            }
+        }
+    }
+    isis {
+        interface ae0.0 {
+            level 2 metric 500;
+            hello-padding adaptive;
+            point-to-point;
+        }
+        interface lo0.0 {
+            level 2 metric 500;         
+        }
+        level 1 disable;
+        level 2 wide-metrics-only;
+    }
+    lldp {
+        interface all;
+    }
+}
+routing-options {
+    autonomous-system 65100;
+}
+
+
