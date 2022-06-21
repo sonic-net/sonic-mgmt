@@ -15,16 +15,32 @@ pytestmark = [
 ]
 
 
+def is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asan_val_from_sonic_ver_cmd = "sonic-cfggen -y /etc/sonic/sonic_version.yml -v asan"
+    asan_val = duthost.command(asan_val_from_sonic_ver_cmd)['stdout']
+    is_asan = False
+    if asan_val == "yes":
+        logging.info("The current sonic image is a ASAN image")
+        is_asan = True
+    return is_asan
+
+
 @pytest.fixture(scope='module')
 def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cpu_threshold = 50
     memory_threshold = 60
     high_cpu_consume_procs = {}
-    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0'):
-        memory_threshold = 80
+    is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
+    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0') or is_asan:
+        memory_threshold = 90
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
+    # The CPU usage of `sx_sdk` on mellanox is expected to be higher, and the actual CPU usage
+    # is correlated with the number of ports. So we ignore the check of CPU for sx_sdk
+    if duthost.facts["asic_type"] == 'mellanox':
+        high_cpu_consume_procs['sx_sdk'] = 90
     return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
@@ -189,7 +205,7 @@ def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter,
     if proc['cpu_percent'] >= cpu_threshold:
         logging.debug("process %s(%d) cpu usage exceeds %d%%.",
                       proc['name'], proc['pid'], cpu_threshold)
-        outstanding_procs[proc['pid']] = proc['name']
+        outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
 
 

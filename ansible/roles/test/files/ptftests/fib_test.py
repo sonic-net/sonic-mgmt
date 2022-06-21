@@ -32,6 +32,7 @@ from ptf.testutils import verify_packet_any_port
 from ptf.testutils import verify_no_packet_any
 
 import fib
+import macsec
 
 class FibTest(BaseTest):
     '''
@@ -127,7 +128,14 @@ class FibTest(BaseTest):
 
         self.pkt_action = self.test_params.get('pkt_action', self.ACTION_FWD)
         self.ttl = self.test_params.get('ttl', 64)
-        self.ip_options = self.test_params.get('ip_options', False)
+
+        self.ip_options = False
+        ip_options_list = self.test_params.get('ip_options', False)
+        if isinstance(ip_options_list, list) and ip_options_list:
+            self.ip_options = scapy.IPOption(ip_options_list[0])
+            for opt in ip_options_list[1:]:
+                self.ip_options /= scapy.IPOption(opt)
+
         self.src_vid = self.test_params.get('src_vid', None)
         self.dst_vid = self.test_params.get('dst_vid', None)
 
@@ -168,6 +176,11 @@ class FibTest(BaseTest):
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
                 continue
+            # MACsec link only receive encrypted packets
+            # It's hard to simulate encrypted packets on the injected port
+            # Because the MACsec is session based channel but the injected ports are stateless ports
+            if src_port in macsec.MACSEC_INFOS.keys():
+                continue
             logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(src_port, exp_port_list, active_dut_index))
             break
         return src_port, exp_port_list, next_hop
@@ -176,9 +189,9 @@ class FibTest(BaseTest):
 
         dst_ips = []
         dst_ips.append(ip_range.get_first_ip())
-        if ip_range.length > 1:
+        if ip_range.length() > 1:
             dst_ips.append(ip_range.get_last_ip())
-        if ip_range.length > 2:
+        if ip_range.length() > 2:
             dst_ips.append(ip_range.get_random_ip())
 
         for dst_ip in dst_ips:

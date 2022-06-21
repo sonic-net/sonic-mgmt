@@ -8,6 +8,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ SYSLOG_DUMMY_IPV6_SERVER    = "cc98:2008::1"
 SETUP_ENV_CP                = "test_setup_checkpoint"
 CONFIG_CLEANUP              = "config_cleanup"
 CONFIG_ADD_DEFAULT          = "config_add_default"
+
 
 @pytest.fixture(scope="module", params=[CONFIG_CLEANUP, CONFIG_ADD_DEFAULT])
 def init_syslog_config(request):
@@ -52,7 +54,7 @@ def syslog_config_add_default(duthost):
         add_syslog_server = duthost.shell("config syslog add {}".format(syslog_server),
             module_ignore_errors=True)
         pytest_assert(not add_syslog_server['rc'],
-            "syslog server '{}' is not deleted successfully".format(syslog_server))
+            "syslog server '{}' is not added successfully".format(syslog_server))
 
 @pytest.fixture(scope="module")
 def original_syslog_servers(duthost, tbinfo):

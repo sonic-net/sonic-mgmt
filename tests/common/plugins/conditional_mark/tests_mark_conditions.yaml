@@ -8,29 +8,30 @@ acl/test_acl_outer_vlan.py:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests"
     conditions:
       - asic_type=="cisco-8000"
-       
+
 #######################################
-#####            cacl             #####
+#####            bgp              #####
 #######################################
-cacl/test_cacl_application.py::test_cacl_application:
-  xfail:
-    reason: "Image issue on Boradcom dualtor testbeds"
+bgp/test_bgp_slb.py:
+  skip:
+    reason: "Skip over topologies which doesn't support slb"
     conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+     - "'backend' in topo_name or 'mgmttor' in topo_name"
+
+#######################################
+#####           configlet         #####
+#######################################
+configlet/test_add_rack.py:
+  skip:
+    reason: "AddRack is not yet supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==True"
 
 #######################################
 #####            copp             #####
 #######################################
-copp/test_copp.py::TestCOPP::test_add_new_trap:
-  xfail:
-    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet, a 'strict' param will remind us to remove this mark condition by setting 'xpass' as 'fail'"
-    strict: True
-    conditions:
-      - "release in ['202012']"
-
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  skip:
+  xfail:
     reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "release in ['202012']"
@@ -40,9 +41,9 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
   skip:
-    reason: "Not supported on broadcom after 201911 release and mellanox all releases"
+    reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases"
     conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox'])"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000'])"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
   skip:
@@ -50,16 +51,13 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
     conditions:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
-#######################################
-#####         dhcp_relay          #####
-#######################################
-dhcp_relay/test_dhcpv6_relay.py:
-  xfail:
-    reason: "Generic internal image feature missing"
-    strict: True
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe]:
+  skip:
+    reason: "Not supported uniform ttl mode"
+
+decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
+  skip:
+    reason: "Not supported uniform ttl mode"
 
 #######################################
 #####           dualtor           #####
@@ -75,15 +73,27 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_to
 #######################################
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master']"
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+ecmp/inner_hashing/test_inner_hashing_lag.py:
+  skip:
+    reason: "Skip this test on Mellanox 2700 platform"
+    conditions:
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet"
+    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master']"
+      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
+  skip:
+    reason: "Skip this test on Mellanox 2700 platform"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
 
 #######################################
 #####         everflow            #####
@@ -94,6 +104,15 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
     conditions:
       - "asic_type=='cisco-8000'"
+
+#######################################
+#####   generic_config_updater    #####
+#######################################
+generic_config_updater/test_eth_interface.py::test_replace_fec:
+  skip:
+    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    conditions:
+      - "platform in ['x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####      iface_namingmode       #####
@@ -120,6 +139,24 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
       - "platform in ['x86_64-cel_e1031-r0']"
 
 #######################################
+#####           macsec            #####
+#######################################
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
+
+#######################################
+#####           nat               #####
+#######################################
+nat:
+  skip:
+    reason: "Nat feature is not enabled with image version"
+    conditions:
+      - "'nat' not in feature_status"
+
+#######################################
 #####           ntp               #####
 #######################################
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
@@ -130,24 +167,51 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####           pfc               #####
+#######################################
+pfc/test_unknown_mac.py:
+  skip:
+    reason: In cisco-8000 platform, a packet with unknown MAC will be flooded, not dropped. This case will not pass in cisco-8000.
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####         pfc_asym            #####
 #######################################
 pfc_asym/test_pfc_asym.py:
   skip:
-    reason: 'pfc_asym test is only supported on Mellanox platform'
+    reason: 'pfc_asym test is only supported on Mellanox, Barefoot platforms'
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'barefoot']"
 
 #######################################
 #####         pfcwd               #####
 #######################################
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
-  xfail:
-    reason: "Test flaky"
+pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
+   skip:
+     reason: "Forward action not supported in cisco-8000"
+     conditions:
+        - "asic_type in ['cisco-8000']"
 
-pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb:
-  xfail:
-    reason: "Test flaky"
+#######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: "chassisd platform daemon introduced in 202106"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
+    conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
 #######################################
 #####           qos               #####
@@ -173,23 +237,11 @@ qos/test_qos_sai.py:
     conditions:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
-  xfail:
-    reason: "Image issue on Arista platforms"
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  skip:
+    reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
     conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####         restapi             #####
@@ -236,9 +288,9 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "sub port interfaces test is not yet supported on multi-ASIC platform"
+    reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -276,12 +328,6 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 #######################################
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform"
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
-      - "is_multi_asic==True"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
-  skip:
-    reason: "This test can only run on 4600c and 8102"
-    conditions:
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
+      - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"

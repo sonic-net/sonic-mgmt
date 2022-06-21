@@ -7,13 +7,14 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
+from tests.common.ptf_agent_updater import PtfAgentUpdater
 from tests.common import constants
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
 from sub_ports_helpers import TUNNEL_TEMPLATE
+from sub_ports_helpers import PTF_NN_AGENT_TEMPLATE
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_member_from_vlan
 from sub_ports_helpers import get_port
@@ -34,8 +35,6 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import add_member_to_vlan
 from sub_ports_helpers import remove_sub_port_from_ptf
 from sub_ports_helpers import remove_bond_port
-from sub_ports_helpers import configure_ptf_nn_agent
-from sub_ports_helpers import cleanup_ptf_nn_agent
 from sub_ports_helpers import add_static_route_to_dut
 from sub_ports_helpers import remove_static_route_from_dut
 from sub_ports_helpers import update_dut_arp_table
@@ -52,19 +51,6 @@ def pytest_addoption(parser):
         default=4,
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
-
-
-@pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
-    vendor = duthost.facts["asic_type"]
-    hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
-    for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
-        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
-            pytest.skip(
-                "Skipping test since subport is not supported on {0} {1} platforms".format(vendor, asic))
-
 
 @pytest.fixture(params=['port', 'port_in_lag'])
 def port_type(request):
@@ -460,6 +446,10 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
+    ptf_agent_updater = PtfAgentUpdater(ptfhost=ptfhost,
+                                        ptfadapter=ptfadapter,
+                                        ptf_nn_agent_template=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE))
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if "backend" in tbinfo["topo"]["name"]:
         src_ports = set()
@@ -483,7 +473,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
         sub_ports_on_port = [sub_port for sub_port in sub_ports if port + '.' in sub_port]
 
         sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
-        configure_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+        ptf_agent_updater.configure_ptf_nn_agent(sub_port_neighbors)
 
         new_sub_ports.append((sub_ports_on_port, subnet))
 
@@ -499,7 +489,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
 
     for sub_ports_on_port, subnet in new_sub_ports:
         sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
-        cleanup_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+        ptf_agent_updater.cleanup_ptf_nn_agent(sub_port_neighbors)
 
         for next_hop_sub_port in sub_ports_on_port:
             remove_static_route_from_dut(duthost, str(subnet), sub_ports[next_hop_sub_port]['neighbor_ip'])
@@ -571,3 +561,17 @@ def teardown_test_class(duthost):
     """
     yield
     config_reload(duthost)
+
+
+def pytest_generate_tests(metafunc):
+    # try to put fixture loganalyzer after fixture reload_dut_config, during
+    # teardown, loganalyzer will be executed before reload_dut_config, so any
+    # log error introduced by config load will be skipped.
+    try:
+        metafunc.fixturenames.index("loganalyzer")
+        reload_dut_config_index = metafunc.fixturenames.index("reload_dut_config")
+    except ValueError:
+        return
+    else:
+        metafunc.fixturenames.remove("loganalyzer")
+        metafunc.fixturenames.insert(reload_dut_config_index + 1, "loganalyzer")

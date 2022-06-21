@@ -7,14 +7,14 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY
+from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
 from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
                                                 copy_arp_responder_py, copy_ptftests_directory
-
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # lgtm[py/unused-import]
 import tests.arp.test_wr_arp as test_wr_arp
 
 from tests.common.config_reload import config_reload
@@ -132,7 +132,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
 
         apply_dut_config_files(duthost, vnet_test_params)
         # Check arp table status in a loop with delay.
-        pytest_assert(wait_until(60, 10, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
+        pytest_assert(wait_until(120, 20, 10, is_neigh_reachable, duthost, vnet_config), "Neighbor is unreachable")
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":
@@ -163,13 +163,15 @@ def is_neigh_reachable(duthost, vnet_config):
                 logger.info('Neigh {} {} is reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
             else:
                 logger.error('Neigh {} {} is not reachable'.format(exp_neigh["ip"], exp_neigh["ifname"]))
+                logger.info("Reapplying config {}".format(DUT_VNET_NBR_JSON))
+                duthost.shell("sudo config load {} -y".format(DUT_VNET_NBR_JSON))
                 return False
         else:
             logger.warning('Neighbor expected but not found: {} {}'.format(exp_neigh["ip"], exp_neigh["ifname"]))
     return True
 
 
-def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds):
+def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, creds, is_route_flow_counter_supported):
     """
     Test case for VNET VxLAN
 
@@ -205,10 +207,22 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         pytest.skip("Skip cleanup specified")
 
     logger.debug("Starting PTF runner")
-    ptf_runner(ptfhost,
-               "ptftests",
-               "vnet_vxlan.VNET",
-               platform_dir="ptftests",
-               params=ptf_params,
-               qlen=1000,
-               log_file=log_file)
+    if scenario == 'Enabled' and vxlan_enabled:
+        route_pattern = 'Vnet1|100.1.1.1/32'
+        with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [route_pattern], {route_pattern: {'packets': '3'}}):
+            ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+    else:
+        ptf_runner(ptfhost,
+                "ptftests",
+                "vnet_vxlan.VNET",
+                platform_dir="ptftests",
+                params=ptf_params,
+                qlen=1000,
+                log_file=log_file)
+

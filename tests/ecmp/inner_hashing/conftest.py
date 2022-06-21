@@ -29,6 +29,8 @@ FIB_INFO_FILE_DST = '/root/fib_info.txt'
 VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
+ACL_DEPENDENCY_TABLES = ["EVERFLOW","EVERFLOWV6"]
+
 T0_VLAN = "1000"
 IP_VERSIONS_LIST = ["ipv4", "ipv6"]
 OUTER_ENCAP_FORMATS = ["vxlan", "nvgre"]
@@ -52,8 +54,6 @@ VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
 NVGRE_GRE_KEY_OPTION = " --gre-key {}/{}".format(GRE_KEY, GRE_MASK)
 ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
 DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
-ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
-                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
                         " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
@@ -190,6 +190,20 @@ def vlan_ptf_ports(config_facts, tbinfo, duthost):
 
 
 @pytest.fixture(scope='module')
+def lag_mem_ptf_ports_groups(config_facts, tbinfo, duthost):
+    lag_mem_ptf_ports_groups = []
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for lag_members in config_facts.get('PORTCHANNEL_MEMBER', {}).values():
+        lag_group = []
+        for intf in lag_members.keys():
+            dut_port_index = mg_facts['minigraph_ptf_indices'][intf]
+            lag_group.append(dut_port_index)
+        lag_mem_ptf_ports_groups.append(lag_group)
+
+    return lag_mem_ptf_ports_groups
+
+
+@pytest.fixture(scope='module')
 def lag_port_map(duthost, config_facts, vlan_ptf_ports, tbinfo):
     '''
     Create lag-port map for vlan ptf ports
@@ -273,6 +287,21 @@ def outer_ipver(request):
 @pytest.fixture(scope="module", params=IP_VERSIONS_LIST)
 def inner_ipver(request):
     return request.param
+
+
+@pytest.fixture(scope="module")
+def remove_lag_acl_dependency(duthost):
+    duthost.command("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.back")
+
+    for acl_table in ACL_DEPENDENCY_TABLES:
+        duthost.command("sudo config acl remove table {}".format(acl_table))
+
+    yield
+
+    duthost.shell("cat /etc/sonic/config_db.json.back | jq 'with_entries(select(.key==\"ACL_TABLE\"))' > /tmp/acl.json")
+    duthost.command("sudo config load -y /tmp/acl.json")
+    duthost.command("sudo config save -y")
+    duthost.command("rm -f /etc/sonic/config_db.json.back")
 
 
 @pytest.fixture(scope="module")
@@ -420,15 +449,17 @@ def get_src_dst_ip_range(ipver):
     return src_ip_range, dst_ip_range
 
 
-def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys):
+def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys, ports_groups):
     logging.info('Verify PBH counters')
     with allure.step('Verify PBH counters'):
         symmetric_multiplier = 2 if symmetric_hashing else 1
-        exp_port_multiplier = 4  # num of POs in t0 topology
+        exp_ports_multiplier = 0
+        for group in ports_groups:
+            exp_ports_multiplier += len(group)
         hash_keys_multiplier = len(hash_keys)
         # for hash key "ip-proto", the traffic sends always in one way
-        exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
-                        + (balancing_test_times * exp_port_multiplier))
+        exp_count = str((balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier-1))
+                        + (balancing_test_times * exp_ports_multiplier))
         pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
         for outer_encap_format in OUTER_ENCAP_FORMATS:
             regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)
@@ -458,3 +489,105 @@ def remove_lag_config(duthost, lag_port_map, lag_ip_map):
             duthost.shell('sudo config portchannel member del {} {}'.format(lag_port, port_name))
             duthost.shell('sudo config portchannel del {}'.format(lag_port))
             duthost.shell('sudo config vlan member add {} {} --untagged'.format(T0_VLAN, port_name))
+
+
+@pytest.fixture(scope="function")
+def update_rule(duthost, outer_ipver, inner_ipver):
+    '''
+    This function will update the rules: original, according to given outer/inner IP ver, and its mirrored rule
+    (ipv4 -> ipv6 and vice versa).
+    The rules will perform each other's actions.
+    For example, when given the ipv4-ipv4 rule:
+        Before:
+               RULE                     MATCH
+               vxlan_ipv4_ipv4          ether_type:        0x0800
+                                        ip_protocol:       0x11
+                                        l4_dst_port:       0x3412
+                                        inner_ether_type:  0x0800
+
+                vxlan_ipv6_ipv6         ether_type:        0x86dd
+                                        ipv6_next_header:  0x11
+                                        l4_dst_port:       0x3412
+                                        inner_ether_type:  0x86dd
+        After:
+                vxlan_ipv4_ipv4         ether_type:        0x86dd
+                                        ipv6_next_header:  0x11
+                                        l4_dst_port:       0x3412
+                                        inner_ether_type:  0x86dd
+
+                vxlan_ipv6_ipv6         ether_type:        0x0800
+                                        ip_protocol:       0x11
+                                        l4_dst_port:       0x3412
+                                        inner_ether_type:  0x0800
+    '''
+
+    def update_rule_del(outer_ipver, inner_ipver, option):
+        rule_name = encap_format + '_{}_{}'.format(outer_ipver, inner_ipver)
+        cmd = 'config pbh rule update field del {} {} --{}'.format(TABLE_NAME, rule_name, option)
+        duthost.command(cmd)
+
+    def update_rule_set(outer_ipver, inner_ipver, set_dict):
+        rule_name = encap_format + '_{}_{}'.format(outer_ipver, inner_ipver)
+        cmd = 'config pbh rule update field set {} {}'.format(TABLE_NAME, rule_name)
+        for option, value in set_dict.items():
+            cmd += ' --{} {}'.format(option, value)
+        duthost.command(cmd)
+
+    # define original and swapped keys and values
+    if outer_ipver == "ipv4":
+        swapped_outer_ipver = "ipv6"
+        ether_type = V4_ETHER_TYPE
+        swapped_ether_type = V6_ETHER_TYPE
+        prot = 'ip-protocol'
+        swapped_prot = 'ipv6-next-header'
+    else:
+        swapped_outer_ipver = "ipv4"
+        ether_type = V6_ETHER_TYPE
+        swapped_ether_type = V4_ETHER_TYPE
+        prot = 'ipv6-next-header'
+        swapped_prot = 'ip-protocol'
+
+    if inner_ipver == "ipv4":
+        inner_ether_type = V4_ETHER_TYPE
+        swapped_inner_ether_type = V6_ETHER_TYPE
+        swapped_inner_ipver = "ipv6"
+    else:
+        inner_ether_type = V6_ETHER_TYPE
+        swapped_inner_ether_type = V4_ETHER_TYPE
+        swapped_inner_ipver = "ipv4"
+
+    update_set_dict = {prot: '',
+                       'ether-type': ether_type,
+                       'inner-ether-type': inner_ether_type}
+    swapped_update_set_dict = {swapped_prot: '',
+                               'ether-type': swapped_ether_type,
+                               'inner-ether-type': swapped_inner_ether_type}
+
+    logging.info(" Update Rules. Swap the configuration of {}_{} and {}_{} rules"
+                 .format(outer_ipver, inner_ipver, swapped_outer_ipver, swapped_inner_ipver))
+    for encap_format in OUTER_ENCAP_FORMATS:
+        prot_value = VXLAN_IP_PROTOCOL if encap_format == 'vxlan' else NVGRE_IP_PROTOCOL
+
+        update_set_dict.update({prot: prot_value})
+        swapped_update_set_dict.update({swapped_prot: prot_value})
+
+        update_rule_del(outer_ipver, inner_ipver, prot)
+        update_rule_set(outer_ipver, inner_ipver, swapped_update_set_dict)
+
+        update_rule_del(swapped_outer_ipver, swapped_inner_ipver, swapped_prot)
+        update_rule_set(swapped_outer_ipver, swapped_inner_ipver, update_set_dict)
+
+    yield
+
+    logging.info(" Restore Updated Rules ")
+    for encap_format in OUTER_ENCAP_FORMATS:
+        prot_value = VXLAN_IP_PROTOCOL if encap_format == 'vxlan' else NVGRE_IP_PROTOCOL
+
+        update_set_dict.update({prot: prot_value})
+        swapped_update_set_dict.update({swapped_prot: prot_value})
+
+        update_rule_del(outer_ipver, inner_ipver, swapped_prot)
+        update_rule_set(outer_ipver, inner_ipver, update_set_dict)
+
+        update_rule_del(swapped_outer_ipver, swapped_inner_ipver, prot)
+        update_rule_set(swapped_outer_ipver, swapped_inner_ipver, swapped_update_set_dict)

@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-import traceback
 
 import docker
 import ipaddress

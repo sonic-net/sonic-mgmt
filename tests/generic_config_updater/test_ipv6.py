@@ -10,6 +10,11 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('t0', 't1'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
+]
+
 
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthost):
@@ -153,6 +158,11 @@ def test_invalid_ipv6_neighbor(duthost, ensure_dut_readiness, op, dummy_neighbor
 def test_ipv6_neighbor_admin_change(duthost):
     ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
     json_patch = [
+        {
+            "op": "add",
+            "path": "/BGP_NEIGHBOR/{}/admin_status".format(ipv6_neighbor_address),
+            "value": "up"
+        },
         {
             "op": "replace",
             "path": "/BGP_NEIGHBOR/{}/admin_status".format(ipv6_neighbor_address),
