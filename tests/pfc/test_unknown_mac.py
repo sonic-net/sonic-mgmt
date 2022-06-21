@@ -207,10 +207,9 @@ class PreTestVerify(object):
         """
         Check if the FDB entry is missing for the port
         """
-        result = self.duthost.command("show mac -p {}".format(self.dst_port),
-                                      module_ignore_errors=True)
+        result = self.duthost.command("show mac")
         out = result['stdout']
-        pytest_assert("not in list" in out, "{} present in FDB".format(self.arp_entry[self.dst_ip]))
+        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB".format(self.arp_entry[self.dst_ip]))
         logger.info("'{}' not present in fdb as expected".format(self.arp_entry[self.dst_ip]))
 
     def verifyArpFdb(self):
