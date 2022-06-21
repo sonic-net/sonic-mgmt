@@ -286,7 +286,7 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
-  echo $duts
+  echo "$dut" "$duts"
   
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
