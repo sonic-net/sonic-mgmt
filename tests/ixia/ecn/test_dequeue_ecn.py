@@ -61,7 +61,6 @@ def test_dequeue_ecn(request,
     pkt_size = 1024
     pkt_cnt = 100
 
-    pkt_size = 1024
     if cisco_platform:
         original_ecn_markings = get_ecn_markings_dut(duthost)
         setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
@@ -73,7 +72,7 @@ def test_dequeue_ecn(request,
         pkt_to_oq = (oq_cell_count//cell_per_pkt) + margin # Packets forwarded to OQ
         pkt_to_check = pkt_to_oq + 1
     else:
-        cell_size = 0
+        pkt_to_check = 0
     try:
         ip_pkts = run_ecn_test(api=ixia_api,
                            testbed_config=testbed_config,
@@ -97,7 +96,7 @@ def test_dequeue_ecn(request,
                       'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
 
         """ Check if the first packet is marked """
-        pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
+        pytest_assert(is_ecn_marked(ip_pkts[pkt_to_check]), "The first packet should be marked")
 
         """ Check if the last packet is not marked """
         pytest_assert(not is_ecn_marked(ip_pkts[-1]),
