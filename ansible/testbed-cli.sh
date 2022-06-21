@@ -286,6 +286,7 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
+  
   echo "$dut" "$duts"
   
   if [ -n "$sonic_vm_dir" ]; then
