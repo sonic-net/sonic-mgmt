@@ -7,7 +7,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class MultiAsicSonicHost(object):
             hostname: Name of the host in the ansible inventory
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
-        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts["asics_present"]]
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
