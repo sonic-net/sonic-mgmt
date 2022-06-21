@@ -63,8 +63,6 @@ steps:
     GIT_USER_NAME: $(GIT_USER_NAME)
     GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
-  ${{ if eq(parameters.tbtype, 't0-sonic') }}:
-      continueOnError: true
 
 - script: |
     # save dut state if test fails
