@@ -422,7 +422,7 @@ def _parse_test_cases(root):
             result[attribute] = test_case.get(attribute)
         for attribute in REQUIRED_TESTCASE_PROPERTIES:
             testcase_properties = _parse_testcase_properties(test_case)
-            if testcase_properties[attribute]:
+            if attribute in testcase_properties:
                 result[attribute] = testcase_properties[attribute]
 
         # NOTE: "if failure" and "if error" does not work with the ETree library.
