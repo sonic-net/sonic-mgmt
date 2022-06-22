@@ -1045,9 +1045,9 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
             if len(dut_port_list) <= target_len:
                 return dut_port_list
             # for diversity, fetch the ports from both the start and the end of the original list
-            pos1 = target_len / 2
-            pos2 = target_len - pos1
-            return dut_ports[:pos1] + dut_ports[-pos2:]
+            pos_1 = target_len / 2
+            pos_2 = target_len - pos_1
+            return dut_ports[:pos_1] + dut_ports[-pos_2:]
 
         if completeness_level in ["debug"]:
             for dut, dut_ports in dut_port_map.items():
