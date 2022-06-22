@@ -119,6 +119,8 @@ class SonicAsic(object):
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
+
+
         if self.sonichost.is_multi_asic:
             complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
@@ -422,6 +424,22 @@ class SonicAsic(object):
 
         return result["stdout_lines"]
 
+    def run_ip_neigh_cmd(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("sudo ip neigh {}".format(cmdstr))
+
+        cmdstr = "sudo ip -n asic{} neigh {}".format(self.asic_index, cmdstr)
+        return self.sonichost.command(cmdstr)
+    
+
     def port_exists(self, port):
         """
         Check if a given port exists in ASIC instance
@@ -572,10 +590,6 @@ class SonicAsic(object):
         val = self.get_bgp_statistic(stat)
         return val == value
 
-    def get_router_mac(self):
-        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
-               .decode("utf-8").lower())
- 
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':
@@ -617,7 +631,7 @@ class SonicAsic(object):
             return True
 
         return False
-    
+                     
     def count_crm_resources(self, resource_type, route_tag, count_type):
         mapping = self.sonichost.get_crm_resources(self.namespace)
         return mapping.get(resource_type).get(route_tag, {}).get(count_type)
@@ -629,11 +643,10 @@ class SonicAsic(object):
         return int(self.shell(
             'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
-    
+
     def get_route_key(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
             ns_prefix = '-n' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             verbose=False)['stdout_lines']
-                     
