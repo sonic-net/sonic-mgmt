@@ -153,6 +153,7 @@ def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, o
 
     # Generate json file for routes
     generate_route_file(duthost, prefixes, str_intf_nexthop, route_file_dir, op)
+    logger.info('Route file generated and copied')
 
     # Check the number of routes in ASIC_DB
     asichost = duthost.asic_instance(enum_rand_one_asic_index)
@@ -169,37 +170,45 @@ def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, o
     else:
         pytest.fail('Operation {} not supported'.format(op))
     start_time = datetime.now()
-    
+
+    logger.info('Before pushing route to swssconfig')
     # Apply routes with swssconfig
     json_name = '/dev/stdin < {}'.format(route_file_dir)
     result = duthost.docker_exec_swssconfig(json_name, 'swss', enum_rand_one_asic_index)
 
     if result['rc'] != 0:
         pytest.fail('Failed to apply route configuration file: {}'.format(result['stderr']))
-    import pdb; pdb.set_trace()
-    # Wait until the routes set/del applys to ASIC_DB
-    def _check_num_routes(expected_num_routes):
-        # Check the number of routes in ASIC_DB
-        return asichost.count_routes(ROUTE_TABLE_NAME) == expected_num_routes
-    
-    if not wait_until(route_timeout, 0.5, 0, _check_num_routes, expected_num_routes):
-        pytest.fail('failed to add routes within time limit')
+    logger.info('All route entries have been pushed')
+
+    total_delay = 0
+    actual_num_routes = count_routes(duthost)
+    while actual_num_routes != expected_num_routes:
+        diff = abs(expected_num_routes - actual_num_routes)
+        delay = max(diff / 5000, 1)
+        now = datetime.now()
+        total_delay = (now - start_time).total_seconds()
+        logger.info('Current {} expected {} delayed {} will delay {}'.format(actual_num_routes, expected_num_routes, total_delay, delay))
+        time.sleep(delay)
+        actual_num_routes = count_routes(duthost)
+        if total_delay >= route_timeout:
+            break
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
+    logger.info('All route entries have been installed in ASIC_DB in {} seconds'.format((end_time - start_time).total_seconds()))
 
     # Check route entries are correct
     asic_route_keys = asichost.get_route_key(ROUTE_TABLE_NAME)
-    asic_prefixes = []
-    for key in asic_route_keys:
-        json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
-        asic_prefixes.append(json.loads(json_obj)['dest'])
+    table_name_length = len(ROUTE_TABLE_NAME)
+    asic_route_keys_set = set([re.search("\"dest\":\"([0-9a-f:/\.]*)\"", x[table_name_length:]).group(1) for x in asic_route_keys])
+    prefixes_set = set(prefixes)
+    diff = prefixes_set - asic_route_keys_set
     if op == 'SET':
-        assert all(prefix in asic_prefixes for prefix in prefixes)
+        if diff:
+            pytest.fail("The following entries have not been installed into ASIC {}".format(diff))
     elif op == 'DEL':
-        assert all(prefix not in asic_prefixes for prefix in prefixes)
-    else:
-        pytest.fail('Operation {} not supported'.format(op))
+        if diff != prefixes_set:
+            pytest.fail("The following entries have not been withdrawn from ASIC {}".format(prefixes_set - diff))
 
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()

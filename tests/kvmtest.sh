@@ -200,7 +200,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128,256_XPN_SCI"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
     popd
 }
 
@@ -320,6 +320,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
+export GIT_USER_NAME=$GIT_USER_NAME
+export GIT_API_TOKEN=$GIT_API_TOKEN
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs

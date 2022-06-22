@@ -39,23 +39,37 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 #####            decap            #####
 #######################################
-decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe]:
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
     reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases"
     conditions:
       - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000'])"
-
-decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform]:
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
     reason: "Not supported on backend and broadcom before 202012 release"
     conditions:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
-
-decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe]:
+decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
+  skip:
+    reason: "Not supported uniform ttl mode"
+decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=disable]:
   skip:
     reason: "Not supported uniform ttl mode"
 
-decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform]:
+decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
+  skip:
+    reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases"
+    conditions:
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000'])"
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
+  skip:
+    reason: "Not supported on backend and broadcom before 202012 release"
+    conditions:
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
+decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=set_unset]:
+  skip:
+    reason: "Not supported uniform ttl mode"
+decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
 
@@ -180,9 +194,9 @@ pfc/test_unknown_mac.py:
 #######################################
 pfc_asym/test_pfc_asym.py:
   skip:
-    reason: 'pfc_asym test is only supported on Mellanox platform'
+    reason: 'pfc_asym test is only supported on Mellanox, Barefoot platforms'
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'barefoot']"
 
 #######################################
 #####         pfcwd               #####
@@ -290,7 +304,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
