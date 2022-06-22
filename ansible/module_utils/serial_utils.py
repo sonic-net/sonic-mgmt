@@ -70,7 +70,7 @@ class SerialSession(object):
 
 class CiscoSerial(SerialSession):
     def __init__(self, port):
-        super().__init__(port)
+        super(CiscoSerial, self).__init__(port)
 
     def set_account(self, user, password):
         try:
@@ -101,7 +101,7 @@ class CiscoSerial(SerialSession):
 
 class JuniperSerial(SerialSession):
     def __init__(self, port):
-        super().__init__(port)
+        super(JuniperSerial, self).__init__(port)
 
     def login(self, user, password):
         try:
@@ -145,8 +145,8 @@ class JuniperSerial(SerialSession):
         return
 
 class AristaSerial(SerialSession):
-    def __init__(self, port, ):
-        super().__init__(port)
+    def __init__(self, port):
+        super(AristaSerial, self).__init__(port)
 
     def login(self, user, password):
         try:
