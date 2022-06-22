@@ -172,37 +172,47 @@ class TestDataPlane():
             requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
                 requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
-    def test_counters(self, duthost, ctrl_links, upstream_links):
+    def test_counters(self, duthost, upstream_links):
+        if duthost.facts["asic_type"] == "vs":
+            pytest.skip("macsec counter test is not supported on dut vsonic")
+
         EGRESS_SA_COUNTERS = (
                 'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
-                'SAI_MACSEC_SA_STAT_OCTETS_PROTECTED',
                 'SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED',
-                'SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED'
                 )
         INGRESS_SA_COUNTERS = (
                 'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
-                'SAI_MACSEC_SA_STAT_OCTETS_PROTECTED',
                 'SAI_MACSEC_SA_STAT_IN_PKTS_OK',
                 )
         PKT_NUM = 5
+        PKT_OCTET = 1024
 
         for up_port, up_link in upstream_links.items():
-            egress_sa_name = get_macsec_sa_name(duthost, up_port, True)
-            ingress_sa_name = get_macsec_sa_name(duthost, up_port, False)
+            asic = duthost.get_port_asic_instance(up_port)
+            egress_sa_name = get_macsec_sa_name(asic up_port, True)
+            ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
+            if not egress_sa_name or not ingress_sa_name:
+                continue
 
-            egress_start_counters = get_macsec_counters(duthost, up_port, egress_sa_name)
-            ingress_start_counters = get_macsec_counters(duthost, up_port, ingress_sa_name)
+            egress_start_counters = get_macsec_counters(asic, egress_sa_name)
+            ingress_start_counters = get_macsec_counters(asic, ingress_sa_name)
             ret = duthost.command(
-                "ping -c {} {}".format(PKT_NUM, up_link['local_ipv4_addr']))
+                "ping -c {} -s {} {}".format(PKT_NUM, PKT_OCTET, up_link['local_ipv4_addr']))
             sleep(10) # wait 10s for polling counters
-            egress_end_counters = get_macsec_counters(duthost, up_port, egress_sa_name)
-            ingress_end_counters = get_macsec_counters(duthost, up_port, ingress_sa_name)
+            egress_end_counters = get_macsec_counters(asic, egress_sa_name)
+            ingress_end_counters = get_macsec_counters(asic, ingress_sa_name)
 
             for i in EGRESS_SA_COUNTERS:
-                assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM
+                if 'OCTETS' in i:
+                    assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM * PKT_OCTET
+                else:
+                    assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM
 
             for i in INGRESS_SA_COUNTERS:
-                assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM
+                if 'OCTETS' in i:
+                    assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM * PKT_OCTET
+                else:
+                    assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM
 
             i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
             assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM

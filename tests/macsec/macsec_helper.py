@@ -69,17 +69,18 @@ def getns_prefix(host, intf):
 
     return ns_prefix
 
-def get_macsec_sa_name(host, host_port_name, egress = True):
+def get_macsec_sa_name(sonic_asic, port_name, egress = True):
     if egress:
         table = 'MACSEC_EGRESS_SA_TABLE'
     else:
         table = 'MACSEC_INGRESS_SA_TABLE'
 
-    cmd = "sonic-db-cli {} APPL_DB KEYS '{}:{}:*'"
-    names = sonic_db_cli(host, cmd.format(
-        getns_prefix(host, host_port_name), table, host_port_name))
-    names.sort()
-    return names[0].removeprefix(table + ":")
+    cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
+    names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
+    if names:
+        names.sort()
+        return ':'.join(names[0].split(':')[1:])
+    return None
 
 
 def get_appl_db(host, host_port_name, peer, peer_port_name):
@@ -376,7 +377,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 
-def get_macsec_counters(host, host_port_name, name):
+def get_macsec_counters(sonic_asic, name):
     lines = [
         'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter',
         'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0))',
@@ -384,8 +385,7 @@ def get_macsec_counters(host, host_port_name, name):
         'print(dict(values))'
         ]
     cmd = "python -c '{}'".format(';'.join(lines))
-    asic = host.get_port_asic_instance(host_port_name)
-    output = asic.command(cmd)["stdout_lines"][0]
+    output = sonic_asic.command(cmd)["stdout_lines"][0]
     return ast.literal_eval(output)
 
 
