@@ -548,3 +548,70 @@ def str2bool(str):
     :return: False if value is 0 or false, else True
     """
     return str.lower() not in ["0", "false", "no"]
+
+
+def setup_ferret(duthost, ptfhost, tbinfo):
+    '''
+        Sets Ferret service on PTF host.
+    '''
+    VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
+
+    def prepareVxlanConfigData(duthost, ptfhost, tbinfo):
+        '''
+            Prepares Vxlan Configuration data for Ferret service running on PTF host
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
+        '''
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        vxlanConfigData = {
+            'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
+            'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
+            'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
+            'minigraph_vlans': mgFacts['minigraph_vlans'],
+            'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
+            'dut_mac': duthost.facts['router_mac']
+        }
+        with open(VXLAN_CONFIG_FILE, 'w') as file:
+            file.write(json.dumps(vxlanConfigData, indent=4))
+
+        logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
+        ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
+
+    ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
+    result = duthost.shell(
+        cmd='''ip route show type unicast |
+        sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
+        head -n 1 |
+        sed -ne 's/0\/.*$/1/p'
+        '''
+    )
+    dip = result['stdout']
+    logger.info('VxLan Sender {0}'.format(dip))
+    vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+    if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
+        vxlan_port = int(vxlan_port_out['stdout'])
+        ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1} -p {2}'.format(
+            dip, duthost.facts["asic_type"], vxlan_port)
+    else:
+        ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1}'.format(dip, duthost.facts["asic_type"])
+
+    ptfhost.host.options['variable_manager'].extra_vars.update({'ferret_args': ferret_args})
+    logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
+    ptfhost.template(src='arp/files/ferret.conf.j2', dest='/etc/supervisor/conf.d/ferret.conf')
+
+    logger.info('Generate pem and key files for ssl')
+    ptfhost.command(
+        cmd='''openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes
+        -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"''',
+        chdir='/opt'
+    )
+    prepareVxlanConfigData(duthost, ptfhost, tbinfo)
+    logger.info('Refreshing supervisor control with ferret configuration')
+    ptfhost.shell('supervisorctl reread && supervisorctl update')
+    ptfhost.shell('supervisorctl restart ferret')
