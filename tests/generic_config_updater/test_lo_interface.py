@@ -305,16 +305,16 @@ def setup_vrf_config(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_lo_interface_tc1_suite(duthost, cfg_facts):
-    cleanup_lo_interface_config(duthost, cfg_facts)
-    lo_interface_tc1_add_init(duthost)
-    lo_interface_tc1_add_duplicate(duthost)
-    lo_interface_tc1_xfail(duthost)
-    lo_interface_tc1_replace(duthost)
-    lo_interface_tc1_remove(duthost)
+def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts):
+    cleanup_lo_interface_config(rand_selected_dut, cfg_facts)
+    lo_interface_tc1_add_init(rand_selected_dut)
+    lo_interface_tc1_add_duplicate(rand_selected_dut)
+    lo_interface_tc1_xfail(rand_selected_dut)
+    lo_interface_tc1_replace(rand_selected_dut)
+    lo_interface_tc1_remove(rand_selected_dut)
 
 
-def test_lo_interface_tc2_vrf_change(duthost):
+def test_lo_interface_tc2_vrf_change(rand_selected_dut):
     """ Replace lo interface vrf
 
     admin@vlab-01:~$ show ip interfaces | grep Loopback0
@@ -326,7 +326,7 @@ def test_lo_interface_tc2_vrf_change(duthost):
     VRF Vrf_02:
     C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:17
     """
-    setup_vrf_config(duthost)
+    setup_vrf_config(rand_selected_dut)
     json_patch = [
         {
             "op": "replace",
@@ -335,19 +335,19 @@ def test_lo_interface_tc2_vrf_change(duthost):
         }
     ]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(rand_selected_dut, output)
 
-        check_show_ip_intf(duthost, "Loopback0", ["10.1.0.32/32", "Vrf_02"],
+        check_show_ip_intf(rand_selected_dut, "Loopback0", ["10.1.0.32/32", "Vrf_02"],
                            [], is_ipv4=True)
-        check_show_ip_intf(duthost, "Loopback0", ["fc00:1::32/128", "Vrf_02"],
+        check_show_ip_intf(rand_selected_dut, "Loopback0", ["fc00:1::32/128", "Vrf_02"],
                            [], is_ipv4=False)
 
-        check_vrf_route_for_intf(duthost, "Vrf_02", "Loopback0", is_ipv4=True)
-        check_vrf_route_for_intf(duthost, "Vrf_02", "Loopback0", is_ipv4=False)
+        check_vrf_route_for_intf(rand_selected_dut, "Vrf_02", "Loopback0", is_ipv4=True)
+        check_vrf_route_for_intf(rand_selected_dut, "Vrf_02", "Loopback0", is_ipv4=False)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)

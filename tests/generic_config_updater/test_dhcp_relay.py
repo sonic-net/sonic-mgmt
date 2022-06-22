@@ -246,7 +246,7 @@ def expect_res_success_by_vlanid(duthost, vlanid, expected_content_list, unexpec
 
 
 # DHCP_RELAY TEST
-def test_dhcp_relay_tc1_rm_nonexist(duthost, vlan_intfs_list):
+def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
     """Test remove nonexisted dhcp server on default setup
     """
     dhcp_rm_nonexist_json = [
@@ -255,17 +255,17 @@ def test_dhcp_relay_tc1_rm_nonexist(duthost, vlan_intfs_list):
             "path": "/VLAN/Vlan"+ str(vlan_intfs_list[0]) + "/dhcp_servers/5"
         }]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=dhcp_rm_nonexist_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_rm_nonexist_json, dest_file=tmpfile)
         expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc2_add_exist(duthost, vlan_intfs_list):
+def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
     """Test add existed dhcp server on default setup
     """
     dhcp_add_exist_json = [
@@ -275,17 +275,17 @@ def test_dhcp_relay_tc2_add_exist(duthost, vlan_intfs_list):
             "value": "192.0." + str(vlan_intfs_list[0]) + ".1"
         }]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=dhcp_add_exist_json, dest_file=tmpfile)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_add_exist_json, dest_file=tmpfile)
         expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc3_add_and_rm(duthost, vlan_intfs_list):
+def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
     """Test mixed add and rm ops for dhcp server on default setup
 
     This VLAN detail should show below after test
@@ -314,26 +314,26 @@ def test_dhcp_relay_tc3_add_and_rm(duthost, vlan_intfs_list):
             "value": "192.0." + str(vlan_intfs_list[0]) + ".5"
         }]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=dhcp_add_rm_json, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_add_rm_json, dest_file=tmpfile)
+        expect_op_success(rand_selected_dut, output)
         pytest_assert(
-            duthost.is_service_fully_started('dhcp_relay'),
+            rand_selected_dut.is_service_fully_started('dhcp_relay'),
             "dhcp_relay service is not running"
         )
 
         expected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".5"]
         unexpected_content_list = ["192.0." + str(vlan_intfs_list[1]) + ".4"]
-        expect_res_success_by_vlanid(duthost, vlan_intfs_list[0], expected_content_list, [])
-        expect_res_success_by_vlanid(duthost, vlan_intfs_list[1], [], unexpected_content_list)
+        expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[0], expected_content_list, [])
+        expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[1], [], unexpected_content_list)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc4_replace(duthost, vlan_intfs_list):
+def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
     """Test replace dhcp server on default setup
 
     This VLAN detail should show below after test
@@ -358,19 +358,19 @@ def test_dhcp_relay_tc4_replace(duthost, vlan_intfs_list):
             "value": "192.0." + str(vlan_intfs_list[0]) + ".8"
         }]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=dhcp_replace_json, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        output = apply_patch(rand_selected_dut, json_data=dhcp_replace_json, dest_file=tmpfile)
+        expect_op_success(rand_selected_dut, output)
         pytest_assert(
-            duthost.is_service_fully_started('dhcp_relay'),
+            rand_selected_dut.is_service_fully_started('dhcp_relay'),
             "dhcp_relay service is not running"
         )
 
         expected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".8"]
         unexpected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".1"]
-        expect_res_success_by_vlanid(duthost, vlan_intfs_list[0], expected_content_list, unexpected_content_list)
+        expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[0], expected_content_list, unexpected_content_list)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)

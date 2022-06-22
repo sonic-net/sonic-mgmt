@@ -313,15 +313,15 @@ def aaa_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_tc1_aaa_suite(duthost):
+def test_tc1_aaa_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian AAA table. So we remove AAA config at first.
     """
-    aaa_add_init_config_without_table(duthost)
-    aaa_tc1_add_config(duthost)
-    aaa_tc1_replace(duthost)
-    aaa_tc1_add_duplicate(duthost)
-    aaa_tc1_remove(duthost)
+    aaa_add_init_config_without_table(rand_selected_dut)
+    aaa_tc1_add_config(rand_selected_dut)
+    aaa_tc1_replace(rand_selected_dut)
+    aaa_tc1_add_duplicate(rand_selected_dut)
+    aaa_tc1_remove(rand_selected_dut)
 
 
 def tacacs_global_tc2_add_config(duthost):
@@ -444,15 +444,15 @@ def tacacs_global_tc2_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_tc2_tacacs_global_suite(duthost):
+def test_tc2_tacacs_global_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian TACACS table. So we remove TACACS config at first.
     """
-    tacacs_add_init_config_without_table(duthost)
-    tacacs_global_tc2_add_config(duthost)
-    tacacs_global_tc2_invalid_input(duthost)
-    tacacs_global_tc2_duplicate_input(duthost)
-    tacacs_global_tc2_remove(duthost)
+    tacacs_add_init_config_without_table(rand_selected_dut)
+    tacacs_global_tc2_add_config(rand_selected_dut)
+    tacacs_global_tc2_invalid_input(rand_selected_dut)
+    tacacs_global_tc2_duplicate_input(rand_selected_dut)
+    tacacs_global_tc2_remove(rand_selected_dut)
 
 
 def tacacs_server_tc3_add_init(duthost):
@@ -611,13 +611,13 @@ def tacacs_server_tc3_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_tacacs_server_tc3_suite(duthost):
+def test_tacacs_server_tc3_suite(rand_selected_dut):
     """ Due to kvm t0 and testbed t0 has different tacacs server predefined,
         so we cleanup tacacs servers then test on mannual setup.
     """
-    cleanup_tacacs_server(duthost)
-    tacacs_server_tc3_add_init(duthost)
-    tacacs_server_tc3_add_max(duthost)
-    tacacs_server_tc3_replace_invalid(duthost)
-    tacacs_server_tc3_add_duplicate(duthost)
-    tacacs_server_tc3_remove(duthost)
+    cleanup_tacacs_server(rand_selected_dut)
+    tacacs_server_tc3_add_init(rand_selected_dut)
+    tacacs_server_tc3_add_max(rand_selected_dut)
+    tacacs_server_tc3_replace_invalid(rand_selected_dut)
+    tacacs_server_tc3_add_duplicate(rand_selected_dut)
+    tacacs_server_tc3_remove(rand_selected_dut)

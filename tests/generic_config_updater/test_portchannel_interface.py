@@ -197,10 +197,10 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(duthost, portchannel_table):
-    portchannel_interface_tc1_add_duplicate(duthost, portchannel_table)
-    portchannel_interface_tc1_xfail(duthost)
-    portchannel_interface_tc1_add_and_rm(duthost, portchannel_table)
+def test_portchannel_interface_tc1_suite(rand_selected_dut, portchannel_table):
+    portchannel_interface_tc1_add_duplicate(rand_selected_dut, portchannel_table)
+    portchannel_interface_tc1_xfail(rand_selected_dut)
+    portchannel_interface_tc1_add_and_rm(rand_selected_dut, portchannel_table)
 
 
 def verify_po_running(duthost, portchannel_table):
@@ -299,6 +299,6 @@ def portchannel_interface_tc2_incremental(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc2_attributes(duthost):
-    portchannel_interface_tc2_replace(duthost)
-    portchannel_interface_tc2_incremental(duthost)
+def test_portchannel_interface_tc2_attributes(rand_selected_dut):
+    portchannel_interface_tc2_replace(rand_selected_dut)
+    portchannel_interface_tc2_incremental(rand_selected_dut)

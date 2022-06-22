@@ -284,15 +284,15 @@ def vlan_interface_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_vlan_interface_tc1_suite(duthost):
-    vlan_interface_tc1_add_duplicate(duthost)
-    vlan_interface_tc1_xfail(duthost)
-    vlan_interface_tc1_add_new(duthost)
-    vlan_interface_tc1_replace(duthost)
-    vlan_interface_tc1_remove(duthost)
+def test_vlan_interface_tc1_suite(rand_selected_dut):
+    vlan_interface_tc1_add_duplicate(rand_selected_dut)
+    vlan_interface_tc1_xfail(rand_selected_dut)
+    vlan_interface_tc1_add_new(rand_selected_dut)
+    vlan_interface_tc1_replace(rand_selected_dut)
+    vlan_interface_tc1_remove(rand_selected_dut)
 
 
-def test_vlan_interface_tc2_incremental_change(duthost):
+def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
     """ Incremental test for VLAN interface
 
     Note: Current topo doesn't contain those change.
@@ -306,11 +306,11 @@ def test_vlan_interface_tc2_incremental_change(duthost):
         }
     ]
 
-    tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(rand_selected_dut, output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        delete_tmpfile(rand_selected_dut, tmpfile)

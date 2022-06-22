@@ -295,13 +295,13 @@ def cacl_tc1_remove_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_cacl_tc1_acl_table_suite(duthost):
-    cacl_tc1_add_new_table(duthost)
-    cacl_tc1_add_duplicate_table(duthost)
-    cacl_tc1_replace_table_variable(duthost)
-    cacl_tc1_add_invalid_table(duthost)
-    cacl_tc1_remove_unexisted_table(duthost)
-    cacl_tc1_remove_table(duthost)
+def test_cacl_tc1_acl_table_suite(rand_selected_dut):
+    cacl_tc1_add_new_table(rand_selected_dut)
+    cacl_tc1_add_duplicate_table(rand_selected_dut)
+    cacl_tc1_replace_table_variable(rand_selected_dut)
+    cacl_tc1_add_invalid_table(rand_selected_dut)
+    cacl_tc1_remove_unexisted_table(rand_selected_dut)
+    cacl_tc1_remove_table(rand_selected_dut)
 
 
 def cacl_tc2_add_init_rule(duthost):

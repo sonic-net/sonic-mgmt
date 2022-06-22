@@ -23,11 +23,12 @@ DUMMY_IP_RANGE_V6      = "cc98:2008:2012:2022::/64"
 DUMMY_SRC_ADDRESS_V4   = "10.1.0.33"
 DUMMY_SRC_ADDRESS_V6   = "fc00:1::33"
 
+
 @pytest.fixture(scope="module")
-def vlan_intf_ip_ranges(duthost, tbinfo):
+def vlan_intf_ip_ranges(rand_selected_dut, tbinfo):
     """ Get vlan subnet. This will be used as bgp speaker ip range
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     ip_range, ip_rangev6 = "", ""
     for vlan_interface in mg_facts['minigraph_vlan_interfaces']:
         if ipaddress.ip_address(vlan_interface['addr']).version == 4:
@@ -38,11 +39,12 @@ def vlan_intf_ip_ranges(duthost, tbinfo):
             return ip_range, ip_rangev6
     pytest_assert(True, "Required ip_range and ip_rangev6 to start the test")
 
+
 @pytest.fixture(scope="module")
-def lo_intf_ips(duthost, tbinfo):
+def lo_intf_ips(rand_selected_dut, tbinfo):
     """ Get loopback interface ip. This will be used as src_address in speaker
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     ip, ipv6 = "", ""
     for lo_interface in mg_facts['minigraph_lo_interfaces']:
         if ipaddress.ip_address(lo_interface['addr']).version == 4:
@@ -52,6 +54,7 @@ def lo_intf_ips(duthost, tbinfo):
         if ip and ipv6:
             return ip, ipv6
     pytest_assert(True, "Required ipv4 and ipv6 to start the test")
+
 
 def get_bgp_speaker_runningconfig(duthost):
     """ Get bgp speaker config that contains src_address and ip_range
@@ -74,6 +77,7 @@ def get_bgp_speaker_runningconfig(duthost):
     bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
     bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
     return bgp_speaker_config
+
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -99,6 +103,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     finally:
         delete_checkpoint(duthost)
 
+
 def bgp_speaker_config_cleanup(duthost):
     """ Clean up bgp speaker config to avoid ip range conflict
     """
@@ -108,8 +113,10 @@ def bgp_speaker_config_cleanup(duthost):
         "bgp speaker config cleanup failed."
     )
 
+
 def show_bgp_running_config(duthost):
     return duthost.shell("show runningconfiguration bgp")['stdout']
+
 
 def bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
     """ Test to add desired v4&v6 bgp speaker config
@@ -162,6 +169,7 @@ def bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgp_speaker_tc1_add_dummy_ip_range(duthost):
     """ Test to add dummy ip range to existed config
     """
@@ -195,6 +203,7 @@ def bgp_speaker_tc1_add_dummy_ip_range(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgp_speaker_tc1_rm_dummy_ip_range(duthost):
     """ Test to remove dummy ip range to existed config
     """
@@ -225,6 +234,7 @@ def bgp_speaker_tc1_rm_dummy_ip_range(duthost):
 
     finally:
         delete_tmpfile(duthost, tmpfile)
+
 
 def bgp_speaker_tc1_replace_src_address(duthost):
     """ Test to replace dummy src_address to existed config
@@ -259,11 +269,12 @@ def bgp_speaker_tc1_replace_src_address(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_bgp_speaker_tc1_test_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
+
+def test_bgp_speaker_tc1_test_config(rand_selected_dut, lo_intf_ips, vlan_intf_ip_ranges):
     """ Test suite for bgp speaker config for v4 and v6
     """
-    bgp_speaker_config_cleanup(duthost)
-    bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges)
-    bgp_speaker_tc1_add_dummy_ip_range(duthost)
-    bgp_speaker_tc1_rm_dummy_ip_range(duthost)
-    bgp_speaker_tc1_replace_src_address(duthost)
+    bgp_speaker_config_cleanup(rand_selected_dut)
+    bgp_speaker_tc1_add_config(rand_selected_dut, lo_intf_ips, vlan_intf_ip_ranges)
+    bgp_speaker_tc1_add_dummy_ip_range(rand_selected_dut)
+    bgp_speaker_tc1_rm_dummy_ip_range(rand_selected_dut)
+    bgp_speaker_tc1_replace_src_address(rand_selected_dut)

@@ -37,10 +37,10 @@ def syslog_config_cleanup(duthost, cfg_facts):
 
 
 @pytest.fixture(scope="module")
-def original_syslog_servers(duthost, tbinfo):
+def original_syslog_servers(rand_selected_dut, tbinfo):
     """A module level fixture to store original syslog servers info
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
 
     original_syslog_servers = []
     for syslog_server in mg_facts['syslog_servers']:
@@ -296,13 +296,13 @@ def syslog_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_syslog_server_tc1_suite(duthost, cfg_facts):
+def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
     """ Test syslog server config from clean config
     """
-    syslog_config_cleanup(duthost, cfg_facts)
-    syslog_server_tc1_add_init(duthost)
-    syslog_server_tc1_add_duplicate(duthost)
-    syslog_server_tc1_xfail(duthost)
-    syslog_server_tc1_replace(duthost)
-    syslog_server_tc1_remove(duthost)
+    syslog_config_cleanup(rand_selected_dut, cfg_facts)
+    syslog_server_tc1_add_init(rand_selected_dut)
+    syslog_server_tc1_add_duplicate(rand_selected_dut)
+    syslog_server_tc1_xfail(rand_selected_dut)
+    syslog_server_tc1_replace(rand_selected_dut)
+    syslog_server_tc1_remove(rand_selected_dut)
 
