@@ -1039,8 +1039,12 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
     if with_completeness_level:
         completeness_level = get_completeness_level_metadata(request)
         # if completeness_level in ["debug", "basic", "confident"],
-        # enumerate at most 4 ports on every DUT to save test time
-        if completeness_level in ["debug", "basic", "confident"]:
+        # only select several ports on every DUT to save test time
+        if completeness_level in ["debug"]:
+            for dut, dut_ports in dut_port_map.items():
+                if len(dut_ports) > 1:
+                    dut_port_map[dut] = dut_ports[:1]
+        elif completeness_level in ["basic", "confident"]:
             for dut, dut_ports in dut_port_map.items():
                 if len(dut_ports) > 4:
                     dut_port_map[dut] = dut_ports[:2] + dut_ports[-2:]
