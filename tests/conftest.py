@@ -1040,14 +1040,21 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         completeness_level = get_completeness_level_metadata(request)
         # if completeness_level in ["debug", "basic", "confident"],
         # only select several ports on every DUT to save test time
+
+        def trim_dut_port_lists(dut_port_list, target_len):
+            if len(dut_port_list) <= target_len:
+                return dut_port_list
+            # for diversity, fetch the ports from both the start and the end of the original list
+            pos1 = target_len / 2
+            pos2 = target_len - pos1
+            return dut_ports[:pos1] + dut_ports[-pos2:]
+
         if completeness_level in ["debug"]:
             for dut, dut_ports in dut_port_map.items():
-                if len(dut_ports) > 1:
-                    dut_port_map[dut] = dut_ports[:1]
+                dut_port_map[dut] = trim_dut_port_lists(dut_ports, 1)
         elif completeness_level in ["basic", "confident"]:
             for dut, dut_ports in dut_port_map.items():
-                if len(dut_ports) > 4:
-                    dut_port_map[dut] = dut_ports[:2] + dut_ports[-2:]
+                dut_port_map[dut] = trim_dut_port_lists(dut_ports, 4)
 
     ret = reduce(lambda dut_ports_1, dut_ports_2: dut_ports_1 + dut_ports_2, dut_port_map.values())
     logger.info("Generate port_list: {}".format(ret))
