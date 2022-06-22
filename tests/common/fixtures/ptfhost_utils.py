@@ -180,12 +180,10 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
-        file.writelines(
-            map(
-                    lambda index, port: "{0}@{1}\n".format(index, port),
-                    enumerate(portList)
-                )
-            )
+        ptf_port_map = []
+        for i in range(len(portList)):
+            ptf_port_map.append("{}@{}\n".format(i, portList[i]))
+        file.writelines(ptf_port_map)
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
