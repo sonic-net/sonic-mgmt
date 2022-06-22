@@ -189,7 +189,7 @@ class TestDataPlane():
 
         for up_port, up_link in upstream_links.items():
             asic = duthost.get_port_asic_instance(up_port)
-            egress_sa_name = get_macsec_sa_name(asic up_port, True)
+            egress_sa_name = get_macsec_sa_name(asic, up_port, True)
             ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
             if not egress_sa_name or not ingress_sa_name:
                 continue
