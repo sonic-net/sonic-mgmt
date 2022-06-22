@@ -758,6 +758,8 @@ class VMTopology(object):
         #injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
         
+        VMTopology.cmd('sudo ovs-ofctl add-flow %s actions=all' % br_name)
+
         """
         # clear old bindings
         VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
