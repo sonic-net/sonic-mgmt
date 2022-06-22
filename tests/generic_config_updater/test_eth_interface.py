@@ -94,29 +94,31 @@ def test_remove_lanes(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-#def test_replace_lanes(duthost, ensure_dut_readiness):
-#    cur_lanes = check_interface_status(duthost, "Lanes")
-#    cur_lanes = cur_lanes.split(",")
-#    cur_lanes.sort()
-#    update_lanes = cur_lanes
-#    update_lanes[-1] = str(int(update_lanes[-1]) + 1)
-#    update_lanes = ",".join(update_lanes)
-#    json_patch = [
-#        {
-#            "op": "replace",
-#            "path": "/PORT/Ethernet0/lanes",
-#            "value": "{}".format(update_lanes)
-#        }
-#    ]
-#
-#    tmpfile = generate_tmpfile(duthost)
-#    logger.info("tmpfile {}".format(tmpfile))
-#
-#    try:
-#        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-#        expect_op_failure(output)
-#    finally:
-#        delete_tmpfile(duthost, tmpfile)
+@pytest.mark.skip(reason="Bypass as it is blocking submodule update")
+def test_replace_lanes(duthost, ensure_dut_readiness):
+    cur_lanes = check_interface_status(duthost, "Lanes")
+    cur_lanes = cur_lanes.split(",")
+    cur_lanes.sort()
+    update_lanes = cur_lanes
+    update_lanes[-1] = str(int(update_lanes[-1]) + 1)
+    update_lanes = ",".join(update_lanes)
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/Ethernet0/lanes",
+            "value": "{}".format(update_lanes)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
 
 def test_replace_mtu(duthost, ensure_dut_readiness):
     # Can't directly change mtu of the port channel member
