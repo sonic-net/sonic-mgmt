@@ -603,6 +603,18 @@ class VMTopology(object):
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan1_iface_id, vlan2_iface_id))
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, vlan2_iface_id, vlan1_iface_id))
 
+    def bind_ptf_ports_ovs(self, topo):
+        """
+        bind ptf  ports to ovs
+        """
+        for ptf_int in topo['ptf_interfaces']:
+            m = re.match("(\d+)@(\d+)", ptf_int)
+            (ptf_int_index, ovs_index) = (int(m.group(1)), int(m.group(2)))
+            br_name = "br-sonic-ovs" + str(ovs_index)
+            injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_int_index)
+            VMTopology.cmd('ifconfig %s mtu 9200' % injected_iface)
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, injected_iface))
+    
     def bind_fp_ports_ovs(self, topo, duts_fp_ports, duts_name):
         """
         bind dut front panel ports to ovs
@@ -735,17 +747,18 @@ class VMTopology(object):
             VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, dut_iface))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
-        if injected_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, injected_iface))
+        #if injected_iface not in ports:
+        #    VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, injected_iface))
 
         if dut_iface not in ports:
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, dut_iface))
 
         bindings = VMTopology.get_ovs_port_bindings(br_name, [dut_iface])
         dut_iface_id = bindings[dut_iface]
-        injected_iface_id = bindings[injected_iface]
+        #injected_iface_id = bindings[injected_iface]
         vm_iface_id = bindings[vm_iface]
-
+        
+        """
         # clear old bindings
         VMTopology.cmd('ovs-ofctl del-flows %s' % br_name)
 
@@ -758,7 +771,7 @@ class VMTopology(object):
 
         if disconnect_vm:
             # Add flow from external iface to ptf container
-            VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, dut_iface_id, injected_iface_id))
+            #VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, dut_iface_id, injected_iface_id))
         else:
             # Add flow from external iface to a VM and a ptf container
             # Allow BGP, ICMP, SNMP packets and layer2 packets from DUT to neighbors
@@ -778,7 +791,7 @@ class VMTopology(object):
 
         # Add flow from a ptf container to an external iface
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br_name, injected_iface_id, dut_iface_id))
-
+        """
     def unbind_ovs_ports(self, br_name, vm_port):
         """unbind all ports except the vm port from an ovs bridge"""
         ports = VMTopology.get_ovs_br_ports(br_name)
@@ -1394,6 +1407,7 @@ def main():
             if vms_exists:
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
+                net.bind_ptf_ports_ovs(topo)
                 if vm_type != "vsonic":
                     net.bind_vm_backplane()
                     net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
