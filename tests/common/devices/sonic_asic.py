@@ -119,8 +119,6 @@ class SonicAsic(object):
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
-
-
         if self.sonichost.is_multi_asic:
             complex_args['namespace'] = self.namespace
         return self.sonichost.config_facts(*module_args, **complex_args)
