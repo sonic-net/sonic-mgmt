@@ -198,6 +198,7 @@ class TestDataPlane():
             ingress_start_counters = get_macsec_counters(asic, ingress_sa_name)
             ret = duthost.command(
                 "ping -c {} -s {} {}".format(PKT_NUM, PKT_OCTET, up_link['local_ipv4_addr']))
+            assert not ret['failed']
             sleep(10) # wait 10s for polling counters
             egress_end_counters = get_macsec_counters(asic, egress_sa_name)
             ingress_end_counters = get_macsec_counters(asic, ingress_sa_name)
