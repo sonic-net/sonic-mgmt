@@ -10,7 +10,8 @@ import logging
 import random
 import time
 import contextlib
-from threading import Thread
+import itertools
+import re
 from ptf import testutils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 from tests.common.dualtor.dual_tor_common import cable_type 
@@ -103,8 +104,27 @@ def check_memory_leak(duthost):
         return True
     return False
 
-def test_tunnel_memory_leak(
-    toggle_all_simulator_ports_to_upper_tor,
+def delete_neighbor(duthost, neighbor):
+    """Flush neighbor entry for server in duthost."""
+    command = "ip neighbor show %s" % neighbor
+    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
+    if not output:
+        return {}
+    output = output[0]
+    neighbor_details = dict(_.split() for _ in itertools.chain(*re.findall('(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
+    if neighbor_details:
+        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
+        logging.info("remove neighbor entry for %s", neighbor)
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+    else:
+        logging.info("Neighbor entry %s doesn't exist", neighbor)
+
+    command = "ip neighbor show %s" % neighbor
+    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
+    pytest_assert(not output, "server ip {} isn't flushed in neighbor table.".format(neighbor))
+    return
+
+def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, ptfhost, 
     ptfadapter, conn_graph_facts, tbinfo, vmhost,
     run_arp_responder
@@ -135,20 +155,6 @@ def test_tunnel_memory_leak(
         yield
         ptfhost.shell("supervisorctl stop arp_responder")
         ptfhost.shell("supervisorctl stop icmp_responder")
-	
-    @contextlib.contextmanager
-    def remove_neighbor(duthost, server_ip):
-        """
-        Remove ip neighbor before test for triggering tunnel_packet_handler,
-        restore it after test
-        """
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, True)
-
-        with flush_neighbor_ct:
-            command = "ip neighbor show %s" % server_ip
-            output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
-            pytest_assert(not output, "server ip {} isn't flushed in neighbor table.".format(server_ip))
-            yield
 
     pytest_assert(is_tunnel_packet_handler_running(upper_tor_host), 
                 "tunnel_packet_handler is not running in SWSS conainter.")
@@ -166,13 +172,13 @@ def test_tunnel_memory_leak(
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
-            rm_neighbor = remove_neighbor(upper_tor_host, server_ipv4)
+            delete_neighbor(upper_tor_host, server_ipv4)
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False
             )
-            with rm_neighbor, server_traffic_monitor:
+            with server_traffic_monitor:
                 testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
                 logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
                             .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
