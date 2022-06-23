@@ -109,18 +109,16 @@ def remove_dataacl_table(duthosts):
             if TABLE_NAME in line:
                 data_acl_existing = True
                 break
-        if not data_acl_existing:
-            yield
-            return
-        # Remove DATAACL
-        logger.info("Removing ACL table {}".format(TABLE_NAME))
-        cmds = [
-            "config acl remove table {}".format(TABLE_NAME),
-            "config save -y"
-        ]
-        duthost.shell_cmds(cmds=cmds)
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME))
+            cmds = [
+                "config acl remove table {}".format(TABLE_NAME),
+                "config save -y"
+            ]
+            duthost.shell_cmds(cmds=cmds)
     yield
-    # Recover DATAACL by reloading minigraph
+    # Recover DUT by reloading minigraph
     for duthost in duthosts:
         config_reload(duthost, config_source="minigraph")
 
