@@ -373,9 +373,11 @@ class OVSBridge(object):
         self._add_flow(self.server_nic, output_ports=[self.upper_tor_port, self.lower_tor_port], priority=9)
         # upstream icmp packet from ptf port should be directed to both ToRs
         self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.upper_tor_port, self.lower_tor_port], priority=8)
+        # upstream arp packet from ptf port should be directed to both ToRs
+        self._add_flow(self.ptf_port, packet_filter="arp", output_ports=[self.upper_tor_port, self.lower_tor_port], priority=7)
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(1, self.upper_tor_port, self.lower_tor_port)
-        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=7)
+        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=6)
 
     def _get_ports(self):
         result = OVSCommand.ovs_vsctl_list_ports(self.bridge_name)
