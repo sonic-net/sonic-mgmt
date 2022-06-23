@@ -296,6 +296,10 @@ stages:
                 if [[ "$TOPOLOGY_NAME" == *"dualtor"* ]]; then
                     EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,dualtor"
                 fi
+                if [[ ${{ parameters.TESTBED_NAME }} == *8102* ]];then
+                    echo "Append loganalyzer_8102_ignore.txt to loganalyzer_common_ignore.txt"
+                    cat ansible/roles/test/files/tools/loganalyzer/loganalyzer_8102_ignore.txt >> ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
+                fi
 
                 rm -fr results     # Clear any possible collected results of previous run
 

@@ -1205,17 +1205,79 @@ sonic_nokia_7215:
 
 sonic_cisco_8102:
   vars:
-    hwsku: 64x100Gb
+    hwsku: Cisco-8102-C64
     iface_speed: 100000
   hosts:
     str2-8102-01:
       ansible_host: 10.3.146.133
+      model: 8102-64H-O
+      serial: FLM245002DL
+      base_mac: E8:EB:34:E7:BD:B4
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM245002DL"
+        "0x24": "E8:EB:34:E7:BD:B4"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xB9EFD645"
     str2-8102-02:
       ansible_host: 10.3.146.68
+      model: 8102-64H-O
+      serial: FLM24500460
+      base_mac: A0:3D:6E:4E:D3:E8
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM24500460"
+        "0x24": "A0:3D:6E:4E:D3:E8"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xABC4ACD0"
     str2-8102-03:
       ansible_host: 10.3.147.84
+      model: 8102-64H-O
+      serial: FLM245002DM
+      base_mac: A0:3D:6E:4E:D1:E4
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM245002DM"
+        "0x24": "A0:3D:6E:4E:D1:E4"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x24051425"
+
     str2-8102-04:
       ansible_host: 10.3.147.83
+      model: 8102-64H-O
+      serial: FLM245202BK
+      base_mac: A0:3D:6E:4E:D5:EC
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM245202BK"
+        "0x24": "A0:3D:6E:4E:D5:EC"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x9D078531"
+
 
 sonic_dell_z9332f:
   vars:

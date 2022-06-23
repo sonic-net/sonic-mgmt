@@ -80,10 +80,10 @@
       <Device Hostname="str2-msn4600c-acs-04" HwSku="ACS-MSN4600C" Type="DevSonic"/>
       <Device Hostname="str2-dx010-acs-6" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="str2-dx010-acs-7" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
-      <Device Hostname="str2-8102-01" HwSku="64x100Gb" Type="DevSonic"/>
-      <Device Hostname="str2-8102-02" HwSku="64x100Gb" Type="DevSonic"/>
-      <Device Hostname="str2-8102-03" HwSku="64x100Gb" Type="DevSonic"/>
-      <Device Hostname="str2-8102-04" HwSku="64x100Gb" Type="DevSonic"/>
+      <Device Hostname="str2-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
+      <Device Hostname="str2-8102-02" HwSku="Cisco-8102-C64" Type="DevSonic"/>
+      <Device Hostname="str2-8102-03" HwSku="Cisco-8102-C64" Type="DevSonic"/>
+      <Device Hostname="str2-8102-04" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str2-a7280cr3-3" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-a7280cr3-4" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-7170-azd" HwSku="Arista-7170-64C" Type="DevSonic"/>
