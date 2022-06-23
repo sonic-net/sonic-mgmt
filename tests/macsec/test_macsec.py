@@ -173,9 +173,6 @@ class TestDataPlane():
                 requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
     def test_counters(self, duthost, upstream_links):
-        if duthost.facts["asic_type"] == "vs":
-            pytest.skip("macsec counter test is not supported on dut vsonic")
-
         EGRESS_SA_COUNTERS = (
                 'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
                 'SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED',
@@ -203,6 +200,14 @@ class TestDataPlane():
             egress_end_counters = get_macsec_counters(asic, egress_sa_name)
             ingress_end_counters = get_macsec_counters(asic, ingress_sa_name)
 
+            i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
+            assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM
+            assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM
+
+            if duthost.facts["asic_type"] == "vs":
+                # vsonic only has xpn counter
+                continue
+
             for i in EGRESS_SA_COUNTERS:
                 if 'OCTETS' in i:
                     assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM * PKT_OCTET
@@ -214,10 +219,6 @@ class TestDataPlane():
                     assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM * PKT_OCTET
                 else:
                     assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM
-
-            i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
-            assert int(egress_end_counters[i]) - int(egress_start_counters[i]) >= PKT_NUM
-            assert int(ingress_end_counters[i]) - int(ingress_start_counters[i]) >= PKT_NUM
 
 
 class TestFaultHandling():
