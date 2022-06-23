@@ -11,7 +11,6 @@ from ptf import testutils, mask, packet
 from tests.common import config_reload
 import ipaddress
 
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.voq.voq_helpers import verify_no_routes_from_nexthop
