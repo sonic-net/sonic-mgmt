@@ -21,7 +21,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
-from tests.common.dualtor.dual_tor_utils import flush_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder # lgtm[py/unused-import]
 
