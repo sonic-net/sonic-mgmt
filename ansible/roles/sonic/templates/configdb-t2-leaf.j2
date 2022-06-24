@@ -13,12 +13,12 @@
 {% endif %}
 {% endfor %}
     },
-{% set first_in_loop = true %}
+{% set first_in_loop = [] %}
     "INTERFACE": {
 {% for name, iface in host['interfaces'].items() %}
 {% if not name.startswith('Loopback') and not name.startswith('Port-Channel') and iface['lacp'] is not defined %}
-{{ "," if not first_in_loop else "" }}
-{% set first_in_loop = false %}
+{{ "," if first_in_loop else "" }}
+{% set _ = first_in_loop.append(1) %}
         "{{ name | replace("-", "") }}": {},
 {% if iface['ipv4'] is defined %}
         "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {},
@@ -28,6 +28,16 @@
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if host['bp_interface'] is defined %}
+{{ "," if first_in_loop else "" }}
+        "{{ bp_ifname | replace("-", "") }}": {},
+{% if host['bp_interface']['ipv4'] is defined %}
+        "{{ bp_ifname | replace("-", "") }}|{{ host['bp_interface']['ipv4'] }}": {},
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+        "{{ bp_ifname | replace("-", "") }}|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}	
+{% endif %}
     },
 {% set first_in_loop = true %}
     "PORTCHANNEL_INTERFACE": {
