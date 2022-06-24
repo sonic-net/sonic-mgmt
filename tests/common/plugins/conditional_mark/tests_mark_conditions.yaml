@@ -87,27 +87,27 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_to
 #######################################
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
   skip:
-    reason: "Skip this test on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
   skip:
-    reason: "Skip this test on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 #######################################
 #####         everflow            #####
