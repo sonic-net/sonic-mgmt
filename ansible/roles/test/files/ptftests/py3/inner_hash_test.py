@@ -64,13 +64,13 @@ class InnerHashTest(BaseTest):
         self.fib = fib.Fib(self.test_params['fib_info'])
         self.router_mac = self.test_params['router_mac']
 
-        inner_src_ip_range = [unicode(x) for x in self.test_params['inner_src_ip_range'].split(',')]
-        inner_dst_ip_range = [unicode(x) for x in self.test_params['inner_dst_ip_range'].split(',')]
+        inner_src_ip_range = [str(x) for x in self.test_params['inner_src_ip_range'].split(',')]
+        inner_dst_ip_range = [str(x) for x in self.test_params['inner_dst_ip_range'].split(',')]
         self.inner_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_src_ip_range[0]), ip_address(inner_src_ip_range[1]))
         self.inner_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(inner_dst_ip_range[0]), ip_address(inner_dst_ip_range[1]))
 
-        outer_src_ip_range = [unicode(x) for x in self.test_params['outer_src_ip_range'].split(',')]
-        outer_dst_ip_range = [unicode(x) for x in self.test_params['outer_dst_ip_range'].split(',')]
+        outer_src_ip_range = [str(x) for x in self.test_params['outer_src_ip_range'].split(',')]
+        outer_dst_ip_range = [str(x) for x in self.test_params['outer_dst_ip_range'].split(',')]
         self.outer_src_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_src_ip_range[0]), ip_address(outer_src_ip_range[1]))
         self.outer_dst_ip_interval = lpm.LpmDict.IpInterval(ip_address(outer_dst_ip_range[0]), ip_address(outer_dst_ip_range[1]))
 
@@ -177,7 +177,7 @@ class InnerHashTest(BaseTest):
         rand_int = random.randint(1, 99)
         src_mac = '00:12:ab:34:cd:' + str(rand_int)
         dst_mac = str(rand_int) + ':12:ab:34:cd:00'
-        if ip_network(unicode(ip_src)).version == 4:
+        if ip_network(str(ip_src)).version == 4:
             pkt = simple_tcp_packet(
                 eth_dst=dst_mac,
                 eth_src=src_mac,
@@ -215,7 +215,7 @@ class InnerHashTest(BaseTest):
         @param sport: Inner packet src port
         @param ip_proto: Inner packet ip protocol
         '''
-        if ip_network(unicode(self.outer_dst_ip)).version == 4:
+        if ip_network(str(self.outer_dst_ip)).version == 4:
             (matched_index, received) = self.check_ipv4_route_nvgre(hash_key, src_port, ip_dst, ip_src, dport, sport, ip_proto)
         else:
             (matched_index, received) = self.check_ipv6_route_nvgre(hash_key, src_port, ip_dst, ip_src, dport, sport, ip_proto)
@@ -370,7 +370,7 @@ class InnerHashTest(BaseTest):
         @param sport: Inner packet src port
         @param ip_proto: Inner packet ip protocol
         '''
-        if ip_network(unicode(self.outer_dst_ip)).version == 4:
+        if ip_network(str(self.outer_dst_ip)).version == 4:
             (matched_index, received) = self.check_ipv4_route_vxlan(hash_key, src_port, ip_dst, ip_src, dport, sport, ip_proto)
         else:
             (matched_index, received) = self.check_ipv6_route_vxlan(hash_key, src_port, ip_dst, ip_src, dport, sport, ip_proto)

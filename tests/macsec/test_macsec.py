@@ -64,8 +64,8 @@ class TestControlPlane():
                     nbr["host"], nbr["port"])
                 dut_macaddress = duthost.get_dut_iface_mac(port_name)
                 nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
-                dut_sci = get_sci(dut_macaddress, order="host")
-                nbr_sci = get_sci(nbr_macaddress, order="host")
+                dut_sci = get_sci(dut_macaddress)
+                nbr_sci = get_sci(nbr_macaddress)
                 check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
                                   nbr_mka_session[nbr_macsec_port], nbr_sci,
                                   policy, cipher_suite, send_sci)
