@@ -1,6 +1,9 @@
+import jinja2
 import json
 import logging
 import pytest
+import yaml
+from conftest import TEMPLATES_DIR
 
 from tests.common.helpers.assertions import pytest_assert
 
@@ -11,7 +14,7 @@ pytestmark = [
 def to_json(obj):
     return json.dumps(obj, indent=4)
 
-def test_sensors(duthosts, rand_one_dut_hostname, creds):
+def test_sensors(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     # Get platform name
     platform = duthost.facts['platform']
@@ -35,8 +38,14 @@ def test_sensors(duthosts, rand_one_dut_hostname, creds):
         if output["rc"] == 0 and (output["stdout"] == '2' or output["stdout"] == '6'):
             platform = platform.strip('-respined') + '-swb-respined'
 
+    sensors_template = jinja2.Template(open(os.path.join(TEMPLATES_DIR, 'sku-sensors-data.yml.j2')).read())
+    sensors_data = sensors_template.render({
+        'kernel_version': duthost.kernel_version.split('-')[0],
+        'os_version': duthost.os_version
+    })
+
     # Prepare check list
-    sensors_checks = creds['sensors_checks']
+    sensors_checks = yaml.safe_load(sensors_data)['sensors_checks']
     logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))
 
     if platform not in sensors_checks.keys():
