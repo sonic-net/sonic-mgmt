@@ -66,6 +66,14 @@ def backup_and_restore_config_db_module(duthosts, rand_one_dut_hostname):
     for func in _backup_and_restore_config_db(duthost, "module"):
         yield func
 
+
+@pytest.fixture(scope="package")
+def backup_and_restore_config_db_package(duthosts):
+
+    for func in _backup_and_restore_config_db(duthosts, "package"):
+        yield func
+
+
 @pytest.fixture(scope="session")
 def backup_and_restore_config_db_session(duthosts):
 
@@ -151,21 +159,20 @@ def disable_fdb_aging(duthost):
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
 
+
 @pytest.fixture(scope="module")
 def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-    ports = [port for port in config_ports
-        if config_port_indices[port] in ptf_ports_available_in_topo
-        and config_ports[port].get('admin_status', 'down') == 'up'
-        and port not in config_port_channel_member_ports]
+    ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
+             config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
     return ports
 
 
@@ -182,7 +189,7 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
         orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
         for line in orch_cpu:
             if int(float(line)) > orch_cpu_threshold:
-               return False
+                return False
         time.sleep(1)
     return True
 
@@ -191,11 +198,14 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     MAX_DIFF = 5
     sumv4, sumv6 = duthost.get_ip_route_summary()
     rtn_val = True
-    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and \
+            abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
         rtn_val = False
-    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and \
+            abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
         rtn_val = False
     return rtn_val
+
 
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts):
@@ -229,11 +239,14 @@ def shutdown_ebgp(duthosts):
         orig_v4_ebgp = v4ebgps[duthost.hostname]
         orig_v6_ebgp = v6ebgps[duthost.hostname]
         pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
-                      "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
+                      "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
+                      "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
         pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
+
+
 @pytest.fixture(scope="module")
 def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
@@ -243,7 +256,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
-    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     config_ports_vlan = collections.defaultdict(list)
@@ -264,14 +277,14 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
             if 'tagging_mode' not in vlan_members[k][port]:
                 continue
             mode = vlan_members[k][port]['tagging_mode']
-            config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip':ip, 'tagging_mode':mode})
+            config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip': ip, 'tagging_mode': mode})
 
     if config_portchannels:
         for po in config_portchannels:
             vlan_port = {
-                'dev' : po,
-                'port_index' : [config_port_indices[member] for member in config_portchannels[po]['members']],
-                'permit_vlanid' : []
+                'dev': po,
+                'port_index': [config_port_indices[member] for member in config_portchannels[po]['members']],
+                'permit_vlanid': []
             }
             if po in config_ports_vlan:
                 vlan_port['pvid'] = 0
@@ -286,9 +299,9 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
 
     for i, port in enumerate(ports_list):
         vlan_port = {
-            'dev' : port,
-            'port_index' : [config_port_indices[port]],
-            'permit_vlanid' : []
+            'dev': port,
+            'port_index': [config_port_indices[port]],
+            'permit_vlanid': []
         }
         if port in config_ports_vlan:
             vlan_port['pvid'] = 0
@@ -303,10 +316,12 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
 
     return vlan_ports_list
 
+
 def compare_network(src_ipprefix, dst_ipprefix):
     src_network = ipaddress.IPv4Interface(src_ipprefix).network
     dst_network = ipaddress.IPv4Interface(dst_ipprefix).network
     return src_network.overlaps(dst_network)
+
 
 @pytest.fixture(scope="module")
 def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
@@ -343,6 +358,7 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
         vlan_intfs_dict[int(vlanid)] = {'ip': ip, 'orig': True}
     return vlan_intfs_dict
 
+
 def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
     '''Utilities function to add add_cnt of new VLAN
 
@@ -376,6 +392,7 @@ def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
             break
     assert vlan_cnt == add_cnt
     return vlan_intfs_dict
+
 
 def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan):
     '''Utilities function to create vlans for test
