@@ -54,6 +54,7 @@ SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument m
                                      '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*',
                                      '.*ERR pmon#thermalctld.*Failed to get minimum ambient temperature, use pessimistic instead.*',
                                      '.*ERR pmon#thermalctld.*Failed to read from file /run/hw-management/thermal.*',
+                                     '.*ERR pmon#thermalctld.*Failed to read from file /var/run/hw-management/thermal.*',
                                      '.*ERR pmon#thermalctld.*Failed to run thermal policy.*']
 
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*',
