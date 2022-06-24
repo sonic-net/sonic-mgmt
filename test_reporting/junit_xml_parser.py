@@ -76,16 +76,6 @@ REQUIRED_TESTCASE_ATTRIBUTES = [
     "name",
     "time",
 ]
-
-# Fields found in the testcase/properties section of the JUnit XML file.
-# FIXME: These are specific to pytest, needs to be extended to support spytest.
-TESTCASE_PROPERTIES_TAG = "properties"
-TESTCASE_PROPERTY_TAG = "property"
-REQUIRED_TESTCASE_PROPERTIES = [
-    "start",
-    "end",
-]
-
 REQUIRED_TESTCASE_JSON_FIELDS = ["result", "error", "summary"]
 
 
@@ -282,38 +272,6 @@ def _validate_test_metadata(root):
     if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
         raise JUnitXMLValidationError("missing metadata element(s)")
 
-def _validate_test_case_properties(root):
-    testcase_properties_element = root.find(TESTCASE_PROPERTIES_TAG)
-
-    if not testcase_properties_element:
-        return
-
-    seen_testcase_properties = []
-    for testcase_prop in testcase_properties_element.iterfind(TESTCASE_PROPERTY_TAG):
-        testcase_property_name = testcase_prop.get("name", None)
-
-        if not testcase_property_name:
-            continue
-
-        if testcase_property_name not in REQUIRED_TESTCASE_PROPERTIES:
-            continue
-
-        if testcase_property_name in seen_testcase_properties:
-            raise JUnitXMLValidationError(
-                f"duplicate metadata element: {testcase_property_name} seen more than once"
-            )
-
-        testcase_property_value = testcase_prop.get("value", None)
-
-        if testcase_property_value is None:  # Some fields may be empty
-            raise JUnitXMLValidationError(
-                f'invalid metadata element: no "value" field provided for {testcase_property_name}'
-            )
-
-        seen_testcase_properties.append(testcase_property_name)
-
-    if set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES):
-        raise JUnitXMLValidationError("missing testcase property element(s)")
 
 def _validate_test_cases(root):
     def _validate_test_case(test_case):
@@ -323,7 +281,6 @@ def _validate_test_cases(root):
                     f'"{attribute}" not found in test case '
                     f"\"{test_case.get('name', 'Name Not Found')}\""
                 )
-        _validate_test_case_properties(test_case)
 
     cases = root.findall(TESTCASE_TAG)
 
@@ -395,18 +352,6 @@ def _parse_test_metadata(root):
 
     return test_result_metadata
 
-def _parse_testcase_properties(root):
-    testcase_properties_element = root.find(TESTCASE_PROPERTIES_TAG)
-
-    if not testcase_properties_element:
-        return {}
-
-    testcase_properties = {}
-    for testcase_prop in testcase_properties_element.iterfind(TESTCASE_PROPERTY_TAG):
-        if testcase_prop.get("value"):
-            testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
-
-    return testcase_properties
 
 def _parse_test_cases(root):
     test_case_results = defaultdict(list)
@@ -420,10 +365,6 @@ def _parse_test_cases(root):
 
         for attribute in REQUIRED_TESTCASE_ATTRIBUTES:
             result[attribute] = test_case.get(attribute)
-        for attribute in REQUIRED_TESTCASE_PROPERTIES:
-            testcase_properties = _parse_testcase_properties(test_case)
-            if attribute in testcase_properties:
-                result[attribute] = testcase_properties[attribute]
 
         # NOTE: "if failure" and "if error" does not work with the ETree library.
         failure = test_case.find("failure")
@@ -597,7 +538,7 @@ def _validate_json_cases(test_result_json):
         raise TestResultJSONValidationError("test_cases section not found in provided JSON file")
 
     def _validate_test_case(test_case):
-        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS + REQUIRED_TESTCASE_PROPERTIES:
+        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS:
             if attribute not in test_case:
                 raise TestResultJSONValidationError(
                     f'"{attribute}" not found in test case '
