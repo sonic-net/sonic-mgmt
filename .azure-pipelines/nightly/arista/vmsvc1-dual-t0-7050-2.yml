@@ -49,7 +49,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io platform_tests"'
+    default: '-I "dualtor_io platform_tests generic_config_updater crm autorestart"'
     displayName: Testbed specific
 
   - name: AGENT_POOL
