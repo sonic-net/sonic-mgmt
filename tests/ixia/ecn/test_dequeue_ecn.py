@@ -7,8 +7,8 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
-from files.helper import run_ecn_test, is_ecn_marked, get_ecn_markings_dut,\
-    setup_ecn_markings_dut
+from files.helper import run_ecn_test, is_ecn_marked
+from tests.common.cisco_data import  get_ecn_markings_dut, setup_ecn_markings_dut
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
