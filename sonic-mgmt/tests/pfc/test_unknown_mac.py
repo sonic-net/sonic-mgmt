@@ -56,7 +56,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     # The behavior on Mellanox for unknown MAC is flooding rather than DROP,
     # so we need to skip this test on Mellanox platform
     asic_type = duthost.facts["asic_type"]
-    pytest_require(asic_type != "mellanox", "Skip on Mellanox platform")
+    pytest_require(asic_type not in ["mellanox", "barefoot"], "Test is not supported for platform {}".format(asic_type))
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
@@ -207,10 +207,9 @@ class PreTestVerify(object):
         """
         Check if the FDB entry is missing for the port
         """
-        result = self.duthost.command("show mac -p {}".format(self.dst_port),
-                                      module_ignore_errors=True)
+        result = self.duthost.command("show mac")
         out = result['stdout']
-        pytest_assert("not in list" in out, "{} present in FDB".format(self.arp_entry[self.dst_ip]))
+        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB".format(self.arp_entry[self.dst_ip]))
         logger.info("'{}' not present in fdb as expected".format(self.arp_entry[self.dst_ip]))
 
     def verifyArpFdb(self):

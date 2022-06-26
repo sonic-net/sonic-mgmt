@@ -222,7 +222,8 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             platform_dir="ptftests",
             params= params,
             qlen=1000,
-            log_file=log_file)
+            log_file=log_file,
+            is_python3=True)
 
 
 def validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ip_to_port, prefix_list):

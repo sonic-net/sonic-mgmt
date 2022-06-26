@@ -53,6 +53,27 @@ def lo_intf_ips(duthost, tbinfo):
             return ip, ipv6
     pytest_assert(True, "Required ipv4 and ipv6 to start the test")
 
+def get_bgp_speaker_runningconfig(duthost):
+    """ Get bgp speaker config that contains src_address and ip_range
+
+    Sample output in t0:
+    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
+     '\n neighbor BGPVac update-source 10.1.0.32',
+     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
+     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "'{}' failed with rc={}".format(cmds, output['rc'])
+    )
+
+    # Sample:
+    # neighbor BGPSLBPassive update-source 10.1.0.32
+    # bgp listen range 192.168.0.0/21 peer-group BGPVac
+    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
+    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
+    return bgp_speaker_config
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -63,6 +84,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    original_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -70,6 +92,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        current_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
+        pytest_assert(set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
+            "bgp speaker config are not suppose to change after test"
+        )
     finally:
         delete_checkpoint(duthost)
 
