@@ -10,8 +10,6 @@ import logging
 import random
 import time
 import contextlib
-import itertools
-import re
 from ptf import testutils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
 from tests.common.dualtor.dual_tor_common import cable_type 
@@ -21,6 +19,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
+from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder # lgtm[py/unused-import]
 
@@ -102,26 +101,6 @@ def check_memory_leak(duthost):
                     .format(mem_percent, swss_mem_percent))
         return True
     return False
-
-def delete_neighbor(duthost, neighbor):
-    """Flush neighbor entry for server in duthost."""
-    command = "ip neighbor show %s" % neighbor
-    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
-    if not output:
-        return {}
-    output = output[0]
-    neighbor_details = dict(_.split() for _ in itertools.chain(*re.findall('(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
-    if neighbor_details:
-        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
-        logging.info("remove neighbor entry for %s", neighbor)
-        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
-    else:
-        logging.info("Neighbor entry %s doesn't exist", neighbor)
-
-    command = "ip neighbor show %s" % neighbor
-    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
-    pytest_assert(not output, "server ip {} isn't flushed in neighbor table.".format(neighbor))
-    return
 
 def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, ptfhost, 
