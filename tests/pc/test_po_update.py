@@ -11,7 +11,6 @@ from ptf import testutils, mask, packet
 from tests.common import config_reload
 import ipaddress
 
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.voq.voq_helpers import verify_no_routes_from_nexthop
@@ -47,7 +46,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope="function")
-def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Reload dut after test function finished
     """
@@ -56,8 +55,7 @@ def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend
     if request.node.rep_call.failed:
         # if test case failed, means bgp session down or port channel status not recovered, execute config reload
         logging.info("Reloading config and restarting swss...")
-        config_reload(duthost)
-        wait_critical_processes(duthost)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
 def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
