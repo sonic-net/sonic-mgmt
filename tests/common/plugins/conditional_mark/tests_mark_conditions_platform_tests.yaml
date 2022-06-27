@@ -599,6 +599,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:
