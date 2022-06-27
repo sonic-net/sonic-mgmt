@@ -386,7 +386,7 @@ def get_macsec_counters(sonic_asic, name):
         ]
     cmd = "python -c '{}'".format(';'.join(lines))
     output = sonic_asic.command(cmd)["stdout_lines"][0]
-    return ast.literal_eval(output)
+    return {k:int(v) for k,v in ast.literal_eval(output).items()}
 
 
 __origin_dp_poll = testutils.dp_poll
