@@ -2,6 +2,8 @@ import time
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,8 @@ def config_force_option_supported(duthost):
         return True
     return False
 
+
+@ignore_loganalyzer
 def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False):
     """
     reload SONiC configuration
@@ -87,6 +91,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         # function will return sooner.
         pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
                 "All critical services should be fully started!")
+        wait_critical_processes(duthost)
         if config_source == 'minigraph':
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
                     "PFC_WD is missing in CONFIG-DB")
