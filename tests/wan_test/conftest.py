@@ -2,6 +2,11 @@ import logging
 import pytest
 import time
 
+from tests.common.devices.cisco import CiscoHost
+from tests.common.devices.arista import AristaHost
+from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_host_vars
+
 # CONFIG_PATH = '/var/tmp/'
 # BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 # TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -43,6 +48,30 @@ import time
     
 #     recover_isis_config(duthosts)
 
+def get_host_data(request, dut):
+    '''
+    This function parses multple inventory files and returns the dut information present in the inventory
+    '''
+    inv_files = get_inventory_files(request)
+    return get_host_vars(inv_files, dut)
+
+@pytest.fixture(scope='session')
+def cisco(request, ansible_adhoc, tbinfo, localhost):
+    duts = []
+    for host in tbinfo['duts']:
+        data = get_host_data(request, host)
+        if 'cisco' == data.get('image'):
+            duts.append(CiscoHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+    return duts
+
+@pytest.fixture(scope='session')
+def arista(request, ansible_adhoc, tbinfo, localhost):
+    duts = []
+    for host in tbinfo['duts']:
+        data = get_host_data(request, host)
+        if 'arista' == data.get('image'):
+            duts.append(AristaHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+    return duts
 
 @pytest.fixture(scope="module")
 def dut_collection(duthosts, enum_frontend_asic_index, cisco, arista):
