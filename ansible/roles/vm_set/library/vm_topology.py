@@ -1221,10 +1221,12 @@ class VMTopology(object):
             str: Output of the command.
         """
 
+        cmdline_ori = cmdline
+        grep_cmd_ori= grep_cmd
         for attempt in range(retry):
             logging.debug('*** CMD: %s, grep: %s, attempt: %d' % (cmdline, grep_cmd, attempt+1))
             if split_cmd:
-                cmdline = shlex.split(cmdline)
+                cmdline = shlex.split(cmdline_ori)
             process = subprocess.Popen(
                 cmdline,
                 stdin=subprocess.PIPE,
@@ -1233,7 +1235,7 @@ class VMTopology(object):
                 shell=shell)
             if grep_cmd:
                 if split_cmd:
-                    grep_cmd = shlex.split(grep_cmd)
+                    grep_cmd = shlex.split(grep_cmd_ori)
                 process_grep = subprocess.Popen(
                     grep_cmd,
                     stdin=process.stdout,
