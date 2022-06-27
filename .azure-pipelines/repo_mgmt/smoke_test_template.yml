@@ -188,7 +188,19 @@ stages:
                 print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
           - script: |
-              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest
+              TIMEOUT=7200
+              INTERVAL=60
+
+              wait_time=0
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest; do
+                  if (( $wait_time >= $TIMEOUT)); then
+                      echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                      exit 1
+                  fi
+                  echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                  sleep $INTERVAL
+                  wait_time=$(expr $wait_time + $INTERVAL)
+              done
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
@@ -434,7 +446,19 @@ stages:
             condition: always()
 
           - script: |
-              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest
+              TIMEOUT=300
+              INTERVAL=60
+
+              wait_time=0
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest; do
+                  if (( $wait_time >= $TIMEOUT)); then
+                      echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                      exit 1
+                  fi
+                  echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                  sleep $INTERVAL
+                  wait_time=$(expr $wait_time + $INTERVAL)
+              done
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
