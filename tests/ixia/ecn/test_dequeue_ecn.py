@@ -73,6 +73,7 @@ def test_dequeue_ecn(request,
         pkt_to_check = pkt_to_oq + 1
     else:
         pkt_to_check = 0
+
     try:
         ip_pkts = run_ecn_test(api=ixia_api,
                            testbed_config=testbed_config,
