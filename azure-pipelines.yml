@@ -16,6 +16,7 @@ stages:
     value: veos_vtb
   - name: testbed_file
     value: vtestbed.yaml
+  - group: GIT_SECRETS
 
   jobs:
   - job: t0_part1

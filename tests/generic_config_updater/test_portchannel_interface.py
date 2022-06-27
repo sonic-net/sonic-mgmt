@@ -26,6 +26,7 @@ from tests.generic_config_updater.gu_utils import create_path, check_show_ip_int
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.skip(reason="Test costs too much time. Temp skip for now."),
 ]
 
 logger = logging.getLogger(__name__)
@@ -219,12 +220,12 @@ def test_portchannel_interface_tc3_replace(duthost, portchannel_table):
         {
             "op": "remove",
             "path": create_path(["PORTCHANNEL_INTERFACE",
-                                 "PortChannel101|{}".format(org_ip)]),
+                                 "PortChannel101|{}".format(org_ip)])
         },
         {
             "op": "remove",
             "path": create_path(["PORTCHANNEL_INTERFACE",
-                                 "PortChannel101|{}".format(org_ipv6.upper())]),
+                                 "PortChannel101|{}".format(org_ipv6.upper())])
         },
         {
             "op": "add",
