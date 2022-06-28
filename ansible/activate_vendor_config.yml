@@ -9,21 +9,21 @@
        dut_list: "{{dut_name.split(',')| list}}"
   
   - name: activated arist device
-    include_tasks: activate_arista.yml
+    include_tasks: ./vendor_config/activate_arista.yml
     vars:
       serial_port: "{{ hostvars[item]['serial_port'] }}"
     with_items: "{{ dut_list }}"
     when: hostvars[item]['image'] == 'arista'
 
   - name: activated juniper device
-    include_tasks: activate_juniper.yml
+    include_tasks: ./vendor_config/activate_juniper.yml
     vars:
       serial_port: "{{ hostvars[item]['serial_port'] }}"
     with_items: "{{ dut_list }}"
     when: hostvars[item]['image'] == 'juniper'
 
   - name: activated cisco device
-    include_tasks: activate_cisco.yml
+    include_tasks: ./vendor_config/activate_cisco.yml
     vars:
       serial_port: "{{ hostvars[item]['serial_port'] }}"
     with_items: "{{ dut_list }}"

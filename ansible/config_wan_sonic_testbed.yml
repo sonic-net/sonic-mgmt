@@ -52,21 +52,21 @@
       - name: config virtual arista duts
         debug:
           msg: "Config virtual arist device"
-      - include_tasks: config_arista_vm.yml
+      - include_tasks: ./vendor_config/config_arista_vm.yml
       when: hostvars[inventory_hostname]['type'] == 'kvm' and hostvars[inventory_hostname]['image'] == 'arista'
 
     - block:
       - name: config virtual Juniper duts
         debug:
           msg: "Config virtual Juniper device"
-      - include_tasks: config_juniper_vm.yml
+      - include_tasks: ./vendor_config/config_juniper_vm.yml
       when: hostvars[inventory_hostname]['type'] == 'kvm'  and hostvars[inventory_hostname]['image'] == 'juniper'
 
     - block:
       - name: config virtual Cisco duts
         debug:
           msg: "Config virtual Cisco device"
-      - include_tasks: config_cisco_vm.yml
+      - include_tasks: ./vendor_config/config_cisco_vm.yml
       when: hostvars[inventory_hostname]['type'] == 'kvm'  and hostvars[inventory_hostname]['image'] == 'cisco'
 
 
@@ -74,12 +74,12 @@
       - name: config virtual sonic duts
         debug:
           msg: "Config virtual sonic device"
-      - include_tasks: config_wan_sonic_vm.yml
+      - include_tasks: ./vendor_config/config_wan_sonic_vm.yml
       when: hostvars[inventory_hostname]['type'] == 'kvm' and hostvars[inventory_hostname]['image'] == 'sonic'
 
     - block:
       - name: config physical duts
         debug:
           msg: "Config physical SONiC device"
-      - include_tasks: config_phy_sonic_dut.yml
+      - include_tasks: ./vendor_config/config_phy_sonic_dut.yml
       when: hostvars[inventory_hostname]['type'] == 'hardware'  
