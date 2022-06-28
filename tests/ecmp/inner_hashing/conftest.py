@@ -10,6 +10,7 @@ from datetime import datetime
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,20 @@ def setup(duthosts, rand_one_dut_hostname):
     duthost.shell("docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON_FILE))
     duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
     time.sleep(3)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def teardown(duthosts, rand_one_dut_hostname):
+    """
+    Teardown fixture to clean up DUT to initial state
+
+    Args:
+        duthosts: All DUTs objects belonging to the testbed
+        rand_one_dut_hostname: Hostname of a random chosen dut to run test
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope='module', autouse=True)
