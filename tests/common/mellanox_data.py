@@ -555,7 +555,7 @@ SWITCH_MODELS = {
         "thermals": {
             "cpu_core": {
                 "start": 0,
-                "number": 2
+                "number": 4
             },
             "module": {
                 "start": 1,
