@@ -184,7 +184,20 @@ stages:
               BUILD_ID: $(Build.BuildId)
 
           - script: |
-                python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no -b no
+              TIMEOUT=600
+              INTERVAL=60
+
+              wait_time=0
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no -b no; do
+                  if (( $wait_time >= $TIMEOUT)); then
+                      echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                      exit 1
+                  fi
+                  echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                  sleep $INTERVAL
+                  wait_time=$(expr $wait_time + $INTERVAL)
+              done
+                
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
@@ -233,7 +246,7 @@ stages:
 
           - task: Bash@3
             displayName: remove current Testbed topo
-            condition: ${{ parameters.CHANGE_TOPO }}
+            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -248,7 +261,7 @@ stages:
 
           - task: Bash@3
             displayName: Generate SAI testbed file
-            condition: always()
+            condition: and(always(), succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -265,7 +278,7 @@ stages:
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
-            condition: ${{ parameters.CHANGE_TOPO }}
+            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -281,7 +294,7 @@ stages:
 
           - task: Bash@3
             displayName: Deploy SAI Minigraph
-            condition: ${{ parameters.CHANGE_TOPO }}
+            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -306,7 +319,7 @@ stages:
 
           - task: Bash@3
             displayName: Get Bash Env Param
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -316,7 +329,7 @@ stages:
 
           - task: Bash@3
             displayName: Fetch SAI Repo
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -340,7 +353,7 @@ stages:
 
           - task: Bash@3
             displayName: Run SAI tests
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -407,7 +420,7 @@ stages:
 
           - task: Bash@3
             displayName: Organize SAI Test Result
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
@@ -424,7 +437,7 @@ stages:
 
           - task: PythonScript@0
             displayName: Publish SAI test results and generate builder id
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               scriptSource: 'inline'
               script: |
@@ -464,7 +477,7 @@ stages:
 
           - task: Bash@3
             displayName: remove SAI Testbed topo
-            condition: and(always(), ${{ parameters.RECOVER_TOPO }} )
+            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
             inputs:
               targetType: 'inline'
               script: |
@@ -481,7 +494,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Testbed Topo
-            condition: and(always(), ${{ parameters.RECOVER_TOPO }} )
+            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
             inputs:
               targetType: 'inline'
               script: |
@@ -497,7 +510,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Minigraph
-            condition: and(always(), ${{ parameters.RECOVER_TOPO }})
+            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }})
             inputs:
               targetType: 'inline'
               script: |
@@ -523,12 +536,12 @@ stages:
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-            condition:  and(always(), ${{ parameters.LOCK_TESTBED }} )
+            condition:  and(succeeded(), ${{ parameters.LOCK_TESTBED }})
             displayName: Release Testbed
           
           - task: Bash@3
             displayName: Upload Test Results
-            condition: ${{ parameters.RUN_TEST }}
+            condition: and(${{ parameters.RUN_TEST }}, succeeded())
             inputs:
               targetType: 'inline'
               script: |
