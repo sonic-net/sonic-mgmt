@@ -40,7 +40,7 @@ def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
 
 def del_syslog_server(dut, syslog_server_ip):
     """
-    Add syslog server
+    Del syslog server
 
     Args:
         dut (SonicHost): The target device
@@ -82,7 +82,7 @@ def create_vrf(dut, vrf):
         dut (SonicHost): The target device
         vrf (str): vrf
     """
-    dut.shell('sudo config vrf add {} '.format(vrf), module_async=True)
+    dut.command('sudo config vrf add {} '.format(vrf), module_async=True)
 
 
 def remove_vrf(dut, vrf):
@@ -108,19 +108,19 @@ def bind_interface_to_vrf(dut, vrf, interface):
     dut.command('sudo config interface vrf bind {} {} '.format(interface, vrf))
 
 
-def replace_ip_neigh(dut, neighbor, neigh_mac_addr, dev):
+def replace_ip_neigh(dut, neighbour, neigh_mac_addr, dev):
     """
     replace ip neigh
 
     Args:
         dut (SonicHost): The target device
-        neighbor (str): neighbour
+        neighbour (str): neighbour
         neigh_mac_addr (str): neighbour mac address
         dev (str): device
 
     """
     dut.command("sudo ip neigh replace {neighbor} lladdr {neigh_mac_addr} dev {dev}".format(
-        neighbor=neighbor,
+        neighbor=neighbour,
         neigh_mac_addr=neigh_mac_addr,
         dev=dev))
 
@@ -131,11 +131,10 @@ def capture_syslog_packets(dut, tcpdump_cmd):
 
     Args:
         dut (SonicHost): The target device
-        tcpdump_cmd (str): tcpdum cmd
+        tcpdump_cmd (str): tcpdump cmd
     Return: filepath
     """
     logging.info("Start tcpdump: {}".format(tcpdump_cmd))
-    # Make sure that the DUT_PCAP_FILEPATH dose not exist
 
     pcap_file_full_path = tcpdump_cmd.split("-w")[-1].strip()
     dut.shell("sudo rm -f {}".format(pcap_file_full_path))
@@ -144,8 +143,9 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     time.sleep(5)
 
     logging.debug("Generating log message from DUT")
-    # Generate a syslog from the DUT
-    for i in range(20):
+    # Generate syslog msgs from the DUT
+    logger_info_msg_count = 20
+    for i in range(logger_info_msg_count):
         dut.shell("logger --priority INFO ....{}".format("i"))
         time.sleep(0.2)
 

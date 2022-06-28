@@ -13,5 +13,5 @@ def pytest_addoption(parser):
         action="store",
         type=str,
         default="cold",
-        help="reboot type such as cold, fast, warm, soft"
+        help="reboot type such as cold, fast, warm, soft, random"
     )
