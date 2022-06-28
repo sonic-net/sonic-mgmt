@@ -56,7 +56,7 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 @pytest.fixture(scope='session')
-def cisco(request, ansible_adhoc, tbinfo, localhost):
+def ciscohosts(request, ansible_adhoc, tbinfo, localhost):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
@@ -65,7 +65,7 @@ def cisco(request, ansible_adhoc, tbinfo, localhost):
     return duts
 
 @pytest.fixture(scope='session')
-def arista(request, ansible_adhoc, tbinfo, localhost):
+def aristahosts(request, ansible_adhoc, tbinfo, localhost):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
@@ -74,7 +74,7 @@ def arista(request, ansible_adhoc, tbinfo, localhost):
     return duts
 
 @pytest.fixture(scope="module")
-def dut_collection(duthosts, enum_frontend_asic_index, cisco, arista):
+def dut_collection(duthosts, enum_frontend_asic_index, ciscohosts, aristahosts):
     duts = {}
     dutlist = []
     for duthost in duthosts:
@@ -84,8 +84,8 @@ def dut_collection(duthosts, enum_frontend_asic_index, cisco, arista):
                 dutlist.append(v['name'])
 
     duts['sonic'] = [duthost for duthost in duthosts if duthost.hostname in dutlist]
-    duts['cisco'] = [duthost for duthost in cisco if duthost.hostname in dutlist]
-    duts['arista'] = [duthost for duthost in arista if duthost.hostname in dutlist]
+    duts['cisco'] = [duthost for duthost in ciscohosts if duthost.hostname in dutlist]
+    duts['arista'] = [duthost for duthost in aristahosts if duthost.hostname in dutlist]
 
     return duts
 
