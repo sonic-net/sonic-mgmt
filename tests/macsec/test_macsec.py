@@ -173,7 +173,9 @@ class TestDataPlane():
             requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
                 requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
-    def test_counters(self, duthost, ctrl_links, upstream_links):
+    def test_counters(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period:
+            pytest.skip("Counter increase is not guaranteed in case rekey is happening")
         EGRESS_SA_COUNTERS = (
                 'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
                 'SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED',
