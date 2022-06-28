@@ -524,9 +524,15 @@ def get_ethernet_ports(intf_list, minigraph_data):
 
     return ret_list
 
+
+@pytest.fixture(scope="module", params=SUPPORTED_ENCAP_TYPES)
+def encap_type(request):
+    yield request.param
+
+
 @pytest.fixture(scope="module")
 def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
-          tbinfo):
+          tbinfo, encap_type):
 
     global Constants
     # Should I keep the temporary files copied to DUT?
@@ -542,6 +548,8 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     Constants['DUT_HOSTID'] = request.config.option.dut_hostid
 
     logger.info("Constants to be used in the script:%s", Constants)
+
+    SUPPORTED_ENCAP_TYPES = [encap_type]
 
     data = {}
     data['ptfhost'] = ptfhost
@@ -643,7 +651,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     for tunnel in tunnel_names.values():
         data['duthost'].shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
-@pytest.mark.parametrize("encap_type", SUPPORTED_ENCAP_TYPES)
+
 class Test_VxLAN:
 
     def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4):
