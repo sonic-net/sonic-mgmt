@@ -205,7 +205,8 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                    testname="sflow_test",
                    params=params,
                    socket_recv_size=16384,
-                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
+                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
+                   is_python3=True)
 
     return _partial_ptf_runner
 
