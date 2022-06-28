@@ -324,12 +324,12 @@ class OVSBridge(object):
         self._init_ports()
         self._init_flows()
         self.states_getter = {
-            0: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
-            1: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
+            1: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
+            0: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
         }
         self.states_setter = {
-            0: self.upstream_ecmp_flow.set_upper_tor_forwarding_state,
-            1: self.upstream_ecmp_flow.set_lower_tor_forwarding_state
+            1: self.upstream_ecmp_flow.set_upper_tor_forwarding_state,
+            0: self.upstream_ecmp_flow.set_lower_tor_forwarding_state
         }
 
     def _init_ports(self):
