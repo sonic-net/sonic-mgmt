@@ -185,15 +185,6 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
-
-        dst_port_count = set([
-            dutConfig["testPorts"]["dst_port_id"],
-            dutConfig["testPorts"]["dst_port_2_id"]
-        ])
-
-        if len(dst_port_count) != 2:
-            pytest.skip("PFC Xon Limit test: Need at least 2 destination ports")
-
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
