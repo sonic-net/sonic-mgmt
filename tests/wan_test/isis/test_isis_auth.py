@@ -36,7 +36,7 @@ def isis_config_auth(duthost, auth_key):
    duthost.command('sonic-cfggen -j {} --write-to-db'.format(isis_config_path))
 
 
-def test_isis_auth_same(dut_collection, cisco, capsys):
+def test_isis_auth_same(dut_collection, ciscohosts, capsys):
    """test on authentication key is same, 
       expected neighbor status is up, and route is populated"""
 
@@ -49,10 +49,10 @@ def test_isis_auth_same(dut_collection, cisco, capsys):
             dut.isis_config_auth(auth_key)
 
    time.sleep(20)
-   assert(cisco[0].ping_dest('10.0.4.57') == True)
+   assert(ciscohosts[0].ping_dest('10.0.4.57') == True)
 
 
-def test_isis_auth_diff(dut_collection, rand_selected_dut, cisco, capsys):
+def test_isis_auth_diff(dut_collection, rand_selected_dut, ciscohosts, capsys):
    """test on authentication key is different, expected isis neighbor status is down,
    traffic can not pass through"""
 
@@ -60,10 +60,10 @@ def test_isis_auth_diff(dut_collection, rand_selected_dut, cisco, capsys):
    isis_config_auth(rand_selected_dut, auth_key)
 
    time.sleep(20)
-   assert(cisco[0].ping_dest('10.0.4.57') == False)
+   assert(ciscohosts[0].ping_dest('10.0.4.57') == False)
 
 
-def test_isis_auth_revert(dut_collection, rand_selected_dut, cisco, capsys):
+def test_isis_auth_revert(dut_collection, rand_selected_dut, ciscohosts, capsys):
    """test on authentication key is same, 
       expected neighbor status is up, and route is populated"""
 
@@ -71,10 +71,10 @@ def test_isis_auth_revert(dut_collection, rand_selected_dut, cisco, capsys):
    isis_config_auth(rand_selected_dut, auth_key)
 
    time.sleep(20)
-   assert(cisco[0].ping_dest('10.0.4.57') == True)
+   assert(ciscohosts[0].ping_dest('10.0.4.57') == True)
 
 
-def test_isis_auth_delete(dut_collection, cisco, capsys):
+def test_isis_auth_delete(dut_collection, ciscohosts, capsys):
    """test on authentication key is removed, expected isis neighbor status is up,
       traffic can pass through"""
 
@@ -87,7 +87,7 @@ def test_isis_auth_delete(dut_collection, cisco, capsys):
             dut.isis_remove_auth(auth_key)
 
    time.sleep(20)
-   assert(cisco[0].ping_dest('10.0.4.57') == True)
+   assert(ciscohosts[0].ping_dest('10.0.4.57') == True)
 
 
 def ping_traffic(ptfhost):
