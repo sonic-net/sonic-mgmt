@@ -65,12 +65,24 @@ def ntp_server_test_setup(duthost):
 
 
 def server_exist_in_conf(duthost, server_pattern):
-    """Check if ntp server take effect in ntp.conf
+    """ Check if ntp server take effect in ntp.conf
     """
     content = duthost.command("cat {}".format(NTP_CONF))
     for line in content['stdout_lines']:
         if re.search(server_pattern, line):
             return True
+    return False
+
+
+def ntp_service_restarted(duthost):
+    """ Check if ntp.service is just restarted within 10 secs
+    """
+    output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
+    if output["stdout"] != "active":
+        return False
+    output = duthost.shell("ps -o etimes -p $(systemctl show ntp.service --property ExecMainPID --value) | sed '1d'")
+    if int(output['stdout'].strip()) < 10:
+        return True
     return False
 
 
@@ -94,6 +106,10 @@ def ntp_server_tc1_add_config(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
+        pytest_assert(
+            ntp_service_restarted(duthost),
+            "ntp.service is not restarted after change"
+        )
         pytest_assert(
             server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_INIT)),
             "Failed to add {} in {}".format(NTP_SERVER_INIT, NTP_CONF)
@@ -158,6 +174,10 @@ def ntp_server_tc1_replace(duthost):
         expect_op_success(duthost, output)
 
         pytest_assert(
+            ntp_service_restarted(duthost),
+            "ntp.service is not restarted after change"
+        )
+        pytest_assert(
             not server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_INIT)) and
             server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_DUMMY)),
             "Failed to replace ntp server."
@@ -185,6 +205,10 @@ def ntp_server_tc1_remove(duthost):
         expect_op_success(duthost, output)
 
         pytest_assert(
+            ntp_service_restarted(duthost),
+            "ntp.service is not restarted after change"
+        )
+        pytest_assert(
             not server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_DUMMY)),
             "Failed to remove ntp server."
         )
@@ -193,12 +217,12 @@ def ntp_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_ntp_server_tc1_suite(duthost):
+def test_ntp_server_tc1_suite(rand_selected_dut):
     """ Test suite for ntp server
     """
 
-    ntp_server_test_setup(duthost)
-    ntp_server_tc1_add_config(duthost)
-    ntp_server_tc1_xfail(duthost)
-    ntp_server_tc1_replace(duthost)
-    ntp_server_tc1_remove(duthost)
+    ntp_server_test_setup(rand_selected_dut)
+    ntp_server_tc1_add_config(rand_selected_dut)
+    ntp_server_tc1_xfail(rand_selected_dut)
+    ntp_server_tc1_replace(rand_selected_dut)
+    ntp_server_tc1_remove(rand_selected_dut)
