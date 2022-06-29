@@ -67,7 +67,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
     duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
 
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
-        logger.info("Current Config cannot pass Yang. Reset configDB: {}."
+        logger.info("Running config failed SONiC Yang validation. Reload minigraph. config: {}"
                     .format(output['stdout']))
         config_reload(duthost, config_source="minigraph", safe_reload=True)
 
