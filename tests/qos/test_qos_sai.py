@@ -195,7 +195,7 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
-            "pkts_num_private_headrooom": qosConfig[xonProfile]["pkts_num_private_headrooom"]
+            "pkts_num_private_headrooom": dutQosConfig["param"]["pkts_num_private_headrooom"]
         })
 
         # Params required for generating a PFC Storm
