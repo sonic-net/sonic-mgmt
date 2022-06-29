@@ -211,7 +211,6 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mu
                             "inner_ipv6": setup_info["inner_ipv6"],
                             "lo_ips": setup_info["lo_ips"],
                             "lo_ipv6s": setup_info["lo_ipv6s"],
-                            "router_macs": setup_info["router_macs"],
                             "ttl_mode": ttl_mode,
                             "dscp_mode": dscp_mode,
                             "ignore_ttl": setup_info["ignore_ttl"],
