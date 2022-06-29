@@ -220,7 +220,7 @@ def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
 
     Args:
         duthost: Device Under Test (DUT)
-        rb: rollback filename
+        cp: rollback filename
     """
     cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, cp)
 
@@ -237,7 +237,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """
     output = rollback(duthost, cp)
 
-    if output['rc'] or "Config rolled back successfull" not in output['stdout']:
+    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
         pytest.fail("config rollback failed. Restored by config_reload")
 
