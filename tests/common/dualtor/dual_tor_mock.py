@@ -343,8 +343,10 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)
     if dut.get_asic_name() in ['th2', 'td3']:
-        # Restart swss on TH2 or TD3 platform to regenerate config.bcm
-        logger.info("Restarting swss service")
+        # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
+        # We actually need to restart syncd only, but restarting syncd will also trigger swss
+        # being restarted, and it costs more time than restarting swss
+        logger.info("Restarting swss service to regenerate config.bcm")
         dut.shell('systemctl restart swss')
         time.sleep(120)
 
