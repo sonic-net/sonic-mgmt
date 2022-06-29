@@ -4,6 +4,7 @@ import logging
 import re
 import scapy.all as scapy
 import ptf.testutils as testutils
+from collections import Counter
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
@@ -171,6 +172,84 @@ class TestDataPlane():
                     responser["peer_ipv4_addr"]), module_ignore_errors=True)
             requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
                 requester["peer_ipv4_addr"]), module_ignore_errors=True)
+
+    def test_counters(self, duthost, ctrl_links, upstream_links, rekey_period):
+        if rekey_period:
+            pytest.skip("Counter increase is not guaranteed in case rekey is happening")
+        EGRESS_SA_COUNTERS = (
+                'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
+                'SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED',
+                )
+        INGRESS_SA_COUNTERS = (
+                'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
+                'SAI_MACSEC_SA_STAT_IN_PKTS_OK',
+                )
+        PKT_NUM = 5
+        PKT_OCTET = 1024
+
+        # Select some one macsec link
+        port_name = list(ctrl_links)[0]
+        nbr_ip_addr = upstream_links[port_name]['local_ipv4_addr']
+        pc = find_portchannel_from_member(port_name, get_portchannel(duthost))
+        if pc:
+            assert pc["status"] == "Up"
+            up_ports = pc["members"]
+        else:
+            up_ports = [port_name]
+
+        # Sum up start counter
+        egress_start_counters = Counter()
+        ingress_start_counters = Counter()
+        for up_port in up_ports:
+            assert up_port in ctrl_links
+
+            asic = duthost.get_port_asic_instance(up_port)
+            egress_sa_name = get_macsec_sa_name(asic, up_port, True)
+            ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
+            if not egress_sa_name or not ingress_sa_name:
+                continue
+
+            egress_start_counters += Counter(get_macsec_counters(asic, egress_sa_name))
+            ingress_start_counters += Counter(get_macsec_counters(asic, ingress_sa_name))
+
+        # Launch traffic
+        ret = duthost.command(
+            "ping -c {} -s {} {}".format(PKT_NUM, PKT_OCTET, nbr_ip_addr))
+        assert not ret['failed']
+        sleep(10) # wait 10s for polling counters
+
+        # Sum up end counter
+        egress_end_counters = Counter()
+        ingress_end_counters = Counter()
+        for up_port in up_ports:
+            asic = duthost.get_port_asic_instance(up_port)
+            egress_sa_name = get_macsec_sa_name(asic, up_port, True)
+            ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
+            if not egress_sa_name or not ingress_sa_name:
+                continue
+
+            egress_end_counters += Counter(get_macsec_counters(asic, egress_sa_name))
+            ingress_end_counters += Counter(get_macsec_counters(asic, ingress_sa_name))
+
+        i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
+        assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM
+        assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM
+
+        if duthost.facts["asic_type"] == "vs":
+            # vsonic only has xpn counter
+            return
+
+        for i in EGRESS_SA_COUNTERS:
+            if 'OCTETS' in i:
+                assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM * PKT_OCTET
+            else:
+                assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM
+
+        for i in INGRESS_SA_COUNTERS:
+            if 'OCTETS' in i:
+                assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM * PKT_OCTET
+            else:
+                assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM
 
 
 class TestFaultHandling():

@@ -3,6 +3,7 @@ import struct
 import binascii
 import time
 import re
+import ast
 
 import cryptography.exceptions
 import ptf
@@ -26,6 +27,8 @@ __all__ = [
     'get_appl_db',
     'get_macsec_attr',
     'get_mka_session',
+    'get_macsec_sa_name',
+    'get_macsec_counters',
     'get_sci'
 ]
 
@@ -65,6 +68,20 @@ def getns_prefix(host, intf):
         ns_prefix = "-n {}".format(ns)
 
     return ns_prefix
+
+def get_macsec_sa_name(sonic_asic, port_name, egress = True):
+    if egress:
+        table = 'MACSEC_EGRESS_SA_TABLE'
+    else:
+        table = 'MACSEC_INGRESS_SA_TABLE'
+
+    cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
+    names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
+    if names:
+        names.sort()
+        return ':'.join(names[0].split(':')[1:])
+    return None
+
 
 def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
@@ -358,6 +375,18 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         if timeout <= 0:
             break
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
+
+
+def get_macsec_counters(sonic_asic, name):
+    lines = [
+        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter',
+        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0))',
+        '_, values = counterTable.get(MacsecCounter(), "{}")'.format(name),
+        'print(dict(values))'
+        ]
+    cmd = "python -c '{}'".format(';'.join(lines))
+    output = sonic_asic.command(cmd)["stdout_lines"][0]
+    return {k:int(v) for k,v in ast.literal_eval(output).items()}
 
 
 __origin_dp_poll = testutils.dp_poll
