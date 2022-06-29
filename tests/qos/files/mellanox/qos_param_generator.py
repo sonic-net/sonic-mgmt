@@ -110,7 +110,6 @@ class QosParamMellanox(object):
         self.qos_parameters['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc
         self.qos_parameters['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         self.qos_parameters['pkts_num_hysteresis'] = hysteresis
-        self.qos_parameters['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']
 
     def calculate_parameters(self):
         """
@@ -204,3 +203,4 @@ class QosParamMellanox(object):
             self.qos_params_mlnx['ecn_{}'.format(i+1)]['cell_size'] = self.cell_size
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
+        self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']
