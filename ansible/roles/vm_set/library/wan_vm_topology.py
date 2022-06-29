@@ -754,9 +754,9 @@ class VMTopology(object):
             VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, dut_iface))
 
         bindings = VMTopology.get_ovs_port_bindings(br_name, [dut_iface])
-        dut_iface_id = bindings[dut_iface]
+        #dut_iface_id = bindings[dut_iface]
         #injected_iface_id = bindings[injected_iface]
-        vm_iface_id = bindings[vm_iface]
+        #vm_iface_id = bindings[vm_iface]
         
         VMTopology.cmd('sudo ovs-ofctl add-flow %s actions=all' % br_name)
 
