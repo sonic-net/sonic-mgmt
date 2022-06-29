@@ -446,17 +446,13 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
     logger.info("End of testing the container '{}'".format(container_name))
 
-#def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-#                                enum_dut_feature, tbinfo):
-def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                enum_dut_feature, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    import pdb; pdb.set_trace()
-    enum_rand_one_asic_index = 1
-    enum_dut_feature = "teamd"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
