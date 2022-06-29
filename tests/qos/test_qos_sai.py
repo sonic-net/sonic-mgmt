@@ -170,11 +170,8 @@ class TestQosSai(QosSaiBase):
         if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("This Test Case is only meant for Mellanox ASIC")
 
-        if "lag" in dutConfig["dutTopo"]:
-            pytest.skip("Topology {} is not suppoted".format(dutConfig["dutTopo"]))
-
         if not sharedHeadroomPoolSize or sharedHeadroomPoolSize == "0":
-            pytest.skip("Shared Headrrom has to be enabled for this test")
+            pytest.skip("Shared Headroom has to be enabled for this test")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
@@ -198,7 +195,7 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
-            "pkts_num_private_headrooom": 15
+            "pkts_num_private_headrooom": qosConfig[xonProfile]["pkts_num_private_headrooom"]
         })
 
         # Params required for generating a PFC Storm
