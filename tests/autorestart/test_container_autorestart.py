@@ -195,12 +195,12 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
                 .format(program_name, container_name))
 
 
-def is_hiting_start_limit(duthost, container_name):
+def is_hiting_start_limit(duthost, service_name, container_name):
     """
     @summary: Determine whether the container can not be restarted is due to
               start-limit-hit or not
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
+    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
     for line in service_status["stdout_lines"]:
         if "start-limit-hit" in line:
             return True
@@ -208,14 +208,14 @@ def is_hiting_start_limit(duthost, container_name):
     return False
 
 
-def clear_failed_flag_and_restart(duthost, service_name):
+def clear_failed_flag_and_restart(duthost, service_name, container_name):
     """
     @summary: If a container hits the restart limitation, then we clear the failed flag and
               restart it.
     """
-    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
-    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    logger.info("{} hits start limit and clear reset-failed flag".format(service_name))
+    duthost.shell("sudo systemctl reset-failed {}.service".format(service_name))
+    duthost.shell("sudo systemctl start {}.service".format(service_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
                            0,
@@ -252,8 +252,8 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
                            0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
-        if is_hiting_start_limit(duthost, service_name):
-            clear_failed_flag_and_restart(duthost, container_name)
+        if is_hiting_start_limit(duthost, service_name, container_name):
+            clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
 
@@ -321,9 +321,16 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
     Returns:
       True if post check succeeds; Otherwise False.
     """
-    for container_name in container_autorestart_states.keys():
-        if is_hiting_start_limit(duthost, container_name):
-            clear_failed_flag_and_restart(duthost, container_name)
+    for service in container_autorestart_states.keys():
+        if service in duthost.DEFAULT_ASIC_SERVICES:
+            for asic in duthost.asics:
+                service_name = asic.get_service_name(service)
+                container_name = asic.get_docker_name(service)
+                if is_hiting_start_limit(duthost, service_name, container_name):
+                    clear_failed_flag_and_restart(duthost, service_name, container_name)
+        else:
+            if is_hiting_start_limit(duthost, service, service):
+                clear_failed_flag_and_restart(duthost, service, service)
 
     critical_proceses = wait_until(
         POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
@@ -439,16 +446,19 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
     logger.info("End of testing the container '{}'".format(container_name))
 
-def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-                                enum_dut_feature, tbinfo):
+#def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+#                                enum_dut_feature, tbinfo):
+def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
+    import pdb; pdb.set_trace()
+    enum_rand_one_asic_index = 1
+    enum_dut_feature = "teamd"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     asic = duthost.asic_instance(enum_rand_one_asic_index)
-    service_name = enum_dut_feature
-    container_name = asic.get_docker_name(service_name)
-
+    service_name = asic.get_service_name(enum_dut_feature)
+    container_name = asic.get_docker_name(enum_dut_feature)
     run_test_on_single_container(duthost, container_name, service_name, tbinfo)
