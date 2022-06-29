@@ -166,7 +166,13 @@ class MultiAsicSonicHost(object):
     def asic_instance(self, asic_index=None):
         if asic_index is None:
             return self.asics[0]
-        return self.asics[asic_index]
+        # if asics_present is defined in the host_vars of the host (in the inventory), then
+        # self.asics is populated based on asics_present (PR# 5828). In this case, self.asics is a list of only
+        # asics present, and not all possible asics. Thus, need to find asic with the right asic_index.
+        for a_asic in self.asics:
+            if a_asic.asic_index == asic_index:
+                return a_asic
+        return None
 
     def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
