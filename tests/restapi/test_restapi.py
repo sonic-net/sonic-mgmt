@@ -838,3 +838,73 @@ def test_create_interface_sad(construct_url, vlan_members):
     for i in range(5):
         r = restapi.delete_config_vrouter_vrf_id(construct_url, 'vnet-guid-4', params)
         pytest_assert(r.status_code == 404)
+
+def test_overlay_ecmp(construct_url):
+    # Create Default VxLan Tunnel
+    if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
+        params = '{"ip_addr": "10.1.0.32"}'
+        logger.info("Creating Default VxLan Tunnel with ip_addr: 10.1.0.32")
+        r = restapi.post_config_tunnel_decap_tunnel_type(construct_url, 'vxlan', params)
+        pytest_assert(r.status_code == 204)
+
+    # Check RESTAPI server heartbeat
+    logger.info("Checking for RESTAPI server heartbeat")
+    restapi.heartbeat(construct_url)
+
+    #
+    # Create first VNET and add VLAN, VLAN member, VLAN neighbor and routes to it
+    #
+
+    # Create VNET
+    params = '{"vnid": 7036001}'
+    logger.info("Creating VNET Vnet-default with vnid: 7036001")
+    r = restapi.post_config_vrouter_vrf_id(construct_url, 'Vnet-default', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VNET has been created
+    r = restapi.get_config_vrouter_vrf_id(construct_url, 'Vnet-default')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"vnid": 7036001}, "vnet_id": "Vnet-default"}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VNET with vnet_id: Vnet-default has been successfully created with vnid: 7036001")
+
+    # Create VLAN
+    params = '{"vnet_id": "Vnet-default", "ip_prefix": "100.0.10.1/24"}'
+    logger.info("Creating VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: Vnet-default")
+    r = restapi.post_config_vlan(construct_url, '2000', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify VLAN has been created
+    r = restapi.get_config_vlan(construct_url, '2000')
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = '{"attr": {"ip_prefix": "100.0.10.1/24", "vnet_id": "Vnet-default"}, "vlan_id": 2000}'
+    pytest_assert(r.json() == json.loads(expected))
+    logger.info("VLAN 2000 with ip_prefix: 100.0.10.1/24 under vnet_id: vnet-guid-2 has been successfully created")
+
+    # Add routes
+    params = '[{"cmd": "add", "ip_prefix": "10.1.0.1/32", "nexthop": "100.78.40.37", "vnid": 7036001, "nexthop_monitor": "100.78.40.37"}, \
+               {"cmd": "add", "ip_prefix": "10.1.0.2/32", "nexthop": "100.78.50.37", "vnid": 7036001, "nexthop_monitor": "100.78.50.37"}, \
+               {"cmd": "add", "ip_prefix": "10.1.0.3/32", "nexthop": "100.78.60.37,100.78.70.37", "vnid": 7036001, "nexthop_monitor": "100.78.60.37,100.78.70.37"}, \
+               {"cmd": "add", "ip_prefix": "10.1.0.4/32", "nexthop": "100.78.80.37", "vnid": 7036001, "nexthop_monitor": "100.78.80.37"}, \
+               {"cmd": "add", "ip_prefix": "10.1.0.5/32", "nexthop": "100.78.90.37,100.78.100.37,110.78.90.37", "vnid": 7036001, "nexthop_monitor": "100.78.90.37,100.78.100.37,110.78.90.37"}]'
+    logger.info("Adding routes with vnid: 7036001 to VNET Vnet-default")
+    r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'Vnet-default', params)
+    pytest_assert(r.status_code == 204)
+
+    # Verify routes
+    # Add some delay before query
+    time.sleep(5)
+    params = '{}'
+    r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'Vnet-default', params)
+    pytest_assert(r.status_code == 200)
+    logger.info(r.json())
+    expected = [{"ip_prefix": "10.1.0.1/32", "nexthop": "100.78.40.37", "vnid": 7036001, "nexthop_monitor": "100.78.40.37"},
+                {"ip_prefix": "10.1.0.2/32", "nexthop": "100.78.50.37", "vnid": 7036001, "nexthop_monitor": "100.78.50.37"},
+                {"ip_prefix": "10.1.0.3/32", "nexthop": "100.78.60.37,100.78.70.37", "vnid": 7036001, "nexthop_monitor": "100.78.60.37,100.78.70.37"},
+                {"ip_prefix": "10.1.0.4/32", "nexthop": "100.78.80.37", "vnid": 7036001, "nexthop_monitor": "100.78.80.37"},
+                {"ip_prefix": "10.1.0.5/32", "nexthop": "100.78.90.37,100.78.100.37,110.78.90.37", "vnid": 7036001, "nexthop_monitor": "100.78.90.37,100.78.100.37,110.78.90.37"}]
+    for route in expected:
+        pytest_assert(route in r.json())
+    logger.info("Routes with vnid: 7036001 to VNET vnet-guid-2 have been added successfully")
