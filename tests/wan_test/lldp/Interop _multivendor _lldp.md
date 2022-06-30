@@ -1,6 +1,6 @@
 # Interop - Multivendor - LLDP:
   ## Test sample topo: 
-  - OWR01.STR10<--->OWR01.STR01
+  - DUT<--->Device1(SONiC)
 
 ## Test steps :
 * STEP 1:  run "show lldp neighbor" on DUT ,if nothing return, the testcase is failed. If we got some result, pick up the lldp neighbor which is not sonic device (we need to test arista/cisco in this case) and the PortID is not a portchannel , in this case we see rwa03.str01 and rwa04.str01 is chosen . Collect all the information (local interface, remote systemname,remote management IP, remote interface,remote interface dscription)
@@ -47,7 +47,7 @@
         Capability:   Router, on
     Port:        
         PortID:       ifname Ethernet5/35/1
-        PortDescr:    owr01.str10:Ethernet3::depishe
+        PortDescr:    DUT:Ethernet3::depishe
         TTL:          120
         MFS:          10200
         Port is aggregated. PortAggregID: 1000120
@@ -62,7 +62,7 @@
         Capability:   Router, on
     Port:        
         PortID:       ifname Bundle-Ether121
-        PortDescr:    owr01.str10:FourHundredGigE0/0/0/2::depishe
+        PortDescr:    DUT:FourHundredGigE0/0/0/2::depishe
         TTL:          120
     -------------------------------------------------------------------------------
     Interface:    Ethernet2, via: LLDP, RID: 6, Time: 0 day, 01:48:44
@@ -75,12 +75,12 @@
         Capability:   Router, on
     Port:        
         PortID:       ifname FourHundredGigE0/2/0/8
-        PortDescr:    owr01.str10:FourHundredGigE0/0/0/2::depishe
+        PortDescr:    DUT:FourHundredGigE0/0/0/2::depishe
         TTL:          120
     ```
 
 
-* STEP2: login all the neighbor we are interested , in this case, we need to login rwa03.str01 and rwa04.str01. run "show lldp neighbor" on each of the neighbor devices , and pick up the entry matching the DUT(owr01.str10), collect the local port , local port description, remote systemname , remote port. And get the management IP from the device handler. 
+* STEP2: login all the neighbor we are interested , in this case, we need to login rwa03.str01 and rwa04.str01. run "show lldp neighbor" on each of the neighbor devices , and pick up the entry matching the DUT(DUT), collect the local port , local port description, remote systemname , remote port. And get the management IP from the device handler. 
 Pls note that the local info on the neighbor device should match the remote info of the DUT.
 
     ```
@@ -91,7 +91,7 @@ Pls note that the local info on the neighbor device should match the remote info
             (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other
 
     Device ID       Local Intf                      Hold-time  Capability      Port ID
-    owr01.str10     FourHundredGigE0/2/0/8          120        B,R             Ethernet2
+    DUT     FourHundredGigE0/2/0/8          120        B,R             Ethernet2
     owr04.str01     HundredGigE0/2/0/12             120        B,R             Ethernet3/33/1
     owr04.str01     HundredGigE0/2/0/13             120        B,R             Ethernet3/34/1
     owr03.str01.str.msn. FourHundredGigE0/2/0/21         120        R               FourHundredGigE0/2/0/21
@@ -114,7 +114,7 @@ Pls note that the local info on the neighbor device should match the remote info
     Et3/30/1          ier01.str01.ntwk.msn.net       et-0/0/49           120
     Et5/12/1          owr04.str01                    Ethernet5/12/1      120
     Et5/13/1          owr04.str01                    Ethernet5/14/1      120
-    Et5/35/1          owr01.str10                    Ethernet3           120
+    Et5/35/1          DUT                    Ethernet3           120
     Ma1/1             STR-22EX-219-A06               545                 90 
 
     ```

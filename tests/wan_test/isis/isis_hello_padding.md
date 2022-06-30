@@ -1,8 +1,8 @@
 # ISIS hello padding:
 ## Test sample topo:
 
-- owr01.str01-----PO1----owr01.str10(system ID: 0100.3015.1091)
-- Test device: owr01.str10, the following action is on owr01.str10, MTU config is 1500 on interface
+- DUT(system ID: 0100.3015.1091)-----PO1----Device1(SONiC)
+- the following action is on DUT, MTU config is 1500 on interface
 ```
 "PORTCHANNEL":
 {
@@ -69,14 +69,14 @@ IS-IS interface database:
   INTERFACE         STATE        THREE WAY     ADJACENCY      NEIGHBOR        NEIGHBOR       HOLD      RESTART  BFD
                                  STATE         TYPE           SYSTEM ID       HOSTNAME       TIMER     CAPABLE  STATUS
   ---------         -----        ---------     ---------      ---------       --------       -----     -------  ------
-  PortChannel0001   up           up            level-2        0100.3015.1092  owr01.str10    7         true     none
+  PortChannel0001   up           up            level-2        0100.3015.1092  DUT    7         true     none
   PortChannel0120   up           up            level-2        1000.0315.1040  rwa01.str01    18        true     none
 
 JUNYW@owr01:~$ 
 ```
 
 * Step6: Check packets capture file sonic_isis_po1_bydefault.pcap
-All ISIS hello packets from owr01.str10 with system id  0100.3015.1092 is 1514 and there are padding in the hello packets
+All ISIS hello packets from DUT with system id  0100.3015.1092 is 1514 and there are padding in the hello packets
 
   ![](./images/isis_1.png)  
   ![](./images/isis_2.png)  
@@ -120,11 +120,11 @@ IS-IS interface database:
   INTERFACE         STATE        THREE WAY     ADJACENCY      NEIGHBOR        NEIGHBOR       HOLD      RESTART  BFD
                                  STATE         TYPE           SYSTEM ID       HOSTNAME       TIMER     CAPABLE  STATUS
   ---------         -----        ---------     ---------      ---------       --------       -----     -------  ------
-  PortChannel0001   up           up            level-2        0100.3015.1092  owr01.str10    7         true     none
+  PortChannel0001   up           up            level-2        0100.3015.1092  DUT    7         true     none
   PortChannel0120   up           up            level-2        1000.0315.1040  rwa01.str01    18        true     none
 ```
 
-* Step12: Check packets capture file sonic_isis_po1_disable.pcap, The first or the first and second ISIS hello packets from owr01.str10 with system id  0100.3015.1092 is 1514 length is 1514 and with padding in hello packets.
+* Step12: Check packets capture file sonic_isis_po1_disable.pcap, The first or the first and second ISIS hello packets from DUT with system id  0100.3015.1092 is 1514 length is 1514 and with padding in hello packets.
   After that, we can check all the hello packets from the third from  0100.3015.1092, the length is length than 1514 and no padding in the hello packets.
 
   ![](./images/isis_3.png)  

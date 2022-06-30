@@ -2,12 +2,11 @@
 
 ## Test sample topo:
 
-- DUT: OWR01.STR10 
-- Topo1: OWR01.STR10-----OWR01.STR01
-- Topo2: OWR01.STR10-----RWA04.STR01(other vendor, this is arista)
+- Topo1: DUT-----Device1(SONiC)
+- Topo2: DUT-----Device2(SONiC)(other vendor, this is arista)
 
 ## Test steps :
-* Step1: Config key same on both devices, ISIS session can be up and ISIS route can be learned on owr01.str01 and rwa04.str01, e.g., loopback address of rwa04.str01: 10.3.159.63/32 2a01:111:e210:b::151:63/128 and loopback address of owr01.str01: 10.30.151.91/32, 2a01:111:e210:b::91/128
+* Step1: Config key same on both devices, ISIS session can be up and ISIS route can be learned on Device1(SONiC) and Device2(SONiC), e.g., loopback address of Device2(SONiC): 10.3.159.63/32 2a01:111:e210:b::151:63/128 and loopback address of Device1(SONiC): 10.30.151.91/32, 2a01:111:e210:b::91/128
     ```
     {
         "ISIS_ROUTER": {
@@ -26,8 +25,8 @@
     INTERFACE         STATE        THREE WAY     ADJACENCY      NEIGHBOR        NEIGHBOR       HOLD      RESTART  BFD
                                     STATE         TYPE           SYSTEM ID       HOSTNAME       TIMER     CAPABLE  STATUS
     ---------         -----        ---------     ---------      ---------       --------       -----     -------  ------
-    PortChannel0001   up           up            level-2        0100.3015.1091  owr01.str01    8         true     none
-    PortChannel0120   up           up            level-2        0100.0315.9063  rwa04.str01    25        true     none
+    PortChannel0001   up           up            level-2        0100.3015.1091  Device1(SONiC)    8         true     none
+    PortChannel0120   up           up            level-2        0100.0315.9063  Device2(SONiC)    25        true     none
 
     JUNYW@owr01:~$ 
 
@@ -73,7 +72,7 @@
 
     JUNYW@owr01:~$ 
 
-    rwa04.str01#show ip route 10.30.151.91/32
+    Device2(SONiC)#show ip route 10.30.151.91/32
 
     VRF: default
     Codes: C - connected, S - static, K - kernel, 
@@ -90,7 +89,7 @@
 
     I L2     10.30.151.91/32 [115/1000] via 172.20.52.0, Port-Channel120
 
-    rwa04.str01#show ipv6 rout 2a01:111:e210:b::91/128
+    Device2(SONiC)#show ipv6 rout 2a01:111:e210:b::91/128
 
     VRF: default
     Routing entry for 2a01:111:e210:b::91/128
@@ -104,7 +103,7 @@
     I L2     2a01:111:e210:b::91/128 [115/1000]
             via fe80::569f:c6ff:fec8:42d8, Port-Channel120
 
-    rwa04.str01#
+    Device2(SONiC)#
 
 
     ```
@@ -160,8 +159,8 @@ IS-IS interface database:
   INTERFACE         STATE        THREE WAY     ADJACENCY      NEIGHBOR        NEIGHBOR       HOLD      RESTART  BFD
                                  STATE         TYPE           SYSTEM ID       HOSTNAME       TIMER     CAPABLE  STATUS
   ---------         -----        ---------     ---------      ---------       --------       -----     -------  ------
-  PortChannel0001   up           up            level-2        0100.3015.1091  owr01.str01    8         true     none
-  PortChannel0120   up           up            level-2        0100.0315.9063  rwa04.str01    25        true     none
+  PortChannel0001   up           up            level-2        0100.3015.1091  Device1(SONiC)    8         true     none
+  PortChannel0120   up           up            level-2        0100.0315.9063  Device2(SONiC)    25        true     none
 
 JUNYW@owr01:~$ 
 
@@ -207,7 +206,7 @@ LFA                               none
 
 JUNYW@owr01:~$ 
 
-rwa04.str01#show ip route 10.30.151.91/32
+Device2(SONiC)#show ip route 10.30.151.91/32
 
 VRF: default
 Codes: C - connected, S - static, K - kernel, 
@@ -224,7 +223,7 @@ Codes: C - connected, S - static, K - kernel,
 
  I L2     10.30.151.91/32 [115/1000] via 172.20.52.0, Port-Channel120
 
-rwa04.str01#show ipv6 rout 2a01:111:e210:b::91/128
+Device2(SONiC)#show ipv6 rout 2a01:111:e210:b::91/128
 
 VRF: default
 Routing entry for 2a01:111:e210:b::91/128
@@ -238,5 +237,5 @@ Codes: C - connected, S - static, K - kernel, O3 - OSPFv3,
  I L2     2a01:111:e210:b::91/128 [115/1000]
            via fe80::569f:c6ff:fec8:42d8, Port-Channel120
 
-rwa04.str01#
+Device2(SONiC)#
 ```
