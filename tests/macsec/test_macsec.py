@@ -156,22 +156,38 @@ class TestDataPlane():
             assert portchannels[i]["members"]
             requester = upstream_links[portchannels[i]["members"][0]]
             # Set DUT as the gateway of requester
-            requester["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                requester["peer_ipv4_addr"]), module_ignore_errors=True)
+            if isinstance(requester["host"], EosHost):
+                requester["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
+                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
+            else:
+                requester["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
             for j in range(i + 1, len(portchannels)):
                 if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
                     continue
                 responser = upstream_links[portchannels[j]["members"][0]]
                 # Set DUT as the gateway of responser
-                responser["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                    responser["peer_ipv4_addr"]), module_ignore_errors=True)
+                if isinstance(responser["host"], EosHost):
+                    responser["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
+                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
+                else:
+                    responser["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
                 # Ping from requester to responser
                 assert not requester["host"].shell(
                     "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
-                responser["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                    responser["peer_ipv4_addr"]), module_ignore_errors=True)
-            requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                requester["peer_ipv4_addr"]), module_ignore_errors=True)
+                if isinstance(responser["host"], EosHost):
+                    responser["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
+                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
+                else:
+                    responser["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
+            if isinstance(requester["host"], EosHost):
+                requester["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
+                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
+            else:
+                requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
 
     def test_counters(self, duthost, ctrl_links, upstream_links, rekey_period):
         if rekey_period:
