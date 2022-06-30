@@ -5,8 +5,8 @@ import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,6 @@ def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
 
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
 def duthost_dualtor(request, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_upper_tor):
-    global expect_dhcp_rules
     which_tor = request.param
 
     # Add expected DHCP mark iptable rules for standby tor, not for active tor.
