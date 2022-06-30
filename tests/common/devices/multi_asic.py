@@ -500,7 +500,9 @@ class MultiAsicSonicHost(object):
             for k, v in bgp_facts['bgp_neighbors'].items():
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
-                        neigh_ok.append(k)
+                        if k.lower() not in neigh_ok:
+                            # Append only when not present to prevent duplication
+                            neigh_ok.append(k)
             logging.info("bgp neighbors that match the state: {}".format(neigh_ok))
 
         if len(neigh_ips) == len(neigh_ok):

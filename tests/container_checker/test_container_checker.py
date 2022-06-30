@@ -28,6 +28,8 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
+BGP_CHECK_THRESHOLD_SECS = 360
+BGP_CHECK_INTERVAL_SECS = 10
 
 @pytest.fixture(autouse=True, scope="module")
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
@@ -114,7 +116,7 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost.shell("sudo systemctl restart monit")
 
 
-def check_all_critical_processes_status(duthost):
+def post_test_check_critical_processes_status(duthost):
     """Post-checks the status of critical processes.
 
     Args:
@@ -131,20 +133,18 @@ def check_all_critical_processes_status(duthost):
 
     return True
 
-
-def post_test_check(duthost, up_bgp_neighbors):
-    """Post-checks the status of critical processes and state of BGP sessions.
+def post_test_check_bgp(duthost, up_bgp_neighbors):
+    """Post-checks the state of BGP sessions.
 
     Args:
       duthost: Host DUT.
-      skip_containers: A list contains the container names which should be skipped.
+      up_bgp_neighbors: A list of bgp neighbors to be up.
 
     Returns:
-      This function will return True if all critical processes are running and
-      all BGP sessions are established. Otherwise it will return False.
+      This function will return True if all BGP sessions are established.
+      Otherwise it will return False.
     """
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
-
+    return duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
     """Calls the functions to post-check the status of critical processes and
@@ -152,16 +152,25 @@ def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
 
     Args:
       duthost: Host DUT.
-      skip_containers: A list contains the container names which should be skipped.
+      up_bgp_neighbors: A list of bgp neighbors to be up.
 
     Returns:
       If all critical processes are running and all BGP sessions are established, it
       returns True. Otherwise it will call the function to do post-check every 30 seconds
       for 3 minutes. It will return False after timeout
     """
-    logger.info("Post-checking status of critical processes and BGP sessions...")
-    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
-                      post_test_check, duthost, up_bgp_neighbors)
+    logger.info("Post-checking status of critical processes...")
+    ret = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+                      post_test_check_critical_processes_status, duthost)
+    if True == ret:
+        # Wait few secs to get bgp session list updated post container start
+        logger.info("Sleep 60 Sec before checking status of BGP sessions...")
+        time.sleep(60)
+        logger.info("Post-checking status of BGP sessions...")
+        ret = wait_until(BGP_CHECK_THRESHOLD_SECS, BGP_CHECK_INTERVAL_SECS, 0,
+                      post_test_check_bgp, duthost, up_bgp_neighbors)
+    return ret
+
 
 def get_expected_alerting_message(container_name):
     """Generates the expected alerting message from the stopped container.
