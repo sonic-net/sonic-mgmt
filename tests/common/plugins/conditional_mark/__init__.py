@@ -344,18 +344,25 @@ def pytest_collection_modifyitems(session, config, items):
                 for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
-                    mark_conditions = mark_details.get('conditions', None)
-                    if not mark_conditions:
-                        # Unconditionally add mark
+                    if not mark_details:
                         add_mark = True
                     else:
-                        add_mark = evaluate_conditions(mark_conditions, basic_facts)
+                        mark_conditions = mark_details.get('conditions', None)
+                        if not mark_conditions:
+                            # Unconditionally add mark
+                            add_mark = True
+                        else:
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts)
 
                     if add_mark:
-                        reason = mark_details.get('reason', '')
+                        reason = ''
+                        if mark_details:
+                            reason = mark_details.get('reason', '')
 
                         if mark_name == 'xfail':
-                            strict = mark_details.get('strict', False)
+                            strict = False
+                            if mark_details:
+                                strict = mark_details.get('strict', False)
                             mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
                             # To generate xfail property in the report xml file
                             item.user_properties.append(('xfail', strict))
