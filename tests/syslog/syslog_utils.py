@@ -1,15 +1,10 @@
 """
     Helpful utilities for writing tests for the syslog feature.
 """
-import re
 import logging
-import json
 import time
 import os
 
-from scapy.all import rdpcap
-from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}.pcap"
 DOCKER_TMP_PATH = "/tmp/"
