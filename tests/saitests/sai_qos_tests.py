@@ -305,7 +305,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 cnt = 0
                 dscp_received = False
                 dropped_dscp_dualtor_normal_port = [2, 6]
-                need_to_drop_dscp_2_6 = (dual_tor_scenario and not dual_tor)
+                need_to_drop_dscp_2_6 = False #(dual_tor_scenario and not dual_tor)
                 while not dscp_received:
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
@@ -363,7 +363,10 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 assert(queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
                 assert(queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
             if dual_tor_scenario:
-                assert(queue_results[QUEUE_1] == 57 + queue_results_base[QUEUE_1])
+                if not dual_tor:
+                    assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
+                else:
+                    assert(queue_results[QUEUE_1] == 57 + queue_results_base[QUEUE_1])
                 assert(queue_results[QUEUE_7] == 1 + queue_results_base[QUEUE_7])
             else:
                 assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
