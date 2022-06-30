@@ -109,7 +109,7 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                     crm_intf2 = a_pc
 
         if crm_intf1 is not None and crm_intf2 is not None:
-            yield (crm_intf1, crm_intf2)
+            return (crm_intf1, crm_intf2)
 
         # 2.  we try to get crm interfaces from routed interfaces
         for a_intf in mg_facts["minigraph_interfaces"]:
@@ -121,7 +121,7 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                     crm_intf2 = intf
 
         if crm_intf1 is not None and crm_intf2 is not None:
-            yield (crm_intf1, crm_intf2)
+            return (crm_intf1, crm_intf2)
 
     if crm_intf1 is None or crm_intf2 is None:
         pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
