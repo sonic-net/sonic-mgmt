@@ -368,7 +368,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
           'redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
           'redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if dut.get_asic_name() in ['th2', 'td3']:
+    if restart_swss:
         # Restart swss on TH2 or TD3 platform to remove changes
         logger.info("Restarting swss service")
         dut.shell('systemctl restart swss')
