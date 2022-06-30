@@ -6,17 +6,17 @@ class QosParamMellanox(object):
             'spc1': {
                 'cell_size': 96,
                 'headroom_overhead': 95,
-                'private_headroom': 15
+                'private_headroom': 30
             },
             'spc2': {
                 'cell_size': 144,
                 'headroom_overhead': 64,
-                'private_headroom': 15
+                'private_headroom': 30
             },
             'spc3': {
                 'cell_size': 144,
                 'headroom_overhead': 64,
-                'private_headroom': 15
+                'private_headroom': 30
             }
         }
 
