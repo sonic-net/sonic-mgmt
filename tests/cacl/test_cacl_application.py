@@ -5,7 +5,8 @@ import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
-
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,34 @@ def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
         ]
         ignored_iptable_rules += rules_to_ignore
 
+@pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
+def duthost_dualtor(request, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_upper_tor):
+    which_tor = request.param
+
+    # Add expected DHCP mark iptable rules for standby tor, not for active tor.
+    if which_tor == 'standby_tor':
+        dut = lower_tor_host
+        logger.info("Select standby tor, generate expected DHCP iptables rules for standby tor.")
+    else:
+        logger.info("Select active tor, don't need to add expected DHCP mark rules.")
+        dut = upper_tor_host
+    return dut
+
+@pytest.fixture
+def expected_dhcp_rules_for_standby(duthost_dualtor, lower_tor_host):
+    if duthost_dualtor.hostname == lower_tor_host.hostname:
+        expected_dhcp_rules = []
+        mark_keys = duthost_dualtor.shell('/usr/bin/redis-cli -n 6  --raw keys "DHCP_PACKET_MARK*"', module_ignore_errors=True)['stdout']
+        mark_keys = mark_keys.split("\n")
+        for key in mark_keys:
+            mark = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "{}" "mark"'.format(key), module_ignore_errors=False)['stdout']
+            if not mark:
+                continue
+            rule = "-A DHCP -m mark --mark {} -j DROP".format(mark)
+            expected_dhcp_rules.append(rule)
+        return expected_dhcp_rules
+    else:
+        return
 
 @pytest.fixture(scope="module")
 def docker_network(duthost):
@@ -299,7 +328,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
 
-def generate_expected_rules(duthost, docker_network, asic_index):
+def generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
     ip6tables_rules = []
 
@@ -363,6 +392,10 @@ def generate_expected_rules(duthost, docker_network, asic_index):
     # Allow all incoming IPv6 DHCP packets
     iptables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
+
+    # On standby tor, it has expected dhcp mark iptables rules.
+    if expected_dhcp_rules_for_standby:
+        iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
     iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
@@ -690,8 +723,8 @@ def generate_scale_rules(duthost, ip_type):
     # add ACCEPT rule for SSH to make sure testbed access
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 
-def verify_cacl(duthost, localhost, creds, docker_network, asic_index = None):
-    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index)
+def verify_cacl(duthost, localhost, creds, docker_network, expected_dhcp_rules_for_standby, asic_index = None):
+    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
@@ -758,7 +791,7 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}".format(repr(unexpected_ip6tables_rules)))
 
-def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
+def test_cacl_application_nondualtor(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly
 
@@ -767,13 +800,22 @@ def test_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds, doc
     actual iptables/ip6tables rules on the DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    verify_cacl(duthost, localhost, creds, docker_network)
+    verify_cacl(duthost, localhost, creds, docker_network, None)
+
+def test_cacl_application_dualtor(duthost_dualtor, localhost, creds, docker_network, expected_dhcp_rules_for_standby):
+    """
+    Test case to ensure caclmgrd is applying control plane ACLs properly on dualtor.
+
+    This is done by generating our own set of expected iptables and ip6tables
+    rules based on the DuT's configuration and comparing them against the
+    actual iptables/ip6tables rules on the DuT.
+    """
+    verify_cacl(duthost_dualtor, localhost, creds, docker_network, expected_dhcp_rules_for_standby)
 
 def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
-
-    if enum_frontend_asic_index is None:
-        pytest.skip("Not Multi-asic platform. Skipping !!")
-
+    """
+    Test case to ensure caclmgrd is applying control plane ACLs properly on multi-ASIC platform.
+    """
     duthost = duthosts[rand_one_dut_hostname]
     verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
