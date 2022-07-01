@@ -103,8 +103,9 @@ def generate_intf_neigh(asichost, num_neigh, ip_version):
         if ip_version == 4:
             intf_neigh = {
                 'interface' : itfs_name,
-                'ip' : '10.%d.0.1/24' % (idx_neigh + 1),
-                'neighbor' : '10.%d.0.2' % (idx_neigh + 1),
+                # change prefix ip starting with 3 to avoid overlap with any bgp ip
+                'ip' : '30.%d.0.1/24' % (idx_neigh + 1),
+                'neighbor' : '30.%d.0.2' % (idx_neigh + 1),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
             }
         else:
