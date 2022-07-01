@@ -487,12 +487,6 @@
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
 
-      # Remove me when the sai_remap_prio_on_tnl_egress=1 is integrated into image
-      - name: Patch bcm.config to workaround BCM SAI issue
-        bcm_sai_patch:
-        ignore_errors: yes
-        become: true
-
       - name: Patch rsyslog.conf to stop sending syslog to production
         lineinfile:
           path: "{{ rsyslog_conf_path }}"
