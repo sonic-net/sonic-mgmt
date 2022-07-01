@@ -15,6 +15,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 def get_bgp_monitor_runningconfig(duthost):
     """ Get bgp listener config
     """
@@ -29,6 +30,7 @@ def get_bgp_monitor_runningconfig(duthost):
     bgp_listener_pattern = r"\s+neighbor.*description BGPMonitor"
     bgp_listener_config = re.findall(bgp_listener_pattern, output['stdout'])
     return bgp_listener_config
+
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -48,24 +50,27 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
         current_bgp_listener_config = get_bgp_monitor_runningconfig(duthost)
-        pytest_assert(set(original_bgp_listener_config) == set(current_bgp_listener_config),
+        pytest_assert(
+            set(original_bgp_listener_config) == set(current_bgp_listener_config),
             "bgp listener config are not suppose to change after test"
         )
     finally:
         delete_checkpoint(duthost)
 
+
 @pytest.fixture(scope="module")
-def bgpmon_setup_info(duthost):
+def bgpmon_setup_info(rand_selected_dut):
     """ Get initial setup info for BGPMONITOR
     """
-    peer_addr = generate_ip_through_default_route(duthost)
+    peer_addr = generate_ip_through_default_route(rand_selected_dut)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
 
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = rand_selected_dut.minigraph_facts(host=rand_selected_dut.hostname)['ansible_facts']
     local_addr = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
     return peer_addr, local_addr, str(mg_facts['minigraph_bgp_asn'])
+
 
 def bgpmon_cleanup_config(duthost):
     """ Clean up BGPMONITOR config to make sure t0 is not broken by other tests
@@ -76,6 +81,7 @@ def bgpmon_cleanup_config(duthost):
         "bgpmon cleanup config failed"
     )
 
+
 def check_bgpmon_with_addr(duthost, addr):
     """ Check BGP MONITOR config change is taken into effect
     """
@@ -84,6 +90,7 @@ def check_bgpmon_with_addr(duthost, addr):
     pytest_assert(not output['rc'],
         "BGPMonitor with addr {} is not being setup.".format(addr)
     )
+
 
 def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
     """ Test to add initial bgpmon config
@@ -124,6 +131,7 @@ def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
     """ Test to add duplicate config to bgpmon
     """
@@ -156,6 +164,7 @@ def bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
     """ Test to admin down bgpmon config
     """
@@ -182,6 +191,7 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
         )
     finally:
         delete_tmpfile(duthost, tmpfile)
+
 
 def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
     """ Test to replace bgpmon ip address
@@ -221,6 +231,7 @@ def bgpmon_tc1_ip_change(duthost, bgpmon_setup_info):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgpmon_tc1_remove(duthost):
     """ Test to remove bgpmon config
     """
@@ -248,11 +259,12 @@ def bgpmon_tc1_remove(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_bgpmon_tc1_add_and_remove(duthost, bgpmon_setup_info):
+
+def test_bgpmon_tc1_add_and_remove(rand_selected_dut, bgpmon_setup_info):
     """ Test to verify bgpmon config addition and deletion
     """
-    bgpmon_tc1_add_init(duthost, bgpmon_setup_info)
-    bgpmon_tc1_add_duplicate(duthost, bgpmon_setup_info)
-    bgpmon_tc1_admin_change(duthost, bgpmon_setup_info)
-    bgpmon_tc1_ip_change(duthost, bgpmon_setup_info)
-    bgpmon_tc1_remove(duthost)
+    bgpmon_tc1_add_init(rand_selected_dut, bgpmon_setup_info)
+    bgpmon_tc1_add_duplicate(rand_selected_dut, bgpmon_setup_info)
+    bgpmon_tc1_admin_change(rand_selected_dut, bgpmon_setup_info)
+    bgpmon_tc1_ip_change(rand_selected_dut, bgpmon_setup_info)
+    bgpmon_tc1_remove(rand_selected_dut)
