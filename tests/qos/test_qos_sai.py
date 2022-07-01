@@ -24,12 +24,11 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -200,7 +199,6 @@ class TestQosSai(QosSaiBase):
 
         # Params required for generating a PFC Storm
         duthost = dutConfig["dutInstance"]
-        dut_eth0_ip = duthost.mgmt_ip
         pfcwd_timers = set_pfc_timers()
         pfcwd_test_port_id = dutConfig["testPorts"]["src_port_id"]
         pfcwd_test_port = dutConfig["dutInterfaces"][pfcwd_test_port_id]
