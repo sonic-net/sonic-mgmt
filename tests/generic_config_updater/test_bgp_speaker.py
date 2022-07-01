@@ -97,8 +97,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
         current_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
-        pytest_assert(set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
-            "bgp speaker config are not suppose to change after test"
+        pytest_assert(
+            set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
+            "bgp speaker config are not suppose to change after test org: {}, cur: {}"
+            .format(original_bgp_speaker_config, current_bgp_speaker_config)
         )
     finally:
         delete_checkpoint(duthost)
