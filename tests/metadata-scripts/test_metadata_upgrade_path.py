@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -90,6 +91,7 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
     duthost.command("chmod +x /tmp/anpscripts/update_firmware")
     duthost.command("/usr/bin/sudo /tmp/anpscripts/update_firmware {} UPDATE_MLNX_CPLD_FW={}".format(
         image_name, UPDATE_MLNX_CPLD_FW))
+    patch_rsyslog(duthost)
 
     return out['stdout'].rstrip('\n')
 
@@ -137,6 +139,8 @@ def run_upgrade_test(duthost, localhost, ptfhost, from_image, to_image,
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,\
             advanceboot_loganalyzer=advanceboot_loganalyzer, allow_fail=allow_fail)
         advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list)
+
+    patch_rsyslog(duthost)
 
     if create_hole:
         ptfhost.shell('supervisorctl stop ferret')

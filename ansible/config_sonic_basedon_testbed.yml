@@ -487,6 +487,20 @@
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
 
+      - name: Patch rsyslog.conf to stop sending syslog to production
+        lineinfile:
+          path: "{{ rsyslog_conf_path }}"
+          state: present
+          backrefs: yes
+          regexp: '(^[^#]*@\[10\.20\.6\.16\]:514)'
+          line: '# \g<1>'
+        loop:
+          - /usr/share/sonic/templates/rsyslog.conf.j2
+          - /etc/rsyslog.conf
+        loop_control:
+          loop_var: rsyslog_conf_path
+        become: true
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
