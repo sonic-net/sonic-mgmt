@@ -919,11 +919,6 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
             self.client, port_list[self.src_port_id]
         )
 
-        # get a snapshot of ingress pg occupancy for the source port
-        pg_cntrs_base = sai_thrift_read_pg_shared_watermark(
-            self.client, self.asic_type, port_list[self.src_port_id]
-        )
-
         logging.info("Disabling xmit ports: {}".format(self.dst_port_id))
         sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id])
 
