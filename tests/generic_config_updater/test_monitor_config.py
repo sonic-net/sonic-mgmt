@@ -15,6 +15,7 @@ MONITOR_CONFIG_ACL_RULE       = "RULE_1"
 MONITOR_CONFIG_MIRROR_SESSION = "mirror_session_dscp"
 MONITOR_CONFIG_POLICER        = "policer_dscp"
 
+
 @pytest.fixture(scope='module')
 def get_valid_acl_ports(cfg_facts):
     """ Get valid acl ports that could be added to ACL table
@@ -36,6 +37,7 @@ def get_valid_acl_ports(cfg_facts):
 
     return list(ports)
 
+
 def bgp_monitor_config_cleanup(duthost):
     """ Test requires no monitor config
     Clean up current monitor config if existed
@@ -51,6 +53,7 @@ def bgp_monitor_config_cleanup(duthost):
         pytest_assert(not res['rc'],
             "bgp monitor config cleanup failed."
         )
+
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -73,6 +76,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     finally:
         delete_checkpoint(duthost)
 
+
 def verify_monitor_config(duthost):
     """
     This config contains 4 parts: ACL_TABLE, ACL_RULE, POLICER, MIRROR_SESSION
@@ -82,7 +86,7 @@ def verify_monitor_config(duthost):
     ------------------  -----------  ---------  ------------------  -------
     EVERFLOW_DSCP_TEST  MIRROR_DSCP  Ethernet0  EVERFLOW_DSCP_TEST  ingress
                                      ...
-    
+
     admin@vlab-01:~$ show acl rule EVERFLOW_DSCP_TEST RULE_1
     Table               Rule      Priority  Action                                    Match
     ------------------  ------  ----------  ----------------------------------------  -------
@@ -114,6 +118,7 @@ def verify_monitor_config(duthost):
     expect_res_success(duthost, mirror_session, [
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER], [])
 
+
 def verify_no_monitor_config(duthost):
     """
     Clean up monitor config in ACL_TABLE, ACL_RULE, POLICER, MIRROR_SESSION
@@ -127,10 +132,11 @@ def verify_no_monitor_config(duthost):
 
     policer = duthost.shell("show policer {}".format(MONITOR_CONFIG_POLICER))
     expect_res_success(duthost, policer, [], [MONITOR_CONFIG_POLICER])
-    
+
     mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
     expect_res_success(duthost, mirror_session, [], [
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
+
 
 def monitor_config_add_config(duthost, get_valid_acl_ports):
     """ Test to add everflow always on config
@@ -197,36 +203,37 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_monitor_config_tc1_suite(duthost, get_valid_acl_ports):
+
+def test_monitor_config_tc1_suite(rand_selected_dut, get_valid_acl_ports):
     """ Test enable/disable EverflowAlwaysOn config
     """
     # Step 1: Create checkpoint at initial state where no monitor config exist
-    bgp_monitor_config_cleanup(duthost)
-    create_checkpoint(duthost, MONITOR_CONFIG_INITIAL_CP)
+    bgp_monitor_config_cleanup(rand_selected_dut)
+    create_checkpoint(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
 
-    # Step 2: Add EverflowAlwaysOn config to duthost
-    monitor_config_add_config(duthost, get_valid_acl_ports)
+    # Step 2: Add EverflowAlwaysOn config to rand_selected_dut
+    monitor_config_add_config(rand_selected_dut, get_valid_acl_ports)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
-    create_checkpoint(duthost, MONITOR_CONFIG_TEST_CP)
+    create_checkpoint(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
 
     try:
     # Step 4: Rollback to initial state disabling monitor config
-        output = rollback(duthost, MONITOR_CONFIG_INITIAL_CP)
+        output = rollback(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_INITIAL_CP)
         )
-        verify_no_monitor_config(duthost)
+        verify_no_monitor_config(rand_selected_dut)
 
     # Step 5: Rollback to EverflowAlwaysOn config and verify
-        output = rollback(duthost, MONITOR_CONFIG_TEST_CP)
+        output = rollback(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_TEST_CP)
         )
-        verify_monitor_config(duthost)
+        verify_monitor_config(rand_selected_dut)
 
     finally:
-        delete_checkpoint(duthost, MONITOR_CONFIG_INITIAL_CP)
-        delete_checkpoint(duthost, MONITOR_CONFIG_TEST_CP)
+        delete_checkpoint(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
+        delete_checkpoint(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
