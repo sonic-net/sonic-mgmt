@@ -5,6 +5,7 @@ import json
 import random
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
 from tests.common.reboot import REBOOT_TYPE_COLD
@@ -63,6 +64,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrho
             # Perform a cold reboot
             logger.info("Cold reboot the DUT to make the base image as current")
             reboot(duthost, localhost)
+            patch_rsyslog(duthost)
             check_sonic_version(duthost, target_version)
 
             # Install target image
@@ -75,6 +77,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrho
                 advancedReboot = get_advanced_reboot(rebootType=get_reboot_command(duthost, upgrade_type),\
                     advanceboot_loganalyzer=advanceboot_loganalyzer)
                 advancedReboot.runRebootTestcase()
+            patch_rsyslog(duthost)
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
@@ -100,6 +103,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
             # Perform a cold reboot
             logger.info("Cold reboot the DUT to make the base image as current")
             reboot(duthost, localhost)
+            patch_rsyslog(duthost)
             check_sonic_version(duthost, target_version)
 
             # Install target image
@@ -112,6 +116,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                 prebootList=sad_preboot_list,
                 inbootList=sad_inboot_list
             )
+            patch_rsyslog(duthost)
             reboot_cause = get_reboot_cause(duthost)
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type, "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))

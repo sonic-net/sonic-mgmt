@@ -266,12 +266,12 @@ def verify_orchagent_running_or_assert(duthost):
     """
     Verifies that orchagent is running, asserts otherwise
 
-    Args: 
+    Args:
         duthost: Device Under Test (DUT)
     """
-   
+
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent' 
+        cmds = 'docker exec swss supervisorctl status orchagent'
         output = duthost.shell(cmds, module_ignore_errors=True)
         pytest_assert(not output['rc'], "Unable to check orchagent status output")
         return 'RUNNING' in output['stdout']
@@ -280,3 +280,20 @@ def verify_orchagent_running_or_assert(duthost):
         wait_until(120, 10, 0, _orchagent_running),
         "Orchagent is not running"
     )
+
+
+def patch_rsyslog(duthost):
+    """Patch rsyslog configuration to stop sending syslogs to production syslog server
+
+    Args:
+        duthost (obj): Device Under Test (DUT)
+    """
+    for conf in ["/usr/share/sonic/templates/rsyslog.conf.j2", "/etc/rsyslog.conf"]:
+        duthost.lineinfile(
+            path=conf,
+            state="present",
+            backrefs=True,
+            regexp="(^[^#]*@\[10\.20\.6\.16\]:514)",
+            line="# \g<1>"
+        )
+    duthost.shell("systemctl restart rsyslog")
