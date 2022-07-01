@@ -181,7 +181,7 @@ def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_n
     logger.info('All route entries have been pushed')
 
     total_delay = 0
-    actual_num_routes = count_routes(duthost)
+    actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
     while actual_num_routes != expected_num_routes:
         diff = abs(expected_num_routes - actual_num_routes)
         delay = max(diff / 5000, 1)
@@ -189,7 +189,7 @@ def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_n
         total_delay = (now - start_time).total_seconds()
         logger.info('Current {} expected {} delayed {} will delay {}'.format(actual_num_routes, expected_num_routes, total_delay, delay))
         time.sleep(delay)
-        actual_num_routes = count_routes(duthost)
+        actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
         if total_delay >= route_timeout:
             break
 
