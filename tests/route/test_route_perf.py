@@ -147,7 +147,7 @@ def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
     duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
 
 
-def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, op):
+def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, op):
     # Create a tempfile for routes
     route_file_dir = duthost.shell('mktemp')['stdout']
 
@@ -156,7 +156,7 @@ def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, o
     logger.info('Route file generated and copied')
 
     # Check the number of routes in ASIC_DB
-    asichost = duthost.asic_instance(enum_rand_one_asic_index)
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     start_num_route = asichost.count_routes(ROUTE_TABLE_NAME)
 
     # Calculate timeout as a function of the number of routes
@@ -174,7 +174,7 @@ def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, o
     logger.info('Before pushing route to swssconfig')
     # Apply routes with swssconfig
     json_name = '/dev/stdin < {}'.format(route_file_dir)
-    result = duthost.docker_exec_swssconfig(json_name, 'swss', enum_rand_one_asic_index)
+    result = duthost.docker_exec_swssconfig(json_name, 'swss', enum_rand_one_frontend_asic_index)
 
     if result['rc'] != 0:
         pytest.fail('Failed to apply route configuration file: {}'.format(result['stderr']))
@@ -213,9 +213,9 @@ def exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, o
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_asic_index = 0):
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.asic_instance(enum_rand_one_asic_index)
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 
@@ -245,10 +245,10 @@ def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     prepare_dut(asichost, intf_neighs)
 
     # Add routes
-    time_set = exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, 'SET')
+    time_set = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'SET')
     logger.info('Time to set %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_set))
 
     # Remove routes
-    time_del = exec_routes(duthost, enum_rand_one_asic_index, prefixes, str_intf_nexthop, 'DEL')
+    time_del = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'DEL')
     logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
     cleanup_dut(asichost, intf_neighs)
