@@ -19,6 +19,27 @@ bgp/test_bgp_slb.py:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
 #######################################
+#####            cacl             #####
+#######################################
+cacl/test_cacl_application.py::test_cacl_application_nondualtor:
+  skip:
+    reason: "test_cacl_application is only supported on non dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_cacl_application_dualtor:
+  skip:
+    reason: "test_cacl_application_dualtor is only supported on dualtor topology"
+    conditions:
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_multiasic_cacl_application:
+  skip:
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==False"
+
+#######################################
 #####           configlet         #####
 #######################################
 configlet/test_add_rack.py:
