@@ -14,8 +14,10 @@ config_sources = ['config_db', 'minigraph']
 
 def config_system_checks_passed(duthost):
     logging.info("Checking if system is running")
-    out=duthost.shell("systemctl is-system-running")
+    out=duthost.shell("systemctl is-system-running", module_ignore_errors=True)
     if "running" not in out['stdout']:
+        out=duthost.shell("systemctl --failed")
+        logging.info("Encounter failed service: {}".format(out['stdout_lines']))
         return False
 
     logging.info("Checking if Orchagent up for at least 2 min")
