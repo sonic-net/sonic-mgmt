@@ -11,15 +11,15 @@ topology:
     - 3.5@4.200
   ptf_interfaces:
     - 1@1
-    - 0@3
+    - 2@3
   VMs:
     ARISTA01T1:
       vlans:
-        - "0.6@0"
+        - "0.6@1"
       vm_offset: 0
     ARISTA02T1:
       vlans:
-        - "3.6@1"
+        - "3.6@2"
       vm_offset: 1
   DUT:
     loopback:
