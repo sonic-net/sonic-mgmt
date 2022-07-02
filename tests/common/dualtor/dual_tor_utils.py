@@ -1134,7 +1134,7 @@ def delete_neighbor(duthost, neighbor):
         logging.info("Neighbor entry %s doesn't exist", neighbor)
 
     neighbor_details = get_neighbor(duthost, neighbor)
-    assert len(neighbor_details) > 0, "server ip {} hasn't been deleted from neighbor table.".format(neighbor)
+    assert not neighbor_details, "server ip {} hasn't been deleted from neighbor table.".format(neighbor)
 
 @pytest.fixture(scope="function")
 def rand_selected_interface(rand_selected_dut):
