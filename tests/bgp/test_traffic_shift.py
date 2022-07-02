@@ -229,21 +229,8 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbi
         # Remove the Neighbors for the particular BGP instance
         bgp_neighbors = remove_bgp_neighbors(duthost, asic_index)
 
-        # Issue TSA on DUT
-        output = duthost.shell("TSA")['stdout_lines']
-
-        # Set the DUT in maintenance state
-        # Verify ASIC0 has no neighbors message.
-        pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
-
-        # Recover to Normal state
-        duthost.shell("TSB")['stdout_lines']
-
-        # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
-        pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
-
         # Check the traffic state
-        duthost.shell("TSC")['stdout_lines']
+        output = duthost.shell("TSC")['stdout_lines']
 
         # Verify DUT is in Normal state, and ASIC0 has no neighbors message.
         pytest_assert(verify_traffic_shift_per_asic(duthost, output, TS_NO_NEIGHBORS, asic_index), "ASIC is not having no neighbors")
