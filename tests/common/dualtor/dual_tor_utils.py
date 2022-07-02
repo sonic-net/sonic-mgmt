@@ -1132,8 +1132,14 @@ def delete_neighbor(duthost, neighbor):
         duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
     else:
         logging.info("Neighbor entry %s doesn't exist", neighbor)
+        return
 
     neighbor_details = get_neighbor(duthost, neighbor)
+    # Try the deletion again if the first time failed.
+    if neighbor_details:
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+        time.sleep(2)
+
     assert not neighbor_details, "server ip {} hasn't been deleted from neighbor table.".format(neighbor)
 
 @pytest.fixture(scope="function")
