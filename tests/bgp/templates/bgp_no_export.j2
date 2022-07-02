@@ -20,7 +20,7 @@ enable password zebra
 ! bgp multiple-instance
 !
 {% if 'LeafRouter' in DEVICE_METADATA['localhost']['type'] %}
-route-map TO_TIER0_V4 permit 30
+route-map TO_TIER0_V4 permit 40
  set community no-export additive
 !
 {% endif %}
