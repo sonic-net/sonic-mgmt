@@ -8,16 +8,17 @@ function usage
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (add-topo | remove-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] announce-routes <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (gen-mg | deploy-mg | test-mg | activate-wan-sonic-device) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
+  echo "    $0 [options] activate-vendor-device <testbed-name> <server-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -190,7 +191,7 @@ function activate_vendor_device
   shift
   shift
   shift 
-  echo "Activate arista device on server '${server}'"
+  echo "Activate vendor device on server '${server}'"
   
   read_file ${testbed_name}
   
@@ -691,7 +692,6 @@ case "${subcmd}" in
                ;;
   activate-vendor-device) activate_vendor_device $@
                ;;
-
   remove-topo) remove_topo $@
                ;;
   renumber-topo) renumber_topo $@
