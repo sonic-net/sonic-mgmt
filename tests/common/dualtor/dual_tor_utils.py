@@ -1301,3 +1301,34 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
                     .format(probe_interval_ms))
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
+
+def is_tunnel_qos_remap_enabled(duthost):
+    """
+    Check whether tunnel_qos_remap is enabled or not
+    """
+    try:
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'', module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    except IndexError:
+        return False
+    return "enabled" == tunnel_qos_remap_status
+
+def is_port_with_4_lossless_queues(duthost, port, tbinfo):
+    """
+    Check whether the port has 4 lossless queues
+    If tunnel_qos_ramap is enables, there are 4 lossless queues for ports between T0 and T1
+    """
+    if not is_tunnel_qos_remap_enabled(duthost):
+        return False
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    topo = tbinfo['topo']['type']
+    if 't1' in topo:
+        peer_name = 't0'
+    elif 't0' in topo:
+        peer_name = 't1'
+    else:
+        return False
+
+    if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
+        return True
+    return False
+    
