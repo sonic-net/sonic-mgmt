@@ -288,6 +288,11 @@ stages:
                     PARAMS="$PARAMS $EXTRA_PARAMS"
                 fi
 
+                DOW=$(date +%u)
+                if [ $((DOW)) -le 4 ] || [ $((DOW)) -eq 7 ]; then
+                    PARAMS="$PARAMS --completeness_level=confident"
+                fi
+
                 EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
                 if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
                     EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
