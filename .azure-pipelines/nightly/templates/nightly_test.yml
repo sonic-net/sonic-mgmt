@@ -120,6 +120,7 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -329,6 +330,8 @@ stages:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+              GIT_USER_NAME: $(GIT_USER_NAME)
+              GIT_API_TOKEN: $(GIT_API_TOKEN)
 
           - ${{ if eq(parameters.RUN_BSL_TEST, True) }}:
             - script: |
