@@ -49,11 +49,11 @@ The expected DSCP values is as below
 | ---- | ---- | --- |
 |8|8|0|
 |0|0|1|
-|33|33|2|
+|33|33|8|
 |3|2|3|
 |4|6|4|
-|5|46|5|
-|7|48|7|
+|46|46|5|
+|48|48|7|
 
 #### Test case 2 - Verify traffic is egressed at expected queue
 ##### Test steps
@@ -69,11 +69,11 @@ The expected DSCP to queue mapping is as below
 | ---- | ---- | --- |
 |8|0|0|
 |0|1|1|
-|33|1|2|
+|33|1|8|
 |3|2|3|
 |4|6|4|
-|5|5|5|
-|7|7|7|
+|46|5|5|
+|48|7|7|
 
 
 ## Test case group for packet decapsulation
