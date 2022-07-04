@@ -22,6 +22,7 @@ from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder # lgtm[py/unused-import]
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -150,7 +151,8 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
-            delete_neighbor(upper_tor_host, server_ipv4)
+            pytest_assert(wait_until(3, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
+                    "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
