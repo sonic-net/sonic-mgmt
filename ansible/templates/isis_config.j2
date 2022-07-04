@@ -1,0 +1,93 @@
+{
+    "ISIS_ROUTER": {
+	{% for dut in vm_topo_config['wan_isis_config'] %}
+	{% if inventory_hostname == dut %}
+        "isis": {
+            "net": "{{ vm_topo_config['wan_isis_config'][dut]['net'] }}",
+            "graceful_restart_enable": "true",
+            "host-name": "{{ inventory_hostname }}",
+            "level_capability": "LEVEL_2"
+        }
+	{% endif %}
+	{% endfor %}
+    },
+    "ISIS_LEVEL": {
+        "1": {
+            "level_number": "2",
+            "metric_style": "WIDE_METRIC",
+            "traffic_engineering_enable": "true"
+        }
+    },
+    "ISIS_INTERFACE": {
+        "Loopback0": {
+            "interface_id": "Loopback0"
+	    {% for dut in vm_topo_config['wan_isis_config'] %}
+	    {% if inventory_hostname == dut %}
+	    {% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+        },
+        "{{ intf }}": {
+            "interface_id": "{{ intf }}",
+            "circuit_type": "POINT_TO_POINT"
+	    {% endfor %}
+            {% endif %}
+            {% endfor %}
+        }
+    },
+    "ISIS_INTERFACE_LEVEL": {
+        "Loopback0|2": {
+            "interface_id": "Loopback0",
+            "level_number": "2"
+            {% for dut in vm_topo_config['wan_isis_config'] %}
+	    {% if inventory_hostname == dut %}
+	    {% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+
+	},
+        "{{ intf }}|2": {
+            "interface_id": "{{ intf }}",
+            "level_number": "2"
+	    {% endfor %}
+	    {% endif %}
+            {% endfor %}
+        }
+    },
+    "ISIS_INTERFACE_AFI_SAFI": {
+        "Loopback0|IPV4|UNICAST": {
+            "interface_id": "Loopback0",
+            "afi_name": "IPV4",
+            "safi_name": "UNICAST",
+            "enabled": "true"
+            {% for dut in vm_topo_config['wan_isis_config'] %}
+	    {% if inventory_hostname == dut %}
+	    {% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+
+	},
+        "Loopback0|IPV6|UNICAST": {
+            "interface_id": "Loopback0",
+            "afi_name": "IPV6",
+            "safi_name": "UNICAST",
+            "enabled": "true"
+            {% for dut in vm_topo_config['wan_isis_config'] %}
+	    {% if inventory_hostname == dut %}
+	    {% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+
+	},
+        "{{ intf }}|IPV4|UNICAST": {
+            "interface_id": "{{ intf }}",
+            "afi_name": "IPV4",
+            "safi_name": "UNICAST",
+            "enabled": "true"
+	    {% endfor %}
+            {% endif %}
+            {% endfor %}
+        },
+        "{{ intf }}|IPV6|UNICAST": {
+            "interface_id": "{{ intf }}",
+            "afi_name": "IPV6",
+            "safi_name": "UNICAST",
+            "enabled": "true"
+	    {% endfor %}
+            {% endif %}
+            {% endfor %}
+        }
+    }
+}

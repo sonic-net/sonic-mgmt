@@ -1,0 +1,9 @@
+- name: activate juniper config
+  activate_juniper: telnet_port={{ serial_port }}
+                   login={{ junos_login }}
+                   password={{ junos_password }}
+  register: activate_output
+  until: '"activate_code" in activate_output and activate_output.activate_code == 0'
+  retries: 5
+  delay: 10
+

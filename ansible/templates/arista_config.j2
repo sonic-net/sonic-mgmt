@@ -1,0 +1,108 @@
+transceiver qsfp default-mode 4x10G
+!
+hostname {{ inventory_hostname }}
+!
+spanning-tree mode mstp
+!
+aaa root secret sha512 $6$Oi52MRo6OnBibFD2$fS.FC5HW/Z8UT42iB62aQ7WK/kR1PVtGCxRKRp5ue5ViCkW472IFtU8f880cDUK.h9Ci45EPz8TK/vW.6WcZy1
+!
+username admin privilege 15 role network-admin secret sha512 $6$uCskaMwjeAPACmkA$9sxnhGi2zu3J/ydqZrZjRppFxMXtbFZuGod1/6ScdCyQRI0tWS5VWfA3NjIRnM3Nwvt0LC8IVbainKft5yyql1
+!
+vrf definition MGMT
+   rd 1:1
+!
+
+{% for dut in vm_topo_config['wan_dut_config'] %}
+{% if inventory_hostname == dut %}
+{% for intf in vm_topo_config['wan_dut_config'][dut] %}
+{% if intf != 'connect' %}
+{% set lp_ipv4 = vm_topo_config['wan_dut_config'][dut][intf]['ipv4'] %}
+{% set lp_ipv6 = vm_topo_config['wan_dut_config'][dut][intf]['ipv6'] %}
+interface {{ intf }}
+   no switchport
+   ip address {{ lp_ipv4 }}
+   ipv6 enable
+   ipv6 address {{ lp_ipv6 }}
+   ipv6 nd ra rx accept default-route
+{% if intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+   isis enable test1
+   isis circuit-type level-2
+   isis network point-to-point
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+!
+
+{% for dut in vm_topo_config['wan_dut_config'] %}
+{% if inventory_hostname == dut %}
+{% for intf in vm_topo_config['wan_dut_config'][dut] %}
+{% if intf != 'connect' %}
+interface {{ vm_topo_config['wan_dut_config'][dut][intf]['attach_to'] }}
+  no switchport
+  channel-group {{ intf[-1] }} mode active
+!
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+interface Loopback0
+{% set lp_ipv4 = vm_topo_config['DUT']['loopback']['ipv4'][dut_index|int] %}
+   ip address {{ lp_ipv4 }}
+   isis enable test1
+!
+interface Management1
+   vrf forwarding MGMT
+   ip address {{ hostvars[inventory_hostname]['ansible_host'] }}/24
+!
+ip route vrf MGMT 0.0.0.0/0 10.250.0.1
+!
+ip routing
+ip routing vrf MGMT
+!
+ipv6 unicast-routing
+!
+router bgp {{ vm_topo_config['dut_asn'] }}
+{% set lp_ipv4 = vm_topo_config['DUT']['loopback']['ipv4'][dut_index|int] %}
+{% set lp_ipv4_addr = lp_ipv4.split('/')[0] %}
+   router-id {{ lp_ipv4_addr }}
+{% for dut in vm_topo_config['wan_bgp_config'] %}
+{% if inventory_hostname == dut %}
+{% for peer in vm_topo_config['wan_bgp_config'][dut] %}
+   neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }} remote-as {{ vm_topo_config['wan_bgp_config'][dut][peer]['asn'] }}
+   neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }} description {{ vm_topo_config['wan_bgp_config'][dut][peer]['asn'] }}
+   neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }} maximum-routes 12000
+{% if vm_topo_config['dut_asn'] == vm_topo_config['wan_bgp_config'][dut][peer]['asn'] %}
+   neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }} next-hop-self
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+   !
+   address-family ipv6
+{% for dut in vm_topo_config['wan_bgp_config'] %}
+{% if inventory_hostname == dut %}
+{% for peer in vm_topo_config['wan_bgp_config'][dut] %}
+{% if vm_topo_config['wan_bgp_config'][dut][peer]['end_peer']|ipv6 %}
+      neighbor {{ vm_topo_config['wan_bgp_config'][dut][peer]['end_peer'] }} activate 
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+!
+router isis test1
+{% for dut in vm_topo_config['wan_isis_config'] %}
+{% if inventory_hostname == dut %}
+   net {{ vm_topo_config['wan_isis_config'][dut]['net'] }}
+{% endif %}
+{% endfor %}
+   is-type level-2
+   !
+   address-family ipv4 unicast
+   !
+   address-family ipv6 unicast
+!
+end

@@ -1,0 +1,31 @@
+- hosts: servers:&vm_host
+  gather_facts: no
+  tasks:
+  - name: debug print stat_result
+    debug:
+          msg: Stat result is {{ dut_name }}
+  - name: generate dut list
+    set_fact:
+       dut_list: "{{dut_name.split(',')| list}}"
+  
+  - name: activated arist device
+    include_tasks: ./vendor_config/activate_arista.yml
+    vars:
+      serial_port: "{{ hostvars[item]['serial_port'] }}"
+    with_items: "{{ dut_list }}"
+    when: hostvars[item]['image'] == 'arista'
+
+  - name: activated juniper device
+    include_tasks: ./vendor_config/activate_juniper.yml
+    vars:
+      serial_port: "{{ hostvars[item]['serial_port'] }}"
+    with_items: "{{ dut_list }}"
+    when: hostvars[item]['image'] == 'juniper'
+
+  - name: activated cisco device
+    include_tasks: ./vendor_config/activate_cisco.yml
+    vars:
+      serial_port: "{{ hostvars[item]['serial_port'] }}"
+    with_items: "{{ dut_list }}"
+    when: hostvars[item]['image'] == 'cisco'
+

@@ -1,0 +1,26 @@
+####################################################################################################################################################################################
+- name: set default testbed file
+  set_fact:
+    testbed_file: testbed.csv
+  when: testbed_file is not defined
+
+- name: Gathering testbed information
+  test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+  delegate_to: localhost
+
+- fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+  when: inventory_hostname not in testbed_facts['duts']
+
+- name: set testbed_type
+  set_fact:
+    topo: "{{ testbed_facts['topo'] }}"
+
+- name: Set ansible login user name and password
+  set_fact: ansible_ssh_user='root'  ansible_ssh_password={{ junos_password }} 
+
+- name: Set configuration file path
+  set_fact: config_file='{{inventory_dir}}/files/juniper_config.j2'
+
+- name: copy configure to juniper device 
+  shell: "sshpass -p {{ junos_password }} scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {{ config_file }} root@{{hostvars[inventory_hostname]['ansible_host']}}:/var/tmp/juniper.conf"
+  delegate_to: localhost

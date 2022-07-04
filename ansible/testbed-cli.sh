@@ -182,6 +182,22 @@ function start_vms
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
+function activate_vendor_device
+{
+  testbed_name=$1
+  server=$2
+  passwd=$3
+  shift
+  shift
+  shift 
+  echo "Activate arista device on server '${server}'"
+  
+  read_file ${testbed_name}
+  
+  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile activate_vendor_config.yml \
+      --vault-password-file="${passwd}" -l "${server}" -e dut_name="$duts" $@
+}
+
 function stop_vms
 {
   if [[ $vm_type == ceos ]]; then
@@ -233,6 +249,34 @@ function stop_topo_vms
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
+function add_wan_topo
+{
+  testbed_name=$1
+  passwd=$2
+  shift
+  shift
+  echo "Deploying topology for wan testbed '${testbed_name}'"
+
+  read_file ${testbed_name}
+  echo "Virtual devices:" "$dut" "$duts"
+  echo $duts
+
+  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile testbed_add_wan_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" -e wan_sonic_topo="yes" \
+        $ansible_options $@
+
+  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  fi
+
+  # Delete the obsoleted arp entry for the PTF IP
+  ip neighbor flush $ptf_ip || true
+
+  echo Done
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -242,9 +286,9 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
-
+  
   echo "$dut" "$duts"
-
+  
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
@@ -439,6 +483,25 @@ function generate_minigraph
   echo Done
 }
 
+function activate_wan_sonic_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Configure WAN SONiC config in testbed '$testbed_name'"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" config_wan_sonic_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+
 function deploy_minigraph
 {
   testbed_name=$1
@@ -624,6 +687,11 @@ case "${subcmd}" in
                ;;
   add-topo)    add_topo $@
                ;;
+  add-wan-topo) add_wan_topo $@
+               ;;
+  activate-vendor-device) activate_vendor_device $@
+               ;;
+
   remove-topo) remove_topo $@
                ;;
   renumber-topo) renumber_topo $@
@@ -643,6 +711,8 @@ case "${subcmd}" in
   gen-mg)      generate_minigraph $@
                ;;
   deploy-mg)   deploy_minigraph $@
+               ;;
+  activate-wan-sonic-device)   activate_wan_sonic_config $@
                ;;
   test-mg)     test_minigraph $@
                ;;

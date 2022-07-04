@@ -1,0 +1,50 @@
+<domain type='kvm'>
+  <name>{{ dut_name }}</name>
+  <memory unit='MB'>16384</memory>
+  <currentMemory unit='MB'>16384</currentMemory>
+  <vcpu placement='static'>4</vcpu>
+  <resource>
+    <partition>/machine</partition>
+  </resource>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-1.5'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <pae/>
+  </features>
+  <cpu mode='custom' match='exact'>
+    <model fallback='allow'>Westmere</model>
+    <feature policy='require' name='vmx'/>
+  </cpu>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='writeback'/>
+      <source file='{{ disk_image }}'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <controller type='usb' index='0'>
+      <alias name='usb0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
+    </controller>
+    {% for i in range(0, 11) %}
+    <interface type='ethernet'>
+      <model type='e1000'/>
+      <target dev='{{dut_name}}-{{i}}'/>
+    </interface>
+    {% endfor %}
+    <serial type='tcp'>
+      <source mode='bind' host='127.0.0.1' service='{{ serial_port }}'/>
+      <protocol type='telnet'/>
+      <target port='0'/>
+    </serial>
+   </devices>
+  <seclabel type='none'/>
+</domain>

@@ -1,0 +1,24 @@
+{
+    "PORTCHANNEL": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_isis_config'] %}
+        {% set len = vm_topo_config['wan_isis_config'][dut]|length - 1 %}
+        {% if inventory_hostname == dut %}
+        {% for intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+
+        {% if index == len %}
+        "{{ intf }}": {
+            "mtu": "1500"
+        }
+        {% else %}
+        "{{ intf }}": {
+            "mtu": "1500"
+        },
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    }
+}
+

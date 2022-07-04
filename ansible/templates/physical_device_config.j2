@@ -1,0 +1,151 @@
+{  
+   "PORTCHANNEL": {
+        {% set index = 0 %}
+      	{% for dut in vm_topo_config['wan_dut_config'] %}
+        {% set len = vm_topo_config['wan_dut_config'][dut]|length - 1 %}
+	{% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_dut_config'][dut] %}
+        {% if p_intf != 'connect' %}
+       
+        {% if index == len -1 %}
+        "{{ p_intf }}": {
+            "admin_status": "up",
+            "members": [
+                "{{ vm_topo_config['wan_dut_config'][dut][p_intf]['attach_to'] }}"
+            ],
+            "min_links": "1",
+            "mtu": "1500",
+            "tpid": "0x8100"
+        }
+        {% else %}
+        "{{ p_intf }}": {
+            "admin_status": "up",
+            "members": [
+                "{{ vm_topo_config['wan_dut_config'][dut][p_intf]['attach_to'] }}"
+            ],
+            "min_links": "1",
+            "mtu": "1500",
+            "tpid": "0x8100"
+        },
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_dut_config'] %}
+        {% set len = vm_topo_config['wan_dut_config'][dut]|length - 1 %}
+	{% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_dut_config'][dut] %}
+        {% if p_intf != 'connect' %}
+        {% if index == len -1 %}
+        "{{ p_intf }}": {},
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['ipv4'] }}":{},
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['ipv6'] }}":{}
+        {% else %}
+        "{{ p_intf }}": {},
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['ipv4'] }}":{},
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['ipv6'] }}":{},
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    },
+    "PORTCHANNEL_MEMBER": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_dut_config'] %}
+        {% set len = vm_topo_config['wan_dut_config'][dut]|length - 1 %}
+	{% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_dut_config'][dut] %}
+        {% if p_intf != 'connect' %}
+     
+        {% if index == len -1 %}
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['attach_to'] }}": {}
+        {% else %}
+        "{{ p_intf }}|{{ vm_topo_config['wan_dut_config'][dut][p_intf]['attach_to'] }}": {},
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    },
+    "ISIS_INTERFACE": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_isis_config'] %}
+        {% set len = vm_topo_config['wan_isis_config'][dut]['interface']|length %}
+        {% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+        
+        {% if index == len -1 %}
+        "{{ p_intf }}": {
+            "circuit_type": "POINT_TO_POINT",
+            "interface_id": "{{ p_intf }}"
+        }
+        {% else %}
+        "{{ p_intf }}": {
+            "circuit_type": "POINT_TO_POINT",
+            "interface_id": "{{ p_intf }}"
+        },
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    },
+    "ISIS_INTERFACE_AFI_SAFI": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_isis_config'] %}
+        {% set len = vm_topo_config['wan_isis_config'][dut]['interface']|length %}
+	{% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+
+        {% if index == len -1 %}
+        "{{ p_intf }}|IPV4|UNICAST": {
+            "afi_name": "IPV4",
+            "enabled": "true",
+            "interface_id": "{{ p_intf }}",
+            "safi_name": "UNICAST"
+        }
+        {% else %}
+        "{{ p_intf }}|IPV4|UNICAST": {
+            "afi_name": "IPV4",
+            "enabled": "true",
+            "interface_id": "{{ p_intf }}",
+            "safi_name": "UNICAST"
+        },
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    },
+    "ISIS_INTERFACE_LEVEL": {
+        {% set index = 0 %}
+        {% for dut in vm_topo_config['wan_isis_config'] %}
+        {% set len = vm_topo_config['wan_isis_config'][dut]['interface']|length %}
+	{% if inventory_hostname == dut %}
+        {% for p_intf in vm_topo_config['wan_isis_config'][dut]['interface'] %}
+        
+        {% if index == len -1 %}
+        "{{ p_intf }}|2": {
+            "interface_id": "{{ p_intf }}",
+            "level_number": "2"
+        }
+        {% else %}
+        "{{ p_intf }}|2": {
+            "interface_id": "{{ p_intf }}",
+            "level_number": "2"
+        },
+        {% endif %}
+        {% set index = index + 1 %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    }
+}
