@@ -1332,4 +1332,5 @@ def is_port_with_4_lossless_queues(duthost, port, tbinfo):
     if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
         return True
     return False
-    
+   
+   
