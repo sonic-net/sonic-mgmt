@@ -241,15 +241,16 @@ def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     else:
         prefixes = ['%x:%x:%x::/%d' % (0x3000 + int(idx_route / 65536), idx_route % 65536, 1, 64)
                     for idx_route in range(num_routes)]
-    
-    # Set up interface and interface for routes
-    prepare_dut(asichost, intf_neighs)
+    try:
+        # Set up interface and interface for routes
+        prepare_dut(asichost, intf_neighs)
 
-    # Add routes
-    time_set = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'SET')
-    logger.info('Time to set %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_set))
+        # Add routes
+        time_set = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'SET')
+        logger.info('Time to set %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_set))
 
-    # Remove routes
-    time_del = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'DEL')
-    logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
-    cleanup_dut(asichost, intf_neighs)
+        # Remove routes
+        time_del = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'DEL')
+        logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
+    finally:
+        cleanup_dut(asichost, intf_neighs)
