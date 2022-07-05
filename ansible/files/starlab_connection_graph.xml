@@ -5234,7 +5234,7 @@
       <PowerControlLinkInfo EndDevice="str-acs-serv-07" EndPort="PSU1" StartDevice="pdu-100" StartPort="31"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-11" EndPort="PSU1" StartDevice="pdu-100" StartPort="19"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-12" EndPort="PSU1" StartDevice="pdu-102" StartPort="33"/>
-      <PowerControlLinkInfo EndDevice="str-acs-serv-12" EndPort="PSU1" StartDevice="pdu-99" StartPort="33"/>
+      <PowerControlLinkInfo EndDevice="str-acs-serv-12" EndPort="PSU2" StartDevice="pdu-99" StartPort="33"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-13" EndPort="PSU1" StartDevice="pdu-100" StartPort="15"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-14" EndPort="PSU1" StartDevice="pdu-100" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-15" EndPort="PSU1" StartDevice="pdu-100" StartPort="10"/>
