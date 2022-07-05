@@ -195,9 +195,9 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
                 .format(program_name, container_name))
 
 
-def is_hiting_start_limit(duthost, service_name, container_name):
+def is_hiting_start_limit(duthost, service_name):
     """
-    @summary: Determine whether the container can not be restarted is due to
+    @summary: Determine whether the service can not be restarted is due to
               start-limit-hit or not
     """
     service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
@@ -252,7 +252,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
                            0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
-        if is_hiting_start_limit(duthost, service_name, container_name):
+        if is_hiting_start_limit(duthost, service_name):
             clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
@@ -326,10 +326,10 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
             for asic in duthost.asics:
                 service_name = asic.get_service_name(service)
                 container_name = asic.get_docker_name(service)
-                if is_hiting_start_limit(duthost, service_name, container_name):
+                if is_hiting_start_limit(duthost, service_name):
                     clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
-            if is_hiting_start_limit(duthost, service, service):
+            if is_hiting_start_limit(duthost, service):
                 clear_failed_flag_and_restart(duthost, service, service)
 
     critical_proceses = wait_until(
