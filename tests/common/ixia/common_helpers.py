@@ -72,6 +72,33 @@ def get_vlan_subnet(host_ans):
     gw_addr = ansible_stdout_to_str(mg_vlan_intfs[0]['addr'])
     return gw_addr + '/' + str(prefix_len)
 
+def get_lossless_buffer_size(host_ans, is_ingress):
+    """
+    Get ingress/egress lossless buffer size of a switch
+
+    Args:
+        host_ans: Ansible host instance of the device
+        is_ingress: Whether to get the ingress or egress pool size
+
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    type_str = "ingress" if is_ingress else "egress"
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+
+    if "BUFFER_POOL" not in config_facts.keys():
+        return None
+
+    buffer_pools = config_facts['BUFFER_POOL']
+    profile_name = type_str + '_lossless_pool'
+
+    if profile_name not in buffer_pools.keys():
+        return None
+
+    pool = buffer_pools[profile_name]
+    return int(pool['size'])
+
 def get_egress_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch
@@ -82,20 +109,19 @@ def get_egress_lossless_buffer_size(host_ans):
     Returns:
         total switch buffer size in byte (int)
     """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
+    return get_lossless_buffer_size(host_ans, False)
 
-    if "BUFFER_POOL" not in config_facts.keys():
-        return None
+def get_ingress_lossless_buffer_size(host_ans):
+    """
+    Get ingress lossless buffer size of a switch
 
-    buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'egress_lossless_pool'
+    Args:
+        host_ans: Ansible host instance of the device
 
-    if profile_name not in buffer_pools.keys():
-        return None
-
-    egress_lossless_pool = buffer_pools[profile_name]
-    return int(egress_lossless_pool['size'])
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    return get_lossless_buffer_size(host_ans, True)
 
 def get_addrs_in_subnet(subnet, number_of_ip):
     """
@@ -463,6 +489,41 @@ def disable_ecn(host_ans, prio):
     """
     host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
 
+def find_buffer_profile(host_ans, profile_start):
+    """
+    Get buffer profile name
+
+    Args:
+        host_ans: Ansible host instance of the device
+        profile_start (str): Start of buffer profile name
+
+    Returns:
+        First occurrence of matching profile string, or None if not found
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+    if "BUFFER_PROFILE" not in config_facts.keys():
+        return None
+    for profile in config_facts['BUFFER_PROFILE']:
+        if profile.startswith(profile_start):
+            return profile
+    return None
+
+def get_buffer_alpha(host_ans, profile):
+    """
+    Get buffer dynamic threshold (a.k.a., alpha)
+
+    Args:
+        host_ans: Ansible host instance of the device
+        profile (str): Buffer profile name
+
+    Returns:
+        alpha_log2 (int): Dynamic threshold (2^alpha_log2)
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+    return int(config_facts['BUFFER_PROFILE'][profile]['dynamic_th'])
+
 def config_buffer_alpha(host_ans, profile, alpha_log2):
     """
     Configure buffer threshold (a.k.a., alpha)
@@ -507,11 +568,8 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
         config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2)
 
     """ Check if configuration succeeds """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
-
     for profile in ingress_profiles:
-        dynamic_th = config_facts['BUFFER_PROFILE'][profile]['dynamic_th']
+        dynamic_th = get_buffer_alpha(host_ans, profile)
         if int(dynamic_th) != alpha_log2:
             return False
 

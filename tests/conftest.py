@@ -1652,6 +1652,24 @@ def verify_new_core_dumps(duthost):
         pytest.fail("Core dumps found. Expected: %s Found: %s. Test failed. New core dumps: %s" % (len(pre_existing_cores),\
             len(cur_cores), new_core_dumps))
 
+@pytest.fixture(scope="function")
+def on_exit():
+    '''
+    Utility to register callbacks for cleanup. Runs callbacks despite assertion
+    failures. Callbacks are executed in reverse order of registration.
+    '''
+    class OnExit():
+        def __init__(self):
+            self.cbs = []
+        def register(self, fn):
+            self.cbs.append(fn)
+        def cleanup(self):
+            while len(self.cbs) != 0:
+                self.cbs.pop()()
+    on_exit = OnExit()
+    yield on_exit
+    on_exit.cleanup()
+
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
     Check that a packet is received on _any_ of the specified ports belonging to
