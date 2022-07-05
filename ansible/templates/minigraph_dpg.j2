@@ -265,7 +265,8 @@
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
-{% if mux_cable_facts is defined %}
+{% if mux_cable_facts is defined and mux_cable_facts %}
+{% if dual_tor_facts is defined and 'cables' in dual_tor_facts %}}
 {% for cable in dual_tor_facts['cables'] %}
 {% set intf_index = port_alias.index(cable['dut_intf'])|string %}
 		<DeviceDataPlaneInfo>
@@ -329,6 +330,7 @@
 			<DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
 		</DeviceDataPlaneInfo>
 {% endfor %}
+{% endif %}
 {% endif %}
 {% include 'minigraph_dpg_asic.j2' %}
   </DpgDec>
