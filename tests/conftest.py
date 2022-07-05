@@ -1567,14 +1567,13 @@ def get_reboot_cause(duthost):
             duthost.show_and_parse("show reboot-cause history")
 
 def collect_db_dump_on_duts(request, duthosts):
-    '''
-        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
+    '''When test failed, this fixture will dump all the DBs on DUT and collect them to local
     '''
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         docker_file_path = "./logs/db_dump"
         # Convert '/' to '-', in case '/' be recognized as path and lead to compression error
-        nodename = request.node.name.replace('/', '-')
+        nodename = request.node.nodeid.replace('/', '-').replace(':', '_')
         modulename = request.module.__name__.replace('/', '-')
         db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, nodename)
 
@@ -1601,14 +1600,20 @@ def collect_db_dump_on_duts(request, duthosts):
                 # Collect DB dump
                 db_dump_path = os.path.join(dut_file_path, namespace, modulename, nodename)
                 duthosts.file(path=db_dump_path, state="directory")
+                dump_cmds = []
                 for i in dbs:
-                    duthosts.command(argv=["ip", "netns", "exec", namespace, "redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
+                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, i, db_dump_path, i)
+                    dump_cmds.append(dump_cmd)
+                duthosts.shell_cmds(cmds=dump_cmds)
         else:
             # Collect DB dump
             db_dump_path = os.path.join(dut_file_path, modulename, nodename)
             duthosts.file(path = db_dump_path, state="directory")
+            dump_cmds = []
             for i in dbs:
-                duthosts.command(argv=["redis-dump", "-d", "{}".format(i), "-y", "-o", "{}/{}".format(db_dump_path, i)])
+                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i)
+                dump_cmds.append(dump_cmd)
+            duthosts.shell_cmds(cmds=dump_cmds)
 
         #compress dump file and fetch to docker
         duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
@@ -1616,13 +1621,15 @@ def collect_db_dump_on_duts(request, duthosts):
         #remove dump file from dut
         duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
 
+
 @pytest.fixture(autouse=True)
 def collect_db_dump(request, duthosts):
-    '''
-        When test failed, teardown of this fixture will dump all the DB and collect to the test servers
-    '''
+    """This autoused fixture is to generate DB dumps on DUT and collect them to local for later troubleshooting when
+    a test case failed.
+    """
     yield
     collect_db_dump_on_duts(request, duthosts)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def verify_new_core_dumps(duthost):
