@@ -2,6 +2,11 @@
     - name: Start SONiC VM
       include_tasks: start_sonic_vm.yml
       when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+    
+    - name: Start wan SONiC VM
+      include_tasks: start_wan_sonic_vm.yml
+      when: action == 'start_wan_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
 
     - name: Stop SONiC VM
       include_tasks: stop_sonic_vm.yml
