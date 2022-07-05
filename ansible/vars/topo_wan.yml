@@ -9,12 +9,15 @@ topology:
     - 3.3@3.0
     - 0.5@4.200
     - 3.5@4.200
+    - 1.0@0.0
   ptf_interfaces:
+    - 0@0
     - 1@1
     - 2@3
   VMs:
     ARISTA01T1:
       vlans:
+        - "0.6@0"
         - "0.6@1"
       vm_offset: 0
     ARISTA02T1:

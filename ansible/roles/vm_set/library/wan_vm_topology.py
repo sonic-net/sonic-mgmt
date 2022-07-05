@@ -321,7 +321,7 @@ class VMTopology(object):
         return vlans
     
     def create_bridges_ovs(self, duts_name, fp_mtu):
-        for i in range(1, len(duts_name) + 2, 1):
+        for i in range(0, len(duts_name) + 2, 1):
            fp_br_name = "br-sonic-ovs" + str(i)
            self.create_ovs_bridge(fp_br_name, fp_mtu)
            VMTopology.cmd('sudo ovs-ofctl add-flow %s actions=all' % fp_br_name)
