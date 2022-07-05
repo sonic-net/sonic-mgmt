@@ -1123,6 +1123,21 @@ def flush_neighbor(duthost, neighbor, restore=True):
             logging.info("restore neighbor entry for %s", neighbor)
             duthost.shell("ip neighbor replace %s lladdr %s dev %s" % (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
 
+def delete_neighbor(duthost, neighbor):
+    """Delete neighbor entry for server in duthost, ignore it if doesn't exist."""
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
+        logging.info("remove neighbor entry for %s", neighbor)
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+    else:
+        logging.info("Neighbor entry %s doesn't exist", neighbor)
+        return True
+
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        return False
+    return True
 
 @pytest.fixture(scope="function")
 def rand_selected_interface(rand_selected_dut):
