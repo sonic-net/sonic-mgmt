@@ -114,7 +114,7 @@ def get_ifindex(duthost, port):
 
 def get_port_index(duthost, port):
     py_version = 'python' if '201911' in duthost.os_version else 'python3'
-    cmd = "{} -c \"from swsssdk import port_util; print(port_util.get_index_from_str(\'{}\'))\""
+    cmd = "{} -c \"from sonic_py_common import port_util; print(port_util.get_index_from_str(\'{}\'))\""
     index = duthost.shell(cmd.format(py_version, port))['stdout']
     return index
 
