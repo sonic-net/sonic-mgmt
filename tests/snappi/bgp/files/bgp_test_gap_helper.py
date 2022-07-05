@@ -357,6 +357,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
         json.dump(cdf, fp, indent=4)
     duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
     cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
+    logger.info(cdf)
     duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json", "/etc/sonic/config_db.json"))
     logger.info('Reloading config to apply BGP config')
     duthost.shell("sudo config reload -y \n")
