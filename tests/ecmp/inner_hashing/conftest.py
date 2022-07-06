@@ -106,8 +106,9 @@ def config_facts(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname):
+def setup(duthosts, rand_one_dut_hostname, teardown):
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     vxlan_switch_config = [{
         "SWITCH_TABLE:switch": {
@@ -128,7 +129,7 @@ def backup_config_db_json(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def teardown(duthosts, rand_one_dut_hostname):
     """
     Teardown fixture to clean up DUT to initial state
