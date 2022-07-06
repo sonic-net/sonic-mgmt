@@ -118,17 +118,34 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
+
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
+
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
   skip:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
+
+ecmp/test_fgnhg.py:
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
 
 #######################################
 #####         everflow            #####
