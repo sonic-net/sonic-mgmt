@@ -109,7 +109,7 @@
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
 
 - name: remove old python packages
   pip: name=docker-py state=absent executable={{ pip_executable }}
