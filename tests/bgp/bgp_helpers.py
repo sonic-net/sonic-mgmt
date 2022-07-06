@@ -32,6 +32,7 @@ def apply_bgp_config(duthost, template_name):
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
     duthost.restart_service("bgp")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"), "SWSS not started.")
 
 def define_config(duthost, template_src_path, template_dst_path):
     """
