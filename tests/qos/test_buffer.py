@@ -2533,7 +2533,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                       "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
             else:
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
-                              "PG {}:{} has different OID of profile from other PGs sharing the same profile {}".format(port, ("3-4" if (key_name == KEY_2_LOSSLESS_QUEUE) else "2-4"), expected_profile))
+                              "PG {}:{} has different OID of profile from other PGs sharing the same profile {}".format(port, ids, expected_profile))
 
     if not BUFFER_MODEL_DYNAMIC:
 
