@@ -10,17 +10,23 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
-from tests.common.fixtures.duthost_utils import disable_route_checker_module
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.usefixtures('disable_route_checker_module')
 ]
 
 # The dir will be deleted from host, so be sure not to use system dir
 TEST_DIR = "/tmp/acstests/"
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*missed_ROUTE_TABLE_routes.*"])
+
+    return
 
 @pytest.fixture(scope="module")
 def common_setup_teardown(ptfhost):
@@ -261,14 +267,14 @@ def skip_if_no_lags(duthosts):
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
-def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel, testcase):
+def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase):
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
 
     ptfhost = common_setup_teardown
 
-    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel)
+    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
 
     some_test_ran = False
     for duthost in duthosts:

@@ -5,6 +5,17 @@ eos_password: 123456
 eos_root_user: root
 eos_root_password: 123456
 
+junos_default_login: "root"
+junos_default_password:  ""
+junos_login: "root"
+junos_password: ""
+
+cisco_default_login: "root"
+cisco_default_password: ""
+cisco_login: "root"
+cisco_password: ""
+
+
 sonic_login: "admin"
 sonic_default_passwords:
  - "YourPaSsWoRd"
