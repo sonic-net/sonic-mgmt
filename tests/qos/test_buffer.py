@@ -2416,11 +2416,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                            (None, None, None)
                              ],
         KEY_4_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:gress_lossy_zero_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '2-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:gress_lossy_zero_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '6', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:gress_lossy_zero_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                          (None, None, None)
                              ]
     }
@@ -2440,7 +2440,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                     table, ids, profiles = item
                     if profiles:
                         profiles = profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
-                        new_buffer_items_to_check.append((table, ids, profiles))
+                    new_buffer_items_to_check.append((table, ids, profiles))
                 buffer_items_to_check_dict[status][queue_4_6] = new_buffer_items_to_check
         profile_wrapper = '{}'
         is_qos_db_reference_with_table = False
@@ -2474,7 +2474,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
-            elif is_broadcom_device(duthost) and (asic_type in ['td2', 'td3'] or speed <= '10000'):
+            elif is_broadcom_device(duthost) and (asic_type in ['td2'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
                 if key_name == KEY_2_LOSSLESS_QUEUE:
@@ -2536,26 +2536,29 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                               "PG {}:{} has different OID of profile from other PGs sharing the same profile {}".format(port, ("3-4" if (key_name == KEY_2_LOSSLESS_QUEUE) else "2-4"), expected_profile))
 
     if not BUFFER_MODEL_DYNAMIC:
+
+        def _profile_name(duthost, port, pg_id_name):
+            if is_mellanox_device(duthost):
+                profile_name = None
+            else:
+                profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
+
         port_to_shutdown = admin_up_ports.pop()
         if is_port_with_4_lossless_queues(duthost, port_to_shutdown, tbinfo):
-            pg_id_name = "2-4"
+            pg_id_names = ["2-4", "6"]
         else:
-            pg_id_name = "3-4"
-        expected_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
-        if is_mellanox_device(duthost):
-            profile_to_check = None
-        else:
-            profile_to_check = expected_profile
+            pg_id_names = ["3-4"]
         try:
             # Shutdown the port and check whether the lossless PG has been remvoed
             logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, profile_to_check)
-
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
             # Startup the port and check whether the lossless PG has been reconfigured
             logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface startup {}'.format(port_to_shutdown))
-            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, expected_profile)
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
         finally:
             duthost.shell('config interface startup {}'.format(port_to_shutdown), module_ignore_errors=True)
 
