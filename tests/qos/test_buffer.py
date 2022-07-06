@@ -2474,7 +2474,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
-            elif is_broadcom_device(duthost) and (asic_type in ['td2'] or speed <= '10000'):
+            elif is_broadcom_device(duthost) and (asic_type in ['td2','td3'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
                 if key_name == KEY_2_LOSSLESS_QUEUE:
