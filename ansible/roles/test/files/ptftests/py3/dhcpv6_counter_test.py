@@ -153,6 +153,7 @@ class DHCPCounterTest(DataplaneBaseTest):
             testutils.send_packet(self, self.server_port_indices[0], packet)
 
         unknown_packet = self.create_unknown_server_packet()
+        unknown_packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
         testutils.send_packet(self, self.server_port_indices[0], unknown_packet)
 
     def runTest(self):
