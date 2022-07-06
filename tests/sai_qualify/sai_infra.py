@@ -90,7 +90,6 @@ def check_test_env_with_retry(creds, duthost, ptfhost, request, create_sai_test_
     global IS_TEST_ENV_FAILED
     for retry in range(SAI_TEST_ENV_RESET_TIMES):
         try:
-            sai_test_interface_para = create_sai_test_interface_param
             saiv2_test_container_liveness_check(duthost, request)
             break
         except BaseException as e:  
