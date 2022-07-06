@@ -124,10 +124,6 @@ def setup(duthosts, rand_one_dut_hostname, teardown):
     duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
     time.sleep(3)
 
-@pytest.fixture(scope="module", autouse=True)
-def backup_config_db_json(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
 @pytest.fixture(scope="module")
 def teardown(duthosts, rand_one_dut_hostname):
