@@ -307,30 +307,34 @@ def check_all_critical_processes_status(duthost):
     return True
 
 
-def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
+def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_bgp_neighbors):
     """Restarts the containers which hit the restart limitation. Then post checks
        to see whether all the critical processes are alive and
        expected BGP sessions are up after testing the autorestart feature.
 
     Args:
       duthost: An ansible object of DuT.
-      container_autorestart_states: A dictionary includes the container name (key) and
+      feature_autorestart_states: A dictionary includes the feature name (key) and
         its auto-restart state (value).
       up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
 
     Returns:
       True if post check succeeds; Otherwise False.
     """
-    for service in container_autorestart_states.keys():
-        if service in duthost.DEFAULT_ASIC_SERVICES:
+    for feature in feature_autorestart_states.keys():
+        if feature in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
-                service_name = asic.get_service_name(service)
-                container_name = asic.get_docker_name(service)
+                service_name = asic.get_service_name(feature)
+                container_name = asic.get_docker_name(feature)
                 if is_hiting_start_limit(duthost, service_name):
                     clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
-            if is_hiting_start_limit(duthost, service):
-                clear_failed_flag_and_restart(duthost, service, service)
+            # service_name and container_name will be same as feature
+            # name for features that are not in DEFAULT_ASIC_SERVICES.
+            service_name = feature
+            container_name = feature
+            if is_hiting_start_limit(duthost, container_name):
+                clear_failed_flag_and_restart(duthost, service_name, container_name)
 
     critical_proceses = wait_until(
         POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
@@ -346,7 +350,7 @@ def postcheck_critical_processes_status(duthost, container_autorestart_states, u
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
-    container_autorestart_states = duthost.get_container_autorestart_states()
+    feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_condition = disabled_containers[:]
@@ -370,7 +374,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     logger.info("Start testing the container '{}'...".format(container_name))
 
     restore_disabled_state = False
-    if container_autorestart_states[feature_name] == "disabled":
+    if feature_autorestart_states[feature_name] == "disabled":
         logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
         duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
         restore_disabled_state = True
@@ -417,7 +421,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
-        duthost, container_autorestart_states, up_bgp_neighbors
+        duthost, feature_autorestart_states, up_bgp_neighbors
     )
     if not (critical_proceses and bgp_check):
         config_reload(duthost, safe_reload=True)
