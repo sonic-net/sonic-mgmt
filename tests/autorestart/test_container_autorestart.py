@@ -321,20 +321,18 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     Returns:
       True if post check succeeds; Otherwise False.
     """
-    for feature in feature_autorestart_states.keys():
-        if feature in duthost.DEFAULT_ASIC_SERVICES:
+    for feature_name in feature_autorestart_states.keys():
+        if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
-                service_name = asic.get_service_name(feature)
-                container_name = asic.get_docker_name(feature)
+                service_name = asic.get_service_name(feature_name)
+                container_name = asic.get_docker_name(feature_name)
                 if is_hiting_start_limit(duthost, service_name):
                     clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
             # service_name and container_name will be same as feature
             # name for features that are not in DEFAULT_ASIC_SERVICES.
-            service_name = feature
-            container_name = feature
-            if is_hiting_start_limit(duthost, container_name):
-                clear_failed_flag_and_restart(duthost, service_name, container_name)
+            if is_hiting_start_limit(duthost, feature_name):
+                clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
     critical_proceses = wait_until(
         POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
