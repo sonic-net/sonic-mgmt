@@ -123,6 +123,10 @@ def setup(duthosts, rand_one_dut_hostname):
     duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
     time.sleep(3)
 
+@pytest.fixture(scope="module", autouse=True)
+def backup_config_db_json(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
 @pytest.fixture(scope="module", autouse=True)
 def teardown(duthosts, rand_one_dut_hostname):
@@ -135,6 +139,7 @@ def teardown(duthosts, rand_one_dut_hostname):
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
@@ -330,6 +335,7 @@ def config_pbh_table_lag(duthost, lag_port_map):
 
     yield
 
+    logging.info("Delete PBH table: {}".format(TABLE_NAME))
     duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
 
 
@@ -344,6 +350,7 @@ def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
 
     yield
 
+    logging.info("Delete PBH table: {}".format(TABLE_NAME))
     duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
 
 
@@ -366,6 +373,7 @@ def config_hash_fields(duthost):
 
     yield
 
+    logging.info("Delete PBH hash-fields")
     for hash_field in HASH_FIELD_CONFIG.keys():
         duthost.command(DEL_PBH_HASH_FIELD_CMD.format(hash_field))
 
@@ -386,17 +394,20 @@ def config_hash(duthost):
 
     yield
 
+    logging.info("Delete PBH hash: {}".format(HASH_NAME))
     duthost.command(DEL_PBH_HASH_CMD.format(HASH_NAME))
 
 
 @pytest.fixture(scope="module")
 def config_rules(duthost):
+    logging.info("Create PBH rules")
     for inner_ipver in IP_VERSIONS_LIST:
         config_ipv4_rules(duthost, inner_ipver)
         config_ipv6_rules(duthost, inner_ipver)
 
     yield
 
+    logging.info("Delete PBH rules")
     for inner_ipver in IP_VERSIONS_LIST:
         delete_ipv4_rules(duthost, inner_ipver)
         delete_ipv6_rules(duthost, inner_ipver)
