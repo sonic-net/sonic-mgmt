@@ -128,7 +128,7 @@ The `DSCP` combinations and expected Queues are as below
 |DSCP outter|DSCP inner|Expected PFC priority|
 | ---- | ---- | --- |
 |2|3|2|
-|6|4|4|
+|6|4|6|
 3. Send `N` packets to `active_tor` via a portchannel to fill the shared buffer, and verify PFC pause frames are generated on expected priority
 4. Send the packets again, and check the `PG` dropcounters to verify the counter increased as expected.
 
