@@ -4,6 +4,7 @@ import threading
 import time
 import random
 import allure
+import re
 
 from scapy.all import rdpcap
 from .syslog_utils import *
@@ -189,9 +190,6 @@ class TestSSIP:
         if syslog_config_list:
             for syslog_config in syslog_config_list:
                 del_syslog_server(self.duthost, syslog_server_ip=syslog_config["server ip"])
-                # When delete syslog quickly,  in the return results sometimes there is failed msg:Job for
-                # rsyslog-config.service failed because the control process exited with error code.
-                time.sleep(1)
 
     def configure_data_vrf_test_data(self, routed_interfaces):
         """
@@ -272,6 +270,8 @@ class TestSSIP:
     def add_syslog_config(self, port, vrf_list, is_set_source, is_set_vrf):
         for vrf in vrf_list:
             for k, v in SYSLOG_TEST_DATA[vrf].items():
+                if self.is_link_local_ip(v["source_ip"]):
+                    continue
                 add_syslog_server(self.duthost,
                                   syslog_server_ip=v["syslog_server_ip"],
                                   source=v["source_ip"].split("/")[0] if is_set_source else None,
@@ -281,14 +281,15 @@ class TestSSIP:
     def remove_syslog_config(self, vrf_list):
         for vrf in vrf_list:
             for k, v in SYSLOG_TEST_DATA[vrf].items():
-                # When delete syslog quickly,  in the return results sometimes there is failed msg:Job for
-                # rsyslog-config.service failed because the control process exited with error code.
-                time.sleep(1)
+                if self.is_link_local_ip(v["source_ip"]):
+                    continue
                 del_syslog_server(self.duthost, syslog_server_ip=v["syslog_server_ip"])
 
     def check_syslog_config_exist(self, port, vrf_list, is_set_source, is_set_vrf):
         for vrf in vrf_list:
             for k, v in SYSLOG_TEST_DATA[vrf].items():
+                if self.is_link_local_ip(v["source_ip"]):
+                    continue
                 source_ip = v["source_ip"].split("/")[0] if is_set_source else "N/A"
                 pytest_assert(
                     wait_until(30, 5, 0, self.verify_syslog_config,
@@ -303,6 +304,8 @@ class TestSSIP:
         logger.info("Check syslog config nonexist")
         for vrf in vrf_list:
             for k, v in SYSLOG_TEST_DATA[vrf].items():
+                if self.is_link_local_ip(v["source_ip"]):
+                    continue
                 source_ip = v["source_ip"].split("/")[0] if is_set_source else "N/A"
                 pytest_assert(not self.verify_syslog_config(syslog_server_ip=v["syslog_server_ip"],
                                                             vrf=vrf if is_set_vrf else "N/A",
@@ -317,8 +320,7 @@ class TestSSIP:
             def check_syslog_one_vrf(routed_interfaces, port, vrf):
                 tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf)
                 for k, v in SYSLOG_TEST_DATA[vrf].items():
-                    if vrf == VRF_LIST[2] and k == "ipv6" and v["source_ip"].startswith("fe80::"):
-                        logger.info("Skip syslog msg check on {}, because the ipv6 address is local-link address".format(vrf))
+                    if self.is_link_local_ip(v["source_ip"]):
                         continue
                     source_ip = v["source_ip"].split("/")[0] if is_set_source else None
                     pytest_assert(
@@ -337,6 +339,12 @@ class TestSSIP:
 
         for thread in thread_pool:
             thread.join(60)
+
+    def is_link_local_ip(self, ip):
+        if ip.startswith("fe80::"):
+            logger.info("link_local address {} is not supported, the relevant case should be skipped".format(ip))
+            return True
+        return False
 
     def check_syslog_msg_is_stopped(self, routed_interfaces, mgmt_interface, port, vrf_list, is_set_source):
         thread_pool = []
