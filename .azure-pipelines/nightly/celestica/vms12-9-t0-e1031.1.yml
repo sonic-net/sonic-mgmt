@@ -40,6 +40,11 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--no_dscp_uniform"
+    displayName: "Extra pytest params"
+
   - name: SKIP_SCRIPTS
     type: string
     default: "memory_checker/test_memory_checker.py \
@@ -76,3 +81,4 @@ stages:
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
