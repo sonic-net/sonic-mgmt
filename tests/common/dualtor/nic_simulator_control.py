@@ -1,5 +1,4 @@
 """Control utilities to interacts with nic_simulator."""
-import logging
 import pytest
 import time
 
