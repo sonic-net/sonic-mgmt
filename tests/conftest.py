@@ -43,10 +43,10 @@ from tests.common.cache import FactsCache
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.utilities import str2bool
 
-try:
-    from tests.macsec import MacsecPlugin
-except ImportError as e:
-    logging.error(e)
+#try:
+#    from tests.macsec import MacsecPlugin
+#except ImportError as e:
+#    logging.error(e)
 
 from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
@@ -162,9 +162,9 @@ def pytest_addoption(parser):
                      type=str, help="profile name list in macsec/profile.json")
 
 
-def pytest_configure(config):
-    if config.getoption("enable_macsec"):
-        config.pluginmanager.register(MacsecPlugin())
+#def pytest_configure(config):
+#    if config.getoption("enable_macsec"):
+#        config.pluginmanager.register(MacsecPlugin())
 
 
 @pytest.fixture(scope="session", autouse=True)
