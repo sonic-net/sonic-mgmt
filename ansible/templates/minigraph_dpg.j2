@@ -265,6 +265,73 @@
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
     </DeviceDataPlaneInfo>
+{% if mux_cable_facts is defined and mux_cable_facts %}
+{% if dual_tor_facts is defined and 'cables' in dual_tor_facts %}
+{% for cable in dual_tor_facts['cables'] %}
+{% set intf_index = port_alias.index(cable['dut_intf'])|string %}
+		<DeviceDataPlaneInfo>
+			<IPSecTunnels />
+			<LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>HostIP</Name>
+					<AttachTo>Loopback0</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['server_ipv4'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['server_ipv4'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>HostIP1</Name>
+					<AttachTo>Loopback0</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['server_ipv6'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['server_ipv6'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% if 'soc_ipv4' in mux_cable_facts[intf_index] %}
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>SoCHostIP0</Name>
+					<AttachTo>Servers{{ loop.index - 1 }}SOC</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['soc_ipv4'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['soc_ipv4'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% endif %}
+{% if 'soc_ipv6' in mux_cable_facts[intf_index] %}
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>SoCHostIP1</Name>
+					<AttachTo>Servers{{ loop.index - 1 }}SOC</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['soc_ipv6'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['soc_ipv6'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% endif %}
+			</LoopbackIPInterfaces>
+			<ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<MplsInterfaces />
+			<MplsTeInterfaces />
+			<RsvpInterfaces />
+			<Hostname>Servers{{ loop.index - 1 }}</Hostname>
+			<PortChannelInterfaces />
+			<SubInterfaces />
+			<VlanInterfaces />
+			<IPInterfaces />
+			<DataAcls />
+			<AclInterfaces />
+			<NatInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<DownstreamSummaries />
+			<DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+		</DeviceDataPlaneInfo>
+{% endfor %}
+{% endif %}
+{% endif %}
 {% include 'minigraph_dpg_asic.j2' %}
   </DpgDec>
 

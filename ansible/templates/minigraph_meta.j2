@@ -28,6 +28,19 @@
             <a:Value>True</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% if 'dualtor-mixed' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Mixed</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if dhcp_servers %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
