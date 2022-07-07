@@ -24,8 +24,9 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # lgtm[py/unused-import]
-
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
+ 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
