@@ -524,7 +524,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
             err_msg = err_msg_from_mux_status[-1]
         else:
             err_msg = "Unknown error occured inside the check"
-        return False, err_msg_from_mux_status[-1], {}
+        return False, err_msg, {}
 
     for dut_mux_status in duts_parsed_mux_status.values():
         for port_mux_status in dut_mux_status.values():
