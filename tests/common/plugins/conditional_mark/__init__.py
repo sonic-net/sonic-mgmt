@@ -142,6 +142,28 @@ def load_dut_basic_facts(session, inv_name, dut_name):
 
     return results
 
+def get_basic_facts(session):
+    testbed_name = session.config.option.testbed
+
+    testbed_name_cached = session.config.cache.get('TB_NAME', None)
+    basic_facts_cached = session.config.cache.get('BASIC_FACTS', None)
+
+    if testbed_name_cached != testbed_name:
+        # clear chche
+        session.config.cache.set('TB_NAME', None)
+        session.config.cache.set('BASIC_FACTS', None)
+
+        # get basic facts
+        basic_facts = load_basic_facts(session)
+
+        # update cache
+        session.config.cache.set('TB_NAME', testbed_name)
+        session.config.cache.set('BASIC_FACTS', basic_facts)
+    else:
+        if not basic_facts_cached:
+            basic_facts = load_basic_facts(session)
+            session.config.cache.set('BASIC_FACTS', basic_facts)
+
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
 
@@ -297,9 +319,8 @@ def pytest_collection(session):
         session (obj): Pytest session object.
     """
 
-    # Always clear cached conditions and basic facts of previous run.
+    # Always clear cached conditions of previous run.
     session.config.cache.set('TESTS_MARK_CONDITIONS', None)
-    session.config.cache.set('BASIC_FACTS', None)
 
     if session.config.option.ignore_conditional_mark:
         logger.info('Ignore conditional mark')
@@ -310,8 +331,7 @@ def pytest_collection(session):
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
 
         # Only load basic facts if conditions are defined.
-        basic_facts = load_basic_facts(session)
-        session.config.cache.set('BASIC_FACTS', basic_facts)
+        get_basic_facts(session)
 
 def pytest_collection_modifyitems(session, config, items):
     """Hook for adding marks to test cases based on conditions defind in a centralized file.
