@@ -114,7 +114,6 @@ stages:
 
       - job: NightlyTest
         pool: ${{ parameters.AGENT_POOL }}
-        timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
         workspace:
           clean: all
         variables:
@@ -181,6 +180,7 @@ stages:
 
           - task: Bash@3
             displayName: "Upgrade Image"
+            timeoutInMinutes: 90
             inputs:
               targetType: 'inline'
               script: |
@@ -251,6 +251,7 @@ stages:
 
           - task: Bash@3
             displayName: Deploy Minigraph
+            timeoutInMinutes: 30
             inputs:
               targetType: 'inline'
               script: |
@@ -269,6 +270,7 @@ stages:
 
           - task: Bash@3
             displayName: Run Tests
+            timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
             inputs:
               targetType: 'inline'
               script: |
@@ -340,6 +342,7 @@ stages:
                 cd ansible
                 ./testbed-cli.sh set-l2 ${{ parameters.TESTBED_NAME }} password.txt
               displayName: Set to L2 mode
+              timeoutInMinutes: 30
 
             - script: |
                 echo "=== RUN BSL specific tests in L2 mode ==="
@@ -377,6 +380,7 @@ stages:
                     -m bsl
                 exit 0
               displayName: "Run BSL Test"
+              timeoutInMinutes: 600
 
             - script: |
                 echo "=== Restore DUT from l2 switch mode ==="
@@ -384,6 +388,7 @@ stages:
                 cd ansible
                 ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt
               displayName: Restore from l2 mode
+              timeoutInMinutes: 30
               condition: always()
 
           - publish: tests/logs
@@ -430,6 +435,7 @@ stages:
 
           - task: Bash@3
             displayName: Upload Test Results
+            timeoutInMinutes: 20
             inputs:
               targetType: 'inline'
               script: |
@@ -475,6 +481,7 @@ stages:
           - ${{ if in(parameters.TESTBED_NAME, 'vms21-t0-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
             - task: Bash@3
               displayName: Upload test results to Cisco Kusto Cluster
+              timeoutInMinutes: 20
               inputs:
                 targetType: 'inline'
                 script: |
