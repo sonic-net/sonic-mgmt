@@ -42,5 +42,9 @@ TEST_CASE = [
         #"sai_fdb_test.FdbFlushAllTest",
         "sai_fdb_test.FdbDisableMacMoveDropTest",
         "sai_fdb_test.FdbDynamicMacMoveTest",
-        "sai_fdb_test.FdbStaticMacMoveTest"
+        "sai_fdb_test.FdbStaticMacMoveTest",
+        "sai_lag_test.LagConfigTest",
+        "sai_lag_test.LoadbalanceOnSrcPortTest",
+        "sai_lag_test.DisableEgressTest",
+        "sai_lag_test.IndifferenceIngressPortTest"
         ]
