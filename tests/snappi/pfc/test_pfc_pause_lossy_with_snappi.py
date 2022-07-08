@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_pause_single_lossy_prio(snappi_api,
                                      snappi_testbed_config,
