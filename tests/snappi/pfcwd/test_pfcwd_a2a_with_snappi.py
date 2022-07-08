@@ -11,7 +11,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list,\
 from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 from files.helper import skip_pfcwd_test
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_all_to_all(snappi_api,

@@ -10,11 +10,12 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list
 from tests.common.reboot import reboot
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_pause_single_lossless_prio(snappi_api,
                                         snappi_testbed_config,
@@ -178,6 +179,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
+    wait_critical_processes(duthost)
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
@@ -243,6 +245,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
     reboot(duthost, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
+    wait_critical_processes(duthost)
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
