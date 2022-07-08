@@ -3,7 +3,7 @@ import logging
 import json
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
@@ -201,7 +201,6 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("operation", ["add", "replace", "remove"])
 def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, operation):
-    pytest_require('2700' in duthost.facts['hwsku'], "This test only runs on Mellanox 2700 devices")
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}".format(tmpfile, configdb_field, operation))
 
