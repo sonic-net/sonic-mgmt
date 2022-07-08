@@ -129,7 +129,7 @@ parameters:
  # SAI test report upload option
   - name: UPLOAD_TEST_REPORT
     type: boolean
-    defalut: false
+    default: false
 
 
 stages:
