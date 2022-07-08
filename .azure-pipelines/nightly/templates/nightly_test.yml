@@ -114,6 +114,7 @@ stages:
 
       - job: NightlyTest
         pool: ${{ parameters.AGENT_POOL }}
+        timeoutInMinutes: 2400  # 40 hours
         workspace:
           clean: all
         variables:
