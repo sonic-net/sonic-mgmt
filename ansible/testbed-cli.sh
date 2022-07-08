@@ -345,7 +345,7 @@ function remove_topo
 
 function redeploy_topo()
 {
-    remove_topo $@
+    remove_topo $@ || true
     echo "Sleep 60 seconds ..."
     sleep 60
     add_topo $@
