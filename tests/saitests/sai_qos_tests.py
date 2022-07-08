@@ -304,16 +304,10 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
                 cnt = 0
                 dscp_received = False
-                dropped_dscp_dualtor_normal_port = [2, 6]
-                need_to_drop_dscp_2_6 = False #(dual_tor_scenario and not dual_tor)
                 while not dscp_received:
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
-                        if need_to_drop_dscp_2_6 and dscp in dropped_dscp_dualtor_normal_port:
-                            break
                         self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
-                    if need_to_drop_dscp_2_6 and dscp in dropped_dscp_dualtor_normal_port:
-                        self.fail("Packet with DSCP %d is not dropped" % (dscp))
 
                     recv_pkt = scapy.Ether(result.packet)
                     cnt += 1
