@@ -362,12 +362,12 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level):
                 else:
                     pytest_require(dut_lag in lag_facts['names'], "No lag {} configuration found in {}".format(dut_lag, duthost.hostname))
                     test_lags = [ dut_lag ]
-                # 1. Check if interfaces' status synced with state_db after bootup.
+                # 1. Check if status of interface is in sync with state_db after bootup.
                 for lag_name in test_lags:
                     for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                         check_status_is_syncd(duthost, po_intf, port_info, lag_name)
  
-                # 2. Check if interfaces' status synced with state_db after shutdown/no shutdown.
+                # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
                 for lag_name in test_lags:
                     for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                         duthost.shutdown(po_intf)
@@ -406,7 +406,7 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
                 pytest_require(dut_lag in lag_facts['names'], "No lag {} configuration found in {}".format(dut_lag, duthost.hostname))
                 test_lags = [ dut_lag ]
 
-            # Check if interfaces' status is synced with state_db after removing/adding member with shutdown/no shutdown operation.
+            # Check if status of interface is in sync with state_db after removing/adding member.
             for lag_name in test_lags:
                 for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                     # 1 Remove port member from portchannel
@@ -422,7 +422,7 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
                     # 3 Add this port back into portchannel and check if status is synced
                     asichost.config_portchannel_member(lag_name, po_intf, "add")
 
-                    # 4 Retrieve lag_facts after shutdown interface
+                    # 4 Retrieve lag_facts after shutdown interface and check if status is synced
                     new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
                     port_info =  new_lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
                     check_status_is_syncd(duthost, po_intf, port_info, lag_name)
