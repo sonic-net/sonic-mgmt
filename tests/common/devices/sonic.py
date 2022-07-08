@@ -1396,7 +1396,13 @@ Totals               6450                 6449
             corresponding to one content line under the header in the output. Keys of the dictionary are the column
             headers in lowercase.
         """
+        start_line_index = kwargs.pop("start_line_index", 0)
+        end_line_index = kwargs.pop("end_line_index", None)
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
+        if end_line_index is None:
+            output = output[start_line_index:]
+        else:
+            output = output[start_line_index:end_line_index]
         return self._parse_show(output)
 
     @cached(name='mg_facts')

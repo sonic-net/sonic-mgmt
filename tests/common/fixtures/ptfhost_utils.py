@@ -190,12 +190,61 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
     yield "/root/{}".format(portMapFile.split('/')[-1])
 
 
+icmp_responder_session_started = False
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
+    """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
+    # No vlan is available on non-t0 testbed, so skip this fixture
+    if "mixed" not in tbinfo["topo"]["name"]:
+        logger.info("Skip running icmp_responder at session level, it is only for dualtor-mixed testbed.")
+        yield
+        return
+
+    global icmp_responder_session_started
+
+    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+
+    duthost = duthosts[0]
+    logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+
+    logging.info("Start running icmp_responder")
+    templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+    vlan_intfs = duthost.get_vlan_intfs()
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
+    icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    ptfhost.copy(
+        content=templ.render(icmp_responder_args=icmp_responder_args),
+        dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
+    )
+    ptfhost.shell("supervisorctl update")
+    ptfhost.shell("supervisorctl start icmp_responder")
+    icmp_responder_session_started = True
+
+    yield
+
+    logging.info("Stop running icmp_responder")
+    ptfhost.shell("supervisorctl stop icmp_responder")
+    icmp_responder_session_started = False
+
+
 @pytest.fixture(scope="module", autouse=True)
 def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+
+    if icmp_responder_session_started:
+        logger.info("icmp_responder is already running.")
         yield
         return
 

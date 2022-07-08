@@ -9,6 +9,7 @@ class CableType(object):
     """Dualtor cable type."""
     active_active = "active-active"
     active_standby = "active-standby"
+    default_type = "active-standby"
 
 
 @pytest.fixture(params=[CableType.active_standby])
