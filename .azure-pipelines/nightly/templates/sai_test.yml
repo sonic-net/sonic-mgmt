@@ -126,7 +126,12 @@ parameters:
     type: string
     default: sai_qualify/sai_infra.py::test_sai_from_ptf
 
-  
+ # SAI test report upload option
+  - name: UPLOAD_TEST_REPORT
+    type: boolean
+    defalut: false
+
+
 stages:
 
   - stage: Test
@@ -541,7 +546,7 @@ stages:
           
           - task: Bash@3
             displayName: Upload Test Results
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, succeeded(), ${{ parameters.UPLOAD_TEST_REPORT }})
             inputs:
               targetType: 'inline'
               script: |

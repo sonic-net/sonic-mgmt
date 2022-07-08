@@ -62,6 +62,11 @@ parameters:
     displayName: "Run Test"
     type: boolean
     default: true
+  
+  - name: UPLOAD_TEST_REPORT
+    displayName: "Upload Test Report"
+    type: boolean
+    default: false
 
   # Upgrade parameters
   - name: IMAGE_URL
@@ -111,3 +116,4 @@ stages:
       SAI_REPO: ${{ parameters.SAI_REPO }}
       SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+      UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
