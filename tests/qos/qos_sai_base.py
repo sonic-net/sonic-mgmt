@@ -52,38 +52,54 @@ class QosBase:
             )
         return self.buffer_model
 
+    fetch_dual_tor_ports_script = "\
+        local remap_enabled = redis.call('HGET', 'SYSTEM_DEFAULTS|tunnel_qos_remap', 'status')\
+        if remap_enabled ~= 'enabled' then\
+            return {}\
+        end\
+        local type = redis.call('HGET', 'DEVICE_METADATA|localhost', 'type')\
+        local expected_neighbor_type\
+        local expected_neighbor_suffix\
+        if type == 'LeafRouter' then\
+            expected_neighbor_type = 'ToRRouter'\
+            expected_neighbor_suffix = 'T0'\
+        else\
+            if type == 'ToRRouter' then\
+                local subtype = redis.call('HGET', 'DEVICE_METADATA|localhost', 'subtype')\
+                if subtype == 'DualToR' then\
+                    expected_neighbor_type = 'LeafRouter'\
+                    expected_neighbor_suffix = 'T1'\
+                end\
+            end\
+        end\
+        if expected_neighbor_type == nil then\
+            return {}\
+        end\
+        local result = {}\
+        local all_ports_with_neighbor = redis.call('KEYS', 'DEVICE_NEIGHBOR|*')\
+        for i = 1, #all_ports_with_neighbor, 1 do\
+            local neighbor = redis.call('HGET', all_ports_with_neighbor[i], 'name')\
+            if neighbor ~= nil and string.sub(neighbor, -2, -1) == expected_neighbor_suffix then\
+                local peer_type = redis.call('HGET', 'DEVICE_NEIGHBOR_METADATA|' .. neighbor, 'type')\
+                if peer_type == expected_neighbor_type then\
+                    table.insert(result, string.sub(all_ports_with_neighbor[i], 17, -1))\
+                end\
+            end\
+        end\
+        return result\
+    "
+
     def initDualTorPorts(self, dut_asic):
         # Fetch dual ToR ports
-        metadata = dut_asic.run_redis_cmd(argv = ["redis-cli", "-n", "4", "hgetall", "DEVICE_METADATA|localhost"])
-        if "LeafRouter" in metadata:
-            expected_neighbor_type = "ToRRouter"
-            neighbor_suffix = "T0"
-        elif "ToRRouter" in metadata and "DualToR" in metadata:
-            expected_neighbor_type = "LeafRouter"
-            neighbor_suffix = "T1"
-        else:
-            self.dualtor_ports_initialized = True
-            return
-        device_neighbor_keys = dut_asic.run_redis_cmd(argv = ["redis-cli", "-n", "4", "keys", "DEVICE_NEIGHBOR|*"])
-        neighbors = {}
-        for key in device_neighbor_keys:
-            neighbor = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hget", key, "name"])
-            if neighbor and neighbor[0][-2:] == neighbor_suffix:
-                neighbor_key = "DEVICE_NEIGHBOR_METADATA|" + neighbor[0]
-                neighbor_type = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hget", neighbor_key, "type"])
-                if expected_neighbor_type  in neighbor_type:
-                    self.dualtor_ports.add(key.split('|')[1])
-
-        tcs = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "hmget", "DSCP_TO_TC_MAP|AZURE", "6", "2", "5"])
-        dualtor_scenario_tcs = ["6", "2", "1"]
-        normal_scenario_tcs = ["1", "1", "2"]
-        if tcs == dualtor_scenario_tcs:
+        logger.info("Starting fetching dual ToR info")
+        dual_tor_ports = dut_asic.run_redis_cmd(argv = ["sonic-db-cli", "CONFIG_DB", "eval", self.fetch_dual_tor_ports_script, "0"])
+        if dual_tor_ports:
             self.dualtor_scenario = True
-        elif tcs == normal_scenario_tcs:
-            self.dualtor_scenario = False
+            self.dualtor_ports = set(dual_tor_ports)
         else:
-            pytest_assert(False, "Wrong DSCP_TO_TC map")
+            self.dualtor_scenario = False
         self.dualtor_ports_initialized = True
+        logger.info("Finish fetching dual ToR info {}".format(self.dualtor_ports))
 
     def isPortDualTor(self, dut_asic, dstport):
         if not self.dualtor_ports_initialized:
