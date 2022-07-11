@@ -1,4 +1,7 @@
-COMMUN_TEST_CASE = [
+"""
+Test cases list under test/saithrift/tests
+"""
+TEST_CASE = [
         "saiacl.IPAclTest",
         "saiacl.MACSrcAclTest",
         "saiacl.L3AclTest",
@@ -116,17 +119,5 @@ COMMUN_TEST_CASE = [
         "saitunnel.IpIpP2PTunnelDecapTestIpv4inIpv6GRE",
         "saitunnel.IpIpP2PTunnelDecapTestIpv6inIpv6GRE"
         ]
-
-
-PTF_SAI_TEST_CASE = [
-        "saisanity.L2TrunkToTrunkVlanTest",
-        "saisanity.L2TrunkToAccessVlanTest",
-        "saisanity.L2SanityTest"
-        ]
-
-WARM_BOOT_TEST_CASE = [
-        "warm_saisanity.WarmL2SanityTest"
-        ]
-
 
 PROBE_TEST_CASE = "sail3.L3IPv4HostTest"
