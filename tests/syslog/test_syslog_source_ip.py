@@ -10,7 +10,7 @@ from scapy.all import rdpcap
 from .syslog_utils import *
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import reboot
+from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.config_reload import config_reload
@@ -162,7 +162,7 @@ class TestSSIP:
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                            mgmt_interface, routed_interfaces, backup_and_restore_config_db_on_duts):
+                            mgmt_interface, routed_interfaces, backup_and_restore_config_db_on_duts, localhost):
         """
         Setup env for ssip(syslog soruce ip) test
         """
@@ -173,7 +173,7 @@ class TestSSIP:
         self.configure_default_vrf_test_data(routed_interfaces)
 
         logger.info("Enable mgmt vrf and configure IP on the mgmt interface")
-        self.configure_mgmt_vrf_test_data(mgmt_interface)
+        self.configure_mgmt_vrf_test_data(localhost)
 
         logger.info("Create data vrf and configure IP on the data vrf interface")
         self.configure_data_vrf_test_data(routed_interfaces)
@@ -213,13 +213,18 @@ class TestSSIP:
                              neigh_mac_addr=DEFAULT_VRF_IP_ADDRESSES[k]["syslog_server_mac"],
                              dev=routed_interfaces[0])
 
-    def configure_mgmt_vrf_test_data(self, mgmt_interface):
+    def configure_mgmt_vrf_test_data(self, localhost):
         """
         Configure test data for mgmt vrf
         """
-        create_vrf(self.duthost, VRF_LIST[2])
-        # when create mgmt vrf, dut connection will be lost for a while
-        time.sleep(10)
+        if not is_mgmt_vrf_enabled(self.duthost):
+            create_vrf(self.duthost, VRF_LIST[2])
+            # when create mgmt vrf, dut connection will be lost for a while
+            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+                               state='absent', delay=1, timeout=30)
+            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+                               state='started', delay=2, timeout=180)
+
         for k, v in MGMT_IP_ADDRESSES.items():
             logging.info("Add neigh for {}".format(v))
             replace_ip_neigh(self.duthost, neighbour=MGMT_IP_ADDRESSES[k]["syslog_server_ip"],

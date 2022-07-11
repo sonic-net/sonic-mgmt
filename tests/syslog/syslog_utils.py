@@ -150,3 +150,18 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     dut.fetch(src=pcap_file_full_path, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, dut.hostname, pcap_file_full_path.lstrip(os.path.sep))
     return filepath
+
+
+def is_mgmt_vrf_enabled(dut):
+    """
+    Check mgmt vrf is enabled or not
+
+    Args:
+        dut (SonicHost): The target device
+    Return: True or False
+    """
+    show_mgmt_vrf = dut.command("show mgmt-vrf")["stdout"]
+    if "ManagementVRF : Disabled" in show_mgmt_vrf:
+        return False
+    else:
+        return True
