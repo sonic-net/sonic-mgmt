@@ -595,5 +595,29 @@ class SonicAsic(object):
         for af in af_list:
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
+                # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
+                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                    continue
                 return False
         return True
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        neigh_ok = []
+        for k, v in bgp_facts['bgp_neighbors'].items():
+            if v['state'] == state:
+                if k.lower() in neigh_ips:
+                    neigh_ok.append(k)
+        logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+                     

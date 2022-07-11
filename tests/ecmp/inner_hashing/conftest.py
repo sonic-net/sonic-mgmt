@@ -10,6 +10,7 @@ from datetime import datetime
 import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,6 @@ VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
 NVGRE_GRE_KEY_OPTION = " --gre-key {}/{}".format(GRE_KEY, GRE_MASK)
 ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
 DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
-ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
-                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
                         " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
 DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
@@ -125,6 +124,20 @@ def setup(duthosts, rand_one_dut_hostname):
     time.sleep(3)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def teardown(duthosts, rand_one_dut_hostname):
+    """
+    Teardown fixture to clean up DUT to initial state
+
+    Args:
+        duthosts: All DUTs objects belonging to the testbed
+        rand_one_dut_hostname: Hostname of a random chosen dut to run test
+    """
+    yield
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+
 @pytest.fixture(scope='module', autouse=True)
 def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
@@ -189,6 +202,20 @@ def vlan_ptf_ports(config_facts, tbinfo, duthost):
             ports.append(dut_port_index)
 
     return ports
+
+
+@pytest.fixture(scope='module')
+def lag_mem_ptf_ports_groups(config_facts, tbinfo, duthost):
+    lag_mem_ptf_ports_groups = []
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    for lag_members in config_facts.get('PORTCHANNEL_MEMBER', {}).values():
+        lag_group = []
+        for intf in lag_members.keys():
+            dut_port_index = mg_facts['minigraph_ptf_indices'][intf]
+            lag_group.append(dut_port_index)
+        lag_mem_ptf_ports_groups.append(lag_group)
+
+    return lag_mem_ptf_ports_groups
 
 
 @pytest.fixture(scope='module')
@@ -437,15 +464,17 @@ def get_src_dst_ip_range(ipver):
     return src_ip_range, dst_ip_range
 
 
-def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys):
+def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys, ports_groups):
     logging.info('Verify PBH counters')
     with allure.step('Verify PBH counters'):
         symmetric_multiplier = 2 if symmetric_hashing else 1
-        exp_port_multiplier = 4  # num of POs in t0 topology
+        exp_ports_multiplier = 0
+        for group in ports_groups:
+            exp_ports_multiplier += len(group)
         hash_keys_multiplier = len(hash_keys)
         # for hash key "ip-proto", the traffic sends always in one way
-        exp_count = str((balancing_test_times * symmetric_multiplier * exp_port_multiplier * (hash_keys_multiplier-1))
-                        + (balancing_test_times * exp_port_multiplier))
+        exp_count = str((balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier-1))
+                        + (balancing_test_times * exp_ports_multiplier))
         pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
         for outer_encap_format in OUTER_ENCAP_FORMATS:
             regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)

@@ -19,6 +19,7 @@ from .issue import check_issues
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
+ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
 
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
@@ -85,8 +86,36 @@ def load_conditions(session):
 
     return conditions_list
 
+def read_asic_name(hwsku):
+    '''
+    Get asic generation name from file 'ansible/group_vars/sonic/variables'
 
-def load_dut_basic_facts(session):
+    Args:
+        hwsku (str): Dut hwsku name
+
+    Returns:
+        str or None: Return the asic generation name or None if something went wrong or nothing found in the file.
+
+    '''
+    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    try:
+        with open(asic_name_file) as f:
+            asic_name = yaml.safe_load(f)
+
+        for key, value in asic_name.items():
+            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
+                asic_name.pop(key)
+
+        for name, hw in asic_name.items():
+            if hwsku in hw:
+                return name.split('_')[1]
+
+        return "unknown"
+
+    except IOError as e:
+        return None
+
+def load_dut_basic_facts(session, inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
@@ -100,23 +129,6 @@ def load_dut_basic_facts(session):
     results = {}
     logger.info('Getting dut basic facts')
     try:
-        testbed_name = session.config.option.testbed
-        testbed_file = session.config.option.testbed_file
-
-        testbed_module = imp.load_source('testbed', 'common/testbed.py')
-        tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
-
-        results['topo_type'] = tbinfo['topo']['type']
-        results['topo_name'] = tbinfo['topo']['name']
-
-        dut_name = tbinfo['duts'][0]
-        if session.config.option.customize_inventory_file:
-            inv_name = session.config.option.customize_inventory_file
-        elif 'inv_name' in tbinfo.keys():
-            inv_name = tbinfo['inv_name']
-        else:
-            inv_name = 'lab'
-
         ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
@@ -124,11 +136,33 @@ def load_dut_basic_facts(session):
         output_fields = raw_output.split('SUCCESS =>', 1)
         if len(output_fields) >= 2:
             results.update(json.loads(output_fields[1].strip())['ansible_facts']['dut_basic_facts'])
+            results['asic_gen'] = read_asic_name(results['hwsku'])
     except Exception as e:
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 
     return results
 
+def get_basic_facts(session):
+    testbed_name = session.config.option.testbed
+
+    testbed_name_cached = session.config.cache.get('TB_NAME', None)
+    basic_facts_cached = session.config.cache.get('BASIC_FACTS', None)
+
+    if testbed_name_cached != testbed_name:
+        # clear chche
+        session.config.cache.set('TB_NAME', None)
+        session.config.cache.set('BASIC_FACTS', None)
+
+        # get basic facts
+        basic_facts = load_basic_facts(session)
+
+        # update cache
+        session.config.cache.set('TB_NAME', testbed_name)
+        session.config.cache.set('BASIC_FACTS', basic_facts)
+    else:
+        if not basic_facts_cached:
+            basic_facts = load_basic_facts(session)
+            session.config.cache.set('BASIC_FACTS', basic_facts)
 
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
@@ -143,8 +177,25 @@ def load_basic_facts(session):
     """
     results = {}
 
+    testbed_name = session.config.option.testbed
+    testbed_file = session.config.option.testbed_file
+
+    testbed_module = imp.load_source('testbed', 'common/testbed.py')
+    tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+
+    results['topo_type'] = tbinfo['topo']['type']
+    results['topo_name'] = tbinfo['topo']['name']
+
+    dut_name = tbinfo['duts'][0]
+    if session.config.option.customize_inventory_file:
+        inv_name = session.config.option.customize_inventory_file
+    elif 'inv_name' in tbinfo.keys():
+        inv_name = tbinfo['inv_name']
+    else:
+        inv_name = 'lab'
+
     # Load DUT basic facts
-    _facts = load_dut_basic_facts(session)
+    _facts = load_dut_basic_facts(session, inv_name, dut_name)
     if _facts:
         results.update(_facts)
 
@@ -268,9 +319,8 @@ def pytest_collection(session):
         session (obj): Pytest session object.
     """
 
-    # Always clear cached conditions and basic facts of previous run.
+    # Always clear cached conditions of previous run.
     session.config.cache.set('TESTS_MARK_CONDITIONS', None)
-    session.config.cache.set('BASIC_FACTS', None)
 
     if session.config.option.ignore_conditional_mark:
         logger.info('Ignore conditional mark')
@@ -281,8 +331,7 @@ def pytest_collection(session):
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
 
         # Only load basic facts if conditions are defined.
-        basic_facts = load_basic_facts(session)
-        session.config.cache.set('BASIC_FACTS', basic_facts)
+        get_basic_facts(session)
 
 def pytest_collection_modifyitems(session, config, items):
     """Hook for adding marks to test cases based on conditions defind in a centralized file.
@@ -315,18 +364,25 @@ def pytest_collection_modifyitems(session, config, items):
                 for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
-                    mark_conditions = mark_details.get('conditions', None)
-                    if not mark_conditions:
-                        # Unconditionally add mark
+                    if not mark_details:
                         add_mark = True
                     else:
-                        add_mark = evaluate_conditions(mark_conditions, basic_facts)
+                        mark_conditions = mark_details.get('conditions', None)
+                        if not mark_conditions:
+                            # Unconditionally add mark
+                            add_mark = True
+                        else:
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts)
 
                     if add_mark:
-                        reason = mark_details.get('reason', '')
+                        reason = ''
+                        if mark_details:
+                            reason = mark_details.get('reason', '')
 
                         if mark_name == 'xfail':
-                            strict = mark_details.get('strict', False)
+                            strict = False
+                            if mark_details:
+                                strict = mark_details.get('strict', False)
                             mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
                             # To generate xfail property in the report xml file
                             item.user_properties.append(('xfail', strict))

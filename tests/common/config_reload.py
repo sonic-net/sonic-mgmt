@@ -2,8 +2,11 @@ import time
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.configlet.util.common import chk_for_pfc_wd
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
 logger = logging.getLogger(__name__)
 
@@ -16,20 +19,35 @@ def config_system_checks_passed(duthost):
         return False
 
     logging.info("Checking if Orchagent up for at least 2 min")
-    out = duthost.shell("systemctl show swss.service --property ActiveState --value")
-    if out["stdout"] != "active":
-        return False
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            out = duthost.shell("systemctl show swss@{}.service --property ActiveState --value".format(asic.asic_index))
+            if out["stdout"] != "active":
+                return False
 
-    out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
-    if int(out['stdout'].strip()) < 120:
-        return False
+            out = duthost.shell(
+                "ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value) | sed '1d'".format(asic.asic_index))
+            if int(out['stdout'].strip()) < 120:
+                return False
+    else:
+        out = duthost.shell("systemctl show swss.service --property ActiveState --value")
+        if out["stdout"] != "active":
+            return False
+
+        out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
+        if int(out['stdout'].strip()) < 120:
+            return False
 
     logging.info("Checking if delayed services are up")
     out = duthost.shell("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'")
-    for service in out['stdout'].splitlines():
-        out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
-        if out1['stdout'].strip() == "0":
-            return False
+    status = duthost.shell("systemctl is-enabled {}".format(out['stdout'].replace("\n", " ")))
+    services = [line.strip() for line in out['stdout'].splitlines()]
+    state = [line.strip() for line in status['stdout'].splitlines()]
+    for service in services:
+        if state[services.index(service)] == "enabled":
+            out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
+            if out1['stdout'].strip() == "0":
+                return False
     logging.info("All checks passed")
     return True
 
@@ -40,7 +58,10 @@ def config_force_option_supported(duthost):
         return True
     return False
 
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False):
+
+@ignore_loganalyzer
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
+                  check_intf_up_ports=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -88,8 +109,13 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         # function will return sooner.
         pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
                 "All critical services should be fully started!")
+        wait_critical_processes(duthost)
         if config_source == 'minigraph':
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
                     "PFC_WD is missing in CONFIG-DB")
+
+        if check_intf_up_ports:
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)

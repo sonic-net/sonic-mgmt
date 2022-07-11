@@ -770,10 +770,7 @@ def sai_thrift_read_pg_drop_counters(client, port_id):
     return pg_cntrs
 
 def sai_thrift_read_pg_shared_watermark(client, asic_type, port_id):
-    if 'cisco-8000' in asic_type:
-        pg_cntr_ids = [SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES]
-    else:
-        pg_cntr_ids = [SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES]
+    pg_cntr_ids = [SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES]
 
     # fetch pg ids under port id
     pg_ids = []
