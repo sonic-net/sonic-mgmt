@@ -4,6 +4,7 @@ import logging
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.reboot import reboot as rebootDut
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
@@ -12,7 +13,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0')
 ]
-
 
 def pytest_generate_tests(metafunc):
     input_sad_cases = metafunc.config.getoption("sad_case_list")
@@ -130,3 +130,38 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     add_fail_step_to_reboot('warm-reboot')
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
+
+
+def test_service_warm_restart(request, duthosts, rand_one_dut_hostname, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    package_list = duthost.show_and_parse('spm list')
+    built_in_packages = [entry['name'] for entry in package_list if entry['status'] == 'Built-In']
+    feature_list = duthost.show_and_parse('show feature status')
+    for feature_data in feature_list:
+        if feature_data['feature'] in ['database', 'syncd']:
+            # database and syncd does not support warm restart
+            continue
+
+        if feature_data['feature'] not in built_in_packages:
+            # ignore non built-in packages as there is no guarantee that they support container based warm restart
+            logging.info("Feature {} is not built-in one, skip warm restart for it.".format(feature_data['feature']))
+            continue
+
+        ignored_services = request.config.getoption("--ignore_service")
+        if ignored_services:
+            ignored_services = ignored_services.split(',')
+            if feature_data['feature'] in ignored_services:
+                logging.info("Feature {} is ignored by user, skip warm restart for it.".format(feature_data['feature']))
+                continue
+
+        if feature_data['state'] == 'disabled' or feature_data['state'] == 'always_disabled':
+            logging.info("Feature {} is not enabled, skip warm restart for it.".format(feature_data['feature']))
+            continue
+
+        advancedReboot = get_advanced_reboot(rebootType='service-warm-restart',
+                                             service_name=feature_data['feature'],
+                                             advanceboot_loganalyzer=advanceboot_loganalyzer)
+        advancedReboot.runRebootTestcase()
+
+    rebootDut(duthost, localhost, reboot_type='cold', wait = 300)

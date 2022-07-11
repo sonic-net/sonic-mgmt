@@ -437,7 +437,7 @@ class ReloadTest(BaseTest):
         portchannel_names = [pc['name'] for pc in portchannel_content.values()]
 
         vlan_content = self.read_json('vlan_ports_file')
-        
+
         vlan_if_port = []
         for vlan in self.vlan_ip_range:
             for ifname in vlan_content[vlan]['members']:
@@ -1017,6 +1017,10 @@ class ReloadTest(BaseTest):
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
 
+        if 'service-warm-restart' == self.reboot_type:
+            # verify there are no interface flaps after warm boot
+            self.neigh_lag_status_check()
+
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
         forward_stop_signal = multiprocessing.Event()
@@ -1193,8 +1197,9 @@ class ReloadTest(BaseTest):
             thr = threading.Thread(target=self.reboot_dut)
             thr.setDaemon(True)
             thr.start()
-            self.wait_until_control_plane_down()
-            self.no_control_start = self.cpu_state.get_state_time('down')
+            if self.reboot_type != 'service-warm-restart':
+                self.wait_until_control_plane_down()
+                self.no_control_start = self.cpu_state.get_state_time('down')
 
             if 'warm-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
@@ -1210,7 +1215,7 @@ class ReloadTest(BaseTest):
             else:
                 if self.reboot_type == 'fast-reboot':
                     self.handle_fast_reboot_health_check()
-                if 'warm-reboot' in self.reboot_type:
+                if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
                     self.handle_warm_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
@@ -1284,7 +1289,15 @@ class ReloadTest(BaseTest):
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        if self.reboot_type != 'service-warm-restart':
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        elif self.test_params['docker_image'] is not None:
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic-installer upgrade-docker {} {} -y --warm".format(self.test_params['service_name'], self.test_params['docker_image']), timeout=30)
+        else:
+            self.dut_connection.execCommand('sudo config warm_restart enable {}'.format(self.test_params['service_name']))
+            self.pre_service_warm_restart()
+            stdout, stderr, return_code = self.dut_connection.execCommand('sudo service {} restart'.format(self.test_params['service_name']))
+
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
@@ -1299,6 +1312,19 @@ class ReloadTest(BaseTest):
             thread.interrupt_main()
 
         return
+
+    def pre_service_warm_restart(self):
+        """Copy from src/sonic-utilities/sonic_installer/main.py to do some special operation for particular containers
+        """
+        if self.test_params['service_name'] == 'swss':
+            stdout, stderr, return_code = self.dut_connection.execCommand('docker exec -i swss orchagent_restart_check -w 2000 -r 5')
+            if return_code != 0:
+                self.log('orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
+        elif self.test_params['service_name'] == 'bgp':
+            self.dut_connection.execCommand('docker exec -i bgp pkill -9 zebra')
+            self.dut_connection.execCommand('docker exec -i bgp pkill -9 bgpd')
+        elif self.test_params['service_name'] == 'teamd':
+            self.dut_connection.execCommand('docker exec -i teamd pkill -USR1 teamd > /dev/null')
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,

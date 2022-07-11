@@ -9,6 +9,9 @@ import os
 import traceback
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.processes_utils import check_critical_processes
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
@@ -42,7 +45,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType']) , (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType'] or 'service-warm-restart' in kwargs['rebootType']) , (
             "Please set rebootType var."
         )
 
@@ -90,6 +93,12 @@ class AdvancedReboot:
 
         self.__buildTestbedData(tbinfo)
 
+        if self.rebootType == 'service-warm-restart':
+            assert hasattr(self, 'service_name')
+            # self.current_docker_image = None
+            self.new_docker_image = None
+            self.docker_image_name = None
+
     def __extractTestParam(self):
         '''
         Extract test parameters from pytest request object. Note that all the parameters have default values.
@@ -106,6 +115,7 @@ class AdvancedReboot:
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
+        self.new_docker_image = self.request.config.getoption("--new_docker_image")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -326,6 +336,26 @@ class AdvancedReboot:
         logger.info('Remove downloaded tempfile')
         self.duthost.shell('rm -f {}'.format(tempfile))
 
+    def __handleDockerImage(self):
+        """Download and install docker image to DUT
+        """
+        if self.new_docker_image is None:
+            return
+
+        """
+        image_name = self.duthost.shell('docker ps | grep {} | awk \'{print $2}\''.format(self.service_name))['stdout']
+        temp_file = self.duthost.shell('mktemp')['stdout']
+        logger.info('Save old docker image {}'.format(image_name))
+        self.duthost.shell('docker save {} -o {}'.format(image_name, temp_file))
+        self.current_docker_image = temp_file
+        """
+        self.docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{print $2}\''.format(self.service_name))['stdout']
+        self.docker_image_name = self.docker_image_name.split(':')[0]
+        temp_file = self.duthost.shell('mktemp')['stdout']
+        logger.info('Download new docker image')
+        self.duthost.shell('curl {0}/{1}.gz --output {2}'.format(self.new_docker_image, self.service_name, temp_file))
+        self.new_docker_image = temp_file
+
     def __setupTestbed(self):
         '''
         Sets testbed up. It tranfers test data files, ARP responder, and runs script to update IPs and MAC addresses.
@@ -438,7 +468,10 @@ class AdvancedReboot:
         self.__setupTestbed()
 
         # Download and install new sonic image
-        self.__handleRebootImage()
+        if self.rebootType != 'service-warm-restart':
+            self.__handleRebootImage()
+        else:
+            self.__handleDockerImage()
 
         # Handle mellanox platform
         self.__handleMellanoxDut()
@@ -586,7 +619,9 @@ class AdvancedReboot:
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files" : self.prebootFiles,
-            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword")
+            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword"),
+            "service_name": None if self.rebootType != 'service-warm-restart' else self.service_name,
+            "docker_image": None if self.rebootType != 'service-warm-restart' else self.new_docker_image,
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -639,6 +674,29 @@ class AdvancedReboot:
                 wait = self.readyTimeout
             )
 
+    def __restorePrevDockerImage(self):
+        """Restore previous docker image
+        """
+        if self.new_docker_image is not None:
+            self.duthost.shell('rm -f {}'.format(self.new_docker_image))
+            logger.info('Restore current docker image')
+            self.duthost.shell('sudo sonic-installer rollback-docker {} -y'.format(self.docker_image_name))
+
+            #todo: clean up docker image
+
+            """
+            self.duthost.shell('docker load < {}'.format(self.current_docker_image))
+            self.duthost.shell('rm -f {}'.format(self.current_docker_image))
+            """
+
+            #logger.info('Restart service {}'.format(self.service_name))
+            #self.duthost.shell('service {} restart'.format(self.service_name))
+            wait_critical_processes(self.duthost)
+            check_critical_processes(self.duthost, 60)
+            check_interface_status_of_up_ports(self.duthost)
+        else:
+            self.duthost.shell('sudo config warm_restart disable {}'.format(self.service_name))
+
     def tearDown(self):
         '''
         Tears down test case. It also verifies that config_db.json exists.
@@ -659,6 +717,7 @@ class AdvancedReboot:
 
         if not self.stayInTargetImage:
             self.__restorePrevImage()
+            self.__restorePrevDockerImage()
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
