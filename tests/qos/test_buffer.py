@@ -820,10 +820,16 @@ def port_to_test(request, duthost):
         dutLagInterfaces += lag["members"]
 
     testPort = set(mgFacts["minigraph_ports"].keys())
-    testPort -= set(dutLagInterfaces)
+    lagMembers = set(dutLagInterfaces)
+    testPort -= lagMembers
     pytest_require(len(testPort) > 0, "No port to run test")
 
-    PORT_TO_TEST = list(testPort)[0]
+    PORT_TO_TEST = request.config.getoption("--port_to_test")
+    if PORT_TO_TEST in lagMembers:
+        logging.info("LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
+        PORT_TO_TEST = None
+    if not PORT_TO_TEST:
+        PORT_TO_TEST = list(testPort)[0]
     lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
     NUMBER_OF_LANES = len(lanes.split(','))
 
@@ -2049,8 +2055,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             if not profile_applied:
                 break
             logging.info('Cable length {} has been applied successfully'.format(cable_length))
-            if cable_length > 2000:
-                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 2km, skip the test".format(port_to_test))
+            if cable_length > 10000:
+                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 10km, skip the test".format(port_to_test))
             cable_length += cable_length_step
             cable_length_step *= 2
 
