@@ -15,7 +15,7 @@ parameters:
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
-    default: docker-ptf
+    default: docker-ptf-sai
 
   - name: SAI_REPO
     type: string
@@ -55,6 +55,21 @@ parameters:
   
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
+    type: boolean
+    default: false
+
+  - name: ENABLE_BRCM_T0_TEST
+    displayName: "Run Brcm T0 Test"
+    type: boolean
+    default: false
+
+  - name: ENABLE_COMMUNITY_TEST
+    displayName: "Run community test case"
+    type: boolean
+    default: false
+ 
+  - name: ENABLE_WARM_REBOOT_TEST
+    displayName: "Run warm reboot test"
     type: boolean
     default: false
 
@@ -109,6 +124,9 @@ stages:
       CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
       RECOVER_TOPO: ${{ parameters.RECOVER_TOPO }}
       ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
+      ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
+      ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
+      ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
       RUN_TEST: ${{ parameters.RUN_TEST }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
