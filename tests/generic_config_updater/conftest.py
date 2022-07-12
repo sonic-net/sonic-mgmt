@@ -139,5 +139,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
+
+            # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
+            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*", # test_portchannel_interface tc2
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
