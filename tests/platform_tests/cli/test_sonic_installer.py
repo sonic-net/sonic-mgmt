@@ -18,6 +18,7 @@ pytestmark = [
 ]
 
 DOCKER_START_WAIT_TIME = 10
+CONFIG_RELOAD_WAIT_TIME = 60
 
 @pytest.fixture(scope='function')
 def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -34,6 +35,7 @@ def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # reload config, because some critical process not work after database docker restart
     config_reload(duthost)
+    time.sleep(CONFIG_RELOAD_WAIT_TIME)
     wait_critical_processes(duthost)
 
 def test_sonic_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
