@@ -10,7 +10,7 @@ parameters:
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
-    default: docker-ptf-sai
+    default: docker-ptf
 
   - name: SAI_REPO
     type: string
@@ -98,21 +98,6 @@ parameters:
 
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
-    type: boolean
-    default: false
-
-  - name: ENABLE_BRCM_T0_TEST
-    displayName: "Run Brcm T0 Test"
-    type: boolean
-    default: false
-
-  - name: ENABLE_COMMUNITY_TEST
-    displayName: "Run community test case"
-    type: boolean
-    default: false
- 
-  - name: ENABLE_WARM_REBOOT_TEST
-    displayName: "Run warm reboot test"
     type: boolean
     default: false
 
@@ -360,7 +345,13 @@ stages:
                 cd SAI
                 git remote add origin https://github.com/${{ parameters.SAI_REPO }}/SAI.git
                 git fetch origin
-                git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
+
+                if [[ "$ENABLE_PTF_SAI_TEST" == "False" ]]; then
+                  git checkout -b v1.7 origin/v1.7
+                else
+                  git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
+                fi
+
                 ls -l
             env:
               ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
@@ -381,18 +372,11 @@ stages:
                   CONFIG_PARAMS="${JOB_CONFIG}"
                 fi
                   
-                if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
-                elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
-                elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
+                if [[ "$ENABLE_PTF_SAI_TEST" == "False" ]]; then
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
                 else
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
-                fi 
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
+                fi
 
                 BASE_PATH=`pwd`
                 LOG_LEVEL=info    
@@ -415,28 +399,17 @@ stages:
                 mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
               
                 cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-                if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \
+                if [[ "$ENABLE_PTF_SAI_TEST" == "False" ]]; then
+                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/sai_infra.py::test_commun_sai_from_ptf --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
                   --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
                   --collect_techsupport=False --topology='ptf'
-                elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 else
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
+                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/sai_infra.py::test_ptf_sai_from_ptf --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                fi 
-                
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
+                  --collect_techsupport=False --topology='ptf'
+                fi
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -446,9 +419,6 @@ stages:
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
               SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
               ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
-              ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
-              ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-              ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
               SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
               PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
               JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
