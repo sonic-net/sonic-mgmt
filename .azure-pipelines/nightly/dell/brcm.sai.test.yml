@@ -11,7 +11,8 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-  
+    default: vms20-t1-dx010-6
+
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
@@ -103,7 +104,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     displayName: "py_saithrift URL"
     values: 
     - $(SAITHRIFT_BRCM_202012)
