@@ -279,11 +279,8 @@ def test_nhop(request, duthost, tbinfo):
         sleep_time = 380
     else:
         default_max_nhop_paths = 32
-        polling_interval = 10
+        polling_interval = 1
         sleep_time = 120
-    nhop_group_limit = 1024
-    # program more than the advertised limit
-    extra_nhops = 10
 
     asic = duthost.asic_instance()
 
@@ -293,8 +290,6 @@ def test_nhop(request, duthost, tbinfo):
     )
     it = iter(result)
     switch_capability = dict(zip(it, it))
-    max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
-    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
     crm_stat = get_crm_info(duthost, asic)
     nhop_group_count = crm_stat["available"]
 
