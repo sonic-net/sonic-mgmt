@@ -25,12 +25,12 @@ parameters:
   - name: SAI_BRANCH
     type: string
     displayName: "SAI Dev Branch"
-    default: "v1.9"
+    default: "master"
 
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: " "
+    default: "--disable_loganalyzer --sai_port_config=dx010-port_config.ini"
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
