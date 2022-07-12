@@ -186,12 +186,12 @@
   comment: Dual-TOR-Mixed testbed
 
 - conf-name: 8000e-t0
-  group-name: vms6-1
+  group-name: vms8-1
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: ptf-01
-  ptf_ip: 10.250.0.102/24
-  ptf_ipv6: fec0::ffff:afa:2/64
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
   server: server_1
   vm_base: VM0100
   dut:
@@ -201,12 +201,12 @@
   comment: Tests 8000e sonic device
 
 - conf-name: 8000e-t1
-  group-name: vms6-1
+  group-name: vms8-1
   topo: t1
   ptf_image_name: docker-ptf
-  ptf: ptf-01
-  ptf_ip: 10.250.0.102/24
-  ptf_ipv6: fec0::ffff:afa:2/64
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
   server: server_1
   vm_base: VM0100
   dut:
