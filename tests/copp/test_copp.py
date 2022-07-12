@@ -372,7 +372,8 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
-                               test_params.nn_target_namespace, test_params.nn_target_vlanid, creds)
+                               test_params.nn_target_namespace, test_params.nn_target_vlanid,
+                               test_params.swap_syncd, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
