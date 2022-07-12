@@ -1,6 +1,16 @@
+'''
+IPinIP Decap configs for different ASICs:
+Table Name in APP_DB: TUNNEL_DECAP_TABLE:IPINIP_TUNNEL
+
+Config          Mellanox <= [201911]        Mellanox >= [202012]        Broadcom <= [201911]        Broadcom >= [202012]
+dscp_mode       uniform                     uniform                     pipe                        uniform
+ecn_mode        standard                    standard                    copy_from_outer             copy_from_outer
+ttl_mode        pipe                        pipe                        pipe                        pipe
+'''
 import json
 import logging
 from datetime import datetime
+import time
 
 import pytest
 import requests
@@ -18,7 +28,7 @@ from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.utilities import wait
+from tests.common.utilities import wait, setup_ferret
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +37,6 @@ PTFRUNNER_QLEN = 1000
 pytestmark = [
     pytest.mark.topology('any')
 ]
-
-
-@pytest.fixture
-def ttl_dscp_params(duthost, supported_ttl_dscp_params):
-    if "uniform" in supported_ttl_dscp_params.values() and ("201811" in duthost.os_version or "201911" in duthost.os_version):
-        pytest.skip('uniform ttl/dscp mode is available from 202012. Current version is %s' % duthost.os_version)
-
-    if supported_ttl_dscp_params['dscp'] == 'pipe' and duthost.facts['asic_type'] in ['cisco-8000']:
-        pytest.skip('dscp pipe mode is currently not supported for Cisco 8000 platform')
-
-    return supported_ttl_dscp_params
-
 
 def remove_default_decap_cfg(duthosts):
     for duthost in duthosts:
@@ -94,29 +92,32 @@ def loopback_ips(duthosts, duts_running_config_facts):
 
 
 @pytest.fixture(scope='module')
-def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips, fib_info_files, single_fib_for_duts):
+def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips,
+    fib_info_files, single_fib_for_duts, supported_ttl_dscp_params):
 
+    vxlan = supported_ttl_dscp_params['vxlan']
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
     setup_info = {
         "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
         "single_fib_for_duts": single_fib_for_duts,
         "ignore_ttl": True if is_multi_asic else False,
-        "max_internal_hops": 3 if is_multi_asic else 0,
-        'router_macs': [duthost.facts['router_mac'] for duthost in duthosts]
+        "max_internal_hops": 3 if is_multi_asic else 0
     }
 
     setup_info.update(ip_ver)
     setup_info.update(loopback_ips)
     logger.info(json.dumps(setup_info, indent=2))
 
-    # Remove default tunnel
-    remove_default_decap_cfg(duthosts)
+    if vxlan != "set_unset":
+        # Remove default tunnel
+        remove_default_decap_cfg(duthosts)
 
     yield setup_info
 
-    # Restore default tunnel
-    restore_default_decap_cfg(duthosts)
+    if vxlan != "set_unset":
+        # Restore default tunnel
+        restore_default_decap_cfg(duthosts)
 
 
 def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, op):
@@ -125,6 +126,8 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
 
     # apply test decap configuration (SET or DEL)
     for idx, duthost in enumerate(duthosts):
+        if duthost.is_supervisor_node():
+            continue
         decap_conf_vars = {
             'lo_ip': loopback_ips['lo_ips'][idx],
             'lo_ipv6': loopback_ips['lo_ipv6s'][idx],
@@ -149,23 +152,6 @@ def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mod
         duthost.shell('rm /tmp/decap_conf_{}.json'.format(op))
 
 
-@pytest.fixture
-def decap_config(duthosts, ttl_dscp_params, ip_ver, loopback_ips):
-    ecn_mode = "copy_from_outer"
-    ttl_mode = ttl_dscp_params['ttl']
-    dscp_mode = ttl_dscp_params['dscp']
-    if duthosts[0].facts['asic_type'] in ['mellanox']:
-        ecn_mode = 'standard'
-
-    # Add test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
-
-    yield ttl_mode, dscp_mode
-
-    # Remove test decap configuration
-    apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
-
-
 def set_mux_side(tbinfo, mux_server_url, side):
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.post(mux_server_url, json={"active_side": side})
@@ -174,39 +160,71 @@ def set_mux_side(tbinfo, mux_server_url, side):
     return {}
 
 
+def simulate_vxlan_teardown(duthosts, ptfhost, tbinfo):
+    for duthost in duthosts:
+        setup_ferret(duthost, ptfhost, tbinfo)
+        reboot_script_path = duthost.shell('which {}'.format("neighbor_advertiser"))['stdout']
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        duthost.shell("{} -s {} -m set".format(reboot_script_path, ptf_ip))
+        time.sleep(10)
+        duthost.shell("{} -s {} -m reset".format(reboot_script_path, ptf_ip))
+        ptfhost.shell('supervisorctl stop ferret')
+
+
 @pytest.fixture
 def set_mux_random(tbinfo, mux_server_url):
     return set_mux_side(tbinfo, mux_server_url, 'random')
 
 
-def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, decap_config, mux_server_url, set_mux_random):
-
+def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mux_random, supported_ttl_dscp_params, ip_ver, loopback_ips,
+               duts_running_config_facts, duts_minigraph_facts):
     setup_info = setup_teardown
 
-    ttl_mode, dscp_mode = decap_config
+    ecn_mode = "copy_from_outer"
+    ttl_mode = supported_ttl_dscp_params['ttl']
+    dscp_mode = supported_ttl_dscp_params['dscp']
+    vxlan = supported_ttl_dscp_params['vxlan']
+    if duthosts[0].facts['asic_type'] in ['mellanox']:
+        ecn_mode = 'standard'
 
-    if 'dualtor' in tbinfo['topo']['name']:
-        wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
+    try:
+        if vxlan == "set_unset":
+            # checking decap after vxlan set/unset is to make sure that deletion of vxlan
+            # tunnel and CPA ACLs won't negatively impact ipinip tunnel & decap mechanism
+            # Hence a new decap config is not applied to the device in this case. This is
+            # to avoid creating new tables and test ipinip decap with default loaded config
+            simulate_vxlan_teardown(duthosts, ptfhost, tbinfo)
+        else:
+            apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
-    log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-    ptf_runner(ptfhost,
-               "ptftests",
-               "IP_decap_test.DecapPacketTest",
-                platform_dir="ptftests",
-                params={"outer_ipv4": setup_info["outer_ipv4"],
-                        "outer_ipv6": setup_info["outer_ipv6"],
-                        "inner_ipv4": setup_info["inner_ipv4"],
-                        "inner_ipv6": setup_info["inner_ipv6"],
-                        "lo_ips": setup_info["lo_ips"],
-                        "lo_ipv6s": setup_info["lo_ipv6s"],
-                        "router_macs": setup_info["router_macs"],
-                        "ttl_mode": ttl_mode,
-                        "dscp_mode": dscp_mode,
-                        "ignore_ttl": setup_info["ignore_ttl"],
-                        "max_internal_hops": setup_info["max_internal_hops"],
-                        "fib_info_files": setup_info["fib_info_files"],
-                        "single_fib_for_duts": setup_info["single_fib_for_duts"],
-                        "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url)
-                        },
-                qlen=PTFRUNNER_QLEN,
-                log_file=log_file)
+        if 'dualtor' in tbinfo['topo']['name']:
+            wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
+
+        log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "IP_decap_test.DecapPacketTest",
+                    platform_dir="ptftests",
+                    params={"outer_ipv4": setup_info["outer_ipv4"],
+                            "outer_ipv6": setup_info["outer_ipv6"],
+                            "inner_ipv4": setup_info["inner_ipv4"],
+                            "inner_ipv6": setup_info["inner_ipv6"],
+                            "lo_ips": setup_info["lo_ips"],
+                            "lo_ipv6s": setup_info["lo_ipv6s"],
+                            "ttl_mode": ttl_mode,
+                            "dscp_mode": dscp_mode,
+                            "ignore_ttl": setup_info["ignore_ttl"],
+                            "max_internal_hops": setup_info["max_internal_hops"],
+                            "fib_info_files": setup_info["fib_info_files"],
+                            "single_fib_for_duts": setup_info["single_fib_for_duts"],
+                            "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts)
+                            },
+                    qlen=PTFRUNNER_QLEN,
+                    log_file=log_file)
+    except Exception as detail:
+        raise Exception(detail)
+    finally:
+        # Remove test decap configuration
+        if vxlan != "set_unset":
+            # in vxlan setunset case the config was not applied, hence DEL is also not required
+            apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
