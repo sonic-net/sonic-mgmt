@@ -320,6 +320,26 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, con
     pytest_assert(some_test_ran, "Didn't run any test.")
 
 @pytest.fixture(scope='function')
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+        Ignore expected failures logs during test execution.
+
+        LAG tests are triggering following orchagent complaints but the don't cause
+        harm to DUT.
+       Args:
+            duthosts: list of DUTs.
+            rand_one_dut_hostname: Hostname of a random chosen dut
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # When loganalyzer is disabled, the object could be None
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",  # Valid test_lag_db_status and test_lag_db_status_with_po_update
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+@pytest.fixture(scope='function')
 def teardown(duthosts):
     yield
     # Recover DUT by reloading minigraph
@@ -347,7 +367,7 @@ def check_status_is_syncd(duthost, po_intf, port_info, lag_name):
         "{} member {}'s status {} is not synced with netdev_oper_status {} in state_db.".format(lag_name, po_intf, port_status, status_from_db))
 
 
-def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level):
+def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
 
@@ -389,7 +409,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level):
             for po_intf in lag_facts['lags'][lag_name]['po_stats']['ports'].keys():
                 duthost.no_shutdown(po_intf)
 
-def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level):
+def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
     test port channel add/deletion and check interface status in state_db
     """
