@@ -429,6 +429,8 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
+            if docker == "gbsyncd":
+                continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
