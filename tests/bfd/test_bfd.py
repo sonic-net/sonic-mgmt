@@ -41,54 +41,31 @@ def get_t0_intfs(mg_facts):
 
 
 def add_dut_ip(duthost, intfs, ips, prefix_len):
-    buffer =""
+    cmd_buffer =""
     for idx in range(len(intfs)):
-        buffer += 'sudo config interface ip add {} {}/{} ;'.format(intfs[idx], ips[idx], prefix_len)
-    duthost.shell(buffer)
+        cmd_buffer += 'sudo config interface ip add {} {}/{} ;'.format(intfs[idx], ips[idx], prefix_len)
+        if idx%50 == 0:
+            duthost.shell(cmd_buffer)
+            cmd_buffer =""
+    if cmd_buffer != "":
+        duthost.shell(cmd_buffer)
 
 
 def remove_dut_ip(duthost, intfs, ips, prefix_len):
-    buffer =""
+    cmd_buffer =""
     for idx in range(len(intfs)):
-        buffer +=  'sudo config interface ip remove {} {}/{} ;'.format(intfs[idx], ips[idx], prefix_len)
-    duthost.shell(buffer)
+        cmd_buffer +=  'sudo config interface ip remove {} {}/{} ;'.format(intfs[idx], ips[idx], prefix_len)
+        if idx%50 == 0:
+            duthost.shell(cmd_buffer)
+            cmd_buffer = ""
+    if cmd_buffer != "":
+        duthost.shell(cmd_buffer)
 
 
 def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
     topo_type = tbinfo['topo']['name']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
-    if 't0' in topo_type:
-        vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
-        prefix_len = vlan_intf['prefixlen']
-        vlan_addr = vlan_intf["addr"]
-
-        is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
-        if is_dualtor(tbinfo):
-            server_ips = mux_cable_server_ip(duthost)
-            vlan_intfs = natsort.natsorted(server_ips.keys())
-            neighbor_devs = [mg_facts["minigraph_ptf_indices"][_] for _ in vlan_intfs]
-            server_ip_key = "server_ipv6" if ipv6 else "server_ipv4"
-            neighbor_addrs = [server_ips[_][server_ip_key].split("/")[0] for _ in vlan_intfs]
-            neighbor_interfaces = neighbor_devs
-        else:
-            vlan_subnet = ipaddress.ip_network(vlan_intf['subnet'])
-            vlan = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]
-            vlan_ports = vlan['members']
-            vlan_id = vlan['vlanid']
-            vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports]
-            neighbor_devs = vlan_ptf_ports
-            # backend topology use ethx.x(e.g. eth30.1000) during servers and T0 in ptf
-            # in other topology use ethx(e.g. eth30)
-            if is_backend_topology:
-                neighbor_interfaces = [str(dev) + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id) for dev in neighbor_devs]
-            else:
-                neighbor_interfaces = neighbor_devs
-            neighbor_addrs = [str(vlan_subnet[i + 2]) for i in range(len(neighbor_devs))]
-        count = min(count, len(neighbor_devs))
-        indices = random.sample(list(range(len(neighbor_devs))), k=count)
-        return [vlan_addr for _ in indices], prefix_len, [neighbor_addrs[_] for _ in indices], [neighbor_devs[_] for _ in indices], [neighbor_interfaces[_] for _ in indices]
-    elif 't1' in topo_type:
+    if 't1' in topo_type:
         t1_ipv4_pattern = '101.0.0.{}'
         t1_ipv6_pattern = '2000:2000::{:x}'
         t0_intfs = get_t0_intfs(mg_facts)
@@ -98,7 +75,7 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
         port_intfs = [t0_intfs[_] for _ in indices]
         neighbour_interfaces =[]
         for intf in port_intfs:
-            pc_memeber = False
+            pc_member = False
             for pc in mg_facts['minigraph_portchannels']:
                 if intf in mg_facts['minigraph_portchannels'][pc]['members']:
                     neighbour_interfaces.append(pc)
@@ -110,7 +87,8 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
             return [t1_ipv6_pattern.format(idx * 2) for idx in indices], 127, [t1_ipv6_pattern.format(idx * 2 + 1) for idx in indices], neighbour_interfaces, [ptf_ports[_] for _ in indices]
         else:
             return [t1_ipv4_pattern.format(idx * 2) for idx in indices], 31, [t1_ipv4_pattern.format(idx * 2 + 1) for idx in indices], neighbour_interfaces, [ptf_ports[_] for _ in indices]
-
+    else:
+        assert( False, "Test only supported on T1." )
 def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     topo_type = tbinfo['topo']['name']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -124,7 +102,7 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
         index = random.sample(list(range(len(t0_intfs))), k=1)[0]
         
         neighbour_interface =[]
-        pc_memeber = False
+        pc_member = False
         for pc in mg_facts['minigraph_portchannels']:
             if t0_intfs[index] in mg_facts['minigraph_portchannels'][pc]['members']:
                 neighbour_interface = pc
@@ -153,6 +131,8 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
                 ptf_devs.append(ptf_ports[index])
         prefix = 127 if ipv6 else  31    
         return local_addrs, prefix, neighbour_addrs, neighbour_devs, ptf_devs
+    else:
+        assert( False, "Test only supported on T1." )
 
 def init_ptf_bfd(ptfhost):
     ptfhost.shell("bfdd-beacon")
@@ -163,29 +143,37 @@ def stop_ptf_bfd(ptfhost):
 
 
 def add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False):
-    buffer = ""
+    cmd_buffer = ""
     for idx in range(len(neighbor_addrs)):
         if ipv6:
-            buffer += "ip -6 addr add {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
+            cmd_buffer += "ip -6 addr add {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
         else:
-            buffer += "ip addr add {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
-    ptfhost.shell(buffer)
+            cmd_buffer += "ip addr add {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
+        if idx%50 == 0:
+            ptfhost.shell(cmd_buffer)
+            cmd_buffer = ""
+    if cmd_buffer != "":
+        ptfhost.shell(cmd_buffer)
 
 def del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False):
-    buffer = ""
+    cmd_buffer = ""
     for idx in range(len(neighbor_addrs)):
         if ipv6:
-            buffer += "ip -6 addr del {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
+            cmd_buffer += "ip -6 addr del {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
         else:
-            ptfhost.shell("ip addr del {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx]))
-    ptfhost.shell(buffer,  module_ignore_errors=True)
+            cmd_buffer += "ip addr del {}/{} dev eth{} ;".format(neighbor_addrs[idx], prefix_len, neighbor_interfaces[idx])
+        if idx%50 == 0:
+            ptfhost.shell(cmd_buffer)
+            cmd_buffer = ""
+    if cmd_buffer != "":
+        ptfhost.shell(cmd_buffer,  module_ignore_errors=True) 
 
 def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
     bfd_state = ptfhost.shell("bfdd-control status local {} remote {}".format(neighbor_addr, local_addr))["stdout"].split("\n")
     for line in bfd_state:
         field = line.split('=')[0].strip()
         if field == "state":
-            assert line.split('=')[1].strip() == expected_state
+            assert expected_state in line.split('=')[1].strip()
 
 
 def check_dut_bfd_status(duthost, neighbor_addr, expected_state):
@@ -195,12 +183,17 @@ def check_dut_bfd_status(duthost, neighbor_addr, expected_state):
     else:
         print ("Expected State ", expected_state, "actual state", bfd_state[0])
 
-def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first):
+def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test = False):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
     bfd_config = []
     dut_buffer = ""
     ptf_buffer = ""
+    if scale_test:
+        # Force the PTF initialization to be first if runnign scale test. Doing so that we can send bathces fo 50 commadns to ptf
+        # and keep the code readable.
+        assert( dut_init_first == False )
+    
     for idx, neighbor_addr in enumerate(neighbor_addrs):
         dut_buffer += "sonic-db-cli APPL_DB hmset 'BFD_SESSION_TABLE:default:default:{}' local_addr {} ;".format(neighbor_addr, local_addrs[idx])
         bfd_config.append({
@@ -210,11 +203,14 @@ def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_
             "OP": "SET"
         })
         ptf_buffer +="bfdd-control connect local {} remote {} ; ".format(neighbor_addr, local_addrs[idx])
+        if scale_test and idx%50 == 0:
+            ptfhost.shell(ptf_buffer)
+            ptf_buffer = ""
 
-    if not dut_init_first :
+    if not dut_init_first and ptf_buffer != "":
         ptfhost.shell(ptf_buffer)
     # Copy json file to DUT
-    duthost.shell( dut_buffer)
+    duthost.shell(dut_buffer)
     duthost.copy(content=json.dumps(bfd_config, indent=4), dest=bfd_file_dir, verbose=False)
 
     # Apply BFD sessions with swssconfig
@@ -230,15 +226,21 @@ def remove_bfd_sessions(duthost, local_addrs, neighbor_addrs):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
     bfd_config = []
-    buffer = ""
+    cmd_buffer = ""
     for idx, neighbor_addr in enumerate(neighbor_addrs):
-        buffer += "onic-db-cli APPL_DB hmset 'BFD_SESSION_TABLE:default:default:{}' local_addr {} ;".format(neighbor_addr, local_addrs[idx])
+        cmd_buffer += "sonic-db-cli APPL_DB hmset 'BFD_SESSION_TABLE:default:default:{}' local_addr {} ;".format(neighbor_addr, local_addrs[idx])
         bfd_config.append({
             "BFD_SESSION_TABLE:default:default:{}".format(neighbor_addr): {
                 "local_addr": local_addrs[idx]
             },
             "OP": "DEL"
         })
+        if idx%50 == 0:
+            duthost.shell(cmd_buffer)
+            cmd_buffer = ""
+
+    if cmd_buffer != "":
+        duthost.shell(cmd_buffer)
 
     # Copy json file to DUT
     duthost.copy(content=json.dumps(bfd_config, indent=4), dest=bfd_file_dir, verbose=False)
@@ -346,18 +348,18 @@ def test_bfd_ptf_init_v6(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulato
     bfd_ipv6_test(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, False)
 
 
-def test_bfd_ipv4_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def bfd_scale_test(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):
     duthost = rand_selected_dut
-    bfd_session_cnt = 100
+    bfd_session_cnt = 128
     skip_201911_and_older(duthost)
-    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count = bfd_session_cnt)
+    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors_scale(duthost, tbinfo, ipv6, scale_count = bfd_session_cnt)
 
     try:
         if 't1' in tbinfo['topo']['name']:
             add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
-        add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False)
-        create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, True)
+        add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
+        create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, False, ipv6)
 
         time.sleep(10)
 
@@ -370,9 +372,16 @@ def test_bfd_ipv4_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator
     finally:
         time.sleep(10)
         stop_ptf_bfd(ptfhost)
-        del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6=False)
+        del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
         remove_bfd_sessions(duthost, local_addrs, neighbor_addrs)
         if 't1' in tbinfo['topo']['name']:
             remove_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
+
+def test_bfd_ipv6_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+    bfd_scale_test(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, True )
+
+def test_bfd_ipv4_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+    bfd_scale_test(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, False )
+
 
 
