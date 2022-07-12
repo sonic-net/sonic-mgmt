@@ -98,7 +98,6 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
         t1_ipv6_pattern = '2002:2000::{:x}'
         t0_intfs = get_t0_intfs(mg_facts)
         ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
-        count = min(1, len(t0_intfs))
         index = random.sample(list(range(len(t0_intfs))), k=1)[0]
         
         neighbour_interface =[]
