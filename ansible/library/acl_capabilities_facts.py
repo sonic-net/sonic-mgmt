@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-from swsscommon import swsscommon
 from sonic_py_common import multi_asic
 DOCUMENTATION = '''
 module:         acl_capabilities_facts
@@ -8,6 +7,14 @@ version_added:  "1.0"
 author:         Stepan Blyschak (stepanb@nvidia.com)
 short_description: Retrieve ACL capability information
 '''
+
+# swsssdk will be deprecate after 202205
+use_swsssdk = True
+try:
+    import swsssdk
+except ImportError:
+    from swsscommon import swsscommon
+    use_swsssdk = False
 
 EXAMPLES = '''
 - name: Get ACL capability facts
@@ -32,8 +39,15 @@ class AclCapabilityModule(object):
         """
         self.facts['acl_capabilities'] = {}
         namespace_list = multi_asic.get_namespace_list()
-        swsscommon.SonicDBConfig.load_sonic_global_db_config()
-        conn = swsscommon.SonicV2Connector(namespace=namespace_list[0])
+
+        conn = None
+        if use_swsssdk:
+            swsssdk.SonicDBConfig.load_sonic_global_db_config()
+            conn = swsssdk.SonicV2Connector(namespace=namespace_list[0])
+        else:
+            swsscommon.SonicDBConfig.load_sonic_global_db_config()
+            conn = swsscommon.SonicV2Connector(namespace=namespace_list[0])
+
         conn.connect(conn.STATE_DB)
         keys = conn.keys(conn.STATE_DB, 'ACL_STAGE_CAPABILITY_TABLE|*') or []
 

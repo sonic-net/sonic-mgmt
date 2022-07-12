@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-from swsscommon import swsscommon
 from sonic_py_common import multi_asic
 DOCUMENTATION = '''
 module:         switch_capability_facts
@@ -8,6 +7,14 @@ version_added:  "1.0"
 author:         Stepan Blyschak (stepanb@mellanox.com)
 short_description: Retrieve switch capability information
 '''
+
+# swsssdk will be deprecate after 202205
+use_swsssdk = True
+try:
+    import swsssdk
+except ImportError:
+    from swsscommon import swsscommon
+    use_swsssdk = False
 
 EXAMPLES = '''
 - name: Get switch capability facts
@@ -33,8 +40,15 @@ class SwitchCapabilityModule(object):
         """
         self.facts['switch_capabilities'] = {}
         namespace_list = multi_asic.get_namespace_list()
-        swsscommon.SonicDBConfig.load_sonic_global_db_config()
-        conn = swsscommon.SonicV2Connector(namespace=namespace_list[0])
+
+        conn = None
+        if use_swsssdk:
+            swsssdk.SonicDBConfig.load_sonic_global_db_config()
+            conn = swsssdk.SonicV2Connector(namespace=namespace_list[0])
+        else:
+            swsscommon.SonicDBConfig.load_sonic_global_db_config()
+            conn = swsscommon.SonicV2Connector(namespace=namespace_list[0])
+
         conn.connect(conn.STATE_DB)
         keys = conn.keys(conn.STATE_DB, 'SWITCH_CAPABILITY|*')
 
