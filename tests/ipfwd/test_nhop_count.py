@@ -295,11 +295,8 @@ def test_nhop(request, duthost, tbinfo):
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
-    if is_cisco_device(duthost):
-        crm_stat = get_crm_info(duthost, asic)
-        nhop_group_count = crm_stat["available"]
-    else:
-        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
+    crm_stat = get_crm_info(duthost, asic)
+    nhop_group_count = crm_stat["available"]
 
     # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
