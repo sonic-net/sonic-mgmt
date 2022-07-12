@@ -62,15 +62,13 @@ def reload_minigraph_with_golden_config(duthost, json_data):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthosts, rand_one_dut_hostname, golden_config_exists_on_dut):
+def setup_env(duthost, golden_config_exists_on_dut):
     """
     Setup/teardown
     Args:
-        duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        duthost: DUT.
+        golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
