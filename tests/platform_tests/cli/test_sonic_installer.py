@@ -17,8 +17,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-DOCKER_START_WAIT_TIME = 10
-CONFIG_RELOAD_WAIT_TIME = 60
+DOCKER_WAIT_TIME = 10
 
 @pytest.fixture(scope='function')
 def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -26,16 +25,17 @@ def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # shutdown database docker before test
     duthost.command("sudo docker stop database", module_ignore_errors=True)
+    time.sleep(DOCKER_WAIT_TIME)
 
     yield
 
     # start database docker after test
     duthost.command("sudo docker start database", module_ignore_errors=True)
-    time.sleep(DOCKER_START_WAIT_TIME)
+    time.sleep(DOCKER_WAIT_TIME)
 
     # reload config, because some critical process not work after database docker restart
+    duthost.shell('sudo config save -y')
     config_reload(duthost)
-    time.sleep(CONFIG_RELOAD_WAIT_TIME)
     wait_critical_processes(duthost)
 
 def test_sonic_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
