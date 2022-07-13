@@ -44,31 +44,6 @@ def del_syslog_server(dut, syslog_server_ip):
     dut.command('sudo config syslog del {} '.format(syslog_server_ip))
 
 
-def show_syslog(dut):
-    """
-    Show syslog config
-
-    Args:
-        dut (SonicHost): The target device
-    Return: Syslog config like below
-        [{
-            "server": "2.2.2.2",
-            "source": "1.1.1.1",
-            "port": "514",
-            "vrf": "default",
-          },
-          {
-            "server": "3.3.3.3",
-            "source": "4.4.4.4",
-            "port": "514",
-            "vrf": "mgmt",
-          },
-          ...
-        ]
-    """
-    return dut.show_and_parse('sudo show syslog')
-
-
 def create_vrf(dut, vrf):
     """
     Create Vrf

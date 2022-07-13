@@ -14,6 +14,7 @@ from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
 from tests.common.config_reload import config_reload
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +86,30 @@ def is_support_ssip(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 @pytest.fixture(scope="module", autouse=True)
 def restore_config_by_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-
     yield
     config_reload(duthosts[enum_rand_one_per_hwsku_frontend_hostname])
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+    Ignore expected failures logs during test execution.
+    The log error is caused by a fake unresolved neighbors: on a high message send rate, the buffer overflow is
+    happening due to kernel neighbor resolution.
+    Refer below link:
+    https://www.rsyslog.com/rsyslog-error-2354/
+    https://stackoverflow.com/questions/14370489/what-can-cause-a-resource-temporarily-unavailable-on-sock-send-command
+    Args:
+        duthost: DUT fixture
+        loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        ".*ERR rsyslogd: omfwd: socket.*sending via udp: Resource temporarily unavailable.*",
+        ".*ERR rsyslogd: omfwd.*udp: socket.*sendto.* error: Resource temporarily unavailable*"
+    ]
+
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
 class TestSSIP:
@@ -186,7 +208,7 @@ class TestSSIP:
         self.duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         yield
-        syslog_config_list = show_syslog(self.duthost)
+        syslog_config_list = self.duthost.show_syslog()
         if syslog_config_list:
             for syslog_config in syslog_config_list:
                 del_syslog_server(self.duthost, syslog_server_ip=syslog_config["server ip"])
@@ -195,8 +217,13 @@ class TestSSIP:
         """
         Configure test data for data vrf
         """
+        logger.info("Create data vrf {}".format(VRF_LIST[1]))
         create_vrf(self.duthost, VRF_LIST[1])
+
+        logger.info("Bind interface {} to  data vrf {}".format(routed_interfaces[1], VRF_LIST[1]))
         bind_interface_to_vrf(self.asichost, VRF_LIST[1], routed_interfaces[1])
+
+        logger.info("Configure Ip address on the selected interface and add ip neigh for data vrf on dut")
         for k, v in DATA_VRF_IP_ADDRESSES.items():
             self.asichost.config_ip_intf(routed_interfaces[1], DATA_VRF_IP_ADDRESSES[k]["source_ip"], "add")
             replace_ip_neigh(self.duthost, neighbour=DATA_VRF_IP_ADDRESSES[k]["syslog_server_ip"],
@@ -207,6 +234,7 @@ class TestSSIP:
         """
         Configure test data for default vrf
         """
+        logger.info("Configure Ip address on the selected interface and add ip neigh for default vrf on dut")
         for k, v in DEFAULT_VRF_IP_ADDRESSES.items():
             self.asichost.config_ip_intf(routed_interfaces[0], DEFAULT_VRF_IP_ADDRESSES[k]["source_ip"], "add")
             replace_ip_neigh(self.duthost, neighbour=DEFAULT_VRF_IP_ADDRESSES[k]["syslog_server_ip"],
@@ -218,6 +246,7 @@ class TestSSIP:
         Configure test data for mgmt vrf
         """
         if not is_mgmt_vrf_enabled(self.duthost):
+            logger.info("Create mgmt vrf")
             create_vrf(self.duthost, VRF_LIST[2])
             # when create mgmt vrf, dut connection will be lost for a while
             localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
@@ -226,7 +255,7 @@ class TestSSIP:
                                state='started', delay=2, timeout=180)
 
         for k, v in MGMT_IP_ADDRESSES.items():
-            logging.info("Add neigh for {}".format(v))
+            logger.info("Add neigh for {}".format(v))
             replace_ip_neigh(self.duthost, neighbour=MGMT_IP_ADDRESSES[k]["syslog_server_ip"],
                              neigh_mac_addr=MGMT_IP_ADDRESSES[k]["syslog_server_mac"],
                              dev=VRF_LIST[2])
@@ -243,7 +272,7 @@ class TestSSIP:
             port (str): Server udp port
         Return: True if syslog config exist else False
         """
-        syslog_config_list = show_syslog(self.duthost)
+        syslog_config_list = self.duthost.show_syslog()
         for syslog_config in syslog_config_list:
             if all([syslog_config["server ip"] == syslog_server_ip,
                     syslog_config["source ip"] == source,
@@ -414,18 +443,18 @@ class TestSSIP:
 
         with allure.step("Check interface of {} send syslog msg ".format(routed_interfaces[0])):
             self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
-                                      is_set_source=is_set_source)
+                                          is_set_source=is_set_source)
 
         with allure.step("Remove syslog config"):
             self.remove_syslog_config(vrf_list=vrf_list)
 
         with allure.step("Check syslog config is removed"):
             self.check_syslog_config_nonexist(port, vrf_list=vrf_list, is_set_source=is_set_source,
-                                          is_set_vrf=is_set_vrf)
+                                              is_set_vrf=is_set_vrf)
 
         with allure.step("Check interface of {} will not send syslog msg ".format(routed_interfaces[0])):
             self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
-                                         is_set_source=is_set_source)
+                                             is_set_source=is_set_source)
 
     @pytest.mark.parametrize("non_existing_ip_type", ["no_on_any_vrf", "only_on_other_vrf"])
     def test_config_syslog_non_existing_ip(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -450,7 +479,8 @@ class TestSSIP:
             expected_msg = r'.*Error: Invalid value for \"-s\" \/ "--source": {} IP doesn\'t exist in Linux {} VRF'.format(
                 non_existing_ip, vrf)
             err_msg = add_syslog_server(self.duthost,
-                                        syslog_server_ip=DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
+                                        syslog_server_ip=
+                                        DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
                                         source=non_existing_ip,
                                         vrf=vrf)["stderr"]
             pytest_assert(re.search(expected_msg, err_msg),
@@ -505,7 +535,7 @@ class TestSSIP:
 
         with allure.step("Check interface send syslog msg before reboot "):
             self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
-                                      is_set_source=is_set_source)
+                                          is_set_source=is_set_source)
 
         with allure.step("Config save"):
             self.duthost.command("sudo config save -y")
@@ -552,7 +582,8 @@ class TestSSIP:
         with allure.step("Add vrf {} into syslog config".format(vrf)):
             self.add_syslog_config(port=SYSLOG_DEFAULT_PORT, vrf_list=[vrf], is_set_source=False, is_set_vrf=True)
         with allure.step("Check syslog config is configured successfully"):
-            self.check_syslog_config_exist(port=SYSLOG_DEFAULT_PORT, vrf_list=[vrf], is_set_source=False, is_set_vrf=True)
+            self.check_syslog_config_exist(port=SYSLOG_DEFAULT_PORT, vrf_list=[vrf], is_set_source=False,
+                                           is_set_vrf=True)
         with allure.step("Remove vrf {}".format(vrf)):
             err_msg = remove_vrf(self.duthost, vrf)["stderr"]
             logger.info("Check there is an error prompt:{}".format(err_msg))
