@@ -16,7 +16,24 @@ The purpose is to test the functionality of QoS remapping of tunnel traffic.
 ## Scope
 
 The test is targeting a running SONiC system with fully functioning configuration.
-Purpose of the test is to verify a SONiC switch system correctly performs QoS remapping for tunnel traffic.
+
+PFC deadlock can happen in dualtor deployment because the bounded back traffic is delivered in the same queue as regular traffic.
+![Bounced back traffic in the same queue](./Img/original_tunnel.png)
+
+As a result, a cyclic buffer dependency can happen among T1 and both ToRs.
+
+To avoid the issue, a solution was proposed in [[HLD] DSCP/TC remapping for tunnel traffic] (https://github.com/sonic-net/SONiC/pull/950)
+
+![Bounced back traffic in another queue](./Img/remap_tunnel.png)
+
+The general idea is to deliver the bounced back traffic in another lossless queue.
+
+In current design, the bounced traffic for queue 3 is delivered in queue 2, and the bounced traffic for queue 4 is delivered in queue 6. 
+
+To achieve the remap, 4 new QoS maps are introduced for tunnel.
+![Tunnel Qos remap](./Img/tunnel_remap_attributes.png)
+
+The purpose of the test is to verify SONiC correctly performs the QoS remapping for tunnel traffic, and PFC pause is generated as expected.
 
 ## Testbed
 
@@ -139,8 +156,12 @@ The `DSCP` combinations and expected Queues are as below
 3. Send `N` packets to `active_tor` via a portchannel to fill the shared buffer, and verify PFC pause frames are generated on both priority 2 and 3
 4. Send the packets again, and check the `PG` dropcounters to verify the counter increased as expected.
 
-## Improve the current `qos_sai_test`
+## Others
+### 1 Improve the current `qos_sai_test`
 As we are having extra lossless PG/Queue for ports between `T1` and `dualtor`, the current `qos_sai_test` will be separated into two groups
 
 1. For regular T0/T1 testbed, the test is running as before
-2. For `dualtor` testbeds,  the extra PGs and Queues are to be verified
+2. For `dualtor` testbeds, since we have two extra lossless PGs and Queues, the extra PGs and Queues are to be verified
+
+### 2 Update the hardcoded lossless PG/Queue in current test set
+The fixed lossless PG/Queue `3-4` is hardcoded in a few test cases. These test cases are to be updated to be compatible with new extra lossless PG/Queue. 
