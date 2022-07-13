@@ -254,7 +254,7 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbi
         pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,duthost, nbrhosts, routes_6, 6),
                       "Not all ipv6 routes are announced to neighbors")
 
-def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, traffic_shift_community):
+def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -295,7 +295,7 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, traffic_shift_co
         pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
                     "Not all ipv6 routes are announced to neighbors")
 
-def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, traffic_shift_community):
+def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
