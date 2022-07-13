@@ -12,7 +12,7 @@ import re
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1','t2')
 ]
 
 logger = logging.getLogger(__name__)
