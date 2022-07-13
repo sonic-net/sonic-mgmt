@@ -259,7 +259,7 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, traffic_shift_co
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL" tsa_enabled', module_ignore_errors=True)
+    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL|STATE" tsa_enabled', module_ignore_errors=True)['stdout']
     if not tsa_in_configdb:
         pytest.skip("TSA persistence not supported in the image")
 
@@ -300,7 +300,7 @@ def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, traf
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL" tsa_enabled', module_ignore_errors=True)
+    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL|STATE" tsa_enabled', module_ignore_errors=True)['stdout']
     if not tsa_in_configdb:
         pytest.skip("TSA persistence not supported in the image")
 
