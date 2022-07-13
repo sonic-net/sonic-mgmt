@@ -269,7 +269,7 @@ test_multi_asic_t1_lag() {
     popd
 }
 
-test_multi_asic_t1_lag() {
+test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py"
