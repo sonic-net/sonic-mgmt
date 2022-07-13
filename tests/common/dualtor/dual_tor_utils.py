@@ -294,7 +294,6 @@ def force_active_tor():
         x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
 
-
 def _get_tor_fanouthosts(tor_host, fanouthosts):
     """Helper function to get the fanout host objects that the current tor_host connected to.
 

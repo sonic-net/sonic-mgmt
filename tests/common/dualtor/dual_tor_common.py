@@ -17,7 +17,7 @@ class CableType(object):
     default_type = "active-standby"
 
 
-@pytest.fixture(params=[CableType.active_standby])
+@pytest.fixture(params=[CableType.active_standby, CableType.active_active])
 def cable_type(request):
     """Dualtor cable type."""
     return request.param
