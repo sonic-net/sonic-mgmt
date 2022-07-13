@@ -229,9 +229,10 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    logging.info("Stop running icmp_responder")
-    ptfhost.shell("supervisorctl stop icmp_responder")
-    icmp_responder_session_started = False
+    # FIXME: Leave icmp_responder running for dualtor-mixed topology
+    # logging.info("Stop running icmp_responder")
+    # ptfhost.shell("supervisorctl stop icmp_responder")
+    # icmp_responder_session_started = False
 
 
 @pytest.fixture(scope="module", autouse=True)
