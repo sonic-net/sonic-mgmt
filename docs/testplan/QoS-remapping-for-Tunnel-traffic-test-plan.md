@@ -22,7 +22,7 @@ PFC deadlock can happen in dualtor deployment because the bounded back traffic i
 
 As a result, a cyclic buffer dependency can happen among T1 and both ToRs.
 
-To avoid the issue, a solution was proposed in [[HLD] DSCP/TC remapping for tunnel traffic] (https://github.com/sonic-net/SONiC/pull/950)
+To avoid the issue, a solution was proposed in [\[HLD\] DSCP/TC remapping for tunnel traffic](https://github.com/sonic-net/SONiC/pull/950)
 
 ![Bounced back traffic in another queue](./Img/remap_tunnel.png)
 
