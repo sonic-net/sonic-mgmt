@@ -516,11 +516,15 @@ class SonicAsic(object):
         return False
 
     def portchannel_on_asic(self, portchannel):
-        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
         pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
         if pcs is not None and portchannel in pcs:
             return True
         return False
+    
+    def write_to_config_db(self, dst_path):
+        cmd = 'sonic-cfggen {} -j {} -w'.format(self.cli_ns_option, dst_path)
+        return self.shell(cmd)
 
     def get_portchannel_and_members_in_ns(self, tbinfo):
         """
