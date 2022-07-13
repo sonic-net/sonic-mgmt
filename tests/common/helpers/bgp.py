@@ -48,7 +48,7 @@ class BGPNeighbor(object):
             _write_variable_from_j2_to_configdb(
                 self.duthost,
                 "bgp/templates/neighbor_metadata_template.j2",
-                self.namespace = namespace,
+                namespace=self.namespace,
                 save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % self.name,
                 neighbor_name=self.name,
                 neighbor_lo_addr=self.ip,
@@ -60,7 +60,7 @@ class BGPNeighbor(object):
             _write_variable_from_j2_to_configdb(
                 self.duthost,
                 "bgp/templates/bgp_template.j2",
-                self.namespace = namespace,
+                namespace=self.namespace,
                 save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
                 db_table_name="BGP_NEIGHBOR",
                 peer_addr=self.ip,
