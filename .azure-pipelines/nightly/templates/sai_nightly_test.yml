@@ -231,48 +231,53 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
-
-                echo "##vso[task.setvariable variable=TESTBED_LOCKED;]true"
+                echo "##vso[task.setvariable variable=TESTBED_LOCKED;]locked"
 
           - task: Bash@3
-            condition: and(${{ parameters.UPDATE_IMAGE }}, eq('$(TESTBED_LOCKED)', 'true'))
+            condition: ${{ parameters.UPDATE_IMAGE }}
             displayName: "Upgrade Image"
             inputs:
               targetType: 'inline'
+              TESTBED_LOCKED: $(TESTBED_LOCKED)
               script: |
                 set -x
+                
+                echo "$(TESTBED_LOCKED)"
+                echo "$TESTBED_LOCKED"
+                if [[ "$TESTBED_LOCKED" == "locked" ]];
+                then
+                  echo "lock testbed successfully..."
+                  if [[ -z "$IMAGE_URL" ]]; then
+                      echo "Skipping image upgrading ..."
+                      exit 0
+                  fi
 
-                if [[ -z "$IMAGE_URL" ]]; then
-                    echo "Skipping image upgrading ..."
-                    exit 0
+                  cd ansible
+
+                  if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$UPGRADE_TYPE" == "sonic" ]]; then
+                      ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                          -i $(INVENTORY_NAME) \
+                          -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                          -e image_url=$IMAGE_URL.PREV.1 \
+                          -e upgrade_type=$UPGRADE_TYPE \
+                          --vault-password-file password.txt \
+                          -e pause_time=60 -vv || true
+                  fi
+                  ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                      -i $(INVENTORY_NAME) \
+                      -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                      -e image_url=$IMAGE_URL \
+                      -e upgrade_type=$UPGRADE_TYPE \
+                      --vault-password-file password.txt \
+                      -e pause_time=$PAUSE_TIME -vv
+
+                  sleep 90
                 fi
-
-                cd ansible
-
-                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$UPGRADE_TYPE" == "sonic" ]]; then
-                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-                        -i $(INVENTORY_NAME) \
-                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                        -e image_url=$IMAGE_URL.PREV.1 \
-                        -e upgrade_type=$UPGRADE_TYPE \
-                        --vault-password-file password.txt \
-                        -e pause_time=60 -vv || true
-                fi
-                ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-                    -i $(INVENTORY_NAME) \
-                    -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                    -e image_url=$IMAGE_URL \
-                    -e upgrade_type=$UPGRADE_TYPE \
-                    --vault-password-file password.txt \
-                    -e pause_time=$PAUSE_TIME -vv
-
-                sleep 90
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
               ALWAYS_INSTALL_NEW_IMAGE: ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }}
               UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
               PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
-              TESTBED_LOCKED: $(TESTBED_LOCKED)
 
           - task: Bash@3
             displayName: Get upgrade image result
@@ -282,19 +287,23 @@ stages:
               script: |
                 set -x
 
-                echo "##vso[task.setvariable variable=IMG_UPGRADE_SUCC;]true"
+                echo "##vso[task.setvariable variable=IMG_UPGRADE_SUCC;]succ"
 
           - task: Bash@3
             displayName: remove current Testbed topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.CHANGE_TOPO }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
-                cd ansible
-                ./testbed-cli.sh remove-topo $TESTBED_NAME password.txt
-                sleep 30
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  cd ansible
+                  ./testbed-cli.sh remove-topo $TESTBED_NAME password.txt
+                  sleep 30
+                fi
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
@@ -302,15 +311,18 @@ stages:
 
           - task: Bash@3
             displayName: Generate SAI testbed file
-            condition: and(always(), eq('$(IMG_UPGRADE_SUCC)', 'true'))
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
-                python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
               
-                cat ./ansible/testbed_sai.yaml
+                  cat ./ansible/testbed_sai.yaml
+                fi
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
@@ -320,15 +332,19 @@ stages:
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.CHANGE_TOPO }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
-                cd ansible
-                ./testbed-cli.sh -t $SAI_TESTBED_FILE add-topo $TESTBED_NAME password.txt 
-                sleep 60
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  cd ansible
+                  ./testbed-cli.sh -t $SAI_TESTBED_FILE add-topo $TESTBED_NAME password.txt 
+                  sleep 60
+                fi
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
@@ -337,23 +353,27 @@ stages:
 
           - task: Bash@3
             displayName: Deploy SAI Minigraph
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.CHANGE_TOPO }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
-                CONFIG_PARAMS=""
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  CONFIG_PARAMS=""
 
-                if [[ "$ENABLE_DATAACL" == "false" ]]; then
-                  # the underlaying template default is to enable data acl
-                  CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                  if [[ "$ENABLE_DATAACL" == "false" ]]; then
+                    # the underlaying template default is to enable data acl
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=$ENABLE_DATAACL"
+                  fi
+                  cd ansible
+
+                  # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
+                  ./testbed-cli.sh -t $SAI_TESTBED_FILE deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                  sleep 60
                 fi
-                cd ansible
-
-                # ./testbed-cli.sh restart-ptf $TESTBED_NAME password.txt
-                ./testbed-cli.sh -t $SAI_TESTBED_FILE deploy-mg $TESTBED_NAME $INVENTORY_NAME password.txt $CONFIG_PARAMS
-                sleep 60
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               INVENTORY_NAME: $(INVENTORY_NAME)
@@ -363,106 +383,115 @@ stages:
 
           - task: Bash@3
             displayName: Get Bash Env Param
-            condition: and(${{ parameters.RUN_TEST }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
-                echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+                fi
             env:
               IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Fetch SAI Repo
-            condition: and(${{ parameters.RUN_TEST }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
-                rm -rf ./SAI
-                git init SAI
-                cd SAI
-                git remote add origin https://github.com/${{ parameters.SAI_REPO }}/SAI.git
-                git fetch origin
-                git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
-                ls -l
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  rm -rf ./SAI
+                  git init SAI
+                  cd SAI
+                  git remote add origin https://github.com/${{ parameters.SAI_REPO }}/SAI.git
+                  git fetch origin
+                  git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
+                  ls -l
+                fi
             env:
               ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
               IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Run SAI tests
-            condition: and(${{ parameters.RUN_TEST }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
-                CONFIG_PARAMS=""
-                if [ ! "$JOB_CONFIG" ]
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
                 then
-                  CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
-                else
-                  CONFIG_PARAMS="${JOB_CONFIG}"
+                  CONFIG_PARAMS=""
+                  if [ ! "$JOB_CONFIG" ]
+                  then
+                    CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
+                  else
+                    CONFIG_PARAMS="${JOB_CONFIG}"
+                  fi
+                    
+                  if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
+                  then
+                    CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
+                  elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
+                  then
+                    CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
+                  elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
+                  then
+                    CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
+                  else
+                    CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
+                  fi 
+
+                  BASE_PATH=`pwd`
+                  LOG_LEVEL=info    
+
+                  INVT=$BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos
+                  MPATH=$BASE_PATH/ansible
+                  TESTBED_FILE=$BASE_PATH/ansible/${SAI_TESTBED_FILE}
+                  export ANSIBLE_CONFIG=$BASE_PATH/ansible
+
+                  export ANSIBLE_LIBRARY=$BASE_PATH/ansible/library/
+                  export ANSIBLE_CONNECTION_PLUGINS=$BASE_PATH/ansible/plugins/connection/
+                  export ANSIBLE_KEEP_REMOTE_FILES=1
+                  export PYTEST_ADDOPTS="-vvvvv --allow_recover --skip_sanity \
+                  --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
+                  --py_saithrift_url=${PY_SAITHRIFT_URL} \
+                  ${CONFIG_PARAMS}"
+
+
+                  rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+                  mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+                
+                  cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+                  if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]] 
+                  then
+                    pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \
+                    --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+                    --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
+                    --collect_techsupport=False --topology='ptf'
+                  elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]] 
+                  then
+                    pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
+                    --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+                    --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
+                  then
+                    pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
+                    --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+                    --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  else
+                    pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
+                    --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+                    --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  fi
                 fi
-                  
-                if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
-                elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
-                elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
-                then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
-                else
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
-                fi 
-
-                BASE_PATH=`pwd`
-                LOG_LEVEL=info    
-
-                INVT=$BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos
-                MPATH=$BASE_PATH/ansible
-                TESTBED_FILE=$BASE_PATH/ansible/${SAI_TESTBED_FILE}
-                export ANSIBLE_CONFIG=$BASE_PATH/ansible
-
-                export ANSIBLE_LIBRARY=$BASE_PATH/ansible/library/
-                export ANSIBLE_CONNECTION_PLUGINS=$BASE_PATH/ansible/plugins/connection/
-                export ANSIBLE_KEEP_REMOTE_FILES=1
-                export PYTEST_ADDOPTS="-vvvvv --allow_recover --skip_sanity \
-                --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
-                --py_saithrift_url=${PY_SAITHRIFT_URL} \
-                ${CONFIG_PARAMS}"
-
-
-                rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
-                mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-              
-                cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-                if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
-                  --collect_techsupport=False --topology='ptf'
-                elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
-                then
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                else
-                  pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
-                  --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                fi 
                 
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -483,16 +512,19 @@ stages:
 
           - task: Bash@3
             displayName: Organize SAI Test Result
-            condition: and(${{ parameters.RUN_TEST }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
-                cd ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-                pwd
-                ls
-                tar -zxvf result.tar.gz
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  cd ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+                  pwd
+                  ls
+                  tar -zxvf result.tar.gz
+                fi
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
@@ -501,7 +533,7 @@ stages:
 
           - task: PythonScript@0
             displayName: Publish SAI test results and generate builder id
-            condition: and(${{ parameters.RUN_TEST }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.RUN_TEST }}
             inputs:
               scriptSource: 'inline'
               script: |
@@ -537,8 +569,6 @@ stages:
               OS_VERSION: ${{ variables.OS_VERSION }}
               PLT_VERSION: $(PLT_VERSION)
               BUILD_ID: $(Build.BuildId)
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
-
 
           - task: Bash@3
             displayName: remove SAI Testbed topo
@@ -596,34 +626,44 @@ stages:
               INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
-          - script: |
-                python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
-            env:
-                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-                TESTBED_LOCKED: $(TESTBED_LOCKED)
-            condition:  and(eq('$(TESTBED_LOCKED)', 'true'), ${{ parameters.LOCK_TESTBED }})
-            displayName: Release Testbed
-          
           - task: Bash@3
-            displayName: Upload Test Results
-            condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq('$(IMG_UPGRADE_SUCC)', 'true'))
+            condition: ${{ parameters.LOCK_TESTBED }}
+            displayName: Release Testbed
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
-                echo "Activate python3 virtual environment"
-                source /var/AzDevOps/env-python3/bin/activate
-                mv ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-                
-                cd ${BASH_WORKING_FOLDER}/test_reporting
-                pip3 install -r requirements.txt
+                if [[ "$TESTBED_LOCKED" == "locked" ]];
+                then
+                  python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
+                fi
+            env:
+                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+                TESTBED_LOCKED: $(TESTBED_LOCKED)
+          
+          - task: Bash@3
+            displayName: Upload Test Results
+            condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }})
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
 
-                python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+                if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
+                then
+                  echo "Activate python3 virtual environment"
+                  source /var/AzDevOps/env-python3/bin/activate
+                  mv ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+                  
+                  cd ${BASH_WORKING_FOLDER}/test_reporting
+                  pip3 install -r requirements.txt
 
-                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
+                  python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
+                  python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
+                fi
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
