@@ -572,15 +572,6 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
     reason: "Command not yet merged into sonic-utilites"
 
 #######################################
-#####  test_memory_exhaustion.py  #####
-#######################################
-platform_tests/test_memory_exhaustion.py:
-  skip:
-    reason: "Skip this test case until vendors fix the issue"
-    conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] and https://github.com/Azure/sonic-buildimage/issues/10339"
-
-#######################################
 #####    test_platform_info.py    #####
 #######################################
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
@@ -599,6 +590,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:
