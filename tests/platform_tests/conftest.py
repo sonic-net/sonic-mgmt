@@ -111,7 +111,7 @@ def get_state_times(timestamp, state, state_times, first_after_offset=None):
     return {state_name: state_dict}
 
 
-def get_report_summary(analyze_result, reboot_type):
+def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_os_version):
     time_spans = analyze_result.get("time_span", {})
     time_spans_summary = OrderedDict()
     kexec_offsets = analyze_result.get("offset_from_kexec", {})
@@ -152,7 +152,10 @@ def get_report_summary(analyze_result, reboot_type):
                 {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
-        "reboot_type": reboot_type,
+        "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
+        "hwsku": duthost.facts["hwsku"],
+        "base_ver": base_os_version[0] if base_os_version and len(base_os_version) else "",
+        "target_ver": get_current_sonic_version(duthost),
         "dataplane": analyze_result.get("dataplane", {"downtime": "", "lost_packets": ""}),
         "controlplane": analyze_result.get("controlplane", controlplane_summary),
         "time_span": time_spans_summary,
@@ -415,6 +418,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
     log_filesystem = duthost.shell("df -h | grep '/var/log'")['stdout']
     logs_in_tmpfs = True if log_filesystem and "tmpfs" in log_filesystem else False
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
+    base_os_version = list()
 
     def bgpd_log_handler(preboot=False):
         # check current OS version post-reboot. This can be different than preboot OS version in case of upgrade
@@ -436,6 +440,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             loganalyzer.additional_files = ['/var/log/swss/sairedis.rec', '/var/log/bgpd.log']
 
     def pre_reboot_analysis():
+        base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
         if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
             # For small disk devices, /var/log in mounted in tmpfs.
@@ -496,12 +501,12 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             else:
                 time_data["time_taken"] = "N/A"
 
-        get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper)
-        result_summary = get_report_summary(analyze_result, reboot_type)
-        logging.info(json.dumps(analyze_result, indent=4))
-        logging.info(json.dumps(result_summary, indent=4))
         if reboot_oper and not isinstance(reboot_oper, str):
             reboot_oper = type(reboot_oper).__name__
+        get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper)
+        result_summary = get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_os_version)
+        logging.info(json.dumps(analyze_result, indent=4))
+        logging.info(json.dumps(result_summary, indent=4))
         if reboot_oper:
             report_file_name = request.node.name + "_" + reboot_oper + "_report.json"
             summary_file_name = request.node.name + "_" + reboot_oper + "_summary.json"
