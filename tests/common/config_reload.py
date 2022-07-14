@@ -61,7 +61,7 @@ def config_force_option_supported(duthost):
 
 @ignore_loganalyzer
 def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
-                  check_intf_up_ports=False):
+                  check_intf_up_ports=False, traffic_shift_away=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -88,7 +88,10 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
-        duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+        if traffic_shift_away:
+            duthost.shell('config load_minigraph -y -t &>/dev/null', executable="/bin/bash")
+        else:
+            duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
         time.sleep(60)
         if start_bgp:
             duthost.shell('config bgp startup all')
