@@ -27,18 +27,22 @@ def generate_mux_cable_facts(topology):
     vlan_address_v6, netmask_v6 = vlan_prefix_v6.split("/")
     vlan_address_v4 = ipaddress.ip_address(vlan_address_v4.decode())
     vlan_address_v6 = ipaddress.ip_address(vlan_address_v6.decode())
-    index = 1
-    for intf in enabled_interfaces:
-        mux_cable_facts[intf] = dict(
-            server_ipv4=str(vlan_address_v4 + index) + "/" + netmask_v4,
-            server_ipv6=str(vlan_address_v6 + index) + "/" + netmask_v6,
-            cable_type="active-standby"
-        )
-        index += 1
-
-        if intf in host_interfaces_active_active:
-            mux_cable_facts[intf]["cable_type"] = "active-active"
-            mux_cable_facts[intf]["soc_ipv4"] = str(vlan_address_v4 + index) + "/" + netmask_v4
-            index += 1
+    for index, intf in enumerate(enabled_interfaces):
+        if host_interfaces_active_active:
+            is_active_active = intf in host_interfaces_active_active
+            mux_cable_facts[intf] = dict(
+                server_ipv4=str(vlan_address_v4 + index * 2 + 1) + "/" + netmask_v4,
+                server_ipv6=str(vlan_address_v6 + index * 2 + 1) + "/" + netmask_v6,
+                cable_type="active-standby"
+            )
+            if is_active_active:
+                mux_cable_facts[intf]["cable_type"] = "active-active"
+                mux_cable_facts[intf]["soc_ipv4"] = str(vlan_address_v4 + (index + 1) * 2) + "/" + netmask_v4
+        else:
+            mux_cable_facts[intf] = dict(
+                server_ipv4=str(vlan_address_v4 + index) + "/" + netmask_v4,
+                server_ipv6=str(vlan_address_v6 + index) + "/" + netmask_v6,
+                cable_type="active-standby"
+            )
 
     return mux_cable_facts
