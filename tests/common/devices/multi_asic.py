@@ -1,4 +1,5 @@
 import copy
+
 import ipaddress
 import json
 import logging
@@ -429,7 +430,8 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            if docker == "gbsyncd":
+            #TODO: https://github.com/Azure/sonic-mgmt/issues/5970
+            if self.sonichost.is_multi_asic and docker == "gbsyncd":
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
