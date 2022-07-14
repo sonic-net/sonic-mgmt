@@ -242,8 +242,6 @@ stages:
               script: |
                 set -x
                 
-                echo "$(TESTBED_LOCKED)"
-                echo "$TESTBED_LOCKED"
                 if [[ "$TESTBED_LOCKED" == "locked" ]];
                 then
                   echo "lock testbed successfully..."
@@ -307,7 +305,6 @@ stages:
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Generate SAI testbed file
@@ -328,7 +325,6 @@ stages:
               TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
               SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
@@ -349,7 +345,6 @@ stages:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Deploy SAI Minigraph
@@ -379,13 +374,13 @@ stages:
               INVENTORY_NAME: $(INVENTORY_NAME)
               SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Get Bash Env Param
             condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
@@ -393,14 +388,13 @@ stages:
                 then
                   echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
                 fi
-            env:
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Fetch SAI Repo
             condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
@@ -416,13 +410,13 @@ stages:
                 fi
             env:
               ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Run SAI tests
             condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
@@ -508,13 +502,13 @@ stages:
               SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
               PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
               JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: Organize SAI Test Result
             condition: ${{ parameters.RUN_TEST }}
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
@@ -528,8 +522,6 @@ stages:
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
-  
 
           - task: PythonScript@0
             displayName: Publish SAI test results and generate builder id
@@ -631,6 +623,7 @@ stages:
             displayName: Release Testbed
             inputs:
               targetType: 'inline'
+              TESTBED_LOCKED: $(TESTBED_LOCKED)
               script: |
                 set -x
 
@@ -641,13 +634,13 @@ stages:
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-                TESTBED_LOCKED: $(TESTBED_LOCKED)
           
           - task: Bash@3
             displayName: Upload Test Results
             condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }})
             inputs:
               targetType: 'inline'
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
               script: |
                 set -x
 
@@ -672,4 +665,3 @@ stages:
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
               SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
-              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
