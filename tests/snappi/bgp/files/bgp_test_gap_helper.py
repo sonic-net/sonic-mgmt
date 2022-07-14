@@ -779,7 +779,7 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
         assert tx_frame_rate != 0, "Traffic has not started"
         flow_stats = get_flow_stats(cvg_api)
         logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
-        logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
+        logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
         logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
         if flag == 5:
             assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for 100k routes"
