@@ -159,10 +159,10 @@
       <Device i:type="Server">
         <ElementType>Server</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv4'] }}/26</d5p1:IPPrefix>
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv4'].split('/')[0] }}/26</d5p1:IPPrefix>
         </Address>
         <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv6'] }}/96</d5p1:IPPrefix>
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv6'].split('/')[0] }}/96</d5p1:IPPrefix>
         </AddressV6>
         <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
