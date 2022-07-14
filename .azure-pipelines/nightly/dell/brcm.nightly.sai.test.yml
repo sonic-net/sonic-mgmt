@@ -19,7 +19,7 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms20-t1-dx010-6
+    default: vms3-t1-dx010-1
   
   - name: SAI_PTF_DOCKER
     type: string
