@@ -264,7 +264,6 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have fans (e.g Line card)
@@ -323,6 +322,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
 
         # snmp_entity_sensor_info is only supported in image newer than 202012
         if is_sensor_test_supported(duthost):
+            snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
             expect_sensor_oid = expect_oid + SENSOR_TYPE_FAN
             assert expect_sensor_oid in snmp_entity_sensor_info, 'Cannot find fan {} in entity sensor mib'.format(name)
             tachometers_sensor_fact = snmp_entity_sensor_info[expect_sensor_oid]
@@ -391,7 +391,6 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     for field, sensor_tuple in PSU_SENSOR_INFO.items():
         expect_oid = psu_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
         if is_null_str(psu_info[field]):
@@ -416,6 +415,7 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
 
         # snmp_entity_sensor_info is only supported in image newer than 202012
         if is_sensor_test_supported(duthost):
+            snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
             entity_sensor_snmp_facts = snmp_entity_sensor_info[expect_oid]
             if field == "current":
                 assert entity_sensor_snmp_facts['entPhySensorType'] == str(int(EntitySensorDataType.AMPERES))
@@ -442,7 +442,6 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
     :return:
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
     assert keys, 'Thermal information does not exist in DB'
@@ -475,6 +474,7 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
 
         # snmp_entity_sensor_info is only supported in image newer than 202012
         if is_sensor_test_supported(duthost):
+            snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
             thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
             assert thermal_sensor_snmp_fact['entPhySensorType'] == str(int(EntitySensorDataType.CELSIUS))
             assert thermal_sensor_snmp_fact['entPhySensorPrecision'] == '3'
@@ -634,7 +634,6 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     """
     snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
     entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     power_off_psu_found = False
@@ -655,6 +654,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
                         power_off_psu_found = True
                         break
                 if is_sensor_test_supported(duthost):
+                    entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
                     if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
                         power_off_psu_found = True
                         break
@@ -696,7 +696,6 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
 
     snmp_physical_entity_and_sensor_info = get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
     entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
-    entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     for key in keys:
         fan_info = redis_hgetall(duthost, STATE_DB, key)
@@ -722,6 +721,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
             # entity_sensor_mib_info is only supported in image newer than 202012
             if is_sensor_test_supported(duthost):
+                entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
                 assert tachometers_oid not in entity_mib_info and tachometers_oid not in entity_sensor_mib_info, \
                     'Absence fan tachometers info should not in mib'
             else:
