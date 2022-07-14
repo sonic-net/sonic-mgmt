@@ -8,7 +8,7 @@ function usage
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
@@ -190,11 +190,11 @@ function activate_vendor_device
   passwd=$3
   shift
   shift
-  shift 
+  shift
   echo "Activate vendor device on server '${server}'"
-  
+
   read_file ${testbed_name}
-  
+
   ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile activate_vendor_config.yml \
       --vault-password-file="${passwd}" -l "${server}" -e dut_name="$duts" $@
 }
@@ -287,9 +287,9 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
-  
+
   echo "$dut" "$duts"
-  
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
@@ -341,6 +341,14 @@ function remove_topo
       $ansible_options $@
 
   echo Done
+}
+
+function redeploy_topo()
+{
+    remove_topo $@ || true
+    echo "Sleep 60 seconds ..."
+    sleep 60
+    add_topo $@
 }
 
 function connect_topo
@@ -693,6 +701,8 @@ case "${subcmd}" in
   activate-vendor-device) activate_vendor_device $@
                ;;
   remove-topo) remove_topo $@
+               ;;
+  redeploy-topo) redeploy_topo $@
                ;;
   renumber-topo) renumber_topo $@
                ;;

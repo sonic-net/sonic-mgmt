@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 5 * * 0-5"
+  - cron: "0 10 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -43,6 +43,12 @@ parameters:
     default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "platform_tests"'
+    displayName: Testbed specific
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -51,3 +57,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

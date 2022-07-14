@@ -11,11 +11,12 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-  
+    default: vms20-t1-dx010-6
+
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
-    default: docker-ptf
+    default: docker-ptf-sai
 
   - name: SAI_REPO
     type: string
@@ -25,12 +26,12 @@ parameters:
   - name: SAI_BRANCH
     type: string
     displayName: "SAI Dev Branch"
-    default: "v1.9"
+    default: "master"
 
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: " "
+    default: "--disable_loganalyzer --sai_port_config=dx010-port_config.ini"
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
@@ -55,6 +56,21 @@ parameters:
   
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
+    type: boolean
+    default: false
+
+  - name: ENABLE_BRCM_T0_TEST
+    displayName: "Run Brcm T0 Test"
+    type: boolean
+    default: false
+
+  - name: ENABLE_COMMUNITY_TEST
+    displayName: "Run community test case"
+    type: boolean
+    default: false
+ 
+  - name: ENABLE_WARM_REBOOT_TEST
+    displayName: "Run warm reboot test"
     type: boolean
     default: false
 
@@ -88,7 +104,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     displayName: "py_saithrift URL"
     values: 
     - $(SAITHRIFT_BRCM_202012)
@@ -109,6 +125,9 @@ stages:
       CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
       RECOVER_TOPO: ${{ parameters.RECOVER_TOPO }}
       ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
+      ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
+      ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
+      ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
       RUN_TEST: ${{ parameters.RUN_TEST }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}

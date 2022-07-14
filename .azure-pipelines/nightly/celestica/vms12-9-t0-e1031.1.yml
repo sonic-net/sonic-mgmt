@@ -63,7 +63,8 @@ parameters:
               vxlan/test_vnet_vxlan.py \
               vxlan/test_vxlan_decap.py \
               vxlan/test_vnet_route_leak.py \
-              console/test_console_availability.py"
+              console/test_console_availability.py \
+              platform_tests/test_memory_exhaustion.py" # skip test_memory_exhaustion because this hardware has some issue and we cannot replace a new one
     displayName: "Skip test scripts"
 
   # Testbed specific, to skip and/or include directories
