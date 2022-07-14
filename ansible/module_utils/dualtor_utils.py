@@ -40,8 +40,8 @@ def generate_mux_cable_facts(topology):
                 mux_cable_facts[intf]["soc_ipv4"] = str(vlan_address_v4 + (index + 1) * 2) + "/" + netmask_v4
         else:
             mux_cable_facts[intf] = dict(
-                server_ipv4=str(vlan_address_v4 + index) + "/" + netmask_v4,
-                server_ipv6=str(vlan_address_v6 + index) + "/" + netmask_v6,
+                server_ipv4=str(vlan_address_v4 + index + 1) + "/" + netmask_v4,
+                server_ipv6=str(vlan_address_v6 + index + 1) + "/" + netmask_v6,
                 cable_type="active-standby"
             )
 
