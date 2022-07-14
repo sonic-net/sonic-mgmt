@@ -178,6 +178,17 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_host, neigh_hosts, c
     return verify_loopback_route_with_community(dut_host, neigh_hosts, 4, community) and \
         verify_loopback_route_with_community(dut_host, neigh_hosts, 6, community)
 
+# API to check if the image has support for BGP_DEVICE_GLOBAL table in the configDB
+def check_tsa_persistence_support(duthost):
+    # For multi-asic, check DB in one of the namespaces
+    asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+    tsa_in_configdb = duthost.shell('{} CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "tsa_enabled"'.format(sonic_db_cmd), module_ignore_errors=False)['stdout_lines']    
+    if not tsa_in_configdb:
+        return False
+    return True
+
 def test_TSA(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
     """
     Test TSA
@@ -259,8 +270,7 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL|STATE" tsa_enabled', module_ignore_errors=True)['stdout']
-    if not tsa_in_configdb:
+    if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
     try:
@@ -300,8 +310,7 @@ def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpm
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
-    tsa_in_configdb = duthost.shell('redis-cli -n 4 hget "BGP_DEVICE_GLOBAL|STATE" tsa_enabled', module_ignore_errors=True)['stdout']
-    if not tsa_in_configdb:
+    if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
     try:
