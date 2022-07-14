@@ -205,9 +205,9 @@ class KustoConnector(ReportDBConnector):
         reboot_timing_dict = validate_json_file(path_name)
         reboot_timing_data.update(reboot_timing_dict)
         print("Uploading {} report with contents: {}".format(path_name, reboot_timing_data))
-        if "reboot_summary" in path_name:
+        if "summary.json" in path_name:
             self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
-        elif "reboot_report" in path_name:
+        elif "report.json" in path_name:
              self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def upload_expected_runs(self, expected_runs: List) -> None:
