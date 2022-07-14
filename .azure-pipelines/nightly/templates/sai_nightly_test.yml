@@ -284,7 +284,6 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
-
                 echo "##vso[task.setvariable variable=IMG_UPGRADE_SUCC;]succ"
 
           - task: Bash@3
@@ -296,6 +295,7 @@ stages:
               script: |
                 set -x
 
+                echo $IMG_UPGRADE_SUCC
                 if [[ "$IMG_UPGRADE_SUCC" == "succ" ]];
                 then
                   cd ansible
