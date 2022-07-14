@@ -1,5 +1,4 @@
 import copy
-
 import ipaddress
 import json
 import logging
