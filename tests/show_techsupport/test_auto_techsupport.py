@@ -1,4 +1,3 @@
-import re
 import pytest
 import time
 import logging
