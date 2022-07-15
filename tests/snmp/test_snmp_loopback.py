@@ -1,6 +1,8 @@
 import pytest
 import ipaddress
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.devices.eos import EosHost
+
 try:  # python3
     from shlex import quote
 except ImportError:  # python2
@@ -24,8 +26,11 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts):
     ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_add)
 
-    eos_snmpget = "bash snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(quote(creds_all_duts[duthost.hostname]['snmp_rocommunity']), ip)
-    out = nbr['host'].eos_command(commands=[eos_snmpget])
+    if isinstance(nbr['host'], EosHost):
+        eos_snmpget = "bash snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(quote(creds_all_duts[duthost.hostname]['snmp_rocommunity']), ip)
+        out = nbr['host'].eos_command(commands=[eos_snmpget])
+    else:
+        out = nbr['host'].shell("docker exec -it snmp snmpget -v2c -c {} {} 1.3.6.1.2.1.1.1.0".format(quote(creds_all_duts[duthost.hostname]['snmp_rocommunity']), ip))
 
     ip_tbl_rule_del = "sudo {} -D INPUT -p udp --dport 161 -d {} -j ACCEPT".format(iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_del)
@@ -59,5 +64,10 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrh
         result = get_snmp_output(loip, duthost, nbr, creds_all_duts)
         assert result is not None, 'No result from snmpget'
         assert len(result[u'stdout_lines']) > 0, 'No result from snmpget'
-        assert "SONiC Software Version" in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
-        assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)
+
+        if isinstance(nbr['host'], EosHost):
+            assert "SONiC Software Version" in result[u'stdout_lines'][0][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+            assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0][0], "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)
+        else:
+            assert "SONiC Software Version" in result[u'stdout_lines'][0], "Sysdescr not found in SNMP result from IP {}".format(ip)
+            assert snmp_facts['ansible_sysdescr'] in result[u'stdout_lines'][0], "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)

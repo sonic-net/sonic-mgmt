@@ -270,12 +270,17 @@ def skip_if_no_lags(duthosts):
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
-def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase):
+def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
     if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
         pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
+
+    # Skip lacp_rate testcases on KVM since it is not supported
+    if testcase == "lacp_rate":
+        if request.config.getoption("--neighbor_type") == 'sonic':
+            pytest.skip("lacp_rate is not supported in vsonic")
 
     ptfhost = common_setup_teardown
 

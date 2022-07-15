@@ -7,6 +7,7 @@ import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli, SonicDbKeyNotFound
+from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -407,12 +408,20 @@ def get_eos_mac(nbr, nbr_intf):
     Returns:
         A dictionary with the mac address and shell interface name.
     """
-    if "port-channel" in nbr_intf.lower():
-        # convert Port-Channel1 to po1
-        shell_intf = "po" + nbr_intf[-1]
+
+    if isinstance(nbr['host'], EosHost):
+        if "port-channel" in nbr_intf.lower():
+            # convert Port-Channel1 to po1
+            shell_intf = "po" + nbr_intf[-1]
+        else:
+            # convert Ethernet1 to eth1
+            shell_intf = "eth" + nbr_intf[-1]
     else:
-        # convert Ethernet1 to eth1
-        shell_intf = "eth" + nbr_intf[-1]
+        if "port-channel" in nbr_intf.lower():
+            # convert Port-Channel1 to po1
+            shell_intf = "PortChannel" + nbr_intf[-1]
+        else:
+            shell_intf = nbr_intf
 
     output = nbr['host'].command("ip addr show dev %s" % shell_intf)
     # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
