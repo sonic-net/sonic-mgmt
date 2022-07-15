@@ -36,6 +36,7 @@ from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 from nat_helpers import generate_and_verify_traffic_dropped
 from nat_helpers import get_cli_show_nat_config_output
 from nat_helpers import write_json
+from nat_helpers import check_peers_by_ping
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 
@@ -664,6 +665,8 @@ class TestDynamicNat(object):
                       "Unexpected iptables output for nat table. \n Got:\n{}\n Expected:\n{}".format(iptables_output, iptables_rules))
         # Enable outer interface
         dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
+        # update arp entries
+        check_peers_by_ping(duthost)
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, direction, protocol_type, nat_type=nat_type)
 
