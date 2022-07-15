@@ -45,7 +45,7 @@ def log_bgp_updates(duthost, iface, save_path, n0):
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     stop_pcap = "pkill -f '%s'" % start_pcap
-    start_pcap = "sudo ip netns exec %s 'nohup %s &'" % (n0.namespace, start_pcap)
+    start_pcap = "sudo ip netns exec %s nohup %s &" % (n0.namespace, start_pcap)
     duthost.shell(start_pcap)
     try:
         yield
