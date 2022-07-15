@@ -438,16 +438,16 @@ stages:
                 then
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
                 then
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 else
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 fi
 
             env:
