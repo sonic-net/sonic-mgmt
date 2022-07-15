@@ -9,7 +9,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable                                 # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, change_mac_addresses                                      # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import cable_type, CableType
+from tests.common.dualtor.dual_tor_common import cable_type 
 
 logger = logging.getLogger(__name__)
 
@@ -41,85 +41,81 @@ def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):
 def test_active_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,
-    wait_for_device_reachable, cable_type
+    wait_for_device_reachable
 ):
     """
     Send upstream traffic and reboot the active ToR. Confirm switchover
     occurred and disruption lasts < 1 second
     """
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=toggle_upper_tor_pdu, stop_after=60
-        )
-        wait_for_device_reachable(upper_tor_host)
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host
-        )
+    send_server_to_t1_with_action(
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        action=toggle_upper_tor_pdu, stop_after=60
+    )
+    wait_for_device_reachable(upper_tor_host)
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
+    )
 
 
 @pytest.mark.disable_loganalyzer
 def test_active_tor_reboot_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,
-    wait_for_device_reachable, cable_type
+    wait_for_device_reachable
 ):
     """
     Send downstream traffic to the standby ToR and reboot the active ToR.
     Confirm switchover occurred and disruption lasts < 1 second
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=toggle_upper_tor_pdu, stop_after=60
-        )
-        wait_for_device_reachable(upper_tor_host)
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host
-        )
+    send_t1_to_server_with_action(
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        action=toggle_upper_tor_pdu, stop_after=60
+    )
+    wait_for_device_reachable(upper_tor_host)
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
+    )
 
 
 @pytest.mark.disable_loganalyzer
 def test_standby_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,
-    wait_for_device_reachable, cable_type
+    wait_for_device_reachable
 ):
     """
     Send upstream traffic and reboot the standby ToR. Confirm no switchover
     occurred and no disruption
     """
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host, verify=True,
-            action=toggle_lower_tor_pdu, stop_after=60
-        )
-        wait_for_device_reachable(lower_tor_host)
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host
-        )
+    send_server_to_t1_with_action(
+        upper_tor_host, verify=True,
+        action=toggle_lower_tor_pdu, stop_after=60
+    )
+    wait_for_device_reachable(lower_tor_host)
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
+    )
 
 
 @pytest.mark.disable_loganalyzer
 def test_standby_tor_reboot_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,
-    wait_for_device_reachable, cable_type
+    wait_for_device_reachable
 ):
     """
     Send downstream traffic to the active ToR and reboot the standby ToR.
     Confirm no switchover occurred and no disruption
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            upper_tor_host, verify=True,
-            action=toggle_lower_tor_pdu, stop_after=60
-        )
-        wait_for_device_reachable(lower_tor_host)
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host
-        )
+    send_t1_to_server_with_action(
+        upper_tor_host, verify=True,
+        action=toggle_lower_tor_pdu, stop_after=60
+    )
+    wait_for_device_reachable(lower_tor_host)
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
+    )

@@ -8,7 +8,7 @@ from tests.common.dualtor.tor_failure_utils import kill_bgpd                    
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import cable_type, CableType 
+from tests.common.dualtor.dual_tor_common import cable_type 
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -52,7 +52,7 @@ def temp_enable_bgp_autorestart(duthosts):
 
 def test_active_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd, cable_type):
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):
     '''
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -62,20 +62,19 @@ def test_active_tor_kill_bgpd_upstream(
         T1 switch receives packet from the initial standby ToR (B) and not the active ToR (A)
         Verify traffic interruption < threshold
     '''
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: kill_bgpd(upper_tor_host)
-        )
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host
-        )
+    send_server_to_t1_with_action(
+        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        action=lambda: kill_bgpd(upper_tor_host)
+    )
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
+    )
 
 
 def test_standby_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd, cable_type):
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):
     '''
     Case: Server -> ToR -> T1 (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -84,21 +83,20 @@ def test_standby_tor_kill_bgpd_upstream(
         ToR A DBs indicate active, ToR B DBs indicate standby
         T1 switch receives packet from the active ToR (A), and not the standby ToR (B)
     '''
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host, verify=True,
-            action=lambda: kill_bgpd(lower_tor_host)
-        )
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host
-        )
+    send_server_to_t1_with_action(
+        upper_tor_host, verify=True,
+        action=lambda: kill_bgpd(lower_tor_host)
+    )
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
+    )
 
 
 def test_standby_tor_kill_bgpd_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd,
-    tunnel_traffic_monitor, cable_type):
+    tunnel_traffic_monitor):
     '''
     Case: T1 -> Active ToR -> Server (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -106,22 +104,21 @@ def test_standby_tor_kill_bgpd_downstream_active(
         Verify packet flow after the standby ToR (B) loses BGP sessions
         T1 switch receives no IP-in-IP packet; server receives packet
     '''
-    if cable_type == CableType.active_standby:
-        with tunnel_traffic_monitor(lower_tor_host, existing=False):
-            send_t1_to_server_with_action(
-                upper_tor_host, verify=True,
-                action=lambda: kill_bgpd(lower_tor_host)
-            )
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host
+    with tunnel_traffic_monitor(lower_tor_host, existing=False):
+        send_t1_to_server_with_action(
+            upper_tor_host, verify=True,
+            action=lambda: kill_bgpd(lower_tor_host)
         )
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host
+    )
 
 
 def test_active_tor_kill_bgpd_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd,
-    tunnel_traffic_monitor, cable_type):
+    tunnel_traffic_monitor):
     '''
     Case: T1 -> Standby ToR -> Server (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -130,12 +127,11 @@ def test_active_tor_kill_bgpd_downstream_standby(
         Verify ToR A standby, ToR B active
         Verify traffic interruption is < 1 second
     '''
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: kill_bgpd(upper_tor_host)
-        )
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host
-        )
+    send_t1_to_server_with_action(
+        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        action=lambda: kill_bgpd(upper_tor_host)
+    )
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host
+    )
