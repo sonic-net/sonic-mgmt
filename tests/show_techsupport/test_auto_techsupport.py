@@ -39,7 +39,7 @@ def cleanup(cleanup_list):
         func(*args, **kwargs)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def cleanup_list():
     """
     Fixture to execute cleanup after test run
@@ -249,7 +249,7 @@ class TestAutoTechSupport:
         For example: {'300 sec': 360} - means that we will configure since value to "300 sec" and will expect that after
         auto-techsupport generation we will have logs not older than 360 seconds since now(300 sec + 60 sec deviation)
         """
-        test_parameters_dict = {'@{}'.format(current_time): 60, '5 minutes ago': 360, '300 sec': 360}
+        test_parameters_dict = {'@{}'.format(current_time): 60, '5 minutes ago': 360, '300 sec ago': 360}
         since_value = random.choice(list(test_parameters_dict.keys()))
 
         # force log rotate - because in some cases, when there's no file older than since, there will be no syslog file in techsupport dump
@@ -315,6 +315,7 @@ class TestAutoTechSupport:
             validate_auto_techsupport_global_config(self.duthost, rate_limit_interval=rate_limit_30)
 
         with allure.step('Create .core files in test docker: {}'.format(self.test_docker)):
+            available_tech_support_files = get_available_tech_support_files(self.duthost)
             trigger_auto_techsupport(self.duthost, self.test_docker)
 
         with allure.step('Create .core files in all available dockers'):
@@ -322,7 +323,8 @@ class TestAutoTechSupport:
                 trigger_auto_techsupport(self.duthost, docker)
 
         with allure.step('Checking that only 1 techsupport process running'):
-            validate_techsupport_generation(self.duthost, is_techsupport_expected=True)
+            validate_techsupport_generation(self.duthost, is_techsupport_expected=True,
+                                            available_tech_support_files=available_tech_support_files)
 
         logger.info('Sleep until {} second pass since techsupport file created'.format(rate_limit_30))
         time.sleep(rate_limit_30)
@@ -337,6 +339,7 @@ class TestAutoTechSupport:
         time.sleep(rate_limit_60 - rate_limit_30)
 
         with allure.step('Create .core files in test docker: {}'.format(self.test_docker)):
+            available_tech_support_files = get_available_tech_support_files(self.duthost)
             trigger_auto_techsupport(self.duthost, self.test_docker)
 
         with allure.step('Create .core files in all available dockers'):
@@ -344,7 +347,8 @@ class TestAutoTechSupport:
                 trigger_auto_techsupport(self.duthost, docker)
 
         with allure.step('Checking that only 1 techsupport process running'):
-            validate_techsupport_generation(self.duthost, is_techsupport_expected=True)
+            validate_techsupport_generation(self.duthost, is_techsupport_expected=True,
+                                            available_tech_support_files=available_tech_support_files)
 
     @pytest.mark.parametrize('test_mode', max_limit_test_modes_list)
     def test_max_limit(self, test_mode, global_rate_limit_zero, feature_rate_limit_zero, cleanup_list):
@@ -825,7 +829,7 @@ def validate_auto_techsupport_feature_config(duthost, expected_status_dict=None)
 
 
 def validate_techsupport_generation(duthost, is_techsupport_expected, expected_core_file=None,
-                                    since_value_in_seconds=None):
+                                    since_value_in_seconds=None, available_tech_support_files=None):
     """
     Validated techsupport generation. Check if techsupport started or not. Check number of files created.
     Check history, check mapping between core files and techsupport files.
@@ -840,10 +844,8 @@ def validate_techsupport_generation(duthost, is_techsupport_expected, expected_c
         expected_oldest_log_line_timestamps_list = get_expected_oldest_timestamp_datetime(duthost,
                                                                                           since_value_in_seconds)
 
-    try:
-        available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
-    except RunAnsibleModuleFail:
-        available_tech_support_files = []
+    if not available_tech_support_files:
+        available_tech_support_files = get_available_tech_support_files(duthost)
 
     if is_techsupport_expected:
         expected_techsupport_files = True
@@ -1192,3 +1194,11 @@ def clear_folders(duthost):
 def create_core_file_generator_script(duthost):
     duthost.shell('sudo echo \'sleep 10 & kill -6 $!\' > /etc/sonic/core_file_generator.sh')
     duthost.shell('sudo echo \'echo $?\' >> /etc/sonic/core_file_generator.sh')
+
+
+def get_available_tech_support_files(duthost):
+    try:
+        available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
+    except RunAnsibleModuleFail:
+        available_tech_support_files = []
+    return available_tech_support_files
