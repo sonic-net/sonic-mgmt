@@ -234,7 +234,7 @@ stages:
                 echo "##vso[task.setvariable variable=TESTBED_LOCKED;]locked"
 
           - task: Bash@3
-            condition: ${{ parameters.UPDATE_IMAGE }}
+            condition: and(${{ parameters.UPDATE_IMAGE }}, eq(variables.TESTBED_LOCKED, 'locked'))
             displayName: "Upgrade Image"
             inputs:
               targetType: 'inline'
@@ -288,7 +288,7 @@ stages:
 
           - task: Bash@3
             displayName: remove current Testbed topo
-            condition: ${{ parameters.CHANGE_TOPO }}
+            condition: and(${{ parameters.CHANGE_TOPO }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
             inputs:
               targetType: 'inline'
               IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
