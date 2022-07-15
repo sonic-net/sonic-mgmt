@@ -579,7 +579,7 @@ stages:
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
           - task: Bash@3
-            condition: and(${{ parameters.LOCK_TESTBED }}, eq(variables.TESTBED_LOCKED, 'succ'))
+            condition: and(${{ parameters.LOCK_TESTBED }}, eq(variables.TESTBED_LOCKED, 'locked'))
             displayName: Release Testbed
             inputs:
               targetType: 'inline'
