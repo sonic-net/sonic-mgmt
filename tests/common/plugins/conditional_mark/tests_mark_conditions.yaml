@@ -19,6 +19,27 @@ bgp/test_bgp_slb.py:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
 #######################################
+#####            cacl             #####
+#######################################
+cacl/test_cacl_application.py::test_cacl_application_nondualtor:
+  skip:
+    reason: "test_cacl_application is only supported on non dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_cacl_application_dualtor:
+  skip:
+    reason: "test_cacl_application_dualtor is only supported on dualtor topology"
+    conditions:
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_multiasic_cacl_application:
+  skip:
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==False"
+
+#######################################
 #####           configlet         #####
 #######################################
 configlet/test_add_rack.py:
@@ -87,27 +108,27 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_to
 #######################################
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
   skip:
-    reason: "Skip this test on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "This test can only run on master branch since change in sonic-utility is not backport into 202012 branch yet and not run on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "branch not in ['master'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
   skip:
-    reason: "Skip this test on Mellanox 2700 platform"
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
 #######################################
 #####         everflow            #####
@@ -127,6 +148,18 @@ generic_config_updater/test_eth_interface.py::test_replace_fec:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+
+generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
+  skip:
+    reason: "This test was not run on this hwsku type currently"
+    conditions:
+      - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
+
+generic_config_updater:
+  skip:
+    reason: 'generic_config_updater is not a supported feature for T2'
+    conditions:
+      - "'t2' in topo_name"
 
 #######################################
 #####      iface_namingmode       #####
@@ -304,7 +337,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:

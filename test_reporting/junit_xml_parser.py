@@ -312,8 +312,9 @@ def _validate_test_case_properties(root):
 
         seen_testcase_properties.append(testcase_property_name)
 
-    if set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES):
-        raise JUnitXMLValidationError("missing testcase property element(s)")
+    missing_testcase_property = set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES)
+    if missing_testcase_property:
+        print("missing testcase property: {}".format(list(missing_testcase_property)))
 
 def _validate_test_cases(root):
     def _validate_test_case(test_case):
@@ -597,12 +598,15 @@ def _validate_json_cases(test_result_json):
         raise TestResultJSONValidationError("test_cases section not found in provided JSON file")
 
     def _validate_test_case(test_case):
-        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS + REQUIRED_TESTCASE_PROPERTIES:
+        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS:
             if attribute not in test_case:
                 raise TestResultJSONValidationError(
                     f'"{attribute}" not found in test case '
                     f"\"{test_case.get('name', 'Name Not Found')}\""
                 )
+        for attribute in REQUIRED_TESTCASE_PROPERTIES:
+            if attribute not in test_case:
+                print("missing testcase property {} in testcase {}".format(attribute, test_case["classname"]))
 
     for _, feature in test_result_json["test_cases"].items():
         for test_case in feature:

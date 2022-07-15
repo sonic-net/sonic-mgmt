@@ -161,6 +161,7 @@ test_t0() {
       generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
       generic_config_updater/test_monitor_config.py \
+      generic_config_updater/test_ntp.py \
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \

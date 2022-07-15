@@ -274,7 +274,8 @@ class TestChassisApi(PlatformApiTestBase):
                 pytest.skip("No components found on device")
 
         if duthost.facts.get("chassis"):
-            expected_num_components = len(duthost.facts.get("chassis").get('components'))
+            components = duthost.facts.get("chassis").get('components')
+            expected_num_components = 0 if components is None else len(components)
             pytest_assert(num_components == expected_num_components,
                           "Number of components ({}) does not match expected number ({})"
                           .format(num_components, expected_num_components))

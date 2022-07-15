@@ -31,13 +31,14 @@ POST_CHECK_THRESHOLD_SECS = 360
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     config_reload(duthost)
 
 
 @pytest.fixture(autouse=True, scope='module')
-def disable_and_enable_autorestart(duthost):
+def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     """Changes the autorestart of containers from `enabled` to `disabled` before testing.
        and Rolls them back after testing.
 
@@ -47,6 +48,7 @@ def disable_and_enable_autorestart(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     containers_autorestart_states = duthost.get_container_autorestart_states()
     disabled_autorestart_containers = []
 
@@ -71,7 +73,7 @@ def disable_and_enable_autorestart(duthost):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, rand_one_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is 20191130.70 or older image version.
 
     Args:
@@ -80,13 +82,14 @@ def check_image_version(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
 
 @pytest.fixture(autouse=True, scope="module")
-def modify_monit_config_and_restart(duthost):
+def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """Backup Monit configuration file, then customize and restart it before testing. Restore original
     Monit configuration file and restart it after testing.
 
@@ -96,6 +99,7 @@ def modify_monit_config_and_restart(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
 
