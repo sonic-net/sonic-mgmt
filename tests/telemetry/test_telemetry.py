@@ -31,7 +31,7 @@ SUBMODE_SAMPLE = 2
 
 CHECK_MEM_USAGE_COUNTER = 10
 CONTAINER_NAME = "telemetry"
-WAITING_SYSLOG_MSG_SECS = 200
+WAITING_SYSLOG_MSG_SECS = 300
 CONTAINER_STOP_THRESHOLD_SECS = 200
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
@@ -283,19 +283,20 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def run_gnmi_client(ptfhost, dut_ip, gnxi_path):
+def run_gnmi_client(ptfhost, dut_ip, gnxi_path, num_connections):
     """Runs python gNMI client in the corresponding PTF docker to query valid/invalid
     tables in 'STATE_DB' on the DuT.
 
     Args:
         pfthost: PTF docker binding to the selected DuT.
         dut_ip: Management IP of DuT.
+        num_connections: The number of gNMI client connections created with server side.
 
     Returns:
         None.
     """
-    gnmi_cli_cmd = 'python ' + gnxi_path + '/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m subscribe --subscribe_mode 0\
-                   -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --trigger_mem_spike '.format(dut_ip, TELEMETRY_PORT)
+    gnmi_cli_cmd = 'python ' + gnxi_path + '/gnmi_cli_py/py_gnmicli.py -g -t {} -p {} -m subscribe --subscribe_mode 0\
+                   -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --create_connections {}'.format(dut_ip, TELEMETRY_PORT, num_connections)
     logger.info("Starting to run python gNMI client with command '{}' in PTF docker '{}'"
                 .format(gnmi_cli_cmd, ptfhost.mgmt_ip))
     ptfhost.shell(gnmi_cli_cmd)
@@ -494,7 +495,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     marker = loganalyzer.init()
 
     client_thread = ThreadPool(processes=1)
-    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip))
+    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip, -1))
 
     logger.info("Sleep '{}' seconds to wait for the syslog messages related to '{}' container restarted ..."
                 .format(WAITING_SYSLOG_MSG_SECS, CONTAINER_NAME))
