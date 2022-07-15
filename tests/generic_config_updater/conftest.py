@@ -12,6 +12,11 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def temporary_skip_for_nightly_test():
+    pytest.skip("Temporary skip all GCU tests...")
+
+
 # Module Fixture
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
