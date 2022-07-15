@@ -531,12 +531,11 @@ def parse_show_auto_techsupport_global(duthost):
     'min_available_mem': '200',  'since': '2 days ago'}
     """
     with allure.step('Parsing "show auto-techsupport global" output'):
-        regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+|N/A)?\s+(\d+.\d+|\d+\s+|N/A)?\s+(.*)'
-        cmd_output = duthost.shell('show auto-techsupport global')['stdout']
-        state, rate_limit_interval, max_techsupport_limit, max_core_size, available_mem_thresh, min_available_mem, since = re.search(regexp, cmd_output).groups()
-        result_dict = {'state': state, 'rate_limit_interval': rate_limit_interval,
-                       'max_techsupport_limit': max_techsupport_limit, 'max_core_size': max_core_size,
-                       'available_mem_thresh': available_mem_thresh, 'min_available_mem': min_available_mem, 'since': since}
+        cmd_output = duthost.show_and_parse('show auto-techsupport global')[0]
+        result_dict = {'state': cmd_output['state'], 'rate_limit_interval': cmd_output['rate limit interval (sec)'],
+                       'max_techsupport_limit': cmd_output['max techsupport limit (%)'], 'max_core_size': cmd_output['max core limit (%)'],
+                       'available_mem_thresh': cmd_output.get('available mem threshold (%)', None), 'min_available_mem': cmd_output.get('min available mem (kb)', None),
+                       'since': cmd_output['since']}
     return result_dict
 
 
@@ -567,17 +566,12 @@ def parse_show_auto_techsupport_feature(duthost):
     """
     with allure.step('Parsing "show auto-techsupport-feature" output'):
         result_dict = {}
-        regexp = r'(\w+-\w+|\w+)\s+(enabled|disabled)\s+(\d+)\s+(\d.+\d|\d+|N/A)?'
-        cmd_output = duthost.shell('show auto-techsupport-feature')['stdout']
-
-        name_index = 0
-        state_index = 1
-        rate_limit_index = 2
-        available_mem_thresh = 3
-        for feature in re.findall(regexp, cmd_output):
-            result_dict[feature[name_index]] = {'status': feature[state_index],
-                                                'rate_limit_interval': feature[rate_limit_index],
-                                                'available_mem_thresh': feature[available_mem_thresh]}
+        cmd_output = duthost.show_and_parse('show auto-techsupport-feature')
+        for feature in cmd_output:
+            feature_name = feature['feature name']
+            result_dict[feature_name] = {'status': feature['state'],
+                                         'rate_limit_interval': feature['rate limit interval (sec)'],
+                                         'available_mem_thresh': feature.get('available mem threshold (%)', None)}
     return result_dict
 
 
@@ -593,17 +587,13 @@ def parse_show_auto_techsupport_history(duthost):
     """
     with allure.step('Parsing "show auto-techsupport history" output'):
         result_dict = {}
-        regexp = r'(sonic_dump_.*?)\s+(\w+|\w+\W\w+)\s+(core|memory)?\s+(\w+\.\d+\.\d+\.core\.gz)'
-        cmd_output = duthost.shell('show auto-techsupport history')['stdout']
-
-        dump_name_index = 0
-        triggered_by_index = 1
-        event_type_index = 2
-        core_dump_index = 3
-        for dump in re.findall(regexp, cmd_output):
-            result_dict[dump[dump_name_index].strip()] = {'triggered_by': dump[triggered_by_index],
-                                                          'event_type': dump[event_type_index],
-                                                          'core_dump': dump[core_dump_index]}
+        cmd_output = duthost.show_and_parse('show auto-techsupport history')
+        if cmd_output:
+            for dump in cmd_output:
+                dump_name = dump['techsupport dump']
+                result_dict[dump_name] = {'triggered_by': dump['triggered by'],
+                                          'event_type': dump.get('event type', None),
+                                          'core_dump': dump['core dump']}
     return result_dict
 
 
