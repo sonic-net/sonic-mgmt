@@ -341,29 +341,59 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
 @pytest.fixture(scope='function')
 def teardown(duthosts):
-    yield
-    # Recover DUT by reloading minigraph
+    original_lag_facts = {}
     for duthost in duthosts:
-        config_reload(duthost, config_source="minigraph")
+        original_lag_facts[duthost.hostname] = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+    yield
+    # After test, compare lag_facts to check if port status is unchanged,
+    # otherwise recover DUT by reloading minigraph
+    for duthost in duthosts:
+        try:
+            original_data = original_lag_facts[duthost.hostname]
+            lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+            for lag_name in original_data['lags'].keys():
+                for po_intf, port_info in original_data['lags'][lag_name]['po_stats']['ports'].items():
+                    if port_info['link']['up'] == lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['link']['up']:
+                        continue
+                    else:
+                        logger.info("{}'s lag_facts is changed, original_data {}\n, lag_facts {}".format(duthost.hostname, original_data, lag_facts))
+                        raise Exception("Raise exception for config_reload in next step.")
+        except Exception as e:
+            # If port was removed from portchannel, it will throw KeyError exception, or catch exception in previous steps,
+            # reload DUT to recover it
+            logger.info("{}'s lag_facts is changed, comparison failed with exception: {}".format(duthost.hostname, repr(e)))
+            config_reload(duthost, config_source="minigraph")
+            continue
+    return
 
 
 def get_oper_status_from_db(duthost, port_name):
     """Get netdev_oper_status from state_db for interface"""
     cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" netdev_oper_status".format(port_name)
     status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    # If PORT_TABLE in STATE_DB doesn't have key netdev_oper_status,
+    # check oper_status in APPL_DB instead. This scenario happens on 202012.
+    if not status:
+        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" oper_status".format(port_name)
+        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
     return status
 
 def get_admin_status_from_db(duthost, port_name):
     """Get netdev_oper_status from state_db for interface"""
     cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" admin_status".format(port_name)
     status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    # If PORT_TABLE in STATE_DB doesn't have key admin_status,
+    # check oper_status in APPL_DB instead. This scenario happens on 202012.
+    if not status:
+        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" admin_status".format(port_name)
+        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
     return status
 
 def check_status_is_syncd(duthost, po_intf, port_info, lag_name):
     """Check if interface's status is synced with the netdev_oper_status in state_db"""
     port_status = port_info['link']['up'] if port_info['link'] else False
     status_from_db = True if str(get_oper_status_from_db(duthost, po_intf)) == 'up' else False
-    pytest_assert(status_from_db == port_status, 
+    pytest_assert(status_from_db == port_status,
         "{} member {}'s status {} is not synced with netdev_oper_status {} in state_db.".format(lag_name, po_intf, port_status, status_from_db))
 
 
