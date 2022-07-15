@@ -16,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import cable_type, CableType 
+from tests.common.dualtor.dual_tor_common import cable_type 
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -49,7 +49,8 @@ def drop_flow_lower_tor(set_drop, set_output, tor_mux_intfs):
 def check_simulator_flap_counter(
     simulator_flap_counter,
     toggle_all_simulator_ports_to_upper_tor,
-    tor_mux_intfs):
+    tor_mux_intfs
+):
     """Check the flap count for each server-facing interfaces."""
     def set_expected_counter_diff(diff):
         """Set expected counter difference."""
@@ -84,24 +85,24 @@ def test_active_link_drop_upstream(
     lower_tor_host,
     send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor, cable_type):
+    drop_flow_upper_tor
+):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the active ToR.
     Verify the switchover and disruption last < 1 second.
     """
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3,
-            action=drop_flow_upper_tor
-        )
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host,
-            expected_standby_health="unhealthy"
-        )
+    send_server_to_t1_with_action(
+        upper_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
+        action=drop_flow_upper_tor
+    )
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host,
+        expected_standby_health="unhealthy"
+    )
 
 
 def test_active_link_drop_downstream_active(
@@ -109,25 +110,25 @@ def test_active_link_drop_downstream_active(
     lower_tor_host,
     send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor, cable_type):
+    drop_flow_upper_tor
+):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
     servers and the active ToR.
     Verify the switchover and disruption last < 1 second.
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            upper_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3,
-            action=drop_flow_upper_tor
-        )
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host,
-            expected_standby_health="unhealthy"
-        )
+    send_t1_to_server_with_action(
+        upper_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
+        action=drop_flow_upper_tor
+    )
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host,
+        expected_standby_health="unhealthy"
+    )
 
 
 def test_active_link_drop_downstream_standby(
@@ -135,25 +136,25 @@ def test_active_link_drop_downstream_standby(
     lower_tor_host,
     send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor, cable_type):
+    drop_flow_upper_tor
+):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
     servers and the active ToR.
     Verify the switchover and disruption last < 1 second.
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            lower_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3,
-            action=drop_flow_upper_tor
-        )
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host,
-            expected_standby_health="unhealthy"
-        )
+    send_t1_to_server_with_action(
+        lower_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=3,
+        action=drop_flow_upper_tor
+    )
+    verify_tor_states(
+        expected_active_host=lower_tor_host,
+        expected_standby_host=upper_tor_host,
+        expected_standby_health="unhealthy"
+    )
 
 
 def test_standby_link_drop_upstream(
@@ -161,25 +162,25 @@ def test_standby_link_drop_upstream(
     lower_tor_host,
     send_server_to_t1_with_action,
     check_simulator_flap_counter,
-    drop_flow_lower_tor, cable_type):
+    drop_flow_lower_tor
+):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
     Verify that no switchover and disruption occur.
     """
-    if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(
-            upper_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=2,
-            action=drop_flow_lower_tor
-        )
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host,
-            expected_standby_health="unhealthy"
-        )
-        check_simulator_flap_counter(2)
+    send_server_to_t1_with_action(
+        upper_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
+        action=drop_flow_lower_tor
+    )
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host,
+        expected_standby_health="unhealthy"
+    )
+    check_simulator_flap_counter(2)
 
 
 def test_standby_link_drop_downstream_active(
@@ -187,26 +188,26 @@ def test_standby_link_drop_downstream_active(
     lower_tor_host,
     send_t1_to_server_with_action,
     check_simulator_flap_counter,
-    drop_flow_lower_tor, cable_type):
+    drop_flow_lower_tor
+):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
     servers and the standby ToR.
     Verify that no switchover and disruption occur.
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            upper_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=2,
-            action=drop_flow_lower_tor
-        )
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host,
-            expected_standby_health="unhealthy"
-        )
-        check_simulator_flap_counter(2)
+    send_t1_to_server_with_action(
+        upper_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
+        action=drop_flow_lower_tor
+    )
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host,
+        expected_standby_health="unhealthy"
+    )
+    check_simulator_flap_counter(2)
 
 
 def test_standby_link_drop_downstream_standby(
@@ -214,23 +215,23 @@ def test_standby_link_drop_downstream_standby(
     lower_tor_host,
     send_t1_to_server_with_action,
     check_simulator_flap_counter,
-    drop_flow_lower_tor, cable_type):
+    drop_flow_lower_tor
+):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
     servers and the standby ToR.
     Verify that no switchover and disruption occur.
     """
-    if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(
-            lower_tor_host,
-            verify=True,
-            delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=2,
-            action=drop_flow_lower_tor
-        )
-        verify_tor_states(
-            expected_active_host=upper_tor_host,
-            expected_standby_host=lower_tor_host,
-            expected_standby_health="unhealthy"
-        )
-        check_simulator_flap_counter(2)
+    send_t1_to_server_with_action(
+        lower_tor_host,
+        verify=True,
+        delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+        allowed_disruption=2,
+        action=drop_flow_lower_tor
+    )
+    verify_tor_states(
+        expected_active_host=upper_tor_host,
+        expected_standby_host=lower_tor_host,
+        expected_standby_health="unhealthy"
+    )
+    check_simulator_flap_counter(2)
