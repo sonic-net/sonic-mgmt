@@ -140,13 +140,8 @@
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
-{% set server_base_address_v4 = (vlan_configs.values() | list)[0]['prefix'] %}
-{% set server_base_address_v4 = server_base_address_v4 | ipaddr('network') %}
-{% set server_base_address_v4 = '.'.join(server_base_address_v4.split('.')[:-1]) + '.{}' %}
-{% set server_base_address_v6 = (vlan_configs.values() | list)[0]['prefix_v6'] %}
-{% set server_base_address_v6 = server_base_address_v6 | ipaddr('network') %}
-{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{:x}' %}
 {% for cable in dual_tor_facts['cables'] %}
+{% set intf_index = port_alias.index(cable['dut_intf'])|string %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
@@ -167,10 +162,10 @@
       <Device i:type="Server">
         <ElementType>Server</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ server_base_address_v4.format(loop.index + 1) }}/26</d5p1:IPPrefix>
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv4'].split('/')[0] }}/26</d5p1:IPPrefix>
         </Address>
         <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ server_base_address_v6.format(loop.index + 1) }}/96</d5p1:IPPrefix>
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv6'].split('/')[0] }}/96</d5p1:IPPrefix>
         </AddressV6>
         <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
