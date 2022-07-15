@@ -14,7 +14,7 @@ from pkg_resources import parse_version
 from tests.common import constants
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't1-lag')
+    pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
 ]
 SkipStateCheckAssert = True
 
