@@ -1,5 +1,6 @@
 import logging
 import pytest
+from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,7 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
-              collect_techsupport_all_duts, enum_frontend_asic_index):
+def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index, request):
     """ verify the LLDP message on DUT """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -33,7 +33,11 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
-        assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+        if request.config.getoption("--neighbor_type") == 'eos':
+            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+        else:
+            # Dealing with KVM that advertises port description
+            assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
