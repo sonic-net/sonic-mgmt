@@ -640,7 +640,7 @@ class MultiAsicSonicHost(object):
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for a_asic in self.asics:
-                container = container_name + str(a_asic.asic_index)
+                container = a_asic.get_docker_name(container_name)
                 self.shell(argv=["docker", "exec", container, "bash", "-c", cmd])
         else:
             self.shell(argv=["docker", "exec", container_name, "bash", "-c", cmd])
@@ -650,7 +650,7 @@ class MultiAsicSonicHost(object):
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for a_asic in self.asics:
-                container = container_name + str(a_asic.asic_index)
+                container = a_asic.get_docker_name(container_name)
                 self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
         else:
             self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
