@@ -49,7 +49,7 @@ parameters:
 
   - name: EXTRA_PARAMS
     type: string
-    default: "--no_dscp_uniform"
+    default: "--no_dscp_uniform --percentage 12"
     displayName: "Extra pytest params"
 
   - name: SKIP_SCRIPTS
