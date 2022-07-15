@@ -718,4 +718,4 @@ class MultiAsicSonicHost(object):
             if not self.asic_instance(0).is_default_route_removed_from_app_db():
                 return False
         return True
-        
+
