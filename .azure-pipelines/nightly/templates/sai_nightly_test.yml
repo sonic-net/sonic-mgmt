@@ -532,28 +532,32 @@ stages:
                 from __future__ import print_function
                 import os, imp, sys, datetime
 
-                sai_test_report_path = '{}/{}'.format(os.environ.get('BASH_WORKING_FOLDER'), os.environ.get('SAI_TESTREPORT_PATH'))
-                
-                for filename in os.listdir(sai_test_report_path):
-                  if filename.endswith(".xml"): 
-                      print('##vso[results.publish type=JUnit;mergeResults=false;publishRunAttachments=true;resultFiles={}/{};failTaskOnFailedTests=false;]'.format(sai_test_report_path, filename))    
-                      continue
+                img_upgrade_succ = os.environ.get('IMG_UPGRADE_SUCC')
+                if img_upgrade_succ == 'succ':
+                  sai_test_report_path = '{}/{}'.format(os.environ.get('BASH_WORKING_FOLDER'), os.environ.get('SAI_TESTREPORT_PATH'))
+                  
+                  for filename in os.listdir(sai_test_report_path):
+                    if filename.endswith(".xml"): 
+                        print('##vso[results.publish type=JUnit;mergeResults=false;publishRunAttachments=true;resultFiles={}/{};failTaskOnFailedTests=false;]'.format(sai_test_report_path, filename))    
+                        continue
+                    else:
+                        continue    
+
+                  timestamp = datetime.datetime.now().strftime("%Y%m%d")
+                  # TODO: Getting info should not depend on AZP, later this logging command will be removed
+                  os_version = os.environ.get('OS_VERSION')
+                  testbed_conf_name = os.environ.get('TESTBED_NAME')
+                  builder_id = "SAI_Qualification_"
+                  buildid = os.environ.get('BUILD_ID')
+
+                  if not os_version:
+                    builder_id = builder_id + "Failed_On_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
                   else:
-                      continue    
+                    builder_id = builder_id + os_version + "_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
 
-                timestamp = datetime.datetime.now().strftime("%Y%m%d")
-                # TODO: Getting info should not depend on AZP, later this logging command will be removed
-                os_version = os.environ.get('OS_VERSION')
-                testbed_conf_name = os.environ.get('TESTBED_NAME')
-                builder_id = "SAI_Qualification_"
-                buildid = os.environ.get('BUILD_ID')
-
-                if not os_version:
-                  builder_id = builder_id + "Failed_On_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
+                  print("##vso[build.updatebuildnumber]{0}".format(builder_id))
                 else:
-                  builder_id = builder_id + os_version + "_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
-
-                print("##vso[build.updatebuildnumber]{0}".format(builder_id))
+                  print("upgrade image failed, skipping...")
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}   
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
@@ -561,6 +565,7 @@ stages:
               OS_VERSION: ${{ variables.OS_VERSION }}
               PLT_VERSION: $(PLT_VERSION)
               BUILD_ID: $(Build.BuildId)
+              IMG_UPGRADE_SUCC: $(IMG_UPGRADE_SUCC)
 
           - task: Bash@3
             displayName: remove SAI Testbed topo
