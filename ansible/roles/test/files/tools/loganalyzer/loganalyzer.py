@@ -220,6 +220,7 @@ class AnsibleLogAnalyzer:
         last_check_pos = 0
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
+        last_dt = prev_syslog_file
         while wait_time <= timeout:
             with open(syslog_file, 'r') as fp:
                 dt = os.path.getctime(syslog_file)
@@ -227,10 +228,10 @@ class AnsibleLogAnalyzer:
                     try:
                         with open(prev_syslog_file, 'r') as pfp:
                             pfp.seek(last_check_pos)
-                            for l in fp:
-                                if marker in l:
+                            for log in fp:
+                                if marker in log:
                                     return True
-                    except FileNotFoundError:
+                    except OSError:
                         print("cannot find file {}".format(prev_syslog_file))
                     last_check_pos = 0
                     last_dt = dt
@@ -238,8 +239,8 @@ class AnsibleLogAnalyzer:
                 if last_check_pos:
                     fp.seek(last_check_pos)
                 # check if marker in the file
-                for l in fp:
-                    if marker in l:
+                for log in fp:
+                    if marker in log:
                         return True
                 # record last search position
                 last_check_pos = fp.tell()

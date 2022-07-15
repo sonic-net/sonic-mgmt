@@ -17,7 +17,8 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index, request):
+def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+              collect_techsupport_all_duts, enum_frontend_asic_index, request):
     """ verify the LLDP message on DUT """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -84,10 +85,12 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
         if request.config.getoption("--neighbor_type") == 'eos':
-            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
+            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])[
+                'ansible_facts']
             neighbor_interface = v['port']['ifname']
         else:
-            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=sonic['snmp_rocommunity'])['ansible_facts']
+            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=sonic['snmp_rocommunity'])[
+                'ansible_facts']
             neighbor_interface = v['port']['local']
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
