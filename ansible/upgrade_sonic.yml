@@ -131,22 +131,6 @@
     - name: Wait for SONiC initialization
       pause: seconds=60
 
-    - name: Get sonic version
-      shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
-      register: sonic_build_version
-
-    - name: Add SONiC version to rsyslog
-      replace:
-        path: "{{ rsyslog_conf_path }}"
-        regexp: '%syslogseverity-text:::uppercase% %syslogtag%'
-        replace: '%syslogseverity-text:::uppercase% {{ sonic_build_version.stdout }} %syslogtag%'
-      loop:
-        - /usr/share/sonic/templates/rsyslog.conf.j2
-        - /etc/rsyslog.conf
-      loop_control:
-        loop_var: rsyslog_conf_path
-      become: true
-
     - name: Patch rsyslog.conf to stop sending syslog to production
       lineinfile:
         path: "{{ rsyslog_conf_path }}"
