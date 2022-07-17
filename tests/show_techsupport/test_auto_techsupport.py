@@ -1,4 +1,3 @@
-import re
 import pytest
 import time
 import logging
@@ -522,82 +521,78 @@ def add_delete_auto_techsupport_feature(duthost, feature, action=None, state=DEF
 def parse_show_auto_techsupport_global(duthost):
     """
     Parse output for cmd "show auto-techsupport global"
-    STATE    RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)    SINCE
-    -------  ---------------------------  ---------------------------  --------------------  ----------
-    enabled  180                          10                           5                     2 days ago
+    STATE    RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)    AVAILABLE MEM THRESHOLD (%)    MIN AVAILABLE MEM (Kb)    SINCE
+    -------  ---------------------------  ---------------------------  --------------------  ---------------------------    ----------------------    ------------
+    enabled  180                          10                           5                     10                             200                       2 days ago
     :param duthost: duthost object
     :return: dictionary with parsed result, example: {'state': 'enabled', 'rate_limit_interval': '180',
-    'max_techsupport_limit': '10', 'max_core_size': '5', 'since': '2 days ago'}
+    'max_techsupport_limit': '10', 'max_core_size': '5', 'available_mem_thresh': '10',
+    'min_available_mem': '200',  'since': '2 days ago'}
     """
     with allure.step('Parsing "show auto-techsupport global" output'):
-        regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(.*)'
-        cmd_output = duthost.shell('show auto-techsupport global')['stdout']
-        state, rate_limit_interval, max_techsupport_limit, max_core_size, since = re.search(regexp, cmd_output).groups()
-        result_dict = {'state': state, 'rate_limit_interval': rate_limit_interval,
-                       'max_techsupport_limit': max_techsupport_limit, 'max_core_size': max_core_size, 'since': since}
+        cmd_output = duthost.show_and_parse('show auto-techsupport global')[0]
+        result_dict = {'state': cmd_output['state'], 'rate_limit_interval': cmd_output['rate limit interval (sec)'],
+                       'max_techsupport_limit': cmd_output['max techsupport limit (%)'], 'max_core_size': cmd_output['max core limit (%)'],
+                       'available_mem_thresh': cmd_output.get('available mem threshold (%)', None), 'min_available_mem': cmd_output.get('min available mem (kb)', None),
+                       'since': cmd_output['since']}
     return result_dict
 
 
 def parse_show_auto_techsupport_feature(duthost):
     """
     Parse output for cmd "show auto-techsupport-feature"
-    FEATURE NAME    STATE    RATE LIMIT INTERVAL (sec)
-    --------------  -------  ---------------------------
-    bgp             enabled  600
-    database        enabled  600
-    dhcp_relay      enabled  600
-    lldp            enabled  600
-    macsec          enabled  600
-    mgmt-framework  enabled  600
-    mux             enabled  600
-    nat             enabled  600
-    pmon            enabled  600
-    radv            enabled  600
-    sflow           enabled  600
-    snmp            enabled  600
-    swss            enabled  600
-    syncd           enabled  600
-    teamd           enabled  600
-    telemetry       enabled  600
+    FEATURE NAME    STATE    RATE LIMIT INTERVAL (sec)    AVAILABLE MEM THRESHOLD (%)
+    --------------  -------  ---------------------------  ---------------------------
+    bgp             enabled  600                          10.0
+    database        enabled  600                          10.0
+    dhcp_relay      enabled  600                          N/A
+    lldp            enabled  600                          10.0
+    macsec          enabled  600                          N/A
+    mgmt-framework  enabled  600                          10.0
+    mux             enabled  600                          10.0
+    nat             enabled  600                          10.0
+    pmon            enabled  600                          10.0
+    radv            enabled  600                          10.0
+    sflow           enabled  600                          10.0
+    snmp            enabled  600                          10.0
+    swss            enabled  600                          10.0
+    syncd           enabled  600                          10.0
+    teamd           enabled  600                          10.0
+    telemetry       enabled  600                          10.0
     :param duthost: duthost object
-    :return: dictionary with parsed result, example: {'bgp': {'status': 'enabled', 'rate_limit_interval': '600'},
+    :return: dictionary with parsed result, example: {'bgp': {'status': 'enabled', 'rate_limit_interval': '600', 'available_mem_thresh': 10.0},
     'database': {'status': 'enabled', 'rate_limit_interval': '600'}, ...}
     """
     with allure.step('Parsing "show auto-techsupport-feature" output'):
         result_dict = {}
-        regexp = r'(\w+-\w+|\w+)\s+(enabled|disabled)\s+(\d+)'
-        cmd_output = duthost.shell('show auto-techsupport-feature')['stdout']
-
-        name_index = 0
-        state_index = 1
-        rate_limit_index = 2
-        for feature in re.findall(regexp, cmd_output):
-            result_dict[feature[name_index]] = {'status': feature[state_index],
-                                                'rate_limit_interval': feature[rate_limit_index]}
+        cmd_output = duthost.show_and_parse('show auto-techsupport-feature')
+        for feature in cmd_output:
+            feature_name = feature['feature name']
+            result_dict[feature_name] = {'status': feature['state'],
+                                         'rate_limit_interval': feature['rate limit interval (sec)'],
+                                         'available_mem_thresh': feature.get('available mem threshold (%)', None)}
     return result_dict
 
 
 def parse_show_auto_techsupport_history(duthost):
     """
     Parse output for cmd "show auto-techsupport history"
-    TECHSUPPORT DUMP                          TRIGGERED BY    CORE DUMP
-    ----------------------------------------  --------------  -----------------------------
-    sonic_dump_r-lionfish-16_20210901_221402  bgp             bgpcfgd.1630534439.55.core.gz
+    TECHSUPPORT DUMP                          TRIGGERED BY    EVENT TYPE    CORE DUMP
+    ----------------------------------------  --------------  ------------  ----------------
+    sonic_dump_r-lionfish-16_20210901_221402  bgp             core          bgpcfgd.1630534439.55.core.gz
     :param duthost: duthost object
     :return: dictionary with parsed result, example: {'sonic_dump_r-lionfish-16_20210901_221402':
-    {'triggered_by': 'bgp', 'core_dump': 'bgpcfgd.1630534439.55.core.gz'}, ...}
+    {'triggered_by': 'bgp', 'event_type': 'core', 'core_dump': 'bgpcfgd.1630534439.55.core.gz'}, ...}
     """
     with allure.step('Parsing "show auto-techsupport history" output'):
         result_dict = {}
-        regexp = r'(sonic_dump_.*)\s+(\w+|\w+\W\w+)\s+(\w+\.\d+\.\d+\.core\.gz)'
-        cmd_output = duthost.shell('show auto-techsupport history')['stdout']
-
-        dump_name_index = 0
-        triggered_by_index = 1
-        core_dump_index = 2
-        for dump in re.findall(regexp, cmd_output):
-            result_dict[dump[dump_name_index].strip()] = {'triggered_by': dump[triggered_by_index],
-                                                          'core_dump': dump[core_dump_index]}
+        cmd_output = duthost.show_and_parse('show auto-techsupport history')
+        if cmd_output:
+            for dump in cmd_output:
+                dump_name = dump['techsupport dump']
+                result_dict[dump_name] = {'triggered_by': dump['triggered by'],
+                                          'event_type': dump.get('event type', None),
+                                          'core_dump': dump['core dump']}
     return result_dict
 
 
