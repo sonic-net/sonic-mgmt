@@ -496,7 +496,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     upper_tor_mux_config = duts_mux_config[dut_upper_tor.hostname]
     lower_tor_mux_config = duts_mux_config[dut_lower_tor.hostname]
     if upper_tor_mux_config != lower_tor_mux_config:
-        err_msg = "'show mux config' output differs between two ToRs"
+        err_msg = "'show mux config' output differs between two ToRs {} v.s. {}".format(upper_tor_mux_config, lower_tor_mux_config)
         return False, err_msg, {}
 
     port_cable_types = {}
@@ -540,6 +540,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, reset_simulator_port, restart_nic_simulator):
 
     def _recover():
+        duthosts.shell('config muxcable mode auto all')
         reset_simulator_port()
         restart_nic_simulator()
 
