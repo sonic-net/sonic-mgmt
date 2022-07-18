@@ -73,14 +73,13 @@ parameters:
               console/test_console_availability.py \
               pc/test_po_cleanup.py \
               bgp/test_bgp_slb.py \
-              bgp/test_bgp_speaker.py \
-              tacacs "
+              bgp/test_bgp_speaker.py"
     displayName: "Skip test scripts"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf tacacs console"'
+    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf console"'
     displayName: Testbed specific
 
 stages:
