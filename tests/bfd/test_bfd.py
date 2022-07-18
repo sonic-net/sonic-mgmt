@@ -18,7 +18,7 @@ pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
 ]
 BFD_SESSIONS_COUNT = 5
-SCALED_BFD_SESSIONS_COUNT = 500
+SCALED_BFD_SESSIONS_COUNT = 128
 IPV4_PREFIX = 31
 IPV6_PREFIX = 127
 
@@ -70,22 +70,15 @@ def update_ptf_ip_addrs(ptfhost, intfs, ips, prefix_len, op='add'):
     Adding/removing IP addresses on PTF
     """
     base_cmd = "ip -6 addr" if prefix_len == IPV6_PREFIX else "ip addr"
-    cmds = ""
-    cmds_list = []
+    ptf_cmds = ''
     intfs = itertools.cycle(intfs)
-    i = 1
-    for ip, intf in zip(ips, intfs):
-        cmds += "{} {} {}/{} dev eth{}; ".format(base_cmd, op, ip, prefix_len, intf)
-        if i == 100:  # Dividing the list of cmds because of .shell(cmd) length limitation
-            cmds_list.append(cmds)
-            cmds = ''
-            i = 0
-        i += 1
-    if not cmds_list:
-        cmds_list = [cmds]
-
-    for cmd in cmds_list:
-        ptfhost.shell(cmd)
+    for i, (ip, intf) in enumerate(zip(ips, intfs)):
+        ptf_cmds += "{} {} {}/{} dev eth{}; ".format(base_cmd, op, ip, prefix_len, intf)
+        if i % 100 == 0:  # Dividing the list of cmds because of .shell(cmd) length limitation
+            ptfhost.shell(ptf_cmds)
+            ptf_cmds = ''
+    if ptf_cmds:
+        ptfhost.shell(ptf_cmds)
 
 
 def suspend_bfd_session(ptfhost, ptf_ip, dut_ip):
@@ -105,8 +98,6 @@ def check_ptf_bfd_status(ptfhost, ptf_ip, dut_ip, expected_state):
                                   "grep 'state' | sed 's/state=//g'".format(ptf_ip, dut_ip))["stdout"]
     logger.info("BFD session local {} remote {} in {} state".format(ptf_ip, dut_ip, ptf_bfd_state))
     return expected_state in ptf_bfd_state
-    # pytest_assert(expected_state in ptf_bfd_state, "Expected state: {}, "
-    #                                                "actual state: {}".format(expected_state, ptf_bfd_state))
 
 
 def check_dut_bfd_status(duthost, ptf_ip, expected_state):
@@ -117,29 +108,20 @@ def check_dut_bfd_status(duthost, ptf_ip, expected_state):
                                   "'BFD_SESSION_TABLE|default|default|{}' 'state'".format(ptf_ip))['stdout']
     logger.info("BFD session for {} on DUT in {} state".format(ptf_ip, dut_bfd_state))
     return expected_state in dut_bfd_state
-    # pytest_assert(expected_state in dut_bfd_state, "Expected state: {}, "
-    #                                                "actual state: {}".format(expected_state, dut_bfd_state))
 
 
 def create_ptf_bfd_sessions(ptfhost, dut_ip_addrs, ptf_ip_addrs):
     """
     Creates BFD sessions for PTF.
     """
-    ptf_cmds_list = []
     ptf_cmds = ''
-    i = 1
-    for dut_ip, ptf_ip in zip(dut_ip_addrs, ptf_ip_addrs):
+    for i, (dut_ip, ptf_ip) in enumerate(zip(dut_ip_addrs, ptf_ip_addrs)):
         ptf_cmds += "bfdd-control connect local {} remote {} ; ".format(ptf_ip, dut_ip)
-        if i == 100:  # Dividing the list of cmds because of .shell(cmd) length limitation
-            ptf_cmds_list.append(ptf_cmds)
+        if i % 100 == 0:  # Dividing the list of cmds because of .shell(cmd) length limitation
+            ptfhost.shell(ptf_cmds)
             ptf_cmds = ''
-            i = 0
-        i += 1
-    if not ptf_cmds_list:
-        ptf_cmds_list = [ptf_cmds]
-
-    for cmd in ptf_cmds_list:
-        ptfhost.shell(cmd)
+    if ptf_cmds:
+        ptfhost.shell(ptf_cmds)
 
 
 def update_dut_bfd_sessions(duthost, dut_ip_addrs, ptf_ip_addrs, op):
@@ -264,8 +246,8 @@ def bfd_test_teardown(data, sessions_count, prefix_len):
     update_dut_bfd_sessions(data['duthost'], data['dut_ip_addrs'], data['ptf_ip_addrs'], "DEL")
     
     logger.info('Stopping BFD (removing sessions) on PTF.')
-    data['ptfhost'].shell("bfdd-control stop")
-    
+    data['ptfhost'].shell("bfdd-control stop", module_ignore_errors=True)
+
     logger.info('Removing IP addresses on PTF')
     update_ptf_ip_addrs(data['ptfhost'], data['selected_ptf_intfs'], data['ptf_ip_addrs'], prefix_len, op='del')
     
