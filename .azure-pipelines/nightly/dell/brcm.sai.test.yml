@@ -3,6 +3,14 @@ name: $(Build.DefinitionName)_Running_Init_$(Build.BuildId)_$(Date:yyyyMMdd)
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 2 * * 1-5"
+    displayName: Nightly SAI Testing Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -12,7 +20,7 @@ parameters:
     type: string
     displayName: "Testbed Name"
     default: vms3-t1-dx010-1
-
+  
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
@@ -52,7 +60,7 @@ parameters:
   - name: RECOVER_TOPO
     displayName: "Recover Topo"
     type: boolean
-    default: true
+    default: false
   
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
@@ -115,9 +123,10 @@ parameters:
     - $(SAITHRIFTV2_BFN_INTERNAL_DBG)
     - $(SAITHRIFTV2_BRCM_202012_DBG)
     - $(SAITHRIFTV2_BRCM_INTERNAL_DBG)
+    - $(SAITHRIFTV2_BRCM_INTERNAL_202012)
 
 stages:
-  - template: ../templates/sai_test.yml
+  - template: ../templates/sai_nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
