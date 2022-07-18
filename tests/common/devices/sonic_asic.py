@@ -597,3 +597,24 @@ class SonicAsic(object):
             if def_rt_json:
                 return False
         return True
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        neigh_ok = []
+        for k, v in bgp_facts['bgp_neighbors'].items():
+            if v['state'] == state:
+                if k.lower() in neigh_ips:
+                    neigh_ok.append(k)
+        logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+                     
