@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+import requests
 
 from abc import ABC, abstractmethod
 from azure.kusto.data import KustoConnectionStringBuilder
@@ -23,6 +24,11 @@ from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
 
+
+TOKEN = os.environ.get('AZURE_DEVOPS_MSSONIC_TOKEN')
+if not TOKEN:
+    raise Exception('Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
+AUTH = ('', TOKEN)
 
 class ReportDBConnector(ABC):
     """ReportDBConnector is a wrapper for a back-end data store for JUnit test reports.
@@ -94,6 +100,7 @@ class KustoConnector(ReportDBConnector):
     REBOOT_TIMING_TABLE = "RebootTimingData"
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
+    PIPELINE_TABLE = "TestReportPipeline"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -106,6 +113,7 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
+        PIPELINE_TABLE: DataFormat.JSON
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -118,7 +126,8 @@ class KustoConnector(ReportDBConnector):
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
-        EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1"
+        EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
+        PIPELINE_TABLE: "FlatPipelineMappingV1"
     }
 
     def __init__(self, db_name: str):
@@ -162,7 +171,21 @@ class KustoConnector(ReportDBConnector):
                                                                                         tenant_id)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
+    def _parse_os_version(self, image_url):
+        os_version = ''
+        items = image_url.split("/")
+        if "public" in items:
+            os_version = "master"
+        elif "internal" in items:
+            os_version = "internal"
+        else:
+            # For other images, such as 202012, there is internal-202012 in url.
+            for item in items:
+                if "internal" in item:
+                    os_version = item.split("-")[-1]
+        return os_version if os_version else "UNKNOWN"
+
+    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "", testbed: str = "", image_url: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -172,6 +195,13 @@ class KustoConnector(ReportDBConnector):
                 This id does not have to be unique.
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
+        os_version = self._parse_os_version(image_url)
+        if not report_json:
+            print("Uploaded file is not found or empty. We only upload pipeline results and summary")
+            self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
+            self._upload_summary(report_json, report_guid)
+            return
+        self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
         self._upload_metadata(report_json, external_tracking_id, report_guid)
         self._upload_summary(report_json, report_guid)
         self._upload_test_cases(report_json, report_guid)
@@ -213,6 +243,46 @@ class KustoConnector(ReportDBConnector):
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
 
+    def _get_tasks_result(self, external_tracking_id):
+        """Get list of enabled build definitions under folder '\\Nightly'
+
+        Returns:
+            list: List of build definitions. Each item is a dict.
+        """
+        task_results = {
+            "success_tasks": "",
+            "failed_tasks": "",
+            "cancelled_tasks": ""
+        }
+        buildid = external_tracking_id.split("#")[-1]
+        pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
+        build_records = requests.get(pipeline_url, auth=AUTH).json()["records"]
+        if not build_records:
+            print("Failed to get build records for buildid {}".format(buildid))
+            return
+        for task in build_records:
+            if task and task["state"] == "completed":
+                if task["result"] == 'succeeded':
+                    task_results["success_tasks"] += task["name"] + ";"
+                if task["result"] == 'failed':
+                    task_results["failed_tasks"] += task["name"] + ";"
+                if task["result"] == 'canceled':
+                    task_results["cancelled_tasks"] += task["name"] + ";"
+        return task_results
+
+    def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
+        pipeline_data = {
+            "id": report_guid,
+            "tracking_id": external_tracking_id,
+            "testbed": testbed,
+            "os_version": os_version,
+            "upload_time": str(datetime.utcnow())
+        }
+        task_results = self._get_tasks_result(external_tracking_id)
+        pipeline_data.update(task_results)
+        print("Upload pipeline result")
+        self._ingest_data(self.PIPELINE_TABLE, pipeline_data)
+
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
             "id": report_guid,
@@ -220,15 +290,26 @@ class KustoConnector(ReportDBConnector):
             "upload_time": str(datetime.utcnow())
         }
         metadata.update(report_json["test_metadata"])
-
+        print("Upload metadata")
         self._ingest_data(self.METADATA_TABLE, metadata)
 
     def _upload_summary(self, report_json, report_guid):
         summary = {
             "id": report_guid
         }
-        summary.update(report_json["test_summary"])
-
+        if not report_json:
+            report_json = {
+                "time": 0.0,
+                "tests": 0,
+                "skipped": 0,
+                "failures": 0,
+                "errors": 0,
+                "xfails": 0
+            }
+            summary.update(report_json)
+        else:
+            summary.update(report_json["test_summary"])
+        print("Upload summary")
         self._ingest_data(self.SUMMARY_TABLE, summary)
 
     def _upload_test_cases(self, report_json, report_guid):
@@ -240,7 +321,7 @@ class KustoConnector(ReportDBConnector):
                     "feature": feature
                 })
                 test_cases.append(case)
-
+        print("Upload test case")
         self._ingest_data(self.TEST_CASE_TABLE, test_cases)
 
     def _ingest_data(self, table, data):
@@ -257,6 +338,8 @@ class KustoConnector(ReportDBConnector):
             else:
                 temp.write(json.dumps(data))
             temp.seek(0)
+            print("Ingest to primary cluster...\n")
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)
             if self._ingestion_client_backup:
+                print("Ingest to back cluster...\n")
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)

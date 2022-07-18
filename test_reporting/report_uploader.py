@@ -32,6 +32,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     parser.add_argument(
         "--category", "-c", type=str, help="Type of data to upload (i.e. test_result, reachability, etc.)"
     )
+    parser.add_argument(
+        "--testbed", "-t", type=str, help="Name of testbed"
+    )
+    parser.add_argument(
+        "--image_url", "-i", type=str, help="Name of image (i.e. IMAGE_BRCM_ABOOT_202012, etc.)"
+    )
 
     args = parser.parse_args()
     kusto_db = KustoConnector(args.db_name)
@@ -39,6 +45,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     if args.category == "test_result":
         tracking_id = args.external_id if args.external_id else ""
         report_guid = str(uuid.uuid4())
+        testbed = args.testbed
         for path_name in args.path_list:
             reboot_data_regex = re.compile('.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
             if reboot_data_regex.match(path_name):
@@ -49,7 +56,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 else:
                     roots = validate_junit_xml_path(path_name)
                     test_result_json = parse_test_result(roots)
-                kusto_db.upload_report(test_result_json, tracking_id, report_guid)
+                kusto_db.upload_report(test_result_json, tracking_id, report_guid, testbed, args.image_url)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:
