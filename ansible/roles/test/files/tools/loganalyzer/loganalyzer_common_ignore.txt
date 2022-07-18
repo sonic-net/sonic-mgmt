@@ -21,7 +21,7 @@ r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG prof
 r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
-r, ".* ERR syncd#SDK: :- setQueueCounterList: Queue RID oid:.* can't provide the statistic.*"
+r, ".* ERR syncd#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
