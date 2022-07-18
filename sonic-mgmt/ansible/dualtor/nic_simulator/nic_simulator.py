@@ -530,7 +530,9 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
 
     def _run_server(self, binding_port):
         """Run the gRPC server."""
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
+                                                   options=[('grpc.http2.min_ping_interval_without_data_ms', 1000),
+                                                            ('grpc.http2.max_ping_strikes',  0)])
         nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
             self.server
@@ -624,7 +626,9 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         return nic_simulator_grpc_mgmt_service_pb2.ListOfOperationReply()
 
     def start(self):
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER))
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
+                                                   options=[('grpc.http2.min_ping_interval_without_data_ms', 1000),
+                                                            ('grpc.http2.max_ping_strikes',  0)])
         nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(self, self.server)
         self.server.add_insecure_port("%s:%s" % (self.binding_address, self.binding_port))
         self.server.start()

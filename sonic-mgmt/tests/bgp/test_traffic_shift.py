@@ -6,12 +6,13 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from multiprocessing.dummy import Pool as ThreadPool
+from tests.common import config_reload
 import re
 
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1','t2')
 ]
 
 logger = logging.getLogger(__name__)
@@ -177,6 +178,17 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_host, neigh_hosts, c
     return verify_loopback_route_with_community(dut_host, neigh_hosts, 4, community) and \
         verify_loopback_route_with_community(dut_host, neigh_hosts, 6, community)
 
+# API to check if the image has support for BGP_DEVICE_GLOBAL table in the configDB
+def check_tsa_persistence_support(duthost):
+    # For multi-asic, check DB in one of the namespaces
+    asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+    tsa_in_configdb = duthost.shell('{} CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "tsa_enabled"'.format(sonic_db_cmd), module_ignore_errors=False)['stdout_lines']    
+    if not tsa_in_configdb:
+        return False
+    return True
+
 def test_TSA(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
     """
     Test TSA
@@ -252,3 +264,77 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbi
                       "Not all ipv4 routes are announced to neighbors")
         pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,duthost, nbrhosts, routes_6, 6),
                       "Not all ipv6 routes are announced to neighbors")
+
+def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
+    """
+    Test TSA after config save and config reload
+    Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
+    """
+    if not check_tsa_persistence_support(duthost):
+        pytest.skip("TSA persistence not supported in the image")
+
+    try:
+        # Issue TSA on DUT
+        duthost.shell("TSA")
+        duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+        # Verify DUT is in maintenance state.
+        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
+                      "DUT is not in maintenance state")
+        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost)==[],
+                      "Not all routes are announced to bgpmon")
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
+                      "Failed to verify routes on eos in TSA")
+    finally:
+        """
+        Test TSB after config save and config reload
+        Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
+        and all routes are announced to neighbors
+        """
+        # Recover to Normal state
+        duthost.shell("TSB")
+        duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+        # Verify DUT is in normal state.
+        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                    "DUT is not in normal state")
+        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                    "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                    "Not all ipv6 routes are announced to neighbors")
+
+def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
+    """
+    Test load_minigraph --traffic-shift-away
+    Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
+    """
+    if not check_tsa_persistence_support(duthost):
+        pytest.skip("TSA persistence not supported in the image")
+
+    try:
+        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True, traffic_shift_away=True)
+
+        # Verify DUT is in maintenance state.
+        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
+                      "DUT is not in maintenance state")
+        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost)==[],
+                      "Not all routes are announced to bgpmon")
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
+                      "Failed to verify routes on eos in TSA")
+    finally:
+        """
+        Recover with TSB and verify route advertisement
+        """
+        # Recover to Normal state
+        duthost.shell("TSB")
+        duthost.shell('sudo config save -y')
+
+        # Verify DUT is in normal state.
+        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                    "DUT is not in normal state")
+        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                  "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                  "Not all ipv6 routes are announced to neighbors")

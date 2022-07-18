@@ -8,7 +8,7 @@ function usage
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
@@ -341,6 +341,14 @@ function remove_topo
       $ansible_options $@
 
   echo Done
+}
+
+function redeploy_topo()
+{
+    remove_topo $@ || true
+    echo "Sleep 60 seconds ..."
+    sleep 60
+    add_topo $@
 }
 
 function connect_topo
@@ -693,6 +701,8 @@ case "${subcmd}" in
   activate-vendor-device) activate_vendor_device $@
                ;;
   remove-topo) remove_topo $@
+               ;;
+  redeploy-topo) redeploy_topo $@
                ;;
   renumber-topo) renumber_topo $@
                ;;

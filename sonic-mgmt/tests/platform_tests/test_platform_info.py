@@ -211,7 +211,7 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
@@ -239,6 +239,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
+    if tbinfo["topo"]["properties"]["configuration_properties"]["common"]["dut_type"] == "MgmtTsToR":
+        all_outlet_status = all_outlet_status[0:-2]
+        logging.info("DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
     for outlet in all_outlet_status:
         psu_under_test = None
 

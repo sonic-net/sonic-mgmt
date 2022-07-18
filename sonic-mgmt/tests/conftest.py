@@ -9,6 +9,7 @@ import re
 import pytest
 import yaml
 import jinja2
+import copy
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -24,8 +25,9 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # lgtm[py/unused-import]
-
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
+ 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
@@ -161,6 +163,11 @@ def pytest_addoption(parser):
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
 
+    ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                    help="To use public docker registry for syncd swap, by default is disabled (False)")
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -610,7 +617,8 @@ def creds_on_dut(duthost):
         "sonicadmin_password",
         "docker_registry_host",
         "docker_registry_username",
-        "docker_registry_password"
+        "docker_registry_password",
+        "public_docker_registry_host"
     ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
@@ -645,6 +653,11 @@ def creds_all_duts(duthosts):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+
+    if call.when == 'setup':
+        item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
+    elif call.when == 'teardown':
+        item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
     item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
@@ -841,14 +854,22 @@ def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
     """
     duthost = duthosts[rand_one_dut_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
+    public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
         if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+            if public_docker_reg:
+                new_creds = copy.deepcopy(creds)
+                new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+                new_creds['docker_registry_username'] = ''
+                new_creds['docker_registry_password'] = ''
+            else:
+                new_creds = creds
+            docker.swap_syncd(duthost, new_creds)
 
         yield
     finally:
         if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            docker.restore_default_syncd(duthost, new_creds)
 
 def get_host_data(request, dut):
     '''
