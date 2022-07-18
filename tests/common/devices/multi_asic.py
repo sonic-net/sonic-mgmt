@@ -429,6 +429,9 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
+            #TODO: https://github.com/Azure/sonic-mgmt/issues/5970
+            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+                continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
@@ -671,7 +674,16 @@ class MultiAsicSonicHost(object):
     def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
         """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
-        
+
+    def docker_exec_swssconfig(self, json_name, container_name, asic_idx):
+        if self.sonichost.is_multi_asic:
+            container = container_name + str(asic_idx)
+            return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
+                           module_ignore_errors=True)
+        else:
+            return self.shell('docker exec -i {} swssconfig {}'.format(container_name, json_name),
+                           module_ignore_errors=True)
+      
     def get_bgp_name_to_ns_mapping(self):
         """ This function returns mapping of bgp name -- namespace
             e.g. {'ARISTAT2': 'asic0', ...}
