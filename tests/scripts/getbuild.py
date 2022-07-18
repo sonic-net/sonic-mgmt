@@ -70,12 +70,17 @@ def get_download_url(buildid, artifact_name):
     return (download_url, artifact_size)
 
 
-def download_artifacts(url, content_type, platform, buildid):
+def download_artifacts(url, content_type, platform, buildid, num_asic):
     """find latest successful build id for a branch"""
 
     if content_type == 'image':
         if platform == 'vs':
-            filename = 'sonic-vs.img.gz'
+            if num_asic == 6:
+                filename = 'sonic-6asic-vs.img.gz'
+            elif num_asic == 4:
+                filename = 'sonic-4asic-vs.img.gz'
+            else:
+                filename = 'sonic-vs.img.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
 
@@ -118,6 +123,10 @@ def main():
     parser.add_argument('--content', metavar='content', type=str,
             choices=['all', 'image'], default='image',
             help='download content type [all|image(default)]')
+    parser.add_argument('--num_asic', metavar='num_asic', type=int,
+            default=1,
+            help='Specifiy number of asics')
+
     args = parser.parse_args()
 
     if args.buildid is None:
@@ -129,7 +138,7 @@ def main():
 
     (dl_url, artifact_size) = get_download_url(buildid, artifact_name)
 
-    download_artifacts(dl_url, args.content, args.platform, buildid)
+    download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic)
 
 if __name__ == '__main__':
     main()
