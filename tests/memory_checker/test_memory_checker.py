@@ -692,8 +692,7 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
     container_name = "telemetry"
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
-                   or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
-                   "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
+                   and parse_version(duthost.kernel_version) > parse_version("4.9.0"),
+                   "Test is not supported for platform Celestica E1031, 20191130 and older image versions!")
 
     check_log_message(duthost, container_name)
