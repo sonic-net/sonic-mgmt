@@ -261,7 +261,7 @@ platform_tests/test_auto_negotiation.py:
     conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
 #######################################
-#####             po              #####
+#####             pc              #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
