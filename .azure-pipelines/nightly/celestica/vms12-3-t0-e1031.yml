@@ -73,7 +73,8 @@ parameters:
               console/test_console_availability.py \
               pc/test_po_cleanup.py \
               bgp/test_bgp_slb.py \
-              bgp/test_bgp_speaker.py"
+              bgp/test_bgp_speaker.py \
+              platform_tests/test_memory_exhaustion.py" # skip test_memory_exhaustion because this hardware has some issue and we cannot replace a new one
     displayName: "Skip test scripts"
 
   # Testbed specific, to skip and/or include directories
