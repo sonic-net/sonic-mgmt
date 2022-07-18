@@ -51,7 +51,7 @@ class FanoutOnyxDropCounter(FanoutDropCounter):
         fanout_trunk_port = None
         for iface, iface_info in self.fanout_graph_facts[self.onyx_switch.hostname][DEVICE_PORT_VLANS].items():
             if iface_info[MODE] == TRUNK:
-                fanout_trunk_port = iface.split('/')[-1]
+                fanout_trunk_port = '/'.join(iface.split('/')[1:])
                 break
         return fanout_trunk_port
 
