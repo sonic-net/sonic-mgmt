@@ -3,7 +3,6 @@
 This plugin supports adding any mark to specified test cases based on conditions. All the information of test cases,
 marks, and conditions can be specified in a centralized file.
 """
-import imp
 import json
 import logging
 import os
@@ -11,15 +10,16 @@ import re
 import subprocess
 import yaml
 import glob
-
 import pytest
 
+from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+
 
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
@@ -43,7 +43,9 @@ def pytest_addoption(parser):
         action='store',
         dest='customize_inventory_file',
         default=False,
-        help="Location of your custom inventory file. If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
+        help="Location of your custom inventory file. "
+             "If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
+
 
 def load_conditions(session):
     """Load the content from mark conditions file
@@ -86,6 +88,7 @@ def load_conditions(session):
 
     return conditions_list
 
+
 def read_asic_name(hwsku):
     '''
     Get asic generation name from file 'ansible/group_vars/sonic/variables'
@@ -103,7 +106,7 @@ def read_asic_name(hwsku):
             asic_name = yaml.safe_load(f)
 
         for key, value in asic_name.items():
-            if ('td' not in key) and ('th' not in key):
+            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
         for name, hw in asic_name.items():
@@ -114,6 +117,7 @@ def read_asic_name(hwsku):
 
     except IOError as e:
         return None
+
 
 def load_dut_basic_facts(session, inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
@@ -142,6 +146,30 @@ def load_dut_basic_facts(session, inv_name, dut_name):
 
     return results
 
+
+def get_basic_facts(session):
+    testbed_name = session.config.option.testbed
+
+    testbed_name_cached = session.config.cache.get('TB_NAME', None)
+    basic_facts_cached = session.config.cache.get('BASIC_FACTS', None)
+
+    if testbed_name_cached != testbed_name:
+        # clear chche
+        session.config.cache.set('TB_NAME', None)
+        session.config.cache.set('BASIC_FACTS', None)
+
+        # get basic facts
+        basic_facts = load_basic_facts(session)
+
+        # update cache
+        session.config.cache.set('TB_NAME', testbed_name)
+        session.config.cache.set('BASIC_FACTS', basic_facts)
+    else:
+        if not basic_facts_cached:
+            basic_facts = load_basic_facts(session)
+            session.config.cache.set('BASIC_FACTS', basic_facts)
+
+
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
 
@@ -158,8 +186,7 @@ def load_basic_facts(session):
     testbed_name = session.config.option.testbed
     testbed_file = session.config.option.testbed_file
 
-    testbed_module = imp.load_source('testbed', 'common/testbed.py')
-    tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+    tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
 
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
@@ -180,6 +207,7 @@ def load_basic_facts(session):
     # Load possible other facts here
 
     return results
+
 
 def find_longest_matches(nodeid, conditions):
     """Find the longest matches of the given test case name in the conditions list.
@@ -206,6 +234,7 @@ def find_longest_matches(nodeid, conditions):
             elif length == max_length:
                 longest_matches.append(condition)
     return longest_matches
+
 
 def update_issue_status(condition_str):
     """Replace issue URL with 'True' or 'False' based on its active state.
@@ -297,9 +326,8 @@ def pytest_collection(session):
         session (obj): Pytest session object.
     """
 
-    # Always clear cached conditions and basic facts of previous run.
+    # Always clear cached conditions of previous run.
     session.config.cache.set('TESTS_MARK_CONDITIONS', None)
-    session.config.cache.set('BASIC_FACTS', None)
 
     if session.config.option.ignore_conditional_mark:
         logger.info('Ignore conditional mark')
@@ -310,8 +338,8 @@ def pytest_collection(session):
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
 
         # Only load basic facts if conditions are defined.
-        basic_facts = load_basic_facts(session)
-        session.config.cache.set('BASIC_FACTS', basic_facts)
+        get_basic_facts(session)
+
 
 def pytest_collection_modifyitems(session, config, items):
     """Hook for adding marks to test cases based on conditions defind in a centralized file.
@@ -344,18 +372,25 @@ def pytest_collection_modifyitems(session, config, items):
                 for mark_name, mark_details in list(match.values())[0].items():
 
                     add_mark = False
-                    mark_conditions = mark_details.get('conditions', None)
-                    if not mark_conditions:
-                        # Unconditionally add mark
+                    if not mark_details:
                         add_mark = True
                     else:
-                        add_mark = evaluate_conditions(mark_conditions, basic_facts)
+                        mark_conditions = mark_details.get('conditions', None)
+                        if not mark_conditions:
+                            # Unconditionally add mark
+                            add_mark = True
+                        else:
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts)
 
                     if add_mark:
-                        reason = mark_details.get('reason', '')
+                        reason = ''
+                        if mark_details:
+                            reason = mark_details.get('reason', '')
 
                         if mark_name == 'xfail':
-                            strict = mark_details.get('strict', False)
+                            strict = False
+                            if mark_details:
+                                strict = mark_details.get('strict', False)
                             mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
                             # To generate xfail property in the report xml file
                             item.user_properties.append(('xfail', strict))

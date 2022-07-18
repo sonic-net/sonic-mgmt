@@ -21,10 +21,11 @@ r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG prof
 r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
-r, ".* ERR syncd#SDK: :- setQueueCounterList: Queue RID oid:.* can't provide the statistic.*"
+r, ".* ERR syncd#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
+r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
@@ -143,5 +144,3 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14482841
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
-
-r, ".* ERR monit.* Expected containers not running: acms.*"

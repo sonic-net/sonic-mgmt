@@ -1072,6 +1072,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res = {}
     res['ptfhost'] = ptfhost
     res['standby_tor_mac'] = standby_tor.facts['router_mac']
+    res['active_tor_mac'] = active_tor.facts['router_mac']
     vlan_name = standby_tor_mg_facts['minigraph_vlans'].keys()[0]
     res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
     res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')
@@ -1123,6 +1124,21 @@ def flush_neighbor(duthost, neighbor, restore=True):
             logging.info("restore neighbor entry for %s", neighbor)
             duthost.shell("ip neighbor replace %s lladdr %s dev %s" % (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
 
+def delete_neighbor(duthost, neighbor):
+    """Delete neighbor entry for server in duthost, ignore it if doesn't exist."""
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
+        logging.info("remove neighbor entry for %s", neighbor)
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+    else:
+        logging.info("Neighbor entry %s doesn't exist", neighbor)
+        return True
+
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        return False
+    return True
 
 @pytest.fixture(scope="function")
 def rand_selected_interface(rand_selected_dut):
@@ -1286,3 +1302,35 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
                     .format(probe_interval_ms))
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
+
+def is_tunnel_qos_remap_enabled(duthost):
+    """
+    Check whether tunnel_qos_remap is enabled or not
+    """
+    try:
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'', module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    except IndexError:
+        return False
+    return "enabled" == tunnel_qos_remap_status
+
+def is_port_with_4_lossless_queues(duthost, port, tbinfo):
+    """
+    Check whether the port has 4 lossless queues
+    If tunnel_qos_ramap is enables, there are 4 lossless queues for ports between T0 and T1
+    """
+    if not is_tunnel_qos_remap_enabled(duthost):
+        return False
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    topo = tbinfo['topo']['type']
+    if 't1' in topo:
+        peer_name = 't0'
+    elif 't0' in topo:
+        peer_name = 't1'
+    else:
+        return False
+
+    if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
+        return True
+    return False
+   
+   

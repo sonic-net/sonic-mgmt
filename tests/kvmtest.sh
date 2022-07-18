@@ -161,6 +161,7 @@ test_t0() {
       generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
       generic_config_updater/test_monitor_config.py \
+      generic_config_updater/test_ntp.py \
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
@@ -200,7 +201,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128,256_XPN_SCI"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
     popd
 }
 
@@ -269,6 +270,17 @@ test_multi_asic_t1_lag() {
     popd
 }
 
+test_multi_asic_t1_lag_pr() {
+    tgname=multi_asic_t1_lag
+    tests="\
+    bgp/test_bgp_fact.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
+    popd
+}
+
 test_dualtor(){
     tgname=dualtor
     tests="arp/test_arp_dualtor.py"
@@ -320,6 +332,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
+export GIT_USER_NAME=$GIT_USER_NAME
+export GIT_API_TOKEN=$GIT_API_TOKEN
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs
@@ -334,6 +348,8 @@ elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
     test_multi_asic_t1_lag
+elif [ x$test_suite == x"multi-asic-t1-lag-pr" ]; then
+    test_multi_asic_t1_lag_pr
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 elif [ x$test_suite == x"dualtor" ]; then

@@ -197,15 +197,23 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
-                                  DeviceName: string, IP: string,
-                                  IcmpReachability: bool, ConsoleReachability: bool,
-                                  SshReachability: bool)
+                                  DutName: string, DutIP: string,
+                                  DutIcmpReachability: bool, ServerName: string,
+                                  ServerIP: string, ServerIcmpReachability: bool,
+                                  PtfName: string, PtfIP: string, PtfIcmpReachability: bool,
+                                  DutConsoleReachability: bool, DutSshReachability: bool)
 
 .create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
                                                                      '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
-                                                                     '{"column":"DeviceName","Properties":{"path":"$.DeviceName"}},'
-                                                                     '{"column":"IP","Properties":{"path":"$.IP"}},'
-                                                                     '{"column":"IcmpReachability","Properties":{"path":"$.IcmpReachability"}},'
-                                                                     '{"column":"ConsoleReachability","Properties":{"path":"$.ConsoleReachability"}},'
-                                                                     '{"column":"SshReachability","Properties":{"path":"$.SshReachability"}},'
+                                                                     '{"column":"DutName","Properties":{"path":"$.DutName"}},'
+                                                                     '{"column":"DutIP","Properties":{"path":"$.DutIP"}},'
+                                                                     '{"column":"DutIcmpReachability","Properties":{"path":"$.DutIcmpReachability"}},'
+                                                                     '{"column":"ServerName","Properties":{"path":"$.ServerName"}},'
+                                                                     '{"column":"ServerIP","Properties":{"path":"$.ServerIP"}},'
+                                                                     '{"column":"ServerIcmpReachability","Properties":{"path":"$.ServerIcmpReachability"}},'
+                                                                     '{"column":"PtfName","Properties":{"path":"$.PtfName"}},'
+                                                                     '{"column":"PtfIP","Properties":{"path":"$.PtfIP"}},'
+                                                                     '{"column":"PtfIcmpReachability","Properties":{"path":"$.PtfIcmpReachability"}},'
+                                                                     '{"column":"DutConsoleReachability","Properties":{"path":"$.DutConsoleReachability"}},'
+                                                                     '{"column":"DutSshReachability","Properties":{"path":"$.DutSshReachability"}},'
                                                                      ']'
