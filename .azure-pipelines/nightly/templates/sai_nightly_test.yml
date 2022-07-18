@@ -225,7 +225,7 @@ stages:
             displayName: Lock Testbed
 
           - task: Bash@3
-            displayName: Get lock testbed result
+            displayName: Get lock testbed result v1
             condition: and(${{ parameters.LOCK_TESTBED }}, succeeded())
             inputs:
               targetType: 'inline'
@@ -233,14 +233,13 @@ stages:
                 echo "##vso[task.setvariable variable=TESTBED_LOCKED;]locked"
 
           - task: Bash@3
-            condition: and(${{ parameters.UPDATE_IMAGE }}, or(eq(variables.TESTBED_LOCKED, 'locked')), ne(${{ parameters.LOCK_TESTBED }}, false))
+            condition: and(${{ parameters.UPDATE_IMAGE }}, or(eq(variables.TESTBED_LOCKED, 'locked'), eq(${{ parameters.LOCK_TESTBED }}, false)))
             displayName: "Upgrade Image"
             inputs:
               targetType: 'inline'
               script: |
                 set -x
                 
-                echo "lock testbed successfully..."
                 if [[ -z "$IMAGE_URL" ]]; then
                     echo "Skipping image upgrading ..."
                     exit 0
@@ -282,7 +281,7 @@ stages:
 
           - task: Bash@3
             displayName: remove current Testbed topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -313,7 +312,7 @@ stages:
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -329,7 +328,7 @@ stages:
 
           - task: Bash@3
             displayName: Deploy SAI Minigraph
-            condition: and(${{ parameters.CHANGE_TOPO }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -354,7 +353,7 @@ stages:
 
           - task: Bash@3
             displayName: Get Bash Env Param
-            condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -362,7 +361,7 @@ stages:
 
           - task: Bash@3
             displayName: Fetch SAI Repo
-            condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -380,7 +379,7 @@ stages:
 
           - task: Bash@3
             displayName: Run SAI tests
-            condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -468,7 +467,7 @@ stages:
 
           - task: Bash@3
             displayName: Organize SAI Test Result
-            condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -524,7 +523,7 @@ stages:
 
           - task: Bash@3
             displayName: remove SAI Testbed topo
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
@@ -541,7 +540,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Testbed Topo
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
@@ -557,7 +556,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Minigraph
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }})
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
