@@ -126,7 +126,7 @@ parameters:
     - $(SAITHRIFTV2_BRCM_INTERNAL_202012)
 
 stages:
-  - template: ../templates/sai_nightly_test.yml
+  - template: ../templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
