@@ -512,7 +512,6 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
-    duthosts.shell('config save -y')
 
 
 @pytest.fixture
