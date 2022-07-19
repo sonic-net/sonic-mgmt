@@ -19,7 +19,7 @@ The test checks if any PFC Frames are sent to the peer link from the DUT port.
    - Make sure to send atleast num_pkts_pfs_frame + private_headroom pkts pkts
    - num_pkts_pfs_frame: num of pkts required to be sent in order to trigger a PFC frame from the DUT. More on this here: https://github.com/Azure/sonic-mgmt/blob/master/tests/qos/files/mellanox/qos_param_generator.py
    - private_headroom_pkts is specific to mellanox which is in the order of a few pkts.
-   - Check the PFC Tx Counters to see verify if the occupancy has indeed crossed into the shared headroom region
+   - To check if the occupancy has indeed crossed into the shared headroom, use the SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES value. This can be fetched using "show priority-group watermark headroom" command. 
     
 + The test triggers a PFC storm on the DUT port
 + PFC Watchdog is triggered
