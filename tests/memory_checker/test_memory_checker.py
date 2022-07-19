@@ -59,6 +59,46 @@ def remove_container(duthost, container_name):
     logger.info("'{}' container is removed.".format(container_name))
 
 
+def is_hiting_start_limit(duthost, container_name):
+    """Determine whether the container can not be restarted is due to
+       start-limit-hit or not.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: A string represents name of the container.
+
+    Returns:
+        Returns True if container hits the limitation; Otherwise, returns False.
+    """
+    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
+    for line in service_status["stdout_lines"]:
+        if "start-limit-hit" in line:
+            return True
+
+    return False
+
+
+def clear_failed_flag_and_restart(duthost, service_name, container_name):
+    """Clears the failed flag and restart container if it hits the restart limitation.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: A string represents name of the container.
+
+    Returns:
+        None.
+    """
+    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
+    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
+    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                           CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
+                           check_container_state, duthost, container_name, True)
+    pytest_assert(restarted, "Failed to restart container '{}' after reset-failed flag was cleared!"
+                  .format(container_name))
+
+
 def restart_container(duthost, container_name):
     """Restarts the specified container on DuT.
 
@@ -77,7 +117,12 @@ def restart_container(duthost, container_name):
                            CONTAINER_CHECK_INTERVAL_SECS,
                            0,
                            check_container_state, duthost, container_name, True)
-    pytest_assert(restarted, "Failed to restart '{}' container!".format(container_name))
+    if not restarted:
+        if is_hiting_start_limit(duthost, container_name):
+            clear_failed_flag_and_restart(duthost, container_name)
+        else:
+            pytest.fail("Failed to restart container '{}'!".format(container_name))
+
     logger.info("'{}' container is restarted.".format(container_name))
 
 
