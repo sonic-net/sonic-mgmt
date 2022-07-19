@@ -13,7 +13,7 @@ from tests.common.helpers.bgp import BGPNeighbor
 
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -35,7 +35,7 @@ NEIGHBOR_PORT1 = 11001
 
 
 @contextlib.contextmanager
-def log_bgp_updates(duthost, iface, save_path, n0):
+def log_bgp_updates(duthost, iface, save_path, ns):
     """Capture bgp packets to file."""
     if iface == "any":
         # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
@@ -43,20 +43,19 @@ def log_bgp_updates(duthost, iface, save_path, n0):
         # have it use LINUX_SLL (Linux cooked) instead.
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
-        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    stop_pcap = "pkill -f '%s'" % start_pcap
-    start_pcap = "sudo ip netns exec %s nohup %s &" % (n0.namespace, start_pcap)
-    duthost.shell(start_pcap)
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)    
+    nohup_start_pcap = "nohup %s &" % (start_pcap)
+    duthost.asic_instance_from_namespace(ns).command(nohup_start_pcap)
     try:
         yield
     finally:
-        duthost.shell(stop_pcap, module_ignore_errors=True)
+        duthost.asic_instance_from_namespace(ns).kill_command(start_pcap, module_ignore_errors=True)
 
 
 @pytest.fixture
-def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def is_quagga(duthosts, rand_one_dut_hostname):
     """Return True if current bgp is using Quagga."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
     return "Quagga" in show_res["stdout"]
 
@@ -67,10 +66,13 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces):
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     conn0, conn1 = setup_interfaces
+    conn0_ns = DEFAULT_NAMESPACE if "namespace" not in conn0.keys() else conn0["namespace"]
+    conn1_ns = DEFAULT_NAMESPACE if "namespace" not in conn1.keys() else conn1["namespace"]
+
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
     dut_type = ''
@@ -94,7 +96,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
             dut_asn,
             NEIGHBOR_PORT0,
             neigh_type,
-            conn0["namespace"],
+            conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False
         ),
@@ -108,9 +110,10 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
             dut_asn,
             NEIGHBOR_PORT1,
             neigh_type,
-            conn1["namespace"],
+            conn1_ns,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False        )
+            is_passive=False
+        )
     )
 
     return bgp_neighbors
@@ -139,7 +142,7 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_dut_hostname,
                           toggle_all_simulator_ports_to_rand_selected_tor_m):
 
     def bgp_update_packets(pcap_file):
@@ -193,7 +196,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         else:
             return False
 
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
 
     n0, n1 = common_setup_teardown
     try:
@@ -215,7 +218,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         withdraw_intervals = []
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
-            with log_bgp_updates(duthost, "any", bgp_pcap, n0):
+            with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 n0.withdraw_route(route)
