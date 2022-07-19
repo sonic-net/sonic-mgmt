@@ -2,7 +2,6 @@
 import json
 import os
 import tempfile
-import requests
 
 from abc import ABC, abstractmethod
 from azure.kusto.data import KustoConnectionStringBuilder
@@ -23,12 +22,9 @@ except ImportError:
 from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
+from collect_azp_results import get_tasks_results
 
-
-TOKEN = os.environ.get('AZURE_DEVOPS_MSSONIC_TOKEN')
-if not TOKEN:
-    raise Exception('Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
-AUTH = ('', TOKEN)
+TASK_RESULT_FILE = "pipeline_task_results.json"
 
 class ReportDBConnector(ABC):
     """ReportDBConnector is a wrapper for a back-end data store for JUnit test reports.
@@ -171,21 +167,7 @@ class KustoConnector(ReportDBConnector):
                                                                                         tenant_id)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
-    def _parse_os_version(self, image_url):
-        os_version = ''
-        items = image_url.split("/")
-        if "public" in items:
-            os_version = "master"
-        elif "internal" in items:
-            os_version = "internal"
-        else:
-            # For other images, such as 202012, there is internal-202012 in url.
-            for item in items:
-                if "internal" in item:
-                    os_version = item.split("-")[-1]
-        return os_version if os_version else "UNKNOWN"
-
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "", testbed: str = "", image_url: str = "") -> None:
+    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "", testbed: str = "", os_version: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -195,7 +177,6 @@ class KustoConnector(ReportDBConnector):
                 This id does not have to be unique.
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
-        os_version = self._parse_os_version(image_url)
         if not report_json:
             print("Uploaded file is not found or empty. We only upload pipeline results and summary")
             self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
@@ -243,33 +224,6 @@ class KustoConnector(ReportDBConnector):
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
 
-    def _get_tasks_result(self, external_tracking_id):
-        """Get list of enabled build definitions under folder '\\Nightly'
-
-        Returns:
-            list: List of build definitions. Each item is a dict.
-        """
-        task_results = {
-            "success_tasks": "",
-            "failed_tasks": "",
-            "cancelled_tasks": ""
-        }
-        buildid = external_tracking_id.split("#")[-1]
-        pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
-        build_records = requests.get(pipeline_url, auth=AUTH).json()["records"]
-        if not build_records:
-            print("Failed to get build records for buildid {}".format(buildid))
-            return
-        for task in build_records:
-            if task and task["state"] == "completed":
-                if task["result"] == 'succeeded':
-                    task_results["success_tasks"] += task["name"] + ";"
-                if task["result"] == 'failed':
-                    task_results["failed_tasks"] += task["name"] + ";"
-                if task["result"] == 'canceled':
-                    task_results["cancelled_tasks"] += task["name"] + ";"
-        return task_results
-
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {
             "id": report_guid,
@@ -278,7 +232,10 @@ class KustoConnector(ReportDBConnector):
             "os_version": os_version,
             "upload_time": str(datetime.utcnow())
         }
-        task_results = self._get_tasks_result(external_tracking_id)
+        # load pipeline task result json file
+        with open(TASK_RESULT_FILE, 'r') as f:
+            task_results = json.load(f)
+
         pipeline_data.update(task_results)
         print("Upload pipeline result")
         self._ingest_data(self.PIPELINE_TABLE, pipeline_data)
@@ -338,8 +295,8 @@ class KustoConnector(ReportDBConnector):
             else:
                 temp.write(json.dumps(data))
             temp.seek(0)
-            print("Ingest to primary cluster...\n")
+            print("Ingest to primary cluster...")
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)
             if self._ingestion_client_backup:
-                print("Ingest to back cluster...\n")
+                print("Ingest to backup cluster...")
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
