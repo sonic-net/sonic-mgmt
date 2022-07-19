@@ -23,7 +23,7 @@
     path: "{{ rsyslog_conf_path }}"
     state: present
     insertafter: '# Define a custom template'
-    line: '$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% %PROCID% %MSGID% [origin swVersion=\"20201231.72\"] %msg%\n"'
+    line: '$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% %PROCID% %MSGID% [origin swVersion=\"{{ sonic_build_version.stdout }}\"] %msg%\n"'
   loop:
     - /usr/share/sonic/templates/rsyslog.conf.j2
     - /etc/rsyslog.conf
