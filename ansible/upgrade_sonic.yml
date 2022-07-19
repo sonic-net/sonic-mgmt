@@ -131,23 +131,8 @@
     - name: Wait for SONiC initialization
       pause: seconds=60
 
-    - name: Patch rsyslog.conf to stop sending syslog to production
-      lineinfile:
-        path: "{{ rsyslog_conf_path }}"
-        state: present
-        backrefs: yes
-        regexp: '(^[^#]*@\[10\.20\.6\.16\]:514)'
-        line: '# \g<1>'
-      loop:
-        - /usr/share/sonic/templates/rsyslog.conf.j2
-        - /etc/rsyslog.conf
-      loop_control:
-        loop_var: rsyslog_conf_path
-      become: true
-
-    - name: Restart rsyslog service
-      shell: systemctl restart rsyslog
-      become: true
+    - name: Patch rsyslog configuration
+      include_tasks: patch_rsyslog.yml
 
     - name: Set all bgp interfaces admin-up
       become: true

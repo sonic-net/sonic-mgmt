@@ -1,0 +1,49 @@
+
+- name: Patch rsyslog to stop sending syslog to production
+  lineinfile:
+    path: "{{ rsyslog_conf_path }}"
+    state: present
+    backrefs: yes
+    regexp: '(^[^#]*@\[10\.20\.6\.16\]:514)'
+    line: '# \g<1>'
+  loop:
+    - /usr/share/sonic/templates/rsyslog.conf.j2
+    - /etc/rsyslog.conf
+  loop_control:
+    loop_var: rsyslog_conf_path
+  become: true
+
+- name: Get sonic version
+  shell: sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version
+  register: sonic_build_version
+
+# The format complies rfc-5424
+- name: Patch rsyslog.conf to have a new template for remote syslog
+  lineinfile:
+    path: "{{ rsyslog_conf_path }}"
+    state: present
+    insertafter: '# Define a custom template'
+    line: '$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% %PROCID% %MSGID% [origin swVersion=\"20201231.72\"] %msg%\n"'
+  loop:
+    - /usr/share/sonic/templates/rsyslog.conf.j2
+    - /etc/rsyslog.conf
+  loop_control:
+    loop_var: rsyslog_conf_path
+  become: true
+
+- name: Patch rsyslog.conf.j2 to use new template for remote syslog
+  lineinfile:
+    path: "/usr/share/sonic/templates/rsyslog.conf.j2"
+    state: present
+    backrefs: yes
+    regex: '(\*\.\* @\[\{\{ server \}\}\]:514)'
+    line: '\g<1>;RemoteSONiCFileFormat'
+  become: true
+
+- name: Patch rsyslog.conf to use new template for remote syslog
+  shell: sed -E -i 's/(^[^#]*@\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]:514).*$/\1;RemoteSONiCFileFormat/g' /etc/rsyslog.conf
+  become: true
+
+- name: Restart rsyslog service
+  shell: systemctl restart rsyslog
+  become: true
