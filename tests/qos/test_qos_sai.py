@@ -234,14 +234,14 @@ class TestQosSai(QosSaiBase):
 
         try:
             prev_state = json.loads(prev_state)
-        except:
-            logging.debug("Couldn't parse {}".format(prev_state))
+        except Exception as e:
+            logging.debug("Exception: {}, PFC_WD State: {}".format(str(e), prev_state))
             prev_state = {}
 
         try:
             prev_poll_interval = int(prev_poll_interval)
-        except:
-            logging.debug("Couldn't parse {}".format(prev_poll_interval))
+        except Exception as e:
+            logging.debug("Exception: {}, Poll Interval: {}".format(str(e), prev_poll_interval))
             prev_poll_interval = 0
 
         # set poll interval for pfcwd
