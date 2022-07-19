@@ -23,6 +23,7 @@ Parameters:
 import logging
 import pytest
 import time
+import json
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -227,9 +228,21 @@ class TestQosSai(QosSaiBase):
                                peer_info = peer_info)
         storm_hndle.deploy_pfc_gen()
 
-        # stop pfcwd
-        logger.info("--- Stopping Pfcwd ---")
-        duthost.command("pfcwd stop")
+        # check if pfcwd status is enabled before running the test
+        prev_state = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
+        prev_poll_interval = duthost.shell('sonic-db-cli CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL'.format(pfcwd_test_port))['stdout']
+
+        try:
+            prev_state = json.loads(prev_state)
+        except:
+            logging.debug("Couldn't parse {}".format(prev_state))
+            prev_state = {}
+
+        try:
+            prev_poll_interval = int(prev_poll_interval)
+        except:
+            logging.debug("Couldn't parse {}".format(prev_poll_interval))
+            prev_poll_interval = 0
 
         # set poll interval for pfcwd
         duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
@@ -260,11 +273,27 @@ class TestQosSai(QosSaiBase):
         except Exception as e:
             raise e
         finally:
+            if prev_poll_interval:
+                logger.info("--- Restore original poll interval {} ---".format(prev_poll_interval))
+                duthost.command("pfcwd interval {}".format(prev_poll_interval))
+            else:
+                logger.info("--- Set Default Polling Interval ---".format())
+                duthost.command("pfcwd interval {}".format("200"))
+
+            if prev_state:
+                logger.info("--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
+                start_wd_on_ports(duthost,
+                        pfcwd_test_port,
+                        prev_state.get("restoration_time", "200")
+                        prev_state.get("detection_time", "200"),
+                        prev_state.get("action", "drop"))
+            else:
+                logger.info("--- Stop PfcWd on {} ---".format(pfcwd_test_port))
+                duthost.command("pfcwd stop {}".format(pfcwd_test_port))
+
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
-            logger.info("--- Stopping Pfcwd ---")
-            duthost.command("pfcwd stop")
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
