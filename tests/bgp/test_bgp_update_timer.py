@@ -53,9 +53,9 @@ def log_bgp_updates(duthost, iface, save_path, ns):
 
 
 @pytest.fixture
-def is_quagga(duthosts, rand_one_dut_hostname):
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
     return "Quagga" in show_res["stdout"]
 
