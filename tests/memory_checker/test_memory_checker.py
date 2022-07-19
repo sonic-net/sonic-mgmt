@@ -78,7 +78,7 @@ def is_hiting_start_limit(duthost, container_name):
     return False
 
 
-def clear_failed_flag_and_restart(duthost, service_name, container_name):
+def clear_failed_flag_and_restart(duthost, container_name):
     """Clears the failed flag and restart container if it hits the restart limitation.
 
     Args:
