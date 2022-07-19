@@ -284,7 +284,7 @@ class TestQosSai(QosSaiBase):
                 logger.info("--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
                 start_wd_on_ports(duthost,
                         pfcwd_test_port,
-                        prev_state.get("restoration_time", "200")
+                        prev_state.get("restoration_time", "200"),
                         prev_state.get("detection_time", "200"),
                         prev_state.get("action", "drop"))
             else:
