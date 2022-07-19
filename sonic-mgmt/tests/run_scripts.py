@@ -56,6 +56,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
     else:
         log_dir = '/data/tests/run_logs'
     current_result_file = open(filename, 'w')
+    report_file = open('full_report.txt', 'w')
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
     total_passed = 0
@@ -95,6 +96,9 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
     current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
     current_result_file.flush()
+    report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
+    report_file.flush()
+
     if collect_logs and dut_address is not None:
         cmd_list = list()
         cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
@@ -104,6 +108,8 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
     if not int(passed):
         current_result_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
         current_result_file.flush()
+        report_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        report_file.flush()
         sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
 
@@ -149,6 +155,9 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
         current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
         current_result_file.flush()
+        report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
+        report_file.flush()
+
         if collect_logs and dut_address is not None:
             cmd_list = list()
             cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
@@ -158,6 +167,9 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
     current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
+    report_file.write("Total     , {} Total, {} Passed, {} Failed, {} Skip, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    report_file.close()
+
     delta2 = datetime.datetime.now()
     print(delta2)
     time_delta = (delta2 - delta1)
