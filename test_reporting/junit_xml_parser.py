@@ -343,7 +343,7 @@ def parse_test_result(roots):
     """
     test_result_json = defaultdict(dict)
     if not roots:
-        print("The pipeline failed, no XML file needs to parse.")
+        print("No XML file needs to be parsed or the file is empty.")
         return
 
     for root in roots:
@@ -676,6 +676,9 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         sys.exit(0)
 
     test_result_json = parse_test_result(roots)
+    if test_result_json is None:
+        print("XML file doesn't exist or no data in the file.")
+        sys.exit(1)
 
     if args.compact:
         output = json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)
