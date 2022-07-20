@@ -9,6 +9,7 @@ import re
 import pytest
 import yaml
 import jinja2
+import copy
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -162,6 +163,11 @@ def pytest_addoption(parser):
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
 
+    ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                    help="To use public docker registry for syncd swap, by default is disabled (False)")
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -388,16 +394,16 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost):
+def ptfhost(ansible_adhoc, tbinfo, duthost, request):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
-        return PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo)
+        return PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo, macsec_enabled = request.config.option.enable_macsec)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo)
+        return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled = request.config.option.enable_macsec)
 
 
 @pytest.fixture(scope="module")
@@ -611,7 +617,8 @@ def creds_on_dut(duthost):
         "sonicadmin_password",
         "docker_registry_host",
         "docker_registry_username",
-        "docker_registry_password"
+        "docker_registry_password",
+        "public_docker_registry_host"
     ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
@@ -646,6 +653,11 @@ def creds_all_duts(duthosts):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+
+    if call.when == 'setup':
+        item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
+    elif call.when == 'teardown':
+        item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
     item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
@@ -842,14 +854,22 @@ def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
     """
     duthost = duthosts[rand_one_dut_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
+    public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
         if swapSyncd:
-            docker.swap_syncd(duthost, creds)
+            if public_docker_reg:
+                new_creds = copy.deepcopy(creds)
+                new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+                new_creds['docker_registry_username'] = ''
+                new_creds['docker_registry_password'] = ''
+            else:
+                new_creds = creds
+            docker.swap_syncd(duthost, new_creds)
 
         yield
     finally:
         if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+            docker.restore_default_syncd(duthost, new_creds)
 
 def get_host_data(request, dut):
     '''
