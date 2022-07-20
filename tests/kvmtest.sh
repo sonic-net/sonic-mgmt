@@ -167,7 +167,8 @@ test_t0() {
       generic_config_updater/test_vlan_interface.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
-      system_health/test_system_status.py"
+      system_health/test_system_status.py \
+      radv/test_radv_ipv6_ra.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
