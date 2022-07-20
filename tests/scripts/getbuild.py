@@ -98,10 +98,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
             print("Download error", e)
             sys.exit(1)
 
-def find_latest_build_id(branch):
+def find_latest_build_id(branch, success_flag = "succeeded"):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0".format(branch)
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
 
     resp = urlopen(builds_url)
 
@@ -130,7 +130,9 @@ def main():
     args = parser.parse_args()
 
     if args.buildid is None:
-        buildid = find_latest_build_id(args.branch)
+        buildid_succ = find_latest_build_id(args.branch, "succeeded")
+        buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
+        buildid = max(buildid_succ,buildid_partial)
     else:
         buildid = int(args.buildid)
 
