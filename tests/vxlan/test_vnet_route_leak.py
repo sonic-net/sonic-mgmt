@@ -36,7 +36,7 @@ LEAKED_ROUTES_TEMPLATE = "Leaked routes: {}"
 
 
 @pytest.fixture(scope="module")
-def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
+def configure_dut(request, minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
     """
     Setup/teardown fixture for VNET route leak test
 
@@ -54,9 +54,10 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
     logger.info("Backing up config_db.json")
     duthost.shell(BACKUP_CONFIG_DB_CMD)
 
+    num_routes = request.config.option.num_routes
     duthost.shell("sonic-clear fdb all")
     generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
-    apply_dut_config_files(duthost, vnet_test_params)
+    apply_dut_config_files(duthost, vnet_test_params, num_routes)
 
     # In this case yield is used only to separate this fixture into setup and teardown portions
     yield
@@ -66,7 +67,7 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
         duthost.shell(RESTORE_CONFIG_DB_CMD)
         duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
 
-        cleanup_vnet_routes(duthost, vnet_test_params)
+        cleanup_vnet_routes(duthost, vnet_test_params, num_routes)
         cleanup_dut_vnets(duthost, minigraph_facts, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
 
