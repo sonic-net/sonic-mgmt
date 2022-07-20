@@ -27,7 +27,7 @@ from tests.common.devices.base import NeighborDevice
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
- 
+
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
 )
@@ -39,11 +39,12 @@ from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
+from tests.common.utilities import str2bool
+from tests.common.utilities import safe_filename
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
-from tests.common.utilities import str2bool
 
 try:
     from tests.macsec import MacsecPlugin
@@ -154,6 +155,22 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
+
+    ###############################
+    # SONiC Metadata upgrade test #
+    ###############################
+
+    parser.addoption(
+        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+
+    #####################################
+    # SONiC Upgrade test with tcam hole #
+    #####################################
+
+    parser.addoption(
+        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
 
     ############################
     #   macsec options         #
@@ -316,7 +333,6 @@ def duthost(duthosts, request):
 
     return duthost
 
-
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -326,7 +342,6 @@ def rand_one_dut_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
-
 
 @pytest.fixture(scope="module")
 def rand_selected_dut(duthosts, rand_one_dut_hostname):
@@ -1297,10 +1312,10 @@ def parametrise_autoneg_tests():
     except IOError:
         logger.warning('Cannot find a datafile for autoneg tests at {}. Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
         return []
-        
+
     def limit_ports(ports):
         return random.sample(ports, min(3, len(ports)))
-    
+
     return [encode_dut_port_name(dutname,dutport) for dutname in data for dutport in limit_ports(data[dutname]) ]
 
 
@@ -1586,10 +1601,11 @@ def collect_db_dump_on_duts(request, duthosts):
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
         local_file_path = "./logs/db_dump"
-        # Convert '/' to '-', in case '/' be recognized as path and lead to compression error
-        nodename = request.node.nodeid.replace('/', '-').replace(':', '_')
-        modulename = request.module.__name__.replace('/', '-')
-        db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, nodename)
+
+        # Remove characters that can't be used in filename
+        nodename = safe_filename(request.node.nodeid)
+        db_dump_path = os.path.join(dut_file_path, nodename)
+        db_dump_tarfile = os.path.join(dut_file_path, "{}.tar.gz".format(nodename))
 
         # We don't need to collect all DBs, db_names specify the DBs we want to collect
         db_names = ["APPL_DB", "ASIC_DB", "COUNTERS_DB", "CONFIG_DB", "STATE_DB"]
@@ -1613,28 +1629,27 @@ def collect_db_dump_on_duts(request, duthosts):
         if namespace_list:
             for namespace in namespace_list:
                 # Collect DB dump
-                db_dump_path = os.path.join(dut_file_path, namespace, modulename, nodename)
-                duthosts.file(path=db_dump_path, state="directory")
-                dump_cmds = []
+                dump_dest_path = os.path.join(db_dump_path, namespace)
+                dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
                 for db_id in db_ids:
-                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, db_id, db_dump_path, db_id)
+                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, db_id, dump_dest_path, db_id)
                     dump_cmds.append(dump_cmd)
                 duthosts.shell_cmds(cmds=dump_cmds)
         else:
             # Collect DB dump
-            db_dump_path = os.path.join(dut_file_path, modulename, nodename)
-            duthosts.file(path = db_dump_path, state="directory")
-            dump_cmds = []
+            dump_dest_path = db_dump_path
+            dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
             for db_id in db_ids:
-                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(db_id, db_dump_path, db_id)
+                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(db_id, dump_dest_path, db_id)
                 dump_cmds.append(dump_cmd)
             duthosts.shell_cmds(cmds=dump_cmds)
 
         #compress dump file and fetch to docker
-        duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
+        duthosts.shell("tar -czf {} -C {} {}".format(db_dump_tarfile, dut_file_path, nodename))
         duthosts.fetch(src = db_dump_tarfile, dest = local_file_path)
+
         #remove dump file from dut
-        duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
+        duthosts.shell("rm -fr {} {}".format(db_dump_tarfile, db_dump_path))
 
 
 @pytest.fixture(autouse=True)
