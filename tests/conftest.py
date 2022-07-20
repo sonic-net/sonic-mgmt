@@ -672,13 +672,6 @@ def pytest_runtest_makereport(item, call):
     setattr(item, "rep_" + rep.when, rep)
 
 
-def fetch_dbs(duthost, testname):
-    dbs = [[0, "appdb"], [1, "asicdb"], [2, "counterdb"], [4, "configdb"]]
-    for db in dbs:
-        duthost.shell("redis-dump -d {} --pretty -o {}.json".format(db[0], db[1]))
-        duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
-
-
 def collect_techsupport_on_dut(request, a_dut):
     # request.node is an "item" because we use the default
     # "function" scope
@@ -1592,28 +1585,29 @@ def collect_db_dump_on_duts(request, duthosts):
     '''
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         dut_file_path = "/tmp/db_dump"
-        docker_file_path = "./logs/db_dump"
+        local_file_path = "./logs/db_dump"
         # Convert '/' to '-', in case '/' be recognized as path and lead to compression error
         nodename = request.node.nodeid.replace('/', '-').replace(':', '_')
         modulename = request.module.__name__.replace('/', '-')
         db_dump_tarfile = "{}-{}.tar.gz".format(dut_file_path, nodename)
 
-        # Collect DB config
-        dbs = set()
-        result = duthosts[0].command(argv=["cat", "/var/run/redis/sonic-db/database_config.json"])
-        db_config = json.loads(result['stdout'])
-        state_db_id = db_config['DATABASES']['STATE_DB']['id']
-        for db in db_config['DATABASES']:
-            db_id = db_config['DATABASES'][db]['id']
+        # We don't need to collect all DBs, db_names specify the DBs we want to collect
+        db_names = ["APPL_DB", "ASIC_DB", "COUNTERS_DB", "CONFIG_DB", "STATE_DB"]
+        raw_db_config = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")["stdout"]
+        db_config = json.loads(raw_db_config).get("DATABASES", {})
+        db_ids = set()
+        for db_name in db_names:
             # Skip STATE_DB dump on release 201911.
             # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
             # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
             # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
             # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
             # to avoid raising exception when dumping the STATE_DB.
-            if db_id == state_db_id and duthosts[0].sonic_release in ['201911']:
+            if db_name == "STATE_DB" and duthosts[0].sonic_release in ['201911']:
                 continue
-            dbs.add(db_id)
+
+            if db_name in db_config:
+                db_ids.add(db_config[db_name].get("id", 0))
 
         namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
         if namespace_list:
@@ -1622,8 +1616,8 @@ def collect_db_dump_on_duts(request, duthosts):
                 db_dump_path = os.path.join(dut_file_path, namespace, modulename, nodename)
                 duthosts.file(path=db_dump_path, state="directory")
                 dump_cmds = []
-                for i in dbs:
-                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, i, db_dump_path, i)
+                for db_id in db_ids:
+                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, db_id, db_dump_path, db_id)
                     dump_cmds.append(dump_cmd)
                 duthosts.shell_cmds(cmds=dump_cmds)
         else:
@@ -1631,14 +1625,14 @@ def collect_db_dump_on_duts(request, duthosts):
             db_dump_path = os.path.join(dut_file_path, modulename, nodename)
             duthosts.file(path = db_dump_path, state="directory")
             dump_cmds = []
-            for i in dbs:
-                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(i, db_dump_path, i)
+            for db_id in db_ids:
+                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(db_id, db_dump_path, db_id)
                 dump_cmds.append(dump_cmd)
             duthosts.shell_cmds(cmds=dump_cmds)
 
         #compress dump file and fetch to docker
         duthosts.command(argv=["tar", "czf", db_dump_tarfile, dut_file_path])
-        duthosts.fetch(src = db_dump_tarfile, dest = docker_file_path)
+        duthosts.fetch(src = db_dump_tarfile, dest = local_file_path)
         #remove dump file from dut
         duthosts.command(argv=["rm", "-rf", db_dump_tarfile, dut_file_path])
 
