@@ -4,3 +4,4 @@ DEFAULT_NAMESPACE = None
 NAMESPACE_PREFIX = 'asic'
 ASIC_PARAM_TYPE_ALL = 'num_asics'
 ASIC_PARAM_TYPE_FRONTEND = 'frontend_asics'
+ASICS_PRESENT = 'asics_present'

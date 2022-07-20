@@ -7,7 +7,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class MultiAsicSonicHost(object):
             hostname: Name of the host in the ansible inventory
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
-        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
@@ -166,7 +166,13 @@ class MultiAsicSonicHost(object):
     def asic_instance(self, asic_index=None):
         if asic_index is None:
             return self.asics[0]
-        return self.asics[asic_index]
+        # if asics_present is defined in the host_vars of the host (in the inventory), then
+        # self.asics is populated based on asics_present (PR# 5828). In this case, self.asics is a list of only
+        # asics present, and not all possible asics. Thus, need to find asic with the right asic_index.
+        for a_asic in self.asics:
+            if a_asic.asic_index == asic_index:
+                return a_asic
+        return None
 
     def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
@@ -636,8 +642,8 @@ class MultiAsicSonicHost(object):
         """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
-            for n in range(duthost.facts['num_asic']):
-                container = container_name + str(n)
+            for a_asic in self.asics:
+                container = a_asic.get_docker_name(container_name)
                 self.shell(argv=["docker", "exec", container, "bash", "-c", cmd])
         else:
             self.shell(argv=["docker", "exec", container_name, "bash", "-c", cmd])
@@ -646,8 +652,8 @@ class MultiAsicSonicHost(object):
         """This function copy from host to ALL asics"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
-            for n in range(duthost.facts['num_asic']):
-                container = container_name + str(n)
+            for a_asic in self.asics:
+                container = a_asic.get_docker_name(container_name)
                 self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
         else:
             self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
@@ -663,8 +669,8 @@ class MultiAsicSonicHost(object):
         """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
-            for asic_index in range(duthost.facts["num_asic"]):
-                docker_name = self.asic_instance(asic_index).get_docker_name(service)
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
                 if not duthost.is_service_fully_started(docker_name): 
                     return False
             return True
@@ -715,4 +721,4 @@ class MultiAsicSonicHost(object):
             if not self.asic_instance(0).is_default_route_removed_from_app_db():
                 return False
         return True
-        
+
