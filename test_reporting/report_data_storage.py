@@ -22,7 +22,7 @@ except ImportError:
 from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
-from collect_azp_results import get_tasks_results
+
 
 TASK_RESULT_FILE = "pipeline_task_results.json"
 
@@ -178,7 +178,7 @@ class KustoConnector(ReportDBConnector):
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
         if not report_json:
-            print("Uploaded file is not found or empty. We only upload pipeline results and summary")
+            print("Test result file is not found or empty. We will only upload pipeline results and summary.")
             self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
             self._upload_summary(report_json, report_guid)
             return
@@ -232,10 +232,13 @@ class KustoConnector(ReportDBConnector):
             "os_version": os_version,
             "upload_time": str(datetime.utcnow())
         }
-        # load pipeline task result json file
-        with open(TASK_RESULT_FILE, 'r') as f:
-            task_results = json.load(f)
-
+        try:
+            # load pipeline task result json file
+            with open(TASK_RESULT_FILE, 'r') as f:
+                task_results = json.load(f)
+        except Exception as e:
+            print("Failed to load file {} with exception {}".format(TASK_RESULT_FILE, repr(e)))
+            task_results = {}
         pipeline_data.update(task_results)
         print("Upload pipeline result")
         self._ingest_data(self.PIPELINE_TABLE, pipeline_data)
