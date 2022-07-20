@@ -29,7 +29,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
  
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID,
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
@@ -955,7 +955,10 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                 if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
                     dut_asic_params = [DEFAULT_ASIC_ID]
                 else:
-                    dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                    if ASICS_PRESENT in inv_data:
+                        dut_asic_params = inv_data[ASICS_PRESENT]
+                    else:
+                        dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
@@ -1134,8 +1137,8 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
-            if "features" in meta[dut]:
-                for a_feature in meta[dut]["features"].keys():
+            if "features" in meta[a_dut]:
+                for a_feature in meta[a_dut]["features"].keys():
                     if a_feature not in skip_feature_list:
                         tuple_list.append((a_dut, None, a_feature))
             else:

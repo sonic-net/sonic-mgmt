@@ -15,6 +15,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -182,6 +183,8 @@ class SonicHost(AnsibleHostBase):
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
         facts["switch_type"] = self._get_switch_type()
+        asics_present = self.get_asics_present_from_inventory()
+        facts["asics_present"] = asics_present if len(asics_present) != 0 else range(facts["num_asic"])
 
         platform_asic = self._get_platform_asic(facts["platform"])
         if platform_asic:
@@ -339,6 +342,14 @@ class SonicHost(AnsibleHostBase):
             if len(fields) >= 2:
                 result[fields[0]] = fields[1]
         return result
+
+    def get_asics_present_from_inventory(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        dut_vars = get_host_visible_vars(inv_files, self.hostname)
+        if dut_vars and 'asics_present' in dut_vars:
+            return dut_vars['asics_present']
+        return []
 
     def is_supervisor_node(self):
         """Check if the current node is a supervisor node in case of multi-DUT.
