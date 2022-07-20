@@ -20,7 +20,7 @@ TEST_CASE = [
         "sai_vlan_test.ArpRequestFloodingTest",
         "sai_vlan_test.ArpRequestLearningTest",
         "sai_vlan_test.TaggedVlanStatusTest",
-        "sai_vlan_test.UntaggedVlanStatusTest"
+        "sai_vlan_test.UntaggedVlanStatusTest",
         "sai_fdb_test.L2PortForwardingTest",
         #"sai_fdb_test.VlanLearnDisableTest",
         "sai_fdb_test.BridgePortLearnDisableTest",
