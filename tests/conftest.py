@@ -156,22 +156,6 @@ def pytest_addoption(parser):
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
 
-    ###############################
-    # SONiC Metadata upgrade test #
-    ###############################
-
-    parser.addoption(
-        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-
-    #####################################
-    # SONiC Upgrade test with tcam hole #
-    #####################################
-
-    parser.addoption(
-        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-
     ############################
     #   macsec options         #
     ############################

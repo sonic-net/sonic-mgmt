@@ -620,6 +620,8 @@ def setup_ferret(duthost, ptfhost, tbinfo):
 def safe_filename(filename, replacement_char='_'):
     """Replace illegal characters in the original filename with "_" or other specified characters.
 
+    Reference: https://www.mtu.edu/umc/services/websites/writing/characters-avoid/
+
     Args:
         filename (str): The original filename
         replacement_char (str, optional): Replacement for illegal characters. Defaults to '_'.
