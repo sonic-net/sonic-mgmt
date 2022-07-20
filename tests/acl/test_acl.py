@@ -413,7 +413,7 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
         "Egress ACLs are not currently supported on {} topo".format(tbinfo["topo"]["name"])
     )
     pytest_require(
-        request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
+        request.param == "ingress" or duthost.facts["platform_asic"] == "broadcom-dnx" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
