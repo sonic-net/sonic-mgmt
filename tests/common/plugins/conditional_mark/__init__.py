@@ -133,7 +133,8 @@ def load_dut_basic_facts(session, inv_name, dut_name):
     results = {}
     logger.info('Getting dut basic facts')
     try:
-        ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
+        inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
+        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -293,24 +294,27 @@ def evaluate_condition(condition, basic_facts):
         return False
 
 
-def evaluate_conditions(conditions, basic_facts):
+def evaluate_conditions(conditions, basic_facts, conditions_logical_operator):
     """Evaluate all the condition strings.
 
-    Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND logical operation
-    to all of them.
+    Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND or OR
+    logical operation to all of them based on conditions_logical_operator(by default AND).
 
     Args:
         conditions (str or list): Condition string or list of condition strings.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
+        conditions_logical_operator (str): logical operator which should be applied to conditions(by default 'AND')
 
     Returns:
         bool: True or False based on condition strings evaluation result.
     """
     if isinstance(conditions, list):
-        # Apply 'AND' operation to list of conditions
-        # Personally, I think it makes more sense to apply 'AND' logical operation to a list of conditions.
-        return all([evaluate_condition(c, basic_facts) for c in conditions])
+        # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
+        if conditions_logical_operator == 'OR':
+            return any([evaluate_condition(c, basic_facts) for c in conditions])
+        else:
+            return all([evaluate_condition(c, basic_facts) for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
@@ -380,7 +384,8 @@ def pytest_collection_modifyitems(session, config, items):
                             # Unconditionally add mark
                             add_mark = True
                         else:
-                            add_mark = evaluate_conditions(mark_conditions, basic_facts)
+                            conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts, conditions_logical_operator)
 
                     if add_mark:
                         reason = ''
