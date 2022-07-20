@@ -2,24 +2,27 @@ import math
 
 class QosParamMellanox(object):
     def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
-        asic_param_dic = {
+        self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
-                'headroom_overhead': 95
+                'headroom_overhead': 95,
+                'private_headroom': 30
             },
             'spc2': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             },
             'spc3': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             }
         }
 
         self.asic_type = asic_type
-        self.cell_size = asic_param_dic[asic_type]['cell_size']
-        self.headroom_overhead = asic_param_dic[asic_type]['headroom_overhead']
+        self.cell_size = self.asic_param_dic[asic_type]['cell_size']
+        self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
         if speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
@@ -200,3 +203,4 @@ class QosParamMellanox(object):
             self.qos_params_mlnx['ecn_{}'.format(i+1)]['cell_size'] = self.cell_size
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
+        self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']
