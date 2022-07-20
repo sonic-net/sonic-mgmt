@@ -22,12 +22,16 @@ Parameters:
 
 import logging
 import pytest
+import time
+import json
 
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
+from tests.common.helpers.pfc_storm import PFCStorm
+from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -135,6 +139,161 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
+
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
+    def testPfcStormWithSharedHeadroomOccupancy(
+        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
+        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
+    ):
+        """
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Only for MLNX Platforms
+
+            Args:
+                xonProfile (pytest parameter): XON profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                fanout_graph_facts(fixture) : fanout graph info
+                fanouthosts(AnsibleHost): fanout instance
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
+            pytest.skip("This Test Case is only meant for Mellanox ASIC")
+
+        if not sharedHeadroomPoolSize or sharedHeadroomPoolSize == "0":
+            pytest.skip("Shared Headroom has to be enabled for this test")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+                qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+            else:
+                qosConfig = dutQosConfig["param"]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[xonProfile]["dscp"],
+            "ecn": qosConfig[xonProfile]["ecn"],
+            "pg": qosConfig[xonProfile]["pg"],
+            "buffer_max_size": ingressLosslessProfile["size"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
+            "pkts_num_private_headrooom": dutQosConfig["param"]["pkts_num_private_headrooom"]
+        })
+
+        # Params required for generating a PFC Storm
+        duthost = dutConfig["dutInstance"]
+        pfcwd_timers = set_pfc_timers()
+        pfcwd_test_port_id = dutConfig["testPorts"]["src_port_id"]
+        pfcwd_test_port = dutConfig["dutInterfaces"][pfcwd_test_port_id]
+        fanout_neighbors = conn_graph_facts["device_conn"][duthost.hostname]
+        peerdevice = fanout_neighbors[pfcwd_test_port]["peerdevice"]
+        peerport = fanout_neighbors[pfcwd_test_port]["peerport"]
+        peer_info = {
+            'peerdevice': peerdevice,
+            'hwsku': fanout_graph_facts[peerdevice]["device_info"]["HwSku"],
+            'pfc_fanout_interface': peerport
+        }
+
+        queue_index = qosConfig[xonProfile]["pg"]
+        frames_number = 100000000
+
+        logging.info("PFC Storm Gen Params \n DUT iface: {} Fanout iface : {}\
+                      queue_index: {} peer_info: {}".format(pfcwd_test_port,
+                                                            peerport,
+                                                            queue_index,
+                                                            peer_info))
+
+        # initialize PFC Storm Handler
+        storm_hndle = PFCStorm(duthost, fanout_graph_facts, fanouthosts,
+                               pfc_queue_idx = queue_index,
+                               pfc_frames_number = frames_number,
+                               peer_info = peer_info)
+        storm_hndle.deploy_pfc_gen()
+
+        # check if pfcwd status is enabled before running the test
+        prev_state = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
+        prev_poll_interval = duthost.shell('sonic-db-cli CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL'.format(pfcwd_test_port))['stdout']
+
+        try:
+            prev_state = json.loads(prev_state)
+        except Exception as e:
+            logging.debug("Exception: {}, PFC_WD State: {}".format(str(e), prev_state))
+            prev_state = {}
+
+        try:
+            prev_poll_interval = int(prev_poll_interval)
+        except Exception as e:
+            logging.debug("Exception: {}, Poll Interval: {}".format(str(e), prev_poll_interval))
+            prev_poll_interval = 0
+
+        # set poll interval for pfcwd
+        duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
+
+        logger.info("--- Start Pfcwd on port {}".format(pfcwd_test_port))
+        start_wd_on_ports(duthost,
+                          pfcwd_test_port,
+                          pfcwd_timers['pfc_wd_restore_time'],
+                          pfcwd_timers['pfc_wd_detect_time'])
+
+        try:
+            logger.info("---  Fill the ingress buffers ---")
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfFillBuffer", testParams=testParams
+            )
+
+            # Trigger PfcWd
+            storm_hndle.start_storm()
+            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
+            time.sleep(10)
+            storm_hndle.stop_storm()
+            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
+
+            logger.info("---  Enable dst iface and verify if the PFC frames are not sent from src port ---")
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfReleaseBuffer", testParams=testParams
+            )
+        except Exception as e:
+            raise e
+        finally:
+            if prev_poll_interval:
+                logger.info("--- Restore original poll interval {} ---".format(prev_poll_interval))
+                duthost.command("pfcwd interval {}".format(prev_poll_interval))
+            else:
+                logger.info("--- Set Default Polling Interval ---".format())
+                duthost.command("pfcwd interval {}".format("200"))
+
+            if prev_state:
+                logger.info("--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
+                start_wd_on_ports(duthost,
+                        pfcwd_test_port,
+                        prev_state.get("restoration_time", "200"),
+                        prev_state.get("detection_time", "200"),
+                        prev_state.get("action", "drop"))
+            else:
+                logger.info("--- Stop PfcWd on {} ---".format(pfcwd_test_port))
+                duthost.command("pfcwd stop {}".format(pfcwd_test_port))
+
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
+            )
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
     def testQosSaiPfcXonLimit(
