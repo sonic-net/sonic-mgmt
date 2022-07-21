@@ -44,6 +44,17 @@ ACTIVE_ACTIVE_INTERFACES_TEMPLATE = "iaa-%s-%d"
 ACTIVE_ACTIVE_INTERFACE_PATTERN = "iaa-[\w-]+-\d+"
 SERVER_NIC_INTERFACE_TEMPLATE = "nic-%s-%d"
 SERVER_NIC_INTERFACE_PATTERN = "nic-[\w-]+-\d+"
+GRPC_TIMEOUT = 0.5
+GRPC_SERVER_OPTIONS = [
+    ('grpc.http2.min_ping_interval_without_data_ms', 1000),
+    ('grpc.http2.max_ping_strikes',  0)
+]
+GRPC_CLIENT_OPTIONS = [
+    ('grpc.keepalive_timeout_ms', 8000),
+    ('grpc.keepalive_time_ms', 4000),
+    ('grpc.keepalive_permit_without_calls', True),
+    ('grpc.http2.max_pings_without_data', 0)
+]
 
 
 def get_ip_address(ifname):
@@ -530,9 +541,10 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
 
     def _run_server(self, binding_port):
         """Run the gRPC server."""
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
-                                                   options=[('grpc.http2.min_ping_interval_without_data_ms', 1000),
-                                                            ('grpc.http2.max_ping_strikes',  0)])
+        self.server = grpc.server(
+            futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
+            options=GRPC_SERVER_OPTIONS
+        )
         nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
             self.server
@@ -569,7 +581,10 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
             client_stub = self.client_stubs[nic_address]
         else:
             client_stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(
-                grpc.insecure_channel("%s:%s" % (nic_address, self.binding_port))
+                grpc.insecure_channel(
+                    "%s:%s" % (nic_address, self.binding_port),
+                    options=GRPC_CLIENT_OPTIONS
+                )
             )
             self.client_stubs[nic_address] = client_stub
         return client_stub
@@ -585,7 +600,8 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
                     nic_simulator_grpc_service_pb2.AdminRequest(
                         portid=[0, 1],
                         state=[True, True]
-                    )
+                    ),
+                    timeout=GRPC_TIMEOUT
                 )
                 query_responses.append(state)
             except Exception as e:
@@ -608,7 +624,8 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
             client_stub = self._get_client_stub(nic_address)
             try:
                 state = client_stub.SetAdminForwardingPortState(
-                    admin_request
+                    admin_request,
+                    timeout=GRPC_TIMEOUT
                 )
                 set_responses.append(state)
             except Exception as e:
@@ -626,9 +643,10 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         return nic_simulator_grpc_mgmt_service_pb2.ListOfOperationReply()
 
     def start(self):
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
-                                                   options=[('grpc.http2.min_ping_interval_without_data_ms', 1000),
-                                                            ('grpc.http2.max_ping_strikes',  0)])
+        self.server = grpc.server(
+            futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
+            options=GRPC_SERVER_OPTIONS
+        )
         nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(self, self.server)
         self.server.add_insecure_port("%s:%s" % (self.binding_address, self.binding_port))
         self.server.start()
