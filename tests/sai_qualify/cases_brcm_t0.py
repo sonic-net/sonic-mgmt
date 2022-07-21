@@ -3,7 +3,6 @@ Test cases list under test/sai_test
 """
 TEST_CASE = [
         "sai_sanity_test.SaiSanityTest",
-        "sai_fdb_test.L2_Port_Forwarding_Test",
         "sai_vlan_test.Vlan_Domain_Forwarding_Test",
         "sai_vlan_test.UntagAccessToAccessTest",
         "sai_vlan_test.MismatchDropTest",
@@ -21,5 +20,27 @@ TEST_CASE = [
         "sai_vlan_test.ArpRequestFloodingTest",
         "sai_vlan_test.ArpRequestLearningTest",
         "sai_vlan_test.TaggedVlanStatusTest",
-        "sai_vlan_test.UntaggedVlanStatusTest"
+        "sai_vlan_test.UntaggedVlanStatusTest",
+        "sai_fdb_test.L2PortForwardingTest",
+        #"sai_fdb_test.VlanLearnDisableTest",
+        "sai_fdb_test.BridgePortLearnDisableTest",
+        #"sai_fdb_test.NonBridgePortNoLearnTest",
+        "sai_fdb_test.NewVlanmemberLearnTest",
+        "sai_fdb_test.RemoveVlanmemberLearnTest",
+        "sai_fdb_test.InvalidateVlanmemberNoLearnTest",
+        "sai_fdb_test.BroadcastNoLearnTest",
+        "sai_fdb_test.MulticastNoLearnTest",
+        "sai_fdb_test.FdbAgingTest",
+        "sai_fdb_test.FdbAgingAfterMoveTest",
+        "sai_fdb_test.FdbMacMovingAfterAgingTest",
+        #"sai_fdb_test.FdbFlushVlanStaticTest",
+        #"sai_fdb_test.FdbFlushPortStaticTest",
+        #"sai_fdb_test.FdbFlushAllStaticTest",
+        "sai_fdb_test.FdbFlushVlanDynamicTest",
+        "sai_fdb_test.FdbFlushPortDynamicTest",
+        "sai_fdb_test.FdbFlushAllDynamicTest",
+        #"sai_fdb_test.FdbFlushAllTest",
+        "sai_fdb_test.FdbDisableMacMoveDropTest",
+        "sai_fdb_test.FdbDynamicMacMoveTest",
+        "sai_fdb_test.FdbStaticMacMoveTest"
         ]
