@@ -94,10 +94,9 @@ class AdvancedReboot:
         self.__buildTestbedData(tbinfo)
 
         if self.rebootType == 'service-warm-restart':
-            assert hasattr(self, 'service_name')
+            assert hasattr(self, 'service_list')
             # self.current_docker_image = None
-            self.new_docker_image = None
-            self.docker_image_name = None
+            self.service_data = {}
 
     def __extractTestParam(self):
         '''
@@ -342,19 +341,28 @@ class AdvancedReboot:
         if self.new_docker_image is None:
             return
 
-        """
-        image_name = self.duthost.shell('docker ps | grep {} | awk \'{print $2}\''.format(self.service_name))['stdout']
-        temp_file = self.duthost.shell('mktemp')['stdout']
-        logger.info('Save old docker image {}'.format(image_name))
-        self.duthost.shell('docker save {} -o {}'.format(image_name, temp_file))
-        self.current_docker_image = temp_file
-        """
-        self.docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{print $2}\''.format(self.service_name))['stdout']
-        self.docker_image_name = self.docker_image_name.split(':')[0]
-        temp_file = self.duthost.shell('mktemp')['stdout']
-        logger.info('Download new docker image')
-        self.duthost.shell('curl {0}/{1}.gz --output {2}'.format(self.new_docker_image, self.service_name, temp_file))
-        self.new_docker_image = temp_file
+        for service_name in self.service_list:
+            data = {}
+            docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''.format(service_name))['stdout']
+            cmd = 'docker images {} --format \{{\{{.ID\}}\}}'.format(docker_image_name)
+            data['image_id'] = self.duthost.shell(cmd)['stdout']
+            data['image_name'], data['image_tag'] = docker_image_name.split(':')
+
+            local_image_path = '/tmp/{}.gz'.format(data['image_name'])
+            logger.info('Downloading new docker image for {} to {}'.format(service_name, local_image_path))
+            self.localhost.shell('curl {0}/{1}.gz --output {2}'.format(self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)
+            if os.path.exists(local_image_path):
+                temp_file = self.duthost.shell('mktemp')['stdout']
+                self.duthost.copy(src=local_image_path, dest=temp_file)
+                self.localhost.shell('rm -f /tmp/{}.gz'.format(data['image_name']))
+                data['image_path_on_dut'] = temp_file
+                logger.info('Successfully downloaded docker image, will perform in-service upgrade')
+            else:
+                data['image_path_on_dut'] = None
+                logger.info('Docker image not found, will perform in-service reboot')
+            self.service_data[service_name] = data
+
+        logger.info('service data = {}'.format(json.dumps(self.service_data, indent=2)))
 
     def __setupTestbed(self):
         '''
@@ -620,8 +628,8 @@ class AdvancedReboot:
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files" : self.prebootFiles,
             "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword"),
-            "service_name": None if self.rebootType != 'service-warm-restart' else self.service_name,
-            "docker_image": None if self.rebootType != 'service-warm-restart' else self.new_docker_image,
+            "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
+            "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -677,25 +685,29 @@ class AdvancedReboot:
     def __restorePrevDockerImage(self):
         """Restore previous docker image
         """
-        if self.new_docker_image is not None:
-            self.duthost.shell('rm -f {}'.format(self.new_docker_image))
-            logger.info('Restore current docker image')
-            self.duthost.shell('sudo sonic-installer rollback-docker {} -y'.format(self.docker_image_name))
+        for service_name, data in self.service_data.items():
+            if data['image_path_on_dut'] is None:
+                self.duthost.shell('sudo config warm_restart disable {}'.format(service_name))
+                continue
 
-            #todo: clean up docker image
+            self.duthost.shell('rm -f {}'.format(data['image_path_on_dut']))
+            logger.info('Restore docker image for {}'.format(service_name))
+            self.duthost.shell('service {} stop'.format(service_name))
+            self.duthost.shell('docker rm {}'.format(service_name))
+            image_ids = self.duthost.shell('docker images {} --format \{{\{{.ID\}}\}}'.format(data['image_name']))['stdout_lines']
+            for image_id in image_ids:
+                if image_id != data['image_id']:
+                    self.duthost.shell('docker rmi -f {}'.format(image_id))
+                    break
 
-            """
-            self.duthost.shell('docker load < {}'.format(self.current_docker_image))
-            self.duthost.shell('rm -f {}'.format(self.current_docker_image))
-            """
+            self.duthost.shell('docker tag {} {}:{}'.format(data['image_id'], data['image_name'], data['image_tag']))
 
-            #logger.info('Restart service {}'.format(self.service_name))
-            #self.duthost.shell('service {} restart'.format(self.service_name))
-            wait_critical_processes(self.duthost)
-            check_critical_processes(self.duthost, 60)
-            check_interface_status_of_up_ports(self.duthost)
-        else:
-            self.duthost.shell('sudo config warm_restart disable {}'.format(self.service_name))
+        rebootDut(
+            self.duthost,
+            self.localhost,
+            reboot_type='cold',
+            wait = 300
+        )
 
     def tearDown(self):
         '''
@@ -716,8 +728,13 @@ class AdvancedReboot:
             self.__runScript([self.postRebootCheckScript], self.duthost)
 
         if not self.stayInTargetImage:
-            self.__restorePrevImage()
-            self.__restorePrevDockerImage()
+            logger.info('Restoring previous image')
+            if self.rebootType != 'service-warm-restart':
+                self.__restorePrevImage()
+            else:
+                self.__restorePrevDockerImage()
+        else:
+            logger.info('Stay in new image')
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
