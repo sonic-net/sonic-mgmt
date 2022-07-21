@@ -142,7 +142,7 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="session")
     def upstream_links(self, duthost, tbinfo, nbrhosts):
-        links = collections.defaultdict(dict)
+        links = collections.OrderedDict()
 
         def filter(interface, neighbor, mg_facts, tbinfo):
             if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
@@ -178,7 +178,7 @@ class MacsecPlugin(object):
         return False
 
     def find_links_from_nbr(self, duthost, tbinfo, nbrhosts):
-        links = collections.defaultdict(dict)
+        links = collections.OrderedDict()
 
         def filter(interface, neighbor, mg_facts, tbinfo):
             if neighbor["name"] not in nbrhosts.keys():

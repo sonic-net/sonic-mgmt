@@ -142,7 +142,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         set_macsec_profile(duthost, dut_port, profile_name, default_priority,
                        cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
         enable_macsec_port(duthost, dut_port, profile_name)
-        if i % 2 == 0:
+        if i % 2 != 0:
             priority = default_priority - 1
         else:
             priority = default_priority + 1
