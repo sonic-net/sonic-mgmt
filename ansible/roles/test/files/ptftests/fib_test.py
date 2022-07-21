@@ -250,7 +250,7 @@ class FibTest(BaseTest):
                 # Change balancing_test_times according to number of next hop groups
                 logging.info('Checking ip range balancing {}, src_port={}, exp_ports={}, dst_ip={}, dut_index={}'\
                     .format(ip_range, src_port, exp_port_lists, dst_ip, dut_index))
-                for i in range(0, self.balancing_test_times*len(exp_ports)):
+                for i in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
                     (matched_port, _) = self.check_ip_route(src_port, dst_ip, exp_port_lists, ipv4)
                     hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
                 for next_hop in next_hops:
