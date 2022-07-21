@@ -49,7 +49,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     parser.add_argument(
         "--testbed", "-t", type=str, help="Name of testbed."
     )
-    os_version = parser.add_mutually_exclusive_group(required=True)
+    os_version = parser.add_mutually_exclusive_group(required=False)
     os_version.add_argument(
         "--image_url", "-i", type=str, help="Image url. If has this argument, will ignore version. They are mutually exclusive."
     )
