@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 
 
@@ -9,10 +10,11 @@ class TestResultJSONValidationError(Exception):
 def validate_json_file(path):
     if not os.path.exists(path):
         print(f"{path} not found")
-        return
+        sys.exit(1)
     if not os.path.isfile(path):
         print(f"{path} is not a JSON file")
-        return
+        sys.exit(1)
+
     try:
         with open(path) as f:
             test_result_json = json.load(f)
