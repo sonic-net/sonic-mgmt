@@ -11,6 +11,20 @@ from junit_xml_parser import (
 )
 from report_data_storage import KustoConnector
 
+def _parse_os_version(image_url):
+    """Parse os version from image url"""
+    os_version = ''
+    items = image_url.split("/")
+    if "public" in items:
+        os_version = "master"
+    elif "internal" in items:
+        os_version = "internal"
+    else:
+        # For other images, such as 202012, there is internal-202012 in url.
+        for item in items:
+            if "internal" in item:
+                os_version = item.split("-")[-1]
+    return os_version if os_version else "UNKNOWN"
 
 def _run_script():
     parser = argparse.ArgumentParser(
@@ -32,6 +46,16 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     parser.add_argument(
         "--category", "-c", type=str, help="Type of data to upload (i.e. test_result, reachability, etc.)"
     )
+    parser.add_argument(
+        "--testbed", "-t", type=str, help="Name of testbed."
+    )
+    os_version = parser.add_mutually_exclusive_group(required=True)
+    os_version.add_argument(
+        "--image_url", "-i", type=str, help="Image url. If has this argument, will ignore version. They are mutually exclusive."
+    )
+    os_version.add_argument(
+        "--version", "-o", type=str, help="OS version. If has this argument, will ignore image_url. They are mutually exclusive."
+    )
 
     args = parser.parse_args()
     kusto_db = KustoConnector(args.db_name)
@@ -39,6 +63,13 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     if args.category == "test_result":
         tracking_id = args.external_id if args.external_id else ""
         report_guid = str(uuid.uuid4())
+        testbed = args.testbed
+        if args.image_url:
+            version = _parse_os_version(args.image_url)
+        elif args.version:
+            version = args.version
+        else:
+            version = "UNKNOWN"
         for path_name in args.path_list:
             reboot_data_regex = re.compile('.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
             if reboot_data_regex.match(path_name):
@@ -49,7 +80,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 else:
                     roots = validate_junit_xml_path(path_name)
                     test_result_json = parse_test_result(roots)
-                kusto_db.upload_report(test_result_json, tracking_id, report_guid)
+                kusto_db.upload_report(test_result_json, tracking_id, report_guid, testbed, version)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:
