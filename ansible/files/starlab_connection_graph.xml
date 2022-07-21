@@ -1726,11 +1726,11 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet16/3" StartDevice="str-agc7648-acs-1" StartPort="Ethernet46"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet16/4" StartDevice="str-agc7648-acs-1" StartPort="Ethernet47"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet17/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet18/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet49"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet19/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet50"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet20/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet51"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet21/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet22/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet53"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet18/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet19/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet20/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet21/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-fan-03" EndPort="Ethernet22/1" StartDevice="str-agc7648-acs-1" StartPort="Ethernet68"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet7/1" StartDevice="str-msn2700-20" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet7/2" StartDevice="str-msn2700-20" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet7/3" StartDevice="str-msn2700-20" StartPort="Ethernet2"/>

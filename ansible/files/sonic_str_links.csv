@@ -1616,11 +1616,11 @@ str-agc7648-acs-1,Ethernet45,str-7260cx3-fan-03,Ethernet16/2,10000,2056,Access
 str-agc7648-acs-1,Ethernet46,str-7260cx3-fan-03,Ethernet16/3,10000,2057,Access
 str-agc7648-acs-1,Ethernet47,str-7260cx3-fan-03,Ethernet16/4,10000,2058,Access
 str-agc7648-acs-1,Ethernet48,str-7260cx3-fan-03,Ethernet17/1,100000,2059,Access
-str-agc7648-acs-1,Ethernet49,str-7260cx3-fan-03,Ethernet18/1,100000,2060,Access
-str-agc7648-acs-1,Ethernet50,str-7260cx3-fan-03,Ethernet19/1,100000,2061,Access
-str-agc7648-acs-1,Ethernet51,str-7260cx3-fan-03,Ethernet20/1,100000,2062,Access
-str-agc7648-acs-1,Ethernet52,str-7260cx3-fan-03,Ethernet21/1,100000,2063,Access
-str-agc7648-acs-1,Ethernet53,str-7260cx3-fan-03,Ethernet22/1,100000,2064,Access
+str-agc7648-acs-1,Ethernet52,str-7260cx3-fan-03,Ethernet18/1,100000,2060,Access
+str-agc7648-acs-1,Ethernet56,str-7260cx3-fan-03,Ethernet19/1,100000,2061,Access
+str-agc7648-acs-1,Ethernet60,str-7260cx3-fan-03,Ethernet20/1,100000,2062,Access
+str-agc7648-acs-1,Ethernet64,str-7260cx3-fan-03,Ethernet21/1,100000,2063,Access
+str-agc7648-acs-1,Ethernet68,str-7260cx3-fan-03,Ethernet22/1,100000,2064,Access
 str-msn2700-20,Ethernet0,str-7060cx-32s-04,Ethernet7/1,10000,2065,Access
 str-msn2700-20,Ethernet1,str-7060cx-32s-04,Ethernet7/2,10000,2066,Access
 str-msn2700-20,Ethernet2,str-7060cx-32s-04,Ethernet7/3,10000,2067,Access
