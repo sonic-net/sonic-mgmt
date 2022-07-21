@@ -603,7 +603,8 @@ class QosSaiBase(QosBase):
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic" : dutAsic,
-            "dutTopo" : dutTopo
+            "dutTopo" : dutTopo,
+            "dutInstance" : duthost
         }
 
     @pytest.fixture(scope='class')
