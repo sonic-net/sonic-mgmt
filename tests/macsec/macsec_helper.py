@@ -130,8 +130,6 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
     # CHeck MACsec SA Table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
-    assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
-    assert len(nbr_ingress_sa_table) >= len(dut_egress_sa_table)
     for egress_sas, ingress_sas in \
             ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
         for an, sa in egress_sas.items():
