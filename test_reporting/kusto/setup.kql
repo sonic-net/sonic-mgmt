@@ -106,6 +106,25 @@
                                                                                   '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
 
 ###############################################################################
+# PIPELINE TABLE SETUP                                                        #
+# 1. Create a TestReportPipeline table to store test metadata                 #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportPipeline (UploadTimestamp: datetime, TrackingId: string,
+                                  ReportId: string, TestbedName: string,
+                                  OSVersion: string, SuccessTasks: string,
+                                  FailedTasks: string, CancelledTasks: string)
+
+.create table TestReportPipeline ingestion json mapping 'FlatPipelineMappingV1' @'[{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
+                                                                                  '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
+                                                                                  '{"column":"CanceledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
+
+###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
 # 1. Create a ExpectedTestRuns table to store expected test runs data         #
 # 2. Add a JSON mapping for the table                                         #
