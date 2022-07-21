@@ -2,7 +2,6 @@ import os
 import re
 import time
 import json
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -12,7 +11,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 BGP_PLAIN_TEMPLATE = 'bgp_plain.j2'
 BGP_NO_EXPORT_TEMPLATE = 'bgp_no_export.j2'
 BGP_CONFIG_BACKUP = 'backup_bgpd.conf.j2'
-DEFAULT_BGP_CONFIG = 'bgp:/usr/share/sonic/templates/bgpd/bgpd.conf.j2'
+DEFAULT_BGP_CONFIG = '/usr/share/sonic/templates/bgpd/bgpd.conf.j2'
 DUMP_FILE = "/tmp/bgp_monitor_dump.log"
 CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
 CUSTOM_DUMP_SCRIPT_DEST = "/usr/share/exabgp/bgp_monitor_dump.py"
@@ -30,22 +29,10 @@ def apply_bgp_config(duthost, template_name):
         duthost: DUT host object
         template_name: pathname of the bgp config on the DUT
     """
-    duthost.shell('docker cp {} {}'.format(template_name, DEFAULT_BGP_CONFIG))
-    restart_bgp(duthost)
-
-
-def restart_bgp(duthost, asic_index=DEFAULT_ASIC_ID):
-    """
-    Restart bgp services on the DUT
-
-    Args:
-        duthost: DUT host object
-    """
-    duthost.asic_instance(asic_index).reset_service("bgp")
-    duthost.asic_instance(asic_index).restart_service("bgp")
-    docker_name = duthost.asic_instance(asic_index).get_docker_name("bgp")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, docker_name), "BGP not started.")
-
+    duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
+    duthost.restart_service("bgp")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"), "SWSS not started.")
 
 def define_config(duthost, template_src_path, template_dst_path):
     """
@@ -58,7 +45,7 @@ def define_config(duthost, template_src_path, template_dst_path):
     """
     duthost.shell("mkdir -p {}".format(DUT_TMP_DIR))
     duthost.copy(src=template_src_path, dest=template_dst_path)
-
+        
 
 def get_no_export_output(vm_host):
     """
@@ -81,12 +68,13 @@ def apply_default_bgp_config(duthost, copy=False):
     """
     bgp_config_backup = os.path.join(DUT_TMP_DIR, BGP_CONFIG_BACKUP)
     if copy:
-        duthost.shell('docker cp {} {}'.format(DEFAULT_BGP_CONFIG, bgp_config_backup))
+        duthost.docker_copy_from_asic('bgp', DEFAULT_BGP_CONFIG, bgp_config_backup)
     else:
-        duthost.shell('docker cp {} {}'.format(bgp_config_backup, DEFAULT_BGP_CONFIG))
+        duthost.docker_copy_to_all_asics('bgp', bgp_config_backup, DEFAULT_BGP_CONFIG)
         # Skip 'start-limit-hit' threshold
-        duthost.shell('systemctl reset-failed bgp')
-        restart_bgp(duthost)
+        duthost.reset_service("bgp")
+        duthost.restart_service("bgp")
+        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 def parse_exabgp_dump(host):
     """
@@ -149,7 +137,8 @@ def remove_bgp_neighbors(duthost, asic_index):
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    duthost.restart_service_on_asic("bgp", asic_index)
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
     return bgp_neighbors
 
@@ -166,4 +155,5 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
 
     # Restart BGP instance on that asic
-    restart_bgp(duthost, asic_index)
+    duthost.restart_service_on_asic("bgp", asic_index)
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")

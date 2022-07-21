@@ -21,6 +21,24 @@ PREFIXES_V6_DUMMY = "fc01:30::/64"
 PREFIXES_V4_RE    = "ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
 PREFIXES_V6_RE    = "ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
 
+
+def get_bgp_prefix_runningconfig(duthost):
+    """ Get bgp prefix config
+    """
+    cmds = "show runningconfiguration bgp"
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'],
+        "'{}' failed with rc={}".format(cmds, output['rc'])
+    )
+
+    # Sample:
+    # ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V4 seq 30 permit 10.20.0.0/16 le 32
+    # ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V6 seq 20 deny ::/0 ge 65
+    bgp_prefix_pattern = r"(?:ip|ipv6) prefix-list.*(?:deny|permit).*"
+    bgp_prefix_config = re.findall(bgp_prefix_pattern, output['stdout'])
+    return bgp_prefix_config
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -30,6 +48,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -37,8 +56,13 @@ def setup_env(duthosts, rand_one_dut_hostname):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        current_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
+        pytest_assert(set(original_bgp_prefix_config) == set(current_bgp_prefix_config),
+            "bgp prefix config are not suppose to change after test"
+        )
     finally:
         delete_checkpoint(duthost)
+
 
 def bgp_prefix_test_setup(duthost):
     """ Clean up bgp prefix config before test
@@ -49,8 +73,10 @@ def bgp_prefix_test_setup(duthost):
         "bgp prefix test setup failed."
     )
 
+
 def show_bgp_running_config(duthost):
     return duthost.shell("show runningconfiguration bgp")['stdout']
+
 
 def bgp_prefix_tc1_add_config(duthost, community, community_table):
     """ Test to add prefix config
@@ -99,6 +125,7 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgp_prefix_tc1_xfail(duthost, community_table):
     """ Test input with invalid prefixes
     """
@@ -131,6 +158,7 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
 
         finally:
             delete_tmpfile(duthost, tmpfile)
+
 
 def bgp_prefix_tc1_replace(duthost, community, community_table):
     """ Test to replace prefixes
@@ -170,6 +198,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def bgp_prefix_tc1_remove(duthost, community):
     """ Test to remove prefix config
     """
@@ -200,8 +229,9 @@ def bgp_prefix_tc1_remove(duthost, community):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 @pytest.mark.parametrize("community", ["empty", "1010:1010"])
-def test_bgp_prefix_tc1_suite(duthost, community):
+def test_bgp_prefix_tc1_suite(rand_selected_dut, community):
     """ Test suite for bgp prefix for v4 and v6 w/ and w/o community ID
 
     Sample CONFIG_DB entry:
@@ -210,8 +240,8 @@ def test_bgp_prefix_tc1_suite(duthost, community):
     """
     community_table = "" if community == "empty" else "|" + community
 
-    bgp_prefix_test_setup(duthost)
-    bgp_prefix_tc1_add_config(duthost, community, community_table)
-    bgp_prefix_tc1_xfail(duthost, community_table)
-    bgp_prefix_tc1_replace(duthost, community, community_table)
-    bgp_prefix_tc1_remove(duthost, community)
+    bgp_prefix_test_setup(rand_selected_dut)
+    bgp_prefix_tc1_add_config(rand_selected_dut, community, community_table)
+    bgp_prefix_tc1_xfail(rand_selected_dut, community_table)
+    bgp_prefix_tc1_replace(rand_selected_dut, community, community_table)
+    bgp_prefix_tc1_remove(rand_selected_dut, community)

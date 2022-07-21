@@ -88,6 +88,7 @@ class KustoConnector(ReportDBConnector):
     SUMMARY_TABLE = "TestReportSummary"
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
+    TESTBEDREACHABILITY_TABLE = "TestbedReachability"
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
@@ -99,6 +100,7 @@ class KustoConnector(ReportDBConnector):
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
+        TESTBEDREACHABILITY_TABLE:DataFormat.JSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
@@ -111,6 +113,7 @@ class KustoConnector(ReportDBConnector):
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
+        TESTBEDREACHABILITY_TABLE: "TestbedReachabilityMapping",
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
@@ -176,10 +179,8 @@ class KustoConnector(ReportDBConnector):
     def upload_reachability_data(self, ping_output: List) -> None:
         ping_time = str(datetime.utcnow())
         for result in ping_output:
-            result.update({"Timestamp": ping_time})
-
-        reachability_data = {"data": ping_output}
-        self._ingest_data(self.RAW_REACHABILITY_TABLE, reachability_data)
+            result.update({"UTCTimestamp": ping_time})
+        self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -204,9 +205,9 @@ class KustoConnector(ReportDBConnector):
         reboot_timing_dict = validate_json_file(path_name)
         reboot_timing_data.update(reboot_timing_dict)
         print("Uploading {} report with contents: {}".format(path_name, reboot_timing_data))
-        if "reboot_summary" in path_name:
+        if "summary.json" in path_name:
             self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
-        elif "reboot_report" in path_name:
+        elif "report.json" in path_name:
              self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def upload_expected_runs(self, expected_runs: List) -> None:

@@ -79,7 +79,7 @@ class HashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
-        self.single_fib = self.test_params.get('single_fib_for_duts', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', 'multiple-fib')
 
         # set the base mac here to make it persistent across calls of check_ip_route
         self.base_mac = self.dataplane.get_mac(*random.choice(list(self.dataplane.ports.keys())))
@@ -87,10 +87,10 @@ class HashTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == "multiple-fib":
                 active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:
@@ -113,10 +113,10 @@ class HashTest(BaseTest):
         ports = list(set(self.src_ports) - set(exp_port_list))
         filtered_ports = []
         for port in ports:
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == "multiple-fib":
                 active_dut_index = self.ptf_test_port_map[str(port)]['target_dut']
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             possible_exp_port_list = next_hop.get_next_hop_list()
             if possible_exp_port_list == exp_port_list:

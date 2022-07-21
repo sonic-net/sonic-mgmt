@@ -463,6 +463,14 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('topo_t1.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
+def get_report_file(data):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
+    ftp_client.close() 
+
 def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -793,18 +801,6 @@ def main():
     print("********** Start docker container, deploy DUT minigraph ***********")
     deploy_mg(data,base_topo_file)
 
-    # Start docker container, deploy DUT minigraph
-    #print("********** Download DUT minigraph ***********")
-    #download_mg(data,topo_type,,dut_name)
-
-    # Replace DUT Mgmt Address
-    #print("********** Replace DUT Mgmt Address ***********")
-    #replace_dut_mgmt_address(data)
-
-    # Reload DUT config
-    #print("********** Reload DUT config ***********")
-    #reload_dut_with_newCFG(data)
-
     # Add vEOS config
     print("********** Add vEOS config ***********")
     add_vEOS_cfg(data)
@@ -841,6 +837,7 @@ def main():
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
+        get_report_file(data)
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()

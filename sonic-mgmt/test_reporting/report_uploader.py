@@ -2,6 +2,7 @@ import argparse
 import json
 import sys
 import uuid
+import re
 
 from junit_xml_parser import (
     validate_junit_json_file,
@@ -39,7 +40,8 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         tracking_id = args.external_id if args.external_id else ""
         report_guid = str(uuid.uuid4())
         for path_name in args.path_list:
-            if "reboot_summary" in path_name or "reboot_report" in path_name:
+            reboot_data_regex = re.compile('.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
+            if reboot_data_regex.match(path_name):
                 kusto_db.upload_reboot_report(path_name, report_guid)
             else:
                 if args.json:

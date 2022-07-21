@@ -644,10 +644,53 @@ class SonicHost(AnsibleHostBase):
 
         return all_critical_process
 
-    def get_crm_resources(self):
+    
+    def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
+        """
+        @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
+        """      
+        # Construct mapping of {'ASIC0' : {"main_resources": {}, "acl_resources": [], "table_resources": []}, ...}
+        # Here we leave value as empty and overwrite it at the end of each ASIC table  
+        multi_result = dict()
+        for n in range(self.num_asics()):
+            ns = "asic" + str(n)
+            multi_result[ns] = {"main_resources": {}, "acl_resources": [], "table_resources": []}
+        
+        output = self.command("crm show resources all")["stdout_lines"]
+        current_table = 0   # Totally 3 tables in the command output
+        asic = None       
+        for line in output:
+            if len(line.strip()) == 0 or "---" in line:
+                continue
+            if "ASIC" in line:
+                asic = line.lower()
+            # Switch table type when 'ASIC0' comes again
+            if "ASIC0" in line:
+                current_table += 1
+                continue  
+            if current_table == 1:      # content of first table, main resources
+                fields = line.split()
+                if len(fields) == 3:
+                    multi_result[asic]["main_resources"][fields[0]] = {"used": int(fields[1]), "available": int(fields[2])}
+            if current_table == 2:      # content of the second table, acl resources
+                fields = line.split()
+                if len(fields) == 5:
+                    multi_result[asic]["acl_resources"].append({"stage": fields[0], "bind_point": fields[1],
+                        "resource_name": fields[2], "used_count": int(fields[3]), "available_count": int(fields[4])})
+            if current_table == 3:      # content of the third table, table resources
+                fields = line.split()
+                if len(fields) == 4:
+                    multi_result[asic]["table_resources"].append({"table_id": fields[0], "resource_name": fields[1],
+                        "used_count": int(fields[2]), "available_count": int(fields[3])})
+        return multi_result[namespace]
+    
+    
+    def get_crm_resources(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command and parse its output
         """
+        if self.is_multi_asic:
+            return self.get_crm_resources_for_masic(namespace)
         result = {"main_resources": {}, "acl_resources": [], "table_resources": []}
         output = self.command("crm show resources all")["stdout_lines"]
         current_table = 0   # Totally 3 tables in the command output
@@ -1396,7 +1439,13 @@ Totals               6450                 6449
             corresponding to one content line under the header in the output. Keys of the dictionary are the column
             headers in lowercase.
         """
+        start_line_index = kwargs.pop("start_line_index", 0)
+        end_line_index = kwargs.pop("end_line_index", None)
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
+        if end_line_index is None:
+            output = output[start_line_index:]
+        else:
+            output = output[start_line_index:end_line_index]
         return self._parse_show(output)
 
     @cached(name='mg_facts')
@@ -1455,7 +1504,8 @@ Totals               6450                 6449
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
-        elif "Broadcom Limited Device b870" in output:
+        elif ("Broadcom Limited Device b870" in output or 
+                "Broadcom Inc. and subsidiaries Device b870" in output):
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"

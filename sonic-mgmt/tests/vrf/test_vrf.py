@@ -725,10 +725,9 @@ class TestVrfAclRedirect():
         Check if switch supports acl redirect_action, if not then skip test cases
         """
         duthost = duthosts[rand_one_dut_hostname]
-        switch_cap = duthost.switch_capabilities_facts()['ansible_facts']['switch_capabilities']['switch']
-        res = [capabilities for capabilities in switch_cap.values() if "REDIRECT_ACTION" in capabilities]
-        if not res:
-            pytest.skip("Switch does not support ACL REDIRECT_ACTION")
+        acl_stage_cap  = duthost.shell('redis-cli -n 6 hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')['stdout']
+        if "REDIRECT_ACTION" not in acl_stage_cap:
+            pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts, tbinfo):

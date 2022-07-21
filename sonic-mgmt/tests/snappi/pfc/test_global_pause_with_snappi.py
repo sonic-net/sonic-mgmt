@@ -10,7 +10,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossl
 
 from files.helper import run_pfc_test
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 
 def test_global_pause(snappi_api,
