@@ -297,6 +297,10 @@ stages:
                     PARAMS="$PARAMS --completeness_level=confident"
                 fi
 
+                if [[ $IMAGE_URL =~ \/public\/ ]]; then
+                    PARAMS="$PARAMS --public_docker_registry"
+                fi
+
                 EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
                 if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
                     EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
@@ -335,6 +339,7 @@ stages:
               EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
               GIT_USER_NAME: $(GIT_USER_NAME)
               GIT_API_TOKEN: $(GIT_API_TOKEN)
+              IMAGE_URL: ${{ parameters.IMAGE_URL }}
 
           - ${{ if eq(parameters.RUN_BSL_TEST, True) }}:
             - script: |
