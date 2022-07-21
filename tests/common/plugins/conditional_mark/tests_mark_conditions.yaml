@@ -295,7 +295,16 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "build_version <= '20201231.44'"
 
 #######################################
-#####           vxlan             #####
+#####           vlan              #####
+#######################################
+vlan/test_vlan_ping.py:
+  skip:
+    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+#######################################
+#####           VxLAN             #####
 #######################################
 vxlan/test_vxlan_ecmp.py:
   skip:
