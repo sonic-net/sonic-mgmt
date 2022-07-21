@@ -166,7 +166,8 @@ def validate_junit_xml_archive(directory_name, strict=False):
             - Any of the provided files are missing required fields
     """
     if not os.path.exists(directory_name) or not os.path.isdir(directory_name):
-        raise JUnitXMLValidationError("file not found")
+        print("directory {} not found".format(directory_name))
+        return
 
     roots = []
     metadata_source = None
@@ -209,8 +210,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
             print(f"could not parse {document}: {e} - skipping")
 
     if not roots:
-        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any valid XML files")
-
+        print("provided directory {} does not contain any valid XML files".format(directory_name))
     return roots
 
 
@@ -342,6 +342,9 @@ def parse_test_result(roots):
         A dict containing the parsed test result.
     """
     test_result_json = defaultdict(dict)
+    if not roots:
+        print("No XML file needs to be parsed or the file is empty.")
+        return
 
     for root in roots:
         test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
@@ -540,7 +543,8 @@ def validate_junit_json_file(path):
             - The provided file is missing required fields
     """
     test_result_json = validate_json_file(path)
-
+    if not test_result_json:
+        return
     _validate_json_metadata(test_result_json)
     _validate_json_summary(test_result_json)
     _validate_json_cases(test_result_json)
@@ -672,6 +676,9 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         sys.exit(0)
 
     test_result_json = parse_test_result(roots)
+    if test_result_json is None:
+        print("XML file doesn't exist or no data in the file.")
+        sys.exit(1)
 
     if args.compact:
         output = json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)
