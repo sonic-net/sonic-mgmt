@@ -1,17 +1,13 @@
 import pytest
-import ipaddress
-import natsort
 import random
 import time
 import json
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py
-from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from pkg_resources import parse_version
-from tests.common import constants
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
@@ -21,11 +17,6 @@ def skip_201911_and_older(duthost):
     """
     if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
         pytest.skip("Test not supported for 201911 images or older. Skipping the test")
-
-
-def is_dualtor(tbinfo):
-    """Check if the testbed is dualtor."""
-    return "dualtor" in tbinfo["topo"]["name"]
 
 
 def get_t0_intfs(mg_facts):
@@ -61,7 +52,6 @@ def remove_dut_ip(duthost, intfs, ips, prefix_len):
 
 
 def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
-    topo_type = tbinfo['topo']['name']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     t1_ipv4_pattern = '101.0.0.{}'
     t1_ipv6_pattern = '2000:2000::{:x}'
@@ -86,13 +76,11 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
         return [t1_ipv4_pattern.format(idx * 2) for idx in indices], 31, [t1_ipv4_pattern.format(idx * 2 + 1) for idx in indices], neighbour_devs, [ptf_ports[_] for _ in indices]
 
 def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
-    topo_type = tbinfo['topo']['name']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     t1_ipv4_pattern = '104.0.{}.{}'
     t1_ipv6_pattern = '2002:2000::{:x}'
     t0_intfs = get_t0_intfs(mg_facts)
     ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
-    count = min(1, len(t0_intfs))
     index = random.sample(list(range(len(t0_intfs))), k=1)[0]
     
     neighbour_interface =[]
