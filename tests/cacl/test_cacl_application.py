@@ -18,12 +18,15 @@ pytestmark = [
 
 ignored_iptable_rules = []
 
+topo_name = None
 
 @pytest.fixture(scope="module", autouse=True)
 def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
+    global topo_name
     global ignored_iptable_rules
+    topo_name = tbinfo['topo']['name']
     # There are some hardcoded cacl rule for dualtot testbed, which should be ignored
-    if "dualtor" in tbinfo['topo']['name']:
+    if "dualtor" in topo_name:
         rules_to_ignore = [
         "-A INPUT -p udp -m udp --dport 67 -j DHCP",
         "-A DHCP -j RETURN",
@@ -405,6 +408,18 @@ def generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_r
     if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
+
+    # Allow LDP traffic
+    if ("wan" in topo_name):
+        wan_default_rules = [
+        "-A INPUT -p tcp -m tcp --dport 646 -j ACCEPT",
+        "-A INPUT -p tcp -m tcp --sport 646 -j ACCEPT",
+        "-A INPUT -p udp -m udp --dport 646 -j ACCEPT",
+        "-A INPUT -p udp -m udp --sport 646 -j ACCEPT",
+        "-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT"
+        ]
+        iptables_rules += wan_default_rules
+        ip6tables_rules += wan_default_rules
 
     # Generate control plane rules from device config
     rules_applied_from_config = 0
