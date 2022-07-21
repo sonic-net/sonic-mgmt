@@ -7,7 +7,7 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host
+from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,dualtor_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import check_qos_db_fv_reference_with_table
@@ -30,9 +30,6 @@ class QosBase:
     buffer_model_initialized = False
     buffer_model = None
 
-    dualtor_ports = set({})
-    dualtor_ports_initialized = False
-
     def isBufferInApplDb(self, dut_asic):
         if not self.buffer_model_initialized:
             self.buffer_model = dut_asic.run_redis_cmd(
@@ -51,60 +48,6 @@ class QosBase:
                 )
             )
         return self.buffer_model
-
-    fetch_dual_tor_ports_script = "\
-        local remap_enabled = redis.call('HGET', 'SYSTEM_DEFAULTS|tunnel_qos_remap', 'status')\
-        if remap_enabled ~= 'enabled' then\
-            return {}\
-        end\
-        local type = redis.call('HGET', 'DEVICE_METADATA|localhost', 'type')\
-        local expected_neighbor_type\
-        local expected_neighbor_suffix\
-        if type == 'LeafRouter' then\
-            expected_neighbor_type = 'ToRRouter'\
-            expected_neighbor_suffix = 'T0'\
-        else\
-            if type == 'ToRRouter' then\
-                local subtype = redis.call('HGET', 'DEVICE_METADATA|localhost', 'subtype')\
-                if subtype == 'DualToR' then\
-                    expected_neighbor_type = 'LeafRouter'\
-                    expected_neighbor_suffix = 'T1'\
-                end\
-            end\
-        end\
-        if expected_neighbor_type == nil then\
-            return {}\
-        end\
-        local result = {}\
-        local all_ports_with_neighbor = redis.call('KEYS', 'DEVICE_NEIGHBOR|*')\
-        for i = 1, #all_ports_with_neighbor, 1 do\
-            local neighbor = redis.call('HGET', all_ports_with_neighbor[i], 'name')\
-            if neighbor ~= nil and string.sub(neighbor, -2, -1) == expected_neighbor_suffix then\
-                local peer_type = redis.call('HGET', 'DEVICE_NEIGHBOR_METADATA|' .. neighbor, 'type')\
-                if peer_type == expected_neighbor_type then\
-                    table.insert(result, string.sub(all_ports_with_neighbor[i], 17, -1))\
-                end\
-            end\
-        end\
-        return result\
-    "
-
-    def initDualTorPorts(self, dut_asic):
-        # Fetch dual ToR ports
-        logger.info("Starting fetching dual ToR info")
-        dual_tor_ports = dut_asic.run_redis_cmd(argv = ["sonic-db-cli", "CONFIG_DB", "eval", self.fetch_dual_tor_ports_script, "0"])
-        if dual_tor_ports:
-            self.dualtor_scenario = True
-            self.dualtor_ports = set(dual_tor_ports)
-        else:
-            self.dualtor_scenario = False
-        self.dualtor_ports_initialized = True
-        logger.info("Finish fetching dual ToR info {}".format(self.dualtor_ports))
-
-    def isPortDualTor(self, dut_asic, dstport):
-        if not self.dualtor_ports_initialized:
-            self.initDualTorPorts(dut_asic);
-        return dstport in self.dualtor_ports
 
     @pytest.fixture(scope='class', autouse=True)
     def dutTestParams(self, dut_test_params):
@@ -524,7 +467,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, rand_one_dut_hostname, tbinfo,
-        enum_frontend_asic_index, lower_tor_host
+        enum_frontend_asic_index, lower_tor_host, dualtor_ports
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -550,8 +493,6 @@ class QosSaiBase(QosBase):
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
-        if not self.dualtor_ports_initialized:
-            self.initDualTorPorts(dut_asic);
         dualTorPortIndexes = []
 
         testPortIds = []
@@ -589,7 +530,7 @@ class QosSaiBase(QosBase):
                         if 'vlan' in portConfig:
                             portIpMap['vlan_id'] = portConfig['vlan']
                         dutPortIps.update({portIndex: portIpMap})
-                        if intf in self.dualtor_ports:
+                        if intf in dualtor_ports:
                             dualTorPortIndexes.append(portIndex)
 
             testPortIps = self.__assignTestPortIps(mgFacts)
@@ -673,7 +614,7 @@ class QosSaiBase(QosBase):
             "dutAsic" : dutAsic,
             "dutTopo" : dutTopo,
             "dualTor" : request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario" : self.dualtor_scenario
+            "dualTorScenario" : len(dualtor_ports) != 0
         }
 
     @pytest.fixture(scope='class')
@@ -1136,7 +1077,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def ingressLosslessProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
     ):
         """
             Retreives ingress lossless profile
@@ -1158,7 +1099,7 @@ class QosSaiBase(QosBase):
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
-        if self.isPortDualTor(dut_asic, srcport):
+        if srcport in dualtor_ports:
             pgs = "2-4"
         else:
             pgs = "3-4"
@@ -1207,7 +1148,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLosslessProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
     ):
         """
             Retreives egress lossless profile
@@ -1229,7 +1170,7 @@ class QosSaiBase(QosBase):
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
-        if self.isPortDualTor(dut_asic, srcport):
+        if srcport in dualtor_ports:
             queues = "2-4"
         else:
             queues = "3-4"
@@ -1246,7 +1187,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLossyProfile(
         self, request, duthosts, enum_frontend_asic_index,
-        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host
+        rand_one_dut_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
     ):
         """
             Retreives egress lossy profile
@@ -1268,7 +1209,7 @@ class QosSaiBase(QosBase):
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
 
-        if self.isPortDualTor(dut_asic, srcport):
+        if srcport in dualtor_ports:
             queues = "0-1"
         else:
             queues = "0-2"

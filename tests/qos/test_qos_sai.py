@@ -28,6 +28,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
+from tests.common.dualtor.dual_tor_utils import dualtor_ports
 from qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -60,11 +61,12 @@ class TestQosSai(QosSaiBase):
 
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
-        ingressLossyProfile, egressLosslessProfile
+        ingressLossyProfile, egressLosslessProfile, dualtor_ports
     ):
         logger.info("asictype {}".format(duthost.facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
         logger.info("qosConfig {}".format(dutQosConfig))
+        logger.info("dualtor_ports {}".format(dualtor_ports))
 
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
