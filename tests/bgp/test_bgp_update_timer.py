@@ -43,13 +43,14 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         # have it use LINUX_SLL (Linux cooked) instead.
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
-        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)    
-    nohup_start_pcap = "nohup %s &" % (start_pcap)
-    duthost.asic_instance_from_namespace(ns).command(nohup_start_pcap)
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)  
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
+    stop_pcap = "sudo pkill -f '%s %s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
+    duthost.shell("nohup {} {} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)) 
     try:
         yield
     finally:
-        duthost.asic_instance_from_namespace(ns).kill_command(start_pcap, module_ignore_errors=True)
+        duthost.shell(stop_pcap, module_ignore_errors=True)
 
 
 @pytest.fixture
