@@ -4,7 +4,7 @@ parameters:
 
   - name: SAI_BRANCH
     type: string
-    default: v1.9
+    default: master
     displayName: "SAI Branch Name"
   
   - name: SAI_PTF_DOCKER
@@ -48,7 +48,7 @@ parameters:
   - name: UPDATE_IMAGE
     displayName: "Update Image"
     type: boolean
-    default: false
+    default: true
   
   - name: CHANGE_TOPO
     displayName: "Deploy non-topo"
@@ -72,7 +72,7 @@ parameters:
   
   - name: TESTBED_LOCK_HOUR
     type: string
-    default: "6"
+    default: "3"
 
   # Upgrade parameters
   - name: IMAGE_URL
@@ -104,7 +104,7 @@ parameters:
   - name: ENABLE_BRCM_T0_TEST
     displayName: "Run Brcm T0 Test"
     type: boolean
-    default: false
+    default: true
 
   - name: ENABLE_COMMUNITY_TEST
     displayName: "Run community test case"
@@ -219,19 +219,27 @@ stages:
               done
                 
             env:
-                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
             condition: ${{ parameters.LOCK_TESTBED }}
             displayName: Lock Testbed
 
           - task: Bash@3
-            condition: ${{ parameters.UPDATE_IMAGE }}
+            displayName: Get lock testbed result v1
+            condition: and(${{ parameters.LOCK_TESTBED }}, succeeded())
+            inputs:
+              targetType: 'inline'
+              script: |
+                echo "##vso[task.setvariable variable=TESTBED_LOCKED;]locked"
+
+          - task: Bash@3
+            condition: and(${{ parameters.UPDATE_IMAGE }}, or(eq(variables.TESTBED_LOCKED, 'locked'), eq(${{ parameters.LOCK_TESTBED }}, false)))
             displayName: "Upgrade Image"
             inputs:
               targetType: 'inline'
               script: |
                 set -x
-
+                
                 if [[ -z "$IMAGE_URL" ]]; then
                     echo "Skipping image upgrading ..."
                     exit 0
@@ -263,10 +271,17 @@ stages:
               UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
               PAUSE_TIME: ${{ parameters.PAUSE_TIME }}
 
+          - task: Bash@3
+            displayName: Get upgrade image result
+            condition: and(${{ parameters.UPDATE_IMAGE}}, succeeded())
+            inputs:
+              targetType: 'inline'
+              script: |
+                echo "##vso[task.setvariable variable=IMG_UPGRADE_SUCC;]succ"
 
           - task: Bash@3
             displayName: remove current Testbed topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -281,14 +296,13 @@ stages:
 
           - task: Bash@3
             displayName: Generate SAI testbed file
-            condition: and(always(), succeeded())
+            condition: eq(variables.IMG_UPGRADE_SUCC, 'succ')
             inputs:
               targetType: 'inline'
               script: |
                 set -x
 
                 python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
-              
                 cat ./ansible/testbed_sai.yaml
             env:
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -298,7 +312,7 @@ stages:
 
           - task: Bash@3
             displayName: Add SAI Testbed Topo
-            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -314,7 +328,7 @@ stages:
 
           - task: Bash@3
             displayName: Deploy SAI Minigraph
-            condition: and(${{ parameters.CHANGE_TOPO }}, succeeded())
+            condition: and(${{ parameters.CHANGE_TOPO }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -339,17 +353,15 @@ stages:
 
           - task: Bash@3
             displayName: Get Bash Env Param
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
-                set -x
-
-                echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+                  echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
 
           - task: Bash@3
             displayName: Fetch SAI Repo
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -367,7 +379,7 @@ stages:
 
           - task: Bash@3
             displayName: Run SAI tests
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -383,15 +395,15 @@ stages:
                   
                 if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
                 then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
                 elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
                 then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
                 elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
                 then
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
                 else
-                   CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
+                  CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
                 fi 
 
                 BASE_PATH=`pwd`
@@ -425,18 +437,18 @@ stages:
                 then
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]] 
                 then
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
                 else
                   pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
                   --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-                  --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-                fi 
-                
+                  --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+                fi
+
             env:
               PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
               TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -455,7 +467,7 @@ stages:
 
           - task: Bash@3
             displayName: Organize SAI Test Result
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
             inputs:
               targetType: 'inline'
               script: |
@@ -467,12 +479,11 @@ stages:
                 tar -zxvf result.tar.gz
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)                
-  
+              BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
 
           - task: PythonScript@0
             displayName: Publish SAI test results and generate builder id
-            condition: and(${{ parameters.RUN_TEST }}, succeeded())
+            condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
             inputs:
               scriptSource: 'inline'
               script: |
@@ -501,6 +512,7 @@ stages:
                   builder_id = builder_id + os_version + "_" + testbed_conf_name + "_" + buildid + "_" + str(timestamp)
 
                 print("##vso[build.updatebuildnumber]{0}".format(builder_id))
+
             env:
               SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}   
               BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
@@ -509,10 +521,9 @@ stages:
               PLT_VERSION: $(PLT_VERSION)
               BUILD_ID: $(Build.BuildId)
 
-
           - task: Bash@3
             displayName: remove SAI Testbed topo
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
@@ -529,7 +540,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Testbed Topo
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }} )
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
@@ -545,7 +556,7 @@ stages:
 
           - task: Bash@3
             displayName: Recover Minigraph
-            condition: and(succeeded(), ${{ parameters.RECOVER_TOPO }})
+            condition: ${{ parameters.RECOVER_TOPO }}
             inputs:
               targetType: 'inline'
               script: |
@@ -566,17 +577,22 @@ stages:
               INVENTORY_NAME: $(INVENTORY_NAME)
               ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
-          - script: |
+          - task: Bash@3
+            condition: and(${{ parameters.LOCK_TESTBED }}, eq(variables.TESTBED_LOCKED, 'locked'))
+            displayName: Release Testbed
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
                 python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
             env:
                 TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
                 TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
-            condition:  and(succeeded(), ${{ parameters.LOCK_TESTBED }})
-            displayName: Release Testbed
           
           - task: Bash@3
             displayName: Upload Test Results
-            condition: and(${{ parameters.RUN_TEST }}, succeeded(), ${{ parameters.UPLOAD_TEST_REPORT }})
+            condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
             inputs:
               targetType: 'inline'
               script: |
@@ -592,7 +608,6 @@ stages:
                 python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
-
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)

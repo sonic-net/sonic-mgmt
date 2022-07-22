@@ -11,8 +11,8 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms20-t1-dx010-6
-
+    default: vms3-t1-dx010-1
+  
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
@@ -37,7 +37,7 @@ parameters:
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
     type: boolean
-    default: true
+    default: false
   
   - name: UPDATE_IMAGE
     displayName: "Update Image"
@@ -47,12 +47,12 @@ parameters:
   - name: CHANGE_TOPO
     displayName: "Deploy non-topo"
     type: boolean
-    default: true
+    default: false
 
   - name: RECOVER_TOPO
     displayName: "Recover Topo"
     type: boolean
-    default: true
+    default: false
   
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
@@ -77,7 +77,7 @@ parameters:
   - name: RUN_TEST
     displayName: "Run Test"
     type: boolean
-    default: true
+    default: false
   
   - name: UPLOAD_TEST_REPORT
     displayName: "Upload Test Report"
@@ -95,7 +95,7 @@ parameters:
     - $(IMAGE_BRCM_ABOOT_202012)
     - $(IMAGE_BRCM_ABOOT_202012_SLIM)
     - $(IMAGE_BRCM_PUBLIC)
-    - $(IMAGE_BRCM_PUBLIC_39085)
+    - $(IMAGE_BRCM_DBUG)
     - $(IMAGE_BRCM_ABOOT_PUBLIC)
     - $(IMAGE_BRCM_INTERNAL)
     - $(IMAGE_MLNX_INTERNAL)
@@ -109,12 +109,13 @@ parameters:
     values: 
     - $(SAITHRIFT_BRCM_202012)
     - $(SAITHRIFT_BRCM_PUBLIC)
-    - $(SAITHRIFT_BRCM_PUBLIC_39085)
+    - $(SAITHRIFT_BRCM_DBUG)
     - $(SAITHRIFT_MLNX_202012)
     - $(SAITHRIFT_MLNX_PUBLIC)
     - $(SAITHRIFTV2_BFN_INTERNAL_DBG)
     - $(SAITHRIFTV2_BRCM_202012_DBG)
     - $(SAITHRIFTV2_BRCM_INTERNAL_DBG)
+    - $(SAITHRIFTV2_BRCM_INTERNAL_202012)
 
 stages:
   - template: ../templates/sai_test.yml
