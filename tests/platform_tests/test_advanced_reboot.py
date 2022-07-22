@@ -137,6 +137,19 @@ def test_service_warm_restart(request, duthosts, rand_one_dut_hostname, verify_d
     advanceboot_loganalyzer, capture_interface_counters):
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Get built-in service
+    spm_data = duthost.show_and_parse('spm list')
+    built_in_repo_set = {item['repository'] for item in spm_data if item['status'] == 'Built-In'}
+    built_in_service_set = set()
+    for built_in_repo in built_in_repo_set:
+        service_name = duthost.shell('docker ps --filter "ancestor={}" --format \{{\{{.Names\}}\}}'.format(built_in_repo))['stdout']
+        service_name = service_name.strip()
+        if service_name:
+            built_in_service_set.add(service_name)
+        else:
+            logging.info('service with docker repo {} is not enabled or running, skip warm restart for it'.format(built_in_repo))
+
+
     feature_list = duthost.show_and_parse('show feature status')
     ignored_services = request.config.getoption("--ignore_service")
     candidate_service_list = []
@@ -145,8 +158,9 @@ def test_service_warm_restart(request, duthosts, rand_one_dut_hostname, verify_d
             # Features that do not support warm restart
             continue
 
-        if feature_data['setowner'] == 'local':
-            # Currently, local feature is not supported for warm restart
+        if feature_data['feature'] not in built_in_service_set:
+            # There is no guarantee that non built-in feature support warm restart, so ignore them
+            logging.info('Feature {} is not a built-in feature, skip warm restart for it.'.format(feature_data['feature']))
             continue
 
         if ignored_services:

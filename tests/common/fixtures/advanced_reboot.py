@@ -95,7 +95,6 @@ class AdvancedReboot:
 
         if self.rebootType == 'service-warm-restart':
             assert hasattr(self, 'service_list')
-            # self.current_docker_image = None
             self.service_data = {}
 
     def __extractTestParam(self):
@@ -350,8 +349,8 @@ class AdvancedReboot:
 
             local_image_path = '/tmp/{}.gz'.format(data['image_name'])
             logger.info('Downloading new docker image for {} to {}'.format(service_name, local_image_path))
-            self.localhost.shell('curl {0}/{1}.gz --output {2}'.format(self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)
-            if os.path.exists(local_image_path):
+            output = self.localhost.shell('curl --silent --write-out "%{{http_code}}" {0}/{1}.gz --output {2}'.format(self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)['stdout']
+            if '404' not in output and os.path.exists(local_image_path):
                 temp_file = self.duthost.shell('mktemp')['stdout']
                 self.duthost.copy(src=local_image_path, dest=temp_file)
                 self.localhost.shell('rm -f /tmp/{}.gz'.format(data['image_name']))
@@ -683,13 +682,16 @@ class AdvancedReboot:
             )
 
     def __restorePrevDockerImage(self):
-        """Restore previous docker image
+        """Restore previous docker image.
         """
         for service_name, data in self.service_data.items():
             if data['image_path_on_dut'] is None:
                 self.duthost.shell('sudo config warm_restart disable {}'.format(service_name))
                 continue
 
+            #  We don't use sonic-installer rollback-docker CLI here because:
+            #  1. it does not remove the docker image which causes the running container still using the old image
+            #  2. it runs service restart for some containers which enlarge the test duration
             self.duthost.shell('rm -f {}'.format(data['image_path_on_dut']))
             logger.info('Restore docker image for {}'.format(service_name))
             self.duthost.shell('service {} stop'.format(service_name))

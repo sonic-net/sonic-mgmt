@@ -939,7 +939,7 @@ class ReloadTest(BaseTest):
 
     def wait_until_service_restart(self):
         self.log("Wait until sevice restart")
-        self.reboot_start = datetime.datetime.now() # TODO: fix me
+        self.reboot_start = datetime.datetime.now()
         service_set = set(self.test_params['service_list'])
         wait_time = 120
         while wait_time > 0:
