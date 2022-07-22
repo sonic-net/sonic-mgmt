@@ -60,7 +60,7 @@ parameters:
   - name: RECOVER_TOPO
     displayName: "Recover Topo"
     type: boolean
-    default: false
+    default: true
   
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
