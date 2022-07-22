@@ -408,7 +408,7 @@ def check_link_is_up(duthost, po_intf, port_info, lag_name):
 def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
-
+    logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
     try:
         for duthost in duthosts:
             if dut_name in [ 'unknown', duthost.hostname ]:
@@ -439,13 +439,16 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                         # Sometimes, it has to wait seconds for booting up interface
                         pytest_assert(wait_until(10, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                             "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
-            else:
-                pytest.fail("No valid dut selected, duthost = {}".format(dut_name))
     finally:
         # Recover interfaces in case of failure
-        for lag_name in test_lags:
-            for po_intf in lag_facts['lags'][lag_name]['po_stats']['ports'].keys():
-                duthost.no_shutdown(po_intf)
+        for duthost in duthosts:
+            lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+            for lag_name in test_lags:
+                for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
+                    if port_info['link']['up']:
+                        continue
+                    else:
+                        duthost.no_shutdown(po_intf)
 
 def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
@@ -495,5 +498,3 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
                     admin_status = get_admin_status_from_db(duthost, po_intf)
                     pytest_assert(str(oper_status) == 'up' and str(admin_status) == 'up',
                         "{}'s status is still down even no shutdown this interface. oper_status {} admin_status {}".format(po_intf, oper_status, admin_status))
-        else:
-            pytest.fail("No valid dut selected, duthost = {}".format(dut_name))
