@@ -634,6 +634,7 @@ def safe_filename(filename, replacement_char='_'):
     illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
     return re.sub(illegal_chars_pattern, replacement_char, filename)
 
+
 @contextlib.contextmanager
 def update_environ(*remove, **update):
     """
