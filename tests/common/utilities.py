@@ -615,3 +615,19 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     logger.info('Refreshing supervisor control with ferret configuration')
     ptfhost.shell('supervisorctl reread && supervisorctl update')
     ptfhost.shell('supervisorctl restart ferret')
+
+
+def safe_filename(filename, replacement_char='_'):
+    """Replace illegal characters in the original filename with "_" or other specified characters.
+
+    Reference: https://www.mtu.edu/umc/services/websites/writing/characters-avoid/
+
+    Args:
+        filename (str): The original filename
+        replacement_char (str, optional): Replacement for illegal characters. Defaults to '_'.
+
+    Returns:
+        str: New filename with illegal characters replaced.
+    """
+    illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
+    return re.sub(illegal_chars_pattern, replacement_char, filename)
