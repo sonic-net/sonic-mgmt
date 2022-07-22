@@ -382,17 +382,6 @@ class SonicAsic(object):
         cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
-
-    
-    def kill_command(self, cmdstr):
-        """ kill cmdstr or kill "ip netns exec 'cmdstr'" base on type of testbed"""
-        if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
-            kill_cmd = "pkill -f '%s'" % cmdstr
-            return self.sonichost.command(kill_cmd)
-
-        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
-        kill_cmd = "pkill -f '%s'" % cmdstr
-        return self.sonichost.command(kill_cmd)
         
     def run_vtysh(self, cmdstr):
         """
