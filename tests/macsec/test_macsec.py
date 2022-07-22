@@ -107,7 +107,7 @@ class TestControlPlane():
         duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, pn_exhaustion - 100))
 
         up_link = upstream_links[port_name]
-        output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], 20))["stdout_lines"]
+        output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], 60))["stdout_lines"]
         assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
 
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
@@ -123,7 +123,7 @@ class TestControlPlane():
 
         duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, xpn_exhaustion - 100))
         up_link = upstream_links[port_name]
-        duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], 20))["stdout_lines"]
+        duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], 60))["stdout_lines"]
 
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
