@@ -1,6 +1,5 @@
 import logging
 import pytest
-from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
