@@ -92,8 +92,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     check_critical_processes(dut, 60)
 
 
-def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index,
-                      localhost, conn_graph_facts, xcvr_skip_list):            # noqa F811
+def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to restart the swss service and check platform status
     """
@@ -112,11 +111,9 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
     restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces, xcvr_skip_list)
 
 
-def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index,
-                       localhost, conn_graph_facts, xcvr_skip_list):           # noqa F811
+def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index, localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to restart the syncd service and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index,
-                              "syncd", conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd", conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
