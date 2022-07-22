@@ -330,7 +330,6 @@ class TestAutoTechSupport:
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
 
-
         logger.info('Sleep until {} second pass since techsupport file created'.format(rate_limit_30))
         time.sleep(rate_limit_30)
 
@@ -354,7 +353,6 @@ class TestAutoTechSupport:
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
-
 
     @pytest.mark.parametrize('test_mode', max_limit_test_modes_list)
     def test_max_limit(self, test_mode, global_rate_limit_zero, feature_rate_limit_zero, cleanup_list):
