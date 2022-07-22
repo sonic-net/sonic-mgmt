@@ -13,6 +13,7 @@ stages:
 - stage: Test
 
   variables:
+  - group: Testbed-Tools
   - name: inventory
     value: veos_vtb
   - name: testbed_file
@@ -76,6 +77,7 @@ stages:
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag"
     timeoutInMinutes: 360
+    condition: and(succeeded(), not(eq(variables.RUN_TEST_BY_SCHEDULER, 'YES')))
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -85,6 +87,16 @@ stages:
         ptf_name: ptf_vms6-2
         tbtype: t1-lag
         vmtype: ceos
+
+  - job:
+    displayName: "kvmtest-t1-lag by scheduler"
+    pool: sonictest
+    timeoutInMinutes: 540
+    condition: and(succeeded(), eq(variables.RUN_TEST_BY_SCHEDULER, 'YES'))
+    steps:
+    - template: .azure-pipelines/run-test-scheduler-template.yml
+      parameters:
+        TOPOLOGY: t1-lag
 
   - job:
     pool: sonictest-sonic-t0
