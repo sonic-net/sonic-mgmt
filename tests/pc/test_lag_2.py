@@ -409,9 +409,10 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
-    try:
-        for duthost in duthosts:
-            if dut_name in [ 'unknown', duthost.hostname ]:
+    test_lags = []
+    for duthost in duthosts:
+        if dut_name in [ 'unknown', duthost.hostname ]:
+            try:
                 lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
 
                 # Test for each lag
@@ -424,7 +425,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                 for lag_name in test_lags:
                     for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                         check_status_is_syncd(duthost, po_intf, port_info, lag_name)
- 
+
                 # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
                 for lag_name in test_lags:
                     for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
@@ -439,16 +440,15 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                         # Sometimes, it has to wait seconds for booting up interface
                         pytest_assert(wait_until(10, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                             "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
-    finally:
-        # Recover interfaces in case of failure
-        for duthost in duthosts:
-            lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-            for lag_name in test_lags:
-                for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
-                    if port_info['link']['up']:
-                        continue
-                    else:
-                        duthost.no_shutdown(po_intf)
+            finally:
+                # Recover interfaces in case of failure
+                for lag_name in test_lags:
+                    for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
+                        if port_info['link']['up']:
+                            continue
+                        else:
+                            logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
+                            duthost.no_shutdown(po_intf)
 
 def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
