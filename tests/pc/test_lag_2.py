@@ -442,10 +442,11 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                             "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
             finally:
                 # Recover interfaces in case of failure
-                test_lags = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']['names']
-                for lag_name in test_lags:
+                lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+                for lag_name in lag_facts['names']:
                     for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                         if port_info['link']['up']:
+                            logger.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
                             continue
                         else:
                             logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
