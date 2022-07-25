@@ -391,11 +391,8 @@ def __run_traffic(api,
             time.sleep(1)
             attempts += 1
 
-    try:
-        pytest_assert(attempts < max_attempts,
+    pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
-    except:
-        print("Warn: Hitting the ixia problem.")
 
     if capture_port_name:
         """ Dump captured packets """
