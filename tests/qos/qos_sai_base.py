@@ -1339,5 +1339,7 @@ class QosSaiBase(QosBase):
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.command("counterpoll watermark enable")
+        dut_asic.command("counterpoll queue enable")
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
+        dut_asic.command("counterpoll queue disable")
