@@ -13,8 +13,8 @@ from files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
-# @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-@pytest.mark.parametrize("trigger_pfcwd", [True])
+
+@pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_many_to_one(snappi_api,
                            snappi_testbed_config,
                            conn_graph_facts,
