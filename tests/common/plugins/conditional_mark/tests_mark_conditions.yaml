@@ -185,6 +185,16 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
+
+#######################################
+#####           ixia              #####
+#######################################
+ixia/ecn/test_ecn_markings.py:
+  skip:
+    reason: "This script is applicable only for Cisco 8000 Platform."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####           macsec            #####
 #######################################

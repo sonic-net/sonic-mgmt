@@ -23,11 +23,16 @@ from abstract_open_traffic_generator.control import State, ConfigState,\
     FlowTransmitState, PortCaptureState
 from abstract_open_traffic_generator.result import FlowRequest, CaptureRequest
 
-EXP_DURATION_SEC = 1
-DATA_START_DELAY_SEC = 0.1
+EXP_DURATION_SEC = 10
+DATA_START_DELAY_SEC = 1
 IXIA_POLL_DELAY_SEC = 2
 PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
+DATA_FLOW_NAME1 = 'Data Flow 1'
+DATA_FLOW_NAME2 = 'Data Flow 2'
+DATA_FLOW_NAME3 = 'Data Flow 3'
+
+sec_to_nanosec = lambda x : x * 1e9
 
 def run_ecn_test(api,
                  testbed_config,
@@ -40,10 +45,15 @@ def run_ecn_test(api,
                  kmax,
                  pmax,
                  pkt_size,
-                 pkt_cnt,
                  lossless_prio,
                  prio_dscp_map,
-                 iters):
+                 iters,
+                 pkt_cnt=2100,
+                 xoff_quanta=65535,
+                 traffic_rate=None,
+                 number_of_transmit_ports=1,
+                 pause_delay=0,
+                 single_pause=False):
     """
     Run a ECN test
 
@@ -59,10 +69,15 @@ def run_ecn_test(api,
         kmax (int): RED/ECN maximum threshold in bytes
         pmax (int): RED/ECN maximum marking probability in percentage
         pkt_size (int): data packet size in bytes
-        pkt_cnt (int): data packet count
+        pkt_cnt (int): data packet count, Default:2100, will be superseded by traffic_rate.
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         iters (int): # of iterations in the test
+        xoff_quanta: Value of xoff Quanta to use(default: 65535).
+        traffic_rate: Rate of traffic instead of pkt_count. Supersedes pkt_count. This also disables capture config for now.
+        number_of_transmit_ports: How many ports should we start the traffic from. Default:1 (one-to-one).
+        pause_delay: The delay in microseconds before pause frames can be started.
+        single_pause: Should we send a single pause packet, or more? Default: False
 
     Returns:
         Return captured IP packets (list of list)
@@ -98,42 +113,61 @@ def run_ecn_test(api,
     pytest_assert(port_id is not None,
                   'Failed to get ID for port {}'.format(dut_port))
 
-    """ Generate packet capture config """
-    capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
+    capture_config = None
+    if not traffic_rate:
+        """ Generate packet capture config """
+        capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
+    name_options = {}
+    name_options['data_flow_names'] = []
+    if number_of_transmit_ports == 1:
+        name_options['data_flow_names'] = [DATA_FLOW_NAME]
+    else:
+        for i in range(number_of_transmit_ports):
+            name_options['data_flow_names'].append(DATA_FLOW_NAME + " " + str(i+1))
+    ALL_FLOW_NAMES = [PAUSE_FLOW_NAME] +  name_options['data_flow_names']
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_config_list=port_config_list,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
-                          data_flow_name=DATA_FLOW_NAME,
                           prio=lossless_prio,
                           data_pkt_size=pkt_size,
                           data_pkt_cnt=pkt_cnt,
                           data_flow_delay_sec=DATA_START_DELAY_SEC,
                           exp_dur_sec=EXP_DURATION_SEC,
-                          prio_dscp_map=prio_dscp_map)
+                          prio_dscp_map=prio_dscp_map,
+                          xoff_quanta=xoff_quanta,
+                          traffic_rate=traffic_rate,
+                          pause_delay=pause_delay,
+                          single_pause=single_pause,
+                          **name_options)
 
     """ Tgen config = testbed config + flow config + capture config"""
     config = testbed_config
     config.flows = flows
-    config.captures = capture_config
+    if capture_config:
+        config.captures = capture_config
+        capture_port_name = capture_config[0].port_names[0]
 
-    """ Run traffic and capture packets """
-    capture_port_name = capture_config[0].port_names[0]
+    """ Run traffic and capture packets or get counters(if available). """
     result = []
 
     for i in range(iters):
-        pcap_file_name = '{}-{}.pcap'.format(capture_port_name, i)
+        options = {}
+        if capture_config:
+            pcap_file_name = '{}-{}.pcap'.format(capture_port_name, i)
+            options['capture_port_name'] = capture_port_name
+            options['pcap_file_name'] = pcap_file_name
 
         __run_traffic(api=api,
                       config=config,
                       all_flow_names=[PAUSE_FLOW_NAME, DATA_FLOW_NAME],
                       exp_dur_sec=EXP_DURATION_SEC,
-                      capture_port_name=capture_port_name,
-                      pcap_file_name=pcap_file_name)
+                      **options)
 
-        result.append(__get_ip_pkts(pcap_file_name))
+        if capture_config:
+            result.append(__get_ip_pkts(pcap_file_name))
 
     return result
 
@@ -143,33 +177,38 @@ def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
                   pause_flow_name,
-                  data_flow_name,
+                  data_flow_names,
                   prio,
                   data_pkt_size,
-                  data_pkt_cnt,
                   data_flow_delay_sec,
                   exp_dur_sec,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  data_pkt_cnt=2100,
+                  xoff_quanta=65535,
+                  traffic_rate=None,
+                  pause_delay=0,
+                  single_pause=False):
 
     """
     Generate configurations of flows, including a data flow and a PFC pause storm.
-
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test
         pause_flow_name (str): name of the pause storm
-        data_flow_name (str): name of the data flow
+        data_flow_names (list): List of names of the data flows
         prio (int): priority of the data flow and PFC pause storm
         data_pkt_size (int): packet size of the data flow in byte
         data_pkt_cnt (int): # of packets of the data flow
         data_flow_delay_sec (float): start delay of the data flow in second
         exp_dur_sec (float): experiment duration in second
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-
+        xoff_quanta (int): Xoff quanta to use for xoff packets. Default 65535.
+        traffic_rate (int): Rate of traffic in percentage line rate. Default 100.
+        pause_delay (int): milliseconds delay for pause frame. Default:0(No delay).
+        single_pause: Should there only one pause, or more? Default: False
     Returns:
         Configurations of the data flow and the PFC pause storm (list)
-
     """
     result = list()
 
@@ -178,53 +217,68 @@ def __gen_traffic(testbed_config,
                                                     pattern="many to one",
                                                     rx_port_id=rx_port_id)
     pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
-    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
-                                rx_port_id=rx_port_id)
-    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
+    # Every other port than rx_port is a potential tx port now ;)
+    tx_port_id_list = [x for x in tx_port_id_list if x != rx_port_id]
+    pytest_assert(tx_port_id_list != [], "Cannot find a suitable TX port")
 
-    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    tx_port_config_list = []
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    for tx_port_id in tx_port_id_list:
+        tx_port_config_list.append((next((x for x in port_config_list if x.id == tx_port_id), None)))
 
-    tx_mac = tx_port_config.mac
-    if tx_port_config.gateway == rx_port_config.gateway and \
-       tx_port_config.prefix_len == rx_port_config.prefix_len:
-        """ If soruce and destination port are in the same subnet """
-        rx_mac = rx_port_config.mac
-    else:
-        rx_mac = tx_port_config.gateway_mac
+    number_of_tx_ports = len(tx_port_config_list)
+    for index in range(len(data_flow_names)):
+        tx_port_config = tx_port_config_list[index % number_of_tx_ports]
+        tx_port_id = tx_port_id_list[index % number_of_tx_ports]
 
-    data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
-                             rx_port_name=testbed_config.ports[rx_port_id].name)
+        tx_mac = tx_port_config.mac
+        if tx_port_config.gateway == rx_port_config.gateway and \
+           tx_port_config.prefix_len == rx_port_config.prefix_len:
+            """ If soruce and destination port are in the same subnet """
+            rx_mac = rx_port_config.mac
+        else:
+            rx_mac = tx_port_config.gateway_mac
 
-    data_flow_delay_nanosec = sec_to_nanosec(data_flow_delay_sec)
+        data_endpoint = PortTxRx(tx_port_name=testbed_config.ports[tx_port_id].name,
+                                 rx_port_name=testbed_config.ports[rx_port_id].name)
 
-    eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
-                            dst=FieldPattern(rx_mac),
-                            pfc_queue=FieldPattern([prio]))
+        data_flow_delay_nanosec = sec_to_nanosec(data_flow_delay_sec)
 
-    ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
-                            ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
-    ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
-                          dst=FieldPattern(rx_port_config.ip),
-                          priority=ip_prio)
+        eth_hdr = EthernetHeader(src=FieldPattern(tx_mac),
+                                dst=FieldPattern(rx_mac),
+                                pfc_queue=FieldPattern([prio]))
 
-    data_flow = Flow(
-        name=data_flow_name,
-        tx_rx=TxRx(data_endpoint),
-        packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
-        size=Size(data_pkt_size),
-        rate=Rate('line', 100),
-        duration=Duration(FixedPackets(packets=data_pkt_cnt,
-                                       delay=data_flow_delay_nanosec,
-                                       delay_unit='nanoseconds'))
-    )
-    result.append(data_flow)
+        ip_prio = Priority(Dscp(phb=FieldPattern(choice=prio_dscp_map[prio]),
+                                ecn=FieldPattern(choice=Dscp.ECN_CAPABLE_TRANSPORT_1)))
+        ipv4_hdr = Ipv4Header(src=FieldPattern(tx_port_config.ip),
+                              dst=FieldPattern(rx_port_config.ip),
+                              priority=ip_prio)
+        duration = {}
+        if traffic_rate:
+            duration['duration'] = Duration(FixedSeconds(seconds=exp_dur_sec,
+                                           delay=0,
+                                           delay_unit='nanoseconds'))
+        else:
+            duration['duration'] = Duration(FixedPackets(packets=data_pkt_cnt,
+                                           delay=data_flow_delay_nanosec,
+                                           delay_unit='nanoseconds'))
+
+        data_flow = Flow(
+            name=data_flow_names[index],
+            tx_rx=TxRx(data_endpoint),
+            packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
+            size=Size(data_pkt_size),
+            rate=Rate('line', (traffic_rate or 50)),
+            **duration
+           )
+
+        result.append(data_flow)
 
     """ PFC Pause Storm """
     pause_time = []
     for x in range(8):
         if x == prio:
-            pause_time.append('ffff')
+            pause_time.append(hex(xoff_quanta).split('x')[-1])
         else:
             pause_time.append('0000')
 
@@ -249,23 +303,32 @@ def __gen_traffic(testbed_config,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+    pause_dur = xoff_quanta * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
 
-    pause_flow = Flow(
-        name=pause_flow_name,
-        tx_rx=TxRx(pause_endpoint),
-        packet=[pause_pkt],
-        size=Size(64),
-        rate=Rate('pps', value=pps),
-        duration=Duration(FixedSeconds(seconds=exp_dur_sec,
-                                       delay=0,
-                                       delay_unit='nanoseconds'))
-    )
+    if single_pause:
+        pause_flow = Flow(
+            name=pause_flow_name,
+            tx_rx=TxRx(pause_endpoint),
+            packet=[pause_pkt],
+            size=Size(64),
+            rate=Rate('pps', value=pps),
+            duration=Duration(FixedPackets(packets=1,
+                                           delay=pause_delay,
+                                           delay_unit='nanoseconds')))
+    else:
+        pause_flow = Flow(
+            name=pause_flow_name,
+            tx_rx=TxRx(pause_endpoint),
+            packet=[pause_pkt],
+            size=Size(64),
+            rate=Rate('pps', value=pps),
+            duration=Duration(FixedSeconds(seconds=exp_dur_sec,
+                                       delay=pause_delay,
+                                       delay_unit='nanoseconds')))
     result.append(pause_flow)
 
     return result
-
 
 def __config_capture_ip_pkt(testbed_config, port_id):
     """
@@ -291,8 +354,8 @@ def __run_traffic(api,
                   config,
                   all_flow_names,
                   exp_dur_sec,
-                  capture_port_name,
-                  pcap_file_name):
+                  capture_port_name=None,
+                  pcap_file_name=None):
     """
     Run traffic and capture packets
 
@@ -308,7 +371,8 @@ def __run_traffic(api,
     """
     api.set_state(State(ConfigState(config=config, state='set')))
 
-    api.set_state(State(PortCaptureState(port_names=[capture_port_name],
+    if capture_port_name:
+        api.set_state(State(PortCaptureState(port_names=[capture_port_name],
                                          state='start')))
 
     api.set_state(State(FlowTransmitState(state='start')))
@@ -332,14 +396,14 @@ def __run_traffic(api,
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
-    """ Dump captured packets """
-    pcap_bytes = api.get_capture_results(CaptureRequest(port_name=capture_port_name))
-    with open(pcap_file_name, 'wb') as fid:
-        fid.write(pcap_bytes)
+    if capture_port_name:
+        """ Dump captured packets """
+        pcap_bytes = api.get_capture_results(CaptureRequest(port_name=capture_port_name))
+        with open(pcap_file_name, 'wb') as fid:
+            fid.write(pcap_bytes)
 
     """ Stop all the flows """
     api.set_state(State(FlowTransmitState(state='stop')))
-
 
 def __get_ip_pkts(pcap_file_name):
     """
