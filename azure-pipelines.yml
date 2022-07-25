@@ -124,6 +124,6 @@ stages:
           dut: all
           tbname: vms-kvm-four-asic-t1-lag
           ptf_name: ptf_vms6-4
-          tbtype: multi-asic-t1-lag
+          tbtype: multi-asic-t1-lag-pr
           vmtype: ceos
           image: sonic-4asic-vs.img.gz
