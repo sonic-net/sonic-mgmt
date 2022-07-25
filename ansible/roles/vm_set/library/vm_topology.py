@@ -1033,6 +1033,10 @@ class VMTopology(object):
                     vlan_id = self.vlan_ids[str(intf)]
                     self.add_dut_vlan_subif_to_docker(ptf_if, vlan_separator, vlan_id)
 
+    def enable_netns_loopback(self):
+        """Enable loopback device in the netns."""
+        VMTopology.cmd("ip netns exec %s ifconfig lo up" % self.netns)        
+
     def setup_netns_source_routing(self):
         """Setup policy-based routing to forward packet to its igress ports."""
 
@@ -1593,6 +1597,7 @@ def main():
             if net.netns:
                 net.add_network_namespace()
                 net.add_mgmt_port_to_netns(mgmt_bridge, netns_mgmt_ip_addr, ptf_mgmt_ip_gw)
+                net.enable_netns_loopback()
 
             if hostif_exists:
                 net.add_host_ports()
@@ -1722,6 +1727,7 @@ def main():
             if net.netns:
                 net.add_network_namespace()
                 net.add_mgmt_port_to_netns(mgmt_bridge, netns_mgmt_ip_addr, ptf_mgmt_ip_gw)
+                net.enable_netns_loopback()
 
             if hostif_exists:
                 net.add_host_ports()
