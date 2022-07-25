@@ -1,9 +1,8 @@
 import pytest
 import time
-import collections
 import datetime
 
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
@@ -11,7 +10,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from ixia.ptf_utils import get_sai_attributes
 
-from files.helper import run_ecn_test, is_ecn_marked
+from files.helper import run_ecn_test
 from common.cisco_data import setup_ecn_markings_dut, get_ecn_markings_dut
 
 # percent linerate to use in the test.
@@ -86,7 +85,7 @@ def test_red_accuracy(request,
 
     duthost.shell("sonic-clear pfccounters")
     duthost.shell("sonic-clear queuecounters")
-    # This will be enabled when the PR for get_sai_attributes is approved. https://wwwin-github.cisco.com/gplatforms/sonic-test/pull/163
+    # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
     #get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=True)
     traffic_rate = TRAFFIC_RATE/number_of_transmit_ports
 
@@ -113,7 +112,7 @@ def test_red_accuracy(request,
         counter_values = duthost.shell("show pfc count | grep {}".format(dut_port))['stdout']
         queue_values = duthost.shell("show queue count {}".format(dut_port))['stdout']
 
-        # This will be enabled when the PR for get_sai_attributes is approved. https://wwwin-github.cisco.com/gplatforms/sonic-test/pull/163
+        # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
         #sai_values = get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
         sai_values = [0, 0]
         print("The SAI attributes in the DUT:{}".format(sai_values))

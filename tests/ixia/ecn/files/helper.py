@@ -9,7 +9,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
-from tests.common.ixia.port import select_ports, select_tx_port
+from tests.common.ixia.port import select_ports
 
 from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
     BasicFilter
@@ -123,7 +123,6 @@ def run_ecn_test(api,
     else:
         for i in range(number_of_transmit_ports):
             name_options['data_flow_names'].append(DATA_FLOW_NAME + " " + str(i+1))
-    ALL_FLOW_NAMES = [PAUSE_FLOW_NAME] +  name_options['data_flow_names']
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
                           port_config_list=port_config_list,
