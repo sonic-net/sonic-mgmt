@@ -23,6 +23,9 @@ DOCKER_WAIT_TIME = 10
 def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    # save config for reload later
+    duthost.shell('sudo config save -y')
+
     # shutdown database docker before test
     duthost.command("sudo docker stop database", module_ignore_errors=True)
     time.sleep(DOCKER_WAIT_TIME)
@@ -34,9 +37,7 @@ def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
     time.sleep(DOCKER_WAIT_TIME)
 
     # reload config, because some critical process not work after database docker restart
-    duthost.shell('sudo config save -y')
-    config_reload(duthost)
-    wait_critical_processes(duthost)
+    config_reload(duthost, config_source='config_db', safe_reload=True)
 
 def test_sonic_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
     """
