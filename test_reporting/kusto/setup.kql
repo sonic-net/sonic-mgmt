@@ -118,7 +118,7 @@
                                                                                   '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
                                                                                   '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
                                                                                   '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
-                                                                                  '{"column":"CanceledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
+                                                                                  '{"column":"CancelledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
 
 ###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
