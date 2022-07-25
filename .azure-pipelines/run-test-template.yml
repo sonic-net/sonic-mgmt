@@ -44,7 +44,7 @@ steps:
 - script: |
     sudo mkdir -p sonic-vm/images
     sudo mkdir -p sonic-vm/disks
-    sudo cp -v ../target/${{parameters.image}} sonic-vm/images/sonic-vs.img.gz
+    sudo cp -v ../target/${{ parameters.image }} sonic-vm/images/sonic-vs.img.gz
     sudo gzip -fd sonic-vm/images/sonic-vs.img.gz
     username=$(id -un)
     sudo chown -R $username.$username sonic-vm
