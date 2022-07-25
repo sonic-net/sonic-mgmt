@@ -2,9 +2,11 @@
 Utility functions can re-used in testing scripts.
 """
 import collections
+import contextlib
 import inspect
 import ipaddress
 import logging
+import os
 import re
 import six
 import sys
@@ -631,3 +633,30 @@ def safe_filename(filename, replacement_char='_'):
     """
     illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
     return re.sub(illegal_chars_pattern, replacement_char, filename)
+
+
+@contextlib.contextmanager
+def update_environ(*remove, **update):
+    """
+    Temporarily update the environment variables.
+
+    :param remove: Environment variables to remove.
+    :param update: Dictionary of environment variables and values to add/update.
+    """
+    env = os.environ
+    update = update or {}
+    remove = remove or []
+
+    updated = (set(update.keys()) | set(remove)) & set(env.keys())
+
+    to_restore = {k: env[k] for k in updated}
+    to_removed = set(k for k in update if k not in env)
+
+    try:
+        env.update(update)
+        [env.pop(k, None) for k in remove]
+        yield
+    finally:
+        env.update(to_restore)
+        for k in to_removed:
+            env.pop(k)
