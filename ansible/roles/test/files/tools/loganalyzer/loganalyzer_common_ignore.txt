@@ -21,7 +21,7 @@ r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG prof
 r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
-r, ".* ERR syncd#SDK: :- setQueueCounterList: Queue RID oid:.* can't provide the statistic.*"
+r, ".* ERR syncd#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
 r, ".* INFO kernel:.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
@@ -144,3 +144,5 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14482841
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
+
+r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"

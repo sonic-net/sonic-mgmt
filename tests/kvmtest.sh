@@ -169,7 +169,8 @@ test_t0() {
       show_techsupport/test_techsupport_no_secret.py \
       platform_tests/cli/test_sonic_installer.py \
       platform_tests/cli/test_show.py \
-      system_health/test_system_status.py"
+      system_health/test_system_status.py \
+      radv/test_radv_ipv6_ra.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -272,6 +273,17 @@ test_multi_asic_t1_lag() {
     popd
 }
 
+test_multi_asic_t1_lag_pr() {
+    tgname=multi_asic_t1_lag
+    tests="\
+    bgp/test_bgp_fact.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
+    popd
+}
+
 test_dualtor(){
     tgname=dualtor
     tests="arp/test_arp_dualtor.py"
@@ -339,6 +351,8 @@ elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
     test_multi_asic_t1_lag
+elif [ x$test_suite == x"multi-asic-t1-lag-pr" ]; then
+    test_multi_asic_t1_lag_pr
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 elif [ x$test_suite == x"dualtor" ]; then

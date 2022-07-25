@@ -261,6 +261,15 @@ platform_tests/test_auto_negotiation.py:
     conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
 #######################################
+#####             pc              #####
+#######################################
+pc/test_lag_2.py::test_lag_db_status_with_po_update:
+  skip:
+    reason: "Only support t1-lag topology"
+    conditions:
+        - "topo_name not in ['t1-lag']"
+
+#######################################
 #####           qos               #####
 #######################################
 qos/test_buffer_traditional.py:
@@ -268,6 +277,12 @@ qos/test_buffer_traditional.py:
     reason: "buffer traditional test is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+
+qos/test_qos_masic.py:
+  skip:
+    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-backend."
+    conditions:
+      - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-backend']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -337,7 +352,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -369,6 +384,15 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           vlan              #####
+#######################################
+vlan/test_vlan_ping.py:
+  skip:
+    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####           VxLAN             #####
