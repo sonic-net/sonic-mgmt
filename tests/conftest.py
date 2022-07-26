@@ -155,6 +155,10 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
+    ############################
+    #   collect logs option    #
+    ############################
+    parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
 
     ############################
     #   macsec options         #
@@ -1645,7 +1649,8 @@ def collect_db_dump(request, duthosts):
     a test case failed.
     """
     yield
-    collect_db_dump_on_duts(request, duthosts)
+    if request.config.getoption("--collect_db_data"):
+        collect_db_dump_on_duts(request, duthosts)
 
 
 @pytest.fixture(scope="module", autouse=True)
