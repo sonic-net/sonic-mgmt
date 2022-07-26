@@ -81,37 +81,43 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     t1_ipv6_pattern = '2002:2000::{:x}'
     t0_intfs = get_t0_intfs(mg_facts)
     ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
-    index = random.sample(list(range(len(t0_intfs))), k=1)[0]
-    
-    neighbour_interface =[]
-    pc_member = False
-    for pc in mg_facts['minigraph_portchannels']:
-        if t0_intfs[index] in mg_facts['minigraph_portchannels'][pc]['members']:
-            neighbour_interface = pc
-            pc_member= True
-            break
+    count = min(2, len(t0_intfs))
+    indices = random.sample(list(range(len(t0_intfs))), k=count)
+    port_intfs = [t0_intfs[_] for _ in indices]
+    neighbour_intfs =[]
+    for intf in port_intfs:
+        pc_member = False
+        for pc in mg_facts['minigraph_portchannels']:
+            if intf in mg_facts['minigraph_portchannels'][pc]['members']:
+                neighbour_intfs.append(pc)
+                pc_member= True
+                break
     if not pc_member:
-        neighbour_interface = t0_intfs[index]
+        neighbour_intfs.append(intf)
+    ptf_intfs = [ptf_ports[_] for _ in indices]
     #local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces
     local_addrs = []
     neighbour_addrs = []
     neighbour_devs = []
     ptf_devs =[]
     idx2 =0
+    index = 0
     for idx in range(1, scale_count):
+        if idx !=0 and idx %127 == 0:
+            index +=1
         if ipv6:
             local_addrs.append(t1_ipv6_pattern.format(idx * 2))
             neighbour_addrs.append(t1_ipv6_pattern.format(idx * 2 + 1))
-            neighbour_devs.append(neighbour_interface)
-            ptf_devs.append(ptf_ports[index])
+            neighbour_devs.append(neighbour_intfs[index])
+            ptf_devs.append(ptf_intfs[index])
         else:
-            rolloveridx = idx %250
-            idx2 = idx//250
+            rolloveridx = idx %125
+            idx2 = idx//125
             local_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2))
             neighbour_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2 + 1))
-            neighbour_devs.append(neighbour_interface)
-            ptf_devs.append(ptf_ports[index])
-    prefix = 127 if ipv6 else  31    
+            neighbour_devs.append(neighbour_intfs[index])
+            ptf_devs.append(ptf_intfs[index])
+    prefix = 127 if ipv6 else  31
     return local_addrs, prefix, neighbour_addrs, neighbour_devs, ptf_devs
 
 def init_ptf_bfd(ptfhost):
@@ -226,9 +232,9 @@ def update_bfd_state(ptfhost, neighbor_addr, local_addr, state):
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_basic(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6, dut_init_first):
+def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6, dut_init_first):
     duthost = rand_selected_dut
-    bfd_session_cnt = 5
+    bfd_session_cnt =  int(request.config.getoption('--num_sessions'))
     skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6, count = bfd_session_cnt)
     try:
@@ -283,7 +289,8 @@ def test_bfd_basic(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_port
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):
     duthost = rand_selected_dut
-    bfd_session_cnt = 128
+    bfd_session_cnt =  int(request.config.getoption('--num_sessions_scale'))
+  
     skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors_scale(duthost, tbinfo, ipv6, scale_count = bfd_session_cnt)
 
@@ -307,6 +314,3 @@ def test_bfd_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_port
         del_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
         remove_bfd_sessions(duthost, local_addrs, neighbor_addrs)
         remove_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
-
-
-
