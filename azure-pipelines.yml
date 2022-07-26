@@ -121,7 +121,7 @@ stages:
     steps:
       - template: .azure-pipelines/run-test-template.yml
         parameters:
-          dut: all
+          dut: vlab-08
           tbname: vms-kvm-four-asic-t1-lag
           ptf_name: ptf_vms6-4
           tbtype: multi-asic-t1-lag-pr
