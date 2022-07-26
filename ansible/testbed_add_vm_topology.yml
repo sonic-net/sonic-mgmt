@@ -98,6 +98,7 @@
     - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, action: 'start_sonic_vm' }
     - { role: vm_set, action: 'start_sid' }
+    - { role: vm_set, action: 'start_8000e_sonic' }
     - { role: vm_set, action: 'add_topo' }
 
 - hosts: servers:&eos
