@@ -184,7 +184,7 @@ class SonicHost(AnsibleHostBase):
         facts["mgmt_interface"] = self._get_mgmt_interface()
         facts["switch_type"] = self._get_switch_type()
         asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else range(facts["num_asic"])
+        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
 
         platform_asic = self._get_platform_asic(facts["platform"])
         if platform_asic:
