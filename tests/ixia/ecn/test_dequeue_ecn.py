@@ -73,7 +73,7 @@ def test_dequeue_ecn(request,
         margin = margin_cells // cell_per_pkt
         pkt_to_oq = (oq_cell_count//cell_per_pkt) + margin # Packets forwarded to OQ
         pkt_to_check = pkt_to_oq + 1
-        get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_WATERMARK_BYTES"], clear_only=True)
+        get_sai_attributes(duthost, ptfhost, dut_port, [], clear_only=True)
     else:
         pkt_to_check = 0
 
@@ -106,7 +106,7 @@ def test_dequeue_ecn(request,
         pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                       "The last packet should not be marked")
         if cisco_platform:
-            print(get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS", "SAI_QUEUE_STAT_WATERMARK_BYTES"], clear_only=False))
+            print(get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=False))
 
     finally:
          if cisco_platform:
