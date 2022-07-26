@@ -21,7 +21,6 @@ ignored_iptable_rules = []
 @pytest.fixture(scope="module", autouse=True)
 def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
     global ignored_iptable_rules
-    topo_name = tbinfo['topo']['name']
     # There are some hardcoded cacl rule for dualtot testbed, which should be ignored
     if "dualtor" in tbinfo['topo']['name']:
         rules_to_ignore = [
