@@ -184,3 +184,33 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Dual-TOR-Mixed testbed
+
+- conf-name: 8000e-t0
+  group-name: vms8-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-8k-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests 8000e sonic device
+
+- conf-name: 8000e-t1
+  group-name: vms8-1
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-8k-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests 8000e sonic device
