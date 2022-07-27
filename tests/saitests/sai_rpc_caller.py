@@ -1,12 +1,18 @@
 """
-SONiC Dataplane Qos tests
+    Script to query any SAI variable from syncd-rpc-container. The script supports any 
+    SAI variable that is defined in switch_sai_thrift.sai_headers library. This script
+    needs to be run in the PTF container using the commandline:
+
+    Usage:
+        ptf --test-dir ixia_saitests/saitests sai_rpc_caller.RPC_Caller --platform-dir ixia_ptftests/ptftests/ --platform remote -t 'dutport=44;port_map="0@0";server="1.72.33.5";sai_values=["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"];clear_only=False'
+    To clear all sai counters:
+        ptf --test-dir ixia_saitests/saitests sai_rpc_caller.RPC_Caller --platform-dir ixia_ptftests/ptftests/ --platform remote -t 'dutport=44;port_map="0@0";server="1.72.33.5";sai_values=[];clear_only=True'
 """
 import time
 import logging
 import sai_base_test
 import sys
 from switch import *
-#from switch_sai_thrift.sai_headers import SAI_QUEUE_STAT_PACKETS, SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS, SAI_QUEUE_STAT_WATERMARK_BYTES, SAI_QUEUE_STAT_DELAY_WATERMARK
 from switch_sai_thrift.sai_headers import *
 import ptf.testutils as testutils
 
@@ -45,14 +51,11 @@ class RPC_Caller(sai_base_test.ThriftInterfaceDataPlane):
         thrift_results=[]
         queue_counters_results=[]
 
-        cnt_ids=[]
-        cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
-        cnt_ids.append(SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS)
         queue_counters_results = []
         tc_count = 0
         for queue in queue_ids:
             if tc_count <= 7:
-                thrift_results = self.client.sai_thrift_get_queue_stats(queue,cnt_ids,len(cnt_ids))
+                thrift_results = self.client.sai_thrift_get_queue_stats(queue,numeric_stats,len(numeric_stats))
                 queue_counters_results.append(thrift_results[1])
                 tc_count += 1
 

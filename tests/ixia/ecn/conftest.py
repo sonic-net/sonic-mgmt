@@ -18,10 +18,6 @@ def pytest_addoption(parser):
 def ptfhost(ansible_adhoc, request, duthosts, rand_one_dut_hostname, creds):
     ptf_name = request.config.getoption("--ixia_ptf_name")
     if ptf_name:
-        # Since the user has given the ixia_ptf_name argument, we also
-        # need to update the syncd container to rpc-enabled image.
-
-        #swapSyncd(request, duthosts, rand_one_dut_hostname, creds)
         return PTFHost(ansible_adhoc, ptf_name)
     else:
         print("No ixia_ptf_name argument is given, No ptf access will work.")
@@ -52,7 +48,7 @@ def swapSyncd(request, ptfhost, duthosts, rand_one_dut_hostname, creds):
             None
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if ptfhost is None:
+    if not ptfhost:
         return
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     try:
