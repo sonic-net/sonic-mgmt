@@ -54,6 +54,16 @@
   stat: path={{ disk_image }}
   register: file_stat
 
+- include_vars: ../../group_vars/all/creds.yml
+
+- name: Check Cisco kickstart password
+  fail: msg="{{ dut_name }} {{ hostvars[dut_name]['image'] }} password is empty"
+  when: hostvars[dut_name]['image'] == 'cisco' and cisco_password | trim == ''
+
+- name: Check Juniper kickstart password
+  fail: msg="{{ dut_name }} {{ hostvars[dut_name]['image'] }} password is empty"
+  when: hostvars[dut_name]['image'] == 'juniper' and junos_password | trim == ''
+
 - name: Copy sonic disk image for {{ dut_name }}
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   become: yes
@@ -102,8 +112,6 @@
   become: yes
   register: sonic_vm_start
   when: dut_name not in vm_list_running.list_vms
-
-- include_vars: ../../group_vars/all/creds.yml
 
 - block:
   - name: Wait until vm {{ dut_name }} is loaded
