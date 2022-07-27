@@ -1072,7 +1072,6 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res = {}
     res['ptfhost'] = ptfhost
     res['standby_tor_mac'] = standby_tor.facts['router_mac']
-    res['active_tor_mac'] = active_tor.facts['router_mac']
     vlan_name = standby_tor_mg_facts['minigraph_vlans'].keys()[0]
     res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
     res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')

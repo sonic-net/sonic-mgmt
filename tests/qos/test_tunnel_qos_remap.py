@@ -83,6 +83,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
         (48, 48)
     ]
     dualtor_meta = dualtor_info(ptfhost, upper_tor_host, lower_tor_host, tbinfo)
+    active_tor_mac = lower_tor_host.facts['router_mac']
     
     t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)
     # Always select the first port in first LAG as src_port
@@ -94,7 +95,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
     for dscp_combination in DSCP_COMBINATIONS:
         pkt, expected_pkt = _build_testing_packet(src_ip=DUMMY_IP,
                                                   dst_ip=SERVER_IP,
-                                                  active_tor_mac=dualtor_meta['active_tor_mac'],
+                                                  active_tor_mac=active_tor_mac,
                                                   standby_tor_mac=dualtor_meta['standby_tor_mac'],
                                                   active_tor_ip=dualtor_meta['active_tor_ip'],
                                                   standby_tor_ip=dualtor_meta['standby_tor_ip'],
@@ -139,7 +140,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
         (48, 7)
     ]
     dualtor_meta = dualtor_info(ptfhost, upper_tor_host, lower_tor_host, tbinfo)
-    
+    active_tor_mac = lower_tor_host.facts['router_mac']
     t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)
     # Always select the first port in first LAG as src_port
     src_port = list(t1_ports.values())[0][0]
@@ -154,7 +155,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
     for dscp, queue in TEST_DATA:
         pkt, _ = _build_testing_packet(src_ip=DUMMY_IP,
                                         dst_ip=SERVER_IP,
-                                        active_tor_mac=dualtor_meta['active_tor_mac'],
+                                        active_tor_mac=active_tor_mac,
                                         standby_tor_mac=dualtor_meta['standby_tor_mac'],
                                         active_tor_ip=dualtor_meta['active_tor_ip'],
                                         standby_tor_ip=dualtor_meta['standby_tor_ip'],
