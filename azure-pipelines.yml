@@ -2,11 +2,15 @@
 # Start with a minimal pipeline that you can customize to build and deploy your code.
 # Add steps that build, run tests, deploy, and more:
 # https://aka.ms/yaml
+
 pr:
 - master
+
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
 stages:
 - stage: Test
+
   variables:
   - name: inventory
     value: veos_vtb
@@ -66,6 +70,7 @@ stages:
           echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
           exit 1
         fi
+        
   - job:
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag"
