@@ -256,7 +256,7 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                set -ex
+                set -x
 
                 if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
                     CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
@@ -266,7 +266,12 @@ stages:
                 cd ansible
 
                 http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
-                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS
+                # If restart-ptf failed, try to redeploy the topology
+                if [[ $? != 0 ]]; then
+                    http_proxy='' https_proxy='' ./testbed-cli.sh redeploy-topo ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
+                fi
+
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS || exit 1
                 sleep 180
 
           - task: Bash@3
