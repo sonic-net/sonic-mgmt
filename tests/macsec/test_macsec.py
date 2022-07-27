@@ -106,6 +106,7 @@ class TestControlPlane():
         key = ":".join((port_name, get_sci(duthost.get_dut_iface_mac(port_name)), egress_sc_table["encoding_an"]))
         duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, pn_exhaustion - 100))
         duthost.command("python -c \"import scapy.all as scapy; pkt=scapy.Ether(); scapy.sendp(pkt, count={}, iface='{}')\"".format(200, port_name))
+        sleep(12)
 
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
@@ -120,6 +121,7 @@ class TestControlPlane():
 
         duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, xpn_exhaustion - 100))
         duthost.command("python -c \"import scapy.all as scapy; pkt=scapy.Ether(); scapy.sendp(pkt, count={}, iface='{}')\"".format(200, port_name))
+        sleep(12)
 
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
