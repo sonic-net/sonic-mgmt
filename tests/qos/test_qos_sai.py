@@ -30,8 +30,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
-from tests.common.dualtor.dual_tor_utils import dualtor_ports
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -174,6 +172,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        normal_profile = ["xon_1", "xon_2"]
+        if not dutConfig["dualTor"] and not xonProfile in normal_profile:
+            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+
         if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("This Test Case is only meant for Mellanox ASIC")
 
@@ -302,7 +304,7 @@ class TestQosSai(QosSaiBase):
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
 
-    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
