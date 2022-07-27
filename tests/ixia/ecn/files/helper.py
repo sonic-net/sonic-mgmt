@@ -79,6 +79,9 @@ def run_ecn_test(api,
 
     Returns:
         Return captured IP packets (list of list)
+        TODO: After the ixia support for counting the ECN marked packets is available,
+        we can add the API call for the same, and obtain the number of ECN marked packets
+        received in the RX Port.
     """
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
@@ -214,7 +217,7 @@ def __gen_traffic(testbed_config,
                                                     pattern="many to one",
                                                     rx_port_id=rx_port_id)
     pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
-    # Every other port than rx_port is a potential tx port now ;)
+    # Every port other than rx_port is a potential tx port now ;)
     tx_port_id_list = [x for x in tx_port_id_list if x != rx_port_id]
     pytest_assert(tx_port_id_list != [], "Cannot find a suitable TX port")
 
@@ -265,7 +268,7 @@ def __gen_traffic(testbed_config,
             tx_rx=TxRx(data_endpoint),
             packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
             size=Size(data_pkt_size),
-            rate=Rate('line', (traffic_rate or 50)),
+            rate=Rate('line', (traffic_rate or 51)),
             **duration
            )
 

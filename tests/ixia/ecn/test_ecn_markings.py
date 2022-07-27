@@ -18,14 +18,22 @@ TRAFFIC_RATE = 51
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
-@pytest.mark.parametrize("dequeue_marking,latency_marking", [(True, True), (False, True), (True, False)])
+@pytest.fixture(autouse=True, scope="module")
+def store_ecn_markings_dut(duthost, localhost):
+    original_ecn_markings = get_ecn_markings_dut(duthost)
+
+    yield
+ 
+    setup_ecn_markings_dut(duthost, localhost, **original_ecn_markings)
+
 @pytest.mark.parametrize("number_of_transmit_ports", [1, 3])
 @pytest.mark.parametrize("pmax", [5, 100])
 @pytest.mark.parametrize("xoff_quanta", [500, 10000, 20000, 30000, 40000, 50000, 60000])
 @pytest.mark.parametrize("kmin", [50000])
 @pytest.mark.parametrize("kmax", [500000])
 @pytest.mark.parametrize("pkt_size", [1024])
-def test_red_accuracy(request,
+@pytest.mark.parametrize("dequeue_marking,latency_marking", [(True, True), (False, True), (True, False)])
+def test_ecn_markings(request,
                       ixia_api,
                       ixia_testbed_config,
                       conn_graph_facts,
@@ -37,6 +45,7 @@ def test_red_accuracy(request,
                       rand_one_dut_portname_oper_up,
                       rand_one_dut_lossless_prio,
                       prio_dscp_map,
+                      store_ecn_markings_dut,
                       dequeue_marking,
                       latency_marking,
                       number_of_transmit_ports,
@@ -66,7 +75,7 @@ def test_red_accuracy(request,
     """
     disable_test = request.config.getoption("--disable_ecn_test")
     if disable_test:
-        pytest.skip("test_red_accuracy is disabled")
+        pytest.skip("test_ecn_markings is disabled")
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = rand_one_dut_lossless_prio.split('|')
@@ -77,20 +86,22 @@ def test_red_accuracy(request,
     duthost = duthosts[rand_one_dut_hostname]
     lossless_prio = int(lossless_prio)
 
-    current_marking_settings = get_ecn_markings_dut(duthost)
     setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = dequeue_marking, ecn_latency_marking = latency_marking)
 
-    result_file_name = 'result.txt'
+    result_file_name = 'ecn_marking_result'
+    result_file_name += ("_lat" if latency_marking else "")
+    result_file_name += ("_deq" if dequeue_marking else "")
+    result_file_name += "_{}to1_{}_{}_{}.txt".format(number_of_transmit_ports, kmin, kmax, pmax)
+
     csv_file_name = 'mark_data.csv'
 
     duthost.shell("sonic-clear pfccounters")
     duthost.shell("sonic-clear queuecounters")
     # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
-    #get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=True)
+    #get_sai_attributes(duthost, ptfhost, dut_port, [], clear_only=True)
     traffic_rate = TRAFFIC_RATE/number_of_transmit_ports
 
-    try:
-        ip_pkts_list = run_ecn_test(api=ixia_api,
+    ip_pkts_list = run_ecn_test(api=ixia_api,
                                         testbed_config=testbed_config,
                                         port_config_list=port_config_list,
                                         conn_data=conn_graph_facts,
@@ -108,40 +119,34 @@ def test_red_accuracy(request,
         				traffic_rate=traffic_rate,
                                         number_of_transmit_ports=number_of_transmit_ports,
                                         single_pause=True)
-        time.sleep(8)
-        counter_values = duthost.shell("show pfc count | grep {}".format(dut_port))['stdout']
-        queue_values = duthost.shell("show queue count {}".format(dut_port))['stdout']
+    time.sleep(8)
+    queue_values = duthost.shell("show queue count {}".format(dut_port))['stdout']
 
-        # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
-        #sai_values = get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
-        sai_values = [0, 0]
-        print("The SAI attributes in the DUT:{}".format(sai_values))
-        print("The counter values in the DUT:\n{}".format(counter_values))
-        print("Xoff = {}".format(xoff_quanta))
-        print("pmax = {}".format(pmax))
-        with open(result_file_name, "a") as fd:
-             fd.write("-------------------------------------------------------------\n")
-             fd.write("kmin={}, kmax={}, pmax={} \n".format(kmin, kmax, pmax))
-             fd.write("latency_marking = {}. dequeue_marking={}, Xoff={}\n".format(latency_marking, dequeue_marking, xoff_quanta))
-             fd.write("The SAI attributes in the DUT:{}\n".format(sai_values))
-             fd.write("The pfc counter values in the DUT:\n{}\n".format(counter_values))
-             fd.write("The queue counter values in the DUT:\n{}\n".format(queue_values))
-             fd.write("-------------------------------------------------------------\n")
+    # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
+    #sai_values = get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
+    sai_values = "0"
+    print("The SAI attributes in the DUT:{}".format(sai_values))
+    print("Xoff = {}".format(xoff_quanta))
+    print("pmax = {}".format(pmax))
+    with open(result_file_name, "a") as fd:
+        fd.write("-------------------------------------------------------------\n")
+        fd.write("kmin={}, kmax={}, pmax={} \n".format(kmin, kmax, pmax))
+        fd.write("latency_marking = {}. dequeue_marking={}, Xoff={}\n".format(latency_marking, dequeue_marking, xoff_quanta))
+        fd.write("The SAI attributes in the DUT:{}\n".format(sai_values))
+        fd.write("The queue counter values in the DUT:\n{}\n".format(queue_values))
+        fd.write("-------------------------------------------------------------\n")
 
-        with open(csv_file_name, "a") as fd:
-            fd.write("{time_stamp},{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{total_packets},{marked_packets}\n".format(
-                time_stamp = str(datetime.datetime.now()),
-                rate = traffic_rate,
-                deq = dequeue_marking,
-                lat = latency_marking,
-                tx_ports = number_of_transmit_ports,
-                kmax = kmax,
-                kmin = kmin,
-                pmax = pmax,
-                xoff_quanta = xoff_quanta,
-                total_packets = sai_values[0],
-                marked_packets = sai_values[1]))
+    with open(csv_file_name, "a") as fd:
+        fd.write("{time_stamp},{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{sai_values}\n".format(
+            time_stamp = str(datetime.datetime.now()),
+            rate = traffic_rate,
+            deq = dequeue_marking,
+            lat = latency_marking,
+            tx_ports = number_of_transmit_ports,
+            kmax = kmax,
+            kmin = kmin,
+            pmax = pmax,
+            xoff_quanta = xoff_quanta,
+            sai_values = sai_values))
 
-    finally:
-        setup_ecn_markings_dut(duthost, localhost, **current_marking_settings)
-        print("test done")
+    print("test done")
