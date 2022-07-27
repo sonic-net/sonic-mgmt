@@ -18,7 +18,6 @@ pytestmark = [
 
 ignored_iptable_rules = []
 
-
 @pytest.fixture(scope="module", autouse=True)
 def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
     global ignored_iptable_rules
@@ -328,7 +327,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
 
-def generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_rules_for_standby):
+def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
     ip6tables_rules = []
 
@@ -405,6 +404,18 @@ def generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_r
     if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
         ip6tables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
+
+    # Allow LDP traffic
+    if ("wan" in tbinfo['topo']['name']):
+        wan_default_rules = [
+        "-A INPUT -p tcp -m tcp --dport 646 -j ACCEPT",
+        "-A INPUT -p tcp -m tcp --sport 646 -j ACCEPT",
+        "-A INPUT -p udp -m udp --dport 646 -j ACCEPT",
+        "-A INPUT -p udp -m udp --sport 646 -j ACCEPT",
+        "-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT"
+        ]
+        iptables_rules += wan_default_rules
+        ip6tables_rules += wan_default_rules
 
     # Generate control plane rules from device config
     rules_applied_from_config = 0
@@ -723,8 +734,8 @@ def generate_scale_rules(duthost, ip_type):
     # add ACCEPT rule for SSH to make sure testbed access
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 
-def verify_cacl(duthost, localhost, creds, docker_network, expected_dhcp_rules_for_standby, asic_index = None):
-    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, docker_network, asic_index, expected_dhcp_rules_for_standby)
+def verify_cacl(duthost, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby, asic_index = None):
+    expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
     actual_iptables_rules = stdout.strip().split("\n")
@@ -791,7 +802,7 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}".format(repr(unexpected_ip6tables_rules)))
 
-def test_cacl_application_nondualtor(duthosts, rand_one_dut_hostname, localhost, creds, docker_network):
+def test_cacl_application_nondualtor(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds, docker_network):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly
 
@@ -800,9 +811,9 @@ def test_cacl_application_nondualtor(duthosts, rand_one_dut_hostname, localhost,
     actual iptables/ip6tables rules on the DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    verify_cacl(duthost, localhost, creds, docker_network, None)
+    verify_cacl(duthost, tbinfo, localhost, creds, docker_network, None)
 
-def test_cacl_application_dualtor(duthost_dualtor, localhost, creds, docker_network, expected_dhcp_rules_for_standby):
+def test_cacl_application_dualtor(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly on dualtor.
 
@@ -810,14 +821,14 @@ def test_cacl_application_dualtor(duthost_dualtor, localhost, creds, docker_netw
     rules based on the DuT's configuration and comparing them against the
     actual iptables/ip6tables rules on the DuT.
     """
-    verify_cacl(duthost_dualtor, localhost, creds, docker_network, expected_dhcp_rules_for_standby)
+    verify_cacl(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby)
 
-def test_multiasic_cacl_application(duthosts, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
+def test_multiasic_cacl_application(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds,docker_network, enum_frontend_asic_index):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly on multi-ASIC platform.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    verify_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
+    verify_cacl(duthost, tbinfo, localhost, creds, docker_network, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
 def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
