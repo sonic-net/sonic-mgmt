@@ -410,7 +410,10 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        exit ${RESULT}
+        # exit with specific code 65 for pretest failed.
+        # user-defined exit codes is the range 64 - 113.
+        # nightly test pipeline can check this code to decide if fails pipeline.
+        exit 65
     fi
 fi
 

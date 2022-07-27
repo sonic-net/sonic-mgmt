@@ -139,8 +139,6 @@ def verify_snmp_speed(facts, snmp_facts, results):
 def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("interfaces not present on supervisor node")
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)

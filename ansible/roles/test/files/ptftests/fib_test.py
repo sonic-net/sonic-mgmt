@@ -17,9 +17,12 @@ import logging
 import random
 import time
 import json
+import itertools
 
 import ptf
 import ptf.packet as scapy
+
+from collections import Iterable
 
 from ptf import config
 from ptf.base_tests import BaseTest
@@ -32,6 +35,7 @@ from ptf.testutils import verify_packet_any_port
 from ptf.testutils import verify_no_packet_any
 
 import fib
+import macsec
 
 class FibTest(BaseTest):
     '''
@@ -72,8 +76,7 @@ class FibTest(BaseTest):
 
     _required_params = [
         'fib_info_files',
-        'ptf_test_port_map',
-        'router_macs'
+        'ptf_test_port_map'
     ]
 
     def __init__(self):
@@ -117,7 +120,12 @@ class FibTest(BaseTest):
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
 
-        self.router_macs = self.test_params.get('router_macs')
+        # preprocess ptf_test_port_map to support multiple DUTs as target_dut
+        for port_map in self.ptf_test_port_map.values():
+            if not isinstance(port_map["target_dut"], Iterable):
+                port_map["target_dut"] = [port_map["target_dut"]]
+                port_map["target_src_mac"] = [port_map["target_src_mac"]]
+
         self.pktlen = self.test_params.get('testbed_mtu', 9114)
         self.test_ipv4 = self.test_params.get('ipv4', True)
         self.test_ipv6 = self.test_params.get('ipv6', True)
@@ -129,7 +137,14 @@ class FibTest(BaseTest):
 
         self.pkt_action = self.test_params.get('pkt_action', self.ACTION_FWD)
         self.ttl = self.test_params.get('ttl', 64)
-        self.ip_options = self.test_params.get('ip_options', False)
+
+        self.ip_options = False
+        ip_options_list = self.test_params.get('ip_options', False)
+        if isinstance(ip_options_list, list) and ip_options_list:
+            self.ip_options = scapy.IPOption(ip_options_list[0])
+            for opt in ip_options_list[1:]:
+                self.ip_options /= scapy.IPOption(opt)
+
         self.src_vid = self.test_params.get('src_vid', None)
         self.dst_vid = self.test_params.get('dst_vid', None)
 
@@ -138,7 +153,7 @@ class FibTest(BaseTest):
             self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
-        self.single_fib = self.test_params.get('single_fib_for_duts', False)
+        self.single_fib = self.test_params.get('single_fib_for_duts', "multiple-fib")
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, fib in enumerate(self.fibs):
@@ -162,82 +177,113 @@ class FibTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
+            active_dut_indexes = [0]
+            if self.single_fib == "multiple-fib":
+                active_dut_indexes = self.ptf_test_port_map[str(src_port)]['target_dut']
+
+            next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
+            exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+            for exp_port_list in exp_port_lists:
+                if src_port in exp_port_list:
+                    break
             else:
-                active_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut']
-            next_hop = self.fibs[active_dut_index][dst_ip]
-            exp_port_list = next_hop.get_next_hop_list()
-            if src_port in exp_port_list:
-                continue
-            logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(src_port, exp_port_list, active_dut_index))
-            break
-        return src_port, exp_port_list, next_hop
+                # MACsec link only receive encrypted packets
+                # It's hard to simulate encrypted packets on the injected port
+                # Because the MACsec is session based channel but the injected ports are stateless ports
+                if src_port in macsec.MACSEC_INFOS.keys():
+                    continue
+                logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(src_port, exp_port_lists, active_dut_indexes))
+                break
+        return src_port, exp_port_lists, next_hops
 
     def check_ip_range(self, ip_range, dut_index, ipv4=True):
 
         dst_ips = []
         dst_ips.append(ip_range.get_first_ip())
-        if ip_range.length > 1:
+        if ip_range.length() > 1:
             dst_ips.append(ip_range.get_last_ip())
-        if ip_range.length > 2:
+        if ip_range.length() > 2:
             dst_ips.append(ip_range.get_random_ip())
 
         for dst_ip in dst_ips:
-            src_port, exp_ports, _ = self.get_src_and_exp_ports(dst_ip)
-            if not exp_ports:
-                logging.info('Skip checking ip range {} with exp_ports {}'.format(ip_range, exp_ports))
-                return
-            logging.info('Checking ip range {}, src_port={}, exp_ports={}, dst_ip={}, dut_index={}'\
-                .format(ip_range, src_port, exp_ports, dst_ip, dut_index))
-            self.check_ip_route(src_port, dst_ip, exp_ports, ipv4)
+            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
+            # if dst_ip is local to DUT, the nexthops will be empty.
+            # for active-active dualtor testbed, if the dst_ip is local to the upper ToR and src_port is an
+            # active-active port, the expect egress ports of upper ToR will be empty, exp_port_lists will be
+            # like [[], [30, 31, 32, 33]] if src_port .
+            # for single DUT testbed, if the dst_ip is local to the ToR, the exp_port_lists will be like [[]].
+            # so let's skip checking this IP range if any sub-list is empty.
+            for exp_port_list in exp_port_lists:
+                if not exp_port_list:
+                    logging.info('Skip checking ip range {} with exp_ports {}'.format(ip_range, exp_port_lists))
+                    return
+            logging.info('Checking ip range {}, src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'\
+                .format(ip_range, src_port, exp_port_lists, dst_ip, dut_index))
+            self.check_ip_route(src_port, dst_ip, exp_port_lists, ipv4)
 
     def check_balancing(self, ip_ranges, dut_index, ipv4=True):
         # Test traffic balancing across ECMP/LAG members
         if self.test_balancing and self.pkt_action == self.ACTION_FWD:
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
-                src_port, exp_port_list, next_hop = self.get_src_and_exp_ports(dst_ip)
-                if len(exp_port_list) <= 1:
-                    # Only 1 expected output port is not enough for balancing test.
+                src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
+                if self.single_fib == "single-fib-multi-hop":
+                    updated_exp_port_list = []
+                    # assume only test `single-fib-multi-hop` scenario on a single DUT testbed
+                    exp_port_list = exp_port_lists[0]
+                    for port in exp_port_list:
+                        if (self.ptf_test_port_map[str(port)]['target_dut'] == self.ptf_test_port_map[str(src_port)]['target_dut'] and
+                            self.ptf_test_port_map[str(port)]['asic_idx'] == self.ptf_test_port_map[str(src_port)]['asic_idx']):
+                            updated_exp_port_list.append(port)
+                    if updated_exp_port_list:
+                        exp_port_lists = [updated_exp_port_list]
+
+                skip = False
+                for exp_port_list in exp_port_lists:
+                    if len(exp_port_list) <= 1:
+                        # Only 1 expected output port is not enough for balancing test.
+                        skip = True
+                        break
+                if skip:
                     continue
                 hit_count_map = {}
                 # Change balancing_test_times according to number of next hop groups
                 logging.info('Checking ip range balancing {}, src_port={}, exp_ports={}, dst_ip={}, dut_index={}'\
-                    .format(ip_range, src_port, exp_port_list, dst_ip, dut_index))
-                for i in range(0, self.balancing_test_times*len(exp_port_list)):
-                    (matched_index, received) = self.check_ip_route(src_port, dst_ip, exp_port_list, ipv4)
-                    hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
-                self.check_hit_count_map(next_hop.get_next_hop(), hit_count_map)
-                self.balancing_test_count += 1
+                    .format(ip_range, src_port, exp_port_lists, dst_ip, dut_index))
+                for i in range(0, self.balancing_test_times*len(list(itertools.chain(*exp_port_lists)))):
+                    (matched_port, _) = self.check_ip_route(src_port, dst_ip, exp_port_lists, ipv4)
+                    hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
+                for next_hop in next_hops:
+                    # only check balance on a DUT
+                    self.check_hit_count_map(next_hop.get_next_hop(), hit_count_map)
+                    self.balancing_test_count += 1
                 if self.balancing_test_count >= self.balancing_test_number:
                     break
 
-    def check_ip_route(self, src_port, dst_ip_addr, dst_port_list, ipv4=True):
+    def check_ip_route(self, src_port, dst_ip_addr, dst_port_lists, ipv4=True):
         if ipv4:
-            res = self.check_ipv4_route(src_port, dst_ip_addr, dst_port_list)
+            res = self.check_ipv4_route(src_port, dst_ip_addr, dst_port_lists)
         else:
-            res = self.check_ipv6_route(src_port, dst_ip_addr, dst_port_list)
+            res = self.check_ipv6_route(src_port, dst_ip_addr, dst_port_lists)
 
         if self.pkt_action == self.ACTION_DROP:
             return res
 
-        (matched_index, received) = res
+        (matched_port, received) = res
 
         assert received
 
-        matched_port = dst_port_list[matched_index]
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
 
         return (matched_port, received)
 
-    def check_ipv4_route(self, src_port, dst_ip_addr, dst_port_list):
+    def check_ipv4_route(self, src_port, dst_ip_addr, dst_port_lists):
         '''
         @summary: Check IPv4 route works.
         @param src_port: index of port to use for sending packet to switch
         @param dest_ip_addr: destination IP to build packet with.
-        @param dst_port_list: list of ports on which to expect packet to come back from the switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
         '''
         sport = random.randint(0, 65535)
         dport = random.randint(0, 65535)
@@ -245,7 +291,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcp_packet(
                             pktlen=self.pktlen,
@@ -296,28 +342,40 @@ class FibTest(BaseTest):
                     sport,
                     dport))
 
+        dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_port_list)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_ports)
+            rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = None
+            if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+                # active-active dualtor, the packet could be received from either ToR, so use the received
+                # port to find the corresponding ToR
+                for dut_index, port_list in enumerate(dst_port_lists):
+                    if rcvd_port in port_list:
+                        exp_src_mac = self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"][dut_index]
+            else:
+                exp_src_mac = self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"][0]
             actual_src_mac = Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                                 "but the src mac doesn't match, expected {}, got {}".
-                                format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+                                format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
+            rcvd_port_index, rcvd_pkt = verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            rcvd_port = dst_ports[rcvd_port_index]
+            return (rcvd_port, rcvd_pkt)
     #---------------------------------------------------------------------
 
-    def check_ipv6_route(self, src_port, dst_ip_addr, dst_port_list):
+    def check_ipv6_route(self, src_port, dst_ip_addr, dst_port_lists):
         '''
         @summary: Check IPv6 route works.
         @param source_port_index: index of port to use for sending packet to switch
         @param dest_ip_addr: destination IP to build packet with.
-        @param dst_port_list: list of ports on which to expect packet to come back from the switch
+        @param dst_port_lists: list of ports on which to expect packet to come back from the switch
         @return Boolean
         '''
         sport = random.randint(0, 65535)
@@ -326,7 +384,7 @@ class FibTest(BaseTest):
         ip_dst = dst_ip_addr
         src_mac = self.dataplane.get_mac(0, src_port)
 
-        router_mac = self.ptf_test_port_map[str(src_port)]['target_mac']
+        router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
 
         pkt = simple_tcpv6_packet(
                                 pktlen=self.pktlen,
@@ -375,20 +433,32 @@ class FibTest(BaseTest):
                     sport,
                     dport))
 
+        dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+            rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
-            exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
+            exp_src_mac = None
+            if len(self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"]) > 1:
+                # active-active dualtor, the packet could be received from either ToR, so use the received
+                # port to find the corresponding ToR
+                for dut_index, port_list in enumerate(dst_port_lists):
+                    if rcvd_port in port_list:
+                        exp_src_mac = self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"][dut_index]
+            else:
+                exp_src_mac = self.ptf_test_port_map[str(rcvd_port)]["target_src_mac"][0]
             actual_src_mac = Ether(rcvd_pkt).src
-            if actual_src_mac != exp_src_mac:
+            if exp_src_mac != actual_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                                 "but the src mac doesn't match, expected {}, got {}".
-                                format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
+                                format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
+            rcvd_port_index, rcvd_pkt = verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            rcvd_port = dst_ports[rcvd_port_index]
+            return (rcvd_port, rcvd_pkt)
 
     def check_within_expected_range(self, actual, expected):
         '''
@@ -410,7 +480,11 @@ class FibTest(BaseTest):
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
-        total_hit_cnt = sum(port_hit_cnt.values())
+        total_hit_cnt = 0
+        for ecmp_entry in dest_port_list:
+            for member in ecmp_entry:
+                total_hit_cnt += port_hit_cnt.get(member, 0)
+
         for ecmp_entry in dest_port_list:
             total_entry_hit_cnt = 0
             for member in ecmp_entry:

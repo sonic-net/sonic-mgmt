@@ -342,6 +342,9 @@ def lower_tor_fanouthosts(lower_tor_host, fanouthosts):
     return _get_tor_fanouthosts(lower_tor_host, fanouthosts)
 
 
+fanout_intfs_to_recover = defaultdict(list)
+
+
 def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None):
     """Helper function for shutting down fanout interfaces that are connected to specified DUT interfaces.
 
@@ -392,6 +395,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
     for fanout_host, intf_list in fanout_shut_intfs.items():
         fanout_host.shutdown(intf_list)
+        fanout_intfs_to_recover[fanout_host].extend(intf_list)
 
     return fanout_shut_intfs
 
@@ -410,6 +414,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified upper_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
@@ -419,9 +424,9 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to upper_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
@@ -438,6 +443,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
@@ -447,9 +453,9 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to lower_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
@@ -467,6 +473,7 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     down_intfs = []
+    fanout_intfs_to_recover.clear()
 
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
@@ -484,8 +491,9 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     yield shutdown
 
     logger.info('Recover fanout ports connected to tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 def _shutdown_t1_tor_intfs(tor_host, nbrhosts, tbinfo, vm_names=None):
@@ -748,7 +756,8 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                params=params,
                log_file=log_file,
                qlen=2000,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 
 def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip, count=1):
@@ -1063,6 +1072,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res = {}
     res['ptfhost'] = ptfhost
     res['standby_tor_mac'] = standby_tor.facts['router_mac']
+    res['active_tor_mac'] = active_tor.facts['router_mac']
     vlan_name = standby_tor_mg_facts['minigraph_vlans'].keys()[0]
     res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
     res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')
@@ -1108,12 +1118,27 @@ def flush_neighbor(duthost, neighbor, restore=True):
     logging.info("remove neighbor entry for %s", neighbor)
     duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
     try:
-        yield
+        yield neighbor_details
     finally:
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)
             duthost.shell("ip neighbor replace %s lladdr %s dev %s" % (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
 
+def delete_neighbor(duthost, neighbor):
+    """Delete neighbor entry for server in duthost, ignore it if doesn't exist."""
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
+        logging.info("remove neighbor entry for %s", neighbor)
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+    else:
+        logging.info("Neighbor entry %s doesn't exist", neighbor)
+        return True
+
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        return False
+    return True
 
 @pytest.fixture(scope="function")
 def rand_selected_interface(rand_selected_dut):
@@ -1278,7 +1303,6 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
 
-
 @pytest.fixture(scope='module')
 def dualtor_ports(request, duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     # Fetch dual ToR ports
@@ -1332,3 +1356,33 @@ def dualtor_ports(request, duthosts, rand_one_dut_hostname, enum_frontend_asic_i
     logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
     return dualtor_ports_set
+
+def is_tunnel_qos_remap_enabled(duthost):
+    """
+    Check whether tunnel_qos_remap is enabled or not
+    """
+    try:
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'', module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    except IndexError:
+        return False
+    return "enabled" == tunnel_qos_remap_status
+
+def is_port_with_4_lossless_queues(duthost, port, tbinfo):
+    """
+    Check whether the port has 4 lossless queues
+    If tunnel_qos_ramap is enables, there are 4 lossless queues for ports between T0 and T1
+    """
+    if not is_tunnel_qos_remap_enabled(duthost):
+        return False
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    topo = tbinfo['topo']['type']
+    if 't1' in topo:
+        peer_name = 't0'
+    elif 't0' in topo:
+        peer_name = 't1'
+    else:
+        return False
+
+    if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
+        return True
+    return False

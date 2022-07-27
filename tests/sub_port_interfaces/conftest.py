@@ -7,7 +7,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.utilities import get_host_visible_vars
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
 from tests.common import constants
@@ -52,19 +52,6 @@ def pytest_addoption(parser):
         default=4,
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
-
-
-@pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
-    vendor = duthost.facts["asic_type"]
-    hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
-    for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
-        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
-            pytest.skip(
-                "Skipping test since subport is not supported on {0} {1} platforms".format(vendor, asic))
-
 
 @pytest.fixture(params=['port', 'port_in_lag'])
 def port_type(request):
@@ -510,7 +497,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
 
 
 @pytest.fixture
-def reload_dut_config(request, duthost, define_sub_ports_configuration):
+def reload_dut_config(request, duthost, define_sub_ports_configuration, loganalyzer):
     """
     DUT's configuration reload on teardown
 
@@ -520,6 +507,9 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
         define_sub_ports_configuration: Dictonary of parameters for configuration DUT
     """
     yield
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].add_start_ignore_mark()
+
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -535,7 +525,9 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
             remove_lag_port(duthost, cfg_facts, lag_port)
 
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
-
+    wait_critical_processes(duthost)
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].add_end_ignore_mark()
 
 @pytest.fixture
 def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
@@ -575,17 +567,3 @@ def teardown_test_class(duthost):
     """
     yield
     config_reload(duthost)
-
-
-def pytest_generate_tests(metafunc):
-    # try to put fixture loganalyzer after fixture reload_dut_config, during
-    # teardown, loganalyzer will be executed before reload_dut_config, so any
-    # log error introduced by config load will be skipped.
-    try:
-        metafunc.fixturenames.index("loganalyzer")
-        reload_dut_config_index = metafunc.fixturenames.index("reload_dut_config")
-    except ValueError:
-        return
-    else:
-        metafunc.fixturenames.remove("loganalyzer")
-        metafunc.fixturenames.insert(reload_dut_config_index + 1, "loganalyzer")

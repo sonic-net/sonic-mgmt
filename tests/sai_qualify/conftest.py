@@ -52,12 +52,15 @@ DUT_WORKING_DIR = "/home/admin"
 #These paths are for the SAI cases/results
 SAI_TEST_CONMUN_CASE_DIR_ON_PTF = "/tmp/sai_qualify/tests"
 SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF = "/tmp/sai_qualify/ptf"
+SAI_TEST_SAI_CASE_DIR_ON_PTF = "/tmp/sai_qualify/sai_test"
 SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
 SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
 SAISERVER_CONTAINER = "saiserver"
 SYNCD_CONATINER = "syncd"
 
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
+DX010_PORT_MAP = "--interface '0-0@eth20' --interface '0-1@eth21' --interface '0-2@eth22' --interface '0-3@eth23' --interface '0-4@eth24' --interface '0-5@eth25' --interface '0-6@eth26' --interface '0-7@eth27' --interface '0-8@eth4' --interface '0-9@eth5' --interface '0-10@eth6' --interface '0-11@eth7' --interface '0-12@eth8' --interface '0-13@eth9' --interface '0-14@eth10' --interface '0-15@eth11' --interface '0-16@eth0' --interface '0-17@eth1' --interface '0-18@eth2' --interface '0-19@eth3' --interface '0-20@eth12' --interface '0-21@eth13' --interface '0-22@eth14' --interface '0-23@eth15' --interface '0-24@eth16' --interface '0-25@eth17' --interface '0-26@eth18' --interface '0-27@eth19' --interface '0-28@eth28' --interface '0-29@eth29' --interface '0-30@eth30' --interface '0-31@eth31'"
+
 
 SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC = 140
 SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC = 35
@@ -66,6 +69,13 @@ RPC_CHECK_INTERVAL_IN_SEC = 4
 
 
 def pytest_addoption(parser):
+    """
+    Parse the pytest input parameters
+
+    Args:
+        parser: pytest parameter paser.
+    """
+
     # sai test options
     parser.addoption("--sai_test_dir", action="store", default=None, type=str, help="SAI repo folder where the tests will be run.")
     parser.addoption("--sai_test_report_dir", action="store", default=None, type=str, help="SAI test report directory on mgmt node.")
@@ -73,13 +83,21 @@ def pytest_addoption(parser):
     parser.addoption("--sai_test_keep_test_env", action="store_true", default=False, help="SAI test debug options. If keep the test environment in DUT and PTF.")
     parser.addoption("--enable_ptf_sai_test", action="store_true", help="Trigger PTF-SAI test. If enable PTF-SAI testing or not, true or false.")
     parser.addoption("--enable_warmboot_test", action="store_true", default=False, help="Trigger WARMBOOT test. If enable WARMBOOT testing or not, true or false.")
+    parser.addoption("--enable_sai_test", action="store_true", help="Trigger SAI test. If enable SAI T0 testing or not, true or false.")
+    parser.addoption("--sai_port_config_file", action="store", default=None, type=str, help="SAI test port config file to map the relationship between lanes and interface.")
     parser.addoption("--always_stop_sai_test_container", action="store_true", help="If always stop the container after one test or not, true or false.")
 
 
 @pytest.fixture(scope="module")
 def start_sai_test_container(duthost, creds, deploy_sai_test_container, request):
     """
-        Starts sai test container docker on DUT.
+    Starts sai test container docker on DUT.
+
+    Args:
+        duthost (SonicHost): The target device.        
+        creds (dict): Credentials used to access the docker registry.
+        deploy_sai_test_container: The container name for sai testing on DUT.
+        request: Pytest request. 
     """
     logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     logger.info("Starting sai test container {}".format(get_sai_test_container_name(request)))
@@ -94,7 +112,13 @@ def start_sai_test_container(duthost, creds, deploy_sai_test_container, request)
 @pytest.fixture(scope="module")
 def deploy_sai_test_container(duthost, creds, stop_other_services, request):
     """
-        Deploys a sai test container.
+    Deploys a sai test container.
+    
+    Args:
+        duthost (SonicHost): The target device.        
+        creds (dict): Credentials used to access the docker registry.
+        stop_other_services: Service list which will be stopped.
+        request: Pytest request.
     """
     container_name = request.config.option.sai_test_container
     prepare_sai_test_container(duthost, creds, container_name, request)
@@ -105,6 +129,14 @@ def deploy_sai_test_container(duthost, creds, stop_other_services, request):
 
 @pytest.fixture(scope="module")
 def stop_other_services(duthost, prepare_saiserver_script, request):
+    """
+    Stop services which are not needed in sai test.
+
+    Args:
+        duthost (SonicHost): The target device.
+        prepare_saiserver_script: Script uses to prepare the saiserver.
+        request: Pytest request.
+    """
     stop_dockers(duthost)
     yield
     if not request.config.option.sai_test_keep_test_env:
@@ -113,6 +145,13 @@ def stop_other_services(duthost, prepare_saiserver_script, request):
 
 @pytest.fixture(scope="module")
 def prepare_saiserver_script(duthost, request):
+    """
+    Prepare the saiserver script.
+
+    Args:
+        duthost (SonicHost): The target device.
+        request: Pytest request.
+    """
     __copy_sai_qualify_script(duthost)
     #TODO prepare the saiserver service script here
     yield
@@ -123,6 +162,14 @@ def prepare_saiserver_script(duthost, request):
 
 @pytest.fixture(scope="module")
 def prepare_ptf_server(ptfhost, duthost, request):
+    """
+    Prepare the PTF Server.
+
+    Args:
+        ptfhost: ptf oject
+        duthost (SonicHost): The target device.
+        request: Pytest request.
+    """
     update_saithrift_ptf(request, ptfhost)
     __create_sai_port_map_file(ptfhost, duthost)
     yield
@@ -136,7 +183,7 @@ def create_sai_test_interface_param(duthost):
     Create port interface list.
 
     Args:
-        port_numbers: The port number of DUT.
+        duthost (SonicHost): The target device.
     """
     port_numbers = len(__create_sai_test_interface_info(duthost))
     logger.info("Creating {} port interface list".format(port_numbers))
@@ -152,11 +199,13 @@ def create_sai_test_interface_param(duthost):
 
 def prepare_sai_test_container(duthost, creds, container_name, request):
     """
-        Prepare the sai test container.
+    Prepare the sai test container.
+    
     Args:
         duthost (SonicHost): The target device.        
         creds (dict): Credentials used to access the docker registry.
         container_name: The container name for sai testing on DUT.
+        request: Pytest request.
     """
     logger.info("Preparing {} docker as a sai test container.".format(container_name))
     if container_name == SYNCD_CONATINER:
@@ -164,7 +213,9 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
     else:
         __deploy_saiserver(duthost, creds, request)
         logger.info("Prepare saiserver.sh")
-        duthost.shell("{}/{} -v \"{}\"".format(USR_BIN_DIR, SAISERVER_SCRIPT, get_sai_thrift_version(request)))
+        cmd = "{}/{} -v {}".format(USR_BIN_DIR, SAISERVER_SCRIPT, get_sai_thrift_version(request))
+        logger.info("Prepare saiserver with command: {}".format(cmd))
+        duthost.shell(cmd)
         #Prepare warmboot
         if request.config.option.enable_warmboot_test:
             saiserver_warmboot_config(duthost, "init")
@@ -174,11 +225,13 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
 
 def revert_sai_test_container(duthost, creds, container_name, request):
     """
-        Reverts the sai test container.
+    Reverts the sai test container.
+
     Args:
         duthost (SonicHost): The target device.        
         creds (dict): Credentials used to access the docker registry.
         container_name: The container name for sai testing on DUT.
+        request: Pytest request.
     """
     logger.info("Reverting sai test container: [{}].".format(container_name))
     if container_name == SYNCD_CONATINER:
@@ -191,6 +244,13 @@ def revert_sai_test_container(duthost, creds, container_name, request):
 
 
 def get_sai_test_container_name(request):
+    """
+    Get the SAI Test container name base on the pytest parameter 'sai_test_container'
+
+    Args:
+        request: Pytest request.
+    """
+
     container_name = request.config.option.sai_test_container
     if container_name == SAISERVER_CONTAINER:
         return SAISERVER_CONTAINER
@@ -199,7 +259,20 @@ def get_sai_test_container_name(request):
 
 
 def get_sai_thrift_version(request):
-    if request.config.option.enable_ptf_sai_test:
+    """
+    Get the SAI thrift version base on the pytest test mode.
+
+    In current implementation, it will use v2 saithrift when:
+        enable_ptf_sai_test
+        enable_warmboot_test
+        enable_sai_test
+
+    Args:
+        request: Pytest request.
+    """
+    if request.config.option.enable_ptf_sai_test \
+        or request.config.option.enable_warmboot_test \
+        or request.config.option.enable_sai_test:
         return "v2"
     else:
         return ""
@@ -295,7 +368,8 @@ def __start_sai_test_container(duthost, container_name):
 
 
 def __deploy_saiserver(duthost, creds, request):
-    """Deploy a saiserver docker for SAI testing.
+    """
+    Deploy a saiserver docker for SAI testing.
 
     This will stop the swss and syncd, then download a new Docker image to the duthost.
 
@@ -334,7 +408,8 @@ def __deploy_saiserver(duthost, creds, request):
 
 
 def __deploy_syncd_rpc_as_syncd(duthost, creds):
-    """Replaces the running syncd container with the RPC version of it.
+    """
+    Replaces the running syncd container with the RPC version of it.
 
     This will download a new Docker image to the duthost. 
     service.
@@ -399,7 +474,8 @@ def reload_dut_config(duthost):
 
 
 def __remove_saiserver_deploy(duthost, creds, request):
-    """Reverts the saiserver docker's deployment.
+    """
+    Reverts the saiserver docker's deployment.
 
     This will stop and remove the saiserver docker.
 
@@ -424,7 +500,8 @@ def __remove_saiserver_deploy(duthost, creds, request):
     )
 
 def __restore_default_syncd(duthost, creds):
-    """Replaces the running syncd with the default syncd that comes with the image.
+    """
+    Replaces the running syncd with the default syncd that comes with the image.
 
     Args:
         duthost (SonicHost): The target device.
@@ -453,6 +530,13 @@ def __restore_default_syncd(duthost, creds):
     )
 
 def warm_reboot(duthost, localhost):
+    """
+    Reboot the dut in warm reboot mode.
+
+    Args:
+        duthost (SonicHost): The target device.
+        localhost: local host object which create by ansible script.
+    """
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_SAI_WARM)
 
 
@@ -492,8 +576,9 @@ def __copy_sai_qualify_script(duthost):
         Returns:
             None
     """
+    duthost.shell("sudo mkdir -p " + USR_BIN_DIR)
     for script in SAI_SCRIPTS:
-        logger.info("Copy script {} to DUT: '{}'".format(script, duthost.hostname))
+        logger.info("Copy script {} to DUT: '{}:{}'".format(script, duthost.hostname, USR_BIN_DIR))
         duthost.copy(src=os.path.join(SCRIPTS_SRC_DIR, script), dest=USR_BIN_DIR)
         duthost.shell("sudo chmod +x " + USR_BIN_DIR + "/" + script)
 
@@ -506,7 +591,7 @@ def __delete_sai_qualify_script(duthost):
         duthost (SonicHost): The target device.
     """
     for script in SAI_SCRIPTS:
-        logger.info("Delete script {} from DUT host '{}'".format(script, duthost.hostname))
+        logger.info("Delete script {} from DUT host '{}/{}'".format(script, duthost.hostname, USR_BIN_DIR))
         duthost.file(path=os.path.join(USR_BIN_DIR, script), state="absent")
 
 
@@ -564,7 +649,7 @@ def __is_container_exists(duthost, container_name):
         result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
         return bool(result["stdout_lines"][0].strip())
     except Exception:
-        logger.info("Cannot get container '{}' running state.".format(duthost.hostname))
+        logger.info("Cannot get container '{}' running state.".format(container_name))
     return False
 
 

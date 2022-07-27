@@ -23,11 +23,9 @@ ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
-
         The route_checker script will compare routes in APP_DB and ASIC_DB, and an ERROR will be
         recorded if mismatch. The testcase will add 10,000 routes to APP_DB, and route_checker may
         detect mismatch during this period. So a new pattern is added to ignore possible error logs.
-
         Args:
             duthost: DUT fixture
             loganalyzer: Loganalyzer utility fixture
@@ -69,22 +67,22 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
 
-def prepare_dut(duthost, intf_neighs):
+def prepare_dut(asichost, intf_neighs):
     for intf_neigh in intf_neighs:
         # Set up interface
-        duthost.shell('sudo config interface ip add {} {}'.format(intf_neigh['interface'], intf_neigh['ip']))
+        asichost.config_ip_intf(intf_neigh['interface'], intf_neigh['ip'], "add")
         # Set up neighbor
-        duthost.shell('sudo ip neigh replace {} lladdr {} dev {}'.format(intf_neigh['neighbor'], intf_neigh['mac'], intf_neigh['interface']))
+        asichost.run_ip_neigh_cmd("replace " + intf_neigh['neighbor'] + " lladdr " + intf_neigh['mac'] + " dev " + intf_neigh['interface'])
 
-def cleanup_dut(duthost, intf_neighs):
+def cleanup_dut(asichost, intf_neighs):
     for intf_neigh in intf_neighs:
         # Delete neighbor
-        duthost.shell('sudo ip neigh del {} dev {}'.format(intf_neigh['neighbor'], intf_neigh['interface']))
+        asichost.run_ip_neigh_cmd("del " + intf_neigh['neighbor'] + " dev " + intf_neigh['interface'])
         # remove interface
-        duthost.shell('sudo config interface ip remove {} {}'.format(intf_neigh['interface'], intf_neigh['ip']))
+        asichost.config_ip_intf(intf_neigh['interface'], intf_neigh['ip'], 'remove')
 
-def generate_intf_neigh(duthost, num_neigh, ip_version):
-    interfaces = duthost.show_interface(command='status')['ansible_facts']['int_status']
+def generate_intf_neigh(asichost, num_neigh, ip_version):
+    interfaces = asichost.show_interface(command='status')['ansible_facts']['int_status']
     up_interfaces = []
     for intf, values in interfaces.items():
         if values['admin_state'] == 'up' and values['oper_state'] == 'up':
@@ -105,8 +103,9 @@ def generate_intf_neigh(duthost, num_neigh, ip_version):
         if ip_version == 4:
             intf_neigh = {
                 'interface' : itfs_name,
-                'ip' : '10.%d.0.1/24' % (idx_neigh + 1),
-                'neighbor' : '10.%d.0.2' % (idx_neigh + 1),
+                # change prefix ip starting with 3 to avoid overlap with any bgp ip
+                'ip' : '30.%d.0.1/24' % (idx_neigh + 1),
+                'neighbor' : '30.%d.0.2' % (idx_neigh + 1),
                 'mac' : '54:54:00:ad:48:%0.2x' % idx_neigh
             }
         else:
@@ -148,21 +147,18 @@ def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
     # Copy json file to DUT
     duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
 
-def count_routes(host):
-    num = host.shell(
-        'sonic-db-cli ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ROUTE_TABLE_NAME),
-        module_ignore_errors=True, verbose=True)['stdout']
-    return int(num)
 
-def exec_routes(duthost, prefixes, str_intf_nexthop, op):
+def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, op):
     # Create a tempfile for routes
     route_file_dir = duthost.shell('mktemp')['stdout']
 
     # Generate json file for routes
     generate_route_file(duthost, prefixes, str_intf_nexthop, route_file_dir, op)
+    logger.info('Route file generated and copied')
 
     # Check the number of routes in ASIC_DB
-    start_num_route = count_routes(duthost)
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    start_num_route = asichost.count_routes(ROUTE_TABLE_NAME)
 
     # Calculate timeout as a function of the number of routes
     route_timeout = max(len(prefixes) / 250, 1) # Allow at least 1 second even when there is a limited number of routes
@@ -176,54 +172,64 @@ def exec_routes(duthost, prefixes, str_intf_nexthop, op):
         pytest.fail('Operation {} not supported'.format(op))
     start_time = datetime.now()
 
+    logger.info('Before pushing route to swssconfig')
     # Apply routes with swssconfig
-    result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(route_file_dir),
-                           module_ignore_errors=True)
+    json_name = '/dev/stdin < {}'.format(route_file_dir)
+    result = duthost.docker_exec_swssconfig(json_name, 'swss', enum_rand_one_frontend_asic_index)
+
     if result['rc'] != 0:
         pytest.fail('Failed to apply route configuration file: {}'.format(result['stderr']))
+    logger.info('All route entries have been pushed')
 
-    # Wait until the routes set/del applys to ASIC_DB
-    def _check_num_routes(expected_num_routes):
-        # Check the number of routes in ASIC_DB
-        return count_routes(duthost) == expected_num_routes
-
-    if not wait_until(route_timeout, 0.5, 0, _check_num_routes, expected_num_routes):
-        pytest.fail('failed to add routes within time limit')
+    total_delay = 0
+    actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
+    while actual_num_routes != expected_num_routes:
+        diff = abs(expected_num_routes - actual_num_routes)
+        delay = max(diff / 5000, 1)
+        now = datetime.now()
+        total_delay = (now - start_time).total_seconds()
+        logger.info('Current {} expected {} delayed {} will delay {}'.format(actual_num_routes, expected_num_routes, total_delay, delay))
+        time.sleep(delay)
+        actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
+        if total_delay >= route_timeout:
+            break
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()
+    logger.info('All route entries have been installed in ASIC_DB in {} seconds'.format((end_time - start_time).total_seconds()))
 
     # Check route entries are correct
-    asic_route_keys = duthost.shell('sonic-db-cli ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'\
-        .format(ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
-    asic_prefixes = []
-    for key in asic_route_keys:
-        json_obj = key[len(ROUTE_TABLE_NAME) + 1 : ]
-        asic_prefixes.append(json.loads(json_obj)['dest'])
+    asic_route_keys = asichost.get_route_key(ROUTE_TABLE_NAME)
+    table_name_length = len(ROUTE_TABLE_NAME)
+    asic_route_keys_set = set([re.search("\"dest\":\"([0-9a-f:/\.]*)\"", x[table_name_length:]).group(1) for x in asic_route_keys])
+    prefixes_set = set(prefixes)
+    diff = prefixes_set - asic_route_keys_set
     if op == 'SET':
-        assert all(prefix in asic_prefixes for prefix in prefixes)
+        if diff:
+            pytest.fail("The following entries have not been installed into ASIC {}".format(diff))
     elif op == 'DEL':
-        assert all(prefix not in asic_prefixes for prefix in prefixes)
-    else:
-        pytest.fail('Operation {} not supported'.format(op))
+        if diff != prefixes_set:
+            pytest.fail("The following entries have not been withdrawn from ASIC {}".format(prefixes_set - diff))
 
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions):
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
 
     # Generate interfaces and neighbors
-    NUM_NEIGHS = 8
-    intf_neighs, str_intf_nexthop = generate_intf_neigh(duthost, NUM_NEIGHS, ip_versions)
-
+    NUM_NEIGHS = 50 # Update max num neighbors for multi-asic
+    intf_neighs, str_intf_nexthop = generate_intf_neigh(asichost, NUM_NEIGHS, ip_versions)
+   
     route_tag = "ipv{}_route".format(ip_versions)
-    used_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag, {}).get("used")
-    avail_routes_count = duthost.get_crm_resources().get("main_resources").get(route_tag, {}).get("available")
+    used_routes_count = asichost.count_crm_resources("main_resources", route_tag, "used")
+    avail_routes_count = asichost.count_crm_resources("main_resources", route_tag, "available")
     pytest_assert(avail_routes_count, "CRM main_resources data is not ready within adjusted CRM polling time {}s".\
             format(CRM_POLL_INTERVAL))
+    
     num_routes = min(avail_routes_count, set_num_routes)
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))
@@ -237,14 +243,14 @@ def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostn
                     for idx_route in range(num_routes)]
     try:
         # Set up interface and interface for routes
-        prepare_dut(duthost, intf_neighs)
+        prepare_dut(asichost, intf_neighs)
 
         # Add routes
-        time_set = exec_routes(duthost, prefixes, str_intf_nexthop, 'SET')
+        time_set = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'SET')
         logger.info('Time to set %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_set))
 
         # Remove routes
-        time_del = exec_routes(duthost, prefixes, str_intf_nexthop, 'DEL')
+        time_del = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'DEL')
         logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
     finally:
-        cleanup_dut(duthost, intf_neighs)
+        cleanup_dut(asichost, intf_neighs)

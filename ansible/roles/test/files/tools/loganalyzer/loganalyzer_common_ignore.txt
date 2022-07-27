@@ -21,6 +21,11 @@ r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG prof
 r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
 r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
 r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
+r, ".* ERR syncd#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
+r, ".* INFO kernel:.*"
+r, ".* INFO systemd.*"
+r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
+r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
@@ -47,6 +52,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
+r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -135,3 +141,8 @@ r, ".* INFO systemd.*Starting Kernel crash dump capture service.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233609
 r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14482841
+r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
+
+r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
