@@ -7,6 +7,8 @@ from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type 
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
@@ -47,6 +49,9 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Wait until all critical services is fully started
+    pytest_assert(wait_until(360, 20, 0, duthost.critical_services_fully_started),
+                             "All critical services must be fully started!{}".format(duthost.critical_services))
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     monit_results = duthost.monit_process(iterations=24)['monit_results']
 

@@ -495,7 +495,7 @@ class QosSaiBase(QosBase):
 
         testPortIds = []
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
+        if topo in self.SUPPORTED_T0_TOPOS or topo in self.SUPPORTED_T1_TOPOS or isMellanoxDevice(duthost):
             pytest_assert(
                 not duthost.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
@@ -603,7 +603,8 @@ class QosSaiBase(QosBase):
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic" : dutAsic,
-            "dutTopo" : dutTopo
+            "dutTopo" : dutTopo,
+            "dutInstance" : duthost
         }
 
     @pytest.fixture(scope='class')
@@ -1338,5 +1339,7 @@ class QosSaiBase(QosBase):
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dut_asic.command("counterpoll watermark enable")
+        dut_asic.command("counterpoll queue enable")
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
+        dut_asic.command("counterpoll queue disable")

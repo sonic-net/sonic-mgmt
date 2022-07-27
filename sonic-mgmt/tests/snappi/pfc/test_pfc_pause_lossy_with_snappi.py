@@ -11,6 +11,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossl
     lossy_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.snappi.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +168,9 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
-    testbed_config, port_config_list = snappi_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
+    skip_warm_reboot(duthost, reboot_type)
+    testbed_config, port_config_list = snappi_testbed_config
     lossy_prio = int(lossy_prio)
 
     pause_prio_list = [lossy_prio]
