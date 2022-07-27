@@ -264,8 +264,7 @@ function add_topo
 
   cache_files_path_value=$(is_cache_exist)
   if [[ -n $cache_files_path_value ]]; then
-    setup_name=$(get_setup_name_by_testbed_name)
-    echo "$testbed_name" > $cache_files_path_value/$setup_name
+    echo "$testbed_name" > $cache_files_path_value/$dut
   fi
 
   echo Done
@@ -572,15 +571,6 @@ function read_topologies_from_csv_file
   echo ${result_topologies_list[@]}
 }
 
-function get_setup_name_by_testbed_name
-{
-  testbed_line=$(cat $tbfile | grep -m 1 $testbed_name)
-  testbed=$(echo $testbed_line | awk 'BEGIN { FS = "," } ; {print $1}')
-  topology=$(echo $testbed_line | awk 'BEGIN { FS = "," } ; {print $3}')
-  setup_name=${testbed%"-$topology"}
-  echo $setup_name
-}
-
 function is_cache_exist
 {
   cache_files_path="$(pwd)/cached_topologies_path"
@@ -616,7 +606,8 @@ function deploy_topo_with_cache
     exit
   fi
 
-  setup_name=$(get_setup_name_by_testbed_name)
+  read_file ${testbed_name}
+  setup_name=$dut
   if [[ "$setup_name" == "" ]]; then
       echo "No such testbed: $testbed_name, exiting..."
       exit
