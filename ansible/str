@@ -24,8 +24,6 @@ all:
           ansible_host: 10.64.246.8
         ptf1-5:
           ansible_host: 10.64.246.9
-        ptf1-7:
-          ansible_host: 10.64.246.35
         vtf2-6:
           ansible_host: 10.64.246.16
           ansible_hostv6: 2a01:111:e210:b000::9
