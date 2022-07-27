@@ -103,6 +103,7 @@ stages:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
     timeoutInMinutes: 360
+    
     steps:
       - template: .azure-pipelines/run-test-template.yml
         parameters:
@@ -116,6 +117,7 @@ stages:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
     timeoutInMinutes: 360
+    
     steps:
       - template: .azure-pipelines/run-test-template.yml
         parameters:
