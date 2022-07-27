@@ -440,7 +440,6 @@ class TestModuleApi(PlatformApiTestBase):
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(duthosts[enum_rand_one_per_hwsku_hostname])
 
-        support_reboot_other_modules = self.get_module_facts(duthosts[enum_rand_one_per_hwsku_hostname], True, "reboot_other_modules")
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
             if mod_name in self.skip_mod_list:
