@@ -70,7 +70,7 @@ stages:
           echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
           exit 1
         fi
-        
+
   - job:
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag"
