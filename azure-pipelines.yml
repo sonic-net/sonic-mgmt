@@ -102,10 +102,7 @@ stages:
   - job:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
-    pool: sonictest-ma
-    displayName: "kvmtest-multi-asic"
     timeoutInMinutes: 360
-
     steps:
       - template: .azure-pipelines/run-test-template.yml
         parameters:
@@ -113,9 +110,18 @@ stages:
           tbname: vms-kvm-dual-t0
           ptf_name: ptf-04
           tbtype: dualtor
+          vmtype: ceos
+          
+  - job:
+    pool: sonictest-ma
+    displayName: "kvmtest-multi-asic"
+    timeoutInMinutes: 360
+    steps:
+      - template: .azure-pipelines/run-test-template.yml
+        parameters:
           dut: vlab-08
           tbname: vms-kvm-four-asic-t1-lag
           ptf_name: ptf_vms6-4
           tbtype: multi-asic-t1-lag-pr
           vmtype: ceos
-          image: sonic-4asic-vs.img.gz 
+          image: sonic-4asic-vs.img.gz
