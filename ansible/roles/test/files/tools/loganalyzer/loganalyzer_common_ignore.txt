@@ -29,6 +29,7 @@ r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
+r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
 r, ".* ERR systemd.*Failed to start dhcp_relay container.*"
 r, ".* ERR monit.* 'rsyslog' failed to get service data.*"
 r, ".* ERR monit.* 'rsyslog' process is not running.*"
