@@ -9,9 +9,6 @@ import os
 import traceback
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.platform.processes_utils import check_critical_processes
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
 from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
