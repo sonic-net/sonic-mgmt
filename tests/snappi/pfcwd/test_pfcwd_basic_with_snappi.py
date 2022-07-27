@@ -13,7 +13,7 @@ from files.helper import skip_pfcwd_test
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(snappi_api,

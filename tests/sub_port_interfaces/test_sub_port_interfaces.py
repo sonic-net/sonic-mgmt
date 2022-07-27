@@ -476,3 +476,13 @@ class TestSubPorts(object):
                                         ip_dst=ip_dst,
                                         type_of_traffic='balancing',
                                         ttl=63)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        ignore_regex_list = [
+            ".*ERR teamd[0-9]*#tlm_teamd.*process_add_queue: Can't connect to teamd after.*attempts. LAG 'PortChannel.*'",
+            ".*ERR swss[0-9]*#orchagent.*update: Failed to get port by bridge port ID.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
