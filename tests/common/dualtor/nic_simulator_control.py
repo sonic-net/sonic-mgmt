@@ -17,7 +17,6 @@ from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_p
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
 from tests.common.dualtor.dual_tor_common import cable_type
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host
 
 
 __all__ = [
