@@ -48,6 +48,7 @@ all:
         vlab-10:
         vlab-11:
         vlab-12:
+        vlab-8k-01:
     ptf:
       hosts:
         ptf-01:
@@ -229,6 +230,20 @@ all:
           serial_port: 9024
           ansible_password: password
           ansible_user: admin
+        vlab-8k-01:
+          ansible_host: 10.250.0.201
+          ansible_hostv6: fec0::ffff:afa:1
+          type: 8000e
+          hwsku: Cisco-8102-C64
+          serial_port: 60000
+          ansible_password: password
+          ansible_user: admin
+          ansible_ssh_user: cisco
+          ansible_altpassword: cisco123
+          # sdk/npsuite override:
+          #cisco_sdk_ver: "1.50.10.4.22"
+          #cisco_npsuite_ver: "1.90.0"
+
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

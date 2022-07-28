@@ -62,6 +62,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     ptfhost_info = {}
+    ip4 = None
+    ip6 = None
     for a_bgp_nbr in mg_facts['minigraph_bgp']:
         # Get the bgp neighbor connected to the selected VM
         if a_bgp_nbr['name'] == vm_name and a_bgp_nbr['addr'] == str(vm_host_info['ipv4']):

@@ -18,7 +18,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, is_port_with_4_lossless_queues
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -300,6 +300,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
     if not is_mellanox_device(duthost):
+        load_lossless_headroom_data(duthost)
         yield
         return
 
@@ -823,10 +824,16 @@ def port_to_test(request, duthost):
         dutLagInterfaces += lag["members"]
 
     testPort = set(mgFacts["minigraph_ports"].keys())
-    testPort -= set(dutLagInterfaces)
+    lagMembers = set(dutLagInterfaces)
+    testPort -= lagMembers
     pytest_require(len(testPort) > 0, "No port to run test")
 
-    PORT_TO_TEST = list(testPort)[0]
+    PORT_TO_TEST = request.config.getoption("--port_to_test")
+    if PORT_TO_TEST in lagMembers:
+        logging.info("LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
+        PORT_TO_TEST = None
+    if not PORT_TO_TEST:
+        PORT_TO_TEST = list(testPort)[0]
     lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
     NUMBER_OF_LANES = len(lanes.split(','))
 
@@ -2052,8 +2059,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             if not profile_applied:
                 break
             logging.info('Cable length {} has been applied successfully'.format(cable_length))
-            if cable_length > 2000:
-                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 2km, skip the test".format(port_to_test))
+            if cable_length > 10000:
+                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 10km, skip the test".format(port_to_test))
             cable_length += cable_length_step
             cable_length_step *= 2
 
@@ -2226,7 +2233,7 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
         _recovery_to_dynamic_buffer_model(duthost)
 
 
-def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo):
+def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports):
     """The testcase to verify whether buffer template has been correctly rendered and applied
 
     1. For all ports in the config_db,
@@ -2456,7 +2463,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         speed = port_config['speed']
         expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
-        if is_port_with_4_lossless_queues(duthost, port, tbinfo):
+        if port in dualtor_ports:
             key_name = KEY_4_LOSSLESS_QUEUE
         else:
             key_name = KEY_2_LOSSLESS_QUEUE
@@ -2473,8 +2480,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                 buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
         else:
             if is_mellanox_device(duthost):
-                buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
-            elif is_broadcom_device(duthost) and (asic_type in ['td2','td3'] or speed <= '10000'):
+                buffer_items_to_check = buffer_items_to_check_dict["down"]
+            elif is_broadcom_device(duthost) and (asic_type in ['td2', 'td3'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
                 if key_name == KEY_2_LOSSLESS_QUEUE:
@@ -2544,7 +2551,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                 profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
 
         port_to_shutdown = admin_up_ports.pop()
-        if is_port_with_4_lossless_queues(duthost, port_to_shutdown, tbinfo):
+        if port_to_shutdown in dualtor_ports:
             pg_id_names = ["2-4", "6"]
         else:
             pg_id_names = ["3-4"]

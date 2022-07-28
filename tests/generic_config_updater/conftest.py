@@ -13,6 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 # Module Fixture
+@pytest.fixture(scope="module", autouse=True)
+def bypass_duplicate_lanes_platform(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' or \
+            duthost.facts['platform'] == 'x86_64-dellemc_s5232f_c3538-r0':
+        pytest.skip("Temporary skip platform with duplicate lanes...")
+
+
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
     """
@@ -139,5 +147,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
+
+            # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
+            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*", # test_portchannel_interface tc2
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
