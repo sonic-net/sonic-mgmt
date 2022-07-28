@@ -149,6 +149,7 @@ class IpinIPTunnelTest(BaseTest):
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "flags") # DF bit may be set
         return exp_tunnel_pkt
 
 
