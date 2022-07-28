@@ -54,9 +54,9 @@ def log_bgp_updates(duthost, iface, save_path):
 
 
 @pytest.fixture
-def is_quagga(duthosts, rand_one_dut_hostname):
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.shell("vtysh -c 'show version'")
     return "Quagga" in show_res["stdout"]
 
@@ -67,9 +67,9 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, rand_one_dut_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces):
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
@@ -136,7 +136,7 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_dut_hostname,
+def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                           toggle_all_simulator_ports_to_rand_selected_tor_m):
 
     def bgp_update_packets(pcap_file):
@@ -152,16 +152,45 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, rand_one_d
         if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
             return False
         subnet = ipaddress.ip_network(route["prefix"].decode())
-        _route = (subnet.prefixlen, str(subnet.network_address))
+
+        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+        # address the compatibility issue of scapy versions.
+        if hasattr(bgp, 'BGPNLRI_IPv4'):
+            _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
+        else:
+            _route = (subnet.prefixlen, str(subnet.network_address))
         bgp_fields = packet[bgp.BGPUpdate].fields
         if action == "announce":
-            return bgp_fields["tp_len"] > 0 and _route in bgp_fields["nlri"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            path_attr_valid = False
+            if "tp_len" in bgp_fields:
+                path_attr_valid = bgp_fields['tp_len'] > 0
+            elif "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            return path_attr_valid and _route in bgp_fields["nlri"]
         elif action == "withdraw":
-            return bgp_fields["withdrawn_len"] > 0 and _route in bgp_fields["withdrawn"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_len_valid = False
+            if "withdrawn_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
+            elif "withdrawn_routes_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
+
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_route_valid = False
+            if "withdrawn" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+            elif "withdrawn_routes" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
+
+            return withdrawn_len_valid and withdrawn_route_valid
         else:
             return False
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
     try:

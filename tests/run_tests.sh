@@ -37,11 +37,19 @@ function get_dut_from_testbed_file() {
         if [[ $TESTBED_FILE == *.csv ]];
         then
             LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+            if [[ -z ${LINE} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=',' read -ra ARRAY <<< "$LINE"
-            DUT_NAME=${ARRAY[9]}
+            DUT_NAME=${ARRAY[9]//[\[\] ]/}
         elif [[ $TESTBED_FILE == *.yaml ]];
         then
             content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            if [[ -z ${content} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
@@ -102,6 +110,8 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins 
+    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
 
     # Kill pytest and ansible-playbook process
     pkill --signal 9 pytest
@@ -240,16 +250,27 @@ function run_debug_tests()
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
 
+# Extra parameters for pre/post test stage
+function pre_post_extra_params()
+{
+    local params=${EXTRA_PARAMETERS}
+    # The enable_macsec option controls the enabling of macsec links of topology.
+    # It aims to verify common test cases work as expected under macsec links.
+    # At pre/post test stage, enabling macsec only wastes time and is not needed.
+    params=${params//--enable_macsec/}
+    echo $params
+}
+
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
+    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
@@ -389,7 +410,10 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        exit ${RESULT}
+        # exit with specific code 65 for pretest failed.
+        # user-defined exit codes is the range 64 - 113.
+        # nightly test pipeline can check this code to decide if fails pipeline.
+        exit 65
     fi
 fi
 

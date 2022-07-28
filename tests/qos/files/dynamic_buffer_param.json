@@ -25,13 +25,35 @@
 		"dynamic_th": "2"
 	    }
 	},
-	"lossy_pg": {
-	    "8": "37888",
-	    "default": "19456"
+	"extra_overhead": {
+	    "8": "95232",
+	    "default": "58368"
 	},
 	"shared-headroom-pool": {
 	    "size": "1024000",
 	    "private_pg_headroom": "10240"
+	},
+	"admin-down": {
+	    "BUFFER_PG_TABLE": {
+		"0": "[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]"
+	    },
+	    "BUFFER_QUEUE_TABLE": {
+		"0-2": "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]",
+		"3-4": "[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]",
+		"5-6": "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]",
+		"7-15": "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]"
+	    },
+	    "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:ingress_lossless_zero_profile]"],
+	    "BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE": ["[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]", "[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]"]
+	},
+	"max_speed_8lane_platform": {
+		"x86_64-mlnx_msn4410-r0": "400000",
+		"x86_64-mlnx_msn4700-r0": "400000",
+		"x86_64-mlnx_msn4700_simx-r0": "400000",
+		"x86_64-nvidia_sn4800-r0": "400000",
+		"x86_64-nvidia_sn4800_simx-r0": "400000",
+		"x86_64-nvidia_sn5600-r0": "800000",
+		"x86_64-nvidia_sn5600_simx-r0": "800000"
 	}
     }
 }

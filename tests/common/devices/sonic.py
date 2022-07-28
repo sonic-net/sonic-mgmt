@@ -15,6 +15,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -75,8 +76,11 @@ class SonicHost(AnsibleHostBase):
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
 
+    def __str__(self):
+        return '<SonicHost {}>'.format(self.hostname)
+
     def __repr__(self):
-        return '<SonicHost> {}'.format(self.hostname)
+        return self.__str__()
 
     @property
     def facts(self):
@@ -178,6 +182,13 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
+        facts["switch_type"] = self._get_switch_type()
+        asics_present = self.get_asics_present_from_inventory()
+        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+
+        platform_asic = self._get_platform_asic(facts["platform"])
+        if platform_asic:
+            facts["platform_asic"] = platform_asic
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -215,8 +226,6 @@ class SonicHost(AnsibleHostBase):
         res = "False" if out["failed"] else out["stdout"]
         return res
 
-
-
     def _get_asic_count(self, platform):
         """
         Gets the number of asics for this device.
@@ -240,9 +249,15 @@ class SonicHost(AnsibleHostBase):
             return int(num_asic)
 
     def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].decode(
+        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-
+   
+    def _get_switch_type(self):
+       try:
+           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
+                  "utf-8").lower()
+       except Exception:
+           return ''
 
     def _get_platform_info(self):
         """
@@ -265,7 +280,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in platform_info.iteritems():
+                for key, value in platform_info.items():
                     result[key] = value
 
             except Exception:
@@ -293,6 +308,9 @@ class SonicHost(AnsibleHostBase):
 
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
         if len(output['stdout_lines']) == 0:
+            # get release from OS version
+            if self.os_version:
+                return self.os_version.split('.')[0][0:6]
             return 'none'
         return output["stdout_lines"][0].strip()
 
@@ -324,6 +342,14 @@ class SonicHost(AnsibleHostBase):
             if len(fields) >= 2:
                 result[fields[0]] = fields[1]
         return result
+
+    def get_asics_present_from_inventory(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        dut_vars = get_host_visible_vars(inv_files, self.hostname)
+        if dut_vars and 'asics_present' in dut_vars:
+            return dut_vars['asics_present']
+        return []
 
     def is_supervisor_node(self):
         """Check if the current node is a supervisor node in case of multi-DUT.
@@ -388,10 +414,22 @@ class SonicHost(AnsibleHostBase):
         return len(status["stdout_lines"]) > 1
 
     def critical_services_status(self):
-        result = {}
+        # Initialize service status
+        services = {}
         for service in self.critical_services:
-            result[service] = self.is_service_fully_started(service)
-        return result
+            services[service] = False
+
+        # Check and update service status
+        try:
+            results = self.command("docker ps --filter status=running --format \{\{.Names\}\}")['stdout_lines']
+            for service in self.critical_services:
+                if service in results:
+                    services[service] = True
+        except Exception as e:
+            logging.info("Critical service status: {}".format(json.dumps(services)))
+            logging.info("Get critical service status failed with error {}".format(repr(e)))
+
+        return services
 
     def critical_services_fully_started(self):
         """
@@ -486,6 +524,48 @@ class SonicHost(AnsibleHostBase):
 
         return critical_group_list, critical_process_list, succeeded
 
+    def critical_group_process(self):
+        # Get critical group and process definitions by running cmds in batch to save overhead
+        cmds = []
+        for service in self.critical_services:
+            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
+                  " && cat /etc/supervisor/critical_processes'".format(service)
+
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical group and service definition of all services
+        group_process_results = {}
+        for service in self.critical_services:
+            if service not in service_results or service_results[service]['rc'] != 0:
+                continue
+
+            service_group_process = {'groups': [], 'processes': []}
+
+            file_content = service_results[service]['stdout_lines']
+            for line in file_content:
+                line_info = line.strip().split(':')
+                if len(line_info) != 2:
+                    if '201811' in self._os_version and len(line_info) == 1:
+                        process_name = line_info[0].strip()
+                        service_group_process['processes'].append(process_name)
+                else:
+                    group_or_process = line_info[0].strip()
+                    group_process_name = line_info[1].strip()
+                    if group_or_process == 'group' and group_process_name:
+                        service_group_process['groups'].append(group_process_name)
+                    elif group_or_process == 'program' and group_process_name:
+                        service_group_process['processes'].append(group_process_name)
+            group_process_results[service] = service_group_process
+
+        return group_process_results
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -530,15 +610,98 @@ class SonicHost(AnsibleHostBase):
         """
         @summary: Check whether all critical processes status for all critical services
         """
-        result = {}
-        for service in self.critical_services:
-            result[service] = self.critical_process_status(service)
-        return result
+        # Get critical process definition of all services
+        group_process_results = self.critical_group_process()
 
-    def get_crm_resources(self):
+        # Get process status of all services. Run cmds in batch to save overhead
+        cmds = []
+        for service in self.critical_services:
+            cmd = 'docker exec {} supervisorctl status'.format(service)
+            cmds.append(cmd)
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+
+        # Extract service name of each command result, transform results list to a dict keyed by service name
+        service_results = {}
+        for res in results:
+            service = res['cmd'].split()[2]
+            service_results[service] = res
+
+        # Parse critical process status of all services
+        all_critical_process = {}
+        for service in self.critical_services:
+            service_critical_process = {
+                'status': True,
+                'exited_critical_process': [],
+                'running_critical_process': []
+            }
+            if service not in group_process_results or service not in service_results:
+                service_critical_process['status'] = False
+                all_critical_process[service] = service_critical_process
+                continue
+
+            service_group_process = group_process_results[service]
+
+            service_result = service_results[service]
+            for line in service_result['stdout_lines']:
+                pname, status, _ = re.split('\s+', line, 2)
+                if status != 'RUNNING':
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['exited_critical_process'].append(pname)
+                        service_critical_process['status'] = False
+                else:
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['running_critical_process'].append(pname)
+            all_critical_process[service] = service_critical_process
+
+        return all_critical_process
+
+    
+    def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
+        """
+        @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
+        """      
+        # Construct mapping of {'ASIC0' : {"main_resources": {}, "acl_resources": [], "table_resources": []}, ...}
+        # Here we leave value as empty and overwrite it at the end of each ASIC table  
+        multi_result = dict()
+        for n in range(self.num_asics()):
+            ns = "asic" + str(n)
+            multi_result[ns] = {"main_resources": {}, "acl_resources": [], "table_resources": []}
+        
+        output = self.command("crm show resources all")["stdout_lines"]
+        current_table = 0   # Totally 3 tables in the command output
+        asic = None       
+        for line in output:
+            if len(line.strip()) == 0 or "---" in line:
+                continue
+            if "ASIC" in line:
+                asic = line.lower()
+            # Switch table type when 'ASIC0' comes again
+            if "ASIC0" in line:
+                current_table += 1
+                continue  
+            if current_table == 1:      # content of first table, main resources
+                fields = line.split()
+                if len(fields) == 3:
+                    multi_result[asic]["main_resources"][fields[0]] = {"used": int(fields[1]), "available": int(fields[2])}
+            if current_table == 2:      # content of the second table, acl resources
+                fields = line.split()
+                if len(fields) == 5:
+                    multi_result[asic]["acl_resources"].append({"stage": fields[0], "bind_point": fields[1],
+                        "resource_name": fields[2], "used_count": int(fields[3]), "available_count": int(fields[4])})
+            if current_table == 3:      # content of the third table, table resources
+                fields = line.split()
+                if len(fields) == 4:
+                    multi_result[asic]["table_resources"].append({"table_id": fields[0], "resource_name": fields[1],
+                        "used_count": int(fields[2]), "available_count": int(fields[3])})
+        return multi_result[namespace]
+    
+    
+    def get_crm_resources(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command and parse its output
         """
+        if self.is_multi_asic:
+            return self.get_crm_resources_for_masic(namespace)
         result = {"main_resources": {}, "acl_resources": [], "table_resources": []}
         output = self.command("crm show resources all")["stdout_lines"]
         current_table = 0   # Totally 3 tables in the command output
@@ -665,6 +828,9 @@ class SonicHost(AnsibleHostBase):
                 else:
                     logging.debug("Daemon %s is disabled" % key)
                     exemptions.append(key)
+
+            if self.sonic_release in ['201911']:
+                exemptions.append('platform_api_server')
         except:
             # if pmon_daemon_control.json not exist, then it's using default setting,
             # all the pmon daemons expected to be running after boot up.
@@ -805,8 +971,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to shutdown
         """
-        intf_str = ','.join(ifnames)
-        return self.shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces shutdown
+        # Change the batch shutdown call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.shutdown(intf_str)
 
     def no_shutdown(self, ifname):
         """
@@ -825,8 +999,16 @@ class SonicHost(AnsibleHostBase):
             Args:
                 ifnames (list): the interface names to bring up
         """
-        intf_str = ','.join(ifnames)
-        return self.no_shutdown(intf_str)
+        image_info = self.get_image_info()
+        # 201811 image does not support multiple interfaces startup
+        # Change the batch startup call to individual call here
+        if "201811" in image_info.get("current"):
+            for ifname in ifnames:
+                self.no_shutdown(ifname)
+            return
+        else:
+            intf_str = ','.join(ifnames)
+            return self.no_shutdown(intf_str)
 
     def get_ip_route_info(self, dstip, ns=""):
         """
@@ -959,10 +1141,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
             m = re.match(".+\s+via\s+(\S+)\s+.*dev\s+(\S+)\s+.*src\s+(\S+)\s+", rt[0])
             if m:
-                nexthop_ip = ipaddress.ip_address(unicode(m.group(1)))
+                nexthop_ip = ipaddress.ip_address(m.group(1))
                 gw_if = m.group(2)
                 rtinfo['nexthops'].append((nexthop_ip, gw_if))
-                rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
+                rtinfo['set_src'] = ipaddress.ip_address(m.group(3))
         else:
             raise ValueError("Wrong type of dstip")
 
@@ -1040,10 +1222,14 @@ Totals               6450                 6449
             tokens = line.split()
             if len(tokens) > 1:
                 key = tokens[0]
-                val = {}
+                if key in ret:
+                    val = ret[key]
+                else:
+                    val = {'routes': 0, 'FIB': 0}
                 if tokens[1].isdigit():
-                    val['routes'] = tokens[1]
-                    val['FIB'] = tokens[2] if len(tokens) > 2 and tokens[2].isdigit() else None
+                    val['routes'] += int(tokens[1])
+                    if len(tokens) > 2 and tokens[2].isdigit():
+                        val['FIB'] += int(tokens[2])
                     ret[key] = val
         return ret
 
@@ -1072,6 +1258,20 @@ Totals               6450                 6449
         except Exception as e:
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
+
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            cmd = 'sonic-db-cli STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return False
 
     def get_container_autorestart_states(self):
         """
@@ -1250,7 +1450,13 @@ Totals               6450                 6449
             corresponding to one content line under the header in the output. Keys of the dictionary are the column
             headers in lowercase.
         """
+        start_line_index = kwargs.pop("start_line_index", 0)
+        end_line_index = kwargs.pop("end_line_index", None)
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
+        if end_line_index is None:
+            output = output[start_line_index:]
+        else:
+            output = output[start_line_index:end_line_index]
         return self._parse_show(output)
 
     @cached(name='mg_facts')
@@ -1290,6 +1496,10 @@ Totals               6450                 6449
                 return True
         return False
 
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
+        cmd = "sonic-db-cli {}".format(sonic_db_cmd)
+        return self.command(cmd, verbose=False)
+
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
@@ -1305,12 +1515,24 @@ Totals               6450                 6449
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
-        elif "Broadcom Limited Device b870" in output:
+        elif ("Broadcom Limited Device b870" in output or 
+                "Broadcom Inc. and subsidiaries Device b870" in output):
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
 
         return asic
+
+    def _get_platform_asic(self, platform):
+        platform_asic = os.path.join(
+            "/usr/share/sonic/device", platform, "platform_asic"
+        )
+        output = self.shell(
+            "cat {}".format(platform_asic), module_ignore_errors=True
+        )
+        if output["rc"] == 0:
+            return output["stdout_lines"][0]
+        return None
 
     def get_facts(self):
         return self.facts
@@ -1330,6 +1552,42 @@ Totals               6450                 6449
                 vlan_intfs.append(intf)
 
         return vlan_intfs
+
+    def get_interfaces_status(self):
+        '''
+        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+
+        Example output:
+            {
+                "Ethernet0": {
+                    "oper": "down",
+                    "lanes": "25,26,27,28",
+                    "fec": "N/A",
+                    "asym pfc": "off",
+                    "admin": "down",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "fortyGigE0/0",
+                    "interface": "Ethernet0",
+                    "speed": "40G"
+                },
+                "PortChannel101": {
+                    "oper": "up",
+                    "lanes": "N/A",
+                    "fec": "N/A",
+                    "asym pfc": "N/A",
+                    "admin": "up",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "N/A",
+                    "interface": "PortChannel101",
+                    "speed": "40G"
+                }
+            }
+        '''
+        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
 
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
@@ -1478,6 +1736,22 @@ Totals               6450                 6449
         self.command(
             "docker rm {}".format(service), module_ignore_errors=True
         )
+
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def no_shutdown_bgp(self, asn):
+        logging.warning("SONiC don't support `no shutdown bgp`")
+        return None
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        for nbr in neighbors:
+            command += " -c 'no neighbor {} shutdown'".format(nbr)
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return self.command(command)
 
     def is_bgp_state_idle(self):
         """
@@ -1680,6 +1954,9 @@ Totals               6450                 6449
         if ports is None:
             return True
         return False if "Ethernet-BP" not in ports["members"][0] else True
+
+    def is_backend_port(self, port, mg_facts):
+        return True if "Ethernet-BP" in port else False
 
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
         """

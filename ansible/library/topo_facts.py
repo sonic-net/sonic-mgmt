@@ -84,6 +84,8 @@ class ParseTestbedTopoinfo():
 
     def parse_topo_defintion(self, topo_definition, po_map, dut_num, neigh_type='VMs'):
         vmconfig = dict()
+        if topo_definition['topology'][neigh_type] is None:
+            return vmconfig
         for vm in topo_definition['topology'][neigh_type]:
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
@@ -105,7 +107,6 @@ class ParseTestbedTopoinfo():
                 for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
 
- 
             # physical interface
             if 'configuration' in topo_definition:
                 if 'interfaces' in topo_definition['configuration'][vm]:
@@ -194,7 +195,7 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['ipv6mask'][dut_index] = ip_mask if ip_mask else '128'
         return vmconfig
 
-    def get_topo_config(self, topo_name, hwsku):
+    def get_topo_config(self, topo_name, hwsku, asic_name):
         CLET_SUFFIX = "-clet"
 
         if 'ptf32' in topo_name:
@@ -203,7 +204,10 @@ class ParseTestbedTopoinfo():
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = 'vars/topo_' + topo_name + '.yml'
-        asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
+        if asic_name:
+            asic_topo_filename = 'vars/topo_' + hwsku + '_' + asic_name + '.yml'
+        else:
+            asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
         vm_topo_config = dict()
         asic_topo_config = dict()
         po_map = [None] * 16   # maximum 16 port channel interfaces
@@ -213,13 +217,13 @@ class ParseTestbedTopoinfo():
             raise Exception("cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
         else:
             with open(topo_filename) as f:
-                topo_definition = yaml.load(f)
+                topo_definition = yaml.safe_load(f)
 
         if not os.path.isfile(asic_topo_filename):
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
-                slot_definition = yaml.load(f)
+                slot_definition = yaml.safe_load(f)
 
         ### parse topo file specified in vars/ to reverse as dut config
         dut_num = 1
@@ -279,6 +283,11 @@ class ParseTestbedTopoinfo():
         else:
             vm_topo_config['DUT'] = {}
 
+        if 'devices_interconnect_interfaces' in topo_definition['topology']:
+            vm_topo_config['devices_interconnect_interfaces'] = topo_definition['topology']['devices_interconnect_interfaces']
+        else:
+            vm_topo_config['devices_interconnect_interfaces'] = []
+
         self.vm_topo_config = vm_topo_config
         self.asic_topo_config = asic_topo_config
         return vm_topo_config, asic_topo_config
@@ -289,15 +298,17 @@ def main():
         argument_spec=dict(
             topo=dict(required=True, default=None),
             hwsku=dict(required=True, default=None),
+            asic_name=dict(required=True, default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     topo_name = m_args['topo']
     hwsku = m_args['hwsku']
+    asic_name = m_args['asic_name']
     try:
         topoinfo = ParseTestbedTopoinfo()
-        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku)
+        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, asic_name)
         module.exit_json(ansible_facts={'vm_topo_config': vm_topo_config,
                                         'asic_topo_config': asic_topo_config})
     except (IOError, OSError):

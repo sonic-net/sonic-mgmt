@@ -15,13 +15,14 @@ stages:
   - name: inventory
     value: veos_vtb
   - name: testbed_file
-    value: vtestbed.csv
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
 
   jobs:
-  - job:
+  - job: t0_part1
     pool: sonictest
-    displayName: "kvmtest-t0"
-    timeoutInMinutes: 330
+    displayName: "kvmtest-t0-part1"
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -31,11 +32,49 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0
         vmtype: ceos
+        section: part-1
+
+  - job: t0_part2
+    pool: sonictest
+    displayName: "kvmtest-t0-part2"
+    timeoutInMinutes: 360
+
+    steps:
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-01
+        tbname: vms-kvm-t0
+        ptf_name: ptf_vms6-1
+        tbtype: t0
+        vmtype: ceos
+        section: part-2
+
+  - job:
+    pool:
+      vmImage: 'ubuntu-20.04'
+    displayName: "kvmtest-t0"
+    dependsOn:
+    - t0_part1
+    - t0_part2
+    condition: always()
+    variables:
+      resultOfPart1: $[ dependencies.t0_part1.result ]
+      resultOfPart2: $[ dependencies.t0_part2.result ]
+
+    steps:
+    - script: |
+        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
+          echo "Both job kvmtest-t0-part1 and kvmtest-t0-part2 are passed."
+          exit 0
+        else
+          echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
+          exit 1
+        fi
 
   - job:
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -49,13 +88,27 @@ stages:
   - job:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
+        dut: vlab-02
+        tbname: vms-kvm-t0-64-32
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
+
+  - job:
+    pool: sonictest-dualtor
+    displayName: "kvmtest-dualtor"
+    timeoutInMinutes: 360
+
+    steps:
+      - template: .azure-pipelines/run-test-template.yml
+        parameters:
+          dut: all
+          tbname: vms-kvm-dual-t0
+          ptf_name: ptf-04
+          tbtype: dualtor
+          vmtype: ceos

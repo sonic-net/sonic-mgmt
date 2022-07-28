@@ -54,6 +54,9 @@ class TestPsuFans(PlatformApiTestBase):
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
             except:
                 pytest.fail("num_fans is not an integer")
+            else:
+                if self.num_psus == 0:
+                    pytest.skip("No psus found on device")
 
     #
     # Helper functions
@@ -104,7 +107,27 @@ class TestPsuFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve psu {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "psu {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+		    self.expect(duthost._facts.get("platform") is not None, "Unable to retrieve platform name")
+                    #
+                    # Check whether platform.json file exists for this specific platform. If yes compare names.
+                    # If not, skip comparison.
+                    #
+                    platform_file_path = os.path.join("/usr/share/sonic/device", duthost._facts.get("platform"), "platform.json")
+                    platform_file_check = {}
+                    try:
+                        #
+                        # Check if the JSON file exists in the specific path. Return 0 if it DOES exist.
+                        # The command function throws exception if rc is non-zero, so handle it.
+                        #
+                        platform_file_check = duthost.command("[ -f {} ]".format(platform_file_path))
+                    except:
+                        # The JSON file does not exist, so set rc to 1.
+                        platform_file_check['rc'] = 1
+                    if platform_file_check.get('rc') == 0:
+                        logging.info("{} has a platform.json file. Running comparison with platform facts.".format(duthost._facts.get("platform")))
+                        self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+                    else:
+                        logging.info("{} does not have a platform.json file. Skipping comparison with platform facts.".format(duthost._facts.get("platform")))
 
         self.assert_expectations()
 
@@ -187,12 +210,16 @@ class TestPsuFans(PlatformApiTestBase):
     #
 
     def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
             # Ensure the fan speed is sane
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    continue
                 speed = psu_fan.get_speed(platform_api_conn, j, i)
                 if self.expect(speed is not None, "Unable to retrieve psu {} fan {} speed".format(j, i)):
                     if self.expect(isinstance(speed, int), "psu {} fan {} speed appears incorrect".format(j, i)):
@@ -257,11 +284,15 @@ class TestPsuFans(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_fans_speed_tolerance(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
-
+            
             for i in range(num_fans):
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_fans_speed_tolerance: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    continue
                 speed_tolerance = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
                 if self.expect(speed_tolerance is not None, "Unable to retrieve psu {} fan {} speed tolerance".format(j, i)):
                     if self.expect(isinstance(speed_tolerance, int), "psu {} fan {} speed tolerance appears incorrect".format(j, i)):
@@ -324,6 +355,12 @@ class TestPsuFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
+                led_available = self.get_fan_facts(duthost, j, i, True, "status_led", "available")
+                if not led_available:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not available)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
                 led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
                 if not led_controllable:
                     logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not controllable)".format(j, i))
@@ -348,6 +385,6 @@ class TestPsuFans(PlatformApiTestBase):
                 psus_skipped += 1
 
         if psus_skipped == self.num_psus:
-            pytest.skip("skipped as all PSU fans' LED is not controllable")
+            pytest.skip("skipped as all PSU fans' LED is not available/controllable")
 
         self.assert_expectations()

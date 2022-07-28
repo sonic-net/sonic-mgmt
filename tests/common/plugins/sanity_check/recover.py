@@ -1,13 +1,14 @@
-
+import json
 import logging
 
-import constants
+from . import constants
 
 from tests.common.utilities import wait
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.config_reload import config_force_option_supported
 from tests.common.reboot import reboot
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
+from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,8 @@ def __recover_interfaces(dut, fanouthosts, result, wait_time):
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         if fanout and fanout_port:
             fanout.no_shutdown(fanout_port)
-        dut.no_shutdown(port)
+        asic = dut.get_port_asic_instance(port)
+        dut.asic_instance(asic.asic_index).startup_interface(port)
     wait(wait_time, msg="Wait {} seconds for interface(s) to restore.".format(wait_time))
     return action
 
@@ -63,7 +65,7 @@ def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
                 action = __recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = __recover_services(dut, result)
-            elif result['check_item'] in [ 'processes', 'bgp' ]:
+            elif result['check_item'] in [ 'processes', 'bgp', 'mux_simulator' ]:
                 action = 'config_reload'
             else:
                 action = 'reboot'
@@ -100,22 +102,52 @@ def recover(dut, localhost, fanouthosts, check_results, recover_method):
         __recover_with_command(dut, method['cmd'], wait_time)
 
 
+@reset_ansible_local_tmp
+def neighbor_vm_recover_bgpd(node=None, results=None):
+    """Function for restoring BGP on neighbor VMs using the parallel_run tool.
+
+    Args:
+        node (dict, optional): Neighbor host object. Defaults to None.
+        results (Proxy to shared dict, optional): An instance of multiprocessing.Manager().dict(). Proxy to a dict
+                shared by all processes for returning execution results. Defaults to None.
+    """
+    if node is None or results is None:
+        logger.error('Missing kwarg "node" or "results"')
+        return
+
+    nbr_host = node['host']
+    asn = node['conf']['bgp']['asn']
+    result = {}
+
+    # restore interfaces and portchannels
+    intf_list = node['conf']['interfaces'].keys()
+    result['restore_intfs'] = []
+    for intf in intf_list:
+        result['restore_intfs'].append(nbr_host.no_shutdown(intf))
+
+    # start BGPd
+    result['start_bgpd'] = nbr_host.start_bgpd()
+
+    # restore BGP
+    result['no_shut_bgp'] = nbr_host.no_shutdown_bgp(asn)
+
+    # no shut bgp neighbors
+    peers = node['conf'].get('bgp', {}).get('peers', {})
+    neighbors = []
+    for key, value in peers.items():
+        if key == 'asn':
+            continue
+        if isinstance(value, list):
+            neighbors.extend(value)
+    result['no_shut_bgp_neighbors'] = nbr_host.no_shutdown_bgp_neighbors(asn, neighbors)
+
+    results[nbr_host.hostname] = result
+
+
 def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        for lag_name in lag_facts['names']:
-            nbr_intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
-            peer_device   = vm_neighbors[nbr_intf]['name']
-            nbr_host = nbrhosts[peer_device]['host']
-            intf_list = nbrhosts[peer_device]['conf']['interfaces'].keys()
-            # restore interfaces and portchannels
-            for intf in intf_list:
-                nbr_host.no_shutdown(intf)
-            asn = nbrhosts[peer_device]['conf']['bgp']['asn']
-            # start BGPd
-            nbr_host.start_bgpd()
-            # restore BGP session
-            nbr_host.no_shutdown_bgp(asn)
+        results = parallel_run(neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+        logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))

@@ -180,24 +180,70 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
-        file.writelines(
-            map(
-                    lambda (index, port): "{0}@{1}\n".format(index, port),
-                    enumerate(portList)
-                )
-            )
+        ptf_port_map = []
+        for i in range(len(portList)):
+            ptf_port_map.append("{}@{}\n".format(i, portList[i]))
+        file.writelines(ptf_port_map)
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
     yield "/root/{}".format(portMapFile.split('/')[-1])
 
 
+icmp_responder_session_started = False
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
+    """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
+    # No vlan is available on non-t0 testbed, so skip this fixture
+    if "mixed" not in tbinfo["topo"]["name"]:
+        logger.info("Skip running icmp_responder at session level, it is only for dualtor-mixed testbed.")
+        yield
+        return
+
+    global icmp_responder_session_started
+
+    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+
+    duthost = duthosts[0]
+    logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+
+    logging.info("Start running icmp_responder")
+    templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
+    vlan_intfs = duthost.get_vlan_intfs()
+    vlan_table = duthost.get_running_config_facts()['VLAN']
+    vlan_name = list(vlan_table.keys())[0]
+    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
+    icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    ptfhost.copy(
+        content=templ.render(icmp_responder_args=icmp_responder_args),
+        dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
+    )
+    ptfhost.shell("supervisorctl update")
+    ptfhost.shell("supervisorctl start icmp_responder")
+    icmp_responder_session_started = True
+
+    yield
+
+    # NOTE: Leave icmp_responder running for dualtor-mixed topology
+    return
+
+
 @pytest.fixture(scope="module", autouse=True)
 def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """Run icmp_responder.py over ptfhost."""
-    # No vlan is avaliable on non-t0 testbed, so skip this fixture 
+    # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+
+    if icmp_responder_session_started:
+        logger.info("icmp_responder is already running.")
         yield
         return
 
@@ -277,7 +323,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         ptfhost.shell('supervisorctl stop garp_service')
 
 
-def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
+def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts):
     active_dut_map = {}
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
@@ -296,7 +342,8 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-
+    
+    asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
         if str(ptf_port) in disabled_ptf_ports:
@@ -310,14 +357,91 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url):
             target_dut_index = int(active_dut_map[ptf_port])
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac']
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac'],
+                'target_src_mac': router_macs[target_dut_index],
+                'asic_idx': asic_idx
             }
         else:
             # PTF port is mapped to single DUT
-            target_dut_index = int(dut_intf_map.keys()[0])
+            target_dut_index = int(list(dut_intf_map.keys())[0])
+            target_dut_port = int(list(dut_intf_map.values())[0])
+            router_mac = router_macs[target_dut_index]
+            if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
+                for idx, mg_facts in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                    if target_dut_port in mg_facts['minigraph_port_indices'].values():
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        asic_idx = idx
+                        break
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_mac': router_macs[target_dut_index]
+                'target_dest_mac': router_mac,
+                'target_src_mac': router_mac,
+                'asic_idx': asic_idx
+            }
+
+    logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))
+
+    ptfhost.copy(content=json.dumps(ports_map), dest=PTF_TEST_PORT_MAP)
+    return PTF_TEST_PORT_MAP
+
+
+def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts, active_active_ports_mux_status=None):
+    active_dut_map = {}
+    if 'dualtor' in tbinfo['topo']['name']:
+        res = requests.get(mux_server_url)
+        pt_assert(res.status_code==200, 'Failed to get mux status: {}'.format(res.text))
+        for mux_status in res.json().values():
+            active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
+            active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
+        if active_active_ports_mux_status:
+            for port_index, port_status in active_active_ports_mux_status.items():
+                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1) if port_status[active_dut_index]]
+
+    disabled_ptf_ports = set()
+    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
+        # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
+        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
+
+    router_macs = [duthost.facts['router_mac'] for duthost in duthosts]
+
+    logger.info('active_dut_map={}'.format(active_dut_map))
+    logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
+    logger.info('router_macs={}'.format(router_macs))
+
+    asic_idx = 0
+    ports_map = {}
+    for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
+        if str(ptf_port) in disabled_ptf_ports:
+            # Skip PTF ports that are connected to disabled VLAN interfaces
+            continue
+
+        if len(dut_intf_map.keys()) == 2:
+            # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
+            # Packet sent from this ptf port will only be accepted by the active side DUT
+            # DualToR DUTs use same special Vlan interface MAC address
+            target_dut_indexes = list(map(int, active_dut_map[ptf_port]))
+            ports_map[ptf_port] = {
+                'target_dut': target_dut_indexes,
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac'],
+                'target_src_mac': [router_macs[_] for _ in target_dut_indexes],
+                'asic_idx': asic_idx
+            }
+        else:
+            # PTF port is mapped to single DUT
+            target_dut_index = int(list(dut_intf_map.keys())[0])
+            target_dut_port = int(list(dut_intf_map.values())[0])
+            router_mac = router_macs[target_dut_index]
+            if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
+                for idx, mg_facts in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                    if target_dut_port in mg_facts['minigraph_port_indices'].values():
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        asic_idx = idx
+                        break
+            ports_map[ptf_port] = {
+                'target_dut': [target_dut_index],
+                'target_dest_mac': router_mac,
+                'target_src_mac': [router_mac],
+                'asic_idx': asic_idx
             }
 
     logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))

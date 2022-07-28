@@ -1,3 +1,15 @@
+REQUIRED_PATTERNS = {
+    "time_span": [
+        "SAI_CREATE_SWITCH",
+        "INIT_VIEW",
+        "APPLY_VIEW"
+    ],
+    "offset_from_kexec": [
+        "LAG_READY",
+        "PORT_READY"
+    ]
+}
+
 SERVICE_PATTERNS = {
     "LATEST": {
         "Stopping": re.compile(r'.*Stopping.*(service|container).*'),
@@ -22,9 +34,9 @@ OTHER_PATTERNS = {
         "FPMSYNCD_RECONCILIATION|Start": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart timer started.*'),
         "FPMSYNCD_RECONCILIATION|End": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart reconciliation processed.*'),
         "ROUTE_DEFERRAL_TIMER|Start": re.compile(r'.*ADJCHANGE: neighbor .* in vrf default Up.*'),
-        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*'),
+        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for .* Unicast from.*'),
         "FDB_AGING_DISABLE|Start": re.compile(r'.*NOTICE swss#orchagent.*setAgingFDB: Set switch.*fdb_aging_time 0 sec'),
-        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*doAppSwitchTableTask: Set switch attribute fdb_aging_time to 600')
+        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*do.*Task: Set switch attribute fdb_aging_time to 600')
     },
     "LATEST": {
         "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),
@@ -57,7 +69,9 @@ SAIREDIS_PATTERNS = {
     "SAI_CREATE_SWITCH|End": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
     "NEIGHBOR_ENTRY|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*'),
     "DEFAULT_ROUTE_SET|Start": re.compile(r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*'),
-    "FDB_RESTORE|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*')
+    "FDB_RESTORE|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*'),
+    "FDB_EVENT_OTHER_MAC_EXPIRY|Start": re.compile(r".*\|n\|fdb_event.*fdb_entry.*mac.*(?!00:06:07:08:09:0A).*fdb_event.*SAI_FDB_EVENT_LEARNED.*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
+    "FDB_EVENT_SCAPY_MAC_EXPIRY|Start": re.compile(r".*\|n\|fdb_event.*fdb_entry.*mac.*00:06:07:08:09:0A.*fdb_event.*SAI_FDB_EVENT_LEARNED.*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
 }
 
 OFFSET_ITEMS = ['DATABASE', 'FINALIZER', 'INIT_VIEW', 'SYNCD_CREATE_SWITCH',

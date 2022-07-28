@@ -1,4 +1,3 @@
-
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -153,7 +152,7 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -174,6 +173,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vl
 
             res = duthost.command('show int portchannel')
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+            populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
@@ -217,7 +218,7 @@ def build_qinq_packet(outer_vlan_id, vlan_id,
     return pkt
 
 
-def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=1):
+def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=5):
     for port in ports:
         result = testutils.dp_poll(test, device_number=device_number, port_number=port,
                                    timeout=timeout, exp_pkt=pkt)
@@ -236,7 +237,7 @@ def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], d
                     % (device_number, str(port_group)))
 
 
-def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
+def verify_icmp_packets(ptfadapter, send_pkt, work_vlan_ports_list, vlan_port, vlan_id):
     untagged_pkt = build_icmp_packet(0)
     tagged_pkt = build_icmp_packet(vlan_id)
     untagged_dst_ports = []
@@ -263,6 +264,8 @@ def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
             else:
                 tagged_dst_ports += port["port_index"]
 
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, vlan_port["port_index"][0], send_pkt)
     verify_packets_with_portchannel(test=ptfadapter,
                                     pkt=untagged_pkt,
                                     ports=untagged_dst_ports,
@@ -274,6 +277,7 @@ def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
 
 
 def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
+    ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, send_pkt)
     try:
         testutils.verify_packets_any(ptfadapter, exp_pkt, ports=dst_ports)
@@ -281,6 +285,18 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet was not received")
         raise
+
+
+def populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict):
+    # send icmp packet from each tagged and untagged port in each test vlan to populate fdb
+    for vlan in vlan_intfs_dict:
+        for vlan_port in work_vlan_ports_list:
+            if vlan in vlan_port['permit_vlanid']:
+                vlan_id = 0 if vlan == vlan_port['pvid'] else vlan  # vlan_id: 0 - untagged, vlan = tagged
+                port_id = vlan_port['port_index'][0]
+                src_mac = ptfadapter.dataplane.get_mac(0, port_id)
+                pkt = build_icmp_packet(vlan_id=vlan_id, src_mac=src_mac)
+                testutils.send(ptfadapter, port_id, pkt)
 
 
 @pytest.mark.bsl
@@ -298,8 +314,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_sim
         logger.info("Send untagged packet from {} ...".format(vlan_port["port_index"][0]))
         logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
         if vlan_port['pvid'] != 0:
-            testutils.send(ptfadapter, vlan_port["port_index"][0], pkt)
-            verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_port["pvid"])
+            verify_icmp_packets(ptfadapter, pkt, work_vlan_ports_list, vlan_port, vlan_port["pvid"])
         else:
             exp_pkt = Mask(pkt)
             exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
@@ -327,8 +342,8 @@ def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simul
             pkt = build_icmp_packet(permit_vlanid)
             logger.info("Send tagged({}) packet from {} ...".format(permit_vlanid, vlan_port["port_index"][0]))
             logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
-            testutils.send(ptfadapter, vlan_port["port_index"][0], pkt)
-            verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, permit_vlanid)
+
+            verify_icmp_packets(ptfadapter, pkt, work_vlan_ports_list, vlan_port, permit_vlanid)
 
 
 @pytest.mark.bsl
@@ -414,7 +429,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
         if len(ports_for_test) < 2:
             continue
 
-        #take two tagged ports for test
+        #take two untagged ports for test
         src_port = ports_for_test[0]
         dst_port = ports_for_test[-1]
 

@@ -52,8 +52,10 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
     expected_fields = set(["Platform", "HwSKU", "ASIC"])
     actual_fields = set(summary_dict.keys())
-    new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
-
+    if 'switch_type' in dut_vars:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"])
+    else:
+        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
     missing_fields = expected_fields - actual_fields
     pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
 
@@ -176,7 +178,10 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
-    assert check_pmon_daemon_status(duthost), "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    pytest_assert(
+        check_pmon_daemon_status(duthost),
+        "Not all pmon daemons running on '{}'".format(duthost.hostname)
+    )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -197,11 +202,11 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
-def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
+def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -216,7 +221,7 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
-    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0" or duthost.facts['asic_type'] == "cisco-8000":
         led_status_list = ["N/A"]
     else:
         led_status_list = ["green", "amber", "red", "off"]
@@ -339,6 +344,9 @@ def verify_show_platform_firmware_status_output(raw_output_lines, hostname):
     """
     NUM_EXPECTED_COLS = 5
 
+    # Skip if command not implemented for platform
+    if len(raw_output_lines) <= 2:
+        pytest.skip("show platform firmware status not implemented")
     pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output on '{}'".format(hostname))
     second_line = raw_output_lines[1]
     field_ranges = util.get_field_range(second_line)

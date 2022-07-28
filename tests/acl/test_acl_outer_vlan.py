@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from abc import abstractmethod
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
 
@@ -283,13 +284,16 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
     Returns:
         Acl counter value for packets
     """
-    cmd = "redis-cli -n 2 hget 'COUNTERS:{}:{}' Packets"
     # Wait for orchagent to update the ACL counters
     time.sleep(timeout)
-    result = duthost.shell(cmd.format(table_name, rule_name))['stdout']
-    if result == "":
+    result = duthost.show_and_parse('aclshow -a')
+
+    if len(result) == 0:
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
-    return int(result)
+    for rule in result:
+        if table_name == rule['table name'] and rule_name == rule['rule name']:
+            return int(rule['packets count'])
+    pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
 
 def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
@@ -396,7 +400,7 @@ def teardown(duthosts, rand_one_dut_hostname):
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 class AclVlanOuterTest_Base(object):
     """
@@ -533,54 +537,67 @@ class AclVlanOuterTest_Base(object):
         finally:
             self._remove_acl_rules(duthost, stage, ip_version)
 
-    def test_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is forwarded by ACL rule on tagged interface
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_TAGGED, ACTION_FORWARD)
         
-    def test_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is dropped by ACL rule on tagged interface
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_TAGGED, ACTION_DROP)
 
-    def test_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is forwarded by ACL rule on untagged interface
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_UNTAGGED, ACTION_FORWARD)
 
-    def test_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is dropped by ACL rule on untagged interface
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_UNTAGGED, ACTION_DROP)
 
-    def test_combined_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_combined_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is forwarded by ACL rule on tagged interface, and the interface belongs to two vlans
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_TAGGED, ACTION_FORWARD)
 
-    def test_combined_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_combined_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is dropped by ACL rule on tagged interface, and the interface belongs to two vlans
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_TAGGED, ACTION_DROP)
 
-    def test_combined_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_combined_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is forwarded by ACL rule on untagged interface, and the interface belongs to two vlans
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_UNTAGGED, ACTION_FORWARD)
 
-    def test_combined_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version):
+    def test_combined_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m):
         """
         Verify packet is dropped by ACL rule on untagged interface, and the interface belongs to two vlans
         """
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info, ip_version, TYPE_COMBINE_UNTAGGED, ACTION_DROP)
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_sonic_leaf_fanout(fanouthosts):
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
+    1. The Ingress test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic
+    leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout
+    2. The Egress test will populate ARP table by ping command, and the egressed ICMP packets will be tagged with test
+    vlan id (100 or 200), which will be dropped by sonic leaf-fanout.
+    """
+    for fanouthost in fanouthosts.values():
+        if fanouthost.get_fanout_os() == 'sonic':
+            pytest.skip("Not supporteds on SONiC leaf-fanout")
+            
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in ingress

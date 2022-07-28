@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def _raise_err(msg):
         logger.error(msg)
         raise Exception(msg)
-        
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -63,6 +63,12 @@ class EosHost(AnsibleHostBase):
         self.host.options['variable_manager'].extra_vars.update(evars)
         return super(EosHost, self).__getattr__(module_name)
 
+    def __str__(self):
+        return '<EosHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
+
     def shutdown(self, interface_name):
         out = self.eos_config(
             lines=['shutdown'],
@@ -94,8 +100,8 @@ class EosHost(AnsibleHostBase):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
             parents='interface %s' % interface_name)
-            
-        # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed'] 
+
+        # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed']
         # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
         # error.
         if out['failed'] == True or out['changed'] == False:
@@ -125,6 +131,17 @@ class EosHost(AnsibleHostBase):
             lines=['no shut'],
             parents=['router bgp {}'.format(asn)])
         logging.info('No shut BGP [%s]' % asn)
+        return out
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+
+        out = self.eos_config(
+            lines=['no neighbor {} shutdown'.format(neighbor) for neighbor in neighbors],
+            parents=['router bgp {}'.format(asn)]
+        )
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
         return out
 
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
@@ -199,7 +216,7 @@ class EosHost(AnsibleHostBase):
         return self.eos_command(commands=[{
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
-        }])['stdout'][0]        
+        }])['stdout'][0]
 
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
@@ -221,7 +238,7 @@ class EosHost(AnsibleHostBase):
     def set_auto_negotiation_mode(self, interface_name, enabled):
         if self.get_auto_negotiation_mode(interface_name) == enabled:
             return True
-        
+
         if enabled:
             speed_to_advertise = self.get_supported_speeds(interface_name)[-1]
             speed_to_advertise = speed_to_advertise[:-3] + 'gfull'
@@ -231,8 +248,8 @@ class EosHost(AnsibleHostBase):
             logger.debug('Set auto neg to {} for port {}: {}'.format(enabled, interface_name, out))
             return not self._has_cli_cmd_failed(out)
         return self._reset_port_speed(interface_name)
-        
-        
+
+
     def get_speed(self, interface_name):
         output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
         found_txt = re.search(r'Operational Speed: (\S+)', output['stdout'][0])
@@ -246,16 +263,17 @@ class EosHost(AnsibleHostBase):
         return 'failed' in cmd_output_obj and cmd_output_obj['failed']
 
     def set_speed(self, interface_name, speed):
-        
+
         if not speed:
             # other set_speed implementations advertise port speeds when speed=None
             # but in EOS autoneg activation and speeds advertisement is done via a single CLI cmd
             # so this branch left nop intentionally
             return True
-            
+
+        speed_mode = 'auto' if self.get_auto_negotiation_mode(interface_name) else 'forced'
         speed = speed[:-3] + 'gfull'
         out = self.host.eos_config(
-                lines=['speed forced {}'.format(speed)],
+                lines=['speed {} {}'.format(speed_mode, speed)],
                 parents='interface %s' % interface_name)[self.hostname]
         logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
         return not self._has_cli_cmd_failed(out)
@@ -285,3 +303,35 @@ class EosHost(AnsibleHostBase):
         def extract_speed_only(v):
             return re.match('\d+', v.strip()).group() + '000'
         return list(map(extract_speed_only, speed_list))
+
+    def get_dut_iface_mac(self, interface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            command = 'show interfaces {} | json'.format(interface_name)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            mac = output["interfaces"][interface_name]["physicalAddress"]
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return None
+
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            command = 'show mac security interface {} | json'.format(interface_name)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            if interface_name in output["interfaces"]:
+                return output["interfaces"][interface_name]["controlledPort"]
+            return False
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            return False

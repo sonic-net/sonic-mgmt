@@ -1,10 +1,9 @@
 # SONiC Test Reporting
 
-## Setup and Sanity Check
+## Setup environment
 In the sonic-mgmt container:
 ```
 source /var/johnar/env-python3/bin/activate
-pytest
 ```
 
 On a Linux host (verified against Ubuntu 20.04, but should work anywhere python3/virtualenv are supported):
@@ -12,7 +11,6 @@ On a Linux host (verified against Ubuntu 20.04, but should work anywhere python3
 virtualenv env
 source env/bin/activate
 pip3 install -r requirements.txt
-pytest
 ```
 
 ## Uploading test results to a Kusto/Azure Data Explorer (ADX) cluster
@@ -23,6 +21,9 @@ You need to add the following environment variables first:
 - TEST_REPORT_AAD_CLIENT_KEY: The secret key for your AAD application
 
 Check out [this doc from Kusto](https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app) for more details about setting up AAD client applications for accessing Kusto.
+
+If you want to upload data into a new table, please add the related create table commands in setup.kql file and run them manually in Kusto.
+Make sure the table is created and mapping is generated sucessfully.
 
 Once these have been added, you can use the `report_uploader.py` script to upload test report data to Kusto:
 ```
@@ -37,6 +38,18 @@ For example:
 Optionally you can add an external/tracking ID that will be uploaded as well:
 ```
 % python3 report_uploader.py -c "test_result" -e PR#1995 ../results SonicTestData
+```
+
+## Run sanity check
+This folder contains some test code for junit XML parser. If any change was made to the parser, please do remember to update the tests and run tests as well to ensure that there is no regression.
+To run the tests, need to install more dependent packages to the same python3 virtual environment.
+```
+pip3 install -r requirements_dev.txt
+```
+
+Just use the `pytest` command to run tests:
+```
+pytest
 ```
 
 ## Components

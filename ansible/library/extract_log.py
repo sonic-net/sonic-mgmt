@@ -103,7 +103,7 @@ def extract_lines(directory, filename, target_string):
         # Prehandle lines to remove these sub-strings
         dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
         sz = os.path.getsize(path)
-        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'nsible' not in line]
+        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'extract_log' not in line]
 
     return result
 
@@ -234,7 +234,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
-                file = gzip.GzipFile(path)
+                file = gzip.open(path, mode='rt')
             else:
                 file = open(path)
 
@@ -282,7 +282,7 @@ def main():
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-    p = module.params;
+    p = module.params
 
     try:
         extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])

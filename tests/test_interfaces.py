@@ -37,7 +37,8 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     verify_ip_address(host_facts, mg_facts['minigraph_lo_interfaces'])
 
     topo = tbinfo["topo"]["name"]
-    router_mac = duthost.facts['router_mac']
+    router_mac = asic_host.get_router_mac()
+
     verify_mac_address(host_facts, mg_facts['minigraph_portchannel_interfaces'], router_mac)
     if "dualtor" not in topo:
         verify_mac_address(host_facts, mg_facts['minigraph_vlan_interfaces'], router_mac)

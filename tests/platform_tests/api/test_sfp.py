@@ -4,11 +4,12 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -30,10 +31,10 @@ pytestmark = [
 ]
 
 @pytest.fixture(scope="class")
-def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts):
+def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):
     sfp_setup = {}
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    
+
     if duthost.is_supervisor_node():
         pytest.skip("skipping for supervisor node")
 
@@ -41,7 +42,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
-  
+
     sfp_port_indices = set([physical_port_index_map[intf] \
         for intf in physical_port_index_map.keys()])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
@@ -79,7 +80,7 @@ class TestSfpApi(PlatformApiTestBase):
         'type',
         'manufacturer',
         'model',
-        'hardware_rev',
+        'vendor_rev',
         'serial',
         'vendor_oui',
         'vendor_date',
@@ -148,8 +149,10 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         #For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X":
-            if xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X" \
+        or xcvr_info_dict["type_abbrv_name"] == "QSFP+C":
+            if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
+                    xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                return False
         else:
             spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
@@ -161,6 +164,10 @@ class TestSfpApi(PlatformApiTestBase):
                 compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
                 if compliance_code == "40GBASE-CR4":
                    return False
+                if compliance_code == "Extended":
+                    extended_code = spec_compliance_dict.get("Extended Specification Compliance")
+                    if "CR" in extended_code:
+                        return False
         return True
 
     def is_xcvr_resettable(self, xcvr_info_dict):
@@ -245,6 +252,14 @@ class TestSfpApi(PlatformApiTestBase):
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
                     actual_keys = info_dict.keys()
+                    
+                    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+                    # NOTE: No more releases to be added here. Platform should use SFP-refactor.
+                    # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
+                    if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
+                        EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
+                            self.EXPECTED_XCVR_INFO_KEYS]
+                        self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
 
                     missing_keys = set(self.EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
                     for key in missing_keys:
@@ -259,6 +274,9 @@ class TestSfpApi(PlatformApiTestBase):
 
                     unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
+                        #hardware_rev is applicable only for QSFP-DD
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
+                            continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
@@ -318,6 +336,12 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_rx_los: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             rx_los = sfp.get_rx_los(platform_api_conn, i)
             if self.expect(rx_los is not None, "Unable to retrieve transceiver {} RX loss-of-signal data".format(i)):
                 self.expect(isinstance(rx_los, list) and (all(isinstance(item, bool) for item in rx_los)),
@@ -330,6 +354,12 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_tx_fault: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             tx_fault = sfp.get_tx_fault(platform_api_conn, i)
             if self.expect(tx_fault is not None, "Unable to retrieve transceiver {} TX fault data".format(i)):
                 self.expect(isinstance(tx_fault, list) and (all(isinstance(item, bool) for item in tx_fault)),
@@ -342,6 +372,12 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_temperature: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             temp = sfp.get_temperature(platform_api_conn, i)
             if self.expect(temp is not None, "Unable to retrieve transceiver {} temperatue".format(i)):
                 self.expect(isinstance(temp, float), "Transceiver {} temperature appears incorrect".format(i))
@@ -353,6 +389,12 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_voltage: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             voltage = sfp.get_voltage(platform_api_conn, i)
             if self.expect(voltage is not None, "Unable to retrieve transceiver {} voltage".format(i)):
                 self.expect(isinstance(voltage, float), "Transceiver {} voltage appears incorrect".format(i))
@@ -404,13 +446,18 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_tx_power: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             tx_power = sfp.get_tx_power(platform_api_conn, i)
             if self.expect(tx_power is not None, "Unable to retrieve transceiver {} TX power data".format(i)):
                 continue
 
             # Determine whether the transceiver type supports RX power
             # If the transceiver is non-optical, e.g., DAC, we should receive a list of "N/A" strings
-            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
@@ -499,8 +546,8 @@ class TestSfpApi(PlatformApiTestBase):
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.sfp_setup["sfp_test_port_indices"]:
-            # First ensure that the transceiver type supports low-power mode
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            # Ensure that the transceiver type supports low-power mode
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
@@ -551,7 +598,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests get_error_description() API (supported on 202106 and above)"""
-        skip_version(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
+        skip_release(duthosts[enum_rand_one_per_hwsku_hostname], ["201811", "201911", "202012"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             error_description = sfp.get_error_description(platform_api_conn, i)

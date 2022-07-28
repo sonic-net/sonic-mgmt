@@ -70,7 +70,7 @@
         vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
@@ -153,6 +153,7 @@
   - name: set default dualtor facts
     set_fact:
       dual_tor_facts: {}
+      mux_cable_facts: {}
     when: "'dualtor' not in topo"
 
   - name: gather dual ToR information
@@ -165,6 +166,12 @@
       vlan_intfs: "{{ vlan_intfs }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
+
+  - name: gather mux cable information
+    mux_cable_facts:
+      topo_name: "{{ topo }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
 
   - name: generate y_cable simulator driver
     include_tasks: dualtor/config_simulated_y_cable.yml
@@ -234,6 +241,17 @@
       - "{{ interface_to_vms }}"
       - "ports"
     when: front_panel_asic_ifnames != []
+
+  - block:
+      - name: Create new dictionary for my slot
+        set_fact:
+          new_asic_topo_config : "{{ new_asic_topo_config | default( { slot_num  : asic_topo_config.slot0 }) }}"
+
+      - name: set asic_topo_config to new dictionary
+        set_fact:
+          asic_topo_config: "{{ new_asic_topo_config }}"
+
+    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
@@ -334,6 +352,32 @@
         server_key: "{{ server_key_t }}"
         cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
+
+  - name: Set docker proxy
+    block:
+      - name: Ensures /etc/systemd/system/docker.service.d dir exists
+        file:
+          path: /etc/systemd/system/docker.service.d
+          state: directory
+          recurse: yes
+
+      - name: Render docker proxy config
+        template:
+          src: 'templates/docker_http_proxy.j2'
+          dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+          force: yes
+
+      - name: restart docker service, let docker proxy takes effect
+        systemd:
+          state: restarted
+          daemon_reload: yes
+          name: docker
+
+      - name: Wait 60s for docker containers to restart
+        pause:
+          seconds: 60
+    become: true
+    when: proxy_env is defined
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)

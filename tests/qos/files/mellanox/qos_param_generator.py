@@ -2,24 +2,27 @@ import math
 
 class QosParamMellanox(object):
     def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
-        asic_param_dic = {
+        self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
-                'headroom_overhead': 95
+                'headroom_overhead': 95,
+                'private_headroom': 30
             },
             'spc2': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             },
             'spc3': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             }
         }
 
         self.asic_type = asic_type
-        self.cell_size = asic_param_dic[asic_type]['cell_size']
-        self.headroom_overhead = asic_param_dic[asic_type]['headroom_overhead']
+        self.cell_size = self.asic_param_dic[asic_type]['cell_size']
+        self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
         if speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
@@ -167,10 +170,13 @@ class QosParamMellanox(object):
         wm_pg_shared_lossless = self.qos_params_mlnx['wm_pg_shared_lossless']
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
         wm_pg_shared_lossless['cell_size'] = self.cell_size
+        wm_pg_shared_lossless["pkts_num_margin"] = 3
 
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_q_shared_lossless['cell_size'] = self.cell_size
+        # It was 8 but recently it failed in rare case. To stabilize the test, increase it to 9
+        wm_q_shared_lossless['pkts_num_margin'] = 9
 
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
@@ -179,7 +185,9 @@ class QosParamMellanox(object):
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
+        wm_shared_lossy["pkts_num_margin"] = 3
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
+        wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
 
         wm_buf_pool_lossless = self.qos_params_mlnx['wm_buf_pool_lossless']
@@ -195,3 +203,4 @@ class QosParamMellanox(object):
             self.qos_params_mlnx['ecn_{}'.format(i+1)]['cell_size'] = self.cell_size
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
+        self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']

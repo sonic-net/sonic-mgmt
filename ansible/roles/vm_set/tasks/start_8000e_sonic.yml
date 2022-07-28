@@ -1,0 +1,116 @@
+- set_fact:
+        docker_image:  8000e-sonic
+        mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
+        mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
+        sonic_image: "{{ home_path }}/8000e/images/sonic-cisco-8000.bin"
+        serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
+
+- name: Check if cisco sonic image exists
+  stat: path={{ sonic_image }}
+  register: image_stat
+
+- name: Fail if cisco sonic image is missing
+  fail:
+     msg: "Missing cisco sonic image ({{ sonic_image }})"
+  when: image_stat.stat.exists == false
+
+- name: "Create 8000e-sonic container {{ dut_name }}"
+  become: yes
+  docker_container:
+    name: "{{ dut_name }}"
+    image: "{{ docker_image }}"
+    pull: no
+    recreate: yes
+    tty: yes
+    network_mode: none
+    detach: True
+    privileged: True
+    capabilities:
+      - net_admin
+    devices:
+    - /dev/kvm:/dev/kvm
+    volumes:
+    - /{{ sonic_image }}:/images/sonic-cisco-8000.bin
+    env:
+       CISCO_SDK_VER: "{{ hostvars[dut_name]['cisco_sdk_ver'] | default(omit) }}"
+       CISCO_NPSUITE_VER: "{{ hostvars[dut_name]['cisco_npsuite_ver'] | default(omit) }}"
+       MGMT_GATEWAY: "{{ mgmt_gw }}"
+       SONIC_LOGIN: "cisco"
+       SONIC_PASSWORD: "cisco123"
+       # 8000e device requires eth4 interface to be configured for for proper device operation (simulation artifact).
+       # Disable route check to prevent eth4 route check error ("missed_ROUTE_TABLE_routes": [ "192.168.123.0/24"])
+       SONIC_COMMANDS: |
+               sudo monit stop routeCheck
+               sudo monit unmonitor routeCheck
+
+- name: Get container info
+  docker_container_info:
+    name: "{{ dut_name }}"
+  register: ctninfo
+  become: yes
+
+- set_fact:
+    hwsku: "{{ hostvars[dut_name].hwsku }}"
+
+- debug:
+        msg: "hwsku:{{ hwsku }}"
+
+- set_fact:
+      max_fp_port: 64
+  when: hwsku == "Cisco-8102-C64"
+
+- name: capture all host interfaces
+  shell: ifconfig -a |egrep "^[0-9a-zA-Z]" | awk '{ print $1 }'
+  register: host_interfaces
+
+
+- name: capture host "up" interfaces
+  shell: ifconfig |egrep "^[0-9a-zA-Z]" | awk '{ print $1 }'
+  register: host_up_interfaces
+
+- name: Create veth pairs for 8000e-sonic mgmt. interface and front panel ports
+  shell: ip link add {{ item }} type veth peer name {{ item }}_x
+  with_sequence: start=0 end={{ max_fp_port }} stride=1 format={{ dut_name }}-%d
+  when: item + ':' not in host_interfaces.stdout_lines
+  become: yes
+
+- name: set interfaces up
+  shell: ip link set {{ item }} up
+  with_sequence: start=0 end={{ max_fp_port }} stride=1 format={{ dut_name }}-%d
+  when: item + ':' not in host_up_interfaces.stdout_lines
+  become: yes
+
+- name: pass interfaces to {{ dut_name }}
+  vars:
+     pid: "{{ ctninfo.container.State.Pid }}"
+     if_name: "{{ dut_name }}-{{ item }}_x"
+     new_if_name: "eth{{ item }}"
+
+  shell: |
+          ip link set {{ if_name }} netns {{ pid }}
+          nsenter -t {{ pid }} -n ip link set {{ if_name }} down
+          nsenter -t {{ pid }} -n ip link set {{ if_name }} name {{ new_if_name }}
+          nsenter -t {{ pid }} -n ip link set {{ new_if_name }} up
+  with_sequence: start=0 end={{ max_fp_port }} stride=1
+  become: yes
+
+- name: configure management interface (eth0) in the 8000e-sonic docker instance
+  vars:
+     pid: "{{ ctninfo.container.State.Pid }}"
+  shell: nsenter -t {{ pid }} -n ip address add {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} dev eth0
+  become: yes
+
+- name: add {{ dut_name }} management interface to {{ mgmt_bridge }} bridge
+  shell: brctl addif {{ mgmt_bridge }} {{ dut_name }}-0
+  become: yes
+
+- name: boot 8000e-sonic device in {{ dut_name }} docker instance
+  shell: docker exec {{ dut_name }} /startup.sh {{ max_fp_port }}
+  become: yes
+
+- name: ping {{ dut_name }} managment interface
+  shell: ping {{ mgmt_ip_address }} -c 1
+  retries: 10
+  delay: 5
+  register: result
+  until: result.rc == 0

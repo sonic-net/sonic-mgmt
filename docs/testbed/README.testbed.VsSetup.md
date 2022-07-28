@@ -10,7 +10,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
 2. Prepare your environment based on different Ubuntu version, make sure that python and pip are installed
    1. Option : If your host is **Ubuntu 20.04**
-        
+
         ```
         sudo apt install python3 python3-pip
         ```
@@ -21,8 +21,8 @@ First, we need to prepare the host where we will be configuring the virtual test
    2. Option : If your host is **Ubuntu 18.04**
         ```
         sudo apt install python python-pip
-        # v0.3.12b Jinja2 is required, lower version may cause uncompatible issue
-        sudo pip install j2cli==0.3.12b0
+        # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
+        sudo pip install j2cli==0.3.10
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
@@ -49,15 +49,17 @@ We currently support EOS-based or SONiC VMs to simulate neighboring devices in t
 2. Import the cEOS image (it will take several minutes to import, so please be patient!)
 
 ```
-docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M-1
+docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M
 ```
 After imported successfully, you can check it by 'docker images'
 ```
 $ docker images
 REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
-ceosimage                                              4.25.5.1M-1   fa0df4b01467   9 seconds ago   1.62GB
+ceosimage                                              4.25.5.1M     fa0df4b01467   9 seconds ago   1.62GB
 ```
-**Note**: *For time being, the image might be updated, the actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), please download the corresponding version of image and import it to your local docker repository.*
+**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
+please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
+The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
 
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
@@ -221,13 +223,13 @@ Now we're finally ready to deploy the topology for our testbed! Run the followin
 ### vEOS
 ```
 cd /data/sonic-mgmt/ansible
-./testbed-cli.sh -t vtestbed.csv -m veos_vtb add-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb add-topo vms-kvm-t0 password.txt
 ```
 
 ### cEOS
 ```
 cd /data/sonic-mgmt/ansible
-./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt
 ```
 
 Verify that the cEOS neighbors were created properly:
@@ -249,7 +251,7 @@ c929c622232a        sonicdev-microsoft.azurecr.io:443/docker-ptf:latest   "/usr/
 ### vSONiC
 ```
 cd /data/sonic-mgmt/ansible
-./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k vsonic add-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vsonic add-topo vms-kvm-t0 password.txt
 ```
 
 ## Deploy minigraph on the DUT
@@ -258,7 +260,7 @@ Once the topology has been created, we need to give the DUT an initial configura
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
 ```
-./testbed-cli.sh -t vtestbed.csv -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
 ```
 Verify the DUT is created successfully
 In your host run
@@ -269,11 +271,11 @@ In your host run
  3    vlab-01   running
  ```
  Then you can try to login to your dut through the command and get logged in as shown below.
- For more infomation about how to get the DUT IP address, please refer to doc 
+ For more information about how to get the DUT IP address, please refer to doc
  [testbed.Example#access-the-dut](README.testbed.Example.Config.md#access-the-dut)
  ```
 ~$ ssh admin@10.250.0.101
-admin@10.250.0.101's password: 
+admin@10.250.0.101's password:
 Linux vlab-01 4.19.0-12-2-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64
 You are on
   ____   ___  _   _ _  ____
@@ -361,13 +363,13 @@ cd sonic-mgmt/tests
 If neighbor devices are EOS
 
 ```
-./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
 ```
 
 If neighbor devices are SONiC
 
 ```
-./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb -e "--neighbor_type=sonic"
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
@@ -377,5 +379,5 @@ If you want to clear your testing environment, you can log into your mgmt docker
 
 Then run command:
 ```
-./testbed-cli.sh -t vtestbed.csv -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt
 ```

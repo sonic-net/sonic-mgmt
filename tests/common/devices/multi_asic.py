@@ -7,7 +7,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class MultiAsicSonicHost(object):
             hostname: Name of the host in the ansible inventory
         """
         self.sonichost = SonicHost(ansible_adhoc, hostname)
-        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in range(self.sonichost.facts["num_asic"])]
+        self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
         # Get the frontend and backend asics in a multiAsic device.
         self.frontend_asics = []
@@ -45,8 +45,11 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
+    def __str__(self):
+        return '<MultiAsicSonicHost {}>'.format(self.hostname)
+
     def __repr__(self):
-        return '<MultiAsicSonicHost> {}'.format(self.hostname)
+        return self.__str__()
 
     def critical_services_tracking_list(self):
         """Get the list of services running on the DUT
@@ -103,12 +106,32 @@ class MultiAsicSonicHost(object):
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
-                return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+                return getattr(self.asic_instance(asic_index), self.multi_asic_attr)(*module_args, **asic_complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespace
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def get_dut_iface_mac(self, iface_name):
+        """
+        Gets the MAC address of specified interface.
+
+        Returns:
+            str: The MAC address of the specified interface, or None if it is not found.
+        """
+        try:
+            if self.sonichost.facts['num_asic'] == 1:
+                cmd_prefix = " "
+            else:
+                asic = self.get_port_asic_instance(iface_name)
+                cmd_prefix = "sudo ip netns exec {} ".format(asic.namespace)
+ 
+            mac = self.command('{} cat /sys/class/net/{}/address'.format(cmd_prefix, iface_name))['stdout']
+            return mac
+        except Exception as e:
+            logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
+            return None
 
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
@@ -143,7 +166,13 @@ class MultiAsicSonicHost(object):
     def asic_instance(self, asic_index=None):
         if asic_index is None:
             return self.asics[0]
-        return self.asics[asic_index]
+        # if asics_present is defined in the host_vars of the host (in the inventory), then
+        # self.asics is populated based on asics_present (PR# 5828). In this case, self.asics is a list of only
+        # asics present, and not all possible asics. Thus, need to find asic with the right asic_index.
+        for a_asic in self.asics:
+            if a_asic.asic_index == asic_index:
+                return a_asic
+        return None
 
     def asic_instance_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
@@ -201,6 +230,16 @@ class MultiAsicSonicHost(object):
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
         return ns_cmd
 
+    @property
+    def ttl_decr_value(self):
+        """
+        Decrement in TTL value for L3 forwarding. On Multi ASIC TTL value
+        decreases by 3 when forwarding across tiers (e.g. T0 to T2).
+        """
+        if not self.sonichost.is_multi_asic:
+            return 1
+        return 3
+
     def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
         asic_id = self.get_asic_id_from_namespace(namespace)
         if asic_id == DEFAULT_ASIC_ID:
@@ -255,7 +294,14 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             asic.stop_service(service)
+            
+    def reset_service(self, service):
+        if service in self._DEFAULT_SERVICES:
+            return self.sonichost.reset_service(service, service)
 
+        for asic in self.asics:
+            asic.reset_service(service)
+        
     def restart_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.restart_service(service, service)
@@ -389,6 +435,9 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
+            #TODO: https://github.com/Azure/sonic-mgmt/issues/5970
+            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+                continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
@@ -425,6 +474,26 @@ class MultiAsicSonicHost(object):
 
         return bgp_neigh
 
+    def get_bgp_neighbors_per_asic(self, state="established"):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: 
+        state: BGP session state, return neighbor IP of sessions that match this state
+        Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            bgp_neigh[asic.namespace] = {}
+            bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+            for k, v in bgp_info.items():
+                if v["state"] != state:
+                    bgp_info.pop(k)                    
+            bgp_neigh[asic.namespace].update(bgp_info)
+
+        return bgp_neigh
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -437,7 +506,6 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             bgp_facts = asic.bgp_facts()['ansible_facts']
-            logging.info("bgp_facts: {}".format(bgp_facts))
             for k, v in bgp_facts['bgp_neighbors'].items():
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
@@ -448,6 +516,46 @@ class MultiAsicSonicHost(object):
             return True
 
         return False
+
+    def check_bgp_session_state_all_asics(self, bgp_neighbors, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state in each namespace
+
+        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }} 
+        @param state: target state
+        """
+        for asic in self.asics:
+            if asic.namespace in bgp_neighbors:
+                neigh_ips = [ k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state ]
+                if not asic.check_bgp_session_state(neigh_ips, state):
+                    return False
+        return True
+
+    def get_bgp_route(self, *args, **kwargs):
+        """
+            @summary: return BGP routes information from BGP docker. On
+                      single ASIC platform ansible module is called directly.
+                      On multi ASIC platform one of the frontend ASIC is
+                      used unless a neighbor is provided, in which case it
+                      fetches from the ASIC where neighbor is present
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.bgp_route(*args, **kwargs)
+
+        asic_index = self.frontend_asics[0].asic_index
+
+        if kwargs.get('neighbor') is not None:
+            #find out which ASIC has the neighbor
+            for asic in self.frontend_asics:
+                bgp_facts = asic.bgp_facts()['ansible_facts']
+                if kwargs.get('neighbor') in bgp_facts['bgp_neighbors']:
+                    asic_index = asic.asic_index
+                    break
+
+        # return from one of the frontend asics or the one where
+        # the given neighbor exists
+        kwargs['namespace_id'] = asic_index
+        return self.bgp_route(*args, **kwargs)
 
     def get_bgp_route_info(self, prefix, ns=None):
         """
@@ -470,7 +578,7 @@ class MultiAsicSonicHost(object):
     def check_bgp_default_route(self, ipv4=True,  ipv6=True):
         """
         @summary: check if bgp default route is present.
-        
+
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
         """
@@ -479,3 +587,138 @@ class MultiAsicSonicHost(object):
         if ipv6 and len(self.get_bgp_route_info("::/0")) == 0:
             return False
         return True
+
+    def update_ip_route(self, ip, nexthop, op="", namespace=DEFAULT_NAMESPACE):
+        """
+        Update route to add/remove for a given IP <ip> with nexthop IP address
+
+         Args:
+            duthost(Ansible Fixture): instance of SonicHost class of DUT
+            ip(str): IP to add/remove route for
+            nexthp(str): Nexthop IP
+            op(str): operation add/remove to be performed, default add
+            namespace: ASIC namespace
+
+        Returns:
+            None
+        """
+        logger.info("{0} route to '{1}' via '{2}'".format(
+            "Deleting" if "no" == op else "Adding", ip, nexthop
+        ))
+
+        vty_cmd_args = "-c \"configure terminal\" -c \"{} ip route {} {}\"".format(
+            op, ipaddress.ip_interface(ip + "/24".encode().decode()).network, nexthop
+        )
+
+        if namespace != DEFAULT_NAMESPACE:
+            dutasic = self.asic_instance_from_namespace(namespace)
+            dutasic.run_vtysh(vty_cmd_args)
+        else:
+            for dutasic in self.asics:
+                dutasic.run_vtysh(vty_cmd_args)
+
+    def get_internal_bgp_peers(self):
+        """
+        Get Internal BGP peers. API iterates through frontend ASIC
+        index to get the BGP internal peers from running configuration
+
+        Returns:
+              Dict of {BGP peer: Peer Info}
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        bgp_internal_neighbors = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            bgp_internal_neighbors.update(
+                config_facts.get("BGP_INTERNAL_NEIGHBOR", {})
+            )
+        return bgp_internal_neighbors
+
+    def docker_cmds_on_all_asics(self, cmd, container_name):
+        """This function iterate for ALL asics and execute cmds"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for a_asic in self.asics:
+                container = a_asic.get_docker_name(container_name)
+                self.shell(argv=["docker", "exec", container, "bash", "-c", cmd])
+        else:
+            self.shell(argv=["docker", "exec", container_name, "bash", "-c", cmd])
+
+    def docker_copy_to_all_asics(self, container_name, src, dst):
+        """This function copy from host to ALL asics"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for a_asic in self.asics:
+                container = a_asic.get_docker_name(container_name)
+                self.shell("sudo docker cp {} {}:{}".format(src, container, dst))
+        else:
+            self.shell("sudo docker cp {} {}:{}".format(src, container_name, dst))
+
+    def docker_copy_from_asic(self, container_name, src, dst, asic_id = 0):
+        """This function copy from one asic to host"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            container_name += str(asic_id)
+        self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
+        
+    def is_service_fully_started_per_asic_or_host(self, service):
+        """This function tell if service is fully started base on multi-asic/single-asic"""
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
+                if not duthost.is_service_fully_started(docker_name): 
+                    return False
+            return True
+        else:
+            return duthost.is_service_fully_started(service)
+
+    def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
+        """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
+        self.asic_instance(asic_index).restart_service(service)
+
+    def docker_exec_swssconfig(self, json_name, container_name, asic_idx):
+        if self.sonichost.is_multi_asic:
+            container = container_name + str(asic_idx)
+            return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
+                           module_ignore_errors=True)
+        else:
+            return self.shell('docker exec -i {} swssconfig {}'.format(container_name, json_name),
+                           module_ignore_errors=True)
+      
+    def get_bgp_name_to_ns_mapping(self):
+        """ This function returns mapping of bgp name -- namespace
+            e.g. {'ARISTAT2': 'asic0', ...}
+        """
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        neighbors = mg_facts['minigraph_neighbors']
+        mapping = dict()
+        for neigh in neighbors.values():
+            mapping[neigh['name']] = neigh['namespace']        
+        return mapping
+
+    def get_default_route_from_app_db(self, af='ipv4'):
+        default_routes = dict()
+        if self.sonichost.is_multi_asic:
+            for front_asic in self.frontend_asics:
+                default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
+        else:
+            default_routes = self.asic_instance(0).get_default_route_from_app_db(af)
+        return default_routes
+    
+    def is_default_route_removed_from_app_db(self, uplink_asics = DEFAULT_NAMESPACE):
+        if self.sonichost.is_multi_asic:
+            for ns in uplink_asics:
+                if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
+                    return False
+        else:
+            if not self.asic_instance(0).is_default_route_removed_from_app_db():
+                return False
+        return True
+

@@ -1,6 +1,7 @@
-{# Note max of 10 Backend Portchannel from one asic #}
+{# Note max of 16 Backend Portchannel from one asic #}
 {% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
-{{ ((40 + 10 * asic_idx + neigh_asic_idx)|string) }}
+{# Note avoid PortChannel00 #}
+{{ ((1 + 16 * asic_idx + neigh_asic_idx)|string) }}
 {%- endmacro -%}
 {% if num_asics > 1 %}
 {% if (asic_topo_config and slot_num is defined and slot_num in asic_topo_config) or (asic_topo_config and slot_num is not defined) %}
@@ -95,7 +96,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(vm_asic_ifnames[vms[index]])  %}
         <PortChannel>
-          <Name>PortChannel{{ ((index+1)|string).zfill(4) }}</Name>
+          <Name>PortChannel{{ '10' + ((index+1)|string) }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -127,7 +128,7 @@
           <Name>Vlan2</Name>
 {% set vlan_intf_str=';'.join(vlan_intfs) %}
           <AttachTo>{{ vlan_intf_str }}</AttachTo>
-          <Type>Tagged</Type>
+          <Type>UnTagged</Type>
           <VlanID>2</VlanID>
         </VlanInterface>
       </VlanInterfaces>
@@ -142,7 +143,7 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -151,7 +152,7 @@
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-          <AttachTo>PortChannel{{ ((index+1) |string).zfill(4) }}</AttachTo>
+          <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -161,25 +162,21 @@
 {% endif %}
 {% endfor %}
 {% if switch_type is defined and switch_type == 'chassis-packet' %}
-      </IPInterfaces>
-      <SubInterfaces>
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {%- set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
-        <SubInterface>
+        <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Vlan>2</Vlan>
-          <Encapsulation>dot1q</Encapsulation>
           <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv4mask'][0] }}</Prefix>
-        </SubInterface>
-        <SubInterface>
+        </IPInterface>
+        <IPInterface>
           <Name i:nil="true"/>
           <AttachTo>PortChannel{{ port_channel_id(asic_index, neigh_asic_index).zfill(2) }}</AttachTo>
-          <Vlan>2</Vlan>
-          <Encapsulation>dot1q</Encapsulation>
           <Prefix>{{ asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0] }}/{{ asic_config['neigh_asic'][neigh_asic]['ipv6mask'][0] }}</Prefix>
-        </SubInterface>
+        </IPInterface>
 {% endfor %}
+      </IPInterfaces>
+      <SubInterfaces>
       </SubInterfaces>
       <IPNextHops>
 {% for a_linecard in all_loopback4096 %}
@@ -188,19 +185,24 @@
 {% if a_linecard != inventory_hostname or idx != asic_index %}
 {%- set nexthop_intfs = [] -%}
 {%- set nexthop_v6_intfs = [] -%}
-{% for asic,asic_config in asic_topo_config[all_slots[a_linecard]].items() %}
-{% if (a_linecard != inventory_hostname and asic == remote_asic_name) or (a_linecard == inventory_hostname and asic != asic_name) %}
+{%- set internal_po_channel_intfs = [] -%}
+{% set asic_config =  asic_topo_config[all_slots[a_linecard]][remote_asic_name] %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
 {% set _ = nexthop_v6_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) %}
-{% endfor %}
-{% endif %}
+{% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
+{% set po_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(2) %}
+{{- internal_po_channel_intfs.append(po_intf) -}}
 {% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AttachTo>{{ all_loopback4096[a_linecard][idx] }}</AttachTo>
+         <AssociatedTo>{{ all_loopback4096[a_linecard][idx] }}</AssociatedTo>
+         <AttachTo>
+{{- internal_po_channel_intfs|join(',') -}}
+         </AttachTo>
          <Type>StaticRoute</Type>
+         <Advertise>false</Advertise>
          <Address>
 {{- nexthop_intfs|join(',') -}}
          </Address>
@@ -208,8 +210,12 @@
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AttachTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AttachTo>
+         <AssociatedTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AssociatedTo>
+         <AttachTo>
+{{- internal_po_channel_intfs|join(',') -}}
+         </AttachTo>
          <Type>StaticRoute</Type>
+         <Advertise>false</Advertise>
          <Address>
 {{- nexthop_v6_intfs|join(',') -}}
          </Address>
@@ -267,7 +273,7 @@
 {%- for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
-{% set a_intf = 'PortChannel' + ((index+1) |string).zfill(4) %}
+{% set a_intf = 'PortChannel' + '10' + ((index+1)|string) %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}

@@ -235,9 +235,9 @@ def main():
             try:
                 if_name = inverse_if_table[str(current_oid.split(".")[-2])]
             except Exception as e:
-                print json.dumps({
+                print(json.dumps({
                     "unbound_interface_index": str(current_oid.split(".")[-2])
-                })
+                }))
                 module.fail_json(msg="unboundinterface in inverse if table")
 
             if v.lldp_rem_sys_name in current_oid:
@@ -258,7 +258,7 @@ def main():
 
     lldp_data = dict()
 
-    for intf in lldp_rem_sys.viewkeys():
+    for intf in lldp_rem_sys:
         lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf],
                                 'neighbor_port_desc': lldp_rem_port_desc[intf],
                                 'neighbor_port_id': lldp_rem_port_id[intf],

@@ -1,4 +1,26 @@
+import os
+import yaml
+
 from collections import defaultdict
+
+try:
+    from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
+
+
+def load_topo_file(topo_name):
+    """Load topo definition yaml file."""
+    topo_file = "vars/topo_%s.yml" % topo_name
+    if not os.path.exists(topo_file):
+        raise ValueError("Topo file %s not exists" % topo_file)
+    with open(topo_file) as fd:
+        return yaml.safe_load(fd)
+
+
 class DualTorParser:
 
     def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs):
@@ -64,6 +86,13 @@ class DualTorParser:
 
         self.dual_tor_facts['cables'] = cables
 
+    def generate_mux_cable_facts(self):
+        topo_name = self.testbed_facts["topo"]
+
+        topology = load_topo_file(topo_name)["topology"]
+        mux_cable_facts = generate_mux_cable_facts(topology=topology)
+        self.dual_tor_facts["mux_cable_facts"] = mux_cable_facts
+
     def get_dual_tor_facts(self):
         '''
         Gathers facts related to a dual ToR configuration
@@ -73,6 +102,7 @@ class DualTorParser:
             self.parse_tor_position()
             self.generate_cable_names()
             self.parse_loopback_ips()
+            self.generate_mux_cable_facts()
 
         return self.dual_tor_facts
 

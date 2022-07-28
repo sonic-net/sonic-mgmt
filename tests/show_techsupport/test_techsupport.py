@@ -2,17 +2,14 @@ import os
 import pprint
 import pytest
 import time
-
 import logging
+import tech_support_cmds as cmds 
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
-
-from log_messages import *
-
-import tech_support_cmds as cmds 
+from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +188,8 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
+    elif asic_type in ["cisco-8000"]:
+        SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
 
@@ -259,17 +258,21 @@ def config(request):
     """
     return request.getfixturevalue(request.param)
 
-
 def execute_command(duthost, since):
     """
     Function to execute show techsupport command
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    stdout = duthost.command("show techsupport --since={}".format('"' + since + '"'))
-    if stdout['rc'] == SUCCESS_CODE:
-        pytest.tar_stdout = stdout['stdout']
-    return stdout['rc'] == SUCCESS_CODE
+    opt = "-r" if duthost.sonic_release not in ["201811", "201911"] else ""
+    result = duthost.command(
+        "show techsupport {} --since={}".format(opt, '"' + since + '"'),
+        module_ignore_errors=True
+    )
+    if result['rc'] != SUCCESS_CODE:
+        pytest.fail('Failed to create techsupport. \nstdout:{}. \nstderr:{}'.format(result['stdout'], result['stderr']))
+    pytest.tar_stdout = result['stdout']
+    return True
 
 
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -421,7 +424,6 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
                 cmd_not_found[cmd_group_name].append(cmd_str)
 
     return cmd_not_found
-
 
 def test_techsupport_commands(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check

@@ -1,7 +1,7 @@
 import json
 import logging
-
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.drop_counters.fanout_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,13 @@ class OnyxHost(AnsibleHostBase):
 
         self.host.options['variable_manager'].extra_vars.update(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.fanout_helper = FanoutOnyxDropCounter(self)
+
+    def __str__(self):
+        return '<OnyxHost {}>'.format(self.hostname)
+
+    def __repr__(self):
+        return self.__str__()
 
     def shutdown(self, interface_name):
         out = self.host.onyx_config(
@@ -48,6 +55,10 @@ class OnyxHost(AnsibleHostBase):
 
     def command(self, cmd):
         out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def config(self, cmd):
+        out = self.host.onyx_config(commands=[cmd])
         return out
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
@@ -80,7 +91,7 @@ class OnyxHost(AnsibleHostBase):
         """
         show_int_result = self.host.onyx_command(
             commands=['show interfaces {} | include "Supported speeds"'.format(interface_name)])[self.hostname]
-        
+
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get supported speed for {} - {}'.format(interface_name, show_int_result['msg']))
             return None
@@ -89,7 +100,7 @@ class OnyxHost(AnsibleHostBase):
         logger.debug('Get supported speeds for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Supported speeds:1G 10G 25G 50G"
         speeds = out.split(':')[-1].split()
         return list(set([x.split('G')[0] + '000' for x in speeds]))
@@ -125,12 +136,12 @@ class OnyxHost(AnsibleHostBase):
             interface_name (str): Interface name
 
         Returns:
-            boolean: True if auto negotiation mode is enabled else False. Return None if 
+            boolean: True if auto negotiation mode is enabled else False. Return None if
             the auto negotiation mode is unknown or unsupported.
         """
         show_int_result = self.host.onyx_command(
             commands=['show interfaces {} | include "Auto-negotiation"'.format(interface_name)])[self.hostname]
-        
+
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get auto neg mode for port {} - {}'.format(interface_name, show_int_result['msg']))
             return None
@@ -139,7 +150,7 @@ class OnyxHost(AnsibleHostBase):
         logger.debug('Get auto negotiation mode for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Auto-negotiation:Enabled"
         return 'Enabled' in out
 
@@ -196,13 +207,39 @@ class OnyxHost(AnsibleHostBase):
         if 'failed' in show_int_result and show_int_result['failed']:
             logger.error('Failed to get speed for port {} - {}'.format(interface_name, show_int_result['msg']))
             return False
-        
+
         out = show_int_result['stdout'][0].strip()
         logger.debug('Get speed for port {} from onyx: {}'.format(interface_name, out))
         if not out:
             return None
-        
+
         # The output should be something like: "Actual speed:50G"
         speed = out.split(':')[-1].strip()
         pos = speed.find('G')
         return speed[:pos] + '000'
+
+    def prepare_drop_counter_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        """Set configuration for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Args:
+            fanout_graph_facts (dict): fixture fanout_graph_facts
+            match_mac (str): mac address to match in openflow rule
+            set_mac (str): mac address to which match mac should be changed
+            eth_field (str): place in which replace match mac to set_mac, usually 'eth_src'
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
+
+    def restore_drop_counter_config(self):
+        """Delete configuraion for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.restore_drop_counter_config()

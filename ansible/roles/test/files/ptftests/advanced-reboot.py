@@ -122,6 +122,7 @@ class ReloadTest(BaseTest):
         self.info = {}
         self.cli_info = {}
         self.logs_info = {}
+        self.lacp_pdu_times = {}
         self.log_lock = threading.RLock()
         self.vm_handle = None
         self.sad_handle = None
@@ -175,12 +176,16 @@ class ReloadTest(BaseTest):
         else:
             self.logfile_suffix = self.sad_oper
 
-        if self.logfile_suffix:
-           self.log_file_name = '/tmp/%s-%s.log' % (self.test_params['reboot_type'], self.logfile_suffix)
-           self.report_file_name = '/tmp/%s-%s.json' % (self.test_params['reboot_type'], self.logfile_suffix)
+        if "warm-reboot" in self.test_params['reboot_type']:
+            reboot_log_prefix = "warm-reboot"
         else:
-           self.log_file_name = '/tmp/%s.log' % self.test_params['reboot_type']
-           self.report_file_name = '/tmp/%s-report.json' % self.test_params['reboot_type']
+            reboot_log_prefix = self.test_params['reboot_type']
+        if self.logfile_suffix:
+           self.log_file_name = '/tmp/%s-%s.log' % (reboot_log_prefix, self.logfile_suffix)
+           self.report_file_name = '/tmp/%s-%s-report.json' % (reboot_log_prefix, self.logfile_suffix)
+        else:
+           self.log_file_name = '/tmp/%s.log' % reboot_log_prefix
+           self.report_file_name = '/tmp/%s-report.json' % reboot_log_prefix
         self.report = dict()
         self.log_fp = open(self.log_file_name, 'w')
 
@@ -278,9 +283,13 @@ class ReloadTest(BaseTest):
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
 
+        active_portchannels = list()
+        for neighbor_info in list(self.vm_dut_map.values()):
+            active_portchannels.append(neighbor_info["dut_portchannel"])
+
         pc_ifaces = []
         for pc in portchannel_content.values():
-            if not pc['name'] in pc_in_vlan:
+            if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
         return ports_per_vlan, pc_ifaces
@@ -532,12 +541,12 @@ class ReloadTest(BaseTest):
         self.fails['dut'] = set()
         self.port_indices = self.read_port_indices()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
+        self.build_peer_mapping()
         self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
         if self.sad_oper:
-            self.build_peer_mapping()
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
 
         self.default_ip_range = self.test_params['default_ip_range']
@@ -825,8 +834,10 @@ class ReloadTest(BaseTest):
         self.total_disrupt_packets = None
         self.total_disrupt_time = None
         self.ssh_jobs = []
+        self.lacp_session_pause = dict()
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
+            self.lacp_session_pause[addr] = None
             thr = threading.Thread(target=self.peer_state_check, kwargs={'ip': addr, 'queue': q})
             thr.setDaemon(True)
             self.ssh_jobs.append((thr, q))
@@ -1161,6 +1172,7 @@ class ReloadTest(BaseTest):
             controlplane_downtime = ""
         controlplane_report["downtime"] = str(controlplane_downtime)
         controlplane_report["arp_ping"] = "" # TODO
+        controlplane_report["lacp_sessions"] = self.lacp_session_pause
         self.report["dataplane"] = dataplane_report
         self.report["controlplane"] = controlplane_report
         with open(self.report_file_name, 'w') as reportfile:
@@ -1301,22 +1313,45 @@ class ReloadTest(BaseTest):
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
         ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip] = ssh.run()
+        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
+
+        lacp_pdu_times = self.lacp_pdu_times[ip]
+        lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
+        lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
+        self.log('lacp_pdu_down_times: IP:{}: {}'.format(ip, lacp_pdu_down_times))
+        self.log('lacp_pdu_up_times: IP:{}: {}'.format(ip, lacp_pdu_up_times))
+        lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
+            lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
+        lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
+            lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
+        if 'warm-reboot' in self.reboot_type and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
+            lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
+            if lacp_time_diff >= 90 and not self.kvm_test:
+                self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\
+                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(lacp_time_diff))
+        else:
+            lacp_time_diff = None
+        self.lacp_session_pause[ip] = lacp_time_diff
+
 
     def wait_until_cpu_port_down(self, signal):
         while not signal.is_set():
             for _, q in self.ssh_jobs:
-                self.put_nowait(q, 'cpu_down')
+                self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
+                for _, q in self.ssh_jobs:
+                    q.put('cpu_down')
                 break
             time.sleep(self.TIMEOUT)
 
     def wait_until_cpu_port_up(self, signal):
         while not signal.is_set():
             for _, q in self.ssh_jobs:
-                self.put_nowait(q, 'cpu_up')
+                self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
+                for _, q in self.ssh_jobs:
+                    q.put('cpu_up')
                 break
             time.sleep(self.TIMEOUT)
 
