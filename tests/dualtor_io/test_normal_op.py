@@ -17,6 +17,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.enable_active_active
 def test_normal_op_upstream(upper_tor_host, lower_tor_host,
                             send_server_to_t1_with_action,
                             toggle_all_simulator_ports_to_upper_tor,
@@ -27,13 +28,13 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,
         send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host)
-    
+
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
-                            expected_standby_host=None,
-                            cable_type=cable_type)
-                            
+                          expected_standby_host=None,
+                          cable_type=cable_type)
+
 
 def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,
                                      send_t1_to_server_with_action,
