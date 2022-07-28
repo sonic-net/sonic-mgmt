@@ -168,31 +168,20 @@ def nic_simulator_url(nic_simulator_info):
     """Fixture to return the nic_simulator url."""
     pass
 
-def toggle_port(duthosts, intf_name, state):
+
+def toggle_ports(duthosts, intf_name, state):
     """Toggle port from cmd line"""
 
     if not isinstance(duthosts, collections.Iterable):
         duthosts = [duthosts]
 
+    toggled_intfs = []
     for duthost in duthosts:
-        if intf_name in _selected_intfs(duthost):
-            _toggle_cmd(duthost, state, intf_name)
-        else:
-            raise ValueError('Interface {} not in {} cable type'.format(intf_name, CableType.active_active))
+        toggled_intfs.extend(_toggle_cmd(duthost, intf_name, state))
+    return toggled_intfs
 
 
-def _selected_intfs(dut):
-    """Select all active-active ports"""
-
-    mux_cable_table = dut.get_running_config_facts()['MUX_CABLE']
-    selected_intfs = set(
-        _ for _ in mux_cable_table if mux_cable_table[_].get('cable_type', CableType.default_type) == CableType.active_active
-    )
-    
-    return selected_intfs
-
-
-def _toggle_cmd(dut, state, intfs):
+def _toggle_cmd(dut, intfs, state):
     """Toggle through DUT command line"""
 
     toggled_intfs = []
@@ -208,13 +197,18 @@ def _toggle_cmd(dut, state, intfs):
             cmds.append("config muxcable mode {} {}; true".format(state, intf))
     dut.shell_cmds(cmds=cmds, continue_on_fail=True)
 
-    for dut, intf in toggled_intfs:
-        dut.shell("config muxcable mode auto {}; true".format(intf))
+    return toggled_intfs
 
 
 @pytest.fixture
-def toggle_active_all_ports_both_tors(upper_tor_host, lower_tor_host, cable_type):
+def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
 
     if cable_type == CableType.active_active:
-        toggle_all_ports(duthosts=[upper_tor_host, lower_tor_host], state="active")
+        toggle_ports(duthosts, active_active_ports, state="active")
+        yield
+        toggle_ports(duthosts, active_active_ports, state="auto")
+        return
+
+    yield
+    return
