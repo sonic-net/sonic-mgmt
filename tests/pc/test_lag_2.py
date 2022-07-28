@@ -10,8 +10,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
-from tests.common.helpers.dut_ports import get_duthost_with_name
-from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
