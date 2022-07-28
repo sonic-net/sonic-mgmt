@@ -106,7 +106,7 @@ class MultiAsicSonicHost(object):
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'".format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
-                return getattr(self.asics[asic_index], self.multi_asic_attr)(*module_args, **asic_complex_args)
+                return getattr(self.asic_instance(asic_index), self.multi_asic_attr)(*module_args, **asic_complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespace
                 return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
