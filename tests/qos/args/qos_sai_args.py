@@ -46,3 +46,10 @@ def add_qos_sai_args(parser):
         help="QoS SAI comma separated list of source ports. Test currently expects exactly 1 source port",
     )
 
+    qos_group.addoption(
+        "--qos_dual_tor",
+        action="store",
+        type=str2bool,
+        default=False,
+        help="Test QoS on dual ToR ports"
+    )

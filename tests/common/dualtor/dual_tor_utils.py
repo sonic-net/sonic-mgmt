@@ -1303,6 +1303,60 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
 
+@pytest.fixture(scope='module')
+def dualtor_ports(request, duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
+    # Fetch dual ToR ports
+    logger.info("Starting fetching dual ToR info")
+
+    fetch_dual_tor_ports_script = "\
+        local remap_enabled = redis.call('HGET', 'SYSTEM_DEFAULTS|tunnel_qos_remap', 'status')\
+        if remap_enabled ~= 'enabled' then\
+            return {}\
+        end\
+        local type = redis.call('HGET', 'DEVICE_METADATA|localhost', 'type')\
+        local expected_neighbor_type\
+        local expected_neighbor_suffix\
+        if type == 'LeafRouter' then\
+            expected_neighbor_type = 'ToRRouter'\
+            expected_neighbor_suffix = 'T0'\
+        else\
+            if type == 'ToRRouter' then\
+                local subtype = redis.call('HGET', 'DEVICE_METADATA|localhost', 'subtype')\
+                if subtype == 'DualToR' then\
+                    expected_neighbor_type = 'LeafRouter'\
+                    expected_neighbor_suffix = 'T1'\
+                end\
+            end\
+        end\
+        if expected_neighbor_type == nil then\
+            return {}\
+        end\
+        local result = {}\
+        local all_ports_with_neighbor = redis.call('KEYS', 'DEVICE_NEIGHBOR|*')\
+        for i = 1, #all_ports_with_neighbor, 1 do\
+            local neighbor = redis.call('HGET', all_ports_with_neighbor[i], 'name')\
+            if neighbor ~= nil and string.sub(neighbor, -2, -1) == expected_neighbor_suffix then\
+                local peer_type = redis.call('HGET', 'DEVICE_NEIGHBOR_METADATA|' .. neighbor, 'type')\
+                if peer_type == expected_neighbor_type then\
+                    table.insert(result, string.sub(all_ports_with_neighbor[i], 17, -1))\
+                end\
+            end\
+        end\
+        return result\
+    "
+
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+    dualtor_ports_str = dut_asic.run_redis_cmd(argv = ["sonic-db-cli", "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
+    if dualtor_ports_str:
+        dualtor_ports_set = set(dualtor_ports_str)
+    else:
+        dualtor_ports_set = set({})
+
+    logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
+
+    return dualtor_ports_set
+
 def is_tunnel_qos_remap_enabled(duthost):
     """
     Check whether tunnel_qos_remap is enabled or not
@@ -1332,5 +1386,3 @@ def is_port_with_4_lossless_queues(duthost, port, tbinfo):
     if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
         return True
     return False
-   
-   
