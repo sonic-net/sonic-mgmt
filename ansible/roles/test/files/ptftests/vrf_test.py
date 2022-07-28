@@ -23,9 +23,6 @@ import lpm
 import fib
 
 class FwdTest(FibTest):
-    _required_params = [
-        'router_macs',
-    ]
     class FwdDict(object):
         def __init__(self):
             self.ipv4 = {}
@@ -106,7 +103,6 @@ class FwdTest(FibTest):
 
 class CapTest(FwdTest):
     _required_params=[
-        'router_macs',
         'random_vrf_list',
         'src_base_vid',
         'dst_base_vid'
