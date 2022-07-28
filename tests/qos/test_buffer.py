@@ -18,7 +18,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -2549,6 +2549,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                 profile_name = None
             else:
                 profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
+            
+            return profile_name
 
         port_to_shutdown = admin_up_ports.pop()
         if port_to_shutdown in dualtor_ports:
