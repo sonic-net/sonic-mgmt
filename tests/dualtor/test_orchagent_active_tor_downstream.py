@@ -55,7 +55,7 @@ def testbed_setup(ip_version, ptfhost, rand_selected_dut, rand_unselected_dut, t
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost, testbed_setup,
     rand_selected_dut, tbinfo,
-    require_mocked_dualtor, set_crm_polling_interval,
+    set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -85,8 +85,10 @@ def test_active_tor_remove_neighbor_downstream_active(
                 yield
         finally:
             ptfhost.shell("supervisorctl start %s" % neighbor_advertise_process)
+            duthost.shell("timeout 0.2 ping -c1 -W1 -i0 -n -q {} || true".format(server_ip))
 
     try:
+        removed_neighbor = {}
         tor = rand_selected_dut
         test_port, server_ip, ip_version = testbed_setup
 
@@ -106,7 +108,6 @@ def test_active_tor_remove_neighbor_downstream_active(
             tor, ptfhost, vmhost, tbinfo, test_port,
             conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
-        removed_neighbor = {}
         remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version, removed_neighbor)
         with crm_neighbor_checker(tor), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
@@ -120,11 +121,12 @@ def test_active_tor_remove_neighbor_downstream_active(
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
     finally:
         # try to recover the removed neighbor so test_downstream_ecmp_nexthops could have a healthy mocked device
-        if ip_version == "ipv4":
-            cmd = 'ip -4 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
-        else:
-            cmd = 'ip -6 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
-        tor.shell(cmd)
+        if removed_neighbor:
+            if ip_version == "ipv4":
+                cmd = 'ip -4 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
+            else:
+                cmd = 'ip -6 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
+            tor.shell(cmd)
 
 
 def test_downstream_ecmp_nexthops(
