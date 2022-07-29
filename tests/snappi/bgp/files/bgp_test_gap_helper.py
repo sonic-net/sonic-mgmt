@@ -49,7 +49,8 @@ def run_bgp_convergence_performance(cvg_api,
                                              start_routes,
                                              routes_step,
                                              stop_routes,
-                                             route_type,)
+                                             route_type,
+                                             duthost,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
@@ -517,7 +518,8 @@ def get_convergence_for_remote_link_failover(cvg_api,
                                              start_routes,
                                              routes_step,
                                              stop_routes,
-                                             route_type,):
+                                             route_type,
+                                             duthost):
     """
     Args:
         cvg_api (pytest fixture): snappi API
@@ -677,7 +679,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
 
             """
             table, tx_frate, rx_frate = [], [], []
-            run_traffic(cvg_api)
+            run_traffic(cvg_api,duthost)
             flow_stats = get_flow_stats(cvg_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
@@ -790,7 +792,7 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
         reboot(duthost, localhost,reboot_type='fast')
         logger.info("Wait until the system is stable")
         pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        warning = run_traffic(cvg_api)
+        warning = run_traffic(cvg_api,duthost)
     finally:
         if warning == 1:
             msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
