@@ -1,6 +1,7 @@
 # host setup
 https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md
   - do the steps in "Prepare Testbed Server" section
+  - read [../spytest/Doc]
 
 # clone the sonic-mgmt repo
 ```
