@@ -292,7 +292,7 @@ class SendVerifyTraffic(object):
             tx_action = "forward"
             wd_action = "forward"
 
-        if dut.facts['asic_type'] == 'mellanox':
+        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000']:
             rx_action = "forward"
 
         logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---".format(wd_action, tx_action, rx_action))
