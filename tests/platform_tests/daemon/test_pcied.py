@@ -71,10 +71,16 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
 
+def check_pcie_devices_table_ready(duthost):
+    if duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES"):
+        return True
+    return False
+
 @pytest.fixture(scope="module", autouse=True)
 def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911"])
+    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost), "PCIE_DEVICES table is empty")
     command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
     
     global pcie_devices_status_tbl_key

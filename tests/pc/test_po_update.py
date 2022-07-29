@@ -200,6 +200,11 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     pc_ip = out_pc[0]
     in_peer_ip = in_pc[1]
     out_peer_ip = out_pc[1]
+    remove_pc_members = False
+    remove_pc_ip = False
+    create_tmp_pc = False
+    add_tmp_pc_members = False
+    add_tmp_pc_ip = False
     try:
         # Step 1: Remove port channel members from port channel
         for member in pc_members:
