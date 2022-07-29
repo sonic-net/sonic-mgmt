@@ -256,7 +256,7 @@ def vEOS_inital_cfg(data,vEOS_count):
 
 
 def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform, device_type):
-    input_file = base_topo_file
+    input_file =  base_topo_file
     with open(input_file) as f:
         tdata = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
