@@ -843,56 +843,6 @@ class VMTopology(object):
                     vlan_id = self.vlan_ids[str(intf)]
                     self.add_dut_vlan_subif_to_docker(ptf_if, vlan_separator, vlan_id)
 
-    def enable_netns_loopback(self):
-        """Enable loopback device in the netns."""
-        VMTopology.cmd("ip netns exec %s ifconfig lo up" % self.netns)
-
-    def setup_netns_source_routing(self):
-        """Setup policy-based routing to forward packet to its igress ports."""
-
-        def get_existing_rt_tables():
-            """Get existing routing tables."""
-            rt_tables = {}
-            with open(RT_TABLE_FILEPATH) as fd:
-                for line in fd.readlines():
-                    if line.startswith("#"):
-                        continue
-                    fields = line.split()
-                    if fields and len(fields) == 2:
-                        rt_tables[int(fields[0])] = fields[1]
-            return rt_tables
-
-        # NOTE: routing tables are visible to all network namespaces, but the route entries in one
-        # routing table created in one network namespace are not visible to other network namespaces.
-        # For the policy based routing applied to each netns, for each interface, there is a routing
-        # table correspondinly with the same name. And this routing table could be shared across multiple
-        # network namespaces, each network namespace has its own route entries stored on this routing
-        # table.
-        rt_tables = get_existing_rt_tables()
-        slot_start_index = 100
-
-        for i, intf in enumerate(self.host_interfaces):
-            is_active_active = intf in self.host_interfaces_active_active
-            if self._is_multi_duts and not self._is_cable and isinstance(intf, list) and is_active_active:
-                host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
-                ns_if = NETNS_IFACE_TEMPLATE % host_ifindex
-                if not VMTopology.intf_exists(ns_if, netns=self.netns):
-                    raise RuntimeError("Interface %s not exists in netns %s" % (ns_if, self.netns))
-                rt_slot = slot_start_index + int(host_ifindex)
-                if rt_slot > 252:
-                    raise RuntimeError("Kernel only supports up to 252 additional routing tables")
-                rt_name = ns_if
-                ns_if_addr = ipaddress.ip_interface(self.mux_cable_facts[host_ifindex]["soc_ipv4"].decode())
-                gateway_addr = str(ns_if_addr.network.network_address + 1)
-                if rt_slot not in rt_tables:
-                    # add route table mapping, use interface name as route table name
-                    VMTopology.cmd("ip netns exec %s echo \"%s\t%s\n\" >> /etc/iproute2/rt_tables" % (self.netns, rt_slot, rt_name), shell=True, split_cmd=False)
-                VMTopology.cmd("ip netns exec %s ip rule add iif %s table %s" % (self.netns, ns_if, rt_name))
-                VMTopology.cmd("ip netns exec %s ip rule add from %s table %s" % (self.netns, ns_if_addr.ip, rt_name))
-                VMTopology.cmd("ip netns exec %s ip route flush table %s" % (self.netns, rt_name))
-                VMTopology.cmd("ip netns exec %s ip route add %s dev %s table %s" % (self.netns, ns_if_addr.network, ns_if, rt_name))
-                VMTopology.cmd("ip netns exec %s ip route add default via %s dev %s table %s" % (self.netns, gateway_addr, ns_if, rt_name))
-
     def remove_host_ports(self):
         """
         remove dut port from the ptf docker
@@ -1069,7 +1019,7 @@ class VMTopology(object):
 
         # Reached max retry, fail with exception
         err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
-            % (ret_code, err, cmdline_ori, ' | ' + grep_cmd_ori if grep_cmd_ori else '')
+            % (ret_code, err, cmdline, ' | ' + grep_cmd if grep_cmd else '')
         raise Exception(err_msg)
 
     @staticmethod
@@ -1341,7 +1291,6 @@ def main():
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
             mgmt_bridge = module.params['mgmt_bridge']
-            netns_mgmt_ip_addr = module.params['netns_mgmt_ip_addr']
 
             # Add management port to PTF docker and configure IP
             net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw)
