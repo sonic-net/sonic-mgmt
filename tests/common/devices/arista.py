@@ -1,6 +1,5 @@
 import json
 import re
-import pdb
 from tests.common.devices.cisco import VendorHost
 
 
@@ -36,10 +35,8 @@ class AristaHost(VendorHost):
         super(AristaHost, self).__init__(hostname, hostaddr, shell_user, shell_passwd)
     
     def connect(self):
-        super(AristaHost, self).connect(prompt='>')
-        self.command('enable')
+        super(AristaHost, self).connect(prompt='#')
         self.command('terminal length 0')
-        self.enter_config_mode()
 
     def __str__(self):
         return '<AristaHost {}>'.format(self.hostname)
@@ -88,9 +85,89 @@ class AristaHost(VendorHost):
             no isis authentication key {} level-2
             """.format(key)
         self.command(cmd)
+    
+    def show_command_to_json(self, command, lookup_key=None, lookup_val=None):
+        try:
+            json_command = command + " | json"
+            output_result = self.command(json_command)
+            self.disconnect()
+            output_result = "\n".join(output_result.split("\r\n")[1:-1])
+            json_result = json.loads(output_result, strict=False)
+            if all([lookup_key, lookup_val]):
+                return self.extract_key_val_pair_from_json(json_result, lookup_key, lookup_val)
+            elif lookup_key is not None and lookup_val is None:
+                return self.extract_val_from_json(json_result, lookup_key)
+            else:
+                return json_result
+        except Exception as e:
+            return {"error": e}
 
+    def extract_val_from_json(self, json_data, lookup_key):
+        """
+        Function to recursivly match provided key in all levels and put the matched key's value into a list for return
+        """
+        result = []
 
+        def help(data, lookup_key, result):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if k == lookup_key:
+                        result.append(v)
+                    elif isinstance(v, (list, dict)):
+                        sub_result = help(v, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+            elif isinstance(data, list):
+                for ele in data:
+                    if isinstance(ele, (list, dict)):
+                        sub_result = help(ele, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+        help(json_data, lookup_key, result)
+        return result
 
+    def extract_key_val_pair_from_json(self, data, lookup_key, lookup_val):
+        """
+        Function to recursivly match provided key in all levels and put the matched key and value pair into a list for return
+        """
+        result = []
+        
+        def help(data, lookup_key, lookup_val, result):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if k == lookup_key and v == lookup_val:
+                        result.append(data)
+                    elif isinstance(v, (list, dict)):
+                        sub_result = help(v, lookup_key, lookup_val, result)
+                        if sub_result:
+                            result.append(sub_result)
+            elif isinstance(data, list):
+                for ele in data:
+                    if isinstance(ele, (list, dict)):
+                        sub_result = help(ele, lookup_key, lookup_val, result)
+                        if sub_result:
+                            result.append(sub_result)
+        help(data, lookup_key, lookup_val, result)
+        return result
 
-
-
+    def config_command(self, command):
+        """
+        This function try to load command/s into the device from config mode
+        """
+        try:
+            self.exit_config_mode()
+            self.enter_config_mode()
+            #one line string command
+            if isinstance(command, str):
+                self.command(command)
+            #list of one line string commands
+            elif isinstance(command, list):
+                for cmd in command:
+                    self.command(cmd)
+            self.exit_config_mode()
+            #save configuration
+            self.command("write memory")
+            self.disconnect()
+            return (True, "The command {} loaded into device {}".format(command, self.hostname))
+        except Exception as e:
+            return (False, e)

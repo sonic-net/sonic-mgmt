@@ -1,5 +1,9 @@
 import re
+import xml.etree.ElementTree as ET
+import json
+import time
 from tests.common.devices.vendor import VendorHost
+
 
 
 SAMPLE_COMMAND_DATA = '''
@@ -165,3 +169,112 @@ class CiscoHost(VendorHost):
         self.exit_config_mode()
         cmd_result = self.command('ping {} count 5'.format(dest))
         return re.search('!!!!!', cmd_result) != None
+    
+    def show_command_to_xml(self, command):
+        """
+        This function will pull the show operationalcommand output as XML string and convert it XML object and return
+        """
+        input_buffer = self.exit_config_mode()
+        clock_output = self.command("show clock")
+        xml_command = command + " xml"
+        output = self.command(xml_command)
+        #remove first and last 2 lines
+        self.disconnect()
+        output = "\r\n".join(output.split("\r\n")[2:-2])
+        return  ET.fromstring(output)
+
+    def show_command_to_json(self, command, lookup_key=None, lookup_val=None):
+        """
+        This function will pull the show operational command output as json string and convert it json object and return
+        """
+        try:
+            self.exit_config_mode()
+            json_command = command + " json"
+            clock_output = self.command("show clock")
+            output = self.command(json_command)
+            self.disconnect()
+            output = "\n".join(output.split("\r\n")[2:-1])
+            json_result = json.loads(output, strict=False)
+            if all([lookup_key, lookup_val]):
+                return self.extract_key_val_pair_from_json(json_result, lookup_key)
+            elif lookup_key is not None and lookup_val is None:
+                return self.extract_val_from_json(json_result, lookup_key)
+            else:
+                return json_result
+        except Exception as e:
+            return {"error": e}
+
+    def extract_key_val_pair_from_json(self, data, lookup_key):
+        """
+        Function to recursivly match provided key in all levels and return list of same level data
+        """
+        result = []
+
+        def help(data, lookup_key, result):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if k == lookup_key:
+                        result.append(data)
+                    elif isinstance(v, (list, dict)):
+                        sub_result = help(v, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+            elif isinstance(data, list):
+                for ele in data:
+                    if isinstance(ele, (list, dict)):
+                        sub_result = help(ele, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+        help(data, lookup_key, result)
+        return result
+    
+    def extract_val_from_json(self, json_data, lookup_key):
+        """
+        Function to recursivly match provided key in all levels and return matched key's value into a list
+        """
+        result = []
+        
+        def help(data, lookup_key, result):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if k == lookup_key:
+                        result.append(v)
+                    elif isinstance(v, (list, dict)):
+                        sub_result = help(v, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+            elif isinstance(data, list):
+                for ele in data:
+                    if isinstance(ele, (list, dict)):
+                        sub_result = help(ele, lookup_key, result)
+                        if sub_result:
+                            result.append(sub_result)
+        help(json_data, lookup_key, result)
+        return result
+
+    def cisco_xr_commit_config(self):
+        #commit junos config
+        self.command("commit confirm 60")
+        time.sleep(40)
+        self.command("commit")
+
+    def config_command(self, command):
+        """
+        This function try to load and commit command/s into the device from config mode, only support IOS XR only. 
+        """
+        try:
+            self.exit_config_mode()
+            self.enter_config_mode()
+            #one line string command
+            if isinstance(command, str):
+                self.command(command)
+            #list of one line string commands
+            elif isinstance(command, list):
+                for cmd in command:
+                    self.command(cmd)
+            self.cisco_xr_commit_config()
+            self.exit_config_mode()
+            self.disconnect()
+            return (True, "The command {} loaded into device {}".format(command, self.hostname))
+        except Exception as e:
+            return (False, e)
