@@ -1946,4 +1946,4 @@ Totals               6450                 6449
               ...
             ]
         """
-        return self.show_and_parse('sudo show syslog')
+        return self.show_and_parse('show syslog')

@@ -136,7 +136,4 @@ def is_mgmt_vrf_enabled(dut):
     Return: True or False
     """
     show_mgmt_vrf = dut.command("show mgmt-vrf")["stdout"]
-    if "ManagementVRF : Disabled" in show_mgmt_vrf:
-        return False
-    else:
-        return True
+    return "ManagementVRF : Disabled" not in show_mgmt_vrf
