@@ -750,7 +750,6 @@ def run_traffic(cvg_api,duthost):
     finally:
         duthost.shell("sudo cp /var/log/syslog /host/scale_syslog.99")
         var = duthost.shell("sudo cat /host/scale_syslog.99")['stdout']
-        logger.info(var)
         if 'ROUTE THRESHOLD_EXCEEDED' in var:
             logger.info('ROUTE_THRESHOLD_EXCEEDED FOUND in syslog!!!!!!!!')
             warning=1
