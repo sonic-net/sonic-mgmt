@@ -2422,14 +2422,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                            ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                            (None, None, None)
                              ],
-        KEY_4_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '2-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '6', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
-                                         ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
-                                         (None, None, None)
-                             ]
+        KEY_4_LOSSLESS_QUEUE: [(None, None, None)] # The admin_down ports can not be dualtor_ports. Hence there is no 4_lossless_queue profile
     }
     if is_tunnel_qos_remap_enabled(duthost):
         buffer_table_down[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
