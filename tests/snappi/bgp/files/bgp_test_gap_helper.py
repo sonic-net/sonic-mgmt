@@ -90,8 +90,8 @@ def run_bgp_scalability_16k_v4_routes(cvg_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                tgen_bgp_config,flag)
+    get_bgp_scalability_result(cvg_api, localhost,
+                                tgen_bgp_config,flag, duthost)
 
 def run_bgp_scalability_8k_v6_routes(cvg_api,
                                     duthost,
@@ -129,8 +129,8 @@ def run_bgp_scalability_8k_v6_routes(cvg_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                 tgen_bgp_config,flag)
+    get_bgp_scalability_result(cvg_api, localhost,
+                                 tgen_bgp_config,flag, duthost)
 
 def run_bgp_scalability_256_v6_routes(cvg_api,
                                     duthost,
@@ -168,8 +168,8 @@ def run_bgp_scalability_256_v6_routes(cvg_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                 tgen_bgp_config,flag)
+    get_bgp_scalability_result(cvg_api, localhost,
+                                 tgen_bgp_config,flag, duthost)
 
 def run_bgp_scalability_8kv4_4kv6_routes(cvg_api,
                                         duthost,
@@ -207,8 +207,8 @@ def run_bgp_scalability_8kv4_4kv6_routes(cvg_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                 tgen_bgp_config,flag)
+    get_bgp_scalability_result(cvg_api, localhost,
+                                 tgen_bgp_config,flag, duthost)
 
 def run_bgp_scalability_100kv4_25kv6_routes(cvg_api,
                                             duthost,
@@ -246,8 +246,8 @@ def run_bgp_scalability_100kv4_25kv6_routes(cvg_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, duthost, localhost,
-                                 tgen_bgp_config,flag)
+    get_bgp_scalability_result(cvg_api, localhost,
+                                 tgen_bgp_config,flag, duthost)
 
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
@@ -263,6 +263,9 @@ def duthost_bgp_3port_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count:multipath + 1
     """
+    duthost.command('sudo crm config polling interval 30')
+    duthost.command('sudo crm config thresholds ipv4 route high 85')
+    duthost.command('sudo crm config thresholds ipv4 route low 70')
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
@@ -315,6 +318,9 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
     """
     global temp_tg_port
+    duthost.command('sudo crm config polling interval 30')
+    duthost.command('sudo crm config thresholds ipv4 route high 85')
+    duthost.command('sudo crm config thresholds ipv4 route low 70')
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     temp_tg_port = tgen_ports
@@ -723,7 +729,8 @@ def restart_traffic(cvg_api):
     cvg_api.set_state(cs)
     wait(TIMEOUT, "For Traffic To start and stabilize")
 
-def run_traffic(cvg_api):
+def run_traffic(cvg_api,duthost):
+    warning=0
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
     cs = cvg_api.convergence_state()
@@ -736,11 +743,21 @@ def run_traffic(cvg_api):
         cs = cvg_api.convergence_state()
         cs.transmit.state = cs.transmit.START
         cvg_api.set_state(cs)
-        wait(TIMEOUT-10, "For Traffic To start and stabilize")
+        wait(TIMEOUT+10, "For Traffic To start and stabilize")
     except Exception as e:
         logger.info(e)
         restart_traffic(cvg_api)
-
+    finally:
+        duthost.shell("sudo cp /var/log/syslog /host/scale_syslog.99")
+        var = duthost.shell("sudo cat /host/scale_syslog.99")['stdout']
+        logger.info(var)
+        if 'ROUTE THRESHOLD_EXCEEDED' in var:
+            logger.info('ROUTE_THRESHOLD_EXCEEDED FOUND in syslog!!!!!!!!')
+            warning=1
+        else:
+            logger.info('ROUTE_THRESHOLD_EXCEEDED NOT FOUND in syslog !!!!!!!!!!!')
+        duthost.shell("sudo rm -rf /host/scale_syslog.99")
+    return warning
 
 def stop_traffic(cvg_api):
     logger.info('Stopping Traffic')
@@ -755,7 +772,9 @@ def stop_traffic(cvg_api):
     cvg_api.set_state(cs)
     wait(TIMEOUT-20, "For Protocols To STOP")
 
-def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
+def check_dut_syslog(cvg_api,duthost):
+    dut
+def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
     """
     Cleaning up dut config at the end of the test
 
@@ -765,15 +784,19 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
     """
     try:
         cvg_api.set_config(bgp_config)
-        run_traffic(cvg_api)
+        warning = run_traffic(cvg_api,duthost)
     except Exception as e:
         logger.info(e)
         duthost.command("sudo config save -y")
         reboot(duthost, localhost,reboot_type='fast')
         logger.info("Wait until the system is stable")
         pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        run_traffic(cvg_api)
+        warning = run_traffic(cvg_api)
     finally:
+        if warning == 1:
+            msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
+        else:
+            msg = "THRESHOLD_EXCEEDED warning message not observed in syslog"
         flow_stats = get_flow_stats(cvg_api)
         tx_frame_rate = flow_stats[0].frames_tx_rate
         assert tx_frame_rate != 0, "Traffic has not started"
@@ -783,10 +806,10 @@ def get_bgp_scalability_result(cvg_api, duthost, localhost, bgp_config, flag):
         logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
         if flag == 5:
             assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for 100k routes"
-            logger.info('PASSED : {}% Loss observerd in traffic item for 100k routes'.format(float(flow_stats[0].loss)))
+            logger.info('PASSED : {}% Loss observerd in traffic item for 100k routes and {}'.format(float(flow_stats[0].loss),msg))
         else:
             assert  float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
-            logger.info('PASSED : No Loss observerd in traffic item')
+            logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
         stop_traffic(cvg_api)
 
 def cleanup_config(duthost):
