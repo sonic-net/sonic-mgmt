@@ -23,8 +23,11 @@ def store_ecn_markings_dut(duthost, localhost):
     original_ecn_markings = get_ecn_markings_dut(duthost)
 
     yield
- 
+
     setup_ecn_markings_dut(duthost, localhost, **original_ecn_markings)
+
+def stop_debug_shell(duthost):
+    duthost.shell("docker exec -t syncd supervisorctl stop dshell_client")
 
 @pytest.mark.parametrize("number_of_transmit_ports", [1, 3])
 @pytest.mark.parametrize("pmax", [5, 100])
@@ -32,7 +35,7 @@ def store_ecn_markings_dut(duthost, localhost):
 @pytest.mark.parametrize("kmin", [50000])
 @pytest.mark.parametrize("kmax", [500000])
 @pytest.mark.parametrize("pkt_size", [1024])
-@pytest.mark.parametrize("dequeue_marking,latency_marking", [(True, True), (False, True), (True, False)])
+@pytest.mark.parametrize("dequeue_marking,latency_marking", [(True, True), (False, True)])
 def test_ecn_markings(request,
                       ixia_api,
                       ixia_testbed_config,
@@ -87,6 +90,7 @@ def test_ecn_markings(request,
     lossless_prio = int(lossless_prio)
 
     setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = dequeue_marking, ecn_latency_marking = latency_marking)
+    stop_debug_shell(duthost)
 
     result_file_name = 'ecn_marking_result'
     result_file_name += ("_lat" if latency_marking else "")
@@ -97,7 +101,7 @@ def test_ecn_markings(request,
 
     duthost.shell("sonic-clear pfccounters")
     duthost.shell("sonic-clear queuecounters")
-    # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
+    # TODO: This will be enabled when the PR for get_sai_attributes is approved: https://github.com/Azure/sonic-mgmt/pull/6040
     #get_sai_attributes(duthost, ptfhost, dut_port, [], clear_only=True)
     traffic_rate = TRAFFIC_RATE/number_of_transmit_ports
 
@@ -122,9 +126,20 @@ def test_ecn_markings(request,
     time.sleep(8)
     queue_values = duthost.shell("show queue count {}".format(dut_port))['stdout']
 
-    # This will be enabled when the PR for get_sai_attributes is approved. https://github.com/Azure/sonic-mgmt/pull/6040
+    total = "N/A"
+    marked_pkts = "N/A"
+
+    # TODO:This will be enabled when the PR for get_sai_attributes is approved: https://github.com/Azure/sonic-mgmt/pull/6040
     #sai_values = get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
-    sai_values = "0"
+    # sai_values will be a string in this format:
+    # u'[[6, 0], [0, 0], [0, 0], [6106320, 2969], [0, 0], [0, 0], [0, 0], [0, 0]]'
+    # This contains the pair of total and marked packets for each of the priorities.
+    # We have to pick the one we need.
+    if sai_values:
+        value_list =  eval(sai_values[0])
+        total = value_list[lossless_prio][0]
+        marked_pkts = value_list[lossless_prio][1]
+
     print("The SAI attributes in the DUT:{}".format(sai_values))
     print("Xoff = {}".format(xoff_quanta))
     print("pmax = {}".format(pmax))
@@ -137,7 +152,7 @@ def test_ecn_markings(request,
         fd.write("-------------------------------------------------------------\n")
 
     with open(csv_file_name, "a") as fd:
-        fd.write("{time_stamp},{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{sai_values}\n".format(
+        fd.write("{time_stamp},{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{total},{marked}\n".format(
             time_stamp = str(datetime.datetime.now()),
             rate = traffic_rate,
             deq = dequeue_marking,
@@ -147,6 +162,9 @@ def test_ecn_markings(request,
             kmin = kmin,
             pmax = pmax,
             xoff_quanta = xoff_quanta,
-            sai_values = sai_values))
+            total = total,
+            marked = marked_pkts))
 
     print("test done")
+
+
