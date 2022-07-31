@@ -15,7 +15,7 @@ def pytest_addoption(parser):
     add_ecn_args(parser)
 
 @pytest.fixture(scope="module", autouse=True)
-def ptfhost(ansible_adhoc, request, duthosts, rand_one_dut_hostname, creds):
+def ptfhost(ansible_adhoc, request):
     ptf_name = request.config.getoption("--ixia_ptf_name")
     if ptf_name:
 

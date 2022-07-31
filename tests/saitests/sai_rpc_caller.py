@@ -8,10 +8,7 @@
     To clear all sai counters:
         ptf --test-dir ixia_saitests/saitests sai_rpc_caller.RPC_Caller --platform-dir ixia_ptftests/ptftests/ --platform remote -t 'dutport=44;port_map="0@0";server="1.72.33.5";sai_values=[];clear_only=True'
 """
-import time
-import logging
 import sai_base_test
-import sys
 from switch import *
 from switch_sai_thrift.sai_headers import *
 import ptf.testutils as testutils
