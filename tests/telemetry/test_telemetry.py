@@ -426,7 +426,8 @@ def postcheck_critical_processes(duthost, container_name):
     logger.info("All critical processes in '{}' container are running.".format(container_name))
 
 
-@pytest.fixture
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+                ids=["monit_config_line"])
 def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, request):
     """Customizes Monit configuration files before testing and restores them after testing.
 
@@ -451,10 +452,7 @@ def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_stre
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize("test_mem_spike_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
-                         indirect=["test_mem_spike_setup_and_cleanup"])
-def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setup_and_cleanup):
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setup_and_cleanup, gnxi_path):
     """Test whether memory usage of telemetry container will increase and be restarted
     or not by Monit if python gNMI client continuously creates channels with gNMI server.
 
@@ -471,8 +469,6 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
 
     duthost = duthosts[rand_one_dut_hostname]
     dut_ip = duthost.mgmt_ip
-
-    skip_201911_and_older(duthost)
 
     logger.info("Checking whether the '{}' container is running before testing...".format(CONTAINER_NAME))
     is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
@@ -495,7 +491,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     marker = loganalyzer.init()
 
     client_thread = ThreadPool(processes=1)
-    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip, -1))
+    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip, gnxi_path, -1))
 
     logger.info("Sleep '{}' seconds to wait for the syslog messages related to '{}' container restarted ..."
                 .format(WAITING_SYSLOG_MSG_SECS, CONTAINER_NAME))
