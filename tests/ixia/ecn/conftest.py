@@ -18,10 +18,11 @@ def pytest_addoption(parser):
 def ptfhost(ansible_adhoc, request, duthosts, rand_one_dut_hostname, creds):
     ptf_name = request.config.getoption("--ixia_ptf_name")
     if ptf_name:
+
         return PTFHost(ansible_adhoc, ptf_name)
     else:
         print("No ixia_ptf_name argument is given, No ptf access will work.")
-        return ""
+        return
 
 @pytest.fixture(scope="module", autouse=True)
 def prepare_ptf(ptfhost):
@@ -38,7 +39,7 @@ def prepare_ptf(ptfhost):
 # Pulled from qos_sai_base.py
 @pytest.fixture(scope='module', autouse=True)
 def swapSyncd(request, ptfhost, duthosts, rand_one_dut_hostname, creds):
-    """
+    """ 
         Swap syncd on DUT host
 
         Args:
@@ -49,12 +50,13 @@ def swapSyncd(request, ptfhost, duthosts, rand_one_dut_hostname, creds):
     """
     duthost = duthosts[rand_one_dut_hostname]
     if not ptfhost:
-        return
-    swapSyncd = request.config.getoption("--qos_swap_syncd")
-    try:
-        if swapSyncd:
-            docker.swap_syncd(duthost, creds)
         yield
-    finally:
-        if swapSyncd:
-            docker.restore_default_syncd(duthost, creds)
+    else:
+        swapSyncd = request.config.getoption("--qos_swap_syncd")
+        try:
+            if swapSyncd:
+                docker.swap_syncd(duthost, creds)
+            yield
+        finally:
+            if swapSyncd:
+                docker.restore_default_syncd(duthost, creds)

@@ -56,7 +56,7 @@ class RPC_Caller(sai_base_test.ThriftInterfaceDataPlane):
         for queue in queue_ids:
             if tc_count <= 7:
                 thrift_results = self.client.sai_thrift_get_queue_stats(queue,numeric_stats,len(numeric_stats))
-                queue_counters_results.append(thrift_results[1])
+                queue_counters_results.append(thrift_results)
                 tc_count += 1
 
         print (queue_counters_results)
