@@ -2,7 +2,7 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
@@ -46,13 +46,13 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
     yield
 
 @pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
     Args:
         setup_pfc_test (fixture): module scoped, autouse PFC fixture
-        fanout_graph_facts (fixture): fanout graph info
+        enum_fanout_graph_facts (fixture): fanout graph info
         duthost (AnsibleHost): DUT instance
         fanouthosts (AnsibleHost): fanout instance
 
@@ -68,7 +68,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, enum
     eth0_ip = setup_info['eth0_ip']
     pfc_wd_test_port = test_ports.keys()[0]
     neighbors = setup_info['neighbors']
-    fanout_info = fanout_graph_facts
+    fanout_info = enum_fanout_graph_facts
     dut = duthost
     fanout = fanouthosts
     peer_params = populate_peer_info(neighbors, fanout_info, pfc_wd_test_port)

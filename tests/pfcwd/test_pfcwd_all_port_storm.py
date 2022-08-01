@@ -2,7 +2,7 @@ import logging
 import os
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
@@ -31,13 +31,13 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd stop")
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
     Args:
         setup_pfc_test (fixture): module scoped, autouse PFC fixture
-        fanout_graph_facts (fixture): fanout graph info
+        enum_fanout_graph_facts (fixture): fanout graph info
         duthost (AnsibleHost): DUT instance
         fanouthosts (AnsibleHost): fanout instance
 
@@ -55,7 +55,7 @@ def storm_test_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, enum_
     pfc_wd_restore_time = 200
     pfc_wd_restore_time_large = 30000
     peer_params = populate_peer_info(port_list, neighbors, pfc_queue_index, pfc_frames_number)
-    storm_hndle = set_storm_params(duthost, fanout_graph_facts, fanouthosts, peer_params)
+    storm_hndle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
     start_wd_on_ports(duthost, ports, pfc_wd_restore_time, pfc_wd_detect_time)
 
     yield storm_hndle
