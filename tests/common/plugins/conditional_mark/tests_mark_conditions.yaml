@@ -10,6 +10,27 @@ acl/test_acl_outer_vlan.py:
       - asic_type=="cisco-8000"
        
 #######################################
+#####            cacl             #####
+#######################################
+cacl/test_cacl_application.py::test_cacl_application_nondualtor:
+  skip:
+    reason: "test_cacl_application is only supported on non dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_cacl_application_dualtor:
+  skip:
+    reason: "test_cacl_application_dualtor is only supported on dualtor topology"
+    conditions:
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_multiasic_cacl_application:
+  skip:
+    reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
+    conditions:
+      - "is_multi_asic==False"
+
+#######################################
 #####           configlet         #####
 #######################################
 configlet/test_add_rack.py:
@@ -238,9 +259,9 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "sub port interfaces test is not yet supported on multi-ASIC platform"
+    reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True"
+      - "is_multi_asic==True or asic_gen not in ['td2']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -274,7 +295,16 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "build_version <= '20201231.44'"
 
 #######################################
-#####           vxlan             #####
+#####           vlan              #####
+#######################################
+vlan/test_vlan_ping.py:
+  skip:
+    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+#######################################
+#####           VxLAN             #####
 #######################################
 vxlan/test_vxlan_ecmp.py:
   skip:

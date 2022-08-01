@@ -56,6 +56,14 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -77,10 +85,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####    api/test_component.py    #####
@@ -202,6 +213,14 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -223,10 +242,13 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
+  #test_set_fans_speed requires get_speed_tolerance to be implemented 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -544,15 +566,6 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
     reason: "Command not yet merged into sonic-utilites"
 
 #######################################
-#####  test_memory_exhaustion.py  #####
-#######################################
-platform_tests/test_memory_exhaustion.py:
-  skip:
-    reason: "Skip this test case until vendors fix the issue"
-    conditions:
-      - "(hwsku in ['Celestica-DX010-C32', 'Celestica-E1031-T48S4'] and https://github.com/Azure/sonic-buildimage/issues/10339) or (hwsku in ['Force10-S6000'] and https://github.com/Azure/sonic-buildimage/issues/10921)"
-
-#######################################
 #####    test_platform_info.py    #####
 #######################################
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
@@ -571,6 +584,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
 
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
   #hence the test case needs to be skipped
   skip:

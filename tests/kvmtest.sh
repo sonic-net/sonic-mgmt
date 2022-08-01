@@ -152,14 +152,10 @@ test_t0() {
       tests="\
       generic_config_updater/test_aaa.py \
       generic_config_updater/test_bgpl.py \
-      generic_config_updater/test_bgp_prefix.py \
-      generic_config_updater/test_bgp_speaker.py \
       generic_config_updater/test_cacl.py \
       generic_config_updater/test_dhcp_relay.py \
-      generic_config_updater/test_eth_interface.py \
       generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
-      generic_config_updater/test_monitor_config.py \
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
@@ -290,6 +286,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
+export GIT_USER_NAME=$GIT_USER_NAME
+export GIT_API_TOKEN=$GIT_API_TOKEN
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs

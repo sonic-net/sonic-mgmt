@@ -261,14 +261,14 @@ def skip_if_no_lags(duthosts):
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
                                       "fallback"])
-def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel, testcase):
+def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase):
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
 
     ptfhost = common_setup_teardown
 
-    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel)
+    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
 
     some_test_ran = False
     for duthost in duthosts:

@@ -445,6 +445,26 @@ class MultiAsicSonicHost(object):
 
         return bgp_neigh
 
+    def get_bgp_neighbors_per_asic(self, state="established"):
+        """
+        Get a diction of BGP neighbor states
+
+        Args: 
+        state: BGP session state, return neighbor IP of sessions that match this state
+        Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            bgp_neigh[asic.namespace] = {}
+            bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+            for k, v in bgp_info.items():
+                if v["state"] != state:
+                    bgp_info.pop(k)                    
+            bgp_neigh[asic.namespace].update(bgp_info)
+
+        return bgp_neigh
+
     def check_bgp_session_state(self, neigh_ips, state="established"):
         """
         @summary: check if current bgp session equals to the target state
@@ -467,6 +487,20 @@ class MultiAsicSonicHost(object):
             return True
 
         return False
+
+    def check_bgp_session_state_all_asics(self, bgp_neighbors, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state in each namespace
+
+        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }} 
+        @param state: target state
+        """
+        for asic in self.asics:
+            if asic.namespace in bgp_neighbors:
+                neigh_ips = [ k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state ]
+                if not asic.check_bgp_session_state(neigh_ips, state):
+                    return False
+        return True
 
     def get_bgp_route(self, *args, **kwargs):
         """
@@ -617,4 +651,45 @@ class MultiAsicSonicHost(object):
     def restart_service_on_asic(self, service, asic_index=DEFAULT_ASIC_ID):
         """Restart service on an asic passed or None(DEFAULT_ASIC_ID)"""
         self.asic_instance(asic_index).restart_service(service)
+
+    def docker_exec_swssconfig(self, json_name, container_name, asic_idx):
+        if self.sonichost.is_multi_asic:
+            container = container_name + str(asic_idx)
+            return self.shell('docker exec -i {} swssconfig {}'.format(container, json_name),
+                           module_ignore_errors=True)
+        else:
+            return self.shell('docker exec -i {} swssconfig {}'.format(container_name, json_name),
+                           module_ignore_errors=True)
+      
+    def get_bgp_name_to_ns_mapping(self):
+        """ This function returns mapping of bgp name -- namespace
+            e.g. {'ARISTAT2': 'asic0', ...}
+        """
+        mg_facts = self.sonichost.minigraph_facts(
+            host = self.sonichost.hostname
+        )['ansible_facts']
+        neighbors = mg_facts['minigraph_neighbors']
+        mapping = dict()
+        for neigh in neighbors.values():
+            mapping[neigh['name']] = neigh['namespace']        
+        return mapping
+
+    def get_default_route_from_app_db(self, af='ipv4'):
+        default_routes = dict()
+        if self.sonichost.is_multi_asic:
+            for front_asic in self.frontend_asics:
+                default_routes[front_asic.namespace] = front_asic.get_default_route_from_app_db(af)
+        else:
+            default_routes = self.asic_instance(0).get_default_route_from_app_db(af)
+        return default_routes
+    
+    def is_default_route_removed_from_app_db(self, uplink_asics = DEFAULT_NAMESPACE):
+        if self.sonichost.is_multi_asic:
+            for ns in uplink_asics:
+                if not self.asic_instance_from_namespace(ns).is_default_route_removed_from_app_db():
+                    return False
+        else:
+            if not self.asic_instance(0).is_default_route_removed_from_app_db():
+                return False
+        return True
         

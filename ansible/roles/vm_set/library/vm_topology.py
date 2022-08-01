@@ -235,7 +235,7 @@ class VMTopology(object):
         self.topo = topo
         return
 
-    def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True):
+    def init(self, vm_set_name, vm_base, duts_fp_ports, duts_name, ptf_exists=True, check_bridge=True):
         self.vm_set_name = vm_set_name
         self.duts_name = duts_name
 
@@ -254,12 +254,13 @@ class VMTopology(object):
             for k, v in self.topo['VMs'].items():
                 if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
                     self.VMs[k] = v
-
-            for hostname, attrs in self.VMs.items():
-                vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
-                vm_bridges = self.get_vm_bridges(vmname)
-                if len(attrs['vlans']) > len(vm_bridges):
-                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" % (hostname, vmname, len(vm_bridges)))
+            if check_bridge:
+                for hostname, attrs in self.VMs.items():
+                    vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                    vm_bridges = self.get_vm_bridges(vmname)
+                    if len(attrs['vlans']) > len(vm_bridges):
+                        raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d" \
+                            % (hostname, vmname, len(vm_bridges)))
 
         self._is_multi_duts = True if len(self.duts_name) > 1 else False
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
@@ -645,12 +646,13 @@ class VMTopology(object):
 
     def unbind_vs_dut_ports(self, br_name, dut_ports):
         """unbind all ports except the vm port from an ovs bridge"""
-        ports = VMTopology.get_ovs_br_ports(br_name)
-        for dut_index, a_port in enumerate(dut_ports):
-            dut_name = self.duts_name[dut_index]
-            port_name = "{}-{}".format(dut_name, (a_port + 1))
-            if port_name in ports:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port_name))
+        if VMTopology.intf_exists(br_name):
+            ports = VMTopology.get_ovs_br_ports(br_name)
+            for dut_index, a_port in enumerate(dut_ports):
+                dut_name = self.duts_name[dut_index]
+                port_name = "{}-{}".format(dut_name, (a_port + 1))
+                if port_name in ports:
+                    VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port_name))
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False):
         """
@@ -720,11 +722,12 @@ class VMTopology(object):
 
     def unbind_ovs_ports(self, br_name, vm_port):
         """unbind all ports except the vm port from an ovs bridge"""
-        ports = VMTopology.get_ovs_br_ports(br_name)
+        if VMTopology.intf_exists(br_name):
+            ports = VMTopology.get_ovs_br_ports(br_name)
 
-        for port in ports:
-            if port != vm_port:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
+            for port in ports:
+                if port != vm_port:
+                    VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
 
     def unbind_ovs_port(self, br_name, port):
         """unbind a port from an ovs bridge"""
@@ -1015,7 +1018,9 @@ class VMTopology(object):
                     continue
 
         # Reached max retry, fail with exception
-        raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
+        err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
+            % (ret_code, err, cmdline, ' | ' + grep_cmd if grep_cmd else '')
+        raise Exception(err_msg)
 
     @staticmethod
     def get_ovs_br_ports(bridge):
@@ -1347,7 +1352,7 @@ def main():
                 vm_base = None
             vm_type = module.params['vm_type']
 
-            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name)
+            net.init(vm_set_name, vm_base, duts_fp_ports, duts_name, check_bridge=False)
 
             if module.params['duts_mgmt_port']:
                 for dut_mgmt_port in module.params['duts_mgmt_port']:
