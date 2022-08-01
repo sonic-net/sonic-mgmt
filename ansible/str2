@@ -97,7 +97,7 @@ all:
         vms29-3:
           ansible_host: 10.64.246.247
         vms29-4:
-          ansible_host: 10.64.246.248
+          ansible_host: 10.64.246.71
 
     pdu:
       hosts:

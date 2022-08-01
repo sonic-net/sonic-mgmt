@@ -1409,7 +1409,7 @@
   topo: t2_2lc_min_ports-masic
   ptf_image_name: docker-ptf
   ptf: vms29-4
-  ptf_ip: 10.64.246.248/23
+  ptf_ip: 10.64.246.71/23
   ptf_ipv6:
   server: server_29
   vm_base: VM29088
