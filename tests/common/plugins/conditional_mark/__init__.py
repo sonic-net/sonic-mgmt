@@ -169,6 +169,7 @@ def get_basic_facts(session):
             basic_facts = load_basic_facts(session)
             session.config.cache.set('BASIC_FACTS', basic_facts)
 
+
 def load_minigraph_facts(inv_name, dut_name):
     """Run 'ansible -m minigraph_facts -a host={{hostname}}' command to get some basic minigraph facts.
 

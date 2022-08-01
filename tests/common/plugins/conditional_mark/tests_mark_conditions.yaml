@@ -307,7 +307,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_name not in ['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116']"
+      - "topo_type not in ['t0']"
 
 ipfwd/test_mtu.py:
   skip:
