@@ -92,6 +92,7 @@ RUNTEST_CLI_COMMON_OPTS="\
 -e --allow_recover \
 -e --completeness_level=confident"
 
+# the following option is for multi-asic testing pipeline, to not fail on 1st test failure
 MULTI_ASIC_CLI_OPTIONS=`echo $RUNTEST_CLI_COMMON_OPTS | sed 's/-q 1//g'`
 
 if [ -n "$exit_on_error" ]; then
