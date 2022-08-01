@@ -434,7 +434,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
         for lag_name in test_lags:
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if not check_status_is_syncd(duthost, po_intf, port_info, lag_name):
-                    pytest.fail("{} member {}'s status {} is not synced with oper_status in state_db.".format(lag_name, po_intf))
+                    pytest.fail("{} member {}'s status is not synced with oper_status in state_db.".format(lag_name, po_intf))
 
         # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
         for lag_name in test_lags:
