@@ -118,7 +118,7 @@ def read_asic_name(hwsku):
     except IOError as e:
         return None
 
-def load_dut_basic_facts(session, inv_name, dut_name):
+def load_dut_basic_facts(inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
 
     The facts will be a 1 level dictionary. The dict keys can be used as variables in condition statements evaluation.
