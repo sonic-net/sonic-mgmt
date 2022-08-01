@@ -317,3 +317,4 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, con
                         test_instance.run_lag_fallback_test(lag_name, lag_facts)
 
     pytest_assert(some_test_ran, "Didn't run any test.")
+

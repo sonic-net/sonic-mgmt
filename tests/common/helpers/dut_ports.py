@@ -1,3 +1,4 @@
+
 def encode_dut_port_name(dutname, portname):
     return dutname + '|' + portname
 

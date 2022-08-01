@@ -231,6 +231,12 @@ pfc_asym/test_pfc_asym.py:
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
 
+pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
+   skip:
+     reason: "skipped for Barefoot platform"
+     conditions:
+        - "asic_type in ['barefoot']"
+
 #######################################
 #####         pfcwd               #####
 #######################################
@@ -268,6 +274,12 @@ qos/test_buffer_traditional.py:
     reason: "buffer traditional test is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+
+qos/test_qos_masic.py:
+  skip:
+    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-backend."
+    conditions:
+      - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-backend']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -369,6 +381,15 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
+
+#######################################
+#####           vlan              #####
+#######################################
+vlan/test_vlan_ping.py:
+  skip:
+    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####           VxLAN             #####
