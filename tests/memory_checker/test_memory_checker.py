@@ -264,19 +264,10 @@ def remove_stress_utility(duthost, container_name):
     logger.info("BGP sessions are started up.")
 
 
-@pytest.fixture
-def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
-                           enum_rand_one_per_hwsku_frontend_hostname, request):
-    """Backups Monit configuration files, customizes Monit configuration files and
-    restarts Monit service before testing. Restores original Monit configuration files
-    and restart Monit service after testing.
-
-    Args:
-        duthost: Hostname of DuT.
-
-    Returns:
-        None.
-    """
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
+                ids=['restart_container'])
+def monit_restart_container_setup(duthosts, enum_dut_feature_container, request,
+                                  enum_rand_one_per_hwsku_frontend_hostname):
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
     pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
@@ -288,10 +279,66 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
     duthost = duthosts[dut_name]
 
-    install_stress_utility(duthost, creds, container_name)
+    backup_monit_config_files(duthost)
+    customize_monit_config_files(duthost, request.param)
+
+
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
+                ids=['reset_counter'])
+def monit_reset_counter_setup(duthosts, enum_dut_feature_container, request,
+                              enum_rand_one_per_hwsku_frontend_hostname):
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
+    duthost = duthosts[dut_name]
 
     backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, request.param)
+
+
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+                ids=['new_syntax'])
+def monit_new_syntax_setup(duthosts, enum_dut_feature_container, request,
+                           enum_rand_one_per_hwsku_frontend_hostname):
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
+                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+
+    pytest_require(container_name == "telemetry",
+                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   .format(container_name))
+
+    duthost = duthosts[dut_name]
+
+    backup_monit_config_files(duthost)
+    customize_monit_config_files(duthost, request.param)
+
+
+@pytest.fixture
+def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
+                           enum_rand_one_per_hwsku_frontend_hostname):
+    """Backups Monit configuration files, customizes Monit configuration files and
+    restarts Monit service before testing. Restores original Monit configuration files
+    and restart Monit service after testing.
+
+    Args:
+        duthost: Hostname of DuT.
+
+    Returns:
+        None.
+    """
+    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+    duthost = duthosts[dut_name]
+
+    install_stress_utility(duthost, creds, container_name)
+
     restart_monit_service(duthost)
 
     yield
@@ -529,11 +576,8 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
         logger.info("Monit was able to restart '{}' with the help of new syntax!".format(container_name))
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
-                         indirect=["test_setup_and_cleanup"])
-def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                        enum_rand_one_per_hwsku_frontend_hostname):
+def test_memory_checker_restart_container(duthosts, enum_dut_feature_container, monit_restart_container_setup,
+                                          test_setup_and_cleanup, enum_rand_one_per_hwsku_frontend_hostname):
     """Checks whether the container can be restarted or not if the memory
     usage of it is beyond its threshold for specfic times within a sliding window.
     The `stress` utility is leveraged as the memory stressing tool.
@@ -547,13 +591,6 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
-
-    pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
-                   .format(container_name))
 
     duthost = duthosts[dut_name]
 
@@ -563,22 +600,14 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
     container_name = "telemetry"
     vm_workers = 6
 
-    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
-                   or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
-                   "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
-
     if not is_container_running(duthost, container_name):
         pytest.fail("'{}' is nor running!".format(container_name))
 
     consumes_memory_and_checks_container_restart(duthost, container_name, vm_workers)
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
-                         indirect=["test_setup_and_cleanup"])
-def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                                     enum_rand_one_per_hwsku_frontend_hostname):
+def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, monit_reset_counter_setup,
+                                     test_setup_and_cleanup, enum_rand_one_per_hwsku_frontend_hostname):
     """Checks that Monit was unable to reset its counter. Specifically Monit will restart
     the contanier if memory usage of it is larger than the threshold for specific times within
     a sliding window. However, Monit was unable to restart the container anymore if memory usage is
@@ -595,13 +624,6 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
-
-    pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
-                   .format(container_name))
 
     duthost = duthosts[dut_name]
 
@@ -610,10 +632,6 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
     vm_workers = 6
-
-    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and ("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
-                   "Test is not supported for platform Celestica E1031, 20191130 and older image versions!")
 
     logger.info("Checks whether '{}' is running ...".format(container_name))
     is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
@@ -626,11 +644,8 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     consumes_memory_and_checks_monit(duthost, container_name, vm_workers, False)
 
 
-@pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
-                         indirect=["test_setup_and_cleanup"])
-def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                          enum_rand_one_per_hwsku_frontend_hostname):
+def test_monit_new_syntax(duthosts, enum_dut_feature_container, monit_new_syntax_setup,
+                          test_setup_and_cleanup, enum_rand_one_per_hwsku_frontend_hostname):
     """Checks that new syntax of Monit can mitigate the issue which shows Monit was unable
     to restart container due to failing reset its internal counter. With the help of this syntax,
     the culprit container can be restarted by Monit if memory usage of it is larger than the threshold
@@ -646,13 +661,6 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
-
-    pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
-                   .format(container_name))
 
     duthost = duthosts[dut_name]
 
@@ -661,11 +669,6 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
     vm_workers = 6
-
-    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
-                   or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
-                   "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
     logger.info("Checks whether '{}' is running ...".format(container_name))
     is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
@@ -721,6 +724,7 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
+
     pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
@@ -735,9 +739,5 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
-
-    pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and ("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
-                   "Test is not supported for platform Celestica E1031, 20191130 and older image versions!")
 
     check_log_message(duthost, container_name)
