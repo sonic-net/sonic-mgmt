@@ -297,6 +297,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
     if not is_mellanox_device(duthost):
+        load_lossless_headroom_data(duthost)
         yield
         return
 
@@ -2435,7 +2436,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"]
-            elif is_broadcom_device(duthost) and (asic_type in ['td2'] or speed <= '10000'):
+            elif is_broadcom_device(duthost) and (asic_type in ['td2', 'td3'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
                 buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]

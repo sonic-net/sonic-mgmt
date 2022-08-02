@@ -120,6 +120,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
     vlan_member = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
     global vlan_tagging_mode
 
+    num_routes = request.config.option.num_routes
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
@@ -138,7 +139,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
             duthost.shell("redis-cli -n 4 hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(attached_vlan, vlan_member, vlan_tagging_mode))
 
         vxlan_enabled = True
-        cleanup_vnet_routes(duthost, vnet_config)
+        cleanup_vnet_routes(duthost, vnet_config, num_routes)
         cleanup_dut_vnets(duthost, setup, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     elif request.param == "WR_ARP":

@@ -89,7 +89,8 @@ RUNTEST_CLI_COMMON_OPTS="\
 -a False \
 -O \
 -r \
--e --allow_recover"
+-e --allow_recover \
+-e --completeness_level=confident"
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"

@@ -204,9 +204,12 @@ class TestPsuApi(PlatformApiTestBase):
             if name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
             else:
-                voltage = psu.get_voltage(platform_api_conn, psu_id)
-                if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
-                    self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
+                voltage = None
+                voltage_supported = self.get_psu_facts(duthost, psu_id, True, "voltage")
+                if voltage_supported:
+                    voltage = psu.get_voltage(platform_api_conn, psu_id)
+                    if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
+                        self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
                 current = None
                 current_supported = self.get_psu_facts(duthost, psu_id, True, "current")
                 if current_supported:
@@ -225,7 +228,7 @@ class TestPsuApi(PlatformApiTestBase):
                     max_supp_power = psu.get_maximum_supplied_power(platform_api_conn, psu_id)
                     if self.expect(max_supp_power is not None,
                                    "Failed to retrieve maximum supplied power power of PSU {}".format(psu_id)):
-                        self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
+                        self.expect(isinstance(max_supp_power, float), "PSU {} maximum supplied power appears incorrect".format(psu_id))
 
                 if current is not None and voltage is not None and power is not None:
                     self.expect(abs(power - (voltage*current)) < power*0.1, "PSU {} reading does not make sense \
