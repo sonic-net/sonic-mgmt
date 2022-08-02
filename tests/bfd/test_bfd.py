@@ -78,8 +78,8 @@ def get_neighbors(duthost, tbinfo, ipv6=False, count=1):
 
 def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    prefix_len = 127 if ipv6 else 31
-    ip_pattern = '2002:2000::{:x}' if ipv6 else '104.0.{}.{}'
+    t1_ipv4_pattern = '104.0.{}.{}'
+    t1_ipv6_pattern = '2002:2000::{:x}'
     t0_intfs = get_t0_intfs(mg_facts)
     ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
     count = min(2, len(t0_intfs))
@@ -95,7 +95,7 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
                 break
         if not pc_member:
             neighbor_intfs.append(intf)
-    neighbor_interfaces = [ptf_ports[_] for _ in indices]
+    ptf_intfs = [ptf_ports[_] for _ in indices]
     # local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces
     local_addrs = []
     neighbor_addrs = []
@@ -106,18 +106,19 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
         if idx != 0 and idx % 127 == 0:
             index += 1
         if ipv6:
-            local_addrs.append(ip_pattern.format(idx * 2))
-            neighbor_addrs.append(ip_pattern.format(idx * 2 + 1))
+            local_addrs.append(t1_ipv6_pattern.format(idx * 2))
+            neighbor_addrs.append(t1_ipv6_pattern.format(idx * 2 + 1))
             neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(neighbor_interfaces[index])
+            ptf_devs.append(ptf_intfs[index])
         else:
             rolloveridx = idx % 125
             idx2 = idx // 125
-            local_addrs.append(ip_pattern.format(idx2, rolloveridx * 2))
-            neighbor_addrs.append(ip_pattern.format(idx2, rolloveridx * 2 + 1))
+            local_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2))
+            neighbor_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2 + 1))
             neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(neighbor_interfaces[index])
-    return local_addrs, prefix_len, neighbor_addrs, neighbor_devs, ptf_devs
+            ptf_devs.append(ptf_intfs[index])
+    prefix = 127 if ipv6 else 31
+    return local_addrs, prefix, neighbor_addrs, neighbor_devs, ptf_devs
 
 
 def init_ptf_bfd(ptfhost):
