@@ -13,6 +13,7 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,9 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 def teardown(duthost):
     """Recover testbed if case of test_lag_db_status_with_po_update failed"""
     original_lag_facts = {}
+
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
 
     original_lag_facts[duthost.hostname] = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
     yield
