@@ -1,4 +1,4 @@
-#!/nobackup/qiwang4/t0t1_test/sonic-test/infra/pyats/bin/python3.8
+#!/usr/bin/env python3
 """ A VXR simulation backend for test automation tool """
 __author__ = "Rafal Skorka <skorka@cisco.com>"
 

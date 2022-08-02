@@ -1,4 +1,18 @@
-.PHONY: t0_run t1_run collect
+PYTHON := python3.8
+BIN := pyats/bin
+
+.PHONY: init t0_run t1_run collect
+
+init: pyats
+
+pyats:
+ifeq (, $(shell which $(PYTHON)))
+	$(error $(PYTHON) is not present in $$PATH)
+endif
+	$(PYTHON) -m venv pyats
+	$(BIN)/pip install --upgrade pip
+	$(BIN)/pip install -r requirements.txt
+	$(BIN)/pre-commit install
 
 t0_run:
 	echo "run T0 testing..."
