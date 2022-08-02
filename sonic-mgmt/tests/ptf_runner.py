@@ -70,8 +70,10 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
-    # MACsec is only available in Python3
-    if is_python3:
+    if hasattr(host, "macsec_enabled") and host.macsec_enabled:
+        if not is_python3:
+            logger.error("MACsec is only available in Python3")
+            raise Exception
         host.create_macsec_info()
 
     try:

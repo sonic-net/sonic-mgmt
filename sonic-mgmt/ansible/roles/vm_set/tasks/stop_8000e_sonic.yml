@@ -1,0 +1,5 @@
+- name: "Remove 8000e-sonic container {{ dut_name }}"
+  become: yes
+  docker_container:
+    name: "{{ dut_name }}"
+    state: absent
