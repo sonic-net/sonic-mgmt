@@ -480,17 +480,19 @@ def __verify_results(rows,
                       format(tx_bytes_total, dut_buffer_size))
 
         if is_cisco_device(duthost):
-            """ Verify pause threshold is correct with respect to the configured alpha """
-            cell_buffs = math.ceil(data_pkt_size / float(CISCO_8000_CELL_SIZE))
-            data_pkt_cell_bytes = cell_buffs * CISCO_8000_CELL_SIZE
-            tx_frames_minus_oq = tx_frames_total - (CISCO_8000_OQ_BUFFS / cell_buffs)
-            tx_bytes_total = tx_frames_minus_oq * data_pkt_cell_bytes
-
-            ingress_pool_size = get_ingress_lossless_buffer_size(duthost)
-            max_pause_th_bytes = 5 * 2**20
-            pause_th_bytes = min(ingress_pool_size * (2 ** dynamic_th), max_pause_th_bytes)
-            deviation = abs(tx_bytes_total - pause_th_bytes) / pause_th_bytes
-            pytest_assert(deviation < tolerance,
-                          ('Estimated queue occupancy {} bytes should be within {} of the pause threshold {},' + \
-                          'but deviation was {}, total frames tx was {}, and ingress pool size was {}').\
-                          format(tx_bytes_total, tolerance, pause_th_bytes, deviation, tx_frames_total, ingress_pool_size))
+            """ Verify pause threshold is correct for each paused flow with respect to the configured alpha """
+            for row in rows:
+                if test_flow_name in row['name']:
+                    tx_frames_total = row['frames_tx']
+                    cell_buffs = math.ceil(data_pkt_size / float(CISCO_8000_CELL_SIZE))
+                    data_pkt_cell_bytes = cell_buffs * CISCO_8000_CELL_SIZE
+                    tx_frames_minus_oq = tx_frames_total - (CISCO_8000_OQ_BUFFS / cell_buffs)
+                    tx_bytes_total = tx_frames_minus_oq * data_pkt_cell_bytes
+                    ingress_pool_size = get_ingress_lossless_buffer_size(duthost)
+                    max_pause_th_bytes = 5 * (2 ** 20)
+                    pause_th_bytes = min(ingress_pool_size * (2 ** dynamic_th), max_pause_th_bytes)
+                    deviation = abs(tx_bytes_total - pause_th_bytes) / pause_th_bytes
+                    pytest_assert(deviation < tolerance,
+                                  ('For flow name "{}", estimated queue occupancy {} bytes should be within {} of the pause threshold {},' + \
+                                   'but deviation was {}, total frames tx was {}, and ingress pool size was {}').\
+                                  format(row['name'], tx_bytes_total, tolerance, pause_th_bytes, deviation, tx_frames_total, ingress_pool_size))
