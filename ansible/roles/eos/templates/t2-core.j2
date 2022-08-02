@@ -62,6 +62,7 @@ interface {{ name }}
 {% if name.startswith('Loopback') %}
  description LOOPBACK
 {% else %}
+ mtu 9214
  no switchport
 {% endif %}
 {% if name.startswith('Port-Channel') %}

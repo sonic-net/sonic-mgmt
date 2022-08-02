@@ -298,13 +298,20 @@ def main():
 
         # Sort the Interface Name needed in multi-asic
         aliases.sort(key=lambda x: int(x[1]))
+        # Get ASIC interface names list based on sorted aliases
+        front_panel_asic_ifnames_list = []
+        for k in aliases:
+            if k[0] in front_panel_asic_ifnames:
+                front_panel_asic_ifnames_list.append(front_panel_asic_ifnames[k[0]])
+
         module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
-                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k[0]] for k in aliases] if front_panel_asic_ifnames else [],
+                                        'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
+
     except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)

@@ -199,6 +199,9 @@ class Responder(object):
                 # References: https://tools.ietf.org/html/rfc1701
                 #             https://tools.ietf.org/html/draft-foschiano-erspan-00
                 arp_request = data[0x2E:]
+            elif ASIC_TYPE == "cisco-8000":
+                # Ethernet(14) + IP(20) + GRE(8) + ERSPAN(8) = 50 = 0x32
+                arp_request = data[0x32:]
 
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
@@ -214,7 +217,7 @@ class Responder(object):
             print
             return
 
-        remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(arp_request)
+        vlan_id, remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(arp_request)
         # Don't send ARP response if the ARP op code is not request
         if op_type != self.ARP_OP_REQUEST:
             return
@@ -243,7 +246,7 @@ class Responder(object):
                 new_pkt += binascii.unhexlify('c00012b5004c1280') # udp
             new_pkt += binascii.unhexlify('08000000%06x00' % r.vxlan_id) # vxlan
 
-            arp_reply = self.generate_arp_reply(binascii.unhexlify(r.mac), remote_mac, request_ip, remote_ip)
+            arp_reply = self.generate_arp_reply(binascii.unhexlify(r.mac), remote_mac, request_ip, remote_ip, vlan_id)
             new_pkt += arp_reply
         else:
             print 'Support of family %s is not implemented' % r.family
@@ -273,11 +276,18 @@ class Responder(object):
         return binascii.unhexlify("%x" % s)
 
     def extract_arp_info(self, data):
-        # remote_mac, remote_ip, request_ip, op_type
-        return data[6:12], data[28:32], data[38:42], (ord(data[20]) * 256 + ord(data[21]))
+        vlan_id = ord(data[14]) * 256 + ord(data[15])
+        if vlan_id == 1:
+            offset = 0
+        else:
+            offset = 4
+        # vlan_id, remote_mac, remote_ip, request_ip, op_type
+        return vlan_id, data[6:12], data[offset+28:offset+32], data[offset+38:offset+42], (ord(data[offset+20]) * 256 + ord(data[offset+21]))
 
-    def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip):
+    def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
+        #if vlan_id != 1:
+        #    eth_hdr = eth_hdr + binascii.unhexlify("8100%04x" % vlan_id)
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
 def get_bpf_for_bgp():

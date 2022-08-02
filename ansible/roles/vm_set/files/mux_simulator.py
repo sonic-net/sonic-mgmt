@@ -137,7 +137,7 @@ def config_logging(http_port):
     rfh = RotatingFileHandler(
         '/tmp/mux_simulator_{}.log'.format(http_port),
         maxBytes=10*1024*1024,  # 10MB
-        backupCount=3)
+        backupCount=15)
     fmt = logging.Formatter('%(asctime)s %(levelname)s #%(lineno)d: %(message)s')
     rfh.setFormatter(fmt)
     rfh.setLevel(logging.DEBUG)

@@ -17,7 +17,7 @@ from collections import defaultdict
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
+from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
@@ -29,7 +29,6 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
-    pytest.mark.usefixtures('backup_and_restore_config_db_on_duts')
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -96,6 +95,32 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
 
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(duthosts):
+    """
+    Remove DATAACL to free TCAM resources.
+    The change is written to configdb as we don't want DATAACL recovered after reboot  
+    """
+    TABLE_NAME = "DATAACL"
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
+        data_acl_existing = False
+        for line in lines:
+            if TABLE_NAME in line:
+                data_acl_existing = True
+                break
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME))
+            cmds = [
+                "config acl remove table {}".format(TABLE_NAME),
+                "config save -y"
+            ]
+            duthost.shell_cmds(cmds=cmds)
+    yield
+    # Recover DUT by reloading minigraph
+    for duthost in duthosts:
+        config_reload(duthost, config_source="minigraph")
 
 @pytest.fixture(scope="module")
 def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
@@ -355,6 +380,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
 
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            # Ignore any other errors to reduce noise
+            loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
         except LogAnalyzerError as err:
@@ -444,6 +471,8 @@ class BaseAclTest(object):
 
             try:
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+                # Ignore any other errors to reduce noise
+                loganalyzer.ignore_regex = [r".*"]
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 

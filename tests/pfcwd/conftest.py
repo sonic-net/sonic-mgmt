@@ -165,6 +165,3 @@ def setup_pfc_test(
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
     yield setup_info
-
-    logger.info("--- Starting Pfcwd ---")
-    duthost.command("pfcwd start_default")

@@ -39,4 +39,5 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         'dir_bcast_test.BcastTest',
         '/root/ptftests',
         params=params,
-        log_file=log_file)
+        log_file=log_file,
+        is_python3=True)

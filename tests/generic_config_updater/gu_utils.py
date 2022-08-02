@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-YANG_IGNORED_OPTIONS    = "-i /FEATURE -i /QUEUE -i /SCHEDULER -i /BUFFER_PORT_INGRESS_PROFILE_LIST -i /BUFFER_PORT_EGRESS_PROFILE_LIST"
+YANG_IGNORED_OPTIONS    = "-i /BUFFER_PORT_INGRESS_PROFILE_LIST -i /BUFFER_PORT_EGRESS_PROFILE_LIST"
+
 
 def generate_tmpfile(duthost):
     """Generate temp file
@@ -219,7 +220,7 @@ def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
 
     Args:
         duthost: Device Under Test (DUT)
-        rb: rollback filename
+        cp: rollback filename
     """
     cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, cp)
 
@@ -236,7 +237,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """
     output = rollback(duthost, cp)
 
-    if output['rc'] or "Config rolled back successfull" not in output['stdout']:
+    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
         pytest.fail("config rollback failed. Restored by config_reload")
 

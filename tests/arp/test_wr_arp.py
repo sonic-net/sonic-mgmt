@@ -24,7 +24,7 @@ DEFAULT_TEST_DURATION = 370
 
 class TestWrArp:
     '''
-        TestWrArp Performs control plane assisted warm-reboo
+        TestWrArp Performs control plane assisted warm-reboot
     '''
     def __prepareVxlanConfigData(self, duthost, ptfhost, tbinfo):
         '''
@@ -38,13 +38,13 @@ class TestWrArp:
                 None
         '''
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        vlan_facts = duthost.vlan_facts()['ansible_facts']['ansible_vlan_facts']
         vxlanConfigData = {
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
-            'minigraph_vlans': mgFacts['minigraph_vlans'],
-            'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
+            'vlan_facts': vlan_facts,
             'dut_mac': duthost.facts['router_mac']
         }
         with open(VXLAN_CONFIG_FILE, 'w') as file:
@@ -53,8 +53,7 @@ class TestWrArp:
         logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
         ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
 
-    @pytest.fixture(scope='class', autouse=True)
-    def setupFerret(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    def setupFerret(self, duthost, ptfhost, tbinfo):
         '''
             Sets Ferret service on PTF host. This class-scope fixture runs once before test start
 
@@ -65,7 +64,6 @@ class TestWrArp:
             Returns:
                 None
         '''
-        duthost = duthosts[rand_one_dut_hostname]
         ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
         '''
@@ -136,14 +134,18 @@ class TestWrArp:
         ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     @pytest.fixture(scope='class', autouse=True)
+    def setupFerretFixture(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+         duthost = duthosts[rand_one_dut_hostname]
+         self.setupFerret(duthost, ptfhost, tbinfo)
+
+    @pytest.fixture(scope='class', autouse=True)
     def clean_dut(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         yield
         logger.info("Clear ARP cache on DUT")
         duthost.command('sonic-clear arp')
-
-    @pytest.fixture(scope='class', autouse=True)
-    def setupRouteToPtfhost(self, duthosts, rand_one_dut_hostname, ptfhost):
+    
+    def setupRouteToPtfhost(self, duthost, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
 
@@ -154,7 +156,6 @@ class TestWrArp:
             Returns:
                 None
         '''
-        duthost = duthosts[rand_one_dut_hostname]
         result = duthost.shell(cmd="ip route show table default | sed -n 's/default //p'")
         assert len(result['stderr_lines']) == 0, 'Could not find the gateway for management port'
 
@@ -167,9 +168,13 @@ class TestWrArp:
                 "Add explicit route for PTF host ({0}) through eth0 (mgmt) interface ({1})".format(ptfIp, gwIp)
             )
             duthost.shell(cmd='ip route add {0}/32 {1}'.format(ptfIp, gwIp))
-
-        yield
-
+        
+        return route, ptfIp, gwIp
+    
+    def teardownRouteToPtfhost(self, duthost, route, ptfIp, gwIp):
+        """
+        Teardown the routes added by setupRouteToPtfhost
+        """
         if 'PortChannel' in route:
             logger.info(
                 "Delete explicit route for PTF host ({0}) through eth0 (mgmt) interface ({1})".format(ptfIp, gwIp)
@@ -177,6 +182,30 @@ class TestWrArp:
             result = duthost.shell(cmd='ip route delete {0}/32 {1}'.format(ptfIp, gwIp), module_ignore_errors=True)
             assert result["rc"] == 0 or "No such process" in result["stderr"], \
                 "Failed to delete route with error '{0}'".format(result["stderr"])
+
+    @pytest.fixture(scope='class', autouse=True)
+    def setupRouteToPtfhostFixture(self, duthosts, rand_one_dut_hostname, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
+        route, ptfIp, gwIp = self.setupRouteToPtfhost(duthost, ptfhost)
+        yield
+        self.teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
+
+    def Setup(self, duthost, ptfhost, tbinfo):
+        """
+        A setup function that do the exactly same thing as the autoused fixtures do
+        Will be called in vnet_vxlan test
+        """
+        self.setupFerret(duthost, ptfhost, tbinfo)
+        self.route, self.ptfIp, self.gwIp = self.setupRouteToPtfhost(duthost, ptfhost)
+
+    def Teardown(self, duthost):
+        """
+        A teardown function that do some cleanup after test
+        Will be called in vnet_vxlan test
+        """
+        logger.info("Clear ARP cache on DUT")
+        duthost.command('sonic-clear arp')
+        self.teardownRouteToPtfhost(duthost, self.route, self.ptfIp, self.gwIp)
 
     def testWrArp(self, request, duthost, ptfhost, creds):
         '''

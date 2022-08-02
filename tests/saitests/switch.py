@@ -769,10 +769,8 @@ def sai_thrift_read_pg_drop_counters(client, port_id):
 
     return pg_cntrs
 
-def sai_thrift_read_pg_shared_watermark(client, port_id):
-    pg_cntr_ids=[
-        SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES
-    ]
+def sai_thrift_read_pg_shared_watermark(client, asic_type, port_id):
+    pg_cntr_ids = [SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES]
 
     # fetch pg ids under port id
     pg_ids = []
@@ -812,6 +810,24 @@ def sai_thrift_read_headroom_pool_watermark(client, buffer_pool_id):
         print >> sys.stderr, "sai_thrift_read_headroom_pool_watermark returns empty list"
         return None
     return wm_vals[0]
+
+def sai_thrift_read_queue_occupancy(client, port_id):
+    queue_list=[]
+    port_attr_list = client.sai_thrift_get_port_attribute(port_list[port_id])
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_PORT_ATTR_QOS_QUEUE_LIST:
+            for queue_id in attribute.value.objlist.object_id_list:
+                queue_list.append(queue_id)
+    cnt_ids=[SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES]
+    queue_counters_results=[]
+    queue1=0
+    for queue in queue_list:
+        if queue1 <= 7:
+            thrift_results=client.sai_thrift_get_queue_stats(queue,cnt_ids,len(cnt_ids))
+            queue_counters_results.append(thrift_results[0])
+            queue1+=1
+    return queue_counters_results
 
 def sai_thrift_create_vlan_member(client, vlan_id, port_id, tagging_mode):
     vlan_member_attr_list = []

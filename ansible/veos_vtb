@@ -29,6 +29,9 @@ all:
           - dualtor-56
           - dualtor-120
           - t2-vs
+          - dualtor-mixed
+          - dualtor-mixed-56
+          - dualtor-mixed-120
       children:
         server_1:
     lab:
@@ -41,6 +44,11 @@ all:
         vlab-06:
         vlab-07:
         vlab-08:
+        vlab-09:
+        vlab-10:
+        vlab-11:
+        vlab-12:
+        vlab-8k-01:
     ptf:
       hosts:
         ptf-01:
@@ -58,6 +66,15 @@ all:
         ptf-05:
           ansible_host: 10.250.0.110
           ansible_hostv6: fec0::ffff:afa:a
+        ptf-06:
+          ansible_host: 10.250.0.116
+          ansible_hostv6: fec0::ffff:afb:2
+        ptf-07:
+          ansible_host: 10.250.0.118
+          ansible_hostv6: fec0::ffff:afb:4
+        ptf-08:
+          ansible_host: 10.250.0.119
+          ansible_hostv6: fec0::ffff:afb:5
       vars:
           ansible_user: root
           ansible_password: root
@@ -181,6 +198,52 @@ all:
           ansible_user: admin
           card_type: supervisor
           slot_num: slot3
+        vlab-09:
+          ansible_host: 10.250.0.115
+          ansible_hostv6: fec0::ffff:afb:1
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9006
+          ansible_password: password
+          ansible_user: admin
+        vlab-10:
+          ansible_host: 10.250.0.117
+          ansible_hostv6: fec0::ffff:afb:3
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9007
+          ansible_password: password
+          ansible_user: admin
+        vlab-11:
+          ansible_host: 10.250.0.123
+          ansible_hostv6: fec0::ffff:afb:6
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9023
+          ansible_password: password
+          ansible_user: admin
+        vlab-12:
+          ansible_host: 10.250.0.124
+          ansible_hostv6: fec0::ffff:afb:7
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9024
+          ansible_password: password
+          ansible_user: admin
+        vlab-8k-01:
+          ansible_host: 10.250.0.201
+          ansible_hostv6: fec0::ffff:afa:1
+          type: 8000e
+          hwsku: Cisco-8102-C64
+          serial_port: 60000
+          ansible_password: password
+          ansible_user: admin
+          ansible_ssh_user: cisco
+          ansible_altpassword: cisco123
+          # sdk/npsuite override:
+          #cisco_sdk_ver: "1.50.10.4.22"
+          #cisco_npsuite_ver: "1.90.0"
+
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
@@ -266,3 +329,23 @@ vms_1:
       ansible_host: 10.250.0.83
     VM0133:
       ansible_host: 10.250.0.84
+    VM0134:
+      ansible_host: 10.250.0.85
+    VM0135:
+      ansible_host: 10.250.0.86
+    VM0136:
+      ansible_host: 10.250.0.87
+    VM0137:
+      ansible_host: 10.250.0.88
+    VM0138:
+      ansible_host: 10.250.0.89
+    VM0139:
+      ansible_host: 10.250.0.90
+    VM0140:
+      ansible_host: 10.250.0.91
+    VM0141:
+      ansible_host: 10.250.0.92
+    VM0142:
+      ansible_host: 10.250.0.93
+    VM0143:
+      ansible_host: 10.250.0.94

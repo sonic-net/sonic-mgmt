@@ -6,6 +6,7 @@ import logging
 import pytest
 import time
 import os
+import traceback
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -13,6 +14,7 @@ from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import InterruptableThread
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType']) , (
             "Please set rebootType var."
         )
 
@@ -365,17 +367,22 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        if "warm" in self.rebootType:
+            # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
+            reboot_file_prefix = "warm-reboot"
+        else:
+            reboot_file_prefix = self.rebootType
         if rebootOper is None:
-            rebootLog = '/tmp/{0}.log'.format(self.rebootType)
-            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
+            rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
+            rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
             swssRec = '/tmp/swss.rec'
         else:
-            rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
-            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
+            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
@@ -440,33 +447,57 @@ class AdvancedReboot:
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
         result = True
-        failed_list = list()
+        test_results = dict()
         for rebootOper in self.rebootData['sadList']:
             count += 1
+            test_case_name = str(self.request.node.name) + str(rebootOper)
+            test_results[test_case_name] = list()
             try:
+                if self.preboot_setup:
+                    self.preboot_setup()
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
-                self.__setupRebootOper(rebootOper)
-                result = self.__runPtfRunner(rebootOper)
+                event_counters = self.__setupRebootOper(rebootOper)
+                thread = InterruptableThread(
+                    target=self.__runPtfRunner,
+                    kwargs={"rebootOper": rebootOper})
+                thread.daemon = True
+                thread.start()
+                # give the test REBOOT_CASE_TIMEOUT (1800s) to complete the reboot with IO,
+                # and then additional 300s to examine the pcap, logs and generate reports
+                ptf_timeout = REBOOT_CASE_TIMEOUT + 300
+                thread.join(timeout=ptf_timeout, suppress_exception=True)
+                self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
+                # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
+                thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.postboot_setup:
+                    self.postboot_setup()
             except Exception:
-                failed_list.append(rebootOper)
+                traceback_msg = traceback.format_exc()
+                logger.error("Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg))
+                test_results[test_case_name].append("Exception caught while running advanced-reboot test on ptf")
             finally:
                 # always capture the test logs
                 log_dir = self.__fetchTestLogs(rebootOper)
+                if self.advanceboot_loganalyzer:
+                    verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
+                        reboot_oper=rebootOper, log_dir=log_dir)
+                    if verification_errors:
+                        logger.error("Post reboot verification failed. List of failures: {}".format('\n'.join(verification_errors)))
+                        test_results[test_case_name].extend(verification_errors)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-                if self.advanceboot_loganalyzer:
-                    post_reboot_analysis(marker, reboot_oper=rebootOper, log_dir=log_dir)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
+            failed_list = [(testcase,failures) for testcase, failures in test_results.items() if len(failures) != 0]
         pytest_assert(len(failed_list) == 0,\
-            "Advanced-reboot failure. Failed test: {}, sub-cases: {}".format(self.request.node.name, failed_list))
+            "Advanced-reboot failure. Failed test: {}, failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
 
     def runRebootTestcase(self, prebootList=None, inbootList=None,
-        prebootFiles='peer_dev_info,neigh_port_info'):
+        prebootFiles='peer_dev_info,neigh_port_info', preboot_setup=None, postboot_setup=None):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
@@ -474,10 +505,24 @@ class AdvancedReboot:
         @param inbootList: list of operation to run during reboot prcoess
         @param prebootFiles: preboot files
         '''
+        self.preboot_setup = preboot_setup
+        self.postboot_setup = postboot_setup
         self.imageInstall(prebootList, inbootList, prebootFiles)
         return self.runRebootTest()
 
     def __setupRebootOper(self, rebootOper):
+        down_ports = 0
+        if "dut_lag_member_down" in str(rebootOper) or "neigh_lag_member_down" in str(rebootOper)\
+            or "vlan_port_down" in  str(rebootOper) or "neigh_vlan_member_down" in str(rebootOper):
+            down_ports = int(str(rebootOper)[-1])
+
+        event_counters = {
+            "SAI_CREATE_SWITCH": 1,
+            "INIT_VIEW": 1,
+            "APPLY_VIEW": 1,
+            "LAG_READY": len(self.mgFacts["minigraph_portchannels"]),
+            "PORT_READY": len(self.mgFacts["minigraph_ports"]) - down_ports,
+        }
         testData = {
             'portchannel_interfaces': copy.deepcopy(self.mgFacts['minigraph_portchannels']),
             'vlan_interfaces': copy.deepcopy(self.mgFacts['minigraph_vlans']),
@@ -498,6 +543,7 @@ class AdvancedReboot:
 
         testDataFiles = [{'source': source, 'name': name} for name, source in testData.items()]
         self.__transferTestDataFiles(testDataFiles, self.ptfhost)
+        return event_counters
 
     def __verifyRebootOper(self, rebootOper):
         if isinstance(rebootOper, SadOperation):
@@ -615,7 +661,7 @@ class AdvancedReboot:
             self.__restorePrevImage()
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -624,7 +670,7 @@ def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, local
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):

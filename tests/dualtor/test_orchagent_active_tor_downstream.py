@@ -67,7 +67,7 @@ def test_active_tor_remove_neighbor_downstream_active(
     """
 
     @contextlib.contextmanager
-    def remove_neighbor(ptfhost, duthost, server_ip, ip_version):
+    def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
         if ip_version == "ipv4":
             restore = True
@@ -80,41 +80,51 @@ def test_active_tor_remove_neighbor_downstream_active(
         flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=restore)
         try:
             ptfhost.shell("supervisorctl stop %s" % neighbor_advertise_process)
-            with flush_neighbor_ct:
+            with flush_neighbor_ct as flushed_neighbor:
+                neighbor_details.update(flushed_neighbor)
                 yield
         finally:
             ptfhost.shell("supervisorctl start %s" % neighbor_advertise_process)
 
-    tor = rand_selected_dut
-    test_port, server_ip, ip_version = testbed_setup
+    try:
+        tor = rand_selected_dut
+        test_port, server_ip, ip_version = testbed_setup
 
-    pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, server_ip)
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-    logging.info("send traffic to server %s from ptf t1 interface %s", server_ip, ptf_t1_intf)
-    server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
-    )
-    tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
-    with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+        pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, server_ip)
+        ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
+        logging.info("send traffic to server %s from ptf t1 interface %s", server_ip, ptf_t1_intf)
+        server_traffic_monitor = ServerTrafficMonitor(
+            tor, ptfhost, vmhost, tbinfo, test_port,
+            conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
+        )
+        tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
+        with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
-    logging.info("send traffic to server %s after removing neighbor entry", server_ip)
-    server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
-    )
-    remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version)
-    with crm_neighbor_checker(tor), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+        logging.info("send traffic to server %s after removing neighbor entry", server_ip)
+        server_traffic_monitor = ServerTrafficMonitor(
+            tor, ptfhost, vmhost, tbinfo, test_port,
+            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
+        )
+        removed_neighbor = {}
+        remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version, removed_neighbor)
+        with crm_neighbor_checker(tor), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
-    logging.info("send traffic to server %s after neighbor entry is restored", server_ip)
-    server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
-    )
-    with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+        logging.info("send traffic to server %s after neighbor entry is restored", server_ip)
+        server_traffic_monitor = ServerTrafficMonitor(
+            tor, ptfhost, vmhost, tbinfo, test_port,
+            conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
+        )
+        with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+    finally:
+        # try to recover the removed neighbor so test_downstream_ecmp_nexthops could have a healthy mocked device
+        if ip_version == "ipv4":
+            cmd = 'ip -4 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
+        else:
+            cmd = 'ip -6 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
+        tor.shell(cmd)
 
 
 def test_downstream_ecmp_nexthops(

@@ -1,15 +1,15 @@
 import ipaddress
 import logging
-import time
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_garp_service # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_garp_service                                # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr                         # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                                     # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
@@ -28,6 +28,7 @@ RADV_MAX_RA_INTERVAL_SECS = 4
 the connected PTF port(s) required to setup the RADV tests
 
 """
+
 
 @pytest.fixture(scope="module", autouse=True)
 def radv_test_setup(request, duthosts, ptfhost, tbinfo):
@@ -49,7 +50,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         res = duthost.shell(cmd)
         ip6 = ipaddress.IPv6Address(unicode(res['stdout']))
         pytest_assert(ip6.is_link_local,
-                "ip6 address:{} of {} is not a link-local address".format(str(ip6), downlink_vlan_iface['name']))
+                      "ip6 address:{} of {} is not a link-local address".format(str(ip6), downlink_vlan_iface['name']))
         downlink_vlan_iface['ip6'] = str(ip6)
 
         # Obtain link-local IPv6 address of the connected PTF port (Eg eth0)
@@ -61,7 +62,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         res = ptfhost.shell(cmd)
         ip6 = ipaddress.IPv6Address(unicode(res['stdout']))
         pytest_assert(ip6.is_link_local,
-                "ip6 address:{} of {} is not a link-local address".format(str(ip6), ptf_port['name']))
+                      "ip6 address:{} of {} is not a link-local address".format(str(ip6), ptf_port['name']))
         ptf_port['ip6'] = str(ip6)
 
         vlan_intf_data = {}
@@ -71,21 +72,26 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
     return vlan_interfaces_list
 
+
 """
 @summary: Updates min/max RA interval in RADVd's config file
 
 """
+
 
 def dut_update_ra_interval(duthost, ra, interval):
     logging.info("Updating %s to %d in RADVd's config file:%s", ra, int(interval), RADV_CONF_FILE)
     cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)
     duthost.shell("docker exec radv {}".format(cmd))
 
+
 """
 @summary: A fixture that updates the RADVd's periodic RA update intervals and restores the
 intervals to old values after the test
 
 """
+
+
 @pytest.fixture
 def dut_update_radv_periodic_ra_interval(duthost):
     pytest_assert(duthost.is_service_fully_started('radv'), "radv service not running")
@@ -110,23 +116,24 @@ def dut_update_radv_periodic_ra_interval(duthost):
     duthost.shell("docker exec radv supervisorctl signal SIGHUP radvd")
     logging.info("Successfully restored RADVd's config back to original")
 
+
 """
 @summary: Test validates the RADVd's periodic router advertisement sent on each VLAN interface
 
 """
-def test_radv_router_advertisement(
-                    request, tbinfo,
-                    duthost, ptfhost,
-                    radv_test_setup,
-                    dut_update_radv_periodic_ra_interval):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
+
+def test_radv_router_advertisement(
+        request, tbinfo,
+        duthost, ptfhost,
+        radv_test_setup,
+        dut_update_radv_periodic_ra_interval,
+        toggle_all_simulator_ports_to_upper_tor):
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
-                                                vlan_intf['downlink_vlan_intf']['name'],
-                                                vlan_intf['ptf_port']['port_idx'])
+                     vlan_intf['downlink_vlan_intf']['name'],
+                     vlan_intf['ptf_port']['port_idx'])
         ptf_runner(ptfhost,
                    "ptftests",
                    "radv_ipv6_ra_test.RadvUnSolicitedRATest",
@@ -136,22 +143,21 @@ def test_radv_router_advertisement(
                            "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
-                   log_file="/tmp/radv_ipv6_ra_test.RadvUnSolicitedRATest.log")
+                   log_file="/tmp/radv_ipv6_ra_test.RadvUnSolicitedRATest.log", is_python3=True)
+
 
 """
 @summary: Test validates the RADVd's solicited router advertisement sent on each VLAN interface
 
 """
 
-def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup):
-    if 'dualtor' in tbinfo['topo']['name']:
-        request.getfixturevalue('toggle_all_simulator_ports_to_upper_tor')
 
+def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup, toggle_all_simulator_ports_to_upper_tor):
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
-                                                        vlan_intf['downlink_vlan_intf']['name'],
-                                                        vlan_intf['ptf_port']['port_idx'])
+                     vlan_intf['downlink_vlan_intf']['name'],
+                     vlan_intf['ptf_port']['port_idx'])
         ptf_runner(ptfhost,
                    "ptftests",
                    "radv_ipv6_ra_test.RadvSolicitedRATest",
@@ -162,4 +168,58 @@ def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_
                            "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
                            "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
                            "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
-                   log_file="/tmp/radv_ipv6_ra_test.RadvSolicitedRATest.log")
+                   log_file="/tmp/radv_ipv6_ra_test.RadvSolicitedRATest.log", is_python3=True)
+
+
+"""
+@summary: Test validates the M flag in RADVd's periodic router advertisement sent on each VLAN interface 
+
+"""
+
+
+def test_unsolicited_router_advertisement_with_m_flag(
+    request, tbinfo,
+    duthost, ptfhost,
+    radv_test_setup,
+    toggle_all_simulator_ports_to_upper_tor,
+):
+    for vlan_intf in radv_test_setup:
+        # Run the RADV test on the PTF host
+        logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
+                     vlan_intf['downlink_vlan_intf']['name'],
+                     vlan_intf['ptf_port']['port_idx'])
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "router_adv_mflag_test.RadvUnSolicitedRATest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "downlink_vlan_mac": vlan_intf['downlink_vlan_intf']['mac'],
+                           "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
+                           "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
+                           "max_ra_interval": 180},
+                   log_file="/tmp/router_adv_mflag_test.RadvUnSolicitedRATest.log", is_python3=True)
+
+
+"""
+@summary: Test validates the M flag in RADVd's solicited router advertisement sent on each VLAN interface
+
+"""
+
+
+def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup, toggle_all_simulator_ports_to_upper_tor):
+    for vlan_intf in radv_test_setup:
+        # Run the RADV solicited RA test on the PTF host
+        logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
+                     vlan_intf['downlink_vlan_intf']['name'],
+                     vlan_intf['ptf_port']['port_idx'])
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "router_adv_mflag_test.RadvSolicitedRATest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "downlink_vlan_mac": vlan_intf['downlink_vlan_intf']['mac'],
+                           "downlink_vlan_ip6": vlan_intf['downlink_vlan_intf']['ip6'],
+                           "ptf_port_index": vlan_intf['ptf_port']['port_idx'],
+                           "ptf_port_ip6": vlan_intf['ptf_port']['ip6'],
+                           "max_ra_interval": RADV_MAX_RA_INTERVAL_SECS},
+                   log_file="/tmp/router_adv_mflag_test.RadvSolicitedRATest.log", is_python3=True)

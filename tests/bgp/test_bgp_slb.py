@@ -16,13 +16,6 @@ PEER_COUNT = 1
 NEIGHBOR_EXABGP_PORT = 11000
 
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_on_backend(tbinfo):
-    """Skip over storage backend topologies."""
-    if "backend" in tbinfo["topo"]["name"]:
-        pytest.skip("Skipping test_bgp_slb, unsupported topology %s." % tbinfo["topo"]["name"])
-
-
 @pytest.fixture(params=["warm", "fast"])
 def reboot_type(request):
     return request.param
@@ -65,6 +58,7 @@ def bgp_slb_neighbor(duthosts, rand_one_dut_hostname, setup_interfaces, ptfhost,
     return bgp_neighbor
 
 
+@pytest.mark.disable_loganalyzer
 def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
     duthosts, rand_one_dut_hostname, bgp_slb_neighbor,
     toggle_all_simulator_ports_to_rand_selected_tor, reboot_type, localhost

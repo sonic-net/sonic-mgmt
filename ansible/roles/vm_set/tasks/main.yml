@@ -80,7 +80,7 @@
         - software-properties-common
         - libvirt-clients
 
-    - name:
+    - name: Install necessary packages
       apt:
         pkg:
         - python
@@ -90,7 +90,7 @@
       become: yes
       when: host_distribution_version.stdout == "18.04"
 
-    - name:
+    - name: Install necessary packages
       apt:
         pkg:
         - python3-libvirt
@@ -98,24 +98,24 @@
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
-      when: host_distribution_version.stdout == "20.04"
+      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
   when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
-  when: pip_executable is not defined and host_distribution_version.stdout != "20.04"
+  when: pip_executable is not defined and host_distribution_version.stdout != "20.04" and host_distribution_version.stdout != "22.04"
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
+  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
 
 - name: remove old python packages
   pip: name=docker-py state=absent executable={{ pip_executable }}
   environment: "{{ proxy_env | default({}) }}"
   ignore_errors: yes
-  
+
 - include_tasks: docker.yml
   when: package_installation|bool
 
@@ -132,7 +132,7 @@
     append: yes
     groups: libvirt
   become: yes
-  when: host_distribution_version.stdout == "20.04"
+  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
 
 - name: Install br_netfilter kernel module
   become: yes
@@ -307,6 +307,10 @@
 - name: Add topology
   include_tasks: add_topo.yml
   when: action == 'add_topo'
+
+- name: Add WAN topology
+  include_tasks: add_wan_topo.yml
+  when: action == 'add_wan_topo'
 
 - name: Remove topology
   include_tasks: remove_topo.yml

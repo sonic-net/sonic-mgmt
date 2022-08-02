@@ -30,6 +30,21 @@
   auto_recover: 'False'
   comment: Tests virtual switch vm
 
+- conf-name: vms-kvm-t0-64-32
+  group-name: vms6-1
+  topo: t0-64-32
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
 - conf-name: vms-kvm-t1-lag
   group-name: vms6-2
   topo: t1-lag
@@ -105,3 +120,97 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests multi-asic virtual switch vm
+
+- conf-name: vms-kvm-t2
+  group-name: vms6-4
+  topo: t2-vs
+  ptf_image_name: docker-ptf
+  ptf: ptf-04
+  ptf_ip: 10.250.0.109/24
+  ptf_ipv6: fec0::ffff:afa:9/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-t2-01
+    - vlab-t2-02
+    - vlab-t2-sup
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: T2 Virtual chassis
+
+- conf-name: vms-kvm-t0-3
+  group-name: vms6-6
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-06
+  ptf_ip: 10.250.0.116/24
+  ptf_ipv6: fec0::ffff:afb:2/64
+  server: server_1
+  vm_base: VM0132
+  dut:
+    - vlab-09
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-t0-4
+  group-name: vms6-7
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-07
+  ptf_ip: 10.250.0.118/24
+  ptf_ipv6: fec0::ffff:afb:4/64
+  server: server_1
+  vm_base: VM0136
+  dut:
+    - vlab-10
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-dual-mixed
+  group-name: vms6-8
+  topo: dualtor-mixed
+  ptf_image_name: docker-ptf
+  ptf: ptf-08
+  ptf_ip: 10.250.0.119/24
+  ptf_ipv6: fec0::ffff:afa:9/64
+  netns_mgmt_ip: 10.250.0.126/24
+  server: server_1
+  vm_base: VM0140
+  dut:
+    - vlab-11
+    - vlab-12
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Dual-TOR-Mixed testbed
+
+- conf-name: 8000e-t0
+  group-name: vms8-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-8k-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests 8000e sonic device
+
+- conf-name: 8000e-t1
+  group-name: vms8-1
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: ptf-8k-01
+  ptf_ip: 10.250.0.202/24
+  ptf_ipv6: fec0::ffff:afc:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-8k-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests 8000e sonic device

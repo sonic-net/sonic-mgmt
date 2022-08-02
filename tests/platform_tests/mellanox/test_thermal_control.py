@@ -2,6 +2,7 @@ import logging
 import operator
 import pytest
 import random
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
@@ -44,7 +45,7 @@ def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
             pytest.skip('The cooling level {} is higher than threshold {}.'.format(cooling_cur_state, COOLING_CUR_STATE_THRESHOLD))
 
         mocker = mocker_factory(duthost, 'MinTableMocker')
-
+        mocker.mock_normal_temperature()
         temperature = random.randint(0, max_temperature)
         trust_state = True if random.randint(0, 1) else False
         logger.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))
@@ -159,6 +160,39 @@ def test_psu_absence_policy(duthosts, rand_one_dut_hostname, mocker_factory):
     assert check_fan_speed(duthost, MAX_PWM), 'Fan speed is not turn to {}'.format(MAX_PWM)
 
 
+@pytest.mark.disable_loganalyzer
+def test_cpu_thermal_control(rand_selected_dut, mocker_factory):
+    duthost = rand_selected_dut
+    dut_platform = duthost.facts["platform"]
+    pytest_require(dut_platform == "x86_64-nvidia_sn4800-r0", 'This test case is only for platform x86_64-nvidia_sn4800-r0, skipping...')
+    mocker = mocker_factory(duthost, 'CpuThermalMocker')
+
+    temp_step = 1000
+    # Mock CPU temperature is lower than low threshold
+    mocker.mock_cpu_pack_temperature(mocker.LOW_THRESHOLD - temp_step)
+    wait_result = wait_until(10, 3, 0, check_cpu_cooling_state, mocker, mocker.MIN_COOLING_STATE)
+    pytest_assert(wait_result, 
+                  'CPU cooling state is not MIN when temperature is below low threshold')
+
+    # Mock CPU temperature is raising
+    mocker.mock_cpu_pack_temperature(mocker.LOW_THRESHOLD)
+    wait_result = wait_until(10, 3, 0, check_cpu_cooling_state, mocker, mocker.MIN_COOLING_STATE + 1)
+    pytest_assert(wait_result, 
+                  'CPU cooling state is not increasing when temperature is rasing')
+
+    # Mock CPU temperature is larger than high threshold
+    mocker.mock_cpu_pack_temperature(mocker.HIGH_THRESHOLD + temp_step)
+    wait_result = wait_until(10, 3, 0, check_cpu_cooling_state, mocker, mocker.MAX_COOLING_STATE)
+    pytest_assert(wait_result, 
+                  'CPU cooling state is not MAX increasing when temperature is beyond high threshold')
+
+    # Mock CPU temperature is decreasing
+    mocker.mock_cpu_pack_temperature(mocker.HIGH_THRESHOLD)
+    wait_result = wait_until(10, 3, 0, check_cpu_cooling_state, mocker, mocker.MAX_COOLING_STATE - 1)
+    pytest_assert(wait_result, 
+                  'CPU cooling state is not decreasing when temperature is decreasing')
+
+
 def _check_psu_fan_speed_in_range(actual_speed, max_speed, cooling_level):
     expect_speed = max_speed * cooling_level / 10.0
     logger.info('Expect speed: {}, actual speed: {}'.format(expect_speed, actual_speed))
@@ -270,3 +304,9 @@ def check_fan_speed(duthost, expect_value):
             logging.error('For file {}, Expect speed {}, but actual is {}'.format(file, expect_value, actual_speed))
             return False
     return True
+
+
+def check_cpu_cooling_state(mocker, expect_value):
+    actual_value = mocker.get_cpu_cooling_state()
+    logging.debug('Expect cpu cooling value is {}, actual value is {}'.format(expect_value, actual_value))
+    return actual_value == expect_value

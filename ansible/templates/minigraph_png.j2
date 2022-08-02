@@ -11,6 +11,9 @@
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+{% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
+        <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
+{% endif %}
       </DeviceLinkBase>
 {% endfor %}
 {% endfor %}
@@ -44,7 +47,10 @@
 {% endfor %}
 {% if 'dualtor' in topo %}
 {% set cable_position = 'U' if inventory_hostname == dual_tor_facts['positions']['upper'] else 'L' %}
+{% set mux_cable_facts = dual_tor_facts['mux_cable_facts'] if 'mux_cable_facts' in dual_tor_facts %}
 {% for cable in dual_tor_facts['cables'] %}
+{% set intf_index = port_alias.index(cable['dut_intf'])|string %}
+{% if mux_cable_facts is not defined or mux_cable_facts[intf_index]['cable_type'] == 'active-standby' %}
       <DeviceLinkBase>
         <ElementType>LogicalLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
@@ -52,6 +58,7 @@
         <StartDevice>{{ cable['hostname'] }}</StartDevice>
         <StartPort>{{ cable_position }}</StartPort>
       </DeviceLinkBase>
+{% endif %}
 {% endfor %}
 {% endif %}
 {% endif %}
@@ -77,7 +84,6 @@
 {% endfor %}
 {% endif %}
 {% for asic_intf in front_panel_asic_ifnames %}
-{% if inventory_hostname not in device_conn or port_alias[loop.index - 1] in device_conn[inventory_hostname] %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
 {% if port_alias[loop.index - 1] in port_speed %}
@@ -93,7 +99,6 @@
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
         <Validate>true</Validate>
       </DeviceLinkBase>
-{% endif %}
 {% endfor %}
 {% endif %}
     </DeviceInterfaceLinks>
@@ -135,13 +140,8 @@
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
-{% set server_base_address_v4 = (vlan_configs.values() | list)[0]['prefix'] %}
-{% set server_base_address_v4 = server_base_address_v4 | ipaddr('network') %}
-{% set server_base_address_v4 = '.'.join(server_base_address_v4.split('.')[:-1]) + '.{}' %}
-{% set server_base_address_v6 = (vlan_configs.values() | list)[0]['prefix_v6'] %}
-{% set server_base_address_v6 = server_base_address_v6 | ipaddr('network') %}
-{% set server_base_address_v6 = ':'.join(server_base_address_v6.split(':')[:-1]) + ':{:x}' %}
 {% for cable in dual_tor_facts['cables'] %}
+{% set intf_index = port_alias.index(cable['dut_intf'])|string %}
       <Device i:type="SmartCable">
         <ElementType>SmartCable</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
@@ -162,10 +162,10 @@
       <Device i:type="Server">
         <ElementType>Server</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ server_base_address_v4.format(loop.index + 1) }}/26</d5p1:IPPrefix>
-        </Address> 
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv4'].split('/')[0] }}/26</d5p1:IPPrefix>
+        </Address>
         <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
-          <d5p1:IPPrefix>{{ server_base_address_v6.format(loop.index + 1) }}/96</d5p1:IPPrefix>
+          <d5p1:IPPrefix>{{ dual_tor_facts['mux_cable_facts'][intf_index]['server_ipv6'].split('/')[0] }}/96</d5p1:IPPrefix>
         </AddressV6>
         <ManagementAddress xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>0.0.0.0/0</d5p1:IPPrefix>
