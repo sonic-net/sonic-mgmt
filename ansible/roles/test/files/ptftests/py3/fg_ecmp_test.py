@@ -162,8 +162,8 @@ class FgEcmpTest(BaseTest):
         self.router_mac = graph['dut_mac']
         self.num_flows = graph['num_flows']
         self.inner_hashing = graph['inner_hashing']
-        self.src_ipv4_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV4_SRC_IP_RANGE[1])))
-        self.src_ipv6_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[0])), ipaddress.ip_address(unicode(IPV6_SRC_IP_RANGE[1])))
+        self.src_ipv4_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(str(IPV4_SRC_IP_RANGE[0])), ipaddress.ip_address(str(IPV4_SRC_IP_RANGE[1])))
+        self.src_ipv6_interval = lpm.LpmDict.IpInterval(ipaddress.ip_address(str(IPV6_SRC_IP_RANGE[0])), ipaddress.ip_address(str(IPV6_SRC_IP_RANGE[1])))
         self.vxlan_port = graph['vxlan_port']
 
         self.log(self.net_ports)
@@ -188,7 +188,7 @@ class FgEcmpTest(BaseTest):
 
     #---------------------------------------------------------------------
     def test_balancing(self, hit_count_map):
-        for port, exp_flows in self.exp_flow_count.items():
+        for port, exp_flows in list(self.exp_flow_count.items()):
             assert port in hit_count_map
             num_flows = hit_count_map[port]
             deviation = float(num_flows)/float(exp_flows)
@@ -199,7 +199,7 @@ class FgEcmpTest(BaseTest):
 
 
     def fg_ecmp(self):
-        ipv4 = isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')),
+        ipv4 = isinstance(ipaddress.ip_address(self.dst_ip),
                 ipaddress.IPv4Address)
         # initialize all parameters
         if self.inner_hashing:
@@ -219,7 +219,7 @@ class FgEcmpTest(BaseTest):
                 try:
                     tuple_to_port_map = json.load(fp)
                 except ValueError:
-                    print 'Decoding JSON failed for persist map'
+                    print('Decoding JSON failed for persist map')
                     assert False
 
         if tuple_to_port_map is None or self.dst_ip not in tuple_to_port_map:
@@ -246,7 +246,7 @@ class FgEcmpTest(BaseTest):
 
         elif self.test_case == 'initial_hash_check':
             self.log("Ensure that flow to port map is maintained when the same flow is re-sent...")
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -260,7 +260,7 @@ class FgEcmpTest(BaseTest):
         elif self.test_case == 'hash_check_warm_boot':
             self.log("Ensure that flow to port map is maintained when the same flow is re-sent...")
             total_flood_pkts = 0
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -299,7 +299,7 @@ class FgEcmpTest(BaseTest):
 
         elif self.test_case == 'bank_check':
             self.log("Send the same flows once again and verify that they end up on the same bank...")
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -319,7 +319,7 @@ class FgEcmpTest(BaseTest):
                 withdraw_port_grp = self.exp_port_set_one
             else:
                 withdraw_port_grp = self.exp_port_set_two
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -341,7 +341,7 @@ class FgEcmpTest(BaseTest):
                 add_port_grp = self.exp_port_set_one
             else:
                 add_port_grp = self.exp_port_set_two
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -361,7 +361,7 @@ class FgEcmpTest(BaseTest):
                 active_port_grp = self.exp_port_set_two
             else:
                 active_port_grp = self.exp_port_set_one
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -382,7 +382,7 @@ class FgEcmpTest(BaseTest):
             else:
                 active_port_grp = self.exp_port_set_one
 
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.net_ports)
                 else:
@@ -402,7 +402,7 @@ class FgEcmpTest(BaseTest):
         elif self.test_case == 'net_port_hashing':
             self.log("Send packets destined to network ports and ensure hash distribution is as expected")
 
-            for src_ip, port in tuple_to_port_map[self.dst_ip].iteritems():
+            for src_ip, port in tuple_to_port_map[self.dst_ip].items():
                 if self.inner_hashing:
                     in_port = random.choice(self.serv_ports)
                 else:
