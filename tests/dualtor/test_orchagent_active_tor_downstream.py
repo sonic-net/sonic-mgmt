@@ -85,7 +85,7 @@ def test_active_tor_remove_neighbor_downstream_active(
                 yield
         finally:
             ptfhost.shell("supervisorctl start %s" % neighbor_advertise_process)
-            duthost.shell("timeout 0.2 ping -c1 -W1 -i0 -n -q {} || true".format(server_ip))
+            duthost.shell("docker exec -it swss supervisorctl restart arp_update")
 
     try:
         removed_neighbor = {}
