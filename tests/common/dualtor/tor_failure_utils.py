@@ -139,3 +139,22 @@ def wait_for_device_reachable(localhost):
         logger.info("SSH started on {}".format((duthost.hostname)))
 
     return wait_for_device_reachable
+
+
+@pytest.fixture
+def shutdown_bgp_sessions():
+    """Shutdown all bgp sessions on a device."""
+    duthosts = []
+
+    def _shutdown_bgp_sessions(duthost):
+        duthosts.append(duthost)
+        bgp_neighbors = duthost.get_bgp_neighbors()
+        logger.info("Shutdown all BGP sessions on {}".format(duthost.hostname))
+        duthost.shell("config bgp shutdown all")
+
+    yield _shutdown_bgp_sessions
+
+    time.sleep(1)
+    for duthost in duthosts:
+        logger.info("Startup all BGP sessions on {}".format(duthost.hostname))
+        duthost.shell("config bgp startup all")
