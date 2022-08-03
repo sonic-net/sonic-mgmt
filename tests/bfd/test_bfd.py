@@ -7,8 +7,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_r
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from pkg_resources import parse_version
-from tests.common import constants
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
