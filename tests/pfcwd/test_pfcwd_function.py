@@ -692,7 +692,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] == "mellanox":
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000"]:
             self.rx_action = "forward"
         else:
             self.rx_action = action
