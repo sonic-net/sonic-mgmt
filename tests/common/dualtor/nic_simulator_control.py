@@ -5,8 +5,6 @@ import time
 import collections
 import logging
 
-from collections import Iterable
-
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                     # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import mux_config                     # lgtm[py/unused-import]
@@ -138,7 +136,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
     def _get_mux_status(ports=None):
         if ports is None:
             ports = active_active_ports.keys()
-        elif isinstance(ports, Iterable):
+        elif isinstance(ports, collections.Iterable):
             ports = list(ports)
         else:
             ports = [str(ports)]
