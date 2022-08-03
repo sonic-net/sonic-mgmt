@@ -4,7 +4,7 @@ pdu-121,48,str2-7050cx3-acs-01,PSU2
 pdu-121,36,str2-7050cx3-acs-02,PSU1
 pdu-121,35,str2-7050cx3-acs-02,PSU2
 pdu-117,32,str2-7050cx3-acs-03,PSU1
-pdu-118,32,str2-7050cx3-acs-03,PSU2
+pdu-118,31,str2-7050cx3-acs-03,PSU2
 pdu-120,15,str2-7050cx3-acs-06,PSU1
 pdu-119,21,str2-7050cx3-acs-06,PSU2
 pdu-120,17,str2-7050cx3-acs-07,PSU1
