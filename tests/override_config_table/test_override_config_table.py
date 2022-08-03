@@ -161,6 +161,24 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
         )
 
 
+def load_minigraph_with_golden_empty_table_removal(duthost):
+    """Test Golden Config with empty table removal.
+
+    Here we assume all config contain SYSLOG_SERVER table
+    """
+    empty_table_removal = {
+        "SYSLOG_SERVER": {
+        }
+    }
+    reload_minigraph_with_golden_config(duthost, empty_table_removal)
+
+    current_config = get_running_config(duthost)
+    pytest_assert(
+        current_config.get('SYSLOG_SERVER', None) is None,
+        "Empty table removal fail: {}".format(current_config['SYSLOG_SERVER'])
+    )
+
+
 def test_load_minigraph_with_golden_config(duthost, setup_env):
     """Test Golden Config override during load minigraph
     """
