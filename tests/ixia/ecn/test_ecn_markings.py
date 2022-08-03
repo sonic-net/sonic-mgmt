@@ -16,7 +16,7 @@ from common.cisco_data import setup_ecn_markings_dut, get_ecn_markings_dut
 # percent linerate to use in the test.
 TRAFFIC_RATE = 51
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
 
 @pytest.fixture(autouse=True, scope="module")
 def store_ecn_markings_dut(duthost, localhost):
@@ -89,82 +89,69 @@ def test_ecn_markings(request,
     duthost = duthosts[rand_one_dut_hostname]
     lossless_prio = int(lossless_prio)
 
-    setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = dequeue_marking, ecn_latency_marking = latency_marking)
+    setup_ecn_markings_dut(duthost, localhost, 
+                           ecn_dequeue_marking=dequeue_marking,
+                           ecn_latency_marking=latency_marking)
     stop_debug_shell(duthost)
-
-    result_file_name = 'ecn_marking_result'
-    result_file_name += ("_lat" if latency_marking else "")
-    result_file_name += ("_deq" if dequeue_marking else "")
-    result_file_name += "_{}to1_{}_{}_{}.txt".format(number_of_transmit_ports, kmin, kmax, pmax)
 
     csv_file_name = 'mark_data.csv'
 
     duthost.shell("sonic-clear pfccounters")
     duthost.shell("sonic-clear queuecounters")
-    # TODO: This will be enabled when the PR for get_sai_attributes is approved: https://github.com/Azure/sonic-mgmt/pull/6040
+    # TODO: This will be enabled when the PR for get_sai_attributes is approved:
+    # https://github.com/Azure/sonic-mgmt/pull/6040
     #get_sai_attributes(duthost, ptfhost, dut_port, [], clear_only=True)
     traffic_rate = TRAFFIC_RATE/number_of_transmit_ports
 
-    ip_pkts_list = run_ecn_test(api=ixia_api,
-                                        testbed_config=testbed_config,
-                                        port_config_list=port_config_list,
-                                        conn_data=conn_graph_facts,
-                                        fanout_data=fanout_graph_facts,
-                                        duthost=duthost,
-                                        dut_port=dut_port,
-                                        kmin=kmin,
-                                        kmax=kmax,
-                                        pmax=pmax,
-                                        pkt_size=pkt_size,
-                                        lossless_prio=lossless_prio,
-                                        prio_dscp_map=prio_dscp_map,
-                                        iters=1,
-                                        xoff_quanta=xoff_quanta,
-        				traffic_rate=traffic_rate,
-                                        number_of_transmit_ports=number_of_transmit_ports,
-                                        single_pause=True)
-    time.sleep(8)
-    queue_values = duthost.shell("show queue count {}".format(dut_port))['stdout']
+    run_ecn_test(api=ixia_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts,
+                 duthost=duthost,
+                 dut_port=dut_port,
+                 kmin=kmin,
+                 kmax=kmax,
+                 pmax=pmax,
+                 pkt_size=pkt_size,
+                 lossless_prio=lossless_prio,
+                 prio_dscp_map=prio_dscp_map,
+                 iters=1,
+                 xoff_quanta=xoff_quanta,
+                 traffic_rate=traffic_rate,
+                 number_of_transmit_ports=number_of_transmit_ports,
+                 single_pause=True)
 
+    time.sleep(8)
+    sai_values = None
     total = "N/A"
     marked_pkts = "N/A"
 
-    # TODO:This will be enabled when the PR for get_sai_attributes is approved: https://github.com/Azure/sonic-mgmt/pull/6040
-    #sai_values = get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
-    # sai_values will be a string in this format:
-    # u'[[6, 0], [0, 0], [0, 0], [6106320, 2969], [0, 0], [0, 0], [0, 0], [0, 0]]'
-    # This contains the pair of total and marked packets for each of the priorities.
-    # We have to pick the one we need.
+    # TODO:This will be enabled when the PR for get_sai_attributes is approved:
+    # https://github.com/Azure/sonic-mgmt/pull/6040
+    #sai_values = get_sai_attributes(duthost, ptfhost, dut_port,
+    #                    ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
     if sai_values:
-        value_list =  eval(sai_values[0])
+        value_list = eval(sai_values[0])
         total = value_list[lossless_prio][0]
         marked_pkts = value_list[lossless_prio][1]
 
     print("The SAI attributes in the DUT:{}".format(sai_values))
     print("Xoff = {}".format(xoff_quanta))
     print("pmax = {}".format(pmax))
-    with open(result_file_name, "a") as fd:
-        fd.write("-------------------------------------------------------------\n")
-        fd.write("kmin={}, kmax={}, pmax={} \n".format(kmin, kmax, pmax))
-        fd.write("latency_marking = {}. dequeue_marking={}, Xoff={}\n".format(latency_marking, dequeue_marking, xoff_quanta))
-        fd.write("The SAI attributes in the DUT:{}\n".format(sai_values))
-        fd.write("The queue counter values in the DUT:\n{}\n".format(queue_values))
-        fd.write("-------------------------------------------------------------\n")
 
     with open(csv_file_name, "a") as fd:
-        fd.write("{time_stamp},{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{total},{marked}\n".format(
-            time_stamp = str(datetime.datetime.now()),
-            rate = traffic_rate,
-            deq = dequeue_marking,
-            lat = latency_marking,
-            tx_ports = number_of_transmit_ports,
-            kmax = kmax,
-            kmin = kmin,
-            pmax = pmax,
-            xoff_quanta = xoff_quanta,
-            total = total,
-            marked = marked_pkts))
+        fd.write("{tx_ports},{rate},{deq},{lat},{kmax},{kmin},{pmax},{xoff_quanta},{total},{marked},{time_stamp}\n".format(
+            time_stamp=str(datetime.datetime.now()),
+            rate=traffic_rate,
+            deq=dequeue_marking,
+            lat=latency_marking,
+            tx_ports=number_of_transmit_ports,
+            kmax=kmax,
+            kmin=kmin,
+            pmax=pmax,
+            xoff_quanta=xoff_quanta,
+            total=total,
+            marked=marked_pkts))
 
     print("test done")
-
-

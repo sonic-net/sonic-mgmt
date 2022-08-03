@@ -42,16 +42,16 @@ def run_ecn_test(api,
                  kmin,
                  kmax,
                  pmax,
-                 pkt_size,
+                 data_pkt_size,
                  lossless_prio,
                  prio_dscp_map,
                  iters,
                  pkt_cnt=NUMBER_OF_TEST_PACKETS,
                  xoff_quanta=65535,
-                 traffic_rate=None,
+                 data_traffic_rate=None,
                  number_of_transmit_ports=1,
-                 pause_delay=0,
-                 single_pause=False):
+                 pfc_storm_start_delay=0,
+                 pfc_count=0):
     """
     Run a ECN test
 
@@ -66,16 +66,16 @@ def run_ecn_test(api,
         kmin (int): RED/ECN minimum threshold in bytes
         kmax (int): RED/ECN maximum threshold in bytes
         pmax (int): RED/ECN maximum marking probability in percentage
-        pkt_size (int): data packet size in bytes
-        pkt_cnt (int): data packet count, Default:2100, will be superseded by traffic_rate if traffic_rate is set.
+        data_pkt_size (int): data packet size in bytes
+        pkt_cnt (int): data packet count, Default:2100, will be superseded by data_traffic_rate if data_traffic_rate is set.
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         iters (int): # of iterations in the test
         xoff_quanta: Value of xoff Quanta to use(default: 65535).
-        traffic_rate: Rate of traffic instead of pkt_count. Supersedes pkt_count. This also disables capture config for now.
+        data_traffic_rate: Rate of traffic instead of pkt_count. Supersedes pkt_count. This also disables capture config for now.
         number_of_transmit_ports: How many ports should we start the traffic from. Default:1 (one-to-one).
-        pause_delay: The delay in microseconds before pause frames can be started.
-        single_pause: Should we send a single pause packet, or more? Default: False
+        pfc_storm_start_delay: The delay in microseconds before pause frames can be started.
+        pfc_count: Count of pfc packets to send. 0 means continuous. Default: 0. 
 
     Returns:
         Return captured IP packets (list of list)
@@ -115,7 +115,7 @@ def run_ecn_test(api,
                   'Failed to get ID for port {}'.format(dut_port))
 
     capture_config = None
-    if not traffic_rate:
+    if not data_traffic_rate:
         """ Generate packet capture config """
         capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
@@ -132,15 +132,15 @@ def run_ecn_test(api,
                           port_id=port_id,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           prio=lossless_prio,
-                          data_pkt_size=pkt_size,
+                          data_pkt_size=data_pkt_size,
                           data_pkt_cnt=pkt_cnt,
                           data_flow_delay_sec=DATA_START_DELAY_SEC,
                           exp_dur_sec=EXP_DURATION_SEC,
                           prio_dscp_map=prio_dscp_map,
                           xoff_quanta=xoff_quanta,
-                          traffic_rate=traffic_rate,
-                          pause_delay=pause_delay,
-                          single_pause=single_pause,
+                          data_traffic_rate=data_traffic_rate,
+                          pfc_storm_start_delay=pfc_storm_start_delay,
+                          pfc_count=pfc_count,
                           **name_options)
 
     """ Tgen config = testbed config + flow config + capture config"""
@@ -185,9 +185,9 @@ def __gen_traffic(testbed_config,
                   prio_dscp_map,
                   data_pkt_cnt=2100,
                   xoff_quanta=65535,
-                  traffic_rate=None,
-                  pause_delay=0,
-                  single_pause=False):
+                  data_traffic_rate=None,
+                  pfc_storm_start_delay=0,
+                  pfc_count=0):
 
     """
     Generate configurations of flows, including a data flow and a PFC pause storm.
@@ -204,9 +204,9 @@ def __gen_traffic(testbed_config,
         exp_dur_sec (float): experiment duration in second
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         xoff_quanta (int): Xoff quanta to use for xoff packets. Default 65535.
-        traffic_rate (int): Rate of traffic in percentage line rate. Default 100.
-        pause_delay (int): milliseconds delay for pause frame. Default:0(No delay).
-        single_pause: Should there only one pause, or more? Default: False
+        data_traffic_rate (int): Rate of traffic in percentage line rate. Default 100.
+        pfc_storm_start_delay (int): milliseconds delay for pause frame. Default:0(No delay).
+        pfc_count: Number of pfc packets to send. 0 means continuous. Default:0
     Returns:
         Configurations of the data flow and the PFC pause storm (list)
     """
@@ -254,7 +254,7 @@ def __gen_traffic(testbed_config,
                               dst=FieldPattern(rx_port_config.ip),
                               priority=ip_prio)
         duration = {}
-        if traffic_rate:
+        if data_traffic_rate:
             duration['duration'] = Duration(FixedSeconds(seconds=exp_dur_sec,
                                            delay=0,
                                            delay_unit='nanoseconds'))
@@ -268,7 +268,7 @@ def __gen_traffic(testbed_config,
             tx_rx=TxRx(data_endpoint),
             packet=[Header(choice=eth_hdr), Header(choice=ipv4_hdr)],
             size=Size(data_pkt_size),
-            rate=Rate('line', (traffic_rate or 51)),
+            rate=Rate('line', (data_traffic_rate or 51)),
             **duration
            )
 
@@ -306,15 +306,15 @@ def __gen_traffic(testbed_config,
     pause_dur = xoff_quanta * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
 
-    if single_pause:
+    if pfc_count:
         pause_flow = Flow(
             name=pause_flow_name,
             tx_rx=TxRx(pause_endpoint),
             packet=[pause_pkt],
             size=Size(64),
             rate=Rate('pps', value=pps),
-            duration=Duration(FixedPackets(packets=1,
-                                           delay=pause_delay,
+            duration=Duration(FixedPackets(packets=pfc_count,
+                                           delay=pfc_storm_start_delay,
                                            delay_unit='nanoseconds')))
     else:
         pause_flow = Flow(
@@ -324,7 +324,7 @@ def __gen_traffic(testbed_config,
             size=Size(64),
             rate=Rate('pps', value=pps),
             duration=Duration(FixedSeconds(seconds=exp_dur_sec,
-                                       delay=pause_delay,
+                                       delay=pfc_storm_start_delay,
                                        delay_unit='nanoseconds')))
     result.append(pause_flow)
 
