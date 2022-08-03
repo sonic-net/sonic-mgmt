@@ -16,22 +16,23 @@ sum = {"passx": 0, "total": 0, "failed": 0, "passed": 0, "aborted": 0, "blocked"
 lines = full_report.readlines()
 total_line = lines[-1]
 
-for item in total_line.split(",")[1:]:
-    num, cat = item.strip().split(" ")
-    #print("num %s, cat %s, sum %s" %(num, cat, sum))
-    if cat == "Total":
-        sum["total"] += int(num)
-    elif cat == "Passed":
-        sum["passed"] += int(num)
-    elif cat == "Failed":
-        sum["failed"] += int(num)
-    elif cat == "SKip":
-        sum["skipped"] += int(num)
-    elif cat == "Error":
-        sum["errored"] += int(num)
+if total_line.startswith("Total"):
+    for item in total_line.split(",")[1:]:
+        num, cat = item.strip().split(" ")
+        #print("num %s, cat %s, sum %s" %(num, cat, sum))
+        if cat == "Total":
+            sum["total"] += int(num)
+        elif cat == "Passed":
+            sum["passed"] += int(num)
+        elif cat == "Failed":
+            sum["failed"] += int(num)
+        elif cat == "SKip":
+            sum["skipped"] += int(num)
+        elif cat == "Error":
+            sum["errored"] += int(num)
 
-    if sum["total"] > 0:
-        sum["success_rate"] = sum["passed"] / sum["total"]
+        if sum["total"] > 0:
+            sum["success_rate"] = sum["passed"] / sum["total"]
 
 sum_f = open("../../" + SUMMARY_REPORT_FILENAME, "w")
 com_f = open("../../" + COMMON_REPORT_FILENAME, "w")
