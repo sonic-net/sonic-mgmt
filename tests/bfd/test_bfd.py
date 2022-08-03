@@ -281,7 +281,7 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         update_idx = random.choice(range(bfd_session_cnt))
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
-        time.sleep(1)
+        time.sleep(3)
 
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
