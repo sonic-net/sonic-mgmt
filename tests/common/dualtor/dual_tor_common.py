@@ -7,7 +7,7 @@ __all__ = [
     'cable_type',
     'CableType',
     'mux_config',
-    'active_standby_port',
+    'active_standby_ports',
     'active_active_ports'
 ]
 
@@ -20,13 +20,19 @@ class CableType(object):
 
 
 @pytest.fixture(params=[CableType.active_standby, CableType.active_active])
-def cable_type(request):
+def cable_type(request, active_active_ports, active_standby_ports):
     """Dualtor cable type."""
+    cable_type = request.param
     has_enable_active_active_marker = bool([_ for _ in request.node.iter_markers() if _.name == "enable_active_active"])
-    if ((not has_enable_active_active_marker) and (request.param == CableType.active_active)):
+    if ((not has_enable_active_active_marker) and (cable_type == CableType.active_active)):
         pytest.skip("Skip cable type 'active-active'")
 
-    return request.param
+    if cable_type == CableType.active_active and not active_active_ports:
+        pytest.skip("Skip as no mux ports of 'active-active' cable type")
+    elif cable_type == CableType.active_standby and not active_standby_ports:
+        pytest.skip("Skip as no mux ports of 'active-standby' cable type")
+
+    return cable_type
 
 
 @pytest.fixture(scope="session")
@@ -54,13 +60,13 @@ def active_active_ports(mux_config, tbinfo):
 
 
 @pytest.fixture(scope="session")
-def active_standby_port(mux_config, tbinfo):
+def active_standby_ports(mux_config, tbinfo):
     if 'dualtor' not in tbinfo['topo']['name']:
         return []
 
     active_standby_ports = []
     for port, port_config in mux_config.items():
         if port_config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_standby:
-            active_active_ports.append(port)
+            active_standby_ports.append(port)
 
     return active_standby_ports
