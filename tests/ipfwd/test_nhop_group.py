@@ -15,7 +15,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -454,7 +453,8 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     # Generate ARP entries
     arp_count = 8
     arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
-
+    neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
+    original_ip_mac_list = arplist.ip_mac_list[:]
     ip_route = "192.168.100.50"
     ip_prefix = ip_route + "/31"
     ip_ttl = 121
@@ -492,15 +492,33 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
             # Make sure routing is done
             pytest_assert(Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
             pytest_assert(Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
-            neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
             pytest_assert(Ether(recv_pkt).dst.lower() in neighbor_mac, "Routed Packet Destination Mac not valid neighbor entry")
-
             # Add the receive port index and reviced dest mac (Nexthop identify property) to the dictionary
             recvd_pkt_result[(recv_port_idx,Ether(recv_pkt).dst)] += 1
-
         finally:
             nhop.delete_routes()
             arplist.clean_up()
 
     # make sure we should have only one element in dict.
     pytest_assert(len(recvd_pkt_result.keys()) == 1, "Error Same flow recevied on different nexthop")
+    neighbor_ip_selected = original_ip_mac_list[neighbor_mac.index(Ether(recv_pkt).dst.lower())][0]
+
+    # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
+    # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
+    # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
+
+    # Fill this array after first run of test case which will give neighbor selected
+    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = { "th": "172.16.0.16" }
+
+    vendor = duthost.facts["asic_type"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    dutAsic = None
+    for asic,nbr_ip in SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items():
+        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+        if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+            dutAsic = asic
+            break
+
+    pytest_assert(dutAsic, "Please add ASIC in the above list and update the asic to neighbor mapping")
+    pytest_assert(neighbor_ip_selected == nbr_ip, "Flow is not picking expected Neighbor")
