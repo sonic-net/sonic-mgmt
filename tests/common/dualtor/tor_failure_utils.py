@@ -148,7 +148,6 @@ def shutdown_bgp_sessions():
 
     def _shutdown_bgp_sessions(duthost):
         duthosts.append(duthost)
-        bgp_neighbors = duthost.get_bgp_neighbors()
         logger.info("Shutdown all BGP sessions on {}".format(duthost.hostname))
         duthost.shell("config bgp shutdown all")
 
