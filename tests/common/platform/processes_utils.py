@@ -38,12 +38,13 @@ def check_critical_processes(dut, watch_secs=0):
             time.sleep(min(5, watch_secs))
         watch_secs = watch_secs - 5
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, timeout=300, interval=20, delay=0, use_assert=True):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical processes are healthy")
-    pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
-                  "Not all critical processes are healthy")
-
+    critical_processes_result = wait_until(timeout, interval, delay, _all_critical_processes_healthy, dut)
+    if use_assert:
+        pytest_assert(critical_processes_result, "Not all critical processes are healthy")
+    return critical_processes_result
