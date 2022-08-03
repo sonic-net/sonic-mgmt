@@ -103,7 +103,7 @@ class CeosNetwork(object):
             int_if (str): Internal interface of the veth pair. It is added to docker namespace.
         """
         logging.info("=== Create veth pair %s and %s. Add %s to docker with Pid %s as %s ===" %
-            (ext_if, t_int_if, int_if, self.pid, t_int_if))
+            (ext_if, t_int_if, t_int_if, self.pid, int_if))
 
         if CeosNetwork.intf_exists(ext_if) and CeosNetwork.intf_not_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link del %s" % ext_if)
