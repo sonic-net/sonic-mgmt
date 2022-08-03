@@ -1366,22 +1366,3 @@ def is_tunnel_qos_remap_enabled(duthost):
         return False
     return "enabled" == tunnel_qos_remap_status
 
-def is_port_with_4_lossless_queues(duthost, port, tbinfo):
-    """
-    Check whether the port has 4 lossless queues
-    If tunnel_qos_ramap is enables, there are 4 lossless queues for ports between T0 and T1
-    """
-    if not is_tunnel_qos_remap_enabled(duthost):
-        return False
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    topo = tbinfo['topo']['type']
-    if 't1' in topo:
-        peer_name = 't0'
-    elif 't0' in topo:
-        peer_name = 't1'
-    else:
-        return False
-
-    if port in config_facts['DEVICE_NEIGHBOR'] and peer_name in config_facts['DEVICE_NEIGHBOR'][port]['name'].lower():
-        return True
-    return False
