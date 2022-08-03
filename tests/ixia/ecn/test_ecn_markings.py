@@ -46,7 +46,28 @@ def stop_debug_shell(duthost):
 @pytest.mark.parametrize('kmax', [500000])
 @pytest.mark.parametrize('data_pkt_size', [1024])
 @pytest.mark.parametrize('dequeue_marking,latency_marking', [(True, True), (False, True)])
-def test_ecn_markings(request, ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts, duthosts, ptfhost, localhost, rand_one_dut_hostname, rand_one_dut_portname_oper_up, rand_one_dut_lossless_prio, prio_dscp_map, store_ecn_markings_dut, create_marking_data_file, dequeue_marking, latency_marking, number_of_transmit_ports, kmin, kmax, data_pkt_size, pmax, xoff_quanta):
+def test_ecn_markings(request,
+                      ixia_api,
+		      ixia_testbed_config,
+		      conn_graph_facts,
+		      fanout_graph_facts,
+		      duthosts,
+		      ptfhost,
+		      localhost,
+		      rand_one_dut_hostname,
+		      rand_one_dut_portname_oper_up,
+		      rand_one_dut_lossless_prio,
+		      prio_dscp_map,
+		      store_ecn_markings_dut,
+		      create_marking_data_file,
+		      dequeue_marking,
+		      latency_marking,
+		      number_of_transmit_ports,
+		      kmin,
+		      kmax,
+		      pmax,
+		      data_pkt_size,
+		      xoff_quanta):
     """
     Measure ECN marking accuracy of the device under test (DUT).
     ECN marking results into a file.
@@ -91,21 +112,21 @@ def test_ecn_markings(request, ixia_api, ixia_testbed_config, conn_graph_facts, 
     run_ecn_test(api=ixia_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
-		 conn_data=conn_graph_facts,
-		 fanout_data=fanout_graph_facts,
-		 duthost=duthost,
-		 dut_port=dut_port,
-		 kmin=kmin,
-		 kmax=kmax,
-		 pmax=pmax,
-		 data_pkt_size=data_pkt_size,
-		 lossless_prio=lossless_prio,
-		 prio_dscp_map=prio_dscp_map,
-		 iters=1,
-		 xoff_quanta=xoff_quanta,
-		 data_traffic_rate=data_traffic_rate,
-		 number_of_transmit_ports=number_of_transmit_ports,
-		 pfc_pkt_count=1)
+        	 conn_data=conn_graph_facts,
+        	 fanout_data=fanout_graph_facts,
+        	 duthost=duthost,
+        	 dut_port=dut_port,
+        	 kmin=kmin,
+        	 kmax=kmax,
+        	 pmax=pmax,
+        	 data_pkt_size=data_pkt_size,
+        	 lossless_prio=lossless_prio,
+        	 prio_dscp_map=prio_dscp_map,
+        	 iters=1,
+        	 xoff_quanta=xoff_quanta,
+        	 data_traffic_rate=data_traffic_rate,
+        	 number_of_transmit_ports=number_of_transmit_ports,
+        	 pfc_pkt_count=1)
     time.sleep(8)
 
     sai_values = None
@@ -124,16 +145,16 @@ def test_ecn_markings(request, ixia_api, ixia_testbed_config, conn_graph_facts, 
     print ('pmax = {}').format(pmax)
     with open(MARKING_DATA_FILE, 'a') as (fd):
         fd.write(('{tx_ports},{rate},{deq},{lat},{data_pkt_size},{kmin},{kmax},{pmax},{xoff_quanta},{total},{marked},{time_stamp}\n').format(
-	         time_stamp=str(datetime.datetime.now()),
-		 rate=data_traffic_rate,
-		 deq=dequeue_marking,
-		 lat=latency_marking,
-		 data_pkt_size=data_pkt_size,
-		 tx_ports=number_of_transmit_ports,
-		 kmax=kmax,
-		 kmin=kmin,
-		 pmax=pmax,
-		 xoff_quanta=xoff_quanta,
-		 total=total,
-		 marked=marked_pkts))
+                 time_stamp=str(datetime.datetime.now()),
+        	 rate=data_traffic_rate,
+        	 deq=dequeue_marking,
+        	 lat=latency_marking,
+        	 data_pkt_size=data_pkt_size,
+        	 tx_ports=number_of_transmit_ports,
+        	 kmax=kmax,
+        	 kmin=kmin,
+        	 pmax=pmax,
+        	 xoff_quanta=xoff_quanta,
+        	 total=total,
+        	 marked=marked_pkts))
     print 'test done'
