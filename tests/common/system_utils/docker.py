@@ -193,7 +193,6 @@ def _perform_swap_syncd_shutdown_check(duthost):
         if any([
             duthost.is_container_running("syncd"),
             duthost.is_container_running("swss"),
-            not duthost.is_bgp_state_idle()
         ]):
             return False
 
