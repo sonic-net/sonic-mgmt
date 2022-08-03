@@ -55,7 +55,7 @@ def testbed_setup(ip_version, ptfhost, rand_selected_dut, rand_unselected_dut, t
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost, testbed_setup,
     rand_selected_dut, tbinfo,
-    set_crm_polling_interval,
+    require_mocked_dualtor, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
