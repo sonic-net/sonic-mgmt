@@ -37,55 +37,33 @@ The following section describes how to store and process the expected fabric lin
 
 The above diagram illustrates an example system under test. Every forwarding ASIC is connected to every fabric ASIC.
 
-The expected fabric link status is stored in the last section of testbed.yaml file, which is called fabric_link_toplogy. This testbad.yaml file is generated dynamically when running the tests on a system. Each vendor provides their own expected fabric link information and stores in the format defined in the yaml file.  The expected status is provided per host and per ASIC, and the format is as follows:
+The expected fabric link information is stored in seperate yaml files per SKU per slot. The filename is in the format of LinecardSKU_FabriccardSKU_LC<slotNumber>.yaml. In each file the information is stored per ASIC. An example is shown in the following table.
 
 ```
-host:
-  asic:
-      link_id:
-         status: <connected/not_connected>
-         peer_asic: <asic id>
-         peer_id: <link id>
+asic:
+    link_id:
+       peer asic: <asic id>
+       peer lk: <link id>
+       peer slot: <slot number>
 ```
-Initially, testbed.yaml will contain fabric link status, such as whether or not links are connected. In the future, this information may be extended to contain fabric link connection information.
+This can be extended later for other fabric link related testing.
 
-In the above diagram, fabric link 105 on ASIC 0 of Fabric1 connects to fabric link 0 on ASIC 0 of Linecard5. The corresponding link status information as stored in testbed.yaml file will be encoded as follows:
+The files are stored in tests/voq/fabric_data, and only used by fabric testing right now. 
 
-```
-# fabric_link_topology dictionary contains information about fabric serdes links
-# topology (which fabric link is expected to be up etc.)
-# fabric_link_topology is used to generate sonic_lab_fabric_links
-# fabric_link_topology dictionary does not cross reference with other files 
-fabric_link_topology:                      # source: sonic-mgmt/ansible/files/sonic_lab_fabric_links.csv
-  nfc407-5:
-     asic0:   
-         0: 
-           status: connected
-           peer_asic: 0
-           peer_id: 105
-           ...
-  ...
-  nfc407:
-     asic0:   
-         ...
-         105: 
-           status: connected
-           peer_asic: 0
-           peer_id: 0
-  ...
-```
-
-TestbedProcessing.py parses and processes the fabric_link_topology section and subsequently generates the output in files/sonic_lab_fabric_links.csv.
-
-An excerpt of the generated output (/files/sonic_lab_fabric_links.csv) for the example link described earlier is as follows:
+For example, Linecard3 Fap0 fabric serdes link 0 connects to Fabriccard3 FE0 serdes link 133 in a test system. The sku of Linecard 3 is 7800R3A-36D2-C72 and the sku of the Fabriccard is 7808R3A-FM. The information is stored in tests/voq/fabric_data/7800R3A-36D2-C72_7808R3A-FM_LC3.yaml:
 
 ```
-device,asic,link,status,peer_asic,peer_link
-nfc407-5,0,0,connected,0,105
-...
+asic0:               ----> Fap0
+    0:               ----> serdes link 0 on Fap0
+      peer asic: 0   ----> peer asic: Fe0
+      peer lk: 133   ----> serdes 133 on Fe0
+      peer slot: 3   ----> Fabriccard3
+      ...
 ```
 
-The VOQ tests use the information in files/sonic_lab_fabric_links.csv as the expected value to compare with the fabric link status on a system.
+The voq tests read the information stored in these files as expected value to check the fabric link status of Linecards in a system.
+
+As the fabric link connection information is huge and the connection from the Linecard side and Fabriccard side are the same, the information stored in the yaml files are from Linecards side of view only. When testing the supervisor(Fabriccards), the test creates a supReferenceData structure that stores fabric link information from the Fabriccard side of view while processing and testing Linecards. 
 
 # Test Cases
 
@@ -95,7 +73,7 @@ The VOQ tests use the information in files/sonic_lab_fabric_links.csv as the exp
 Verify that when the chassis is up and running, the fabric links that are expected to be up are up.
 
 ### Test Steps
-* For each ASIC in the chassis (across different duts), run `show fabric counters port -n <asic_name>` 
+* For each ASIC in the chassis (across different duts), run `show fabric counters port` 
 
 ### Pass/Fail Criteria
 * Verify for each ASIC, the number of links that are up matches the number of links per ASIC defined in the inventory. This is expected to be stored in the host_var attribute.
