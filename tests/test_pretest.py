@@ -248,9 +248,6 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     '''
      Stop pfcwd on dual tor testbeds
     '''
-    if 'dualtor' not in tbinfo['topo']['name']:
-        pytest.skip("Skip this test on non dualTOR testbeds")
-
     dut = duthosts[enum_dut_hostname]
     dut.command('pfcwd stop')
 
