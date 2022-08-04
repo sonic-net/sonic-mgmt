@@ -43,6 +43,7 @@ def testbed_setup(ip_version, ptfhost, rand_selected_dut, rand_unselected_dut, t
     test_port = testbed_params["selected_port"]
     if ip_version == "ipv4":
         server_ip = testbed_params["target_server_ip"]
+        request.getfixturevalue("run_arp_responder")
     elif ip_version == "ipv6":
         server_ip = testbed_params["target_server_ipv6"]
         # setup arp_responder to answer ipv6 neighbor solicitation messages
@@ -69,22 +70,16 @@ def test_active_tor_remove_neighbor_downstream_active(
     @contextlib.contextmanager
     def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
-        if ip_version == "ipv4":
-            restore = True
-            neighbor_advertise_process = "garp_service"
-        elif ip_version == "ipv6":
-            restore = False
-            neighbor_advertise_process = "arp_responder"
-        else:
-            raise ValueError("Unknown IP version '%s'" % ip_version)
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=restore)
+        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4")
         try:
-            ptfhost.shell("supervisorctl stop %s" % neighbor_advertise_process)
+            ptfhost.shell("supervisorctl stop arp_responder")
+            # stop garp_service since there is no equivalent in production
+            ptfhost.shell("supervisorctl stop garp_service")
             with flush_neighbor_ct as flushed_neighbor:
                 neighbor_details.update(flushed_neighbor)
                 yield
         finally:
-            ptfhost.shell("supervisorctl start %s" % neighbor_advertise_process)
+            ptfhost.shell("supervisorctl start arp_responder")
             duthost.shell("docker exec -it swss supervisorctl restart arp_update")
 
     try:
@@ -100,7 +95,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
         )
         tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
-        with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+        with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
         logging.info("send traffic to server %s after removing neighbor entry", server_ip)
@@ -109,7 +104,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
         remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version, removed_neighbor)
-        with crm_neighbor_checker(tor), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
+        with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
         logging.info("send traffic to server %s after neighbor entry is restored", server_ip)
@@ -117,7 +112,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             tor, ptfhost, vmhost, tbinfo, test_port,
             conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
         )
-        with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+        with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
     finally:
         # try to recover the removed neighbor so test_downstream_ecmp_nexthops could have a healthy mocked device
@@ -127,6 +122,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             else:
                 cmd = 'ip -6 neigh replace {} lladdr {} dev {}'.format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
             tor.shell(cmd)
+        ptfhost.shell("supervisorctl start garp_service")
 
 
 def test_downstream_ecmp_nexthops(
