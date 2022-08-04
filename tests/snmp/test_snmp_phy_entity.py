@@ -345,8 +345,6 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not duthost.is_supervisor_node():
-        pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:

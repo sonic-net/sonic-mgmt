@@ -58,13 +58,6 @@ TEST_DATA = [
     ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify double-unblock doesn't cause issue
 ]
 
-
-@pytest.fixture(scope="module", autouse=True)
-def skip_on_dualtor_testbed(tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
-
-
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(rand_selected_dut):
     """

@@ -10,8 +10,7 @@ pytestmark = [
 
 def get_asic_with_pc(duthost):
     """
-    Returns Asic with portchannel or skip the testcase if portchannel is not present in any of
-    the Asic on dut
+    Returns Asic with portchannel
 
     Args:
         duthost <obj>: The duthost object
@@ -25,9 +24,6 @@ def get_asic_with_pc(duthost):
                                             asic_index=asic.asic_index)['ansible_facts']
         if 'PORTCHANNEL' in config_facts:
             return asic
-
-    pytest.skip('Skip test since there is no portchannel configured.')
-
 
 @pytest.fixture(scope='module')
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -64,10 +60,6 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     for addr in config_facts['BGP_NEIGHBOR']:
         if portchannel_ip.split('/')[0] == config_facts['BGP_NEIGHBOR'][addr]['local_addr']:
             nbr_addr = addr
-
-
-    if len(portchannel_members) == 0:
-        pytest.skip("Skip test due to there is no portchannel member exists in current topology.")
 
     voq_lag.delete_lag_members_ip(duthost, asic, portchannel_members, portchannel_ip, portchannel)
     verify_no_routes_from_nexthop(duthosts, nbr_addr)

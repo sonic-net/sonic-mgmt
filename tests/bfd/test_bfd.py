@@ -7,17 +7,14 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_r
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from pkg_resources import parse_version
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
 ]
-def skip_201911_and_older(duthost):
-    """ Skip the current test if the DUT version is 201911 or older.
-    """
-    if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
-        pytest.skip("Test not supported for 201911 images or older. Skipping the test")
 
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
 
 def get_t0_intfs(mg_facts):
     t0_intfs = []
@@ -235,7 +232,6 @@ def update_bfd_state(ptfhost, neighbor_addr, local_addr, state):
 def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt =  int(request.config.getoption('--num_sessions'))
-    skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6, count = bfd_session_cnt)
     try:
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
@@ -290,8 +286,6 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, toggle_all_simul
 def test_bfd_scale(rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):
     duthost = rand_selected_dut
     bfd_session_cnt =  int(request.config.getoption('--num_sessions_scale'))
-  
-    skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors_scale(duthost, tbinfo, ipv6, scale_count = bfd_session_cnt)
 
     try:
