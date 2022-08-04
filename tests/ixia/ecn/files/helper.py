@@ -51,7 +51,7 @@ def run_ecn_test(api,
                  data_traffic_rate=None,
                  number_of_transmit_ports=1,
                  pfc_storm_start_delay=0,
-                 pfc_count=0):
+                 pfc_pkt_count=0):
     """
     Run a ECN test
 
@@ -75,7 +75,7 @@ def run_ecn_test(api,
         data_traffic_rate: Rate of traffic instead of pkt_count. Supersedes pkt_count. This also disables capture config for now.
         number_of_transmit_ports: How many ports should we start the traffic from. Default:1 (one-to-one).
         pfc_storm_start_delay: The delay in microseconds before pause frames can be started.
-        pfc_count: Count of pfc packets to send. 0 means continuous. Default: 0. 
+        pfc_pkt_count: Count of pfc packets to send. 0 means continuous. Default: 0. 
 
     Returns:
         Return captured IP packets (list of list)
@@ -140,7 +140,7 @@ def run_ecn_test(api,
                           xoff_quanta=xoff_quanta,
                           data_traffic_rate=data_traffic_rate,
                           pfc_storm_start_delay=pfc_storm_start_delay,
-                          pfc_count=pfc_count,
+                          pfc_pkt_count=pfc_pkt_count,
                           **name_options)
 
     """ Tgen config = testbed config + flow config + capture config"""
@@ -187,7 +187,7 @@ def __gen_traffic(testbed_config,
                   xoff_quanta=65535,
                   data_traffic_rate=None,
                   pfc_storm_start_delay=0,
-                  pfc_count=0):
+                  pfc_pkt_count=0):
 
     """
     Generate configurations of flows, including a data flow and a PFC pause storm.
@@ -206,7 +206,7 @@ def __gen_traffic(testbed_config,
         xoff_quanta (int): Xoff quanta to use for xoff packets. Default 65535.
         data_traffic_rate (int): Rate of traffic in percentage line rate. Default 100.
         pfc_storm_start_delay (int): milliseconds delay for pause frame. Default:0(No delay).
-        pfc_count: Number of pfc packets to send. 0 means continuous. Default:0
+        pfc_pkt_count: Number of pfc packets to send. 0 means continuous. Default:0
     Returns:
         Configurations of the data flow and the PFC pause storm (list)
     """
@@ -306,14 +306,14 @@ def __gen_traffic(testbed_config,
     pause_dur = xoff_quanta * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
 
-    if pfc_count:
+    if pfc_pkt_count:
         pause_flow = Flow(
             name=pause_flow_name,
             tx_rx=TxRx(pause_endpoint),
             packet=[pause_pkt],
             size=Size(64),
             rate=Rate('pps', value=pps),
-            duration=Duration(FixedPackets(packets=pfc_count,
+            duration=Duration(FixedPackets(packets=pfc_pkt_count,
                                            delay=pfc_storm_start_delay,
                                            delay_unit='nanoseconds')))
     else:
