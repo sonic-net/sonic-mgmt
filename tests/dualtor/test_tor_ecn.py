@@ -351,9 +351,9 @@ def test_ecn_during_decap_on_active(
     exp_ecn = exp_tos & 3
     with stop_garp(ptfhost):
         tor.shell("portstat -c")
+        tor.shell("show arp")
         ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=1000)
-        time.sleep(1)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
         tor.shell("portstat -j")
         verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
