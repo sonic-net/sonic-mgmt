@@ -330,27 +330,32 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             port_results, queue_results = sai_thrift_read_port_counters(self.client, sai_dst_port_id)
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
+            # dual_tor_scenario: represents whether the device is deployed into a dual ToR scenario
+            # dual_tor: represents whether the source and destination ports are configured with additional lossless queues
             # According to SONiC configuration all dscp are classified to queue 1 except:
-            # dscp  8 -> queue 0
-            # dscp  5 -> queue 2
-            # dscp  3 -> queue 3
-            # dscp  4 -> queue 4
-            # dscp 46 -> queue 5
-            # dscp 48 -> queue 6
-            # So for the 64 pkts sent the mapping should be -> 58 queue 1,
-            # and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
-            # Check results
-            # For dual ToR scenario,
-            # dscp  2 -> queue 2
-            # dscp  6 -> queue 6
-            # dscp 48 -> queue 7
-            # dscp  5 -> queue 1
+            #            Normal scenario   Dual ToR scenario
+            #            All ports         Normal ports    Ports with additional lossless queues
+            # dscp  8 -> queue 0           queue 0         queue 0
+            # dscp  5 -> queue 2           queue 1         queue 1
+            # dscp  3 -> queue 3           queue 3         queue 3
+            # dscp  4 -> queue 4           queue 4         queue 4
+            # dscp 46 -> queue 5           queue 5         queue 5
+            # dscp 48 -> queue 6           queue 7         queue 7
+            # dscp  2 -> queue 1           queue 1         queue 2
+            # dscp  6 -> queue 1           queue 1         queue 6
+            # rest 56 dscps -> queue 1
+            # So for the 64 pkts sent the mapping should be the following:
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57
+            # queue 2/6  1                 0               1
+            # queue 3/4  1                 1               1
+            # queue 5    1                 1               1
+            # queue 7    0                 1               1
             # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            if dual_tor:
+            if dual_tor or not dual_tor_scenario:
                 assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
                 assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
             else:
@@ -364,6 +369,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 assert(queue_results[QUEUE_7] == 1 + queue_results_base[QUEUE_7])
             else:
                 assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
+                assert(queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
 
         finally:
             print >> sys.stderr, "END OF TEST"
