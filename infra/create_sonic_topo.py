@@ -756,14 +756,14 @@ def main():
     if input_file is None:
         if clean_sim:
             #os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
-            os.system("./vxr.py clean")
+            os.system("python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
 
-        os.system("bash -c './vxr.py start {} |& tee sim_op.log'".format(topo_yaml))
+        os.system("bash -c 'python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py start {} |& tee sim_op.log'".format(topo_yaml))
         sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
         if not int(sim_output):
             sys.exit("Sim is not up. Exiting now")
 
-        os.system("./vxr.py ports > vxr_ports.yaml")
+        os.system("python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
         input_file = "vxr_ports.yaml"
     delta2 = datetime.datetime.now()
 
