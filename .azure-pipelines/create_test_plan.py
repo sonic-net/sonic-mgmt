@@ -55,6 +55,9 @@ def _create_test_plan(testbed_tools_url, name, token, test_type):
             'specified_params': {
             }
         },
+        'extra_params':{
+            'pull_request_id': os.environ.get('SYSTEM_PULLREQUEST_PULLREQUESTNUMBER')
+        },
         'priority': 10,
         'requester': 'pull request'
     })
