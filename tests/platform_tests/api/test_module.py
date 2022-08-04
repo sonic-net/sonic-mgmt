@@ -171,8 +171,14 @@ class TestModuleApi(PlatformApiTestBase):
 
         # Ensure the base MAC address of each module is sane
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            module_type = module.get_type(platform_api_conn, i)
+            asic_type = duthost.facts["asic_type"]
+            if module_type == 'FABRIC-CARD' and 'cisco-8000' in asic_type:
+                logger.info("This check is not applicable for Fabric card on cisco-8000 based chassis")
                 continue
             base_mac = module.get_base_mac(platform_api_conn, i)
 	    if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
@@ -212,6 +218,7 @@ class TestModuleApi(PlatformApiTestBase):
         ]
 
         # TODO: Add expected system EEPROM info for each module to inventory file and compare against it
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
@@ -228,12 +235,20 @@ class TestModuleApi(PlatformApiTestBase):
             self.expect(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Module {}: Invalid TlvInfo type code found".format(i))
 
             # Ensure that we were able to obtain the minimum required type codes
-            self.expect(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list), "Module {}: Minimum required TlvInfo type codes not provided".format(i))
+            asic_type = duthost.facts["asic_type"]
+            module_type = module.get_type(platform_api_conn, i)
+            if module_type == 'FABRIC-CARD' and 'cisco-8000' in duthost.facts["asic_type"]:
+                logger.info("This check is not applicable for Fabric card on cisco-8000 based chassis")
+            else:
+                self.expect(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list), "Module {}: Minimum required TlvInfo type codes not provided".format(i))
 
             # Ensure the base MAC address is sane
-            base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
-            self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i))
-            self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
+            if module_type == 'FABRIC-CARD' and 'cisco-8000' in duthost.facts["asic_type"]:
+		logger.info("This check is not applicable for Fabric card on cisco-8000 based chassis")
+            else:
+                base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
+                self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i))
+                self.expect(re.match(REGEX_MAC_ADDRESS, base_mac), "Module {}: Base MAC address appears to be incorrect".format(i))
 
             # Ensure the serial number is sane
             serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
