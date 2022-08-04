@@ -2662,7 +2662,7 @@ str2-7250-lc1-2,Ethernet26,str2-7260cx3-d10-u21,Ethernet27/1,100000,2428,Access
 str2-7250-lc1-2,Ethernet27,str2-7260cx3-d10-u21,Ethernet28/1,100000,2429,Access
 str2-7250-lc2-2,Ethernet2,str2-7260cx3-d10-u21,Ethernet39/1,100000,2430,Access
 str2-7250-lc2-2,Ethernet3,str2-7260cx3-d10-u21,Ethernet40/1,100000,2431,Access
-str2-7250-lc2-2,Ethernet6,str2-7260cx3-d10-u21,Ethernet43/1,100000,2432,Access
+str2-7250-lc2-2,Ethernet6,str2-7260cx3-d10-u21,Ethernet42/1,100000,2432,Access
 str2-7250-lc2-2,Ethernet24,str2-7260cx3-d10-u21,Ethernet61/1,100000,2433,Access
 str2-7250-lc2-2,Ethernet25,str2-7260cx3-d10-u21,Ethernet62/1,100000,2434,Access
 str2-7250-lc2-2,Ethernet26,str2-7260cx3-d10-u21,Ethernet63/1,100000,2435,Access
