@@ -119,7 +119,7 @@ Example variables can be used in condition string:
       "commit_id": "db529af20",
       "build_date": "Mon Sep 13 17:41:03 UTC 2021",
       "sonic_utilities": 1.2,
-      "kernel_version": "4.19.0-12-2-amd64",
+      "kernel_version": "4.19.0",
       "debian_version": "10.10",
       "built_by": "AzDevOps@sonic-build-workers-000OU4",
       "libswsscommon": "1.0.0",
@@ -153,7 +153,8 @@ Example variables can be used in condition string:
         "syncd": "enabled", 
         "swss": "enabled"
       },
-      "asic_gen": "td2"
+      "asic_gen": "td2",
+      "is_supervisor": False
     }
 ```
 

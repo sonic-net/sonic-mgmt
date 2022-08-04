@@ -9,13 +9,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_test_multipath_relax_on_backend(tbinfo):
-    """Skip test_bgp_multipath_relax over storage backend topologies."""
-    if "backend" in tbinfo["topo"]["name"]:
-        pytest.skip("Skipping test_bgp_multipath_relax. Unsupported topology %s." % tbinfo["topo"]["name"])
-
-
 def get_t2_neigh(tbinfo):
     dut_t2_neigh = []
     for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():

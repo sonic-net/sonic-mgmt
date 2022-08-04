@@ -82,10 +82,6 @@ def run_test_ipv4(ptfadapter, facts):
 
 
 def test_dip_sip(tbinfo, ptfadapter, gather_facts, enum_frontend_asic_index):
-    topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t0', 't1', 't2'):
-        pytest.skip("Unsupported topology")
-
     ptfadapter.reinit()
     run_test_ipv4(ptfadapter, gather_facts)
     run_test_ipv6(ptfadapter, gather_facts)

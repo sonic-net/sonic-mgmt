@@ -920,8 +920,7 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
 def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
-    if "t0" not in tbinfo["topo"]["name"].lower():
-        pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
+
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']

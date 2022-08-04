@@ -514,11 +514,6 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_li
     Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
     """
 
-    # Add more supported platforms to the list as they are tested
-    qinq_switching_supported_platforms = ['mellanox', 'barefoot']
-    if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
-        pytest.skip("Unsupported platform")
-
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
         for vlan_port in work_vlan_ports_list:

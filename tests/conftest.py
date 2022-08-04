@@ -1359,8 +1359,6 @@ def enum_rand_one_frontend_asic_index(request):
 def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
     duthost = duthosts[rand_one_dut_hostname]
     dut_hostname = duthost.hostname
-    if duthost.facts["asic_type"] == "vs":
-        pytest.skip("Real console session is supported on physical testbed.")
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
