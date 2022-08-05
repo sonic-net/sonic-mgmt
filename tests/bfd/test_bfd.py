@@ -3,18 +3,9 @@ import random
 import time
 import json
 
-from pkg_resources import parse_version
-
 pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
 ]
-
-
-def skip_201911_and_older(duthost):
-    """ Skip the current test if the DUT version is 201911 or older.
-    """
-    if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
-        pytest.skip("Test not supported for 201911 images or older. Skipping the test")
 
 
 def get_t0_intfs(mg_facts):
@@ -247,7 +238,6 @@ def update_bfd_state(ptfhost, neighbor_addr, local_addr, state):
 def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-    skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6,
                                                                                                 count=bfd_session_cnt)
     try:
@@ -281,7 +271,7 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 
         update_idx = random.choice(range(bfd_session_cnt))
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
-        time.sleep(3)
+        time.sleep(5)
 
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
@@ -302,8 +292,6 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
 def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions_scale'))
-
-    skip_201911_and_older(duthost)
     local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = \
         get_neighbors_scale(duthost, tbinfo, ipv6, scale_count=bfd_session_cnt)
 
