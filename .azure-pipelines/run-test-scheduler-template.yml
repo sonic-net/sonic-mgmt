@@ -12,7 +12,11 @@ parameters:
 
 steps:
   - script: |
-      pip install yaml
+      set -e
+
+      pip install PyYAML
+
+      env
 
       rm -f new_test_plan_id.txt
       python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt
