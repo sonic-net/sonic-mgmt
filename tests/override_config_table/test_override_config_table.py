@@ -62,15 +62,13 @@ def reload_minigraph_with_golden_config(duthost, json_data):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthosts, rand_one_dut_hostname, golden_config_exists_on_dut):
+def setup_env(duthost, golden_config_exists_on_dut):
     """
     Setup/teardown
     Args:
-        duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        duthost: DUT.
+        golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -161,6 +159,24 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
             full_config[table] == current_config[table],
             "full config override fail! {}".format(table)
         )
+
+
+def load_minigraph_with_golden_empty_table_removal(duthost):
+    """Test Golden Config with empty table removal.
+
+    Here we assume all config contain SYSLOG_SERVER table
+    """
+    empty_table_removal = {
+        "SYSLOG_SERVER": {
+        }
+    }
+    reload_minigraph_with_golden_config(duthost, empty_table_removal)
+
+    current_config = get_running_config(duthost)
+    pytest_assert(
+        current_config.get('SYSLOG_SERVER', None) is None,
+        "Empty table removal fail: {}".format(current_config['SYSLOG_SERVER'])
+    )
 
 
 def test_load_minigraph_with_golden_config(duthost, setup_env):
