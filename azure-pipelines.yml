@@ -74,7 +74,7 @@ stages:
   #       fi
 
   - ${{ if not(eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES')) }}:
-    - job: t1-lag
+    - job: t1_lag
       pool: sonictest
       displayName: "kvmtest-t1-lag"
       timeoutInMinutes: 540
@@ -91,7 +91,7 @@ stages:
           echo "Legacy PR testing"
 
   - ${{ if eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES') }}:
-    - job: t1-lag
+    - job: t1_lag
       displayName: "kvmtest-t1-lag"
       timeoutInMinutes: 540
 
@@ -102,7 +102,7 @@ stages:
       - script: |
           echo "PR testing using test scheduler"
 
-  # - job: t0-sonic
+  # - job: t0_sonic
   #   pool: sonictest-sonic-t0
   #   displayName: "kvmtest-t0-sonic"
   #   timeoutInMinutes: 360
@@ -130,7 +130,7 @@ stages:
   #         tbtype: dualtor
   #         vmtype: ceos
 
-  # - job: multi-asic-t1-lag
+  # - job: multi_asic_t1_lag
   #   pool: sonictest-ma
   #   displayName: "kvmtest-multi-asic-t1-lag"
   #   timeoutInMinutes: 360
