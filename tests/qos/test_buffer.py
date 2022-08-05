@@ -18,6 +18,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -55,6 +56,8 @@ LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
 LOSSLESS_MTU = None
 SMALL_PACKET_PERCENTAGE = None
 
+KEY_2_LOSSLESS_QUEUE = "2_lossless_queues"
+KEY_4_LOSSLESS_QUEUE = "4_lossless_queues"
 
 def detect_buffer_model(duthost):
     """Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the module is initialized
@@ -2230,7 +2233,7 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
         _recovery_to_dynamic_buffer_model(duthost)
 
 
-def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
+def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports):
     """The testcase to verify whether buffer template has been correctly rendered and applied
 
     1. For all ports in the config_db,
@@ -2382,37 +2385,63 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
     pg_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
     queue_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
-
-    buffer_items_to_check_dict = {"up": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
+    buffer_table_up = {
+        KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
                                          ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
                                          (None, None, None)
-                                        ],
-                                  "down": [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
+                             ],
+        KEY_4_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '2-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '6', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         (None, None, None)
+                             ]
+    }
+    if is_tunnel_qos_remap_enabled(duthost):
+        buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
+    
+    if not is_mellanox_device(duthost):
+        buffer_table_up[KEY_2_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        if is_tunnel_qos_remap_enabled(duthost):
+            buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        else:
+            buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][5] = ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+    
+    buffer_table_down = {
+        KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
                                            (None, None, None)
-                                        ]
+                             ],
+        KEY_4_LOSSLESS_QUEUE: [(None, None, None)] # The admin_down ports can not be dualtor_ports. Hence there is no 4_lossless_queue profile
     }
-
-    if not is_mellanox_device(duthost):
-        buffer_items_to_check_dict["up"][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
-        buffer_items_to_check_dict["up"][3] = ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+    if is_tunnel_qos_remap_enabled(duthost):
+        buffer_table_down[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+    
+    buffer_items_to_check_dict = {"up": buffer_table_up, "down": buffer_table_down}
 
     if check_qos_db_fv_reference_with_table(duthost):
         profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
         is_qos_db_reference_with_table = True
     else:
-        for key, buffer_items_to_check in buffer_items_to_check_dict.items():
-            new_buffer_items_to_check = []
-            for item in buffer_items_to_check:
-                table, ids, profiles = item
-                if profiles:
-                    profiles = profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
-                new_buffer_items_to_check.append((table, ids, profiles))
-            buffer_items_to_check_dict[key] = new_buffer_items_to_check
+        for status, buffer_items_to_check_4_6 in buffer_items_to_check_dict.items():
+            for queue_4_6, buffer_items_to_check in buffer_items_to_check_4_6.items():
+                new_buffer_items_to_check = []
+                for item in buffer_items_to_check:
+                    table, ids, profiles = item
+                    if profiles:
+                        profiles = profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                    new_buffer_items_to_check.append((table, ids, profiles))
+                buffer_items_to_check_dict[status][queue_4_6] = new_buffer_items_to_check
         profile_wrapper = '{}'
         is_qos_db_reference_with_table = False
 
@@ -2427,19 +2456,33 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
         speed = port_config['speed']
         expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
+        if port in dualtor_ports:
+            key_name = KEY_4_LOSSLESS_QUEUE
+        else:
+            key_name = KEY_2_LOSSLESS_QUEUE
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
             admin_up_ports.add(port)
-            buffer_items_to_check = buffer_items_to_check_dict["up"]
-            buffer_items_to_check[-1] = ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))
+            buffer_items_to_check = buffer_items_to_check_dict["up"][key_name][:]
+            if key_name == KEY_4_LOSSLESS_QUEUE:
+                buffer_items_to_check.extend(
+                    [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
+                    ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
+            else:
+                buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
         else:
             if is_mellanox_device(duthost):
-                buffer_items_to_check = buffer_items_to_check_dict["down"]
+                buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
             elif is_broadcom_device(duthost) and (asic_type in ['td2', 'td3'] or speed <= '10000'):
                 buffer_items_to_check = [(None, None, None)]
             else:
-                buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]
+                if key_name == KEY_2_LOSSLESS_QUEUE:
+                    buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]
+                else:
+                    buffer_items_to_check.extend(
+                        [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
+                        ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
 
         for table, ids, expected_profile in buffer_items_to_check:
             logging.info("Checking buffer item {}:{}:{}".format(table, port, ids))
@@ -2490,25 +2533,34 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts):
                                       "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
             else:
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
-                              "PG {}:3-4 has different OID of profile from other PGs sharing the same profile {}".format(port, expected_profile))
+                              "PG {}:{} has different OID of profile from other PGs sharing the same profile {}".format(port, ids, expected_profile))
 
     if not BUFFER_MODEL_DYNAMIC:
+
+        def _profile_name(duthost, port, pg_id_name):
+            if is_mellanox_device(duthost):
+                profile_name = None
+            else:
+                profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
+            
+            return profile_name
+
         port_to_shutdown = admin_up_ports.pop()
-        expected_profile = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port))['stdout']
-        if is_mellanox_device(duthost):
-            profile_to_check = None
+        if port_to_shutdown in dualtor_ports:
+            pg_id_names = ["2-4", "6"]
         else:
-            profile_to_check = expected_profile
+            pg_id_names = ["3-4"]
         try:
             # Shutdown the port and check whether the lossless PG has been remvoed
             logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
-            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, profile_to_check)
-
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
             # Startup the port and check whether the lossless PG has been reconfigured
             logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
             duthost.shell('config interface startup {}'.format(port_to_shutdown))
-            wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', '3-4', port_to_shutdown, expected_profile)
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, duthost, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
         finally:
             duthost.shell('config interface startup {}'.format(port_to_shutdown), module_ignore_errors=True)
 
