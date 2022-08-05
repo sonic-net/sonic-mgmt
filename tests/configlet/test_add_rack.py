@@ -27,6 +27,26 @@ def check_image_version(duthost):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    if loganalyzer:
+         loganalyzer_ignore_regex = [
+             ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
+             ".*ERR sonic_yang: Failed to validate data tree#012.*",
+             ".*ERR config: Change Applier:.*",
+         ]
+         loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
+
+
 @pytest.fixture(scope="module")
 def configure_dut(duthosts, rand_one_dut_hostname):
     try:
@@ -46,8 +66,6 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip('Generic patch updater does not support multiasic')
 
     log_info("sys.version={}".format(sys.version))
     do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'])
