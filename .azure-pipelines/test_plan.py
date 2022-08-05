@@ -252,6 +252,8 @@ if __name__ == "__main__":
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
 
+            print("debug os environ: " + str(os.environ))
+
             name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}"\
                 .format(
                     repo,
@@ -259,7 +261,7 @@ if __name__ == "__main__":
                     pr_id,
                     build_id,
                     job_name
-                )
+                ).replace(' ', '_')
             tp.create(
                 args.topology,
                 name=name,
