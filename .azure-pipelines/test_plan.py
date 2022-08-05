@@ -114,6 +114,7 @@ class TestPlanManager(object):
         }
 
         resp = requests.post(cancel_url, headers=headers, data=payload, timeout=10).json()
+        print("debug resp: " + str(resp))
         if not resp["success"]:
             raise Exception("Cancel test plan failed with error: {}".format(resp["errmsg"]))
 
@@ -153,7 +154,7 @@ class TestPlanManager(object):
                     raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"\
                         .format(test_plan_id, status, result, time.time() - start_time))
             print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"\
-                .format(test_plan_id, status, resp_data.get("progress", 0) * 100), time.time - start_time)
+                .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
             time.sleep(interval)
         else:
             raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"\
