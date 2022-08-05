@@ -73,7 +73,7 @@ stages:
   #         exit 1
   #       fi
 
-  - ${{ if neq(variables.RUN_PR_TEST_BY_SCHEDULER, YES) }}:
+  - ${{ if not(eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES')) }}:
     - job: t1-lag
       pool: sonictest
       displayName: "kvmtest-t1-lag"
@@ -90,7 +90,7 @@ stages:
       - script: |
           echo "Legacy PR testing"
 
-  - ${{ if eq(variables.RUN_PR_TEST_BY_SCHEDULER, YES) }}:
+  - ${{ if eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES') }}:
     - job: t1-lag
       displayName: "kvmtest-t1-lag"
       timeoutInMinutes: 540
