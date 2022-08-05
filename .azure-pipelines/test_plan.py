@@ -93,7 +93,8 @@ class TestPlanManager(object):
         print("Result of creating test plan: {}".format(str(resp["data"])))
 
         if output:
-            with open(output) as f:
+            print("Store new test plan id to file {}".format(output))
+            with open(output, "w") as f:
                 f.write(resp["data"])
 
         return resp["data"]
