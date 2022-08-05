@@ -21,7 +21,7 @@ steps:
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
       echo "Created test plan $TEST_PLAN_ID"
-      echo "Check $TESTBED_TOOLS_URL/$TEST_PLAN_ID for test plan status"
+      echo "Check https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID for test plan status"
       echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
