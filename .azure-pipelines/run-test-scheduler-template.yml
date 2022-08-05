@@ -31,7 +31,7 @@ steps:
   - script: |
       echo "Polling Test plan"
       echo "Runtime detailed progress at $TESTBED_TOOLS_URL/$TEST_PLAN_ID"
-      python ./.azure-pipelines/test_plan.py poll -t $(TEST_PLAN_ID)
+      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID)
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Running test
@@ -39,7 +39,7 @@ steps:
 
   - script: |
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
-      python ./.azure-pipelines/test_plan.py cancel -t $(TEST_PLAN_ID)
+      python ./.azure-pipelines/test_plan.py cancel -i $(TEST_PLAN_ID)
     condition: failed()
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
