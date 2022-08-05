@@ -3,11 +3,11 @@ parameters:
   type: string
 
 - name: POLL_INTERVAL
-  type: int
+  type: number
   default: 10
 
 - name: POLL_TIMEOUT
-  type: int
+  type: number
   default: 36000
 
 steps:
