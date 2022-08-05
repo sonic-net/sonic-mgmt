@@ -397,11 +397,11 @@ memory_checker/test_memory_checker.py::test_memory_checker_restart_container:
     conditions:
       - "build_version <= '20191130.72' or platform in ['x86_64-cel_e1031-r0']"
 
-memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
+memory_checker/test_memory_checker.py::test_memory_checker_without_container_created:
   skip:
-    reason: "Skips DuT either with limited memory platform Celestica-E1031 or with 20191130.72, 201811, older image without memory monitoring!"
+    reason: "Skips DuT with 201911, 201811 or older image since there will be no log message if container is not created!"
     conditions:
-      - "build_version <= '20191130.72' or platform in ['x86_64-cel_e1031-r0']"
+      - "release in ['201911', '201811']"
 
 memory_checker/test_memory_checker.py::test_monit_new_syntax:
   skip:
@@ -409,8 +409,8 @@ memory_checker/test_memory_checker.py::test_monit_new_syntax:
     conditions:
       - "release in ['201911', '201811'] or platform in ['x86_64-cel_e1031-r0']"
 
-memory_checker/test_memory_checker.py::test_memory_checker_without_container_created:
+memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
   skip:
-    reason: "Skips DuT with 201911, 201811 or older image since there will be no log message if container is not created!"
+    reason: "Skips DuT either with limited memory platform Celestica-E1031 or with 20191130.72, 201811, older image without memory monitoring!"
     conditions:
-      - "release in ['201911', '201811']"
+      - "build_version <= '20191130.72' or platform in ['x86_64-cel_e1031-r0']"
