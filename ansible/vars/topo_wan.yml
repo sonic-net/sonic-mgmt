@@ -73,7 +73,7 @@ wan_dut_configuration:
       PortChannel1001:
         attach_to: fortyGigE0/4
         ipv4: 10.0.1.57/31
-        ipv6: fc00:1::73/126
+        ipv6: fc00:1::71/126
       PortChannel1002: 
         attach_to: fortyGigE0/8
         ipv4: 10.0.3.56/31
@@ -88,7 +88,7 @@ wan_dut_configuration:
       PortChannel1001:
         attach_to: fortyGigE0/8
         ipv4: 10.0.3.57/31
-        ipv6: fc00:3::73/126
+        ipv6: fc00:3::71/126
       PortChannel1002:
         attach_to: fortyGigE0/12
         ipv4: 10.0.4.56/31
@@ -103,7 +103,7 @@ wan_dut_configuration:
       Port-Channel2:
         attach_to: Ethernet4
         ipv4: 10.0.4.57/31
-        ipv6: fc00:4::73/126
+        ipv6: fc00:4::71/126
       Port-Channel1: 
         attach_to: Ethernet7
         ipv4: 10.0.0.58/31
@@ -118,7 +118,7 @@ wan_dut_configuration:
       PortChannel2001:
         attach_to: Ethernet60
         ipv4: 20.0.1.57/31
-        ipv6: fc00:20::73/126
+        ipv6: fc00:20::71/126
     connection:
       vlab-01:
         fortyGigE0/60
@@ -127,7 +127,7 @@ wan_dut_configuration:
       PortChannel2001:
         attach_to: Ethernet60
         ipv4: 20.0.2.57/31
-        ipv6: fc00:21::73/126
+        ipv6: fc00:21::71/126
     connection:
       vlab-04:
         fortyGigE0/60
@@ -181,9 +181,9 @@ wan_bgp_config:
     peer4:
       asn: 65100
       start_router: vlab-01
-      start_peer: fc00:4::72
+      start_peer: fc00:1::72
       end_router: vlab-04
-      end_peer: fc00:4::73
+      end_peer: fc00:4::71
 
   vlab-04:
     peer1:
@@ -207,7 +207,7 @@ wan_bgp_config:
     peer4:
       asn: 65100
       start_router: vlab-04
-      start_peer: fc00:1::73
+      start_peer: fc00:4::71
       end_router: vlab-01
       end_peer: fc00:1::72
 configuration:
