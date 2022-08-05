@@ -7,9 +7,6 @@ pytestmark = [
     pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
 ]
 
-def is_dualtor(tbinfo):
-    """Check if the testbed is dualtor."""
-    return "dualtor" in tbinfo["topo"]["name"]
 
 def get_t0_intfs(mg_facts):
     t0_intfs = []
@@ -241,8 +238,8 @@ def update_bfd_state(ptfhost, neighbor_addr, local_addr, state):
 def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
     duthost = rand_selected_dut
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6, count=bfd_session_cnt)
-
+    local_addrs, prefix_len, neighbor_addrs, neighbor_devs, neighbor_interfaces = get_neighbors(duthost, tbinfo, ipv6,
+                                                                                                count=bfd_session_cnt)
     try:
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
