@@ -1,140 +1,49 @@
 parameters:
-- name: dut
+- name: TOPOLOGY
   type: string
-- name: tbname
-  type: string
-- name: tbtype
-  type: string
-- name: ptf_name
-  type: string
-- name: vmtype
-  type: string
-- name: section
-  type: string
-  default: ''
 
+- name: POLL_INTERVAL
+  type: int
+  default: 10
+
+- name: POLL_TIMEOUT
+  type: int
+  default: 36000
 
 steps:
+  - script: |
+      pip install yaml
 
-#- script: |
-#    echo $TESTBED_TOOLS_MSAL_CLIENT_ID
-#    echo "$MSAL_CLIENT_ID"
-#    echo "$TESTBED_TOOLS_MSAL_CLIENT_ID_ENV"
-#    echo "$(TESTBED_TOOLS_MSAL_CLIENT_ID)"
-#    echo $(TEAM_PROJECT)
-#    echo $(TeamProject)
-#    echo inventory
-#    echo $(inventory)
-#    echo $(TEST_VALUE)
-#  env:
-#    MSAL_CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
-#    MSAL_CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
-##        TEAM_PROJECT: $(TeamProject)
-#  displayName: Get token
+      rm -f new_test_plan_id.txt
+      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt
+      TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
-- script: |
-    TIMEOUT=7200
-    INTERVAL=60
-    wait_time=0
-    python ./.azure-pipelines/get_token.py
-#  env:
-#    TESTBED_TOOLS_MSAL_CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
-#    TESTBED_TOOLS_MSAL_CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
-  displayName: Get token
+      echo "Created test plan $TEST_PLAN_ID"
+      echo "Check $TESTBED_TOOLS_URL/$TEST_PLAN_ID for test plan status"
+      echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
+    displayName: Trigger test
 
+  - script: |
+      echo "Polling Test plan"
+      echo "Runtime detailed progress at $TESTBED_TOOLS_URL/$TEST_PLAN_ID"
+      python ./.azure-pipelines/test_plan.py poll -t $(TEST_PLAN_ID)
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+    displayName: Running test
+    timeoutInMinutes: 500
 
-
-#- script: |
-#    username=$(id -un)
-#    sudo chown -R ${username}.${username} .
-#  displayName: 'Cleanup'
-#
-#- checkout: self
-#  clean: true
-#  displayName: 'checkout sonic-mgmt repo'
-#
-#- task: DownloadPipelineArtifact@2
-#  inputs:
-#    source: specific
-#    project: build
-#    pipeline: 1
-#    artifact: sonic-buildimage.vs
-#    runVersion: 'latestFromBranch'
-#    runBranch: 'refs/heads/master'
-#  displayName: "Download sonic kvm image"
-#
-#- script: |
-#    sudo mkdir -p sonic-vm/images
-#    sudo mkdir -p sonic-vm/disks
-#    sudo cp -v ../target/sonic-vs.img.gz sonic-vm/images/sonic-vs.img.gz
-#    sudo gzip -fd sonic-vm/images/sonic-vs.img.gz
-#    username=$(id -un)
-#    sudo chown -R $username.$username sonic-vm
-#
-#    docker rm -f sonic-mgmt-2 || true
-#    ./setup-container.sh -n sonic-mgmt-2
-#
-#    sed -i s/use_own_value/${username}/ ansible/veos_vtb
-#    echo aaa > ansible/password.txt
-#
-#    parent_dir=$(basename $PWD)
-#    rm -rf $(Build.ArtifactStagingDirectory)/*
-#    mkdir -p $(Build.ArtifactStagingDirectory)/pipeline
-#    docker exec sonic-mgmt-2 bash -c "pushd /var/src/$parent_dir/ansible;./testbed-cli.sh -d $(Build.SourcesDirectory)/sonic-vm -m $(inventory) -t $(testbed_file) -k ${{ parameters.vmtype }} refresh-dut ${{ parameters.tbname }} password.txt -v"|tee $(Build.ArtifactStagingDirectory)/pipeline/refresh-dut.log && sleep 180
-#  displayName: "Setup testbed"
-#
-#- script: |
-#    pwd
-#
-#    parent_dir=$(basename $PWD)
-#    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
-#  displayName: "Run tests"
-#  ${{ if eq(parameters.tbtype, 't0-sonic') }}:
-#      continueOnError: true
-#
-#- script: |
-#    # save dut state if test fails
-#    virsh_version=$(virsh --version)
-#    if [ $virsh_version == "6.0.0" ]; then
-#        mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
-#        virsh -c qemu:///system list
-#        virsh -c qemu:///system save ${{ parameters.dut }} $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.memdmp
-#        virsh -c qemu:///system dumpxml ${{ parameters.dut }} > $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.xml
-#        img=$(virsh -c qemu:///system domblklist ${{ parameters.dut }} | grep vda | awk '{print $2}')
-#        cp $img $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.img
-#        virsh -c qemu:///system undefine ${{ parameters.dut }}
-#    fi
-#
-#    docker commit ${{ parameters.ptf_name }} docker-ptf:$(Build.BuildNumber)
-#    docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-#    docker rmi docker-ptf:$(Build.BuildNumber)
-#  displayName: "Collect kvmdump"
-#  condition: failed()
-#
-#- script: |
-#    cp -r ./tests/logs $(Build.ArtifactStagingDirectory)/
-#    username=$(id -un)
-#    sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
-#  displayName: "Collect test logs"
-#  condition: succeededOrFailed()
-#
-#- publish: $(Build.ArtifactStagingDirectory)/kvmdump
-#  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}${{ parameters.section }}.memdump@$(System.JobAttempt)
-#  displayName: "Archive sonic kvm memdump"
-#  condition: failed()
-#
-#- publish: $(Build.ArtifactStagingDirectory)/logs
-#  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.log@$(System.JobAttempt)
-#  displayName: "Archive sonic kvm logs"
-#  condition: succeededOrFailed()
-#
-#- publish: $(Build.ArtifactStagingDirectory)/pipeline
-#  artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.pipeline@$(System.JobAttempt)
-#  displayName: "Archive pipeline logs"
-#  condition: succeededOrFailed()
-#
-#- task: PublishTestResults@2
-#  inputs:
-#    testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
-#    testRunTitle: kvmtest.${{ parameters.tbtype }}${{ parameters.section }}
-#  condition: succeededOrFailed()
+  - script: |
+      echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
+      python ./.azure-pipelines/test_plan.py cancel -t $(TEST_PLAN_ID)
+    condition: failed()
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
+    displayName: Cancel running test plan

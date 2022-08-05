@@ -77,34 +77,26 @@ stages:
     pool: sonictest
     displayName: "kvmtest-t1-lag"
     timeoutInMinutes: 540
-    condition: not(eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES'))
+    condition: not(eq(variables.RUN_TEST_BY_SCHEDULER, 'YES'))
 
     steps:
-    # - template: .azure-pipelines/run-test-template.yml
-    #   parameters:
-    #     dut: vlab-03
-    #     tbname: vms-kvm-t1-lag
-    #     ptf_name: ptf_vms6-2
-    #     tbtype: t1-lag
-    #     vmtype: ceos
-    - script: |
-        echo "RUN_PR_TEST_BY_SCHEDULER=$(RUN_PR_TEST_BY_SCHEDULER)"
-        echo "RUN_PR_TEST_BY_SCHEDULER=${{ variables.RUN_PR_TEST_BY_SCHEDULER }}"
-        echo "Legacy PR testing"
+    - template: .azure-pipelines/run-test-template.yml
+      parameters:
+        dut: vlab-03
+        tbname: vms-kvm-t1-lag
+        ptf_name: ptf_vms6-2
+        tbtype: t1-lag
+        vmtype: ceos
 
   - job:
     displayName: "kvmtest-t1-lag by scheduler"
     timeoutInMinutes: 540
-    condition: eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES')
+    condition: eq(variables.RUN_TEST_BY_SCHEDULER, 'YES')
 
     steps:
-    # - template: .azure-pipelines/run-test-scheduler-template.yml
-    #   parameters:
-    #     tbtype: t1-lag
-    - script: |
-        echo "RUN_PR_TEST_BY_SCHEDULER=$(RUN_PR_TEST_BY_SCHEDULER)"
-        echo "RUN_PR_TEST_BY_SCHEDULER=${{ variables.RUN_PR_TEST_BY_SCHEDULER }}"
-        echo "PR testing using test scheduler"
+    - template: .azure-pipelines/run-test-scheduler-template.yml
+      parameters:
+        TOPOLOGY: t1-lag
 
   # - job:
   #   pool: sonictest-sonic-t0
