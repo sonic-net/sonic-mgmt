@@ -31,7 +31,6 @@ steps:
     displayName: Trigger test
 
   - script: |
-      set -x
       echo "Polling Test plan"
       echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient(We will improve the indication in a short time)"
       echo "If the progress keeps as 0 for more than 1 hour, please cancel and retry this pipeline"
