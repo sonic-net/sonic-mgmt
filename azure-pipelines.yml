@@ -51,7 +51,7 @@ stages:
   #       vmtype: ceos
   #       section: part-2
 
-  # - job: t0
+  # - job:
   #   pool:
   #     vmImage: 'ubuntu-20.04'
   #   displayName: "kvmtest-t0"
@@ -74,7 +74,7 @@ stages:
   #       fi
 
   - ${{ if not(eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES')) }}:
-    - job: t1_lag
+    - job:
       pool: sonictest
       displayName: "kvmtest-t1-lag"
       timeoutInMinutes: 540
@@ -88,10 +88,11 @@ stages:
       #     tbtype: t1-lag
       #     vmtype: ceos
       - script: |
+          echo "RUN_PR_TEST_BY_SCHEDULER=$(RUN_PR_TEST_BY_SCHEDULER)"
           echo "Legacy PR testing"
 
   - ${{ if eq(variables.RUN_PR_TEST_BY_SCHEDULER, 'YES') }}:
-    - job: t1_lag
+    - job:
       displayName: "kvmtest-t1-lag"
       timeoutInMinutes: 540
 
@@ -100,9 +101,10 @@ stages:
       #   parameters:
       #     tbtype: t1-lag
       - script: |
+          echo "RUN_PR_TEST_BY_SCHEDULER=$(RUN_PR_TEST_BY_SCHEDULER)"
           echo "PR testing using test scheduler"
 
-  # - job: t0_sonic
+  # - job:
   #   pool: sonictest-sonic-t0
   #   displayName: "kvmtest-t0-sonic"
   #   timeoutInMinutes: 360
@@ -116,7 +118,7 @@ stages:
   #       tbtype: t0-sonic
   #       vmtype: vsonic
 
-  # - job: dualtor
+  # - job:
   #   pool: sonictest-dualtor
   #   displayName: "kvmtest-dualtor"
   #   timeoutInMinutes: 360
@@ -130,7 +132,7 @@ stages:
   #         tbtype: dualtor
   #         vmtype: ceos
 
-  # - job: multi_asic_t1_lag
+  # - job:
   #   pool: sonictest-ma
   #   displayName: "kvmtest-multi-asic-t1-lag"
   #   timeoutInMinutes: 360
