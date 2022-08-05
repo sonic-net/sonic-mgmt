@@ -144,7 +144,7 @@ class TestPlanManager(object):
             status = resp_data.get("status", None)
             result = resp_data.get("result", None)
 
-            if status in ["FINISHED", "CANCELLED"]:
+            if status in ["FINISHED", "CANCELLED", "FAILED"]:
                 if result == "SUCCESS":
                     print("Test plan is successfully {}. Elapsed {:.0f} seconds"\
                         .format(status, time.time() - start_time))
