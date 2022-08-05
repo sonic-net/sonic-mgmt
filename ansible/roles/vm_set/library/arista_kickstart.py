@@ -4,13 +4,20 @@ from ansible.module_utils.serial_utils import AristaSerial, core
 
 def session(new_params):
     seq = [
+        ('enable', [r'#']),
+        ('configure terminal', [r'\(config\)#']),
+        ('aaa authorization exec default local', [r'\(config\)#']),
+        ('wr mem', [r'\(config\)#']),
+        ('exit', [r'#']),
         ('zerotouch disable', None),
+        ('exit', None)
     ]
 
     ss = AristaSerial(new_params['telnet_port'])
     ss.login(new_params['new_login'], new_params['new_password'])
     ss.configure(seq)
     ss.logout()
+    ss.cleanup()
     return
 
 def main():

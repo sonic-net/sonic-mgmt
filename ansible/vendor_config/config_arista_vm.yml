@@ -35,10 +35,15 @@
 - wan_topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name=None
   delegate_to: localhost
 
-- name: Set ansible login user name and password
-  set_fact: ansible_ssh_user='root'  ansible_ssh_password={{ sonic_password }} 
+- name: Set Arista ansible network parameters
+  set_fact:
+    ansible_connection='network_cli'
+    ansible_network_os='eos'
 
-- name: copy configure to arista device 
-  template: src="arista_config.j2"
-            dest=/mnt/flash/arista-config
+- name: Load configuration to Arista Device
+  eos_config:
+    src: templates/arista_config.j2
+    replace: config
+  register: configuration_result
 
+- debug: msg={{ configuration_result }}

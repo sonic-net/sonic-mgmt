@@ -4,6 +4,8 @@ hostname {{ inventory_hostname }}
 !
 spanning-tree mode mstp
 !
+aaa authorization exec default local
+!
 aaa root secret sha512 $6$Oi52MRo6OnBibFD2$fS.FC5HW/Z8UT42iB62aQ7WK/kR1PVtGCxRKRp5ue5ViCkW472IFtU8f880cDUK.h9Ci45EPz8TK/vW.6WcZy1
 !
 username admin privilege 15 role network-admin secret sha512 $6$uCskaMwjeAPACmkA$9sxnhGi2zu3J/ydqZrZjRppFxMXtbFZuGod1/6ScdCyQRI0tWS5VWfA3NjIRnM3Nwvt0LC8IVbainKft5yyql1
