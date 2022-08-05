@@ -191,4 +191,7 @@ pdu-111,24,str2-7250-lc1-1,PSU1
 pdu-111,18,str2-7250-lc1-1,PSU2
 pdu-111,19,str2-7250-lc2-1,PSU1
 pdu-111,20,str2-7250-lc2-1,PSU2
-
+pdu-109,28,str2-7260cx3-d10-u19,PSU1
+pdu-110,28,str2-7260cx3-d10-u19,PSU2
+pdu-109,27,str2-7260cx3-d10-u21,PSU1
+pdu-110,27,str2-7260cx3-d10-u21,PSU2
