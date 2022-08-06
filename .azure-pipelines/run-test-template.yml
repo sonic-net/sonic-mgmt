@@ -73,24 +73,24 @@ steps:
   ${{ if eq(parameters.tbtype, 'multi-asic-t1-lag-pr') }}:
       continueOnError: true
       
-# - script: |
-#     # save dut state if test fails
-#     virsh_version=$(virsh --version)
-#     if [ $virsh_version == "6.0.0" ]; then
-#         mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
-#         virsh -c qemu:///system list
-#         virsh -c qemu:///system save ${{ parameters.dut }} $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.memdmp
-#         virsh -c qemu:///system dumpxml ${{ parameters.dut }} > $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.xml
-#         img=$(virsh -c qemu:///system domblklist ${{ parameters.dut }} | grep vda | awk '{print $2}')
-#         cp $img $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.img
-#         virsh -c qemu:///system undefine ${{ parameters.dut }}
-#     fi
+- script: |
+    # save dut state if test fails
+    virsh_version=$(virsh --version)
+    if [ $virsh_version == "6.0.0" ]; then
+        mkdir -p $(Build.ArtifactStagingDirectory)/kvmdump
+        virsh -c qemu:///system list
+        virsh -c qemu:///system save ${{ parameters.dut }} $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.memdmp
+        virsh -c qemu:///system dumpxml ${{ parameters.dut }} > $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.xml
+        img=$(virsh -c qemu:///system domblklist ${{ parameters.dut }} | grep vda | awk '{print $2}')
+        cp $img $(Build.ArtifactStagingDirectory)/kvmdump/${{ parameters.dut }}.img
+        virsh -c qemu:///system undefine ${{ parameters.dut }}
+    fi
 
-#     docker commit ${{ parameters.ptf_name }} docker-ptf:$(Build.BuildNumber)
-#     docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
-#     docker rmi docker-ptf:$(Build.BuildNumber)
-#   displayName: "Collect kvmdump"
-#   condition: failed()
+    docker commit ${{ parameters.ptf_name }} docker-ptf:$(Build.BuildNumber)
+    docker save docker-ptf:$(Build.BuildNumber) | gzip -c > $(Build.ArtifactStagingDirectory)/kvmdump/docker-ptf-dump.gz
+    docker rmi docker-ptf:$(Build.BuildNumber)
+  displayName: "Collect kvmdump"
+  condition: failed()
 
 - script: |
     cp -r ./tests/logs $(Build.ArtifactStagingDirectory)/

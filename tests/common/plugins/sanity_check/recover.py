@@ -9,8 +9,6 @@ from tests.common.config_reload import config_force_option_supported
 from tests.common.reboot import reboot
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
-from tests.common.devices.sonic import SonicHost
-from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -120,11 +118,6 @@ def neighbor_vm_recover_bgpd(node=None, results=None):
     nbr_host = node['host']
     asn = node['conf']['bgp']['asn']
     result = {}
-
-    # If the neighbor is SONiC, directly config_reload can recover all configuration
-    if isinstance(nbr_host, SonicHost):
-        config_reload(nbr_host)
-        return
 
     # restore interfaces and portchannels
     intf_list = node['conf']['interfaces'].keys()
