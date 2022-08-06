@@ -50,9 +50,8 @@ OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
 FP_TAP_TEMPLATE = '%s-t%d'
 BP_TAP_TEMPLATE = '%s-back'
 MGMT_TAP_TEMPLATE = '%s-m'
+TMP_TAP_TEMPLATE = '%s-%d'
 INT_TAP_TEMPLATE = 'eth%d'
-
-config_module_logging('ceos_network')
 
 
 class CeosNetwork(object):
@@ -78,34 +77,37 @@ class CeosNetwork(object):
         """
         # create mgmt link
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
-        self.add_veth_if_to_docker(mp_name, INT_TAP_TEMPLATE % 0)
+        self.add_veth_if_to_docker(mp_name, TMP_TAP_TEMPLATE % (self.vm_name, 0), INT_TAP_TEMPLATE % 0)
         self.add_if_to_bridge(mp_name, self.mgmt_br_name)
 
         # create fp link
         for i in range(self.max_fp_num):
             fp_name = FP_TAP_TEMPLATE % (self.vm_name, i)
             fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_name, i)
-            self.add_veth_if_to_docker(fp_name, INT_TAP_TEMPLATE % (i + 1))
+            self.add_veth_if_to_docker(fp_name, TMP_TAP_TEMPLATE % (self.vm_name, (i + 1)), INT_TAP_TEMPLATE % (i + 1))
             self.add_if_to_ovs_bridge(fp_name, fp_br_name)
 
         # create backplane
-        self.add_veth_if_to_docker(BP_TAP_TEMPLATE % (self.vm_name), INT_TAP_TEMPLATE % (self.max_fp_num + 1))
+        self.add_veth_if_to_docker(
+            BP_TAP_TEMPLATE % (self.vm_name),
+            TMP_TAP_TEMPLATE % (self.vm_name, (self.max_fp_num + 1)),
+            INT_TAP_TEMPLATE % (self.max_fp_num + 1))
 
-
-    def add_veth_if_to_docker(self, ext_if, int_if):
+    def add_veth_if_to_docker(self, ext_if, t_int_if, int_if):
         """Create a pair of veth interfaces and add one of them to namespace of docker.
 
         Args:
             ext_if (str): External interface of the veth pair. It remains in host.
+            t_int_if (str): Name of peer interface of ext_if. It is firstly created in host with ext_if. Then it
+                is added to docker namespace and renamed to int_if.
             int_if (str): Internal interface of the veth pair. It is added to docker namespace.
         """
-        logging.info("=== Create veth pair %s and %s. Add %s to docker with Pid %s ===" %
-            (ext_if, int_if, int_if, self.pid))
+        logging.info("=== Create veth pair %s and %s. Add %s to docker with Pid %s as %s ===" %
+            (ext_if, t_int_if, t_int_if, self.pid, int_if))
 
         if CeosNetwork.intf_exists(ext_if) and CeosNetwork.intf_not_exists(int_if, self.pid):
             CeosNetwork.cmd("ip link del %s" % ext_if)
 
-        t_int_if = int_if + '_t'
         if CeosNetwork.intf_not_exists(ext_if):
             CeosNetwork.cmd("ip link add %s type veth peer name %s" % (ext_if, t_int_if))
 
@@ -288,7 +290,9 @@ class CeosNetwork(object):
                     # Result is unexpected, need to retry
                     continue
         # Reached max retry, fail with exception
-        raise Exception('ret_code=%d, error message="%s". cmd="%s"' % (ret_code, err, cmdline))
+        msg = 'ret_code=%d, error message: "%s" cmd: "%s"' % \
+            (ret_code, err, '%s | %s' % (cmdline, grep_cmd) if grep_cmd else cmdline)
+        raise Exception(msg)
 
     @staticmethod
     def get_ovs_br_ports(bridge):
@@ -357,6 +361,8 @@ def main():
     mgmt_bridge = module.params['mgmt_bridge']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
+
+    config_module_logging('ceos_net_' + vm_name)
 
     try:
         cnet = CeosNetwork(name, vm_name, mgmt_bridge, fp_mtu, max_fp_num)
