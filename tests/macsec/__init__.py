@@ -93,7 +93,7 @@ class MacsecPlugin(object):
         return __shutdown_macsec
 
     @pytest.fixture(scope="session", autouse=True)
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
+    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_profile):
         '''
             setup macsec links
         '''
