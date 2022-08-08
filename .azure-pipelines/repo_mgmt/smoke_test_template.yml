@@ -504,7 +504,7 @@ stages:
                 cd test_reporting
                 python3 collect_azp_results.py $(Build.BuildId)
 
-                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL } -j tr.json SonicTestData
+                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} -j tr.json SonicTestData
             condition: eq('${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}', 'false')
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
