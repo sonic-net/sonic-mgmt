@@ -1244,17 +1244,18 @@ def build_packet_to_server(duthost, ptfadapter, target_server_ip):
 
 
 @contextlib.contextmanager
-def crm_neighbor_checker(duthost):
+def crm_neighbor_checker(duthost, ip_version="ipv4", expect_change=False):
+    resource_name = "{}_neighbor".format(ip_version)
     crm_facts_before = duthost.get_crm_facts()
-    ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+    neighbor_before = crm_facts_before["resources"][resource_name]["used"]
+    logging.info("{} neighbor before test: {}".format(ip_version, neighbor_before))
     yield
     time.sleep(crm_facts_before["polling_interval"])
     crm_facts_after = duthost.get_crm_facts()
-    ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
-    if ipv4_neighbor_after != ipv4_neighbor_before:
-        raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+    neighbor_after = crm_facts_after["resources"][resource_name]["used"]
+    logging.info("{} neighbor after test: {}".format(ip_version, neighbor_after))
+    if neighbor_after != neighbor_before and not expect_change:
+        raise ValueError("{} neighbor differs, before {}, after {}".format(ip_version, neighbor_before, neighbor_after))
 
 
 def get_ptf_server_intf_index(tor, tbinfo, iface):
