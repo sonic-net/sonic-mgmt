@@ -71,11 +71,12 @@ class TestPlanManager(object):
                     "scripts_exclude": []
                 },
                 "common_params": [
+                    "--completeness_level=confident"
                 ],
                 "specified_params": {
                 }
             },
-            "extra_params":{
+            "extra_params": {
                 "pull_request_id": pr_id
             },
             "priority": 10,
