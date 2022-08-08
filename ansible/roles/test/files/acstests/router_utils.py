@@ -4,7 +4,6 @@ import ptf.dataplane as dataplane
 
 from ptf.testutils import *
 from ptf.mask import Mask
-import ipaddress
 
 import pprint
 import ipaddress

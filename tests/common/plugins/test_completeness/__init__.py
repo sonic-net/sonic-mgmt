@@ -39,7 +39,7 @@ class CompletenessLevel(enum.IntEnum):
         Returns:
             CompletenessLevel as a string
         """
-        if type(level) is not CompletenessLevel:
+        if not isinstance(level, CompletenessLevel):
             logging.error("Invalid completeness type. Expected: {}. Format {}".format(str(CompletenessLevel), type(level))) 
         level_name = level.name.lower()
         return level_name
