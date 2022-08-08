@@ -4,8 +4,10 @@ from ansible.module_utils.serial_utils import CiscoSerial, core
 
 def session(new_params):
     seq = [
-        ('crypto key generate rsa', ['How many bits in the modulus \[2048\]:']),
-        ('\n', ['RP/0/RP0/CPU0:ios#']),
+        ('crypto key generate rsa', ['How many bits in the modulus \[2048\]:', '\[yes/no\]:']),
+        ('\n', ['RP/0/RP0/CPU0:ios#', '\[yes/no\]:']),
+        ('crypto key generate rsa', ['\[yes/no\]:']),
+        ('no', ['RP/0/RP0/CPU0:ios#']),
         ('configure terminal', ['RP/0/RP0/CPU0:ios\(config\)#']),
         ('interface mgmtEth 0/RP0/CPU0/0', ['RP/0/RP0/CPU0:ios\(config-if\)#']),
         ('no shutdown', ['RP/0/RP0/CPU0:ios\(config-if\)#']),
