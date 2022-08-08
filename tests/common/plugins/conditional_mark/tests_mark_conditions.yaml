@@ -118,7 +118,7 @@ crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' topology"
     conditions:
-      - "'t0' no in topo_name"
+      - "'t0' not in topo_name"
 
 #######################################
 #####            decap            #####
