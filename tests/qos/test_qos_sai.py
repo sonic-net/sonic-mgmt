@@ -30,6 +30,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import dualtor_ports             # lgtm[py/unused-import]
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -73,13 +74,14 @@ class TestQosSai(QosSaiBase):
 
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
-        ingressLossyProfile, egressLosslessProfile
+        ingressLossyProfile, egressLosslessProfile, dualtor_ports
     ):
         logger.info("asictype {}".format(duthost.facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
         logger.info("qosConfig {}".format(dutQosConfig))
+        logger.info("dualtor_ports {}".format(dualtor_ports))
 
-    @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2"])
+    @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile, egressLosslessProfile
@@ -103,6 +105,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        normal_profile = ["xoff_1", "xoff_2"]
+        if not dutConfig["dualTor"] and not xoffProfile in normal_profile:
+            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
@@ -140,7 +146,7 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
 
-    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
@@ -167,6 +173,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        normal_profile = ["xon_1", "xon_2"]
+        if not dutConfig["dualTor"] and not xonProfile in normal_profile:
+            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+
         if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("This Test Case is only meant for Mellanox ASIC")
 
@@ -295,7 +305,7 @@ class TestQosSai(QosSaiBase):
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
             )
 
-    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2"])
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
@@ -318,6 +328,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        normal_profile = ["xon_1", "xon_2"]
+        if not dutConfig["dualTor"] and not xonProfile in normal_profile:
+            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
@@ -402,6 +416,10 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
+
+        if not dutConfig['dualTor']:
+            qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
+            qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
@@ -733,7 +751,9 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku":dutTestParams['hwsku'],
+            "dual_tor": dutConfig['dualTor'],
+            "dual_tor_scenario": dutConfig['dualTorScenario']
         })
 
         self.runPtfTest(
