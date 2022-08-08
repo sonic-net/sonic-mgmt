@@ -48,6 +48,10 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
+    yield
+
+    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
