@@ -11,6 +11,7 @@ import ipaddress
 import pytest
 import logging
 import time
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -141,19 +142,27 @@ def wait_for_device_reachable(localhost):
     return wait_for_device_reachable
 
 
-@pytest.fixture
-def shutdown_bgp_sessions():
-    """Shutdown all bgp sessions on a device."""
+@contextlib.contextmanager
+def shutdown_bgp_sessions_on_duthost():
+    """Shutdown all BGP sessions on a device"""
     duthosts = []
 
-    def _shutdown_bgp_sessions(duthost):
+    def _shutdown_bgp_sessions_on_duthost(duthost):
         duthosts.append(duthost)
         logger.info("Shutdown all BGP sessions on {}".format(duthost.hostname))
         duthost.shell("config bgp shutdown all")
 
-    yield _shutdown_bgp_sessions
+    try:
+        yield _shutdown_bgp_sessions_on_duthost
+    finally:
+        time.sleep(1)
+        for duthost in duthosts:
+            logger.info("Startup all BGP sessions on {}".format(duthost.hostname))
+            duthost.shell("config bgp startup all")
 
-    time.sleep(1)
-    for duthost in duthosts:
-        logger.info("Startup all BGP sessions on {}".format(duthost.hostname))
-        duthost.shell("config bgp startup all")
+
+@pytest.fixture
+def shutdown_bgp_sessions():
+    """Shutdown all bgp sessions on a device."""
+    with shutdown_bgp_sessions_on_duthost() as shutdown_util:
+        yield shutdown_util
