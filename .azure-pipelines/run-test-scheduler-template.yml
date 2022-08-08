@@ -40,7 +40,7 @@ steps:
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Running test
-    timeoutInMinutes: 500
+    timeoutInMinutes: 300
 
   - script: |
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
