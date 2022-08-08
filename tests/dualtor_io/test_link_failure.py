@@ -15,10 +15,11 @@ pytestmark = [
 ]
 
 
+@pytest.mark.enable_active_active
 def test_active_link_down_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor,
-    shutdown_fanout_upper_tor_intfs
+    shutdown_fanout_upper_tor_intfs, cable_type
 ):
     """
     Send traffic from server to T1 and shutdown the active ToR link.
