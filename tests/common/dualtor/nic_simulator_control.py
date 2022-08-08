@@ -2,16 +2,19 @@
 import grpc
 import pytest
 import time
-
-from collections import Iterable
+import collections
+import logging
 
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                     # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import mux_config                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports            # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
+from tests.common.dualtor.dual_tor_common import cable_type
+from tests.common.dualtor.dual_tor_common import CableType
 
 
 __all__ = [
@@ -19,11 +22,13 @@ __all__ = [
     "restart_nic_simulator_session",
     "restart_nic_simulator",
     "nic_simulator_url",
-    "toggle_all_ports_both_tors_admin_forwarding_state_to_active",
     "nic_simulator_channel",
     "nic_simulator_client",
     "mux_status_from_nic_simulator",
+    "toggle_active_all_ports_both_tors"
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class ForwardingState(object):
@@ -131,7 +136,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
     def _get_mux_status(ports=None):
         if ports is None:
             ports = active_active_ports.keys()
-        elif isinstance(ports, Iterable):
+        elif isinstance(ports, collections.Iterable):
             ports = list(ports)
         else:
             ports = [str(ports)]
@@ -162,29 +167,46 @@ def nic_simulator_url(nic_simulator_info):
     pass
 
 
-def set_upper_tor_admin_forwarding_state(nic_simulator_url, port, state):
-    """Set upper ToR admin forwarding state."""
-    pass
+def toggle_ports(duthosts, intf_name, state):
+    """Toggle port from cmd line"""
+
+    if not isinstance(duthosts, collections.Iterable):
+        duthosts = [duthosts]
+
+    toggled_intfs = []
+    for duthost in duthosts:
+        toggled_intfs.extend(_toggle_cmd(duthost, intf_name, state))
+    return toggled_intfs
 
 
-def set_lower_tor_admin_forwarding_state(nic_simulator_url, port, state):
-    """Set lower ToR admin forwarding state."""
-    pass
+def _toggle_cmd(dut, intfs, state):
+    """Toggle through DUT command line"""
 
+    toggled_intfs = []
 
-def set_all_ports_upper_tor_admin_forwarding_state(nic_simulator_url, state):
-    """Set all ports lower ToR admin forwarding state."""
-    pass
+    logger.info('Setting {} as {} for intfs {}'.format(dut, state, intfs))
+    if type(intfs) == str:
+        cmds = ["config muxcable mode {} {}; true".format(state, intfs)]
+        toggled_intfs.append((dut, intfs))
+    else:
+        cmds = []
+        for intf in intfs:
+            toggled_intfs.append((dut, intf))
+            cmds.append("config muxcable mode {} {}; true".format(state, intf))
+    dut.shell_cmds(cmds=cmds, continue_on_fail=True)
 
-
-def set_all_ports_lower_tor_admin_forwarding_state(nic_simulator_url, state):
-    """Set all ports lower ToR admin forwarding state."""
-    pass
+    return toggled_intfs
 
 
 @pytest.fixture
-def toggle_all_ports_both_tors_admin_forwarding_state_to_active(nic_simulator_url, cable_type):
+def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
+
     if cable_type == CableType.active_active:
-        set_all_ports_upper_tor_admin_forwarding_state(nic_simulator_url, ForwardingState.ACTIVE)
-        set_all_ports_lower_tor_admin_forwarding_state(nic_simulator_url, ForwardingState.ACTIVE)
+        toggle_ports(duthosts, active_active_ports, state="active")
+        yield
+        toggle_ports(duthosts, active_active_ports, state="auto")
+        return
+
+    yield
+    return

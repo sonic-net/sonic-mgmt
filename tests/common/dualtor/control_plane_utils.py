@@ -41,7 +41,7 @@ DB_CHECK_FIELD_MAP = {
 
 class DBChecker:
 
-    def __init__(self, duthost, state, health, intf_names='all', cable_type=CableType.active_standby):
+    def __init__(self, duthost, state, health, intf_names='all', cable_type=CableType.default_type):
         """
         Create a DBChecker object
         Args:
@@ -85,7 +85,7 @@ class DBChecker:
     def _parse_intf_names(self):
         mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
         selected_intfs = set(
-            _ for _ in mux_cable_table if mux_cable_table[_].get("cable_type", CableType.active_standby) == self.cable_type
+            _ for _ in mux_cable_table if mux_cable_table[_].get("cable_type", CableType.default_type) == self.cable_type
         )
         if self.intf_names == 'all':
             self.intf_names = selected_intfs
@@ -140,7 +140,7 @@ class DBChecker:
 def verify_tor_states(
     expected_active_host, expected_standby_host,
     expected_standby_health='healthy', intf_names='all',
-    cable_type=CableType.active_standby
+    cable_type=CableType.default_type
 ):
     """
     Verifies that the expected states for active and standby ToRs are

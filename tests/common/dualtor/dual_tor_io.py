@@ -122,10 +122,10 @@ class DualTorIO:
         logger.info("ALL server address:\n {}".format(server_ip_list))
 
         ptf_to_server_map = dict()
-        for i, vlan_intf in enumerate(natsorted(self.test_interfaces)):
-            ptf_intf = self.tor_to_ptf_intf_map[vlan_intf]
-            addr = server_ip_list[i]
-            ptf_to_server_map[ptf_intf] = [str(addr)]
+        for intf in natsorted(self.test_interfaces):
+            ptf_intf = self.tor_to_ptf_intf_map[intf]
+            server_ip = str(self.mux_cable_table[intf]['server_ipv4'].split("/")[0])
+            ptf_to_server_map[ptf_intf] = [server_ip]
 
         logger.debug('VLAN intf to server IP map: {}'.format(json.dumps(ptf_to_server_map, indent=4, sort_keys=True)))
         return ptf_to_server_map
