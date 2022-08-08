@@ -111,7 +111,7 @@ stages:
 
     steps:
     - script: |
-        if [ $(t1_lag_classic) == "Succeeded" ] || [ $(t1_lag_classic) == "Succeeded" ]; then
+        if [ $(resultOfClassic) == "Succeeded" ] || [ $(resultOfTestbedV2) == "Succeeded" ]; then
           echo "One or both of t1_lag_classic and t1_lag_testbedv2 passed."
           exit 0
         else
