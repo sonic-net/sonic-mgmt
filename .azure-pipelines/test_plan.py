@@ -71,7 +71,8 @@ class TestPlanManager(object):
                     "scripts_exclude": []
                 },
                 "common_params": [
-                    "--completeness_level=confident"
+                    "--completeness_level=confident",
+                    "--allow_recover"
                 ],
                 "specified_params": {
                 }
@@ -87,7 +88,13 @@ class TestPlanManager(object):
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
-        resp = requests.post(tp_url, headers=headers, data=payload, timeout=10).json()
+        raw_resp = {}
+        try:
+            raw_resp = requests.post(tp_url, headers=headers, data=payload, timeout=10)
+            resp = raw_resp.json()
+        except Exception as exception:
+            raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
+                            .format(tp_url, str(raw_resp), str(exception)))
         if not resp["success"]:
             raise Exception("Create test plan failed with error: {}".format(resp["errmsg"]))
 
@@ -114,7 +121,13 @@ class TestPlanManager(object):
             "Content-Type": "application/json"
         }
 
-        resp = requests.post(cancel_url, headers=headers, data=payload, timeout=10).json()
+        raw_resp = {}
+        try:
+            raw_resp = requests.post(cancel_url, headers=headers, data=payload, timeout=10)
+            resp = raw_resp.json()
+        except Exception as exception:
+            raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
+                            .format(cancel_url, str(raw_resp), str(exception)))
         if not resp["success"]:
             raise Exception("Cancel test plan failed with error: {}".format(resp["errmsg"]))
 
@@ -134,7 +147,13 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         while (time.time() - start_time) < timeout:
-            resp = requests.get(poll_url, headers=headers, timeout=10).json()
+            raw_resp = {}
+            try:
+                raw_resp = requests.get(poll_url, headers=headers, timeout=10)
+                resp = raw_resp.json()
+            except Exception as exception:
+                raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
+                                .format(poll_url, str(raw_resp), str(exception)))
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
 
