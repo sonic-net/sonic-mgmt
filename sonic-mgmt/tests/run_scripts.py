@@ -80,6 +80,23 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
     tc_name = "bgp_fact"
     cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
     os.system("bash -c '{}'".format(cmd))
+    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    if not int(passed):
+        print("Iteration1: Rerunning the script, making sure that DUT is up\n")
+        current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
+        current_result_file.flush()
+        time.sleep(60)
+        cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+        os.system("bash -c '{}'".format(cmd))
+        passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+        if not int(passed):
+            print("Iteration2: Rerunning the script, making sure that DUT is up\n")
+            current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
+            current_result_file.flush()
+            time.sleep(60)
+            cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+            os.system("bash -c '{}'".format(cmd))
+        
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
@@ -94,7 +111,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
     print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
 
-    current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
+    current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
     current_result_file.flush()
     report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
     report_file.flush()
@@ -106,13 +123,14 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if not int(passed):
-        current_result_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         current_result_file.flush()
-        report_file.write("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         report_file.flush()
-        sys.exit("BGP Fact testcase failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
-
+    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
+    current_result_file.flush()
     for tc in tcs:
         if '#' in tc:
             continue
@@ -153,7 +171,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
         print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
 
-        current_result_file.write("{}     , {} , {} , {} , {} , {} \n".format(tc_name,total_tests,passed,failed,skipped,errored))
+        current_result_file.write("{}:           {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
         current_result_file.flush()
         report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
         report_file.flush()
@@ -165,7 +183,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
 
-    current_result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    current_result_file.write("Total TCs: {},          {} Pass, {} Fail, {} Skipped, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
     report_file.write("Total     , {} Total, {} Passed, {} Failed, {} Skip, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     report_file.close()
@@ -211,9 +229,9 @@ def parse_results():
             total_error += int(errored)
             print("{}     : {} : {} : {} : {} : {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
 
-            result_file.write("{}     , {} , {} , {} , {} , {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
+            result_file.write("{}, {} Total , {} Pass, {} Failed, {} Skipped, {} Error\n".format(log_file,total_tests,passed,failed,skipped,errored))
 
-    result_file.write("Total     , {} , {} , {} , {} , {} \n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    result_file.write("Total     , {} Total, {} Passed, {} Failed, {} Skip, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     result_file.close()
 
 

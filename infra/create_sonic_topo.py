@@ -61,7 +61,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1', choices=['t0', 't1', 'dualtor-56', 't1-64-lag', 't0-64', "t1-8-lag"])
+                      required=True,default='t1', choices=['dualtor-56', 't1-64-lag', 't0-64', "t1-8-lag"])
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -69,13 +69,13 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
-                      required=False,default="mth32")
+                      required=False,default="mth64")
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
-                      required=False,default='DT7')
+                      required=False,default='DT')
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
-                      required=False,default='DT7')
+                      required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
                       default=False)
     return parser
@@ -640,7 +640,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
-    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
     resp = chan.recv(9999)
     #print(resp.decode("ascii"))
