@@ -45,7 +45,9 @@ def main():
         results['num_asic'] = device_info.get_num_npus()
         results.update(device_info.get_sonic_version_info())
         results['kernel_version'] = results['kernel_version'].split('-')[0]
-        results['is_supervisor'] = device_info.is_supervisor()
+        results['is_supervisor'] = False
+        if hasattr(device_info, 'is_supervisor'):
+            results['is_supervisor'] = device_info.is_supervisor()
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
