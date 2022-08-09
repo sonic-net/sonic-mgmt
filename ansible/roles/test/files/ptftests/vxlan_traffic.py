@@ -24,9 +24,8 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
-import ipaddress
 import logging
-from ipaddress import ip_address
+from ipaddress import ip_address, IPv4Address, IPv6Address
 import random
 
 VARS = {}
@@ -96,9 +95,9 @@ class VXLAN(BaseTest):
     def fill_loopback_ip(self):
         loop_config_data = self.topo_data['minigraph_facts']['minigraph_lo_interfaces']
         for entry in loop_config_data:
-            if isinstance(ipaddress.ip_address(entry['addr']), ipaddress.IPv4Address):
+            if isinstance(ip_address(entry['addr']), IPv4Address):
                 self.loopback_ipv4 = entry['addr']
-            if isinstance(ipaddress.ip_address(entry['addr']), ipaddress.IPv6Address):
+            if isinstance(ip_address(entry['addr']), IPv6Address):
                 self.loopback_ipv6 = entry['addr']
 
     def runTest(self):
@@ -187,7 +186,7 @@ class VXLAN(BaseTest):
                 for i in range(self.packet_count):
                     tcp_sport = get_incremental_value('tcp_sport')
                     valid_combination = True
-                    if isinstance(ip_address(destination), ipaddress.IPv4Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv4Address):
+                    if isinstance(ip_address(destination), IPv4Address) and isinstance(ip_address(ptf_addr), IPv4Address):
                         pkt_opts = {
                             "pktlen": pkt_len,
                             "eth_dst": self.dut_mac,
@@ -203,7 +202,7 @@ class VXLAN(BaseTest):
                         pkt_opts['ip_ttl'] = 63
                         pkt_opts['eth_src'] = self.dut_mac
                         exp_pkt = simple_tcp_packet(**pkt_opts)
-                    elif isinstance(ip_address(destination), ipaddress.IPv6Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv6Address):
+                    elif isinstance(ip_address(destination), IPv6Address) and isinstance(ip_address(ptf_addr), IPv6Address):
                         pkt_opts = {
                             "pktlen":pkt_len,
                             "eth_dst":self.dut_mac,
@@ -222,7 +221,7 @@ class VXLAN(BaseTest):
                         valid_combination = False
                     udp_sport = 1234 # Use entropy_hash(pkt), it will be ignored in the test later.
                     udp_dport = self.vxlan_port
-                    if isinstance(ip_address(host_address), ipaddress.IPv4Address):
+                    if isinstance(ip_address(host_address), IPv4Address):
                         encap_pkt = simple_vxlan_packet(
                             eth_src=self.dut_mac,
                             eth_dst=self.random_mac,
@@ -237,7 +236,7 @@ class VXLAN(BaseTest):
                             inner_frame=exp_pkt,
                             **options)
                         encap_pkt[scapy.IP].flags = 0x2
-                    elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
+                    elif isinstance(ip_address(host_address), IPv6Address):
                         encap_pkt = simple_vxlanv6_packet(
                             eth_src=self.dut_mac,
                             eth_dst=self.random_mac,
@@ -254,7 +253,7 @@ class VXLAN(BaseTest):
                     masked_exp_pkt = Mask(encap_pkt)
                     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-                    if isinstance(ip_address(host_address), ipaddress.IPv4Address):
+                    if isinstance(ip_address(host_address), IPv4Address):
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "dst")
@@ -271,7 +270,7 @@ class VXLAN(BaseTest):
                         _, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.t2_ports)
                         scapy_pkt  = scapy.Ether(received_pkt)
                         # Store every destination that was received.
-                        if isinstance(ip_address(host_address), ipaddress.IPv6Address):
+                        if isinstance(ip_address(host_address), IPv6Address):
                             dest_ip = scapy_pkt['IPv6'].dst
                         else:
                             dest_ip = scapy_pkt['IP'].dst
