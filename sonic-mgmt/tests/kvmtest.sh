@@ -113,7 +113,6 @@ test_t0() {
       container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
-      cacl/test_ebtables_application.py \
       dhcp_relay/test_dhcp_relay.py \
       dhcp_relay/test_dhcpv6_relay.py \
       iface_namingmode/test_iface_namingmode.py \

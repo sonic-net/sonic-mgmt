@@ -62,9 +62,6 @@ ALLOW_LIST = {
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
-    if tbinfo['topo']['type'] != 't1':
-        pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
-
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
         pytest.skip('No file {} on DUT, BGP Allow List is not supported')
