@@ -1,6 +1,7 @@
 """
 Test the feature of container_checker
 """
+import time
 import logging
 
 import pytest
@@ -27,8 +28,6 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
-POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 360
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -144,17 +143,7 @@ def post_test_check(duthost, up_bgp_neighbors):
       This function will return True if all critical processes are running and
       all BGP sessions are established. Otherwise it will return False.
     """
-    critical_proceses = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-        check_all_critical_processes_status, duthost
-    )
-
-    bgp_check = wait_until(
-        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-        duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
-    )
-
-    return critical_proceses and bgp_check
+    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
