@@ -42,5 +42,18 @@ TEST_CASE = [
         #"sai_fdb_test.FdbFlushAllTest",
         "sai_fdb_test.FdbDisableMacMoveDropTest",
         "sai_fdb_test.FdbDynamicMacMoveTest",
-        "sai_fdb_test.FdbStaticMacMoveTest"
+        "sai_fdb_test.FdbStaticMacMoveTest",
+        "sai_neighbor_test.NoHostRouteTest",
+        "sai_neighbor_test.NoHostRouteTestV6",
+        "sai_neighbor_test.AddHostRouteTest",
+        "sai_neighbor_test.AddHostRouteTestV6",
+        "sai_neighbor_test.RemoveAddNeighborTestIPV4",
+        "sai_neighbor_test.RemoveAddNeighborTestIPV6",
+        "sai_neighbor_test.NhopDiffPrefixRemoveLonger",
+        "sai_neighbor_test.NhopDiffPrefixRemoveLongerV6",
+        "sai_neighbor_test.NhopDiffPrefixRemoveShorter",
+        "sai_neighbor_test.NhopDiffPrefixRemoveShorterV6",
+        "sai_rif_test.IngressMacUpdateTest",
+        "sai_rif_test.IngressDisableTestV4",
+        "sai_rif_test.IngressMtuTestV4"
         ]
