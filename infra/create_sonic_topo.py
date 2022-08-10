@@ -704,7 +704,7 @@ def get_log_files(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("tar -cvf sanity_logs.tar * \n")
+    chan.send("tar -cvf sanity_logs.tar *.log \n")
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
