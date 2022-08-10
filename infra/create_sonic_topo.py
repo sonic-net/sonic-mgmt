@@ -684,6 +684,44 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     print("Total run time for sanity suite: {} mins".format(minutes))
     return minutes
 
+def get_log_files(data):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests\n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("tar -cvf sanity_logs.tar * \n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("gzip sanity_logs.tar \n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/sanity_logs.tar.gz','sanity_logs.tar.gz')
+    ftp_client.close() 
+    ssh.close()
 
 def main():
     argparser = _create_parser()
@@ -837,6 +875,7 @@ def main():
         run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
         get_report_file(data)
+        get_log_files(data)
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
