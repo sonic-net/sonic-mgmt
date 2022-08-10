@@ -110,7 +110,7 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
@@ -210,7 +210,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost, gn
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
