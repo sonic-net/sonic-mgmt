@@ -109,18 +109,16 @@ def remove_dataacl_table(duthosts):
             if TABLE_NAME in line:
                 data_acl_existing = True
                 break
-        if not data_acl_existing:
-            yield
-            return
-        # Remove DATAACL
-        logger.info("Removing ACL table {}".format(TABLE_NAME))
-        cmds = [
-            "config acl remove table {}".format(TABLE_NAME),
-            "config save -y"
-        ]
-        duthost.shell_cmds(cmds=cmds)
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME))
+            cmds = [
+                "config acl remove table {}".format(TABLE_NAME),
+                "config save -y"
+            ]
+            duthost.shell_cmds(cmds=cmds)
     yield
-    # Recover DATAACL by reloading minigraph
+    # Recover DUT by reloading minigraph
     for duthost in duthosts:
         config_reload(duthost, config_source="minigraph")
 
@@ -382,6 +380,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
 
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            # Ignore any other errors to reduce noise
+            loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
         except LogAnalyzerError as err:
@@ -471,6 +471,8 @@ class BaseAclTest(object):
 
             try:
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+                # Ignore any other errors to reduce noise
+                loganalyzer.ignore_regex = [r".*"]
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 

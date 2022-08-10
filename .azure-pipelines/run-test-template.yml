@@ -12,6 +12,13 @@ parameters:
 - name: section
   type: string
   default: ''
+- name: image
+  type: string
+  default: sonic-vs.img.gz
+  values:
+  - sonic-vs.img.gz
+  - sonic-4asic-vs.img.gz
+  - sonic-6asic-vs.img.gz
 
 steps:
 - script: |
@@ -31,12 +38,13 @@ steps:
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/master'
+    allowPartiallySucceededBuilds: true
   displayName: "Download sonic kvm image"
 
 - script: |
     sudo mkdir -p sonic-vm/images
     sudo mkdir -p sonic-vm/disks
-    sudo cp -v ../target/sonic-vs.img.gz sonic-vm/images/sonic-vs.img.gz
+    sudo cp -v ../target/${{ parameters.image }} sonic-vm/images/sonic-vs.img.gz
     sudo gzip -fd sonic-vm/images/sonic-vs.img.gz
     username=$(id -un)
     sudo chown -R $username.$username sonic-vm
@@ -55,13 +63,16 @@ steps:
 
 - script: |
     pwd
-
+    
     parent_dir=$(basename $PWD)
-    docker exec sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
+    docker exec -e GIT_USER_NAME=$GIT_USER_NAME -e GIT_API_TOKEN=$GIT_API_TOKEN sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
+  env:
+    GIT_USER_NAME: $(GIT_USER_NAME)
+    GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
-  ${{ if eq(parameters.tbtype, 't0-sonic') }}:
+  ${{ if eq(parameters.tbtype, 'multi-asic-t1-lag-pr') }}:
       continueOnError: true
-
+      
 - script: |
     # save dut state if test fails
     virsh_version=$(virsh --version)

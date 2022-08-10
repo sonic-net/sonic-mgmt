@@ -771,12 +771,30 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
         ptf_ports[port_id] = ptf_ports_available_in_topo[port_id]
 
     if 'port_in_lag' in port_type:
+        remove_acl_table(duthost, config_port_indices)
         lag_port_map = create_lag_port(duthost, config_port_indices)
         bond_port_map = create_bond_port(ptfhost, ptf_ports)
 
         return (lag_port_map, bond_port_map)
 
     return (config_port_indices, ptf_ports.values())
+
+
+def remove_acl_table(duthost, config_port_indices):
+    """
+    Remove ACL table when ingress/egress ACL binding is configured on LAG members
+
+    Args:
+        duthost: DUT host object
+        config_port_indices: Dictionary of port on the DUT
+    """
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    port_list = config_port_indices.values()
+
+    for table_name in acl_facts.keys():
+        acl_ports = acl_facts[table_name].get("ports", [])
+        if set(acl_ports).intersection(port_list):
+            duthost.shell('config acl remove table {}'.format(table_name))
 
 
 def remove_sub_port(duthost, sub_port, ip):

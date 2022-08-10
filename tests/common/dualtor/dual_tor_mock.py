@@ -339,13 +339,24 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     peer_switch_hostname = 'switch_hostname'
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
+    restart_swss = False
+    if dut.get_asic_name() in ['th2', 'td3']:
+        restart_swss = True
+    cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
+    dut.shell(cmd=cmd)
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
+        # We actually need to restart syncd only, but restarting syncd will also trigger swss
+        # being restarted, and it costs more time than restarting swss
+        logger.info("Restarting swss service to regenerate config.bcm")
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
 
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
-            'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if dut.get_asic_name() == 'th2':
-        # Restart swss on TH2 platform
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to apply changes
         logger.info("Restarting swss service")
         dut.shell('systemctl restart swss')
         time.sleep(120)
@@ -357,8 +368,8 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
           'redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
           'redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if dut.get_asic_name() == 'th2':
-        # Restart swss on TH2 platform
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to remove changes
         logger.info("Restarting swss service")
         dut.shell('systemctl restart swss')
         time.sleep(120)

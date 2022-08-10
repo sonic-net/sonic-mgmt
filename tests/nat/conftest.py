@@ -27,7 +27,6 @@ def protocol_type(request):
     """
     return request.param
 
-
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the NAT tests.
@@ -38,7 +37,6 @@ def pytest_addoption(parser):
         default=False,
         help="Enable NAT feature on DUT",
     )
-
 
 @pytest.fixture(scope='module')
 def config_nat_feature_enabled(request, duthost):
@@ -188,7 +186,7 @@ def apply_global_nat_config(duthost, config_nat_feature_enabled):
     nat_global_config(duthost)
     yield
     # reload config on teardown
-    config_reload(duthost, config_source='minigraph', safe_reload=True)
+    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture()
@@ -204,7 +202,7 @@ def reload_dut_config(request, duthost, setup_test_env):
     dut_iface = setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"]
     gw_ip = setup_data[interface_type]["vrf_conf"]["red"]["gw"]
     mask = setup_data[interface_type]["vrf_conf"]["red"]["mask"]
-    config_reload(duthost, config_source='minigraph', safe_reload=True)
+    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
     pch_ip = setup_info["pch_ips"][dut_iface]
     duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
     duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))

@@ -63,12 +63,31 @@ def verify_host_port_vlan_membership(duthosts, rand_one_dut_hostname, testbed_pa
         if vlan_member_port not in bridge_vlan_host_ports:
             raise ValueError("Port %s not in host bridge VLAN %s" % (vlan_member_port, vlan_id))
 
+def get_new_vlan_intf_mac_mellanox(dut_vlan_intf_mac):
+    '''
+        Get a new dut vlan interface mac address for Mellanox dut
+        Args:
+            dut_vlan_intf_mac: the original mac address of the switch
+        Returns:
+            new_dut_vlan_intf_mac: the new mac address
+    '''
+    dut_vlan_intf_mac_last_octet = dut_vlan_intf_mac.split(':')[-1]
+    # Get a different mac address under the same mac prefix, flap the bits in the last octet
+    new_dut_vlan_intf_mac_last_octet = hex(int(dut_vlan_intf_mac_last_octet, 16) ^ 255).strip('0x')
+    new_dut_vlan_intf_mac = dut_vlan_intf_mac.split(':')
+    new_dut_vlan_intf_mac[-1] = new_dut_vlan_intf_mac_last_octet
+    new_dut_vlan_intf_mac = ':'.join(new_dut_vlan_intf_mac)
+    return new_dut_vlan_intf_mac
 
 @pytest.fixture(scope="module")
 def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, verify_host_port_vlan_membership):
     vlan_intf, _ = testbed_params
     duthost = duthosts[rand_one_dut_hostname]
     dut_vlan_mac = duthost.get_dut_iface_mac('%s' % vlan_intf["attachto"])
+    # There is a restriction in configuring interface mac address on Mellanox asics, assign a valid value for the vlan interface mac address
+    global DUT_VLAN_INTF_MAC
+    if duthost.get_facts()['asic_type'] == 'mellanox':
+        DUT_VLAN_INTF_MAC = get_new_vlan_intf_mac_mellanox(dut_vlan_mac)
     duthost.shell('redis-cli -n 4 hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], DUT_VLAN_INTF_MAC))
     wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == DUT_VLAN_INTF_MAC)
 

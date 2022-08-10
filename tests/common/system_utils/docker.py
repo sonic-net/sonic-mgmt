@@ -148,7 +148,7 @@ def swap_syncd(duthost, creds):
         )
 
     logger.info("Reloading config and restarting swss...")
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
     _perform_syncd_liveness_check(duthost)
 
@@ -193,7 +193,6 @@ def _perform_swap_syncd_shutdown_check(duthost):
         if any([
             duthost.is_container_running("syncd"),
             duthost.is_container_running("swss"),
-            not duthost.is_bgp_state_idle()
         ]):
             return False
 

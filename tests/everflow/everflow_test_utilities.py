@@ -155,6 +155,13 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
         test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
 
+    # NOTE: Disable egress mirror test on broadcom platform even SAI claim EGRESS MIRRORING is supported
+    # There is a known issue in SAI 7.1 for XGS that SAI claims the capability of EGRESS MIRRORING incorrectly.
+    # Hence we override the capability query with below logic. Please remove it after the issue is fixed.
+    if duthost.facts["asic_type"] == "broadcom" and duthost.facts.get("platform_asic") != 'broadcom-dnx':
+        test_egress_mirror_on_egress_acl = False
+        test_egress_mirror_on_ingress_acl = False
+
     # Collects a list of interfaces, their port number for PTF, and the LAGs they are members of,
     # if applicable.
     #
@@ -753,10 +760,6 @@ class BaseEverflowTest(object):
             ip_ttl=int(mirror_session["session_ttl"]),
             inner_frame=payload
         )
-
-        #Add vendor specific ttl check ,reused pkts in mirror session has 1 decrement in TTL
-        if duthost.facts["asic_type"] in ["cisco-8000"] and (int(mirror_session["session_ttl"]) >= 1):
-            expected_packet.ttl = (int(mirror_session["session_ttl"]) -1)
 
         expected_packet["GRE"].proto = mirror_session["session_gre"]
 

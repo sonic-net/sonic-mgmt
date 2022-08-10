@@ -119,7 +119,7 @@ Example variables can be used in condition string:
       "commit_id": "db529af20",
       "build_date": "Mon Sep 13 17:41:03 UTC 2021",
       "sonic_utilities": 1.2,
-      "kernel_version": "4.19.0-12-2-amd64",
+      "kernel_version": "4.19.0",
       "debian_version": "10.10",
       "built_by": "AzDevOps@sonic-build-workers-000OU4",
       "libswsscommon": "1.0.0",
@@ -127,13 +127,34 @@ Example variables can be used in condition string:
       "branch": "master",
       "release": "master",
       "topo_type": "t0",
-      "topo_name": "t0"
+      "topo_name": "t0",
       "platform": "x86_64-kvm_x86_64-r0",
       "hwsku": "Force10-S6000",
       "build_number": 36262,
       "asic_type": "vs",
       "num_asic": 1,
       "is_multi_asic": False,
+      "feature_status": {
+        "lldp": "enabled", 
+        "pmon": "enabled", 
+        "sflow": "disabled", 
+        "database": "always_enabled", 
+        "radv": "enabled", 
+        "macsec": "disabled", 
+        "telemetry": "enabled", 
+        "snmp": "enabled", 
+        "mux": "always_disabled", 
+        "bgp": "enabled", 
+        "dhcp_relay": "enabled", 
+        "mgmt-framework": "enabled", 
+        "nat": "disabled", 
+        "teamd": "enabled", 
+        "gbsyncd": "enabled", 
+        "syncd": "enabled", 
+        "swss": "enabled"
+      },
+      "asic_gen": "td2",
+      "is_supervisor": False
     }
 ```
 

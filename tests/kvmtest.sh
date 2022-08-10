@@ -89,7 +89,8 @@ RUNTEST_CLI_COMMON_OPTS="\
 -a False \
 -O \
 -r \
--e --allow_recover"
+-e --allow_recover \
+-e --completeness_level=confident"
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
@@ -112,7 +113,6 @@ test_t0() {
       container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
-      cacl/test_ebtables_application.py \
       dhcp_relay/test_dhcp_relay.py \
       dhcp_relay/test_dhcpv6_relay.py \
       iface_namingmode/test_iface_namingmode.py \
@@ -161,12 +161,14 @@ test_t0() {
       generic_config_updater/test_ipv6.py \
       generic_config_updater/test_lo_interface.py \
       generic_config_updater/test_monitor_config.py \
+      generic_config_updater/test_ntp.py \
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
-      system_health/test_system_status.py"
+      system_health/test_system_status.py \
+      radv/test_radv_ipv6_ra.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -200,7 +202,7 @@ test_t0_sonic() {
       macsec/test_macsec.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec"
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
     popd
 }
 
@@ -230,6 +232,7 @@ test_t1_lag() {
     bgp/test_bgp_update_timer.py \
     bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
+    configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
@@ -268,21 +271,31 @@ test_multi_asic_t1_lag() {
     popd
 }
 
+test_multi_asic_t1_lag_pr() {
+    tgname=multi_asic_t1_lag
+    tests="\
+    bgp/test_bgp_fact.py"
+
+    pushd $SONIC_MGMT_DIR/tests
+    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
+    popd
+}
+
 test_dualtor(){
     tgname=dualtor
-    tests="\
-    arp/test_arp_dualtor.py \
-    dualtor/test_ipinip.py \
-    dualtor/test_orch_stress.py \
-    dualtor/test_orchagent_active_tor_downstream.py \
-    dualtor/test_orchagent_mac_move.py \
-    dualtor/test_orchagent_slb.py \
-    dualtor/test_orchagent_standby_tor_downstream.py \
-    dualtor/test_server_failure.py \
-    dualtor/test_standby_tor_upstream_mux_toggle.py \
-    dualtor/test_toggle_mux.py \
-    dualtor/test_tor_ecn.py \
-    dualtor/test_tunnel_memory_leak.py "
+    tests="arp/test_arp_dualtor.py"
+#    dualtor/test_ipinip.py \
+#    dualtor/test_orch_stress.py \
+#    dualtor/test_orchagent_active_tor_downstream.py \
+#    dualtor/test_orchagent_mac_move.py \
+#    dualtor/test_orchagent_slb.py \
+#    dualtor/test_orchagent_standby_tor_downstream.py \
+#    dualtor/test_server_failure.py \
+#    dualtor/test_standby_tor_upstream_mux_toggle.py \
+#    dualtor/test_toggle_mux.py \
+#    dualtor/test_tor_ecn.py \
+#    dualtor/test_tunnel_memory_leak.py "
 #    dualtor_io/test_heartbeat_failure.py \
 #    dualtor_io/test_link_drop.py \
 #    dualtor_io/test_link_failure.py \
@@ -320,6 +333,8 @@ export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
 # workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
+export GIT_USER_NAME=$GIT_USER_NAME
+export GIT_API_TOKEN=$GIT_API_TOKEN
 
 # clear logs from previous test runs
 rm -rf $SONIC_MGMT_DIR/tests/logs
@@ -334,6 +349,8 @@ elif [ x$test_suite == x"t1-lag" ]; then
     test_t1_lag
 elif [ x$test_suite == x"multi-asic-t1-lag" ]; then
     test_multi_asic_t1_lag
+elif [ x$test_suite == x"multi-asic-t1-lag-pr" ]; then
+    test_multi_asic_t1_lag_pr
 elif [ x$test_suite == x"t2" ]; then
     test_t2
 elif [ x$test_suite == x"dualtor" ]; then

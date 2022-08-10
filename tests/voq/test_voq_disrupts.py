@@ -265,7 +265,7 @@ def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("Config reload on node: %s", duthosts.frontend_nodes[0].hostname)
     logger.info("-" * 80)
 
-    config_reload(duthosts.frontend_nodes[0], config_source='config_db', safe_reload=True)
+    config_reload(duthosts.frontend_nodes[0], config_source='config_db', safe_reload=True, check_intf_up_ports=True)
     poll_bgp_restored(duthosts)
 
     logger.info("=" * 80)

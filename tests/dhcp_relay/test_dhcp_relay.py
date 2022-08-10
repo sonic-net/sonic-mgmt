@@ -285,7 +285,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
@@ -337,7 +337,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
@@ -400,7 +400,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
@@ -436,7 +436,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
@@ -471,4 +471,4 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log")
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
