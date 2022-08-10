@@ -10,6 +10,9 @@ from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 class TestIPPacket(object):
     PKT_NUM = 1000
