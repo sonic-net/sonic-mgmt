@@ -130,7 +130,7 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     Returns:
         original value of default_pfcwd_status
     """
-    output = duthost.shell("cat /etc/sonic/init_cfg.json | grep default_pfcwd_status")['stdout']
+    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
     matched = re.search('"default_pfcwd_status": "(.*)"', output)
     if matched:
         original_value = matched.group(1)
