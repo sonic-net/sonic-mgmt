@@ -23,9 +23,19 @@ class CableType(object):
 def cable_type(request, active_active_ports, active_standby_ports):
     """Dualtor cable type."""
     cable_type = request.param
-    has_enable_active_active_marker = bool([_ for _ in request.node.iter_markers() if _.name == "enable_active_active"])
+    has_enable_active_active_marker = False
+    skip_active_standby_marker = False
+    for marker in request.node.iter_markers():
+        if marker.name == "enable_active_active":
+            has_enable_active_active_marker = True
+        elif marker.name == "skip_active_standby":
+            skip_active_standby_marker = True
+
     if ((not has_enable_active_active_marker) and (cable_type == CableType.active_active)):
         pytest.skip("Skip cable type 'active-active'")
+
+    if skip_active_standby_marker and cable_type == CableType.active_standby:
+        pytest.skip("Skip cable type 'active-standby'")
 
     if cable_type == CableType.active_active and not active_active_ports:
         pytest.skip("Skip as no mux ports of 'active-active' cable type")
