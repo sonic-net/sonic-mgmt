@@ -166,7 +166,8 @@ def validate_junit_xml_archive(directory_name, strict=False):
             - Any of the provided files are missing required fields
     """
     if not os.path.exists(directory_name) or not os.path.isdir(directory_name):
-        raise JUnitXMLValidationError("file not found")
+        print("directory {} not found".format(directory_name))
+        return
 
     roots = []
     metadata_source = None
@@ -209,8 +210,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
             print(f"could not parse {document}: {e} - skipping")
 
     if not roots:
-        raise JUnitXMLValidationError(f"provided directory {directory_name} does not contain any valid XML files")
-
+        print("provided directory {} does not contain any valid XML files".format(directory_name))
     return roots
 
 
@@ -312,8 +312,9 @@ def _validate_test_case_properties(root):
 
         seen_testcase_properties.append(testcase_property_name)
 
-    if set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES):
-        raise JUnitXMLValidationError("missing testcase property element(s)")
+    missing_testcase_property = set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES)
+    if missing_testcase_property:
+        print("missing testcase property: {}".format(list(missing_testcase_property)))
 
 def _validate_test_cases(root):
     def _validate_test_case(test_case):
@@ -341,6 +342,9 @@ def parse_test_result(roots):
         A dict containing the parsed test result.
     """
     test_result_json = defaultdict(dict)
+    if not roots:
+        print("No XML file needs to be parsed or the file is empty.")
+        return
 
     for root in roots:
         test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
@@ -422,7 +426,8 @@ def _parse_test_cases(root):
             result[attribute] = test_case.get(attribute)
         for attribute in REQUIRED_TESTCASE_PROPERTIES:
             testcase_properties = _parse_testcase_properties(test_case)
-            result[attribute] = testcase_properties[attribute]
+            if attribute in testcase_properties:
+                result[attribute] = testcase_properties[attribute]
 
         # NOTE: "if failure" and "if error" does not work with the ETree library.
         failure = test_case.find("failure")
@@ -538,7 +543,8 @@ def validate_junit_json_file(path):
             - The provided file is missing required fields
     """
     test_result_json = validate_json_file(path)
-
+    if not test_result_json:
+        return
     _validate_json_metadata(test_result_json)
     _validate_json_summary(test_result_json)
     _validate_json_cases(test_result_json)
@@ -596,12 +602,15 @@ def _validate_json_cases(test_result_json):
         raise TestResultJSONValidationError("test_cases section not found in provided JSON file")
 
     def _validate_test_case(test_case):
-        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS + REQUIRED_TESTCASE_PROPERTIES:
+        for attribute in REQUIRED_TESTCASE_ATTRIBUTES + REQUIRED_TESTCASE_JSON_FIELDS:
             if attribute not in test_case:
                 raise TestResultJSONValidationError(
                     f'"{attribute}" not found in test case '
                     f"\"{test_case.get('name', 'Name Not Found')}\""
                 )
+        for attribute in REQUIRED_TESTCASE_PROPERTIES:
+            if attribute not in test_case:
+                print("missing testcase property {} in testcase {}".format(attribute, test_case["classname"]))
 
     for _, feature in test_result_json["test_cases"].items():
         for test_case in feature:
@@ -667,6 +676,9 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         sys.exit(0)
 
     test_result_json = parse_test_result(roots)
+    if test_result_json is None:
+        print("XML file doesn't exist or no data in the file.")
+        sys.exit(1)
 
     if args.compact:
         output = json.dumps(test_result_json, separators=(",", ":"), sort_keys=True)

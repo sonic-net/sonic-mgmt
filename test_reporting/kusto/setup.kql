@@ -106,6 +106,26 @@
                                                                                   '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
 
 ###############################################################################
+# PIPELINE TABLE SETUP                                                        #
+# 1. Create a TestReportPipeline table to store pipeline task results         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportPipeline (StartTimestamp: datetime, UploadTimestamp: datetime, TrackingId: string,
+                                  ReportId: string, TestbedName: string,
+                                  OSVersion: string, SuccessTasks: string,
+                                  FailedTasks: string, CancelledTasks: string)
+
+.create table TestReportPipeline ingestion json mapping 'FlatPipelineMappingV1' @'[{"column":"StartTimestamp","Properties":{"path":"$.start_time"}},'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
+                                                                                  '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
+                                                                                  '{"column":"CancelledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
+
+###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
 # 1. Create a ExpectedTestRuns table to store expected test runs data         #
 # 2. Add a JSON mapping for the table                                         #
@@ -197,15 +217,23 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
-                                  DeviceName: string, IP: string,
-                                  IcmpReachability: bool, ConsoleReachability: bool,
-                                  SshReachability: bool)
+                                  DutName: string, DutIP: string,
+                                  DutIcmpReachability: bool, ServerName: string,
+                                  ServerIP: string, ServerIcmpReachability: bool,
+                                  PtfName: string, PtfIP: string, PtfIcmpReachability: bool,
+                                  DutConsoleReachability: bool, DutSshReachability: bool)
 
 .create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
                                                                      '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
-                                                                     '{"column":"DeviceName","Properties":{"path":"$.DeviceName"}},'
-                                                                     '{"column":"IP","Properties":{"path":"$.IP"}},'
-                                                                     '{"column":"IcmpReachability","Properties":{"path":"$.IcmpReachability"}},'
-                                                                     '{"column":"ConsoleReachability","Properties":{"path":"$.ConsoleReachability"}},'
-                                                                     '{"column":"SshReachability","Properties":{"path":"$.SshReachability"}},'
+                                                                     '{"column":"DutName","Properties":{"path":"$.DutName"}},'
+                                                                     '{"column":"DutIP","Properties":{"path":"$.DutIP"}},'
+                                                                     '{"column":"DutIcmpReachability","Properties":{"path":"$.DutIcmpReachability"}},'
+                                                                     '{"column":"ServerName","Properties":{"path":"$.ServerName"}},'
+                                                                     '{"column":"ServerIP","Properties":{"path":"$.ServerIP"}},'
+                                                                     '{"column":"ServerIcmpReachability","Properties":{"path":"$.ServerIcmpReachability"}},'
+                                                                     '{"column":"PtfName","Properties":{"path":"$.PtfName"}},'
+                                                                     '{"column":"PtfIP","Properties":{"path":"$.PtfIP"}},'
+                                                                     '{"column":"PtfIcmpReachability","Properties":{"path":"$.PtfIcmpReachability"}},'
+                                                                     '{"column":"DutConsoleReachability","Properties":{"path":"$.DutConsoleReachability"}},'
+                                                                     '{"column":"DutSshReachability","Properties":{"path":"$.DutSshReachability"}},'
                                                                      ']'

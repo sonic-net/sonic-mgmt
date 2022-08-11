@@ -58,6 +58,10 @@ THERMAL_NAMING_RULE = {
     "comex_ambient": {
         "name": "Ambient COMEX Temp",
         "temperature": "comex_amb"
+    },
+    "cpu_ambient": {
+        "name": "Ambient CPU Board Temp",
+        "temperature": "cpu_amb"
     }
 }
 

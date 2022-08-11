@@ -345,8 +345,6 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not duthost.is_supervisor_node():
-        pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:
@@ -651,7 +649,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
                 sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
                 # entity_sensor_mib_info is only supported in image newer than 202012
                 if sensor_oid in entity_mib_info:
-                    if psu_info['current'] == '0.0' and psu_info['voltage'] == '0.0' and psu_info['power'] == '0.0':
+                    if psu_info['current'] == '0.0' and psu_info['power'] == '0.0':
                         power_off_psu_found = True
                         break
                 if is_sensor_test_supported(duthost):

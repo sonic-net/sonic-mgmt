@@ -54,6 +54,7 @@ QUEUE_3 = 3
 QUEUE_4 = 4
 QUEUE_5 = 5
 QUEUE_6 = 6
+QUEUE_7 = 7
 PG_NUM  = 8
 QUEUE_NUM = 8
 
@@ -251,6 +252,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dual_tor_scenario = self.test_params.get('dual_tor_scenario')
+        dual_tor = self.test_params.get('dual_tor')
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -305,6 +308,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
                         self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
+
                     recv_pkt = scapy.Ether(result.packet)
                     cnt += 1
 
@@ -326,24 +330,46 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             port_results, queue_results = sai_thrift_read_port_counters(self.client, sai_dst_port_id)
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
+            # dual_tor_scenario: represents whether the device is deployed into a dual ToR scenario
+            # dual_tor: represents whether the source and destination ports are configured with additional lossless queues
             # According to SONiC configuration all dscp are classified to queue 1 except:
-            # dscp  8 -> queue 0
-            # dscp  5 -> queue 2
-            # dscp  3 -> queue 3
-            # dscp  4 -> queue 4
-            # dscp 46 -> queue 5
-            # dscp 48 -> queue 6
-            # So for the 64 pkts sent the mapping should be -> 58 queue 1,
-            # and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
-            # Check results
+            #            Normal scenario   Dual ToR scenario
+            #            All ports         Normal ports    Ports with additional lossless queues
+            # dscp  8 -> queue 0           queue 0         queue 0
+            # dscp  5 -> queue 2           queue 1         queue 1
+            # dscp  3 -> queue 3           queue 3         queue 3
+            # dscp  4 -> queue 4           queue 4         queue 4
+            # dscp 46 -> queue 5           queue 5         queue 5
+            # dscp 48 -> queue 6           queue 7         queue 7
+            # dscp  2 -> queue 1           queue 1         queue 2
+            # dscp  6 -> queue 1           queue 1         queue 6
+            # rest 56 dscps -> queue 1
+            # So for the 64 pkts sent the mapping should be the following:
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57
+            # queue 2/6  1                 0               1
+            # queue 3/4  1                 1               1
+            # queue 5    1                 1               1
+            # queue 7    0                 1               1
             # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
-            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
-            assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
+            if dual_tor or not dual_tor_scenario:
+                assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
+                assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
+            else:
+                assert(queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
+                assert(queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
+            if dual_tor_scenario:
+                if not dual_tor:
+                    assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
+                else:
+                    assert(queue_results[QUEUE_1] == 57 + queue_results_base[QUEUE_1])
+                assert(queue_results[QUEUE_7] == 1 + queue_results_base[QUEUE_7])
+            else:
+                assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
+                assert(queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
 
         finally:
             print >> sys.stderr, "END OF TEST"
@@ -855,6 +881,163 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+# Base class used for individual PTF runs used in the following: testPfcStormWithSharedHeadroomOccupancy
+class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
+
+    def parse_test_params(self):
+        # Parse pkt construction related input parameters
+        self.dscp = int(self.test_params['dscp'])
+        self.ecn = int(self.test_params['ecn'])
+        self.sonic_version = self.test_params['sonic_version']
+        self.router_mac = self.test_params['router_mac']
+        self.asic_type = self.test_params['sonic_asic_type']
+
+        self.pg_id = int(self.test_params['pg'])
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        self.pg = self.pg_id + 2
+
+        self.src_port_id = int(self.test_params['src_port_id'])
+        self.src_port_ip = self.test_params['src_port_ip']
+        self.src_port_vlan = self.test_params['src_port_vlan']
+        self.src_port_mac = self.dataplane.get_mac(0, self.src_port_id)
+
+        self.dst_port_id = int(self.test_params['dst_port_id'])
+        self.dst_port_ip = self.test_params['dst_port_ip']
+        self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
+
+        self.ttl = 64
+        self.default_packet_length = 64
+
+        #  Margin used to while crossing the shared headrooom boundary
+        self.margin = 2
+
+        # get counter names to query
+        self.ingress_counters, self.egress_counters = get_counter_names(self.sonic_version)
+
+
+class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
+
+    def runTest(self):
+
+        time.sleep(5)
+        switch_init(self.client)
+
+        self.parse_test_params()
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        pkts_num_private_headrooom = int(self.test_params['pkts_num_private_headrooom'])
+
+        # Draft packets
+        pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
+        pkt = construct_ip_pkt(self.default_packet_length,
+                               pkt_dst_mac,
+                               self.src_port_mac,
+                               self.src_port_ip,
+                               self.dst_port_ip,
+                               self.dscp,
+                               self.src_port_vlan,
+                               ecn=self.ecn,
+                               ttl=self.ttl)
+
+        # get a snapshot of counter values at recv and transmit ports
+        # queue_counters value is not of our interest here
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[self.src_port_id]
+        )
+
+        logging.info("Disabling xmit ports: {}".format(self.dst_port_id))
+        sai_thrift_port_tx_disable(self.client, self.asic_type, [self.dst_port_id])
+
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[self.dst_port_id]
+        )
+
+        num_pkts = pkts_num_trig_pfc + pkts_num_private_headrooom
+        logging.info("Send {} pkts to egress out of {}".format(num_pkts, self.dst_port_id))
+        # send packets to dst port 1, to cross into shared headrooom
+        send_packet(
+            self, self.src_port_id, pkt, num_pkts
+        )
+
+        # allow enough time for the dut to sync up the counter values in counters_db
+        time.sleep(8)
+        # get a snapshot of counter values at recv and transmit ports
+        # queue counters value is not of our interest here
+        recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_id])
+        xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
+
+        logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
+        logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
+
+        # recv port pfc
+        assert(recv_counters[self.pg] > recv_counters_base[self.pg])
+        # recv port no ingress drop
+        for cntr in self.ingress_counters:
+            assert(recv_counters[cntr] == recv_counters_base[cntr])
+        # xmit port no egress drop
+        for cntr in self.egress_counters:
+            assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+
+class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
+
+    def runTest(self):
+        time.sleep(1)
+        switch_init(self.client)
+
+        self.parse_test_params()
+
+        # get a snapshot of counter values at recv and transmit ports
+        # queue_counters value is not of our interest here
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[self.src_port_id]
+        )
+
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, port_list[self.dst_port_id]
+        )
+
+        logging.info("Enable xmit ports: {}".format(self.dst_port_id))
+        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
+
+        # allow enough time for the dut to sync up the counter values in counters_db
+        time.sleep(8)
+
+        # get new base counter values at recv ports
+        recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_id])
+        # no ingress drop
+        for cntr in self.ingress_counters:
+            assert(recv_counters[cntr] == recv_counters_base[cntr])
+        recv_counters_base = recv_counters
+
+        # allow enough time for the test to check if no PFC frame was sent from Recv port
+        time.sleep(30)
+
+        # get the current snapshot of counter values at recv and transmit ports
+        recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.src_port_id])
+        xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[self.dst_port_id])
+
+        logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
+        logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
+
+        # recv port pfc should not be incremented
+        assert(recv_counters[self.pg] == recv_counters_base[self.pg])
+        # recv port no ingress drop
+        for cntr in self.ingress_counters:
+            assert(recv_counters[cntr] == recv_counters_base[cntr])
+        # xmit port no egress drop
+        for cntr in self.egress_counters:
+            assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+
+class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
+
+    def runTest(self):
+        time.sleep(1)
+        switch_init(self.client)
+        self.parse_test_params()
+        sai_thrift_port_tx_enable(self.client, self.asic_type, [self.dst_port_id])
+
 
 # This test looks to measure xon threshold (pg_reset_floor)
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
