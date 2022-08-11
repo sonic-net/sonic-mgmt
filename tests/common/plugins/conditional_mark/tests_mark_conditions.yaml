@@ -118,7 +118,7 @@ crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' topology"
     conditions:
-      - "'t0' no in topo_name"
+      - "'t0' not in topo_name"
 
 #######################################
 #####            decap            #####
@@ -472,7 +472,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend'] or asic_type not in ['mellanox']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend'] or asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -678,6 +678,12 @@ test_pretest.py::test_stop_pfcwd:
 #######################################
 #####            vlan             #####
 #######################################
+vlan/test_vlan_ping.py:
+  skip:
+    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    conditions:
+      - "asic_type in ['broadcom']"
+
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
