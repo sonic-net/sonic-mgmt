@@ -50,6 +50,12 @@
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
     when: ptf_docker_info.exists
 
+  - name: Stop ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      state: stopped
+    become: yes
+
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
