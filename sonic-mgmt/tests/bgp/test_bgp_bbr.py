@@ -48,6 +48,10 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
+    yield
+
+    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
@@ -91,8 +95,6 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo['topo']['type'] != 't1':
-        pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:

@@ -10,6 +10,9 @@ from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 class TestIPPacket(object):
     PKT_NUM = 1000
@@ -17,10 +20,6 @@ class TestIPPacket(object):
     PKT_NUM_MAX = PKT_NUM * 1.3
     # a number <= PKT_NUM * 0.1 can be considered as 0
     PKT_NUM_ZERO = PKT_NUM * 0.1
-
-    def skip(self, mg_facts):
-        if len(mg_facts["minigraph_interfaces"]) < 2 and len(mg_facts["minigraph_portchannels"]) < 2:
-            pytest.skip("Skipping ip packet test since can't provide enough interfaces")
 
     @staticmethod
     def sum_portstat_ifaces_counts(portstat_out, ifaces, column):
@@ -55,7 +54,6 @@ class TestIPPacket(object):
     @pytest.fixture(scope="class")
     def common_param(self, duthost, tbinfo):
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        self.skip(mg_facts)
         pc_ports_map = {}
 
         if len(mg_facts["minigraph_interfaces"]) >= 2:

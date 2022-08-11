@@ -89,7 +89,8 @@ RUNTEST_CLI_COMMON_OPTS="\
 -a False \
 -O \
 -r \
--e --allow_recover"
+-e --allow_recover \
+-e --completeness_level=confident"
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
@@ -112,7 +113,6 @@ test_t0() {
       container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
-      cacl/test_ebtables_application.py \
       dhcp_relay/test_dhcp_relay.py \
       dhcp_relay/test_dhcpv6_relay.py \
       iface_namingmode/test_iface_namingmode.py \

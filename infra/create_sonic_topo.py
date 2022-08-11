@@ -61,7 +61,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1', choices=['t0', 't1', 'dualtor-56', 't1-64-lag', 't0-64', "t1-8-lag"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 't1-64-lag', 't0-64', "t1-8-lag"])
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -69,13 +69,13 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
-                      required=False,default="mth32")
+                      required=False,default="mth64")
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
-                      required=False,default='DT7')
+                      required=False,default='DT')
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
-                      required=False,default='DT7')
+                      required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
                       default=False)
     return parser
@@ -640,7 +640,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
-    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
     resp = chan.recv(9999)
     #print(resp.decode("ascii"))
@@ -684,6 +684,44 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     print("Total run time for sanity suite: {} mins".format(minutes))
     return minutes
 
+def get_log_files(data):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests\n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("tar -cvf sanity_logs.tar *.log \n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("gzip sanity_logs.tar \n")
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/sanity_logs.tar.gz','sanity_logs.tar.gz')
+    ftp_client.close() 
+    ssh.close()
 
 def main():
     argparser = _create_parser()
@@ -838,6 +876,7 @@ def main():
         run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
         get_report_file(data)
+        get_log_files(data)
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
