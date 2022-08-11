@@ -56,6 +56,14 @@ def setup_telemetry_forpyclient(duthost):
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
+    return client_auth
+
+def restore_telemetry_forpyclient(duthost, default_client_auth):
+    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
+    client_auth = str(client_auth_out[0])
+    if client_auth != default_client_auth:
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" {}'.format(default_client_auth), module_ignore_errors=False)
+        duthost.service(name="telemetry", state="restarted")
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
@@ -78,7 +86,7 @@ def gnxi_path(ptfhost):
     gnxi's location is updated from /gnxi to /root/gnxi
     in RP https://github.com/Azure/sonic-buildimage/pull/10599.
     But old docker-ptf images don't have this update,
-    test case will fail for these docker-ptf images, 
+    test case will fail for these docker-ptf images,
     because it should still call /gnxi files.
     For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
     Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
@@ -102,13 +110,13 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    setup_telemetry_forpyclient(duthost)
+    default_client_auth = setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
@@ -121,6 +129,9 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     # pyclient should be available on ptfhost. If it was not available, then fail pytest.
     file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
+
+    yield
+    restore_telemetry_forpyclient(duthost, default_client_auth)
 
 def skip_201911_and_older(duthost):
     """ Skip the current test if the DUT version is 201911 or older.
@@ -199,7 +210,7 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost, gn
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was

@@ -10,11 +10,6 @@ pytestmark = [
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
 BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
 
-def is_dualtor(tbinfo):
-    """Check if the testbed is dualtor."""
-    return "dualtor" in tbinfo["topo"]["name"]
-
-
 def get_t0_intfs(mg_facts):
     t0_intfs = []
 
@@ -341,6 +336,7 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         update_idx = random.choice(range(bfd_session_cnt))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
         time.sleep(1)
+
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
                 check_dut_bfd_status(duthost, neighbor_addr, "Admin_Down")
@@ -388,7 +384,6 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, False, True)
 
         time.sleep(10)
-
         bfd_state = ptfhost.shell("bfdd-control status")
         dut_state = duthost.shell("show bfd summary")
         for itr in local_addrs:
