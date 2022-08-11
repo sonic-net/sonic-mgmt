@@ -177,8 +177,8 @@ class TestQosSai(QosSaiBase):
         if not dutConfig["dualTor"] and not xonProfile in normal_profile:
             pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
 
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
-            pytest.skip("This Test Case is only meant for Mellanox ASIC")
+        if dutTestParams["basicParams"]["sonic_asic_type"] not in ["barefoot", "mellanox"]:
+            pytest.skip("This Test Case is only meant for Mellanox or Barefoot ASIC")
 
         if not sharedHeadroomPoolSize or sharedHeadroomPoolSize == "0":
             pytest.skip("Shared Headroom has to be enabled for this test")
