@@ -10,6 +10,11 @@ pytestmark = [
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
 BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
 
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
+
+
 def get_t0_intfs(mg_facts):
     t0_intfs = []
 
