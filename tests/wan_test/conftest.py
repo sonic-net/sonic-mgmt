@@ -5,6 +5,7 @@ import time
 from tests.common.devices.cisco import CiscoHost
 from tests.common.devices.arista import AristaHost
 from tests.common.devices.juniper import JuniperHost
+from tests.common.devices.duthosts import DutHosts
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 
@@ -60,8 +61,14 @@ def pytest_ignore_collect(path, config):
     Exclude vendor test cases under wan_test/vendor_test/
     """
     dut_vendor = config.getoption("--dut_vendor")
-    if dut_vendor == 'sonic':
-        collect_ignore_glob = ["*wan_test/vendor_test/*.py"]
+    dir_path = path.strpath
+    if path.isfile():
+        dir_path = path.dirpath().strpath
+    if dut_vendor != 'sonic' and re.search(r'\s*wan_test/vendor_test$', dir_path) is None:
+    # for non-sonic test, only cases in wan_test/vendor_test should be collected, others cases should be ignored.
+        return True
+    elif dut_vendor == 'sonic' and re.search(r'\s*wan_test/vendor_test$', dir_path) is not None:
+    # for sonic test, all cases should be collected except wan_test/vendor_test
         return True
     return False
 
@@ -87,25 +94,25 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 @pytest.fixture(scope='session')
-def ciscohosts(request, ansible_adhoc, tbinfo, localhost):
+def ciscohosts(request, ansible_adhoc, tbinfo):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'cisco' == data.get('image'):
-            duts.append(CiscoHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+            duts.append(CiscoHost(ansible_adhoc, host, data.get('ansible_user'), data.get('ansible_password')))
     return duts
 
 @pytest.fixture(scope='session')
-def aristahosts(request, ansible_adhoc, tbinfo, localhost):
+def aristahosts(request, ansible_adhoc, tbinfo):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'arista' == data.get('image'):
-            duts.append(AristaHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+            duts.append(AristaHost(ansible_adhoc, host, data.get('ansible_user'), data.get('ansible_password')))
     return duts
 
 @pytest.fixture(scope='session')
-def juniperhosts(request, ansible_adhoc, tbinfo, localhost):
+def juniperhosts(request, ansible_adhoc, tbinfo):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
@@ -113,17 +120,26 @@ def juniperhosts(request, ansible_adhoc, tbinfo, localhost):
             duts.append(JuniperHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
     return duts
 
+@pytest.fixture(scope='session')
+def sonichosts(request, ansible_adhoc, tbinfo):
+    dutnames = []
+    for host in tbinfo['duts']:
+        data = get_host_data(request, host)
+        if 'sonic' == data.get('image') and host.startswith('vlab-'):
+            dutnames.append(host)
+    return DutHosts(ansible_adhoc, tbinfo, dutnames)
+
 @pytest.fixture(scope="module")
-def dut_collection(duthosts, enum_frontend_asic_index, ciscohosts, aristahosts, juniperhosts):
+def dut_collection(duthosts, enum_frontend_asic_index, ciscohosts, aristahosts, juniperhosts, sonichosts):
     duts = {}
     dutlist = []
-    for duthost in duthosts:
+    for duthost in sonichosts:
         config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
         for _, v in config_facts['DEVICE_NEIGHBOR'].items():
             if v['name'] not in dutlist:
                 dutlist.append(v['name'])
 
-    duts['sonic'] = [duthost for duthost in duthosts if duthost.hostname in dutlist]
+    duts['sonic'] = [duthost for duthost in sonichosts if duthost.hostname in dutlist]
     duts['cisco'] = [duthost for duthost in ciscohosts if duthost.hostname in dutlist]
     duts['arista'] = [duthost for duthost in aristahosts if duthost.hostname in dutlist]
     duts['juniper'] = [duthost for duthost in juniperhosts if duthost.hostname in dutlist]

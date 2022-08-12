@@ -6,7 +6,7 @@ def session(new_params):
     seq = [
         ('cli', [r'>']),
         ('configure', [r'#']),
-        ('load override /var/tmp/juniper.conf', [r'#']),
+        ('load merge /var/tmp/juniper.conf', [r'#']),
         ('commit', [r'#']),
     ]
 
