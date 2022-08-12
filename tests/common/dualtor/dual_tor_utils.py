@@ -446,11 +446,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
-    mux_ports = []
-    if cable_type == CableType.active_active:
-        mux_ports = active_active_ports
-    elif cable_type == CableType.active_standby:
-        mux_ports = active_standby_ports
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
@@ -483,11 +479,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
-    mux_ports = []
-    if cable_type == CableType.active_active:
-        mux_ports = active_active_ports
-    elif cable_type == CableType.active_standby:
-        mux_ports = active_standby_ports
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
@@ -521,11 +513,7 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     down_intfs = []
     fanout_intfs_to_recover.clear()
 
-    mux_ports = []
-    if cable_type == CableType.active_active:
-        mux_ports = active_active_ports
-    elif cable_type == CableType.active_standby:
-        mux_ports = active_standby_ports
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
