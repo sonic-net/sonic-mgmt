@@ -1207,6 +1207,7 @@ sonic_cisco_sup:
             - LINE-CARD4
             - LINE-CARD5
             - LINE-CARD6
+            - LINE-CARD7
           'fabric-cards':
             - FABRIC-CARD1
             - FABRIC-CARD3
