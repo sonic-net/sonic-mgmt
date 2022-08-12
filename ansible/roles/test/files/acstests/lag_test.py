@@ -177,7 +177,7 @@ class LagMemberTrafficTest(BaseTest,RouterUtility):
     def get_port_number(self, port_name):
         return int(''.join([i for i in port_name if i.isdigit()]))
 
-    def build_icmp_packet(self, vlan_id, src_ip, dst_ip, src_mac='00:22:00:00:00:02', dst_mac='ff:ff:ff:ff:ff:ff',
+    def build_icmp_packet(self, vlan_id, src_ip, dst_ip, src_mac, dst_mac,
                             ttl=64, icmp_type=8):
         pkt = testutils.simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
                                     eth_dst=dst_mac,
