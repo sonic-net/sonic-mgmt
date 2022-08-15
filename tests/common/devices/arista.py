@@ -176,18 +176,3 @@ class AristaHost(AnsibleHostBase):
                             result.append(sub_result)
         help(data, lookup_key, lookup_val, result)
         return result
-
-    def config_command(self, command):
-        """
-        This function try to load command/s into the device from config mode
-        """
-        try:
-            #one line string command
-            if isinstance(command, str):
-                self.config(lines=[command])
-            #list of one line string commands
-            elif isinstance(command, list):
-                self.config(lines=command)
-            return (True, "The command {} loaded into device {}".format(command, self.hostname))
-        except Exception as e:
-            return (False, e)
