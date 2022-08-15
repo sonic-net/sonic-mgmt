@@ -4,6 +4,7 @@ import time
 import logging
 import json
 import ipaddress
+import sys
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
@@ -15,6 +16,12 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0")
 ]
+
+# TODO: Remove this once we no longer support Python 2
+if sys.version_info.major == 3:
+    UNICODE_TYPE = str
+else:
+    UNICODE_TYPE = unicode
 
 PTF_LAG_NAME = "bond1"
 DUT_LAG_NAME = "PortChannel1"
@@ -161,7 +168,7 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
         information about ptf lag
     """
     ip_splits = vlan["ip"].split("/")
-    vlan_ip = ipaddress.ip_address(unicode(ip_splits[0]))
+    vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
     lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
     port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
     # Add lag
@@ -329,7 +336,7 @@ def test_lag_member_status(duthost, ptf_dut_setup_and_teardown):
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
     pytest_assert(port_channel_status.has_key("ports") and number_of_lag_member == len(port_channel_status["ports"]), "get port status error")
     for _, status in port_channel_status["ports"].items():
-        pytest_assert(status["runner"]["aggregator"]["selected"], "status of lag member error")
+        pytest_assert(status["runner"]["selected"], "status of lag member error")
 
 def run_lag_member_traffic_test(duthost, dut_vlan, ptf_lag_map, ptfhost):
     """
