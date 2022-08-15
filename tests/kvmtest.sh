@@ -282,7 +282,7 @@ test_multi_asic_t1_lag_pr() {
 
     pushd $SONIC_MGMT_DIR/tests
     # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
     popd
 }
 
