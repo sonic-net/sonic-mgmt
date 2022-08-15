@@ -2,8 +2,8 @@ import ipaddr
 import logging
 import os
 import pytest
-import time
 import random
+import time
 
 from collections import namedtuple
 from collections import defaultdict
@@ -470,13 +470,13 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
 
     for x in range(2):
         try:
-            # create neighbor entry randomly
+            # create neighibor entry in different order list
+            random.seed(x)
             random.shuffle(arplist.ip_mac_list)
             arplist.arps_add()
             ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
 
-            # add IP route with the next hop group created with nexthop added randomly
-            random.shuffle(ips)
+            # add IP route
             nhop.add_ip_route(ip_prefix, ips)
 
             nhop.program_routes()
@@ -485,7 +485,7 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
 
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
-            (recv_port_idx, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=gather_facts['src_port_ids'])
+            (_ , recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=gather_facts['src_port_ids'])
             
             assert recv_pkt
 
@@ -494,7 +494,7 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
             pytest_assert(Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
             pytest_assert(Ether(recv_pkt).dst.lower() in neighbor_mac, "Routed Packet Destination Mac not valid neighbor entry")
             # Add the receive port index and reviced dest mac (Nexthop identify property) to the dictionary
-            recvd_pkt_result[(recv_port_idx,Ether(recv_pkt).dst)] += 1
+            recvd_pkt_result[Ether(recv_pkt).dst] += 1
         finally:
             nhop.delete_routes()
             arplist.clean_up()
@@ -519,6 +519,12 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
         if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
             dutAsic = asic
             break
+
+    if not dutAsic:
+        # Vendor need to update SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP . To do this we need to run the test case 1st time
+        # and see the neighbor picked by flow (pkt) sent above. Once that is determine update the map SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP 
+        pytest.xfail("ASIC to flow mapping is not define. Please read above comment to update map with the given ASIC to flow map")
+        return
 
     pytest_assert(dutAsic, "Please add ASIC in the above list and update the asic to neighbor mapping")
     pytest_assert(neighbor_ip_selected == nbr_ip, "Flow is not picking expected Neighbor")
