@@ -11,4 +11,4 @@ vms-s6100-t1,vms4-1,t1-64,docker-ptf,ptf-unknown,10.255.0.182/24,,server_1,VM010
 vms-s6100-t1-lag,vms5-1,t1-64-lag,docker-ptf,ptf-unknown,10.255.0.183/24,,server_1,VM0100,lab-s6100-01,lab,True,ests Dell S6100 vms
 vms-multi-dut,vms1-duts,ptf64,docker-ptf,ptf-unknown,10.255.0.184/24,,server_1,VM0100,[dut-host1;dut-host2],lab,True,Example Multi DUTs testbed
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM0600,example-s6100-dut-1,lab,True,superman
-ixanvl-vs-conf,anvl,ptf32,docker-ptf-anvl,ptf-unknown,10.250.0.100/24,,server_1,,vlab-01,lab,True,Test ptf ANVL SONIC VM
+ixanvl-vs-conf,anvl,ptf32,docker-ptf-anvl,ptf-ixanvl,10.250.0.100/24,,server_1,,vlab-01,lab,True,Test ptf ANVL SONIC VM
