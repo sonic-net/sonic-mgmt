@@ -12,7 +12,7 @@ First, we need to prepare the host where we will be configuring the virtual test
    1. Option : If your host is **Ubuntu 20.04**
 
         ```
-        sudo apt install python3 python3-pip
+        sudo apt install python3 python3-pip openssh-server
         ```
         If the server was upgraded from Ubuntu 18.04, check the default python version using command `python --version`. If the default python version is still 2.x, replace it with python3 using symbolic link:
         ```
@@ -20,7 +20,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         ```
    2. Option : If your host is **Ubuntu 18.04**
         ```
-        sudo apt install python python-pip
+        sudo apt install python python-pip openssh-server
         # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
         sudo pip install j2cli==0.3.10
         ```
