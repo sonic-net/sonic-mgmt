@@ -3,6 +3,7 @@ import pytest
 import time
 import logging
 import json
+import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
@@ -17,8 +18,13 @@ pytestmark = [
 
 PTF_LAG_NAME = "bond1"
 DUT_LAG_NAME = "PortChannel1"
-ATTR_PORT_NOT_BEHIND_LAG = "port_not_behind_lag"
+# Definition of behind or not behind:
+# Port behind lag means ports that in a lag, port not behind lag means ports that not in a lag. In this test case, for example, create lag
+# between DUT and PTF. Lag on DUT contains Ethernet4, Ethernet8. Lag on PTF contains eth1, eth2. Then Ethernet4, Ethernet8, eth1, eth2 are
+# called "port_behind_lag". For testing the connectivity of lag, select a port on the DUT that is not in the lag such as Ethernet12, and
+# select the port connected to Ethernet12 on PTF such as eth3. Then Ethernet12 and eth3 are called "port_not_behind_lag".
 ATTR_PORT_BEHIND_LAG = "port_behind_lag"
+ATTR_PORT_NOT_BEHIND_LAG = "port_not_behind_lag"
 TEST_DIR = "/tmp/acstests/"
 HWSKU_INTF_NUMBERS_DICT = {
     "Mellanox-SN2700": 16,
@@ -99,6 +105,7 @@ def ptf_teardown(ptfhost, ptf_lag_map):
 
     ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
     ptfhost.shell("ip addr del {} dev {}".format(ptf_lag_map[ATTR_PORT_NOT_BEHIND_LAG]["ip"], ptf_lag_map[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
+    ptfhost.ptf_nn_agent()
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
     """
@@ -153,10 +160,10 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
     Returns:
         information about ptf lag
     """
-    ip_prefix = ".".join(vlan["ip"].split("/")[0].split(".")[0:3])
-    mask_len = vlan["ip"].split("/")[1]
-    lag_ip = "{}.2/{}".format(ip_prefix, mask_len)
-    port_not_behind_lag_ip = "{}.3/{}".format(ip_prefix, mask_len)
+    ip_splits = vlan["ip"].split("/")
+    vlan_ip = ipaddress.ip_address(unicode(ip_splits[0]))
+    lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
+    port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
     # Add lag
     ptfhost.create_lag(PTF_LAG_NAME, lag_ip, "802.3ad")
 
@@ -176,6 +183,7 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
 
     ptfhost.startup_lag(PTF_LAG_NAME)
     ptfhost.add_ip_to_dev(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], port_not_behind_lag_ip)
+    ptfhost.ptf_nn_agent()
     # Wait for lag sync
     time.sleep(10)
 

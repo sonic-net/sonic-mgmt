@@ -104,4 +104,7 @@ class PTFHost(AnsibleHostBase):
         """
         self.command("ip link set {} nomaster".format(dev_name))
 
+    def ptf_nn_agent(self):
+        self.command("supervisorctl restart ptf_nn_agent")
+
     # TODO: Add a method for running PTF script

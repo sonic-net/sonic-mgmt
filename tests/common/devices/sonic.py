@@ -2036,6 +2036,31 @@ Totals               6450                 6449
 
         Args:
             port_channel_name: name of port channel
+
+        Returns:
+            port channel status, example:
+                    {
+                        "runner": {...
+                        },
+                        "setup": {...
+                        },
+                        "ports": {
+                            "Ethernet28": {
+                                "link_watches": {...
+                                },
+                                "runner": {...
+                                },
+                                "link": {...
+                                },
+                                "ifinfo": {...
+                                }
+                            },
+                            "Ethernet8": {...
+                            }
+                        },
+                        "team_device": {...
+                        }
+                    }
         """
         commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
         json_info = json.loads(commond_output["stdout"])
