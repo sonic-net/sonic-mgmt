@@ -94,12 +94,14 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 @pytest.fixture(scope='session')
-def ciscohosts(request, ansible_adhoc, tbinfo):
+def ciscohosts(request, ansible_adhoc, tbinfo, creds):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'cisco' == data.get('image'):
-            duts.append(CiscoHost(ansible_adhoc, host, data.get('ansible_user'), data.get('ansible_password')))
+            duts.append(CiscoHost(ansible_adhoc, host,
+                                creds['cisco_login'] if 'cisco_login' in creds else None,
+                                creds['cisco_password'] if 'cisco_password' in creds else None))
     return duts
 
 @pytest.fixture(scope='session')
@@ -112,12 +114,14 @@ def aristahosts(request, ansible_adhoc, tbinfo):
     return duts
 
 @pytest.fixture(scope='session')
-def juniperhosts(request, ansible_adhoc, tbinfo):
+def juniperhosts(request, ansible_adhoc, tbinfo, creds):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'juniper' == data.get('image'):
-            duts.append(JuniperHost(host, data.get('ansible_host'), data.get('ansible_user'), data.get('ansible_password')))
+            duts.append(JuniperHost(host, data.get('ansible_host'),
+                                creds['junos_login'] if 'junos_login' in creds else None,
+                                creds['junos_password'] if 'junos_password' in creds else None))
     return duts
 
 @pytest.fixture(scope='session')

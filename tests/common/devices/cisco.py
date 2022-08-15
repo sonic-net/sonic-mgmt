@@ -227,24 +227,3 @@ class CiscoHost(AnsibleHostBase):
                             result.append(sub_result)
         help(json_data, lookup_key, result)
         return result
-
-    def cisco_xr_commit_config(self):
-        #commit cisco config
-        self.config(lines=['commit confirm 60'])
-        time.sleep(40)
-        self.config(lines=['commit'])
-
-    def config_command(self, command):
-        """
-        This function try to load and commit command/s into the device from config mode, only support IOS XR only. 
-        """
-        try:
-            if isinstance(command, str):
-                self.config(lines=[command])
-            #list of one line string commands
-            elif isinstance(command, list):
-                self.config(lines=command)
-            self.cisco_xr_commit_config()
-            return (True, "The command {} loaded into device {}".format(command, self.hostname))
-        except Exception as e:
-            return (False, e)
