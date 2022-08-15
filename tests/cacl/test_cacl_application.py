@@ -393,7 +393,7 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     ip6tables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
 
     # On standby tor, it has expected dhcp mark iptables rules.
-    if expected_dhcp_rules_for_standby:
+    if not duthost.is_multi_asic and expected_dhcp_rules_for_standby:
         iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
