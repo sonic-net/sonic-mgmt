@@ -1372,8 +1372,11 @@ class ReloadTest(BaseTest):
         """Copy from src/sonic-utilities/sonic_installer/main.py to do some special operation for particular containers
         """
         if service_name == 'swss':
-            stdout, stderr, return_code = self.dut_connection.execCommand('docker exec -i swss orchagent_restart_check -w 2000 -r 5')
+            cmd = 'docker exec -i swss orchagent_restart_check -w 2000 -r 5'
+            stdout, stderr, return_code = self.dut_connection.execCommand(cmd)
             if return_code != 0:
+                self.log('stdout from {}: {}'.format(cmd, str(stdout)))
+                self.log('stderr from {}: {}'.format(cmd, str(stderr)))
                 self.log('orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
         elif service_name == 'bgp':
             self.dut_connection.execCommand('docker exec -i bgp pkill -9 zebra')
