@@ -1,7 +1,6 @@
 import pytest
 import logging
 
-from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
