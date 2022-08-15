@@ -46,7 +46,7 @@ def duthost_dualtor(request, upper_tor_host, lower_tor_host, toggle_all_simulato
 @pytest.fixture
 def expected_dhcp_rules_for_standby(duthost_dualtor, lower_tor_host):
     expected_dhcp_rules = []
-    if duthost_dualtor.hostname == lower_tor_host.hostname:    
+    if duthost_dualtor.hostname == lower_tor_host.hostname:
         mark_keys = duthost_dualtor.shell('/usr/bin/redis-cli -n 6  --raw keys "DHCP_PACKET_MARK*"', module_ignore_errors=True)['stdout']
         mark_keys = mark_keys.split("\n")
         for key in mark_keys:
