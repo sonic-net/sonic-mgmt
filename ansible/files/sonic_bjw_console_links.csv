@@ -1,0 +1,6 @@
+StartDevice,StartPort,EndDevice,Console_type,Proxy
+bjw-e1031-can-1,7,bjw-can-7260-root-1,ssh,admin
+bjw-e1031-can-1,8,bjw-can-7060-fanout-1,ssh,admin
+bjw-e1031-can-1,14,bjw-can-720dt-2,ssh,admin
+bjw-e1031-can-1,13,bjw-can-720dt-1,ssh,admin
+bjw-e1031-can-2,48,bjw-e1031-can-1,ssh,admin

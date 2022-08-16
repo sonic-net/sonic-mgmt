@@ -22,6 +22,7 @@ all:
         vm_host_28:
         vm_host_29:
         vm_svc_host_1:
+        vm_bjw_host_6:
     eos:
       children:
         vms_1:
@@ -44,6 +45,7 @@ all:
         vms_28:
         vms_29:
         vms_svc_1:
+        vms_bjw_6:
     servers:
       children:
         server_1:
@@ -66,6 +68,7 @@ all:
         server_28:
         server_29:
         server_svc_1:
+        server_bjw_6:
       vars:
         topologies:
           - t1
@@ -187,6 +190,10 @@ vm_svc_host_1:
   hosts:
     SVCSTR-SERVER-1:
       ansible_host: 10.206.144.7
+vm_bjw_host_6:
+  hosts:
+    BJW-CAN-SERV-6:
+      ansible_host: 10.150.22.227
 
 vms_1:
   hosts:
@@ -3884,6 +3891,17 @@ vms_svc_1:
       ansible_host: 172.16.139.126
     VM10095:
       ansible_host: 172.16.139.127
+      
+vms_bjw_6:
+  hosts:
+    VM56000:
+      ansible_host: 172.16.190.32
+    VM56001:
+      ansible_host: 172.16.190.33
+    VM56002:
+      ansible_host: 172.16.190.34
+    VM56003:
+      ansible_host: 172.16.190.35
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
@@ -4006,3 +4024,9 @@ server_svc_1:
   children:
     vm_svc_host_1:
     vms_svc_1:
+server_bjw_6:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-6.yml
+  children:
+    vm_bjw_host_6:
+    vms_bjw_6:

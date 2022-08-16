@@ -1,0 +1,76 @@
+all:
+  children:
+    docker_registry:
+      hosts:
+        acs-devrepo.corp.microsoft.com:
+        acs-repo.corp.microsoft.com:
+    bjw:
+      children:
+        sonic:
+        fanout:
+        server:
+    ptf:
+      hosts:
+        bjw-vms6-1:
+          ansible_host: 10.150.23.50
+    pdu:
+      hosts:
+        bjw-pdu-126-134:
+          ansible_host: 10.150.126.134
+          protocol: snmp
+        bjw-pdu-126-135:
+          ansible_host: 10.150.126.135
+          protocol: snmp
+
+fanout:
+  hosts:
+    bjw-can-7260-root-1:
+      ansible_host: 10.150.22.20
+    bjw-can-7060-fanout-1:
+      ansible_host: 10.150.22.30
+    bjw-can-720dt-2:
+      os: emc
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+  children:
+    bjw-can-720dt:
+
+bjw-can-720dt:
+  vars:
+    hwsku: Arista-720DT-48S
+    iface_speed: 1000
+  hosts:                              # The device's platform API haven't implemented yet, we will correct these items later
+    bjw-can-720dt-1:   
+      ansible_host: 10.150.22.112
+      model: CCS-720DT-48S
+      serial: WTW22180040
+      base_mac: 2c:dd:e9:fc:df:08
+      syseeprom_info:                  
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FO"
+        "0x23": "MT1234X56789"
+        "0x24": "24:8a:07:12:34:56"
+        "0x25": "12/07/2016"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0008-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0xFBA1E964"
+
+server:
+  hosts:
+    bjw-can-serv-1:
+      ansible_host: 10.150.22.222
+    bjw-can-serv-2:
+      ansible_host: 10.150.22.223
+    bjw-can-serv-3:
+      ansible_host: 10.150.22.224
+    bjw-can-serv-4:
+      ansible_host: 10.150.22.225
+    bjw-can-serv-5:
+      ansible_host: 10.150.22.226
+    bjw-can-serv-6:
+      ansible_host: 10.150.22.227

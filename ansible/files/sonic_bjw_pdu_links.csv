@@ -1,0 +1,29 @@
+StartDevice,StartPort,EndDevice,EndPort
+bjw-pdu-126-134,1,bjw-e1031-can-1,PSU1
+bjw-pdu-126-135,1,bjw-e1031-can-1,PSU2
+bjw-pdu-126-134,3,bjw-e1031-can-1,PSU3
+bjw-pdu-126-135,3,bjw-e1031-can-1,PSU4
+bjw-pdu-126-134,5,bjw-e1031-can-2,PSU1
+bjw-pdu-126-135,5,bjw-e1031-can-2,PSU2
+bjw-pdu-126-134,12,bjw-e1031-can-2,PSU3
+bjw-pdu-126-135,12,bjw-e1031-can-2,PSU4
+bjw-pdu-126-134,13,bjw-can-720dt-2,PSU1
+bjw-pdu-126-135,13,bjw-can-720dt-2,PSU2
+bjw-pdu-126-134,15,bjw-can-720dt-1,PSU1
+bjw-pdu-126-135,15,bjw-can-720dt-1,PSU2
+bjw-pdu-126-134,17,bjw-can-serv-1 ,PSU1
+bjw-pdu-126-135,17,bjw-can-serv-1 ,PSU2
+bjw-pdu-126-134,22,bjw-can-serv-2 ,PSU1
+bjw-pdu-126-135,22,bjw-can-serv-2 ,PSU2
+bjw-pdu-126-134,25,bjw-can-serv-3 ,PSU1
+bjw-pdu-126-135,25,bjw-can-serv-3 ,PSU2
+bjw-pdu-126-134,18,bjw-can-serv-4 ,PSU1
+bjw-pdu-126-135,18,bjw-can-serv-4 ,PSU2
+bjw-pdu-126-134,33,bjw-can-serv-5 ,PSU1
+bjw-pdu-126-135,33,bjw-can-serv-5 ,PSU2
+bjw-pdu-126-134,27,bjw-can-serv-6 ,PSU1
+bjw-pdu-126-135,27,bjw-can-serv-6 ,PSU2
+bjw-pdu-126-134,29,bjw-can-7060-fanout-1,PSU1
+bjw-pdu-126-135,29,bjw-can-7060-fanout-1,PSU2
+bjw-pdu-126-134,30,bjw-can-7260-root-1,PSU1
+bjw-pdu-126-135,30,bjw-can-7260-root-1,PSU2
