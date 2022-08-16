@@ -5822,7 +5822,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="2429"/>
       <InterfaceVlan mode="Access" portname="Ethernet39/1" vlanids="2430"/>
       <InterfaceVlan mode="Access" portname="Ethernet40/1" vlanids="2431"/>
-      <InterfaceVlan mode="Access" portname="Ethernet43/1" vlanids="2432"/>
+      <InterfaceVlan mode="Access" portname="Ethernet42/1" vlanids="2432"/>
       <InterfaceVlan mode="Access" portname="Ethernet61/1" vlanids="2433"/>
       <InterfaceVlan mode="Access" portname="Ethernet62/1" vlanids="2434"/>
       <InterfaceVlan mode="Access" portname="Ethernet63/1" vlanids="2435"/>
