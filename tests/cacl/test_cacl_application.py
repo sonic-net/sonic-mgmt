@@ -734,7 +734,7 @@ def generate_scale_rules(duthost, ip_type):
     # add ACCEPT rule for SSH to make sure testbed access
     duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
 
-def verify_cacl(duthost, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby, asic_index = None):
+def verify_cacl(duthost, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby = None, asic_index = None):
     expected_iptables_rules, expected_ip6tables_rules = generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
     stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
@@ -811,7 +811,7 @@ def test_cacl_application_nondualtor(duthosts, tbinfo, rand_one_dut_hostname, lo
     actual iptables/ip6tables rules on the DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    verify_cacl(duthost, tbinfo, localhost, creds, docker_network, None)
+    verify_cacl(duthost, tbinfo, localhost, creds, docker_network)
 
 def test_cacl_application_dualtor(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby):
     """
@@ -823,12 +823,12 @@ def test_cacl_application_dualtor(duthost_dualtor, tbinfo, localhost, creds, doc
     """
     verify_cacl(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby)
 
-def test_multiasic_cacl_application(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds, docker_network, expected_dhcp_rules_for_standby, enum_frontend_asic_index):
+def test_multiasic_cacl_application(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds, docker_network, enum_frontend_asic_index):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly on multi-ASIC platform.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    verify_cacl(duthost, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby, enum_frontend_asic_index)
+    verify_cacl(duthost, tbinfo, localhost, creds, docker_network, None, enum_frontend_asic_index)
     verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
 def test_cacl_scale_rules_ipv4(duthosts, rand_one_dut_hostname, collect_ignored_rules, clean_scale_rules):
