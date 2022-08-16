@@ -6695,3 +6695,65 @@ sensors_checks:
       temp: []
     psu_skips: {}
     sensor_skip_per_version: {}
+  x86_64-wistron_sw_to3200k-r0:
+    alarms:
+      fan: []
+      power: []
+      temp: []
+
+    compares:
+      fan: []
+      power: []
+
+      temp:
+      - - sw_to3200k_thermal-i2c-0-49/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-49/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4a/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4a/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4b/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4b/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4c/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4c/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4d/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4d/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4e/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4e/temp1/temp1_max
+      - - sw_to3200k_thermal-i2c-0-4f/temp1/temp1_input
+        - sw_to3200k_thermal-i2c-0-4f/temp1/temp1_max
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+    non_zero:
+      fan:
+      - sw_to3200k_fan-i2c-0-66/fan1/fan1_input
+      - sw_to3200k_fan-i2c-0-66/fan2/fan2_input
+      - sw_to3200k_fan-i2c-0-66/fan3/fan3_input
+      - sw_to3200k_fan-i2c-0-66/fan4/fan4_input
+      - sw_to3200k_fan-i2c-0-66/fan5/fan5_input
+      - sw_to3200k_fan-i2c-0-66/fan6/fan6_input
+      - sw_to3200k_fan-i2c-0-66/fan7/fan7_input
+      - sw_to3200k_fan-i2c-0-66/fan11/fan11_input
+      - sw_to3200k_fan-i2c-0-66/fan12/fan12_input
+      - sw_to3200k_fan-i2c-0-66/fan13/fan13_input
+      - sw_to3200k_fan-i2c-0-66/fan14/fan14_input
+      - sw_to3200k_fan-i2c-0-66/fan15/fan15_input
+      - sw_to3200k_fan-i2c-0-66/fan16/fan16_input
+      - sw_to3200k_fan-i2c-0-66/fan17/fan17_input
+      - acbel_fshxxx-i2c-0-59/fan1/fan1_input
+      - acbel_fshxxx-i2c-0-5a/fan1/fan1_input
+      power:
+      - acbel_fshxxx-i2c-0-59/in3/in3_input
+      - acbel_fshxxx-i2c-0-59/power2/power2_input
+      - acbel_fshxxx-i2c-0-59/curr2/curr2_input
+      - acbel_fshxxx-i2c-0-5a/in3/in3_input
+      - acbel_fshxxx-i2c-0-5a/power2/power2_input
+      - acbel_fshxxx-i2c-0-5a/curr2/curr2_input
+
+      temp:
+      - acbel_fshxxx-i2c-0-59/temp1/temp1_input
+      - acbel_fshxxx-i2c-0-5a/temp1/temp1_input
