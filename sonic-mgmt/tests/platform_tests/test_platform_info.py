@@ -164,7 +164,6 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD)
-    pdb.set_trace()
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:

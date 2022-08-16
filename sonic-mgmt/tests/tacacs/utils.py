@@ -45,12 +45,14 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
 
     # configure tacacs client
+    default_tacacs_servers = []
     duthost.shell("sudo config tacacs passkey %s" % tacacs_creds[duthost.hostname]['tacacs_passkey'])
 
     # get default tacacs servers
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+        default_tacacs_servers.append(tacacs_server)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
 
@@ -64,6 +66,12 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
 
     # setup local user
     setup_local_user(duthost, tacacs_creds)
+    return default_tacacs_servers
+
+def restore_tacacs_servers(duthost, default_tacacs_servers, tacacs_server_ip):
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
+    for tacacs_server in default_tacacs_servers:
+        duthost.shell("sudo config tacacs add %s" % tacacs_server)
 
 def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be_fix = None):
     """

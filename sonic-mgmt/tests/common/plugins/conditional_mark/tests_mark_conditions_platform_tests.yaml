@@ -586,9 +586,10 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
   skip:
     # Cisco platforms use different mechanism to generate thermal policy, current method is not applicable
     # Multi ASIC platform running 201911 release doesn't have thermalctld
+    # s6100 has not supported get_thermal_manager yet
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform)"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
@@ -596,9 +597,10 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
   skip:
     # Cisco platforms use different mechanism to generate thermal policy, current method is not applicable
     # Multi ASIC platform running 201911 release doesn't have thermalctld
+    # s6100 has not supported get_thermal_manager yet
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911'])"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform)"
 
 #######################################
 #####        test_reboot.py       #####

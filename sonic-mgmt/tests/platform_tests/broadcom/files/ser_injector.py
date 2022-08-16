@@ -361,16 +361,23 @@ def get_asic_name():
     stdout, _ = run_cmd("lspci")
     output = stdout.decode("utf-8")
     if ("Broadcom Limited Device b960" in output or
-        "Broadcom Limited Broadcom BCM56960" in output):
+        "Broadcom Limited Broadcom BCM56960" in output or
+        "Broadcom Inc. and subsidiaries Device b960" in output or
+        "Broadcom Inc. and subsidiaries Broadcom BCM56960" in output):
         asic = "th"
-    elif "Broadcom Limited Device b971" in output:
+    elif ("Broadcom Limited Device b971" in output or
+          "Broadcom Inc. and subsidiaries Device b971" in output):
         asic = "th2"
     elif ("Broadcom Limited Device b850" in output or
-          "Broadcom Limited Broadcom BCM56850" in output):
+          "Broadcom Limited Broadcom BCM56850" in output or
+          "Broadcom Inc. and subsidiaries Device b850" in output or
+          "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
         asic = "td2"
-    elif "Broadcom Limited Device b870" in output:
+    elif ("Broadcom Limited Device b870" in output or
+          "Broadcom Inc. and subsidiaries Device b870" in output):
         asic = "td3"
-    elif "Broadcom Limited Device b980" in output:
+    elif ("Broadcom Limited Device b980" in output or
+          "Broadcom Inc. and subsidiaries Device b980" in output):
         asic = "th3"
 
     return asic
@@ -795,7 +802,7 @@ class SerTest(object):
                     if VERBOSE:
                         print('--- mem {} error inject is slow: {}'.format(mem, speed))
                 self.mem_injection_speed[mem] = speed
-                if stdout.find('SER correction for it is not currently supported') > -1:
+                if stdout.decode().find('SER correction for it is not currently supported') > -1:
                     print("memory %s does not support ser" % mem)
                     self.mem_ser_unsupported.append(mem)
                 else:

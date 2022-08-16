@@ -318,6 +318,10 @@ class DualTorIO:
         )
         tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
+
+        # use the same dst ip to ensure that packets from one server are always forwarded
+        # to the same active ToR by the server NiC
+        dst_ips = {vlan_intf: self.random_host_ip() for vlan_intf in vlan_src_intfs}
         for i in range(self.packets_per_server):
             for vlan_intf in vlan_src_intfs:
                 ptf_src_intf = self.tor_to_ptf_intf_map[vlan_intf]
@@ -327,7 +331,7 @@ class DualTorIO:
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = server_ip
-                packet[scapyall.IP].dst = self.random_host_ip()
+                packet[scapyall.IP].dst = dst_ips[vlan_intf] if self.cable_type == CableType.active_active else self.random_host_ip()
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
