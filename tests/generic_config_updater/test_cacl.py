@@ -503,11 +503,11 @@ def cacl_tc2_remove_rule(duthost):
 
 
 # ACL_RULE tests are related. So group them into one test.
-def test_cacl_tc2_acl_rule_test(duthost):
-    cacl_tc2_add_init_rule(duthost)
-    cacl_tc2_add_duplicate_rule(duthost)
-    cacl_tc2_replace_rule(duthost)
-    cacl_tc2_add_rule_to_unexisted_table(duthost)
-    cacl_tc2_remove_table_before_rule(duthost)
-    cacl_tc2_remove_unexist_rule(duthost)
-    cacl_tc2_remove_rule(duthost)
+def test_cacl_tc2_acl_rule_test(rand_selected_dut):
+    cacl_tc2_add_init_rule(rand_selected_dut)
+    cacl_tc2_add_duplicate_rule(rand_selected_dut)
+    cacl_tc2_replace_rule(rand_selected_dut)
+    cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut)
+    cacl_tc2_remove_table_before_rule(rand_selected_dut)
+    cacl_tc2_remove_unexist_rule(rand_selected_dut)
+    cacl_tc2_remove_rule(rand_selected_dut)

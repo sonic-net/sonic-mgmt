@@ -555,8 +555,6 @@ class QosSaiBase(QosBase):
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
-        else:
-            pytest.skip("Unsupported testbed type - {}".format(topo))
 
         # restore currently assigned IPs
         testPortIps.update(dutPortIps)
