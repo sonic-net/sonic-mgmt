@@ -69,12 +69,18 @@ def check_default_route(rand_selected_dut):
     ret = {'IPv4': False, 'IPv6': False}
 
     logger.info("Checking DUT default route")
-    result = duthost.shell("ip route show default | grep via", module_ignore_errors=True)['rc']
+    result = duthost.shell("ip route show default table default | grep via", module_ignore_errors=True)['rc']
     if result == 0:
-        ret['IPv4'] = True
-    result = duthost.shell("ip -6 route show default | grep via", module_ignore_errors=True)['rc']
+        neigh_ip = duthost.shell("ip route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
+        result = duthost.shell("ip -4 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
+        if result == 0:
+            ret['IPv4'] = True
+    result = duthost.shell("ip -6 route show default table default | grep via", module_ignore_errors=True)['rc']
     if result == 0:
-        ret['IPv6'] = True
+        neigh_ip = duthost.shell("ip -6 route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
+        result = duthost.shell("ip -6 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
+        if result == 0:
+            ret['IPv6'] = True
 
     if not ret['IPv4'] and not ret['IPv6']:
         pytest.skip("DUT has no default route, skiped")
@@ -130,9 +136,9 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
     filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
 
     if not _check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath):
-        default_route_v4 = duthost.shell("ip route show default")['stdout']
+        default_route_v4 = duthost.shell("ip route show default table default")['stdout']
         logger.debug("DUT's IPv4 default route:\n%s" % default_route_v4)
-        default_route_v6 = duthost.shell("ip -6 route show default")['stdout']
+        default_route_v6 = duthost.shell("ip -6 route show default table default")['stdout']
         logger.debug("DUT's IPv6 default route:\n%s" % default_route_v6)
         syslog_config = duthost.shell("grep 'remote syslog server' -A 7 /etc/rsyslog.conf")['stdout']
         logger.debug("DUT's syslog server IPs:\n%s" % syslog_config)
