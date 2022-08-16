@@ -392,8 +392,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
 
     # On standby tor, it has expected dhcp mark iptables rules.
     if expected_dhcp_rules_for_standby:
-        pytest_assert(isinstance(expected_dhcp_rules_for_standby, list),\
-			"expected_dhcp_rules_for_standby has to be list! current type is {}".format(type(expected_dhcp_rules_for_standby))
+        pytest_assert(isinstance(expected_dhcp_rules_for_standby, list),
+		      "expected_dhcp_rules_for_standby should be list! current type is {}".format(type(expected_dhcp_rules_for_standby)))
         iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
