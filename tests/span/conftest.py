@@ -63,13 +63,6 @@ def skip_unsupported_release(duthost):
     skip_release(duthost, ["201811", "201911"])
 
 @pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SPAN_UNSUPPORTED_ASIC_TYPE = ["broadcom", "cisco-8000"]
-    if duthost.facts["asic_type"] in SPAN_UNSUPPORTED_ASIC_TYPE:
-        pytest.skip(
-            "Skipping span test on {} platform".format(duthost.facts["asic_type"]))
-
-@pytest.fixture(scope='module', autouse=True)
 def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
     '''
     Used to prepare monitor port for test
