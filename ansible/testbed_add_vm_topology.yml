@@ -103,6 +103,7 @@
 
 - hosts: servers:&eos
   gather_facts: no
+  serial: "{{ eos_batch_size | default(0) | int }}"
   pre_tasks:
     - block:
         - name: Check that variable topo is defined
