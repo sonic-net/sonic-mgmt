@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-YANG_IGNORED_OPTIONS    = "-i /BUFFER_PORT_INGRESS_PROFILE_LIST -i /BUFFER_PORT_EGRESS_PROFILE_LIST"
-
 
 def generate_tmpfile(duthost):
     """Generate temp file
@@ -33,7 +31,7 @@ def apply_patch(duthost, json_data, dest_file):
     """
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
-    cmds = 'config apply-patch {} {}'.format(YANG_IGNORED_OPTIONS, dest_file)
+    cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
@@ -222,7 +220,7 @@ def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
         duthost: Device Under Test (DUT)
         cp: rollback filename
     """
-    cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, cp)
+    cmds = 'config rollback {}'.format(cp)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
