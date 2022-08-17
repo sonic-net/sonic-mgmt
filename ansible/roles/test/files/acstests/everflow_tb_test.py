@@ -149,6 +149,8 @@ class EverflowTest(BaseTest):
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
         if self.asic_type in ["barefoot"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[12:]
+        if self.asic_type in ["innovium"]:
+            payload = str(scapy_pkt[scapy.GRE].payload)[8:]
 
         inner_pkt = scapy.Ether(payload)
 
