@@ -126,7 +126,8 @@ def test_ecn_markings(request,
         	 xoff_quanta=xoff_quanta,
         	 data_traffic_rate=data_traffic_rate,
         	 number_of_transmit_ports=number_of_transmit_ports,
-        	 pfc_pkt_count=1)
+        	 pfc_pkt_count=1,
+                 enable_capture=False)
     time.sleep(8)
 
     sai_values = None

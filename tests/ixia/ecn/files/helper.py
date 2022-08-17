@@ -51,7 +51,8 @@ def run_ecn_test(api,
                  data_traffic_rate=None,
                  number_of_transmit_ports=1,
                  pfc_storm_start_delay=0,
-                 pfc_pkt_count=0):
+                 pfc_pkt_count=0,
+                 enable_capture=True):
     """
     Run a ECN test
 
@@ -76,6 +77,7 @@ def run_ecn_test(api,
         number_of_transmit_ports: How many ports should we start the traffic from. Default:1 (one-to-one).
         pfc_storm_start_delay: The delay in microseconds before pause frames can be started.
         pfc_pkt_count: Count of pfc packets to send. 0 means continuous. Default: 0. 
+        enable_capture: Should we capture packets on the receive port ? Avoid setting this flag along with data_traffic_rate to avoid overwhelming the ixia memory.
 
     Returns:
         Return captured IP packets (list of list)
@@ -115,7 +117,7 @@ def run_ecn_test(api,
                   'Failed to get ID for port {}'.format(dut_port))
 
     capture_config = None
-    if not data_traffic_rate:
+    if enable_capture:
         """ Generate packet capture config """
         capture_config = __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
