@@ -10,7 +10,9 @@ Management and automation code used for SONiC testbed deployment, tests and repo
 All contributors must sign a contribution license agreement before contributions can be accepted.
 [How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)
 
+
 ### GitHub Workflow
+
 
 We're following basic GitHub Flow. If you have no idea what we're talking about, check out [GitHub's official guide](https://guides.github.com/introduction/flow/). Note that merge is only performed by the repository maintainer.
 
@@ -44,3 +46,4 @@ For example:
 
 # Documentation
 [Documentation](docs/README.md)
+
