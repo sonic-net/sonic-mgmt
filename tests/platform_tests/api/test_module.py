@@ -108,10 +108,10 @@ class TestModuleApi(PlatformApiTestBase):
             if self.expect(presence is not None, "Unable to retrieve module {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Module {} presence appears incorrect".format(i)):
                     name = module.get_name(platform_api_conn, i)
-                    if name in self.skip_mod_list:
-                        self.expect(presence is False, "Module {} is not present".format(i))
-                    else:
+                    if name not in self.skip_mod_list:
                         self.expect(presence is True, "Module {} is not present".format(i))
+                    else:
+                        logger.info("Skipping module {} since it is part of skip_mod_list".format(name))
         self.assert_expectations()
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
