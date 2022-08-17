@@ -46,7 +46,7 @@ def run_ecn_test(api,
                  lossless_prio,
                  prio_dscp_map,
                  iters,
-                 pkt_cnt=NUMBER_OF_TEST_PACKETS,
+                 data_pkt_cnt=NUMBER_OF_TEST_PACKETS,
                  xoff_quanta=65535,
                  data_traffic_rate=None,
                  number_of_transmit_ports=1,
@@ -67,7 +67,7 @@ def run_ecn_test(api,
         kmax (int): RED/ECN maximum threshold in bytes
         pmax (int): RED/ECN maximum marking probability in percentage
         data_pkt_size (int): data packet size in bytes
-        pkt_cnt (int): data packet count, Default:2100, will be superseded by data_traffic_rate if data_traffic_rate is set.
+        data_pkt_cnt (int): data packet count, Default:2100, will be superseded by data_traffic_rate if data_traffic_rate is set.
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         iters (int): # of iterations in the test
@@ -133,7 +133,7 @@ def run_ecn_test(api,
                           pause_flow_name=PAUSE_FLOW_NAME,
                           prio=lossless_prio,
                           data_pkt_size=data_pkt_size,
-                          data_pkt_cnt=pkt_cnt,
+                          data_pkt_cnt=data_pkt_cnt,
                           data_flow_delay_sec=DATA_START_DELAY_SEC,
                           exp_dur_sec=EXP_DURATION_SEC,
                           prio_dscp_map=prio_dscp_map,
@@ -307,25 +307,23 @@ def __gen_traffic(testbed_config,
     pps = int(2 / pause_dur)
 
     if pfc_pkt_count:
-        pause_flow = Flow(
-            name=pause_flow_name,
-            tx_rx=TxRx(pause_endpoint),
-            packet=[pause_pkt],
-            size=Size(64),
-            rate=Rate('pps', value=pps),
-            duration=Duration(FixedPackets(packets=pfc_pkt_count,
-                                           delay=pfc_storm_start_delay,
-                                           delay_unit='nanoseconds')))
+        pause_flow = Flow(name=pause_flow_name,
+                          tx_rx=TxRx(pause_endpoint),
+                          packet=[pause_pkt],
+                          size=Size(64),
+                          rate=Rate('pps', value=pps),
+                          duration=Duration(FixedPackets(packets=pfc_pkt_count,
+                                            delay=pfc_storm_start_delay,
+                                            delay_unit='nanoseconds')))
     else:
-        pause_flow = Flow(
-            name=pause_flow_name,
-            tx_rx=TxRx(pause_endpoint),
-            packet=[pause_pkt],
-            size=Size(64),
-            rate=Rate('pps', value=pps),
-            duration=Duration(FixedSeconds(seconds=exp_dur_sec,
-                                       delay=pfc_storm_start_delay,
-                                       delay_unit='nanoseconds')))
+        pause_flow = Flow(name=pause_flow_name,
+                          tx_rx=TxRx(pause_endpoint),
+                          packet=[pause_pkt],
+                          size=Size(64),
+                          rate=Rate('pps', value=pps),
+                          duration=Duration(FixedSeconds(seconds=exp_dur_sec,
+                                            delay=pfc_storm_start_delay,
+                                            delay_unit='nanoseconds')))
     result.append(pause_flow)
 
     return result

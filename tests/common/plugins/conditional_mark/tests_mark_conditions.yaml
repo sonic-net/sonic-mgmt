@@ -189,7 +189,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
 #######################################
 #####           ixia              #####
 #######################################
-ixia/ecn/test_ecn_markings.py:
+ixia/ecn/test_ecn_markings_cisco_8000.py:
   skip:
     reason: "This script is applicable only for Cisco 8000 Platform."
     conditions:
