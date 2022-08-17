@@ -340,7 +340,7 @@ def test_ecn_during_decap_on_active(
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet
     iface, _ = rand_selected_interface
-
+    hwsku = rand_selected_dut.facts['hwsku']
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = build_expected_packet_to_server(encapsulated_packet)
 
@@ -352,8 +352,15 @@ def test_ecn_during_decap_on_active(
     with stop_garp(ptfhost):
         tor.shell("portstat -c")
         tor.shell("show arp")
+        if hwsku == 'Arista-7260CX3-D108C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            tor.shell("config dropcounters install d1 PORT_INGRESS_DROPS IP_HEADER_ERROR,FDB_AND_BLACKHOLE_DISCARDS,SMAC_EQUALS_DMAC,ACL_ANY")
+            tor.shell("config dropcounters install d2 PORT_INGRESS_DROPS SIP_LINK_LOCAL,DIP_LINK_LOCAL,L3_EGRESS_LINK_DOWN,EXCEEDS_L3_MTU")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+        if hwsku == 'Arista-7260CX3-D108C8' or hwsku == 'Arista-7050CX3-32S-C32':
+            tor.shell("show dropcounters counts")
+            tor.shell("config dropcounters delete d1")
+            tor.shell("config dropcounters delete d2")
         tor.shell("portstat -j")
         verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
