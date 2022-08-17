@@ -14,6 +14,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
@@ -323,6 +324,10 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
         default_max_nhop_paths = 10
         polling_interval = 1
         sleep_time = 380
+    elif is_innovium_device(duthost):
+        default_max_nhop_paths = 3
+        polling_interval = 10
+        sleep_time = 120
     else:
         default_max_nhop_paths = 32
         polling_interval = 10
@@ -341,7 +346,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
-    if is_cisco_device(duthost):
+    if is_cisco_device(duthost) or is_innovium_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available"]
     else:
