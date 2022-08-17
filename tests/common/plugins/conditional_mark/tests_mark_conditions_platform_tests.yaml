@@ -59,11 +59,23 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "'sw_to3200k' in hwsku"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "'sw_to3200k' in hwsku"
+
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
@@ -91,8 +103,8 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented 
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #test_set_fans_speed requires get_speed_tolerance to be implemented
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
@@ -166,7 +178,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_install_firmware:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or ('sw_to3200k' in hwsku)"
 
 platform_tests/api/test_component.py::TestComponentApi::test_is_replaceable:
   skip:
@@ -220,7 +232,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 ##### api/test_fan_drawer_fans.py #####
 #######################################
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
@@ -248,8 +260,8 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented 
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #test_set_fans_speed requires get_speed_tolerance to be implemented
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
@@ -439,6 +451,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
     conditions:
       - "asic_type in ['cisco-8000'] and release in ['202012']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "'sw_to3200k' in hwsku"
+
 #######################################
 #####     api/test_thermal.py     #####
 #######################################
@@ -531,7 +549,7 @@ platform_tests/api/test_watchdog.py:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara']"
+      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -589,7 +607,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     # s6100 has not supported get_thermal_manager yet
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform)"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
@@ -600,7 +618,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     # s6100 has not supported get_thermal_manager yet
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release"
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform)"
+      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
 
 #######################################
 #####        test_reboot.py       #####
@@ -610,6 +628,18 @@ platform_tests/test_reboot.py:
     reason: "Skip reboot test for Celestica"
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4']"
+
+platform_tests/test_reboot.py::test_power_off_reboot:
+  skip:
+    reason: "Skip power off reboot test for Wistron"
+    conditions:
+      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
+
+platform_tests/test_reboot.py::test_watchdog_reboot:
+  skip:
+    reason: "Skip watchdog reboot test for Wistron"
+    conditions:
+      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
 
 #######################################
 #####   test_reload_config.py     #####
