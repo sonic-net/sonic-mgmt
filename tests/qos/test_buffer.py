@@ -15,6 +15,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
@@ -299,7 +300,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
-    if not is_mellanox_device(duthost):
+    if not is_mellanox_device(duthost) and not is_innovium_device(duthost):
         load_lossless_headroom_data(duthost)
         yield
         return
@@ -2424,10 +2425,16 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                              ],
         KEY_4_LOSSLESS_QUEUE: [(None, None, None)] # The admin_down ports can not be dualtor_ports. Hence there is no 4_lossless_queue profile
     }
+
     if is_tunnel_qos_remap_enabled(duthost):
         buffer_table_down[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
     
     buffer_items_to_check_dict = {"up": buffer_table_up, "down": buffer_table_down}
+
+
+    if is_innovium_device(duthost):
+        buffer_items_to_check_dict["up"][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_items_to_check_dict["down"][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
 
     if check_qos_db_fv_reference_with_table(duthost):
         profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
