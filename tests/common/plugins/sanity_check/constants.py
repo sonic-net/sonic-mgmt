@@ -13,7 +13,7 @@ PRINT_LOGS = {
     "mux_config": "show mux config",
 }
 
-# Check items for testbed infrastructure that are not 
+# Check items for testbed infrastructure that are not
 # controlled by the DUT
 INFRA_CHECK_ITEMS = [
     "mux_simulator"
@@ -32,3 +32,4 @@ RECOVER_METHODS = {
 
 STAGE_PRE_TEST = 'stage_pre_test'
 STAGE_POST_TEST = 'stage_post_test'
+SANITY_CHECK_FAILED_RC = 10
