@@ -253,19 +253,21 @@ function run_debug_tests()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
+    echo Running: pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
     pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
+    echo Running pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
     pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    echo Running: pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    echo Running pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
     pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
@@ -287,7 +289,7 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        echo Running pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
         pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
         ret_code=$?
 
@@ -302,6 +304,11 @@ function run_individual_tests()
                 rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
             fi
         else
+            if [ ${ret_code} -eq 10 ]; then     # rc 10 means sanity check failed
+                echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
