@@ -187,9 +187,11 @@ class HashTest(BaseTest):
 
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
+        # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
+        # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 254]
+        skip_protos = [2, 253, 4, 41, 60, 254]
         if ipv6:
             # Skip ip_proto 0 for IPv6
             skip_protos.append(0)
@@ -255,7 +257,7 @@ class HashTest(BaseTest):
                     pkt.dst,
                     pkt['IP'].src,
                     pkt['IP'].dst,
-                    ip_proto,
+                    pkt['IP'].proto,
                     sport,
                     dport,
                     src_port))
@@ -342,19 +344,21 @@ class HashTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
         send_packet(self, src_port, pkt)
-        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={} on port {})'\
+        logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'\
             .format(pkt.src,
                     pkt.dst,
                     pkt['IPv6'].src,
                     pkt['IPv6'].dst,
+                    pkt['IPv6'].nh,
                     sport,
                     dport,
                     src_port))
-        logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'\
+        logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={})'\
             .format('any',
                     'any',
                     ip_src,
                     ip_dst,
+                    ip_proto,
                     sport,
                     dport))
 
