@@ -24,7 +24,7 @@ stages:
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -39,7 +39,7 @@ stages:
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -76,7 +76,7 @@ stages:
   - job: t1_lag_classic
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag classic"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
@@ -88,8 +88,6 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    pool:
-      vmImage: 'ubuntu-20.04'
     timeoutInMinutes: 540
     condition: and(succeeded(), eq(variables.RUN_TEST_BY_SCHEDULER, 'YES'))
     steps:
@@ -98,8 +96,6 @@ stages:
         TOPOLOGY: t1-lag
 
   - job:
-    pool:
-      vmImage: 'ubuntu-20.04'
     displayName: "kvmtest-t1-lag"
     dependsOn:
     - t1_lag_classic
@@ -122,7 +118,7 @@ stages:
   - job:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -136,7 +132,7 @@ stages:
   - job:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
       - template: .azure-pipelines/run-test-template.yml
@@ -150,7 +146,7 @@ stages:
   - job:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
       - template: .azure-pipelines/run-test-template.yml
