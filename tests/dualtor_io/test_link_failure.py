@@ -54,24 +54,39 @@ def test_active_link_down_upstream(
         )
 
 
+@pytest.mark.enable_active_active
 def test_active_link_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     toggle_all_simulator_ports_to_upper_tor,
-    shutdown_fanout_upper_tor_intfs
+    shutdown_fanout_upper_tor_intfs, cable_type
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
     Verify switchover and disruption lasts < 1 second
     """
-    send_t1_to_server_with_action(
-        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
-    )
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host,
-        expected_standby_health='unhealthy'
-    )
+    if cable_type == CableType.active_standby:
+        send_t1_to_server_with_action(
+            upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
+        )
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health='unhealthy'
+        )
+
+    if cable_type == CableType.active_active:
+        send_t1_to_server_with_action(
+            upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+        )
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health='unhealthy',
+            cable_type=cable_type,
+            skip_state_db=True
+        )
 
 
 def test_active_link_down_downstream_standby(
