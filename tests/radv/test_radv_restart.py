@@ -23,7 +23,8 @@ def test_radv_swss(duthost):
     swss_status_dict_before = parse_service_status(swss_stdout_lines)
 
     # make sure swss is running
-    assert swss_status_dict_before is not None and swss_status_dict_before.get("ActiveState") == "active"
+    assert swss_status_dict_before is not None and swss_status_dict_before.get(
+        "ActiveState") == "active", "service swss is not running"
 
     # 2. restart radv.service
     duthost.shell("sudo systemctl restart radv.service")
@@ -34,14 +35,16 @@ def test_radv_swss(duthost):
     radv_status_dict = parse_service_status(radv_stdout_lines)
 
     # make sure radv run successfully
-    assert radv_status_dict is not None and radv_status_dict.get("ActiveState") == "active"
+    assert radv_status_dict is not None and radv_status_dict.get(
+        "ActiveState") == "active", "service radv is not running"
 
     # 4. check status of swss.service
     swss_stdout_lines = duthost.shell("systemctl show -p ActiveState -p ActiveEnterTimestamp swss.service")[
         "stdout_lines"]
     swss_status_dict = parse_service_status(swss_stdout_lines)
     # make sure the ActiveSate is active
-    assert swss_status_dict is not None and swss_status_dict.get("ActiveState") == "active"
+    assert swss_status_dict is not None and swss_status_dict.get(
+        "ActiveState") == "active", "service swss is not running after restart radv.service"
 
     # 5. verify "Restarting radv causes swss service to restart" or not
     # compare ActiveEnterTimestamp of swss.service with radv.service, and compare ActiveEnterTimestamp of swss.service
@@ -50,7 +53,7 @@ def test_radv_swss(duthost):
     datetime_swss_before = datetime.strptime(swss_status_dict_before.get("ActiveEnterTimestamp"), date_format)
     datetime_swss = datetime.strptime(swss_status_dict.get("ActiveEnterTimestamp"), date_format)
     datetime_radv = datetime.strptime(radv_status_dict.get("ActiveEnterTimestamp"), date_format)
-    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before
+    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before, "service swss also restarted while radv restarting"
 
 
 def parse_service_status(service_status_stdout_lines):
@@ -67,11 +70,10 @@ def parse_service_status(service_status_stdout_lines):
 
         {"ActiveState": "active",
          "ActiveEnterTimestamp": "Tue 2022-08-09 10:30:58 UTC"}
-
     """
 
     # check empty
-    if service_status_stdout_lines is None or len(service_status_stdout_lines) == 0:
+    if not service_status_stdout_lines:
         return None
 
     service_status_dict = {}
