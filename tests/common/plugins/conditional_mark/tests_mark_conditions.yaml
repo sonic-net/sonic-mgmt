@@ -429,6 +429,18 @@ platform_tests/test_auto_negotiation.py:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/api/test_sfp.py::test_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
 #######################################
 #####             pc              #####
 #######################################
