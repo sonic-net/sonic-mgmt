@@ -2,16 +2,20 @@ import ipaddr
 import logging
 import os
 import pytest
+import random
 import time
 
 from collections import namedtuple
+from collections import defaultdict
 
+from ptf.mask import Mask
+import ptf.packet as scapy
+import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -37,6 +41,7 @@ class IPRoutes:
         Add IP route with ECMP paths
         """
         # add IP route, nhop to list
+        self.ip_nhops = []
         self.ip_nhops.append(self.IP_NHOP(ip_route, nhop_path_ips))
 
     def program_routes(self):
@@ -58,6 +63,7 @@ class IPRoutes:
                 ip_cmd = "{} {}".format(ip_route, ip_nhop_str)
                 fn.write(ip_cmd+ "\n")
 
+        fn.close()
         # copy file to DUT and run it on DUT
         self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         result = self.duthost.shell(self.filename)
@@ -79,6 +85,7 @@ class IPRoutes:
                 )
                 fn.write(ip_route + "\n")
 
+        fn.close()
         self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         try:
             self.duthost.shell(self.filename)
@@ -114,26 +121,29 @@ class Arp:
 
             self.ip_mac_list.append(IP_MAC(
                 "{}".format(ip + i),
-                "{}:{}:{}".format(mac, moff1, moff2)
+                "{}:{}:{}".format(mac, moff1.zfill(2), moff2.zfill(2))
             ))
 
-        # add IP address to the eth interface
-        ip_iface = "ip address add {} dev {}".format(self.if_addr, self.iface)
-        logging.info("IF ADDR ADD {}".format(ip_iface))
-        result = asic.command(ip_iface)
-        pytest_assert(result["rc"] == 0, ip_iface)
 
     def arps_add(self):
         """
         Create a file with static arp add commands, copy file
         to DUT and run it from DUT
         """
+
+        # add IP address to the eth interface
+        ip_iface = "ip address add {} dev {}".format(self.if_addr, self.iface)
+        logging.info("IF ADDR ADD {}".format(ip_iface))
+        result = self.asic.command(ip_iface)
+        pytest_assert(result["rc"] == 0, ip_iface)
+
         arp_cmd = "sudo {} arp -s {} {}"
         with open(self.filename, "w") as fn:
             for ip_mac in self.ip_mac_list:
                 cmd = arp_cmd.format(self.asic.ns_arg, ip_mac.ip, ip_mac.mac)
                 fn.write(cmd + "\n")
 
+        fn.close()
         self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         result = self.duthost.shell(self.filename)
         pytest_assert(
@@ -152,6 +162,7 @@ class Arp:
                 cmd = arp_cmd.format(self.asic.ns_arg, ip_mac.ip)
                 fn.write(cmd + "\n")
 
+        fn.close()
         self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         try:
             self.duthost.shell(self.filename)
@@ -259,8 +270,45 @@ def loganalyzer_ignore_regex_list():
     ]
     return ignore
 
+def build_pkt(dest_mac, ip_addr, ttl):
+    pkt = testutils.simple_tcp_packet(
+          eth_dst=dest_mac,
+          eth_src="00:11:22:33:44:55",
+          pktlen=100,
+          ip_src="19.0.0.100",
+          ip_dst=ip_addr,
+          ip_ttl=ttl,
+          tcp_dport=200,
+          tcp_sport=100
+    )
+    exp_packet = Mask(pkt)
+    exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+    exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
 
-def test_nhop(request, duthost, tbinfo):
+    exp_packet.set_do_not_care_scapy(scapy.IP, "version")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "ihl")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "tos")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "len")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "flags")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "id")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "frag")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+    exp_packet.set_do_not_care_scapy(scapy.IP, "options")
+
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "seq")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "ack")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "reserved")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "dataofs")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "window")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+    exp_packet.set_do_not_care_scapy(scapy.TCP, "urgptr")
+
+    exp_packet.set_ignore_extra_bytes()
+    return pkt, exp_packet
+
+
+def test_nhop_group_member_count(request, duthost, tbinfo):
     """
     Test next hop group resource count. Steps:
     - Add test IP address to an active IP interface
@@ -271,8 +319,6 @@ def test_nhop(request, duthost, tbinfo):
     - clean up
     - Verify no errors and crash
     """
-    skip_release(duthost, ["201811", "201911"])
-
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
         default_max_nhop_paths = 10
@@ -376,3 +422,114 @@ def test_nhop(request, duthost, tbinfo):
                 crm_after["available"], crm_after["used"]
             )
         )
+
+def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter, gather_facts, enum_rand_one_frontend_asic_index):
+    """
+    Test SONiC and SAI Vendor capability are same for ordered ecmp feature
+    and SAI vendor is honoring the Ordered nature of nexthop group member
+    """
+    asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+
+    result = asic.run_redis_cmd(
+        argv = ["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"]
+    )
+    it = iter(result)
+    switch_capability = dict(zip(it, it))
+
+    result = asic.run_redis_cmd(
+            argv = ["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"]
+    )
+
+    it = iter(result)
+    switch_table = dict(zip(it, it))
+
+    order_ecmp_capability = switch_capability.get("ORDERED_ECMP_CAPABLE")
+    order_ecmp_configured = switch_table.get("ordered_ecmp")
+    pytest_assert(order_ecmp_capability == order_ecmp_configured, "Order Ecmp Feature configured and capability not same")
+
+    if order_ecmp_configured == "false":
+        pytest.skip("Order ECMP is not configured so skipping the test-case")
+
+    # Check Gather facts IP Interface is active one
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    pytest_assert(len(ip_ifaces), "No IP interfaces found")
+    pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
+
+    # Generate ARP entries
+    arp_count = 8
+    arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
+    neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
+    original_ip_mac_list = arplist.ip_mac_list[:]
+    ip_route = "192.168.100.50"
+    ip_prefix = ip_route + "/31"
+    ip_ttl = 121
+
+    # create nexthop group
+    nhop = IPRoutes(duthost, asic)
+
+    recvd_pkt_result = defaultdict(int)
+
+    rtr_mac= asic.get_router_mac()
+    
+    pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl)
+
+    for x in range(2):
+        try:
+            # create neighibor entry in different order list
+            random.seed(x)
+            random.shuffle(arplist.ip_mac_list)
+            arplist.arps_add()
+            ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
+
+            # add IP route
+            nhop.add_ip_route(ip_prefix, ips)
+
+            nhop.program_routes()
+            # wait for routes to be synced and programmed
+            time.sleep(5)
+
+            ptfadapter.dataplane.flush()
+            testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
+            (_ , recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=gather_facts['src_port_ids'])
+            
+            assert recv_pkt
+
+            # Make sure routing is done
+            pytest_assert(Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
+            pytest_assert(Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
+            pytest_assert(Ether(recv_pkt).dst.lower() in neighbor_mac, "Routed Packet Destination Mac not valid neighbor entry")
+            # Add the receive port index and reviced dest mac (Nexthop identify property) to the dictionary
+            recvd_pkt_result[Ether(recv_pkt).dst] += 1
+        finally:
+            nhop.delete_routes()
+            arplist.clean_up()
+
+    # make sure we should have only one element in dict.
+    pytest_assert(len(recvd_pkt_result.keys()) == 1, "Error Same flow recevied on different nexthop")
+    neighbor_ip_selected = original_ip_mac_list[neighbor_mac.index(Ether(recv_pkt).dst.lower())][0]
+
+    # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
+    # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
+    # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
+
+    # Fill this array after first run of test case which will give neighbor selected
+    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = { "th": "172.16.0.16" }
+
+    vendor = duthost.facts["asic_type"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    dutAsic = None
+    for asic,nbr_ip in SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items():
+        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+        if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+            dutAsic = asic
+            break
+
+    if not dutAsic:
+        # Vendor need to update SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP . To do this we need to run the test case 1st time
+        # and see the neighbor picked by flow (pkt) sent above. Once that is determine update the map SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP 
+        pytest.xfail("ASIC to flow mapping is not define. Please read above comment to update map with the given ASIC to flow map")
+        return
+
+    pytest_assert(dutAsic, "Please add ASIC in the above list and update the asic to neighbor mapping")
+    pytest_assert(neighbor_ip_selected == nbr_ip, "Flow is not picking expected Neighbor")
