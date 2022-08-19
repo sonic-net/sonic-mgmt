@@ -4,6 +4,8 @@ import logging
 import re
 import os
 
+from collections import namedtuple
+
 from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
@@ -491,6 +493,24 @@ class EosHost(AnsibleHostBase):
                 }
             )
         return not self._has_cli_cmd_failed(out)
+
+    def _version(self):
+        """
+        Get software image version of EOS fanout
+
+        Returns:
+            namedtuple wich contains image version
+        """
+        Version = namedtuple("Version", "major minor micro")
+        try:
+            output = self.eos_command(commands=['show version'])['stdout'][0]
+            version_info = re.search('Software\s+image\s+version:\s+(.*)', output).group(1)
+            major, minor, micro = tuple(version_info.split('.'))
+
+            return Version(major, minor, micro)
+        except Exception as e:
+            logger.error('Failed to get software image version of EOS fanout, exception: {}'.format(repr(e)))
+            return None
 
 
 class DirectFlow(object):

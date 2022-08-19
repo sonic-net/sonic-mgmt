@@ -1022,8 +1022,9 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, eos_fano
         for fanout in fanouthosts:
             # Add DirectFlow rule which matches packets by IGMP protocol
             # and allows forwarding for those packets
-            fanout.directflow.add_match_criteria(flow_name, 'ip protocol 2')
-            fanout.directflow.add_action(flow_name, 'output interface cpu')
+            if int(fanout.version_info.minor) <= 23:
+                fanout.directflow.add_match_criteria(flow_name, 'ip protocol 2')
+                fanout.directflow.add_action(flow_name, 'output interface cpu')
 
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether
