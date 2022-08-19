@@ -1,6 +1,5 @@
 import logging
 import os
-import importlib
 import netaddr
 import pytest
 import random
@@ -10,12 +9,13 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts  # lgtm[py/unused-import]
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import get_inventory_files
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
+
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -24,6 +24,8 @@ L3_COL_KEY = RX_ERR
 
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
+# Ansible config files
+LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../ansible/files")))
 
 ACL_COUNTERS_UPDATE_INTERVAL = 10
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
@@ -31,6 +33,7 @@ LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 LOG_EXPECT_PORT_OPER_DOWN_RE = ".*Port {} oper state set from up to down.*"
 LOG_EXPECT_PORT_OPER_UP_RE = ".*Port {} oper state set from down to up.*"
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ def sai_acl_drop_adj_enabled(rand_selected_dut):
 
 
 @pytest.fixture
-def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
+def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, localhost):
     """
     Fixture that allows to update Fanout configuration if there is a need to send incorrect packets.
     Added possibility to create vendor specific logic to handle fanout configuration.
@@ -71,19 +74,53 @@ def fanouthost(request, duthosts, rand_one_dut_hostname, localhost):
     fanout = None
     # Check that class to handle fanout config is implemented
     if "mellanox" == duthost.facts["asic_type"]:
-        for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "fanout")):
-            # Import fanout configuration handler based on vendor name
-            if "mellanox" in file_name:
-                module = importlib.import_module("..fanout.{0}.{0}_fanout".format(file_name.strip(".py")), __name__)
-                fanout = module.FanoutHandler(duthost, localhost, get_inventory_files(request))
-                if not fanout.is_mellanox:
-                    fanout = None
-                break
+        fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
+        if not is_mellanox_fanout(duthost, localhost):
+            fanout = None
 
     yield fanout
+    if fanout:
+        if hasattr(fanout, 'restore_drop_counter_config'):
+            fanout.restore_drop_counter_config()
 
-    if fanout is not None:
-        fanout.restore_config()
+def is_mellanox_devices(hwsku):
+    """
+    A helper function to check if a given sku is Mellanox device
+    """
+    hwsku = hwsku.lower()
+    return 'mellanox' in hwsku \
+        or 'msn' in hwsku \
+        or 'mlnx' in hwsku
+
+def is_mellanox_fanout(duthost, localhost):
+    # Ansible localhost fixture which calls ansible playbook on the local host
+
+    try:
+        dut_facts = localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
+        return False
+
+    fanout_host = dut_facts["device_conn"][duthost.hostname]["Ethernet0"]["peerdevice"]
+
+    try:
+        fanout_facts = localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        return False
+
+    fanout_sku = fanout_facts['device_info'][fanout_host]['HwSku']
+    if not is_mellanox_devices(fanout_sku):
+        return False
+
+    return True
+
+def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
+    fanout_obj = None
+    for fanout_name, fanout_obj in fanouthosts.items():
+        for interface, interface_info in conn_graph_facts['device_conn'][duthost.hostname].items():
+            if fanout_name == interface_info.get('peerdevice'):
+                break
+    return fanout_obj
 
 
 @pytest.fixture(scope="module")
@@ -181,8 +218,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         "neighbor_sniff_ports": neighbor_sniff_ports,
         "vlans": configured_vlans,
         "mg_facts": mg_facts,
-        "intf_per_namespace": intf_per_namespace
+        "intf_per_namespace": intf_per_namespace,
+        "platform_asic": duthost.facts.get("platform_asic")
     }
+
     return setup_information
 
 
@@ -391,23 +430,22 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
     time.sleep(1)
 
 
-def test_equal_smac_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
-    duthost = duthosts[rand_one_dut_hostname]
-
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
-    if "mellanox" == duthost.facts["asic_type"]:
+    if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
+        fanouthost.prepare_drop_counter_config(
+            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -426,29 +464,27 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostna
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
     )
-
     do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
 
-def test_multicast_smac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
     """
     @summary: Create a packet with multicast SMAC.
     """
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
-    duthost = duthosts[rand_one_dut_hostname]
-
     multicast_smac = "01:00:5e:00:01:02"
     src_mac = multicast_smac
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
-    if "mellanox" == duthost.facts["asic_type"]:
+    if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
-        fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+        fanouthost.prepare_drop_counter_config(
+            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -501,7 +537,12 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, rand_one_dut_hostname, pt
         vlan_vid=vlan_id,
         )
 
-    do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+    group = "L2"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
 def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):
@@ -520,7 +561,12 @@ def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -539,7 +585,12 @@ def test_src_ip_is_loopback_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_f
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -567,7 +618,13 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    print("msm group {}, setup {}".format(group, setup))
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("ip_addr", ["ipv4", "ipv6"])
@@ -602,7 +659,12 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -627,7 +689,12 @@ def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, rand_one_dut_hostname,
             tcp_sport=pkt_fields["tcp_sport"],
             tcp_dport=pkt_fields["tcp_dport"])
 
-        do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+        group = "L3"
+        # DNX platform DROP counters are not there yet
+        if setup.get("platform_asic") == "broadcom-dnx":
+            group = "NO_DROPS"
+
+        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("addr_type, addr_direction", [("ipv4", "src"), ("ipv6", "src"), ("ipv4", "dst"),
@@ -673,7 +740,12 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
 
     logger.info(pkt_params)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -747,7 +819,12 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
         tcp_dport=pkt_fields["tcp_dport"],
         ip_ttl=0)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("pkt_field, value", [("version", 1), ("chksum", 10), ("ihl", 1)])
@@ -767,7 +844,12 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         )
     setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
@@ -790,7 +872,12 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
     pkt.type = 0x800
     pkt = pkt/tcp
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
 
 
 @pytest.mark.parametrize("eth_dst", ["01:00:5e:00:01:02", "ff:ff:ff:ff:ff:ff"])
@@ -812,7 +899,12 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports, 
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    group = "L3"
+    # DNX platform DROP counters are not there yet
+    if setup.get("platform_asic") == "broadcom-dnx":
+        group = "NO_DROPS"
+
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),

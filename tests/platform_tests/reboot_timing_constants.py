@@ -1,3 +1,15 @@
+REQUIRED_PATTERNS = {
+    "time_span": [
+        "SAI_CREATE_SWITCH",
+        "INIT_VIEW",
+        "APPLY_VIEW"
+    ],
+    "offset_from_kexec": [
+        "LAG_READY",
+        "PORT_READY"
+    ]
+}
+
 SERVICE_PATTERNS = {
     "LATEST": {
         "Stopping": re.compile(r'.*Stopping.*(service|container).*'),
@@ -22,9 +34,9 @@ OTHER_PATTERNS = {
         "FPMSYNCD_RECONCILIATION|Start": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart timer started.*'),
         "FPMSYNCD_RECONCILIATION|End": re.compile(r'.*NOTICE bgp#fpmsyncd: :- main: Warm-Restart reconciliation processed.*'),
         "ROUTE_DEFERRAL_TIMER|Start": re.compile(r'.*ADJCHANGE: neighbor .* in vrf default Up.*'),
-        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for IPv4 Unicast from.*'),
+        "ROUTE_DEFERRAL_TIMER|End": re.compile(r'.*rcvd End-of-RIB for .* Unicast from.*'),
         "FDB_AGING_DISABLE|Start": re.compile(r'.*NOTICE swss#orchagent.*setAgingFDB: Set switch.*fdb_aging_time 0 sec'),
-        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*doAppSwitchTableTask: Set switch attribute fdb_aging_time to 600')
+        "FDB_AGING_DISABLE|End": re.compile(r'.*NOTICE swss#orchagent.*do.*Task: Set switch attribute fdb_aging_time to 600')
     },
     "LATEST": {
         "INIT_VIEW|Start": re.compile(r'.*swss#orchagent.*notifySyncd.*sending syncd.*INIT_VIEW.*'),

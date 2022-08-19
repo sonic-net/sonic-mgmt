@@ -5,6 +5,7 @@
 
 pr:
 - master
+trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
@@ -12,16 +13,18 @@ stages:
 - stage: Test
 
   variables:
+  - group: Testbed-Tools
   - name: inventory
     value: veos_vtb
   - name: testbed_file
-    value: vtestbed.csv
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
 
   jobs:
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -36,7 +39,7 @@ stages:
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
-    timeoutInMinutes: 360
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -49,9 +52,9 @@ stages:
         section: part-2
 
   - job:
-    pool: sonictest
+    pool:
+      vmImage: 'ubuntu-20.04'
     displayName: "kvmtest-t0"
-    timeoutInMinutes: 400
     dependsOn:
     - t0_part1
     - t0_part2
@@ -70,11 +73,10 @@ stages:
           exit 1
         fi
 
-  - job:
+  - job: t1_lag_classic
     pool: sonictest-t1-lag
-    displayName: "kvmtest-t1-lag"
-    timeoutInMinutes: 360
-
+    displayName: "kvmtest-t1-lag classic"
+    timeoutInMinutes: 400
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
@@ -84,16 +86,74 @@ stages:
         tbtype: t1-lag
         vmtype: ceos
 
+  - job: t1_lag_testbedv2
+    displayName: "kvmtest-t1-lag by TestbedV2"
+    timeoutInMinutes: 540
+    condition: and(succeeded(), eq(variables.RUN_TEST_BY_SCHEDULER, 'YES'))
+    steps:
+    - template: .azure-pipelines/run-test-scheduler-template.yml
+      parameters:
+        TOPOLOGY: t1-lag
+
+  - job:
+    displayName: "kvmtest-t1-lag"
+    dependsOn:
+    - t1_lag_classic
+    - t1_lag_testbedv2
+    condition: always()
+    variables:
+      resultOfClassic: $[ dependencies.t1_lag_classic.result ]
+      resultOfTestbedV2: $[ dependencies.t1_lag_testbedv2.result ]
+
+    steps:
+    - script: |
+        if [ $(resultOfClassic) == "Succeeded" ] || [ $(resultOfTestbedV2) == "Succeeded" ]; then
+          echo "One or both of t1_lag_classic and t1_lag_testbedv2 passed."
+          exit 0
+        else
+          echo "Both t1_lag_classic and t1_lag_testbedv2 failed! Please check the detailed information."
+          exit 1
+        fi
+
   - job:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 240
+    timeoutInMinutes: 400
 
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
+        dut: vlab-02
+        tbname: vms-kvm-t0-64-32
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
+
+  - job:
+    pool: sonictest-dualtor
+    displayName: "kvmtest-dualtor"
+    timeoutInMinutes: 400
+
+    steps:
+      - template: .azure-pipelines/run-test-template.yml
+        parameters:
+          dut: all
+          tbname: vms-kvm-dual-t0
+          ptf_name: ptf-04
+          tbtype: dualtor
+          vmtype: ceos
+
+  - job:
+    pool: sonictest-ma
+    displayName: "kvmtest-multi-asic-t1-lag"
+    timeoutInMinutes: 400
+
+    steps:
+      - template: .azure-pipelines/run-test-template.yml
+        parameters:
+          dut: vlab-08
+          tbname: vms-kvm-four-asic-t1-lag
+          ptf_name: ptf_vms6-4
+          tbtype: multi-asic-t1-lag-pr
+          vmtype: ceos
+          image: sonic-4asic-vs.img.gz

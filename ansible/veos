@@ -35,6 +35,9 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
+          - dualtor-mixed
+          - dualtor-mixed-56
+          - dualtor-mixed-120
       children:
         server_1:
         server_2:

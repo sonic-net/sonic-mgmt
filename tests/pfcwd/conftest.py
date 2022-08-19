@@ -32,14 +32,6 @@ def pytest_addoption(parser):
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_pfcwd_test_dualtor(tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Pfcwd tests skipped on dual tor testbed")
-
-    yield
-
-
 @pytest.fixture(scope="module")
 def two_queues(request):
     """
@@ -165,6 +157,3 @@ def setup_pfc_test(
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
     yield setup_info
-
-    logger.info("--- Starting Pfcwd ---")
-    duthost.command("pfcwd start_default")

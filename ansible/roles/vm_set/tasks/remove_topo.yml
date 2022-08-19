@@ -20,6 +20,12 @@
       mux_simulator_action: stop
     when: "'dualtor' in topo"
 
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
     vars:
@@ -54,6 +60,13 @@
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
+
+  - name: Stop ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
 
   - name: Remove ptf docker container ptf_{{ vm_set_name }}
     docker_container:

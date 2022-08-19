@@ -40,7 +40,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t1", "t2")
+    pytest.mark.topology("t0", "t1", "t2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -53,10 +53,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_namespace",
                                   "send_rate_limit",
                                   "nn_target_vlanid"])
-_SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
-_SUPPORTED_T2_TOPOS = ["t2"]
+
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT = 600
 
@@ -108,6 +105,7 @@ class TestCOPP(object):
                      copp_testbed,
                      dut_type)
 
+    @pytest.mark.disable_loganalyzer
     def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
         """
         Validates that one new trap(bgp) can be installed
@@ -137,6 +135,7 @@ class TestCOPP(object):
             wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
+    @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
                                                   "disable_feature_status"])
     def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
@@ -164,6 +163,7 @@ class TestCOPP(object):
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
+    @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
@@ -222,9 +222,6 @@ def copp_testbed(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
-
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
-        pytest.skip("Topology not supported by COPP tests")
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
@@ -365,11 +362,12 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
-                               test_params.nn_target_namespace, test_params.nn_target_vlanid, creds)
+                               test_params.nn_target_namespace, test_params.nn_target_vlanid,
+                               test_params.swap_syncd, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
@@ -387,7 +385,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """

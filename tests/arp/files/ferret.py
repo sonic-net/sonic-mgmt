@@ -199,6 +199,9 @@ class Responder(object):
                 # References: https://tools.ietf.org/html/rfc1701
                 #             https://tools.ietf.org/html/draft-foschiano-erspan-00
                 arp_request = data[0x2E:]
+            elif ASIC_TYPE == "cisco-8000":
+                # Ethernet(14) + IP(20) + GRE(8) + ERSPAN(8) = 50 = 0x32
+                arp_request = data[0x32:]
 
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]

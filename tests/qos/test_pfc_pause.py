@@ -3,8 +3,11 @@ import os
 import pytest
 import time
 
+from natsort import natsorted
+
 from qos_fixtures import lossless_prio_dscp_map
 from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -23,12 +26,12 @@ PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 PFC_PKT_COUNT = 1000000000
 
 PTF_FILE_REMOTE_PATH = '~/ptftests/pfc_pause_test.py'
-PTF_PKT_COUNT = 50
+PTF_PKT_COUNT = 20
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
 
 """ Maximum number of interfaces to test on a DUT """
-MAX_TEST_INTFS_COUNT = 4
+MAX_TEST_INTFS_COUNT = 2
 
 @pytest.fixture(scope="module", autouse=True)
 def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
@@ -52,7 +55,13 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     vlan_subnet = get_vlan_subnet(duthost)
 
     """ Generate IP addresses for servers in the Vlan """
-    vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
+    vlan_ip_addrs = list()
+    if 'dualtor' in tbinfo['topo']['name']:
+        servers = mux_cable_server_ip(duthost)
+        for intf, value in natsorted(servers.items()):
+            vlan_ip_addrs.append(value['server_ipv4'].split('/')[0])
+    else:
+        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
 
     """ Find correspoinding interfaces on PTF """
     phy_intfs = get_phy_intfs(duthost)
@@ -79,8 +88,7 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     duthost.command('sonic-clear fdb all')
 
     """ Enable DUT's PFC wd """
-    if 'dualtor' not in tbinfo['topo']['name']:
-        duthost.shell('sudo pfcwd start_default')
+    duthost.shell('sudo pfcwd start_default')
 
 def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
              fanout_info, traffic_params, pause_prio=None, queue_paused=True,

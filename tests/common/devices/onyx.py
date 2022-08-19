@@ -1,7 +1,7 @@
 import json
 import logging
-
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.drop_counters.fanout_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class OnyxHost(AnsibleHostBase):
 
         self.host.options['variable_manager'].extra_vars.update(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.fanout_helper = FanoutOnyxDropCounter(self)
 
     def __str__(self):
         return '<OnyxHost {}>'.format(self.hostname)
@@ -54,6 +55,10 @@ class OnyxHost(AnsibleHostBase):
 
     def command(self, cmd):
         out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def config(self, cmd):
+        out = self.host.onyx_config(commands=[cmd])
         return out
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
@@ -212,3 +217,29 @@ class OnyxHost(AnsibleHostBase):
         speed = out.split(':')[-1].strip()
         pos = speed.find('G')
         return speed[:pos] + '000'
+
+    def prepare_drop_counter_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        """Set configuration for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Args:
+            fanout_graph_facts (dict): fixture fanout_graph_facts
+            match_mac (str): mac address to match in openflow rule
+            set_mac (str): mac address to which match mac should be changed
+            eth_field (str): place in which replace match mac to set_mac, usually 'eth_src'
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
+
+    def restore_drop_counter_config(self):
+        """Delete configuraion for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.restore_drop_counter_config()

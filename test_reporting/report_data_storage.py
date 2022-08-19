@@ -24,6 +24,8 @@ from datetime import datetime
 from typing import Dict, List
 
 
+TASK_RESULT_FILE = "pipeline_task_results.json"
+
 class ReportDBConnector(ABC):
     """ReportDBConnector is a wrapper for a back-end data store for JUnit test reports.
 
@@ -88,22 +90,26 @@ class KustoConnector(ReportDBConnector):
     SUMMARY_TABLE = "TestReportSummary"
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
+    TESTBEDREACHABILITY_TABLE = "TestbedReachability"
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
+    PIPELINE_TABLE = "TestReportPipeline"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
+        TESTBEDREACHABILITY_TABLE:DataFormat.JSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
+        PIPELINE_TABLE: DataFormat.JSON
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -111,11 +117,13 @@ class KustoConnector(ReportDBConnector):
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
+        TESTBEDREACHABILITY_TABLE: "TestbedReachabilityMapping",
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
-        EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1"
+        EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
+        PIPELINE_TABLE: "FlatPipelineMappingV1"
     }
 
     def __init__(self, db_name: str):
@@ -140,7 +148,26 @@ class KustoConnector(ReportDBConnector):
                                                                                     tenant_id)
         self._ingestion_client = KustoIngestClient(kcsb)
 
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
+        """
+            Kusto performance depends on the work load of cluster, to improve the high availability of test result data service 
+            by hosting a backup cluster, which is optional. 
+        """
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
+        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
+        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+
+        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+            print("Could not load backup Kusto Credentials from environment")
+            self._ingestion_client_backup = None
+        else:
+            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
+                                                                                        service_id,
+                                                                                        service_key,
+                                                                                        tenant_id)
+            self._ingestion_client_backup = KustoIngestClient(kcsb)
+
+    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "", testbed: str = "", os_version: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -150,6 +177,12 @@ class KustoConnector(ReportDBConnector):
                 This id does not have to be unique.
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
         """
+        if not report_json:
+            print("Test result file is not found or empty. We will only upload pipeline results and summary.")
+            self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
+            self._upload_summary(report_json, report_guid)
+            return
+        self._upload_pipeline_results(external_tracking_id, report_guid, testbed, os_version)
         self._upload_metadata(report_json, external_tracking_id, report_guid)
         self._upload_summary(report_json, report_guid)
         self._upload_test_cases(report_json, report_guid)
@@ -157,10 +190,8 @@ class KustoConnector(ReportDBConnector):
     def upload_reachability_data(self, ping_output: List) -> None:
         ping_time = str(datetime.utcnow())
         for result in ping_output:
-            result.update({"Timestamp": ping_time})
-
-        reachability_data = {"data": ping_output}
-        self._ingest_data(self.RAW_REACHABILITY_TABLE, reachability_data)
+            result.update({"UTCTimestamp": ping_time})
+        self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -185,13 +216,32 @@ class KustoConnector(ReportDBConnector):
         reboot_timing_dict = validate_json_file(path_name)
         reboot_timing_data.update(reboot_timing_dict)
         print("Uploading {} report with contents: {}".format(path_name, reboot_timing_data))
-        if "reboot_summary" in path_name:
+        if "summary.json" in path_name:
             self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
-        elif "reboot_report" in path_name:
+        elif "report.json" in path_name:
              self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
+
+    def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
+        pipeline_data = {
+            "id": report_guid,
+            "tracking_id": external_tracking_id,
+            "testbed": testbed,
+            "os_version": os_version,
+            "upload_time": str(datetime.utcnow())
+        }
+        try:
+            # load pipeline task result json file
+            with open(TASK_RESULT_FILE, 'r') as f:
+                task_results = json.load(f)
+        except Exception as e:
+            print("Failed to load file {} with exception {}".format(TASK_RESULT_FILE, repr(e)))
+            task_results = {}
+        pipeline_data.update(task_results)
+        print("Upload pipeline result")
+        self._ingest_data(self.PIPELINE_TABLE, pipeline_data)
 
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
@@ -200,15 +250,26 @@ class KustoConnector(ReportDBConnector):
             "upload_time": str(datetime.utcnow())
         }
         metadata.update(report_json["test_metadata"])
-
+        print("Upload metadata")
         self._ingest_data(self.METADATA_TABLE, metadata)
 
     def _upload_summary(self, report_json, report_guid):
         summary = {
             "id": report_guid
         }
-        summary.update(report_json["test_summary"])
-
+        if not report_json:
+            report_json = {
+                "time": 0.0,
+                "tests": 0,
+                "skipped": 0,
+                "failures": 0,
+                "errors": 0,
+                "xfails": 0
+            }
+            summary.update(report_json)
+        else:
+            summary.update(report_json["test_summary"])
+        print("Upload summary")
         self._ingest_data(self.SUMMARY_TABLE, summary)
 
     def _upload_test_cases(self, report_json, report_guid):
@@ -220,7 +281,7 @@ class KustoConnector(ReportDBConnector):
                     "feature": feature
                 })
                 test_cases.append(case)
-
+        print("Upload test case")
         self._ingest_data(self.TEST_CASE_TABLE, test_cases)
 
     def _ingest_data(self, table, data):
@@ -237,4 +298,8 @@ class KustoConnector(ReportDBConnector):
             else:
                 temp.write(json.dumps(data))
             temp.seek(0)
+            print("Ingest to primary cluster...")
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)
+            if self._ingestion_client_backup:
+                print("Ingest to backup cluster...")
+                self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)

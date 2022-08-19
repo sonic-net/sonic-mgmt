@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
-import fnmatch
 import json
+import jsonpatch
+import fnmatch
 import os
 import re
 
-import jsonpatch
-
+from helpers import *
 from common import *
 
 if os.path.exists("/etc/sonic/sonic-environment"):
@@ -16,7 +16,7 @@ else:
     from tests.common.utilities import wait_until
 
 CMD_APPLY_HACK = "config apply-patch -n -i '' -v {}"
-CMD_APPLY = "config apply-patch -n -i /FEATURE -i /SCHEDULER -i /QUEUE -i /CABLE_LENGTH -i /ACL_TABLE -v {}"
+CMD_APPLY = "config apply-patch -n -v {}"
 
 # HACKS summary:
 #

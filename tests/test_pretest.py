@@ -125,7 +125,7 @@ def collect_dut_info(dut):
 
     return dut_info
 
-def test_update_testbed_metadata(duthosts, tbinfo):
+def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
@@ -144,6 +144,8 @@ def test_update_testbed_metadata(duthosts, tbinfo):
             json.dump(info, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+    prepare_autonegtest_params(duthosts, fanouthosts)
 
 
 def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
@@ -246,9 +248,6 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     '''
      Stop pfcwd on dual tor testbeds
     '''
-    if 'dualtor' not in tbinfo['topo']['name']:
-        pytest.skip("Skip this test on non dualTOR testbeds")
-
     dut = duthosts[enum_dut_hostname]
     dut.command('pfcwd stop')
 
@@ -257,3 +256,24 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+def prepare_autonegtest_params(duthosts, fanouthosts):
+    from tests.common.platform.device_utils import list_dut_fanout_connections
+    
+    cadidate_test_ports = {}
+
+    for duthost in duthosts:
+        all_ports = list_dut_fanout_connections(duthost, fanouthosts)
+
+        cadidate_test_ports[duthost.hostname] = {}
+        for dut_port, fanout, fanout_port in all_ports:
+            auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
+            if auto_neg_mode is not None:
+                cadidate_test_ports[duthost.hostname][dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port}
+    folder = 'metadata'
+    filepath = os.path.join(folder, 'autoneg-test-params.json')
+    try:
+        with open(filepath, 'w') as yf:
+            json.dump(cadidate_test_ports, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))

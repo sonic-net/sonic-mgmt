@@ -422,6 +422,22 @@ class SonicAsic(object):
 
         return result["stdout_lines"]
 
+    def run_ip_neigh_cmd(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("sudo ip neigh {}".format(cmdstr))
+
+        cmdstr = "sudo ip -n asic{} neigh {}".format(self.asic_index, cmdstr)
+        return self.sonichost.command(cmdstr)
+    
+
     def port_exists(self, port):
         """
         Check if a given port exists in ASIC instance
@@ -571,11 +587,11 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
-
+    
     def get_router_mac(self):
         return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
                .decode("utf-8").lower())
- 
+
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':
@@ -595,5 +611,47 @@ class SonicAsic(object):
         for af in af_list:
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
+                # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
+                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                    continue
                 return False
         return True
+
+    def check_bgp_session_state(self, neigh_ips, state="established"):
+        """
+        @summary: check if current bgp session equals to the target state
+
+        @param neigh_ips: bgp neighbor IPs
+        @param state: target state
+        """
+        bgp_facts = self.bgp_facts()['ansible_facts']
+        neigh_ok = []
+        for k, v in bgp_facts['bgp_neighbors'].items():
+            if v['state'] == state:
+                if k.lower() in neigh_ips:
+                    neigh_ok.append(k)
+        logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+
+        if len(neigh_ips) == len(neigh_ok):
+            return True
+
+        return False
+                     
+    def count_crm_resources(self, resource_type, route_tag, count_type):
+        mapping = self.sonichost.get_crm_resources(self.namespace)
+        return mapping.get(resource_type).get(route_tag, {}).get(count_type)
+
+    def count_routes(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return int(self.shell(
+            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            module_ignore_errors=True, verbose=True)['stdout'])
+
+    def get_route_key(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            verbose=False)['stdout_lines']

@@ -155,6 +155,13 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|EGRESS"]
         test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in switch_capabilities["ACL_ACTIONS|INGRESS"]
 
+    # NOTE: Disable egress mirror test on broadcom platform even SAI claim EGRESS MIRRORING is supported
+    # There is a known issue in SAI 7.1 for XGS that SAI claims the capability of EGRESS MIRRORING incorrectly.
+    # Hence we override the capability query with below logic. Please remove it after the issue is fixed.
+    if duthost.facts["asic_type"] == "broadcom" and duthost.facts.get("platform_asic") != 'broadcom-dnx':
+        test_egress_mirror_on_egress_acl = False
+        test_egress_mirror_on_ingress_acl = False
+
     # Collects a list of interfaces, their port number for PTF, and the LAGs they are members of,
     # if applicable.
     #
@@ -229,7 +236,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                     "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][t1_ports[0]]),
                     # Downstream traffic ingress from the first portchannel,
                     # and mirror packet egress from other portchannels
-                    "dest_port": t1_ports[2:] if len(t1_dest_ports_ptf_id[0].split(',')) == 2 else t1_ports[1:],
+                    "dest_port": t1_dest_ports[1:],
                     "dest_port_ptf_id": t1_dest_ports_ptf_id[1:],
                     "dest_port_lag_name": t1_dest_lag_name[1:],
                     "namespace": server_namespace
@@ -741,7 +748,7 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000" , "innovium"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
@@ -762,7 +769,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        if duthost.facts["asic_type"] in ["cisco-8000"]:
+        if duthost.facts["asic_type"] in ["cisco-8000","innovium"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")

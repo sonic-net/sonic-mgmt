@@ -216,6 +216,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
@@ -247,6 +248,12 @@
     vars:
       mux_simulator_action: start
     when: "'dualtor' in topo"
+
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
   when: container_type == "PTF"
 

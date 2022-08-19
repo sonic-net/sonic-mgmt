@@ -44,10 +44,14 @@ def test_portstat_clear(duthosts, enum_rand_one_per_hwsku_frontend_hostname, com
     """
     COUNT_THRES = 10
     for intf in before_portstat:
-        rx_ok_before = int(before_portstat[intf]['rx_ok'].replace(',',''))
-        rx_ok_after = int(after_portstat[intf]['rx_ok'].replace(',',''))
-        tx_ok_before = int(before_portstat[intf]['tx_ok'].replace(',',''))
-        tx_ok_after = int(after_portstat[intf]['tx_ok'].replace(',',''))
+        tmp_ok_cnt = before_portstat[intf]['rx_ok'].replace(',','')
+        rx_ok_before = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = after_portstat[intf]['rx_ok'].replace(',','')
+        rx_ok_after = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = before_portstat[intf]['tx_ok'].replace(',','')
+        tx_ok_before = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = after_portstat[intf]['tx_ok'].replace(',','')
+        tx_ok_after = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
         if int(rx_ok_before >= COUNT_THRES):
             pytest_assert(rx_ok_before >= rx_ok_after,
                           'Value of RX_OK after clear should be lesser')

@@ -66,17 +66,17 @@
 {%        for pc in cfg_t0['PORTCHANNEL_INTERFACE'] | sort %}
 {#     each pc have 3 keys: pc, pc|ipv4 and pc|ipv6 #}
 {%             if cfg_t0['PORTCHANNEL_INTERFACE'] | length == 12  %}
-{%                 if pc in ['PortChannel0001', 'PortChannel0002'] %}
+{%                 if pc in ['PortChannel101', 'PortChannel102'] %}
         "{{ pc }}": {"vrf_name": "Vrf1"}
-{%-                elif pc in ['PortChannel0003', 'PortChannel0004'] %}
+{%-                elif pc in ['PortChannel103', 'PortChannel104'] %}
         "{{ pc }}": {"vrf_name": "Vrf2"}
 {%-                else %}
         "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}
 {%-                endif %}
 {%-            else %}
-{%                 if pc in ['PortChannel0001', 'PortChannel0002', 'PortChannel0003', 'PortChannel0004'] %}
+{%                 if pc in ['PortChannel101', 'PortChannel102', 'PortChannel103', 'PortChannel104'] %}
         "{{ pc }}": {"vrf_name": "Vrf1"}
-{%-                elif pc in ['PortChannel0005', 'PortChannel0006', 'PortChannel0007', 'PortChannel0008'] %}
+{%-                elif pc in ['PortChannel105', 'PortChannel106', 'PortChannel107', 'PortChannel108'] %}
         "{{ pc }}": {"vrf_name": "Vrf2"}
 {%-                else %}
         "{{ pc }}": {{ cfg_t0['PORTCHANNEL_INTERFACE'][pc] }}

@@ -21,7 +21,7 @@ r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart timer started.*.*"
 r, ".* NOTICE bgp#fpmsyncd.*main: Warm-Restart reconciliation processed..*"
 r, ".* INFO syncd#syncd.*SAI_API_FDB:_brcm_sai_fdb_event_cb.*fdbEvent: 0 for mac.*"
 r, ".* NOTICE swss#orchagent.*setAgingFDB: Set switch.*fdb_aging_time 0 sec"
-r, ".* NOTICE swss#orchagent.*doAppSwitchTableTask: Set switch attribute fdb_aging_time to 600"
+r, ".* NOTICE swss#orchagent.*do.*Task: Set switch attribute fdb_aging_time to 600"
 
 # sairedis.rec messages
 r, ".*\|c\|SAI_OBJECT_TYPE_SWITCH.*"
@@ -32,7 +32,7 @@ r, ".*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*"
 
 # bgpd.log messages
 r, ".*ADJCHANGE: neighbor .* in vrf default Up.*"
-r, ".*rcvd End-of-RIB for IPv4 Unicast from.*"
+r, ".*rcvd End-of-RIB for .* Unicast from.*"
 
 # mlnx specific syslog regexes
 r, ".* syncd.*mlnx_sai_switch.*mlnx_create_switch: Create switch.*INIT_SWITCH=true.*"

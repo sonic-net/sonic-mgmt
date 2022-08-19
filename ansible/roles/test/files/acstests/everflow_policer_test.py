@@ -216,6 +216,9 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["mellanox"]:
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
+        elif self.asic_type in ["innovium"]:
+            import binascii
+            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
 
         exp_pkt = testutils.simple_gre_packet(
                 eth_src = self.router_mac,
@@ -247,6 +250,9 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
+        if self.asic_type in ["innovium"]:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
+
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "timestamp")
@@ -263,6 +269,10 @@ class EverflowPolicerTest(BaseTest):
                 pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:] # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
+            elif self.asic_type in ["innovium"]:
+                pkt = scapy.Ether(pkt)[scapy.GRE].payload
+                pkt_str = str(pkt)
+                pkt = scapy.Ether(pkt_str[8:])
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
             else:

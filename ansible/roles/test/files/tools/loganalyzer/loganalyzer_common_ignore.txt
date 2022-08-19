@@ -18,3 +18,133 @@ r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not implemented attribute SA
 r, ".* WARNING syncd#SDK:.* check_attribs_metadata: Not supported attribute SAI_SWITCH_ATTR_AVAILABLE_IPMC_ENTRY.*"
 r, ".* WARNING syncd#SDK:.* sai_get_attributes: Failed attribs check.*"
 r, ".* ERR swss#buffermgrd:.* doSpeedUpdateTask: Unable to create/update PG profile for port Ethernet(128|132|256|260).*"
+r, ".* WARNING kernel.*probe of intel-spi failed with error.*"
+r, ".* WARNING syncd#syncd.*discover.*skipping since it causes crash.*"
+r, ".* ERR swss#buffermgrd:.* doTask: Failed to process invalid entry, drop it.*"
+r, ".* ERR syncd#SDK: :- .*: Queue.* RID oid:.* can't provide the statistic.*"
+r, ".* INFO kernel:.*"
+r, ".* INFO systemd.*"
+r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
+r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
+
+# White list below messages found on KVM for now. Need to address them later.
+r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
+r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
+r, ".* ERR macsec#wpa_supplicant.*KaY: Life time has not elapsed since prior SAK distributed.*"
+r, ".* ERR systemd.*Failed to start dhcp_relay container.*"
+r, ".* ERR monit.* 'rsyslog' failed to get service data.*"
+r, ".* ERR monit.* 'rsyslog' process is not running.*"
+r, ".* ERR ntpd.*syntax error.*"
+r, ".* ERR teamd#tlm_teamd.*Can't get dump for LAG.*"
+r, ".* ERR bgp#root: Error: zebra is not ready to accept connections.*"
+r, ".* ERR bgp#/supervisor-proc-exit-listener: Process .* is not running in namespace.*"
+r, ".* ERR syncd#syncd.*collectMACsecSACounters: Failed to get stats of MACsec SA.*"
+r, ".* ERR syncd#syncd.*meta_sai_validate_oid.*"
+r, ".* ERR syncd#syncd.*meta_validate_stats: object.*don't exists.*"
+r, ".* ERR syncd#syncd.*translateVidToRid: unable to get RID for VID.*"
+r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
+
+##### White list below messages found on physical devices for now. Need to address them later.
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233578
+r, ".* ERR bgp#bgpcfgd: .*BGPSLBPassive.*attribute is supported.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233579
+r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/14233938
+r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
+r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14213168
+r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233968
+r, ".* ERR lldp#lldp-syncd.*Could not infer system information from.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233547
+r, ".* ERR mux#linkmgrd: link_manager/LinkManagerStateMachine.*LinkProberWaitMuxUnknownLinkUpTransitionFunction.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233548
+r, ".* ERR mux#linkmgrd: link_manager/LinkManagerStateMachine.*Received unsolicited MUX state.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233594
+r, ".* ERR monit.*Unix socket /var/run/monit.sock connection error.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233936
+r, ".* ERR pmon#thermalctld.*Caught exception while running thermal policy - AttributeError.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233549
+r, ".* ERR pmon#ycable.*executing the cli for prbs thread.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233550
+r, ".* ERR pmon#ycable.*URLError.*No route to host.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233937
+r, ".* ERR rsyslogd: omfwd.*Network is unreachable.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233551
+r, ".* ERR swss#buffermgrd.*doSpeedUpdateTask: Unable to create/update PG profile for port.*No PG profile configured for speed.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233939
+r, ".* ERR swss#orchagent.*applyDscpToTcMapToSwitch: Switch level DSCP to TC QoS map configuration is not supported.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233552
+r, ".* ERR swss#orchagent.*getPort.*Failed to get bridge port ID for FDB entry.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233940
+r, ".* ERR swss#orchagent.*getResAvailability: Failed to get availability counter for.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233553
+r, ".* ERR swss#orchagent.*handleSaiGetStatus: Encountered failure in get operation.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233554
+r, ".* ERR swss#orchagent.*handleSaiSetStatus: Encountered failure in set operation.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233555
+r, ".* ERR swss#orchagent.*meta_generic_validation_get.*object key.*doesn't exist.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233556
+r, ".* ERR swss#orchagent.*removeLag.*Failed to remove ref count.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233557
+r, ".* ERR swss#orchagent.*set status.*SAI_STATUS_.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233558
+r, ".* ERR swss#orchagent.*setState: State transition from active to active is not-handled.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233559
+r, ".* ERR swss#orchagent.*setState: State transition from standby to standby is not-handled.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233560
+r, ".* ERR syncd#syncd.*check_fdb_event_notification_data.*is not present on local ASIC DB.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233562
+r, ".* ERR syncd#syncd.*getSaiAttrFromDefaultValue.*serialization type.*is not supported yet.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233941
+r, ".* ERR syncd#syncd.*getSupportedBufferPoolCounters.*is not supported on buffer pool oid.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233570
+r, ".* ERR syncd#syncd.*SAI_API_PORT:brcm_sai_get_port_stats_ext.*Ext Stat Get failed.*"
+r, ".* ERR syncd#syncd.*SAI_API_PORT:brcm_sai_get_port_stats.*Multi stats get failed with error.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233568
+r, ".* ERR syncd#syncd.*SAI_API_BUFFER.*Unknown or unsupported stat type.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233942
+r, ".* ERR syncd#syncd.*SAI_API_SWITCH.*Error in capability query for obj type.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233574
+r, ".* INFO systemd.*Finished Kernel crash dump capture service.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233575
+r, ".* INFO systemd.*Starting Kernel crash dump capture service.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14233609
+r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATERMARK_STAT_COUNTER.*counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool.*SAI_STATUS_INVALID_PARAMETER.*"
+
+# https://dev.azure.com/msazure/One/_workitems/edit/14482841
+r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
+
+r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"

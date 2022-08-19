@@ -15,6 +15,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -181,6 +182,13 @@ class SonicHost(AnsibleHostBase):
         facts["router_mac"] = self._get_router_mac()
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
+        facts["switch_type"] = self._get_switch_type()
+        asics_present = self.get_asics_present_from_inventory()
+        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+
+        platform_asic = self._get_platform_asic(facts["platform"])
+        if platform_asic:
+            facts["platform_asic"] = platform_asic
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -243,6 +251,13 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
+   
+    def _get_switch_type(self):
+       try:
+           return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
+                  "utf-8").lower()
+       except Exception:
+           return ''
 
     def _get_platform_info(self):
         """
@@ -327,6 +342,14 @@ class SonicHost(AnsibleHostBase):
             if len(fields) >= 2:
                 result[fields[0]] = fields[1]
         return result
+
+    def get_asics_present_from_inventory(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        dut_vars = get_host_visible_vars(inv_files, self.hostname)
+        if dut_vars and 'asics_present' in dut_vars:
+            return dut_vars['asics_present']
+        return []
 
     def is_supervisor_node(self):
         """Check if the current node is a supervisor node in case of multi-DUT.
@@ -632,10 +655,53 @@ class SonicHost(AnsibleHostBase):
 
         return all_critical_process
 
-    def get_crm_resources(self):
+    
+    def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
+        """
+        @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
+        """      
+        # Construct mapping of {'ASIC0' : {"main_resources": {}, "acl_resources": [], "table_resources": []}, ...}
+        # Here we leave value as empty and overwrite it at the end of each ASIC table  
+        multi_result = dict()
+        for n in range(self.num_asics()):
+            ns = "asic" + str(n)
+            multi_result[ns] = {"main_resources": {}, "acl_resources": [], "table_resources": []}
+        
+        output = self.command("crm show resources all")["stdout_lines"]
+        current_table = 0   # Totally 3 tables in the command output
+        asic = None       
+        for line in output:
+            if len(line.strip()) == 0 or "---" in line:
+                continue
+            if "ASIC" in line:
+                asic = line.lower()
+            # Switch table type when 'ASIC0' comes again
+            if "ASIC0" in line:
+                current_table += 1
+                continue  
+            if current_table == 1:      # content of first table, main resources
+                fields = line.split()
+                if len(fields) == 3:
+                    multi_result[asic]["main_resources"][fields[0]] = {"used": int(fields[1]), "available": int(fields[2])}
+            if current_table == 2:      # content of the second table, acl resources
+                fields = line.split()
+                if len(fields) == 5:
+                    multi_result[asic]["acl_resources"].append({"stage": fields[0], "bind_point": fields[1],
+                        "resource_name": fields[2], "used_count": int(fields[3]), "available_count": int(fields[4])})
+            if current_table == 3:      # content of the third table, table resources
+                fields = line.split()
+                if len(fields) == 4:
+                    multi_result[asic]["table_resources"].append({"table_id": fields[0], "resource_name": fields[1],
+                        "used_count": int(fields[2]), "available_count": int(fields[3])})
+        return multi_result[namespace]
+    
+    
+    def get_crm_resources(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command and parse its output
         """
+        if self.is_multi_asic:
+            return self.get_crm_resources_for_masic(namespace)
         result = {"main_resources": {}, "acl_resources": [], "table_resources": []}
         output = self.command("crm show resources all")["stdout_lines"]
         current_table = 0   # Totally 3 tables in the command output
@@ -1075,10 +1141,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
             m = re.match(".+\s+via\s+(\S+)\s+.*dev\s+(\S+)\s+.*src\s+(\S+)\s+", rt[0])
             if m:
-                nexthop_ip = ipaddress.ip_address(unicode(m.group(1)))
+                nexthop_ip = ipaddress.ip_address(m.group(1))
                 gw_if = m.group(2)
                 rtinfo['nexthops'].append((nexthop_ip, gw_if))
-                rtinfo['set_src'] = ipaddress.ip_address(unicode(m.group(3)))
+                rtinfo['set_src'] = ipaddress.ip_address(m.group(3))
         else:
             raise ValueError("Wrong type of dstip")
 
@@ -1384,7 +1450,13 @@ Totals               6450                 6449
             corresponding to one content line under the header in the output. Keys of the dictionary are the column
             headers in lowercase.
         """
+        start_line_index = kwargs.pop("start_line_index", 0)
+        end_line_index = kwargs.pop("end_line_index", None)
         output = self.shell(show_cmd, **kwargs)["stdout_lines"]
+        if end_line_index is None:
+            output = output[start_line_index:]
+        else:
+            output = output[start_line_index:end_line_index]
         return self._parse_show(output)
 
     @cached(name='mg_facts')
@@ -1443,12 +1515,24 @@ Totals               6450                 6449
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
-        elif "Broadcom Limited Device b870" in output:
+        elif ("Broadcom Limited Device b870" in output or 
+                "Broadcom Inc. and subsidiaries Device b870" in output):
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
 
         return asic
+
+    def _get_platform_asic(self, platform):
+        platform_asic = os.path.join(
+            "/usr/share/sonic/device", platform, "platform_asic"
+        )
+        output = self.shell(
+            "cat {}".format(platform_asic), module_ignore_errors=True
+        )
+        if output["rc"] == 0:
+            return output["stdout_lines"][0]
+        return None
 
     def get_facts(self):
         return self.facts
@@ -1652,6 +1736,22 @@ Totals               6450                 6449
         self.command(
             "docker rm {}".format(service), module_ignore_errors=True
         )
+
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def no_shutdown_bgp(self, asn):
+        logging.warning("SONiC don't support `no shutdown bgp`")
+        return None
+
+    def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
+        if not neighbors:
+            return
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        for nbr in neighbors:
+            command += " -c 'no neighbor {} shutdown'".format(nbr)
+        logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
+        return self.command(command)
 
     def is_bgp_state_idle(self):
         """
@@ -1884,3 +1984,77 @@ Totals               6450                 6449
                     }
 
         return ip_ifaces
+
+    def remove_acl_table(self, acl_table):
+        """
+        Remove acl table
+
+        Args:
+            acl_table: name of acl table to be removed
+        """
+        self.command("config acl remove table {}".format(acl_table))
+
+    def del_member_from_vlan(self, vlan_id, member_name):
+        """
+        Del vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface deled from vlan
+        """
+        self.command("config vlan member del {} {}".format(vlan_id, member_name))
+
+    def add_member_to_vlan(self, vlan_id, member_name, is_tagged=True):
+        """
+        Add vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface added to vlan
+            is_tagged: True - add tagged member. False - add untagged member.
+        """
+        self.command("config vlan member add {} {} {}".format("" if is_tagged else "-u", vlan_id, member_name))
+
+    def remove_ip_from_port(self, port, ip=None):
+        """
+        Remove ip addresses from port. If get ip from running config successfully, ignore arg ip provided
+
+        Args:
+            port: port name
+            ip: IP address
+        """
+        ip_addresses = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("INTERFACE", {}).get(port, {})
+        if ip_addresses:
+            for ip in ip_addresses:
+                self.command("config interface ip remove {} {}".format(port, ip))
+        elif ip:
+            self.command("config interface ip remove {} {}".format(port, ip))
+
+    def get_port_channel_status(self, port_channel_name):
+        """
+        Collect port channel information by command docker teamdctl
+
+        Args:
+            port_channel_name: name of port channel
+
+        Returns:
+            port channel status, key information example:
+            {
+                "ports": {
+                    "Ethernet28": {
+                        "runner": {
+                            "selected": True,
+                            "state": "current"
+                        },
+                        "link": {
+                            "duplex": "full",
+                            "speed": 10,
+                            "up": True
+                        }
+                    }
+                }
+            }
+        """
+        commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
+        json_info = json.loads(commond_output["stdout"])
+        return json_info
