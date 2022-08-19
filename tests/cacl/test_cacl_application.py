@@ -803,7 +803,7 @@ def verify_nat_cacl(duthost, localhost, creds, docker_network, asic_index):
     unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables nat rules: {}".format(repr(unexpected_ip6tables_rules)))
 
-def test_cacl_application_nondualtor(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds, docker_network):
+def test_cacl_application_nondualtor(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, localhost, creds, docker_network):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly
 
@@ -811,7 +811,7 @@ def test_cacl_application_nondualtor(duthosts, tbinfo, rand_one_dut_hostname, lo
     rules based on the DuT's configuration and comparing them against the
     actual iptables/ip6tables rules on the DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     verify_cacl(duthost, tbinfo, localhost, creds, docker_network)
 
 def test_cacl_application_dualtor(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby):
@@ -824,13 +824,15 @@ def test_cacl_application_dualtor(duthost_dualtor, tbinfo, localhost, creds, doc
     """
     verify_cacl(duthost_dualtor, tbinfo, localhost, creds, docker_network, expected_dhcp_rules_for_standby)
 
-def test_multiasic_cacl_application(duthosts, tbinfo, rand_one_dut_hostname, localhost, creds, docker_network, enum_frontend_asic_index):
+def test_multiasic_cacl_application(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, localhost, creds, docker_network, enum_frontend_asic_index):
     """
     Test case to ensure caclmgrd is applying control plane ACLs properly on multi-ASIC platform.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     verify_cacl(duthost, tbinfo, localhost, creds, docker_network, None, enum_frontend_asic_index)
-    verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
+    # Check added to handle testing on supervisor which could be multi-asic dut without any frontend asic 
+    if enum_frontend_asic_index:
+        verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
 def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules, clean_scale_rules):
     """
