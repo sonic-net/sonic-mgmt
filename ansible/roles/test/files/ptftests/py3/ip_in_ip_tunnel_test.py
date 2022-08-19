@@ -198,9 +198,9 @@ class IpinIPTunnelTest(BaseTest):
         """
         Send packet from ptf (T1) to standby ToR, and verify
         """
-        dst_ports = self.indice_to_portchannel.keys()
+        dst_ports = list(self.indice_to_portchannel.keys())
         # Select the first ptf indice as src port
-        src_port = list(dst_ports)[0]
+        src_port = dst_ports[0]
         # Step 1. verify no packet is received from standby_tor to server
         for i in range(0, PACKET_NUM_FOR_NEGATIVE_CHECK):
             inner_pkt = self.generate_packet_to_server('src-ip')
