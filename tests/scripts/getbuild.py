@@ -107,7 +107,12 @@ def find_latest_build_id(branch, success_flag = "succeeded"):
 
     j = json.loads(resp.read().decode('utf-8'))
 
-    latest_build_id = int(j['value'][0]['id'])
+    value = j.get('value', [])
+
+    if len(value) > 0:
+        latest_build_id = int(value[0]['id'])
+    else:
+        latest_build_id = None
 
     return latest_build_id
 
@@ -132,7 +137,9 @@ def main():
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
-        buildid = max(buildid_succ,buildid_partial)
+        if buildid_succ is None and buildid_partial is None:
+            raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
+        buildid = max(buildid_succ, buildid_partial)
     else:
         buildid = int(args.buildid)
 
