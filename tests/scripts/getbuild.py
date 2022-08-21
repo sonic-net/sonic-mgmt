@@ -9,6 +9,9 @@ from urllib.request import urlopen, urlretrieve
 _start_time = None
 _last_time = None
 artifact_size = 0
+NOT_FOUND_BUILD_ID = -999
+
+
 def reporthook(count, block_size, total_size):
     global _start_time, _last_time, artifact_size
     cur_time = int(time.time())
@@ -112,7 +115,7 @@ def find_latest_build_id(branch, success_flag = "succeeded"):
     if len(value) > 0:
         latest_build_id = int(value[0]['id'])
     else:
-        latest_build_id = None
+        latest_build_id = NOT_FOUND_BUILD_ID
 
     return latest_build_id
 
@@ -137,7 +140,7 @@ def main():
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
-        if buildid_succ is None and buildid_partial is None:
+        if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
             raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
         buildid = max(buildid_succ, buildid_partial)
     else:
