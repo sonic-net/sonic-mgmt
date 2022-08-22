@@ -5,23 +5,23 @@ import tabulate
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host # lgtm[py/unused-import]
-from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action # lgtm[py/unused-import]
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import set_drop # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import set_output # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import simulator_flap_counter # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import set_drop_active_active   # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action                 # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action                 # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import set_drop                                 # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import set_output                               # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                   # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # lgtm[py/unused-import]
+from tests.common.dualtor.nic_simulator_control import set_drop_active_active                   # lgtm[py/unused-import]
 from tests.common.dualtor.nic_simulator_control import TrafficDirection
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses             # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
-from tests.common.dualtor.dual_tor_common import active_active_ports
-from tests.common.dualtor.dual_tor_common import active_standby_ports
-from tests.common.dualtor.dual_tor_common import cable_type
+from tests.common.dualtor.dual_tor_common import active_active_ports                            # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_standby_ports                           # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                                     # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import CableType
 
 
