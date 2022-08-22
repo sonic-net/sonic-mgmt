@@ -206,8 +206,8 @@ class DefineOid(object):
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
 
         # Memory Check
-        self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
-        self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
+        self.sysTotalMemory         = dp + "1.3.6.1.4.1.2021.4.5.0"
+        self.sysTotalFreeMemory     = dp + "1.3.6.1.4.1.2021.4.6.0"
         self.sysTotalSharedMemory   = dp + "1.3.6.1.4.1.2021.4.13.0"
         self.sysTotalBuffMemory     = dp + "1.3.6.1.4.1.2021.4.14.0"
         self.sysCachedMemory        = dp + "1.3.6.1.4.1.2021.4.15.0"
@@ -913,8 +913,8 @@ def main():
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
-            cmdgen.MibVariable(p.sysTotalMemery,),
-            cmdgen.MibVariable(p.sysTotalFreeMemery,),
+            cmdgen.MibVariable(p.sysTotalMemory,),
+            cmdgen.MibVariable(p.sysTotalFreeMemory,),
             cmdgen.MibVariable(p.sysTotalSharedMemory,),
             cmdgen.MibVariable(p.sysTotalBuffMemory,),
             cmdgen.MibVariable(p.sysCachedMemory,),
@@ -926,10 +926,10 @@ def main():
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
-            if current_oid == v.sysTotalMemery:
-                results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
-            elif current_oid == v.sysTotalFreeMemery:
-                results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
+            if current_oid == v.sysTotalMemory:
+                results['ansible_sysTotalMemory'] = decode_type(module, current_oid, val)
+            elif current_oid == v.sysTotalFreeMemory:
+                results['ansible_sysTotalFreeMemory'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalSharedMemory:
                 results['ansible_sysTotalSharedMemory'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysTotalBuffMemory:

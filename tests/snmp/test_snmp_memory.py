@@ -53,7 +53,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
+    compare = (('ansible_sysTotalFreeMemory', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
                ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
     # Checking memory attributes within a certain percentage is not guarantee to
@@ -64,11 +64,11 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                     community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
         facts = collect_memory(duthost)
-        # Verify correct behaviour of sysTotalMemery
-        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
-                      "Unexpected res sysTotalMemery {} v.s. {}".format(snmp_facts['ansible_sysTotalMemery'], facts['MemTotal']))
+        # Verify correct behaviour of sysTotalMemory
+        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemory'] - int(facts['MemTotal'])),
+                      "Unexpected res sysTotalMemory {} v.s. {}".format(snmp_facts['ansible_sysTotalMemory'], facts['MemTotal']))
 
-        # Verify correct behaviour of sysTotalFreeMemery, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
+        # Verify correct behaviour of sysTotalFreeMemory, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
         new_comp = set()
         snmp_diff = []
         for snmp, sys_data in compare:
@@ -95,5 +95,5 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
-    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemery'], mem_free) < percent,
-                  "sysTotalFreeMemery differs by more than {}".format(percent))
+    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemory'], mem_free) < percent,
+                  "sysTotalFreeMemory differs by more than {}".format(percent))
