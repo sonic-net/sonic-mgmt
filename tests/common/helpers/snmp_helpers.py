@@ -11,16 +11,16 @@ DEF_CHECK_INTERVAL=10
 
 global_snmp_facts={}
 
-def _get_snmp_facts(localhost, host, version, community, is_dell, module_ignore_errors):
-    snmp_facts = localhost.snmp_facts(host=host, version=version, community=community, is_dell=is_dell, module_ignore_errors=module_ignore_errors)
+def _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors):
+    snmp_facts = localhost.snmp_facts(host=host, version=version, community=community, is_dell=is_dell, module_ignore_errors=module_ignore_errors, include_swap=include_swap)
     return snmp_facts
 
 
-def _update_snmp_facts(localhost, host, version, community, is_dell):
+def _update_snmp_facts(localhost, host, version, community, is_dell, include_swap):
     global global_snmp_facts
 
     try:
-        global_snmp_facts = _get_snmp_facts(localhost, host, version, community, is_dell,
+        global_snmp_facts = _get_snmp_facts(localhost, host, version, community, is_dell, include_swap,
                                             module_ignore_errors=False)
     except RunAnsibleModuleFail as e:
         logger.info("encountered error when getting snmp facts: {}".format(e))
@@ -31,12 +31,12 @@ def _update_snmp_facts(localhost, host, version, community, is_dell):
 
 
 def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ignore_errors=False,
-                   wait=False, timeout=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL):
+                   wait=False, include_swap=False, timeout=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL):
     if not wait:
-        return _get_snmp_facts(localhost, host, version, community, is_dell, module_ignore_errors)
+        return _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors)
 
     global global_snmp_facts
 
     pytest_assert(wait_until(timeout, interval, 0, _update_snmp_facts, localhost, host, version,
-                             community, is_dell), "Timeout waiting for SNMP facts")
+                             community, is_dell, include_swap), "Timeout waiting for SNMP facts")
     return global_snmp_facts
