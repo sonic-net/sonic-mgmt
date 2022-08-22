@@ -3,7 +3,7 @@ import json
 
 ZERO_ADDR = r'0.0.0.0/0'
 
-def generate_ips(num, prefix, exclude_ips):
+def generate_ips(num, prefix, exclude_ips, addr=False):
     """ Generate random ips within prefix """
     prefix = IPNetwork(prefix)
     exclude_ips.append(prefix.broadcast)
@@ -14,12 +14,16 @@ def generate_ips(num, prefix, exclude_ips):
         raise Exception("Not enough available IPs")
 
     generated_ips = []
+    generated_ips_wout_mask = []
     for available_ip in available_ips:
         if available_ip not in exclude_ips:
             generated_ips.append(str(available_ip) + '/' + str(prefix.prefixlen))
+            generated_ips_wout_mask.append(str(available_ip))
         if len(generated_ips) == num:
             break
 
+    if addr:
+        return generated_ips_wout_mask
     return generated_ips
 
 
@@ -50,7 +54,12 @@ def generate_ip_through_default_route(host, exclude_ips=None):
     """
     exclude_ips = exclude_ips if exclude_ips is not None else []
     for leading in range(11, 255):
-        ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips)[0]
-        if route_through_default_routes(host, ip_addr):
-            return ip_addr
+        if host.is_multi_asic:
+            # Workaround for https://github.com/sonic-net/sonic-buildimage/issues/10897
+            ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips, addr=True)
+        else:
+            ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips)
+        for ip in ip_addr:
+            if route_through_default_routes(host, ip):
+                return ip
     return None

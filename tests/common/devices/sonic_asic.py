@@ -16,7 +16,7 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
+    _MULTI_ASIC_SERVICE_NAME = "{}@{}.service"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
     def __init__(self, sonichost, asic_index):
@@ -381,6 +381,21 @@ class SonicAsic(object):
 
         cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
+        return self.sonichost.command(cmdstr)
+
+    def run_sonic_cfggen(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("sonic-cfggen {}".format(cmdstr))
+
+        cmdstr = "sonic-cfggen -n {} {}".format(self.namespace, cmdstr)
         return self.sonichost.command(cmdstr)
 
     def run_vtysh(self, cmdstr):

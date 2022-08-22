@@ -31,6 +31,17 @@ def traffic_shift_community(duthost):
     return community
 
 
+@pytest.fixture(scope="module")
+def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    nbrhosts_to_dut = {}
+    for host in nbrhosts.keys():
+        if host in mg_facts['minigraph_devices']:
+            new_nbrhost = {host: nbrhosts[host]}
+            nbrhosts_to_dut.update(new_nbrhost)
+    return nbrhosts_to_dut
+
 def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
     prefix = "BGP{} : ".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
     result_str = "{}{}".format(prefix, match_result)
@@ -204,49 +215,60 @@ def check_tsa_persistence_support(duthost):
     return True
 
 
-def test_TSA(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
+def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     try:
         # Issue TSA on DUT
         duthost.shell("TSA")
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
-        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost) == [],
-                      "Not all routes are announced to bgpmon")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
+        # For T2 - TSA command sets up policies where only loopback address on the iBGP peers on the same linecard
+        # are exchanged between the asics. Also, since bgpmon is iBGP as well, routes learnt from other asics on other
+        # linecards are also not going to be advertised to bgpmon.
+        # So, cannot validate all routes are send to bgpmon on T2.
+        if tbinfo['topo']['type'] != 't2':
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+                        "Not all routes are announced to bgpmon")
+
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
                       "Failed to verify routes on eos in TSA")
     finally:
         # Recover to Normal state
         duthost.shell("TSB")
 
 
-def test_TSB(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown):
+def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
     and all routes are announced to neighbors
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Issue TSB on DUT
     duthost.shell("TSB")
     # Verify DUT is in normal state.
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                   "DUT is not in normal state")
-    pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost) == [],
-                  "Not all routes are announced to bgpmon")
+    if tbinfo['topo']['type'] != 't2':
+        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+                      "Not all routes are announced to bgpmon")
+
     pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
                   "Not all ipv4 routes are announced to neighbors")
     pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
                   "Not all ipv6 routes are announced to neighbors")
 
 
-def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbinfo):
+def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname, bgpmon_setup_teardown, nbrhosts):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_neighbors = {}
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
 
@@ -283,12 +305,12 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbi
                       "Not all ipv6 routes are announced to neighbors")
 
 
-@pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
+def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -301,9 +323,11 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
-        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost) == [],
-                      "Not all routes are announced to bgpmon")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
+        if tbinfo['topo']['type'] != 't2':
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+                          "Not all routes are announced to bgpmon")
+
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
                       "Failed to verify routes on eos in TSA")
     finally:
         """
@@ -328,13 +352,13 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
                                 "Not all ipv6 routes are announced to neighbors")
 
 
-@pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown,
-                                                traffic_shift_community):
+def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
+                                                traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -345,9 +369,11 @@ def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpm
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
-        pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost) == [],
-                      "Not all routes are announced to bgpmon")
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts, traffic_shift_community),
+        if tbinfo['topo']['type'] != 't2':
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+                          "Not all routes are announced to bgpmon")
+
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
                       "Failed to verify routes on eos in TSA")
     finally:
         """
