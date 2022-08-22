@@ -212,6 +212,10 @@ class DefineOid(object):
         self.sysTotalBuffMemory     = dp + "1.3.6.1.4.1.2021.4.14.0"
         self.sysCachedMemory        = dp + "1.3.6.1.4.1.2021.4.15.0"
 
+        # Swap Info
+        self.sysTotalSwap           = dp + "1.3.6.1.4.1.2021.4.3.0"
+        self.sysTotalFreeSwap       = dp + "1.3.6.1.4.1.2021.4.4.0"
+
         # From Cisco private MIB (PFC and queue counters)
         self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
         self.cpfcIfIndications      = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2" # + .ifindex
@@ -312,6 +316,7 @@ def main():
             privkey=dict(required=False),
             is_dell=dict(required=False, default=False, type='bool'),
             is_eos=dict(required=False, default=False, type='bool'),
+            include_swap=dict(required=False, default=False, type='bool'),
             removeplaceholder=dict(required=False)),
             required_together = ( ['username','level','integrity','authkey'],['privacy','privkey'],),
         supports_check_mode=False)
@@ -936,6 +941,25 @@ def main():
                 results['ansible_sysTotalBuffMemory'] = decode_type(module, current_oid, val)
             elif current_oid == v.sysCachedMemory:
                 results['ansible_sysCachedMemory'] = decode_type(module, current_oid, val)
+
+        if m_args['include_swap']:
+            errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+                snmp_auth,
+                cmdgen.UdpTransportTarget((m_args['host'], 161)),
+                cmdgen.MibVariable(p.sysTotalSwap,),
+                cmdgen.MibVariable(p.sysTotalFreeSwap,),
+                lookupMib=False, lexicographicMode=False
+            )
+
+            if errorIndication:
+                module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if current_oid == v.sysTotalSwap:
+                    results['ansible_sysTotalSwap'] = decode_type(module, current_oid, val)
+                elif current_oid == v.sysTotalFreeSwap:
+                    results['ansible_sysTotalFreeSwap'] = decode_type(module, current_oid, val)
 
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
