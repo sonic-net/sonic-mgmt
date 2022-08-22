@@ -10,6 +10,7 @@ import requests
 import yaml
 
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
+TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
 
 def get_test_scripts(topology):
@@ -136,10 +137,10 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=10, timeout=36000):
+    def poll(self, test_plan_id, interval=60, timeout=36000):
 
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"\
-            .format(test_plan_id))
+        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}" \
+              .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
         print("Max polling time: {} seconds".format(timeout))
 
@@ -148,14 +149,22 @@ class TestPlanManager(object):
             "Content-Type": "application/json"
         }
         start_time = time.time()
+        http_exception_times = 0
         while (time.time() - start_time) < timeout:
             raw_resp = {}
             try:
                 raw_resp = requests.get(poll_url, headers=headers, timeout=10)
                 resp = raw_resp.json()
             except Exception as exception:
-                raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
-                                .format(poll_url, str(raw_resp), str(exception)))
+                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, str(raw_resp),
+                                                                                          str(exception)))
+                http_exception_times = http_exception_times + 1
+                if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                    raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
+                                    .format(poll_url, str(raw_resp), str(exception)))
+                else:
+                    time.sleep(interval)
+                    continue
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
 
@@ -168,18 +177,18 @@ class TestPlanManager(object):
 
             if status in ["FINISHED", "CANCELLED", "FAILED"]:
                 if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds"\
-                        .format(status, time.time() - start_time))
+                    print("Test plan is successfully {}. Elapsed {:.0f} seconds" \
+                          .format(status, time.time() - start_time))
                     return
                 else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"\
-                        .format(test_plan_id, status, result, time.time() - start_time))
-            print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"\
-                .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
+                                    .format(test_plan_id, status, result, time.time() - start_time))
+            print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds" \
+                  .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
             time.sleep(interval)
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"\
-                .format(poll_url))
+            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled" \
+                            .format(poll_url))
 
 
 if __name__ == "__main__":
@@ -225,9 +234,9 @@ if __name__ == "__main__":
         "--interval",
         type=int,
         required=False,
-        default=10,
+        default=60,
         dest="interval",
-        help="Polling interval. Default 10 seconds."
+        help="Polling interval. Default 60 seconds."
     )
     parser_poll.add_argument(
         "--timeout",
@@ -238,7 +247,7 @@ if __name__ == "__main__":
         help="Max polling time. Default 36000 seconds (10 hours)."
     )
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -276,14 +285,14 @@ if __name__ == "__main__":
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = os.environ.get("BUILD_REPOSITORY_NAME")
 
-            name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}"\
+            name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                    repo=repo,
-                    reason=reason,
-                    pr_id=pr_id,
-                    build_id=build_id,
-                    job_name=job_name
-                ).replace(' ', '_')
+                repo=repo,
+                reason=reason,
+                pr_id=pr_id,
+                build_id=build_id,
+                job_name=job_name
+            ).replace(' ', '_')
             tp.create(
                 args.topology,
                 name=name,
