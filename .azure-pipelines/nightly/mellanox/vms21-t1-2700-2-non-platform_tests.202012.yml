@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-2700
+    default: vms21-t1-2700-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -33,10 +33,9 @@ parameters:
     default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
 
-  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests"'
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
 stages:
