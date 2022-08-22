@@ -237,8 +237,6 @@ class OVSUpstreamFlow(OVSFlow):
             has_output = bool(output)
             if has_output:
                 flow_parts.append("actions=%s" % ",".join(output))
-        elif self.group:
-            flow_parts.append("actions=group:%s" % self.group.group_id)
 
         if not has_output:
             flow_parts.append("actions=drop")
