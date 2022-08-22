@@ -78,7 +78,9 @@ class TestPlanManager(object):
                 }
             },
             "extra_params": {
-                "pull_request_id": pr_id
+                "pull_request_id": pr_id,
+                "build_id": build_id,
+                "source_repo": repo_name
             },
             "priority": 10,
             "requester": "pull request"
@@ -272,6 +274,7 @@ if __name__ == "__main__":
             reason = os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
+            repo_name = os.environ.get("BUILD_REPOSITORY_NAME")
 
             name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}"\
                 .format(
