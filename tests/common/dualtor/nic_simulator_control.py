@@ -25,7 +25,9 @@ __all__ = [
     "nic_simulator_channel",
     "nic_simulator_client",
     "mux_status_from_nic_simulator",
-    "toggle_active_all_ports_both_tors"
+    "toggle_active_all_ports_both_tors",
+    "set_drop_active_active",
+    "TrafficDirection"
 ]
 
 logger = logging.getLogger(__name__)
@@ -210,3 +212,53 @@ def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports)
 
     yield
     return
+
+
+class TrafficDirection(object):
+    """Traffic direction for link drop."""
+    DOWNSTREAM = 0
+    UPSTREAM = 1
+
+
+@pytest.fixture
+def set_drop_active_active(mux_config, nic_simulator_client):
+    """Return a helper function to simulator link drop for active-active ports."""
+    drop_intfs = set()
+
+    def _call_set_drop_nic_simulator(nic_address, portid, direction, recover=False):
+        drop_request = nic_simulator_grpc_service_pb2.DropRequest(
+            portid=[portid],
+            direction=[direction],
+            recover=recover
+        )
+        request = nic_simulator_grpc_mgmt_service_pb2.ListOfDropRequest(
+            nic_addresses=[nic_address],
+            drop_requests=[drop_request]
+        )
+        client_stub = nic_simulator_client()
+        client_stub.SetDrop(request)
+
+    def _set_drop_active_active(interface_name, portid, direction):
+        """
+        Simulate link drop on a mux link.
+
+        @param interface_name: interface name
+        @param portid: 1 for upper ToR, 0 for lower ToR
+        @param direction: 0 for downstream, 1 for upstream
+        """
+        nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
+        logging.debug(
+            "Set drop on port %s, mux server %s, portid %s, direction %s",
+            interface_name, nic_address, portid, direction
+        )
+        drop_intfs.add((interface_name, nic_address, portid, direction))
+        _call_set_drop_nic_simulator(nic_address, portid, direction)
+
+    yield _set_drop_active_active
+
+    for (interface_name, nic_address, portid, direction) in drop_intfs:
+        logging.debug(
+            "Set drop recover on port %s, mux server %s, portid %s",
+            interface_name, nic_address, portid,
+        )
+        _call_set_drop_nic_simulator(nic_address, portid, direction, recover=True)
