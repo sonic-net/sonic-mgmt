@@ -260,13 +260,13 @@ class TestbedInfo(object):
 
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor)')
+        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0)')
         match = pattern.match(topo_name)
         if match == None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))
             return "unsupported"
         tb_type = match.group()
-        if tb_type in ['mgmttor', 'dualtor']:
+        if tb_type in ['mgmttor', 'dualtor', 'm0']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
         return tb_type
