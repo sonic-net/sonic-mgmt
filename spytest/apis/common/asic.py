@@ -1,9 +1,10 @@
 
-from spytest import st
+import re
+from spytest import st, cutils
 
-def bcm_show(dut, cmd, skip_tmpl=True):
+def bcm_show(dut, cmd, skip_tmpl=True, max_time=0):
     if not st.is_feature_supported("bcmcmd", dut): return ""
-    return st.show(dut, cmd, skip_tmpl=skip_tmpl)
+    return st.show(dut, cmd, skip_tmpl=skip_tmpl, max_time=max_time)
 
 def bcm_config(dut, cmd, skip_error_check=True):
     if not st.is_feature_supported("bcmcmd", dut): return ""
@@ -39,14 +40,78 @@ def dump_ports_info(dut):
 def dump_trunk(dut):
     bcm_config(dut, 'bcmcmd "trunk show"')
 
-def dump_counters(dut):
-    bcm_show(dut, 'bcmcmd "show c"', skip_tmpl=False)
+def dump_l3_defip(dut):
+    bcm_show(dut, "bcmcmd 'l3 defip show'")
+
+def dump_l3_ip6route(dut):
+    bcm_show(dut, "bcmcmd 'l3 ip6route show'")
+
+def dump_l3_l3table(dut):
+    bcm_show(dut, "bcmcmd 'l3 l3table show'")
+
+def dump_l3_ip6host(dut):
+    bcm_show(dut, "bcmcmd 'l3 ip6host show'")
+
+def dump_counters(dut, interface=None):
+    if not interface:
+        command = 'bcmcmd "show c"'
+    else:
+        command = 'bcmcmd "show c {}"'.format(interface)
+    bcm_show(dut, command, skip_tmpl=True)
 
 def clear_counters(dut):
     bcm_config(dut, 'bcmcmd "clear c"')
 
+def get_counters(dut, interface=None, skip_tmpl=False):
+    if not interface:
+        command = 'bcmcmd "show c"'
+    else:
+        command = 'bcmcmd "show c {}"'.format(interface)
+    return bcm_show(dut, command, skip_tmpl=skip_tmpl)
+
+def get_ipv4_route_count(dut, timeout=120):
+    command = 'bcmcmd "l3 defip show" | wc -l'
+    output = bcm_show(dut, command, skip_tmpl=True, max_time=timeout)
+    x = re.search(r"\d+", output)
+    if x:
+        return int(x.group()) - 5
+    else:
+        return -1
+
+def get_ipv6_route_count(dut, timeout=120):
+    command = 'sudo bcmcmd "l3 ip6route show" | wc -l'
+    output = st.show(dut, command, skip_tmpl=True, max_time=timeout)
+    x = re.search(r"\d+", output)
+    if x:
+        return int(x.group()) - 7
+    else:
+        return -1
+
 def bcmcmd_show_ps(dut):
     return bcm_show(dut, 'bcmcmd "ps"')
+
+def get_pmap(dut):
+    command = 'bcmcmd "show pmap"'
+    return bcm_show(dut, command)
+
+def exec_search(dut,command,param_list,match_dict,**kwargs):
+    output = bcm_show(dut, 'bcmcmd "{}"'.format(command))
+    if not output:
+        st.error("output is empty")
+        return False
+    for key in match_dict.keys():
+        if not cutils.filter_and_select(output,param_list,{key:match_dict[key]}):
+            st.error("No match for key {} with value {}".format(key, match_dict[key]))
+            return False
+        else:
+            st.log("Match found for key {} with value {}".format(key, match_dict[key]))
+            return cutils.filter_and_select(output,param_list,{key:match_dict[key]})
+
+def get_l2_out(dut, mac):
+  return exec_search(dut,'l2 show',["gport"],{"mac":mac})
+
+def get_l3_out(dut, mac):
+  return exec_search(dut,'l3 egress show',["port"],{"mac":mac})
 
 def dump_threshold_info(dut, test, platform, mode):
     """
@@ -147,4 +212,39 @@ def dump_threshold_info(dut, test, platform, mode):
 
     for each_cmd in ['bcmcmd "{}"'.format(e) for e in cmd]:
         bcm_config(dut, each_cmd, skip_error_check=True)
+
+def get_intf_pmap(dut, interface_name=None):
+    """
+    Author: Chaitanya Vella (chaitanya.vella-kumar@broadcom.com)
+    This API is used to get the interface pmap details
+    :param dut: dut
+    :param interface_name: List of interface names
+    :return:
+    """
+    import apis.system.interface as interface_obj
+    ##Passing the cli_type as click in the API call "interface_status_show" because the lanes information is available only in click CLI.
+    ##Please refer the JIRA: SONIC-22102 for more information.
+    interfaces = cutils.make_list(interface_name) if interface_name else ''
+    if interfaces:
+        if any("/" in interface for interface in interfaces):
+            interfaces = st.get_other_names(dut, interfaces)
+            key = 'alias'
+        else:
+            key = 'interface'
+        st.debug("The interfaces list is: {}".format(interfaces))
+        interface_list = interface_obj.interface_status_show(dut, interfaces=interfaces, cli_type='click')
+    else:
+        key = 'alias' if interface_obj.show_ifname_type(dut, cli_type='klish') else 'interface'
+        interface_list = interface_obj.interface_status_show(dut, cli_type='click')
+    interface_pmap = dict()
+    pmap_list = get_pmap(dut)
+    for detail in cutils.iterable(interface_list):
+        lane = detail["lanes"].split(",")[0] if "," in detail["lanes"] else detail["lanes"]
+        for pmap in pmap_list:
+            if pmap["physical"] == lane:
+                interface_pmap[detail[key]] = pmap["interface"]
+    return interface_pmap
+
+def remove_vlan_1(dut):
+    bcm_config(dut, 'bcmcmd "vlan remove 1 PortBitMap=all"')
 

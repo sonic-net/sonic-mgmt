@@ -27,13 +27,17 @@ def ansible_stdout_to_str(ansible_stdout):
         result += x.encode('UTF8')
     return result
 
-def eos_to_linux_intf(eos_intf_name):
+def eos_to_linux_intf(eos_intf_name, hwsku=None):
     """
     @Summary: Map EOS's interface name to Linux's interface name
     @param eos_intf_name: Interface name in EOS
     @return: Return the interface name in Linux
     """
-    return eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
+    if hwsku == "MLNX-OS":
+        linux_intf_name = eos_intf_name.replace("ernet 1/", "sl1p").replace("/", "sp")
+    else:
+        linux_intf_name = eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
+    return linux_intf_name
 
 def get_phy_intfs(host_ans):
     """
@@ -42,7 +46,7 @@ def get_phy_intfs(host_ans):
     @return: Return the list of active interfaces
     """
     intf_facts = host_ans.interface_facts()['ansible_facts']['ansible_interface_facts']
-    phy_intfs = [k for k in intf_facts.keys() if k.startswith('Ethernet')]
+    phy_intfs = [k for k in intf_facts.keys() if k.startswith('Ethernet') and "." not in k]
     return phy_intfs
 
 def get_active_intfs(host_ans):
@@ -124,12 +128,15 @@ def get_active_vlan_members(host_ans):
     """ Get all the Vlan memebrs """
     vlan_intf = mg_vlans.keys()[0]
     vlan_members = mg_vlans[vlan_intf]['members']
+    vlan_id = None
+    if 'type' in mg_vlans[vlan_intf] and mg_vlans[vlan_intf]['type'] is not None and 'Tagged' in mg_vlans[vlan_intf]['type']:
+        vlan_id = mg_vlans[vlan_intf]['vlanid']
 
     """ Filter inactive Vlan members """
     active_intfs = get_active_intfs(host_ans)
     vlan_members = [x for x in vlan_members if x in active_intfs]
 
-    return vlan_members
+    return vlan_members, vlan_id
 
 def get_vlan_subnet(host_ans):
     """
@@ -198,3 +205,18 @@ def setup_testbed(fanouthosts, ptfhost, leaf_fanouts):
     for peer_device in leaf_fanouts:
         peerdev_ans = fanouthosts[peer_device]
         stop_pause(peerdev_ans, PFC_GEN_FILE)
+
+def get_max_priority(testbed_type):
+    """
+    Returns the maximum priority supported by a testbed type
+
+    Args:
+        testbed_type(string): testbed topology
+
+    Returns:
+        max_prio(string): Maximum priority that is applicable based on testbed type
+    """
+    if 'backend' in testbed_type:
+        return 8
+    else:
+        return 64

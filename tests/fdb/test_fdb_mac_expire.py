@@ -6,11 +6,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 't0-56-po2vlan')
 ]
 
 logger = logging.getLogger(__name__)
 
+DISABLE_REFRESH = "disable_refresh"
+REFRESH_DEST_MAC = "refresh_with_dest_mac"
 class TestFdbMacExpire:
     """
         TestFdbMacExpire Verifies FDb aging timer is respected
@@ -89,9 +91,9 @@ class TestFdbMacExpire:
         """
         logger.info("Running PTF test case '{0}' on '{1}'".format(testCase, ptfhost.hostname))
         ptfhost.shell(argv=[
-            "ptf",
+            "/root/env-python3/bin/ptf",
             "--test-dir",
-            "ptftests",
+            "ptftests/py3",
             testCase,
             "--platform-dir",
             "ptftests",
@@ -125,6 +127,7 @@ class TestFdbMacExpire:
         ptfhost.host.options['variable_manager'].extra_vars.update({
             "minigraph_vlan_interfaces": mgFacts["minigraph_vlan_interfaces"],
             "minigraph_port_indices": mgFacts["minigraph_ptf_indices"],
+            "minigraph_portchannels": mgFacts["minigraph_portchannels"],
             "minigraph_vlans": mgFacts["minigraph_vlans"],
         })
 
@@ -200,7 +203,8 @@ class TestFdbMacExpire:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def testFdbMacExpire(self, request, tbinfo, duthost, ptfhost):
+    @pytest.mark.parametrize("refresh_type", [DISABLE_REFRESH, REFRESH_DEST_MAC])
+    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost, refresh_type):
         """
             TestFdbMacExpire Verifies FDb aging timer is respected
 
@@ -211,24 +215,21 @@ class TestFdbMacExpire:
             Args:
                 request (Fixture): pytest request object
                 tbinfo (Fixture, dict): Map containing testbed information
-                duthost (AnsibleHost): Device Under Test (DUT)
+                rand_selected_dut (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
             Returns:
                 None
         """
-        if "t0" not in tbinfo["topo"]["type"]:
-            pytest.skip(
-                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(tbinfo["topo"]["type"])
-            )
-
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
 
         testParams = {
             "testbed_type": tbinfo["topo"]["name"],
-            "router_mac": duthost.facts["router_mac"],
+            "router_mac": rand_selected_dut.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+            "refresh_type":  refresh_type,
+            "aging_time": fdbAgingTime
         }
         self.__runPtfTest(ptfhost, "fdb_mac_expire_test.FdbMacExpireTest", testParams)
 
@@ -236,10 +237,10 @@ class TestFdbMacExpire:
         time.sleep(fdbAgingTime)
 
         count = 0
-        dummyMacCount = self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX)
+        dummyMacCount = self.__getFdbTableCount(rand_selected_dut, self.DUMMY_MAC_PREFIX)
         while count * self.POLLING_INTERVAL_SEC < fdbAgingTime and dummyMacCount != 0:
             time.sleep(self.POLLING_INTERVAL_SEC)
-            dummyMacCount = self.__getFdbTableCount(duthost, self.DUMMY_MAC_PREFIX)
+            dummyMacCount = self.__getFdbTableCount(rand_selected_dut, self.DUMMY_MAC_PREFIX)
             count += 1
             logger.info(
                 "MAC table entries count: {0}, after {1} sec".format(

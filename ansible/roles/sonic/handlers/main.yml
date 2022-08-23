@@ -1,0 +1,17 @@
+# Notify handlers are always run in the same order they are defined, not in the order listed in the notify-statement.
+# This is also the case for handlers using listen.
+
+- name: SONiC update config db
+  command: config reload -y
+  become: yes
+  listen: "Update config db"
+
+- name: wait for SONiC update config db to finish
+  pause:
+    seconds: 180
+
+- name: SONiC restart BGP service
+  become: true
+  service: name=bgp
+           state=restarted
+  listen: "Restart BGP service"

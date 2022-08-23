@@ -14,6 +14,7 @@ import apis.switching.pvst as stp
 
 import utilities.utils as utils
 
+tg_info = {}
 minimum_duts = 3
 min_duts_tg_links = 3
 min_links_between_duts = 3
@@ -747,8 +748,8 @@ def config_tg_streams(vars, device_data, vlan_list, mac_count=1):
     :param vlan_list:
     :return:
     """
+    global src_tg1_vlan_inc_mac_fix_unknown, tg_info
     tg_info = {}
-    global src_tg1_vlan_inc_mac_fix_unknown
     tg_list = [device_data[each][0] for each in device_data.keys()]
     tg_handler = tgapi.get_handles(vars, tg_list)
     tg = tg_handler["tg"]

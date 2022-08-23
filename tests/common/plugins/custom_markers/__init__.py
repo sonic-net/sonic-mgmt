@@ -19,7 +19,6 @@ def pytest_addoption(parser):
         parser.addoption("--completeness_level", metavar="TEST_LEVEL", action="store",
                          help="Coverage level of test \n Defined levels: Debug, Basic, Confident, Thorough")
 
-
 def pytest_configure(config):
     # register all the markers
     config.addinivalue_line(

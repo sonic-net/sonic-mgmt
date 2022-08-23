@@ -3,9 +3,11 @@
 
 import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
+INBAND_PORT_REGEX = (r"(Ethernet-IB)(\d+)$")
 
 def chassis_api(conn, name, args=None):
     if args is None:
@@ -37,6 +39,10 @@ def get_serial(conn):
     return chassis_api(conn, 'get_serial')
 
 
+def get_revision(conn):
+    return chassis_api(conn, 'get_revision')
+
+
 def get_status(conn):
     return chassis_api(conn, 'get_status')
 
@@ -54,6 +60,7 @@ def is_replaceable(conn):
 
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
+
 
 def get_base_mac(conn):
     return chassis_api(conn, 'get_base_mac')
@@ -89,6 +96,10 @@ def get_all_modules(conn):
 
 def get_module(conn, index):
     return chassis_api(conn, 'get_module', [index])
+
+
+def get_module_index(conn, mod_name):
+    return chassis_api(conn, 'get_module_index', [mod_name])
 
 
 def get_num_fans(conn):
@@ -169,3 +180,21 @@ def get_watchdog(conn):
 
 def get_eeprom(conn):
     return chassis_api(conn, 'get_eeprom')
+
+
+def get_supervisor_slot(conn):
+    return chassis_api(conn, 'get_supervisor_slot')
+
+
+def get_my_slot(conn):
+    return chassis_api(conn, 'get_my_slot')
+
+
+def is_modular_chassis(conn):
+    return chassis_api(conn, 'is_modular_chassis')
+
+
+def is_inband_port(port):
+    if re.match(INBAND_PORT_REGEX, port):
+        return True
+    return False

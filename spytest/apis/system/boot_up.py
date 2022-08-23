@@ -130,3 +130,24 @@ def sonic_installer_list(dut, **kwargs):
     retval["Available"] = availableList
     return retval
 
+def get_onie_grub_config(dut, mode):
+    errs = ["/dev/sda2 does not exist",
+            "/mnt/onie-boot/onie/tools/bin/onie-boot-mode: command not found",
+            "No such file or directory",
+            "/mnt/onie-boot/: not mounted"]
+    cmds = """
+    sudo apt-get -f install -y grub-common
+    sudo mkdir -p /mnt/onie-boot/
+    sudo mount /dev/sda2 /mnt/onie-boot/
+    sudo /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o {0}
+    sudo grub-editenv /mnt/onie-boot/grub/grubenv set diag_mode=none
+    sudo grub-editenv /mnt/onie-boot/grub/grubenv set onie_mode={0}
+    sudo grub-editenv /host/grub/grubenv set next_entry=ONIE
+    sudo grub-reboot --boot-directory=/host/ ONIE
+    sudo umount /mnt/onie-boot/
+    sudo sync
+    sleep 5
+    sudo sed -i 's|DEVPATH=./usr/share/sonic/device.|set -x ; \\n &|g' /usr/local/bin/reboot
+    """.format(mode).strip().splitlines()
+    return cmds, errs
+

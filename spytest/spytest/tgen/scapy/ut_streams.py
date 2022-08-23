@@ -64,6 +64,7 @@ def _build2(index=0):
         icmp_ndp_nam_r_flag=1, icmp_ndp_nam_s_flag=1, ipv6_hop_limit=255)
     if index == 15: return _build(rate_pps=1, l3_protocol='ipv4',ip_src_addr='11.1.1.1', ip_dst_addr='225.1.1.1',ip_protocol=2, \
          l4_protocol='igmp',igmp_msg_type='report',igmp_group_addr='225.1.1.1',high_speed_result_analysis=0)
+    if index == 16: return _build(rate_pps=1, l3_protocol='ipv6', ipv6_src_addr='33f1::1', ipv6_dst_addr='7fe9::1', ipv6_dst_step='::1', ipv6_dst_mode='increment', ipv6_dst_count=10)
     return None
 
 def ut_stream_get(index=0, **kws):

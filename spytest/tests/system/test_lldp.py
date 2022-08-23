@@ -43,6 +43,7 @@ def global_vars():
     data.oid_locmanaddrentry = '1.0.8802.1.1.2.1.3.8.1'
     data.oid_configmanaddrtable = '1.0.8802.1.1.2.1.1.7'
     data.oid_configmanaddrentry = '1.0.8802.1.1.2.1.1.7.1'
+    data.oid_lldp_rem_man_addr_table = '1.0.8802.1.1.2.1.4.2'
     data.filter = '-Oqv'
 
 def lldp_snmp_pre_config():
@@ -53,6 +54,7 @@ def lldp_snmp_pre_config():
     global ipaddress
     global lldp_value_remote, lldp_value_gran
     global lldp_total_value
+    #st.exec_each([vars.D1, vars.D2], lldp_obj.lldp_config, status="rx-and-tx")
     data.ipaddress_d1 = basic_obj.get_ifconfig_inet(vars.D1, data.mgmt_int)
     data.ipaddress_d2 = basic_obj.get_ifconfig_inet(vars.D2, data.mgmt_int)
     if not data.ipaddress_d1:
@@ -297,6 +299,22 @@ def test_ft_lldp_lldplocportdesc():
     st.log(" lldp value port is : {} ".format(cli_output))
     if not cli_output in str(snmp_output):
         st.report_fail("lldp_snmp_not_matching")
+    st.log(" LLDP value is passed ")
+    st.report_pass("test_case_passed")
+
+@pytest.mark.lldp_remote
+@pytest.mark.community
+def test_ft_lldp_rem_man_addr_table():
+    """
+    Author : Prasad Darnasi<prasad.darnasi@broadcom.com>
+    Verify the syntax check of the object LLDPRemManAddrTable.
+    Reference Test Bed : D1 <---> D2
+    """
+    snmp_output = snmp_obj.walk_snmp_operation(ipaddress=ipaddress, oid= data.oid_lldp_rem_man_addr_table,
+                                              community_name=data.ro_community,filter=data.filter)
+    if not snmp_output:
+        st.report_fail(" No SNMP Entries are available")
+
     st.log(" LLDP value is passed ")
     st.report_pass("test_case_passed")
 

@@ -123,9 +123,10 @@ def parse_veos(vms):
 
 def generate_vm_mappings(vms, base_vm, dut_ports, vm_2_ip):
     base_vm_id = int(base_vm[2:])
+    vm_name_fmt = 'VM%0{}d'.format(len(base_vm) - 2)
     required_ports = {}
     for vm_offset, ports in vms.items():
-        vm = 'VM%04d' % (base_vm_id + vm_offset)
+        vm = vm_name_fmt % (base_vm_id + vm_offset)
         vm_ip = vm_2_ip[vm]
         p = {dut_ports[port]: (vm_ip, 'Ethernet%d' % (offset + 1)) for offset, port in enumerate(ports)}
         required_ports.update(p)
@@ -137,9 +138,10 @@ def generate_vm_port_mapping(vm_base):
         data = yaml.load(fp)
 
     base = int(vm_base.replace("VM", ""))
+    vm_name_fmt = 'VM%0{}d'.format(len(vm_base) - 2)
 
     vm_ports = {v['vm_offset']:v['vlans'] for v in data['topology']['VMs'].values()}
-    vm_list  = ["VM%04d" % (base + p) for p in sorted(vm_ports.keys())]
+    vm_list  = [vm_name_fmt % (base + p) for p in sorted(vm_ports.keys())]
 
     return vm_ports, vm_list
 

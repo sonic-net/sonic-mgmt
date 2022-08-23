@@ -1,0 +1,107 @@
+topology:
+  host_interfaces:
+    - 5
+    - 6
+  disabled_host_interfaces:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+
+  VMs:
+    ARISTA01T1:
+      vlans:
+        - 4
+      vm_offset: 0
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [5, 6]
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+      two_vlan_a:
+        Vlan100:
+          id: 100
+          intfs: [5]
+          prefix: 192.168.0.1/22
+          prefix_v6: fc02:100::1/64
+          tag: 100
+        Vlan200:
+          id: 200
+          intfs: [6]
+          prefix: 192.168.4.1/22
+          prefix_v6: fc02:200::1/64
+          tag: 200
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+
+configuration:
+  ARISTA01T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 1.0.0.56
+        - FC00::71
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.29/32
+        ipv6: 2064:100::1d/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 1.0.0.57/31
+        ipv6: fc00::72/126
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::1d/64
+

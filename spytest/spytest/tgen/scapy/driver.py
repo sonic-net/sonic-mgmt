@@ -23,6 +23,7 @@ class ScapyDriver(object):
         self.port = port
         self.dry = dry
         self.dbg = dbg
+        self.errs = []
         self.finished = False
         self.logger = logger or Logger()
         self.utils = Utils(self.dry, logger=self.logger)
@@ -38,6 +39,13 @@ class ScapyDriver(object):
         self.logger.debug("ScapyDriver {} exiting...".format(self.iface))
         self.cleanup()
         del self.packet
+
+    def get_alerts(self):
+        errs = []
+        errs.extend(self.errs)
+        errs.extend(self.packet.get_alerts())
+        self.errs = []
+        return errs
 
     def cleanup(self):
         print("ScapyDriver {} cleanup...".format(self.iface))
@@ -399,6 +407,9 @@ class ScapyDriver(object):
 
     def apply_bgp(self, op, enable, intf):
         return self.packet.apply_bgp(op, enable, intf)
+
+    def apply_bgp_route(self, enable, route):
+        return self.packet.apply_bgp_route(enable, route)
 
     def config_igmp(self, mode, intf, host):
         return self.packet.config_igmp(mode, intf, host)

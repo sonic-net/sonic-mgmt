@@ -27,6 +27,6 @@
 
 - name: update startup-config
   become: yes
-  template: src="{{ topo }}-{{ props.swrole }}.j2"
+  template: src="{{ base_topo }}-{{ props.swrole }}.j2"
             dest="/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
   delegate_to: "{{ VM_host[0] }}"

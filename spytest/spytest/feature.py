@@ -43,7 +43,13 @@ feature_names = [
     "show-vrf-verbose-command",
     "vrf-needed-for-unbind",
     "show-kdump-status-command",
-    "show-mac-aging-time-command"
+    "show-mac-aging-time-command",
+    "config_mirror_session_add_type",
+    "config_static_portchannel",
+    "config_max_route_scale",
+    "sai-removes-vlan-1",
+    "nat-default-enabled",
+    "sflow-default-enabled",
 ]
 
 class Feature(object):
@@ -94,6 +100,8 @@ class Feature(object):
         self.set_supported("crm-all-families")
         self.set_supported("crm-config-clear-command")
         self.set_supported("config-ipv6-command")
+        self.set_supported("show-mac-count-command")
+        self.set_supported("show-interfaces-counters-detailed-command")
 
     def init_broadcom(self):
         self.set_supported(feature_names)

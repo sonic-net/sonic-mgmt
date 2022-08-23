@@ -1,5 +1,5 @@
 import pytest
-from check_dut_asic_type import check_dut_asic_type # lgtm [py/unused-import]
+from .check_dut_asic_type import check_dut_asic_type # lgtm [py/unused-import]
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):

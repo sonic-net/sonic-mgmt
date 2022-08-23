@@ -48,19 +48,22 @@ linux/ip_route_list_dev.tmpl, .*,sonic, /sbin/ip route list dev eth0
 linux/ip_route_list_dev.tmpl, .*,sonic, ip route list dev eth0
 show_image_list.tmpl, .*, sonic, show image list
 show_ip_bgp_peer_group.tmpl, .*, sonic, show ip bgp peer-group
-show_ip_bgp_peer_group.tmpl, .*, sonic, show ip bgp peer-group .*
+show_ip_bgp_peer_group.tmpl, .*, sonic, show bgp all\s+(vrf .*\s+)?peer-group
+show_bgp_ipv4v6uni_routes.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?route-map
+show_bgp_ipv4v6uni_stats.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?statistics
 show_ip_bgp_summary.tmpl, .*, sonic, show ip bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show ipv6 bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv4 summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv6 summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv4 unicast summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv6 unicast summary
+#show_bgp_ipv4v6uni_prefix.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s*(vrf .*)?
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp vrf .* summary
 show_ip_bgp_summary.tmpl, .*, sonic, show ip bgp vrf .* summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp .* unicast vrf .* summary
 show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp vrf .* neighbors.*
 show_bgp_neighbor.tmpl, .*,  sonic, show bgp .* unicast neighbors.*
-show_bgp_neighbor.tmpl, .*,  sonic, show bgp .* unicast vrf .* neighbors.*
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp ipv(4|6) unicast vrf .* neighbors.*
 show_bgp_neighbor.tmpl, .*,  sonic, show bgp ipv4 neighbor.*
 show_ip_interfaces.tmpl, .*, sonic, show ip interface
 show_ip_interfaces.tmpl, .*, sonic, show ipv6 interface
@@ -122,6 +125,8 @@ show_lldp_table.tmpl, .*, sonic, show lldp table
 # Mirror output command for CLICK CLI
 show_mirror_session.tmpl, .*, sonic, show mirror_session.*
 show_arp.tmpl, .*, sonic, show arp
+show_ntp_server.tmpl, .*, sonic, show ntp server
+show_ntp_global.tmpl, .*, sonic, show ntp global
 show_ntp.tmpl, .*, sonic, show ntp.*
 show_ntpstat.tmpl, .*, sonic, ntpstat
 show_ntpstat.tmpl, .*, sonic, sudo cgexec -g l3mdev:mgmt ntpstat
@@ -151,9 +156,14 @@ sonic_installer_list.tmpl, .*, sonic, sonic_installer list
 sonic_acl_show.tmpl, .*, sonic, aclshow.*
 sudo_sonic_installer_list.tmpl, .*, sonic, sudo sonic_installer list
 sudo_sonic_installer_list.tmpl, .*, sonic, show image list
+show_bgp_as_path_access_list.tmpl, .*,  sonic, show bgp as-path-access-list .*
+show_bgp_community_list.tmpl, .*,  sonic, show bgp community-list .*
+show_bgp_ext_community_list.tmpl, .*,  sonic, show bgp ext-community-list .*
+show_route_map.tmpl, .*, sonic, show route-map .*
 show_bgp_neighbor.tmpl, .*,  sonic, show bgp neighbor.*
 show_uptime.tmpl, .*, sonic, show uptime
 show_ecn.tmpl, .*, sonic, show ecn
+show_environment.tmpl, .*, sonic, show environment
 show_reboot-cause.tmpl, .*, sonic, show reboot-cause
 show_pfc_counters.tmpl, .*, sonic, show pfc counters
 show_spanning_tree_vlan_interface.tmpl, .*, sonic, show spanning-tree vlan interface
@@ -306,6 +316,7 @@ pddf_thermalutil_gettemp.tmpl, .*, sonic, sudo pddf_thermalutil gettemp
 show_mirror_session.tmpl, .*, sonic, show mirror-session.*
 show_classifier_match_type_copp.tmpl, .*, sonic, show class-map match-type copp
 show_classmap_match_type_fields.tmpl, .*, sonic, show class-map match-type fields
+show_classifier_match_type_copp.tmpl, .*, sonic, show classifier match-type copp
 show_classifier.tmpl, .*, sonic, show classifier
 show_classifier.tmpl, .*, sonic, show class-map
 show_policy_type_copp.tmpl, .*, sonic, show policy type copp
@@ -432,9 +443,11 @@ show_frr_config.tmpl,.*,sonic, write terminal ospfd
 show_portchannel_kernel.tmpl, .*, sonic, ip link show dev .*
 teamdctl_portchannel_state.tmpl, .*, sonic, teamdctl PortChannel.* state
 teamdctl_portchannel_config.tmpl, .*, sonic, teamdctl PortChannel.* config dump
-show_portchannel_summary.tmpl, .*, sonic, show PortChannel summary.*
+show_portchannel_summary.tmpl, .*, sonic, show (p|P)ort(c|C)hannel summary.*
 show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
 show_management_vrf.tmpl, .*, sonic, show mgmt-vrf
+show_ip_prefix_list.tmpl, .*, sonic, show ip prefix-list .*
+show_ipv6_prefix_list.tmpl, .*, sonic, show ipv6 prefix-list .*
 show_ip_vrf.tmpl, .*, sonic, show ip vrf$
 show_ip_dhcp_relay_brief.tmpl, .*, sonic, show ip dhcp-relay brief.*
 show_ip_dhcp_relay_brief.tmpl, .*, sonic, show ipv6 dhcp-relay brief.*
@@ -449,6 +462,7 @@ show_ip_forward_protocol_config.tmpl, .*, sonic, show ip forward_protocol config
 show_ip_forward_protocol_config.tmpl, .*, sonic, show ip forward-protocol
 sonic_snmp_yml.tmpl, .*, sonic, cat /etc/sonic/snmp.yml
 show_snmp_server_details.tmpl, .*, sonic, show snmp-server.*
+show_snmp_counters.tmpl, .*, sonic, show snmp counters.*
 show_portgroup.tmpl, .*, sonic, show portgroup
 show_ip_static-anycast-gateway.tmpl, .*, sonic, show ip static-anycast-gateway
 show_ipv6_static-anycast-gateway.tmpl, .*, sonic, show ipv6 static-anycast-gateway
@@ -484,6 +498,8 @@ show_portchannel_appdb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 0 hgetall 'LAG_
 show_portchannel_statedb.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'LAG_TABLE.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall '_STP_ICCP.*
 show_redis_cli_stp_iccp.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall 'STP_FASTAGEING_FLUSH.*
+show_redis_cli_transceiver_info.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall "TRANSCEIVER_INFO*
+show_redis_cli_dom.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 6 hgetall "TRANSCEIVER_DOM_SENSOR*
 show_redis-cli_keys.tmpl, .*, sonic, redis-cli(?: -p \d+)? -n 8 keys ERROR.*
 show_redis_error_db.tmpl, .*, sonic,   redis-cli(?: -p \d+)? -n 8 hgetall .*
 show_redis_cli_key_search.tmpl, .*, sonic, redis-cli(?: -p \d+)? HGETALL \S+
@@ -516,7 +532,7 @@ show_redis-cli_keys.tmpl, .*, sonic, sonic-db-cli ERROR_DB keys ERROR.*
 show_redis_error_db.tmpl, .*, sonic,   sonic-db-cli ERROR_DB hgetall .*
 show_redis_cli_key_search.tmpl, .*, sonic, sonic-db-cli HGETALL \S+
 show_redis_cli_key_search.tmpl, .*, sonic, sonic-db-cli \w+ hgetall \S+:oid:\S+
-show_redis_cli_ip_db.tmpl, .*, sonic, sonic-db-cli \w+ hgetall \S+
+show_redis_cli_ip_db.tmpl, .*, sonic, sonic-db-cli \w+ hgetall \S+show_ip_access_group
 show_redis_cli_key_search.tmpl, .*, sonic, sonic-db-cli \w+ keys \S+
 show_redis_cli_key_search.tmpl, .*, sonic, sudo sonic-db-cli \w+ keys \S+
 show_redis_cli_key_buffer_pool.tmpl, .*, sonic, sonic-db-cli \w+ Hgetall \S+
@@ -529,6 +545,7 @@ show_udld_statistics.tmpl,.*,sonic,show udld statistics
 show_udld_statistics.tmpl,.*,sonic,show udld statistics interface \w+
 
 show_queue_watermark_multicast.tmpl, .*,  sonic, show queue (watermark|persistent-watermark) multicast .*
+show_queue_watermark_unicast.tmpl, .*,  sonic, show queue (watermark|persistent-watermark) unicast .*
 show_priority_group_threshold.tmpl, .*,  sonic, show priority-group (watermark|persistent-watermark) (shared|headroom) .*
 show_queue_watermark_unicast.tmpl, .*,  sonic, show queue (watermark|persistent-watermark) unicast .*
 show_priority_group_watermark.tmpl, .*,  sonic, show priority-group (watermark|persistent-watermark) (shared|headroom) .*
@@ -546,6 +563,7 @@ show_queue_watermark_cpu.tmpl, .*, sonic, show queue watermark (cpu|CPU)
 show_buffer_pool_watermark_percentage.tmpl, .*, sonic, show buffer_pool (watermark|persistent-watermark) (-p|--percentage)
 ethtool_interface.tmpl, .*, sonic, /sbin/ethtool .*
 show_ip_access_group.tmpl, .*, sonic, show ip access-group
+show_ip_arp_interface_ethernet_summary.tmpl, .*, sonic, show ip arp interface (Ethernet|Eth|PortChannel|Vlan|Loopback|Management|Vxlan) ([0-9/:]+) summary
 show_ip_arp.tmpl, .*, sonic, show ip arp.*
 show_ipv6_neighbors.tmpl, .*, sonic, show ipv6 neighbors
 show_priority_group_threshold.tmpl, .*,  sonic, show threshold priority-group (shared|headroom)

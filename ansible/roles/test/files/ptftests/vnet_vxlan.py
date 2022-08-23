@@ -13,6 +13,7 @@ import sys
 import os.path
 import json
 import ptf
+import time
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -22,9 +23,8 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
-import ipaddress
 from pprint import pprint
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
 
 class VNET(BaseTest):
     def __init__(self):
@@ -39,6 +39,9 @@ class VNET(BaseTest):
         self.max_routes_wo_scaling = 1000
         self.vnet_batch = 8
         self.packets = []
+        self.vxlan_srcport= 0
+        self.vxlan_srcport_mask = 8
+        self.vxlan_srcport_range_enabled = False
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -188,6 +191,15 @@ class VNET(BaseTest):
         if 'routes_removed' in self.test_params and self.test_params['routes_removed']:
             self.routes_removed = True
 
+        if 'vxlan_udp_sport' in self.test_params and self.test_params['vxlan_udp_sport']:
+            self.vxlan_srcport = self.test_params['vxlan_udp_sport']
+
+        if 'vxlan_udp_sport_mask' in self.test_params and self.test_params['vxlan_udp_sport_mask'] >=0:
+            self.vxlan_srcport_mask = self.test_params['vxlan_udp_sport_mask']
+
+        if 'vxlan_range_enable' in self.test_params:
+            self.vxlan_srcport_range_enabled = self.test_params['vxlan_range_enable']
+
         config = self.test_params['config_file']
 
         if not os.path.isfile(config):
@@ -288,10 +300,22 @@ class VNET(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "start", "arp_responder"])
-
+        self.check_arp_responder_running()
         self.dataplane.flush()
 
         return
+
+    def check_arp_responder_running(self):
+        """
+        Check arp_responder is in RUNNING state, if not sleep 1 sec and check again
+        """
+        for i in range(5):
+            output = self.cmd(["supervisorctl", "status", "arp_responder"])
+            if 'RUNNING' in output[0]:
+                break
+            time.sleep(1)
+        else:
+            raise Exception("arp_responder state is not RUNNING! Output: %s" % output)
 
     def tearDown(self):
         if self.vxlan_enabled:
@@ -313,7 +337,7 @@ class VNET(BaseTest):
             self.FromVM(test)
             print "  FromVM  passed"
             self.Serv2Serv(test)
-            print
+            print "  Serv2Serv passed"
 
     def FromVM(self, test):
         rv = True
@@ -336,7 +360,7 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 vxlan_pkt = simple_vxlan_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -349,7 +373,7 @@ class VNET(BaseTest):
                     vxlan_vni=int(test['vni']),
                     with_udp_chksum=False,
                     inner_frame=pkt)
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 vxlan_pkt = simple_vxlanv6_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -379,7 +403,7 @@ class VNET(BaseTest):
             log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
             logging.info(log_str)
 
-            log_str = "Expecing packet on " + str("eth%d" % test['port']) + " from " + test['dst']
+            log_str = "Expecting packet on " + str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
             if not self.routes_removed:
@@ -427,7 +451,7 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 encap_pkt = simple_vxlan_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -441,7 +465,7 @@ class VNET(BaseTest):
                     vxlan_vni=vni,
                     inner_frame=exp_pkt)
                 encap_pkt[IP].flags = 0x2
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 encap_pkt = simple_vxlanv6_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -459,7 +483,7 @@ class VNET(BaseTest):
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
@@ -470,7 +494,12 @@ class VNET(BaseTest):
             logging.info(log_str)
 
             if not self.routes_removed:
-                verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+                status, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+                if self.vxlan_srcport_range_enabled:
+                    scapy_pkt  = Ether(received_pkt)
+                    upper_bound  = self.vxlan_srcport | (0xff >> (8 - self.vxlan_srcport_mask))
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and  (upper_bound >=  scapy_pkt.sport), ("Received packet has UDP src port {} "
+                        "that is not in expected range {} - {}".format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 

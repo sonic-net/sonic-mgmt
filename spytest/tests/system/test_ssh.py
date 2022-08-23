@@ -218,6 +218,7 @@ def test_ft_ssh_add_user_verify():
     acl_config = acl_data.acl_json_config_control_plane
     st.log("ACL_DATA: {}".format(acl_config))
     acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
     acl_obj.show_acl_table(vars.D1)
     acl_obj.show_acl_rule(vars.D1)
 
@@ -280,7 +281,7 @@ def test_ft_ssh_add_user_verify():
         acl_snmp =+ 1
 
     ipaddress = st.get_mgmt_ip(vars.D1)
-    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.strip('/32')):
+    if not ipaddress or not ip_obj.ping(vars.D1, IPAddr.replace('/32', '')):
         st.error("Ping to SNMP server or getting ip address to the dut is failed after reload")
         acl_obj.acl_delete(vars.D1)
         config_nondefault_user(config='remove')
@@ -296,11 +297,16 @@ def test_ft_ssh_add_user_verify():
 
     st.log('Verifying SNMP ACL with invalid source address')
     change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_1", "SRC_IP", "2.2.2.0/24")
+    change_acl_rules(acl_data.acl_json_config_control_plane, "SNMP_SSH|RULE_2", "SRC_IP", "2.2.2.0/24")
     acl_config = acl_data.acl_json_config_control_plane
     acl_obj.acl_delete(vars.D1)
     acl_obj.apply_acl_config(vars.D1, acl_config)
-    st.wait(3, "Waiting to apply acl rules")
-    snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
+    for _ in range(1,15):
+        snmp_out = execute_command(ssh_conn_obj, snmp_cmd)
+        if "Timeout" in snmp_out:
+            break
+        else:
+            st.wait(1)
     if "Timeout" not in snmp_out: acl_snmp = + 1
 
     st.log("connecting to device with default username={},password={}".format(ssh_data.usr_default, ssh_data.pwd_final))
@@ -368,6 +374,7 @@ def test_ft_control_plane_acl_icmp():
     acl_config = acl_data.acl_json_config_control_plane_v2
     st.log("ACL_DATA: {}".format(acl_config))
     acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
     acl_obj.show_acl_table(vars.D1)
     acl_obj.show_acl_rule(vars.D1)
     if ip_obj.ping(dut=vars.D2,addresses=d1_ipaddress):
@@ -382,6 +389,7 @@ def test_ft_control_plane_acl_icmp():
     change_acl_rules(acl_config, "L3_IPV6_ICMP|rule1", "SRC_IPV6", "{}/128".format(d1_ipv6address))
     acl_obj.acl_delete(vars.D1)
     acl_obj.apply_acl_config(vars.D1, acl_config)
+    st.wait(3, "Waiting to apply acl rules")
     if not ip_obj.ping(dut=vars.D2,addresses=d1_ipaddress):
         st.error("ICMP ipv4 packets are dropped with applied control plane acl rules.")
         result = False

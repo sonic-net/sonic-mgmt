@@ -6,9 +6,9 @@ import json
 from spytest import st, putils
 
 import apis.system.reboot as reboot
-from apis.system.rest import config_rest, delete_rest
+from apis.system.rest import config_rest, delete_rest, get_rest , rest_status
 
-from utilities.utils import fail_on_error, get_interface_number_from_name, is_valid_ip_address
+from utilities.utils import fail_on_error, get_interface_number_from_name, is_valid_ip_address, convert_microsecs_to_time
 from utilities.common import filter_and_select
 
 def get_forced_cli_type(cmd_type):
@@ -24,6 +24,8 @@ def get_cfg_cli_type(dut, **kwargs):
     cli_type = cli_type or st.get_ui_type(dut, **kwargs)
     if cli_type in ["click", "vtysh"]:
         cli_type = "vtysh"
+    elif cli_type in ["rest-patch","rest-put"]:
+        cli_type = "rest-patch"
     else:
         cli_type = "klish"
     return cli_type
@@ -33,6 +35,8 @@ def get_show_cli_type(dut, **kwargs):
     cli_type = cli_type or st.get_ui_type(dut, **kwargs)
     if cli_type in ["click", "vtysh"]:
         cli_type = "vtysh"
+    elif cli_type in ["rest-patch","rest-put"]:
+        cli_type = "rest-patch"
     else:
         cli_type = "klish"
     return cli_type
@@ -64,6 +68,7 @@ def enable_router_bgp_mode(dut, **kwargs):
     :return:
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    st.log("Enabling router BGP mode ..")
     if cli_type in ['vtysh', 'click']:
         cli_type ='vtysh'
         st.log("Enabling router BGP mode ..")
@@ -84,6 +89,19 @@ def enable_router_bgp_mode(dut, **kwargs):
             command += ' vrf ' + kwargs['vrf_name']
         if 'router_id' in kwargs:
             command +=  ' router-id {}'.format(kwargs['router_id'])
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf_name = kwargs['vrf_name'] if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default-vrf' else "default"
+        url = rest_urls['bgp_global_config'].format(vrf_name)
+        json_data = dict()
+        if 'local_asn' in kwargs:
+            json_data["openconfig-network-instance:as"] = int(kwargs['local_asn'])
+        if 'router_id' in kwargs:
+            json_data["openconfig-network-instance:router-id"] = kwargs['router_id']
+        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=json_data):
+            st.error("Error in configuring AS number / router ID")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -119,6 +137,24 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
                 command = "router bgp {} vrf {}".format(local_asn, vrf)
             else:
                 command = "no router bgp vrf {}".format(vrf)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf_name = "default" if vrf.lower() == 'default' else vrf.lower()
+        if not mode:
+            url = rest_urls['bgp_global_config'].format(vrf_name)
+            json_data = dict()
+            json_data["openconfig-network-instance:config"] = dict()
+            json_data["openconfig-network-instance:config"].update({'as': int(local_asn)})
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=json_data):
+                st.error("Error in configuring AS number")
+                return False
+            return True
+        else:
+            url = rest_urls['bgp_as_config'].format(vrf_name)
+            if not delete_rest(dut, rest_url=url):
+                st.error("Error in Unconfiguring AS number")
+                return False
+            return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -143,6 +179,14 @@ def unconfig_router_bgp(dut, **kwargs):
             command = "no router bgp vrf {}".format(kwargs.get("vrf_name"))
         else:
             command = "no router bgp"
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf_name = kwargs['vrf_name'] if kwargs.get('vrf_name') else "default"
+        url = rest_urls['bgp_as_config'].format(vrf_name)
+        if not delete_rest(dut, rest_url=url):
+            st.error("Error in Unconfiguring router BGP")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -163,6 +207,13 @@ def cleanup_router_bgp(dut_list, cli_type="", skip_error_check=True):
             st.log("Cleanup BGP mode ..")
             command = "no router bgp"
             st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+        elif cli_type in ["rest-patch", "rest-put"]:
+            rest_urls = st.get_datastore(dut, 'rest_urls')
+            url = rest_urls['bgp_config'].format("default")
+            if not delete_rest(dut, rest_url=url):
+                st.error("Error in Unconfiguring router BGP")
+                return False
+            return True
         else:
             st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
             return False
@@ -177,36 +228,46 @@ def _cleanup_bgp_config(dut_list, cli_type=""):
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     for dut in dut_li:
-        command = "show running bgp"
-        output = st.show(dut, command, type="vtysh", skip_error_check=True)
-        st.log("Cleanup BGP configuration on %s.." % dut)
-        config = output.splitlines()
-        line = 0
-        count = len(config)
-        bgp_inst = []
-        cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
-        while line < count:
-            _str = config[line]
-            if re.match(r'router bgp .*', _str, re.IGNORECASE):
-                if cli_type =="klish":
-                    _newstr =' '.join([i for i in _str.split(" ") if not i.isdigit()])
-                    if "vrf" in _str:
-                        bgp_inst.insert(0, _newstr)
+        if cli_type in ["click", "klish", "vtysh"]:
+            command = "show running bgp"
+            output = st.show(dut, command, type="vtysh", skip_error_check=True)
+            st.log("Cleanup BGP configuration on %s.." % dut)
+            config = output.splitlines()
+            line = 0
+            count = len(config)
+            bgp_inst = []
+            cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+            while line < count:
+                _str = config[line]
+                if re.match(r'router bgp .*', _str, re.IGNORECASE):
+                    if cli_type =="klish":
+                        _newstr =' '.join([i for i in _str.split(" ") if not i.isdigit()])
+                        if "vrf" in _str:
+                            bgp_inst.insert(0, _newstr)
+                        else:
+                            bgp_inst.append(_newstr)
                     else:
-                        bgp_inst.append(_newstr)
-                else:
-                    if "vrf" in _str:
-                        bgp_inst.insert(0, _str)
-                    else:
-                        bgp_inst.append(_str)
+                        if "vrf" in _str:
+                            bgp_inst.insert(0, _str)
+                        else:
+                            bgp_inst.append(_str)
 
-                while config[line] != "!":
-                    line += 1
-            line += 1
+                    while config[line] != "!":
+                        line += 1
+                line += 1
 
-        for inst in bgp_inst:
-            st.config(dut, "no {}".format(inst), type=cli_type)
-
+            for inst in bgp_inst:
+                st.config(dut, "no {}".format(inst), type=cli_type)
+        elif cli_type in ["rest-patch", "rest-put"]:
+            rest_urls = st.get_datastore(dut, 'rest_urls')
+            url = rest_urls['bgp_config'].format("default")
+            if not delete_rest(dut, rest_url=url):
+                st.error("Error in Unconfiguring router BGP")
+                return False
+            return True
+        else:
+            st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
+            return False
     return True
 
 
@@ -256,6 +317,35 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
         if config ==  'no' and router_id:
             command += "no router-id \n"
         command += "exit"
+    elif cli_type in ["rest-patch", "rest-put"]:
+
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf_name = kwargs['vrf_name'] if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default-vrf' else "default"
+        url = rest_urls['bgp_global_config'].format(vrf_name)
+        json_data = dict()
+        json_data["openconfig-network-instance:config"] = dict()
+        json_data["openconfig-network-instance:config"].update({'as': int(local_asn)})
+        if config == 'yes':
+            if router_id:
+                json_data["openconfig-network-instance:config"].update({'router-id': router_id})
+            if keep_alive:
+                json_data["openconfig-network-instance:config"].update({'openconfig-bgp-ext:keepalive-interval': str(keep_alive)})
+            if hold:
+                json_data["openconfig-network-instance:config"].update({'openconfig-bgp-ext:hold-time': str(hold)})
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=json_data):
+                st.error("Error in configuring router BGP")
+                return False
+
+        if config == 'no' and keep_alive:
+            url = rest_urls['bgp_keepalive_config'].format("default")
+            delete_rest(dut, rest_url=url)
+        if config == 'no' and hold:
+            url = rest_urls['bgp_holdtime_config'].format("default")
+            delete_rest(dut, rest_url=url)
+        if config == 'no' and router_id:
+            url = rest_urls['bgp_routerid_config'].format("default")
+            delete_rest(dut, rest_url=url)
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -291,6 +381,23 @@ def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, cli
             command.append("router-id {}".format(router_id))
         command.append("timers {} {}".format(keep_alive, hold))
         command.append("exit")
+    elif cli_type in ["rest-patch", "rest-put"]:
+
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf_name = "default"
+        url = rest_urls['bgp_global_config'].format(vrf_name)
+        json_data = dict()
+        json_data["openconfig-network-instance:as"] = int(local_asn)
+        if router_id:
+            json_data["openconfig-network-instance:router-id"] = router_id
+        if keep_alive:
+            json_data["openconfig-bgp-ext:keepalive-interval"] = str(keep_alive)
+        if hold:
+            json_data["openconfig-bgp-ext:hold-time"] = str(hold)
+        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=json_data):
+            st.error("Error in configuring router BGP")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -349,6 +456,57 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
         commands.append("exit")
         commands.append("exit")
         st.config(dut, commands, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        url = rest_urls['bgp_config'].format(vrf)
+        data=dict()
+        data["openconfig-network-instance:bgp"]=dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"].update({"as":int(local_asn)})
+        neigh_data = dict()
+        neigh_data["openconfig-network-instance:neighbors"] = dict()
+        neigh_data["openconfig-network-instance:neighbors"]["neighbor"] = list()
+        neighbors = dict()
+        neighbors["neighbor-address"] = neighbor_ip
+        neighbors["config"] = dict()
+        neighbors["config"]["neighbor-address"] = neighbor_ip
+        if str(remote_asn).isdigit():
+            neighbors["config"]["peer-as"] = int(remote_asn)
+        else:
+            if remote_asn == "internal":
+                peer_type = "INTERNAL"
+            else:
+                peer_type = "EXTERNAL"
+            neighbors["config"]["peer-type"]=peer_type
+
+        neighbors["timers"] = dict()
+        neighbors["timers"]["config"] = dict()
+        neighbors["timers"]["config"]["hold-time"] = str(hold)
+        neighbors["timers"]["config"]["keepalive-interval"] = str(keep_alive)
+        neighbors["afi-safis"] = dict()
+        if password:
+            neighbors["openconfig-bgp-ext:auth-password"] = dict()
+            neighbors["openconfig-bgp-ext:auth-password"]["config"] = dict()
+            neighbors["openconfig-bgp-ext:auth-password"]["config"]["password"] = password
+        if family:
+            if family == "ipv4":
+                afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+            else:
+                afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+            neighbors["afi-safis"]["afi-safi"] = list()
+            afi_safi_data = dict()
+            afi_safi_data["afi-safi-name"] = afi_safi_name
+            afi_safi_data["config"] = dict()
+            afi_safi_data["config"]["afi-safi-name"] = afi_safi_name
+            afi_safi_data["config"]["enabled"] = True
+            neighbors["afi-safis"]["afi-safi"].append(afi_safi_data)
+        neigh_data["openconfig-network-instance:neighbors"]["neighbor"].append(neighbors)
+        data["openconfig-network-instance:bgp"].update(neigh_data)
+        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data):
+            st.error("Error in configuring router neighbor")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -401,6 +559,63 @@ def config_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, family="ipv4", 
         commands.append("exit") #exit router-bgp
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        data = dict()
+        data["openconfig-network-instance:bgp"] = dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"].update({"as": int(local_asn)})
+        if family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+        if config == "yes":
+            url = rest_urls['bgp_neighbor_config'].format(vrf)
+            neigh_data = dict()
+            neigh_data["openconfig-network-instance:neighbors"] = dict()
+            neigh_data["openconfig-network-instance:neighbors"]["neighbor"] = list()
+            neighbors = dict()
+            neighbors["neighbor-address"] = neighbor_ip
+            neighbors["config"] = dict()
+            neighbors["config"]["neighbor-address"] = neighbor_ip
+
+            if str(remote_asn).isdigit():
+                neighbors["config"]["peer-as"] = int(remote_asn)
+            else:
+                if remote_asn == "internal":
+                    peer_type = "INTERNAL"
+                else:
+                    peer_type = "EXTERNAL"
+                neighbors["config"]["peer-type"] = peer_type
+
+            neighbors["timers"] = dict()
+            neighbors["timers"]["config"] = dict()
+            neighbors["timers"]["config"]["hold-time"] = str(hold)
+            neighbors["timers"]["config"]["keepalive-interval"] = str(keep_alive)
+            neighbors["timers"]["config"]["connect-retry"] = str(connect_retry)
+            neighbors["afi-safis"] = dict()
+            neighbors["afi-safis"]["afi-safi"] = list()
+            afi_safi_data = dict()
+            afi_safi_data["afi-safi-name"] = afi_safi_name
+            afi_safi_data["config"] = dict()
+            afi_safi_data["config"]["afi-safi-name"] = afi_safi_name
+            afi_safi_data["config"]["enabled"] = True
+            neighbors["afi-safis"]["afi-safi"].append(afi_safi_data)
+            neigh_data["openconfig-network-instance:neighbors"]["neighbor"].append(neighbors)
+            data["openconfig-network-instance:bgp"].update(neigh_data)
+            url = rest_urls['bgp_config'].format(vrf)
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=data):
+                st.error("Error in configuring router neighbor")
+                return False
+            return True
+        else:
+            url = rest_urls['bgp_neighbor_config'].format(vrf)
+            if not delete_rest(dut, rest_url=url):
+                st.error("Unconfiguring neighbor failed")
+                return False
+            return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -421,6 +636,7 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
     properties = kwargs
     peergroup = properties.get('peergroup', None)
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-patch","rest-put"] else cli_type
     skip_error_check = kwargs.get("skip_error_check", True)
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
@@ -508,6 +724,20 @@ def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', 
         commands.append("no neighbor {}".format(neighbor_ip))
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        result = True
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        url = rest_urls['bgp_peer_as_config'].format(vrf, neighbor_ip)
+        if not delete_rest(dut, rest_url=url):
+            st.error("Error in Unconfiguring AS number")
+            result = False
+        url = rest_urls['bgp_del_neighbor_config'].format(vrf, neighbor_ip)
+        if not delete_rest(dut, rest_url=url):
+            st.error("Error in Unconfiguring neighbor number")
+            result = False
+        if not result:
+            return False
+        return True
     else:
         st.error("UNSUPPORTE CLI TYPE -- {}".format(cli_type))
         return False
@@ -547,6 +777,23 @@ def change_bgp_neighbor_admin_status(dut, local_asn, neighbor_ip, operation=1, c
             st.error("Invalid operation provided.")
             return False
         st.config(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_neighbor_config'].format(vrf, neighbor_ip)
+        neigh_data = dict()
+        neigh_data["openconfig-network-instance:neighbors"] = dict()
+        neigh_data["openconfig-network-instance:neighbors"]["neighbor"] = list()
+        neighbors = dict()
+        neighbors["neighbor-address"] = neighbor_ip
+        neighbors["config"] = dict()
+        neighbors["config"]["neighbor-address"] = neighbor_ip
+        neighbors["config"]["enabled"] = True if operation == 0 else False
+        neigh_data["openconfig-network-instance:neighbors"]["neighbor"].append(neighbors)
+        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=neigh_data):
+            st.error("Error in configuring router neighbor")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -562,6 +809,7 @@ def advertise_bgp_network(dut, local_asn, network, route_map='', config='yes', f
     :return:
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-patch","rest-put"] else cli_type
     st.log("Advertise BGP network ..")
     # Add validation for IPV4 / IPV6 address
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
@@ -601,6 +849,7 @@ def config_bgp_network_advertise(dut, local_asn, network, route_map='', addr_fam
                                  skip_error_check=True, network_import_check=False):
 
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+    cli_type = "klish" if cli_type in ["rest-patch", "rest-put"] else cli_type
     cfgmode = 'no' if config != 'yes' else ''
     if cli_type == "vtysh":
         command  = "router bgp {}".format(local_asn)
@@ -633,18 +882,29 @@ def show_bgp_ipv4_summary_vtysh(dut, vrf='default', **kwargs):
     :return:
     """
     cli_type = get_show_cli_type(dut, **kwargs)
+    skip_tmpl = kwargs.get("skip_tmpl", False)
     if cli_type == "vtysh":
         if vrf == 'default':
             command = "show ip bgp summary"
         else:
             command = "show ip bgp vrf {} summary".format(vrf)
-        return st.show(dut, command, type='vtysh')
+        return st.show(dut, command, type='vtysh', skip_tmpl=skip_tmpl)
     elif cli_type == "klish":
         if vrf == 'default':
             command = "show bgp ipv4 unicast summary"
         else:
             command = "show bgp ipv4 unicast vrf {} summary".format(vrf)
-        return st.show(dut, command, type=cli_type)
+        return st.show(dut, command, type=cli_type, skip_tmpl=skip_tmpl)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+
+        url = rest_urls['bgp_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return parse_bgp_summary_output(output)
+        else:
+            return []
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return []
@@ -668,10 +928,72 @@ def show_bgp_ipv6_summary_vtysh(dut, vrf='default', **kwargs):
         else:
             command = "show bgp ipv6 unicast vrf {} summary".format(vrf)
         return st.show(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+
+        url = rest_urls['bgp_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return parse_bgp_summary_output(output)
+        else:
+            return []
+        #st.log(output)
+        #return  parse_bgp_summary_output(output)
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return []
 
+def parse_bgp_summary_output(output):
+    st.log("parse output ")
+    response = list()
+    temp_data = list()
+    if not output:
+        return response
+    bgp_data = output["openconfig-network-instance:bgp"]
+    established_cnt = 0
+    empty_values = ['peers', 'ribentries', 'peersmemoryinkbytes', 'dynnbr', 'ribmemoryinbytes', 'dynlimit', 'tblver']
+    if "neighbors" in bgp_data:
+        if "neighbor" in bgp_data["neighbors"]:
+            neighbors = bgp_data["neighbors"]["neighbor"]
+            for neighbor in neighbors:
+                show_output = dict()
+                show_output["localasnnumber"] = neighbor["config"]["local-as"] if "local-as" in neighbor["config"] else (neighbor["state"]["local-as"] if "local-as" in neighbor["state"] else "")
+                if "queues" in neighbor["state"]:
+                    show_output["outq"] = neighbor["state"]["queues"]["output"]
+                    show_output["inq"] = neighbor["state"]["queues"]["input"]
+                else:
+                    show_output["outq"] = show_output["inq"] = 0
+                sent_msg_cnt = rcv_msg_cnt = 0
+                if "messages" in neighbor["state"]:
+                    sent_msgs = neighbor["state"]["messages"]["sent"]
+                    rcv_msgs = neighbor["state"]["messages"]["received"]
+                else:
+                    sent_msg_cnt = rcv_msg_cnt = 0
+                for _, value in sent_msgs.items():
+                    sent_msg_cnt = sent_msg_cnt + int(value)
+                show_output["msgsent"] = sent_msg_cnt
+                #rcv_msgs = neighbor["state"]["messages"]["received"]
+                for key, value in rcv_msgs.items():
+                    rcv_msg_cnt = rcv_msg_cnt + int(value)
+                show_output["msgrcvd"] = rcv_msg_cnt
+                show_output["updown"] = convert_microsecs_to_time(
+                    neighbor["state"]["last-established"]) if "last-established" in neighbor["state"] else "never"
+                show_output["routerid"] = bgp_data["global"]["config"]["router-id"] if "router-id" in bgp_data["global"]["config"] else (bgp_data["global"]["state"]["router-id"] if "router-id" in bgp_data["global"]["state"] else "")
+                show_output["state"] = neighbor["state"]["session-state"] if "session-state" in neighbor["state"] else ""
+                show_output["version"] = 4
+                show_output["vrfid"] = "default"
+                show_output["neighbor"] = neighbor["neighbor-address"]
+                show_output["asn"] = neighbor["config"]["peer-as"] if "peer-as" in neighbor["config"] else (neighbor["state"]["peer-as"] if "peer-as" in neighbor["state"] else "")
+                if show_output["state"] == "ESTABLISHED":
+                    established_cnt = established_cnt + 1
+                for keys in empty_values:
+                    show_output[keys] = ""
+                temp_data.append(show_output)
+            for data in temp_data:
+                data.update({"estd_nbr": established_cnt, "total_nbr": len(temp_data)})
+                response.append(data)
+    return response
 
 def show_bgp_ipv4_summary(dut, **kwargs):
     """
@@ -686,6 +1008,17 @@ def show_bgp_ipv4_summary(dut, **kwargs):
         command = "show bgp ipv4 summary"
     elif cli_type == "klish":
         command = 'show bgp ipv4 unicast summary'
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return parse_bgp_summary_output(output)
+        else:
+            return []
+
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return []
@@ -705,6 +1038,17 @@ def show_bgp_ipv6_summary(dut, **kwargs):
         command = "show bgp ipv6 summary"
     elif cli_type == "klish":
         command = 'show bgp ipv6 unicast summary'
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return parse_bgp_summary_output(output)
+        else:
+            return []
+
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return []
@@ -780,13 +1124,33 @@ def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None,vrf='default', **kwargs):
             command = "show ip bgp vrf {} neighbors".format(vrf)
         if neighbor_ip:
             command += " {}".format(neighbor_ip)
-    if cli_type == 'klish':
+    elif cli_type == 'klish':
         if vrf == 'default':
             command = "show bgp ipv4 unicast neighbors"
         else:
             command = "show bgp ipv4 unicast vrf {} neighbors".format(vrf)
         if neighbor_ip:
             command += " {}".format(neighbor_ip)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_url = st.get_datastore(dut, 'rest_urls')
+        #Getting router id
+        url = rest_url["bgp_routerid_state"].format(vrf)
+        output_router_id = get_rest(dut, rest_url=url)
+        if output_router_id and rest_status(output_router_id["status"]):
+            output_router_id = output_router_id["output"]
+        else:
+            output_router_id ={}
+        router_id = ""
+        if output_router_id:
+            router_id = output_router_id["openconfig-network-instance:router-id"]
+        url = rest_url['bgp_neighbor_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return _parse_ip_bgp_data(output, "ipv4", router_id)
+        else:
+            return []
+
     return st.show(dut, command, type=cli_type)
 
 
@@ -805,14 +1169,161 @@ def show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=None,vrf='default', **kwargs):
             command = "show bgp vrf {} ipv6 neighbors".format(vrf)
         if neighbor_ip:
             command += " {}".format(neighbor_ip)
-    if cli_type == 'klish':
+    elif cli_type == 'klish':
         if vrf == 'default':
             command = "show bgp ipv6 unicast neighbors"
         else:
             command = "show bgp ipv6 unicast vrf {} neighbors".format(vrf)
         if neighbor_ip:
             command += " {}".format(neighbor_ip)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_url = st.get_datastore(dut, 'rest_urls')
+        # Getting router id
+        url = rest_url["bgp_routerid_state"].format(vrf)
+        output_router_id = get_rest(dut, rest_url=url)
+        if output_router_id and rest_status(output_router_id["status"]):
+            output_router_id = output_router_id["output"]
+        else:
+            output_router_id = {}
+        router_id = ""
+        if output_router_id:
+            router_id = output_router_id["openconfig-network-instance:router-id"]
+        url = rest_url['bgp_neighbor_config'].format(vrf)
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+            return _parse_ip_bgp_data(output, "ipv4", router_id)
+        else:
+            return []
     return st.show(dut, command, type=cli_type)
+
+def _parse_ip_bgp_data(output, family, router_id):
+    """
+    Common function to parse BGP neighbors data
+    :param output:
+    :param family:
+    :param router_id:
+    :return:
+    """
+    result = list()
+    if output:
+        if not router_id:
+            return result
+        neighbors = output["openconfig-network-instance:neighbors"]
+        if "neighbor" in neighbors:
+            neighbor_data = neighbors["neighbor"]
+            for neighbor in neighbor_data:
+                afi_safi_data = neighbor["afi-safis"]["afi-safi"]
+                for afi_safi in afi_safi_data:
+                    if family in afi_safi["afi-safi-name"].lower():
+                        show_output = dict()
+                        show_output["localrouterid"] = router_id
+                        show_output["updatercvd"] = show_output["updatesent"] = show_output["openrcvd"] = show_output[
+                            "opensent"] = \
+                            show_output["routerefreshrcvd"] = show_output["routerefreshsent"] = show_output[
+                            "capabilityrcvd"] = \
+                            show_output["capabilitysent"] = \
+                            show_output["keepalivercvd"] = show_output["keepalivesent"] = show_output["inqdepth"] = \
+                            show_output[
+                                "outqdepth"] = \
+                            show_output["holdtime"] = show_output["keepalive"] = show_output["bgplastreset"] = 0
+                        show_output["peergroup"] = show_output["neighborip"] = show_output["remrouterid"] = show_output[
+                            "lastread"] = \
+                            show_output["lastwrite"] = show_output["bfdstatus"] = show_output["localrouterid"] = ""
+                        show_output["state"] = "IDLE"
+                        keys = ["bgpversion", "bfdrxintr", "bfdtxintr", "subgrp", "updtgrp", "l2vpnevpnncap",
+                                "ipv4ucastncap",
+                                "bfdmultiplier", "acceptprefix", "grcapability", "senttotal", "rcvdtotal", "bfdtype",
+                                "pktql",
+                                "endofribsend", "endofribrcv"]
+                        for key in keys:
+                            show_output[key] = ""
+                        show_output["neighborip"] = neighbor[
+                            "neighbor-address"] if "neighbor-address" in neighbor else ""
+                        if "config" in neighbor:
+                            show_output["peergroup"] = neighbor["config"]["peer-group"] if "peer-group" in neighbor[
+                                "config"] else ""
+                            show_output["localasn"] = neighbor["config"]["local-as"] if "local-as" in neighbor[
+                                "config"] else ""
+                            show_output["remoteasn"] = neighbor["config"]["peer-as"] if "peer-as" in neighbor[
+                                "config"] else ""
+                            show_output["bgpdownreason"] = neighbor["config"][
+                                "openconfig-bgp-ext:shutdown-message"] if "openconfig-bgp-ext:shutdown-message" in \
+                                                                          neighbor["config"] else ""
+
+                        if "state" in neighbor:
+                            if "messages" in neighbor["state"]:
+                                messages = neighbor["state"]["messages"]
+                                if "received" in messages:
+                                    show_output["updatercvd"] = messages["received"]["UPDATE"] if "UPDATE" in messages[
+                                        "received"] else 0
+                                    show_output["openrcvd"] = messages["received"][
+                                        "openconfig-bgp-ext:open"] if "openconfig-bgp-ext:open" in messages[
+                                        "received"] else 0
+                                    show_output["routerefreshrcvd"] = messages["received"][
+                                        "openconfig-bgp-ext:route-refresh"] if "openconfig-bgp-ext:route-refresh" in \
+                                                                               messages["received"] else 0
+                                    show_output["capabilityrcvd"] = messages["received"][
+                                        "openconfig-bgp-ext:capablity"] if "openconfig-bgp-ext:capablity" in messages[
+                                        "received"] else 0
+                                    show_output["keepalivercvd"] = messages["received"][
+                                        "openconfig-bgp-ext:keepalive"] if "openconfig-bgp-ext:keepalive" in messages[
+                                        "received"] else 0
+                                    show_output["notificationrcvd"] = messages["received"][
+                                        "NOTIFICATION"] if "NOTIFICATION" in messages["received"] else 0
+                                if "sent" in messages:
+                                    show_output["updatesent"] = messages["sent"]["UPDATE"] if "UPDATE" in messages[
+                                        "sent"] else 0
+                                    show_output["opensent"] = messages["sent"][
+                                        "openconfig-bgp-ext:open"] if "openconfig-bgp-ext:open" in messages[
+                                        "sent"] else 0
+                                    show_output["routerefreshsent"] = messages["sent"][
+                                        "openconfig-bgp-ext:route-refresh"] if "openconfig-bgp-ext:route-refresh" in \
+                                                                               messages[
+                                                                                   "sent"] else 0
+                                    show_output["capabilitysent"] = messages["sent"][
+                                        "openconfig-bgp-ext:capablity"] if "openconfig-bgp-ext:capablity" in messages[
+                                        "sent"] else 0
+                                    show_output["keepalivesent"] = messages["sent"][
+                                        "openconfig-bgp-ext:keepalive"] if "openconfig-bgp-ext:keepalive" in messages[
+                                        "sent"] else 0
+                                    show_output["notificationsent"] = messages["sent"][
+                                        "NOTIFICATION"] if "NOTIFICATION" in \
+                                                           messages[
+                                                               "sent"] else 0
+                            show_output["state"] = neighbor["state"]["session-state"] if "session-state" in neighbor[
+                                "state"] else "IDLE"
+                            show_output["remrouterid"] = neighbor["state"][
+                                "openconfig-bgp-ext:remote-router-id"] if "openconfig-bgp-ext:remote-router-id" in \
+                                                                          neighbor[
+                                                                              "state"] else ""
+                            show_output["lastread"] = neighbor["state"][
+                                "openconfig-bgp-ext:last-read"] if "openconfig-bgp-ext:last-read" in neighbor[
+                                "state"] else ""
+                            show_output["lastwrite"] = neighbor["state"][
+                                "openconfig-bgp-ext:last-write"] if "openconfig-bgp-ext:last-write" in neighbor[
+                                "state"] else ""
+                            show_output["bgplastreset"] = neighbor["state"][
+                                "openconfig-bgp-ext:last-reset-time"] if "openconfig-bgp-ext:last-reset-time" in \
+                                                                         neighbor[
+                                                                             "state"] else ""
+                            if "queues" in neighbor["state"]:
+                                show_output["inqdepth"] = neighbor["state"]["queues"]["input"]
+                                show_output["outqdepth"] = neighbor["state"]["queues"]["output"]
+                        if "timers" in neighbor:
+                            if "config" in neighbor["timers"]:
+                                show_output["holdtime"] = neighbor["timers"]["config"]["hold-time"] if "hold-time" in \
+                                                                                                       neighbor[
+                                                                                                           "timers"][
+                                                                                                           "config"] else 0
+                                show_output["keepalive"] = neighbor["timers"]["config"][
+                                    "keepalive-interval"] if "keepalive-interval" in neighbor["timers"]["config"] else 0
+                        if "openconfig-bfd:enable-bfd" in neighbor:
+                            if "config" in neighbor["openconfig-bfd:enable-bfd"]:
+                                bfd_status = neighbor["openconfig-bfd:enable-bfd"]["config"]["enabled"]
+                                show_output["bfdstatus"] = "" if not bfd_status else bfd_status
+                        result.append(show_output)
+    return result
 
 
 def clear_ip_bgp(dut, **kwargs):
@@ -822,6 +1333,7 @@ def clear_ip_bgp(dut, **kwargs):
     :return:
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type in ["click", "vtysh"]:
         # command = "sonic-clear ip bgp"
         command = "clear ip bgp *"
@@ -829,6 +1341,14 @@ def clear_ip_bgp(dut, **kwargs):
     elif cli_type == 'klish':
         command = 'clear bgp ipv4 unicast *'
         st.config(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        if not delete_rest(dut, rest_url=url):
+            st.error("Clearing BGP config failed")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -843,6 +1363,7 @@ def clear_bgp_vtysh(dut, **kwargs):
     :return:
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     address_family = kwargs.get('address_family', 'all')
     af_list = ['ipv4','ipv6']
     if address_family == 'ipv4':
@@ -870,6 +1391,7 @@ def clear_bgp_vtysh(dut, **kwargs):
 
 def clear_ip_bgp_vtysh(dut, value="*", **kwargs):
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type == 'vtysh':
         command = "clear ip bgp ipv4 {}".format(value)
         st.config(dut, command, type='vtysh', conf=False)
@@ -883,6 +1405,7 @@ def clear_ip_bgp_vtysh(dut, value="*", **kwargs):
 
 def clear_ipv6_bgp_vtysh(dut, value="*", **kwargs):
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type == 'vtysh':
         command = "clear ip bgp ipv6 {}".format(value)
     elif cli_type == 'klish':
@@ -891,6 +1414,7 @@ def clear_ipv6_bgp_vtysh(dut, value="*", **kwargs):
 
 def clear_ip_bgp_vrf_vtysh(dut,vrf,family='ipv4',value="*", **kwargs):
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type == 'vtysh':
         command = "clear bgp vrf {} {} {}".format(vrf,family,value)
         st.config(dut, command, type='vtysh', conf=False)
@@ -949,6 +1473,49 @@ def create_bgp_aggregate_address(dut, **kwargs):
         commands.append("exit")
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        if kwargs["family"] == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+        if kwargs.get("config") == "add":
+            url = rest_urls['bgp_config'].format(vrf)
+            bgp_data = dict()
+            bgp_data["openconfig-network-instance:bgp"] = dict()
+            bgp_data["openconfig-network-instance:bgp"]["global"] = dict()
+            bgp_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+            bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(kwargs["local_asn"])
+            bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+            afi_safi_data = list()
+            afi_safi = dict()
+            afi_safi["afi-safi-name"] = afi_safi_name
+            afi_safi["config"] = dict()
+            afi_safi["config"]["afi-safi-name"] = afi_safi_name
+            afi_safi["openconfig-bgp-ext:aggregate-address-config"] = dict()
+            afi_safi["openconfig-bgp-ext:aggregate-address-config"]["aggregate-address"] = list()
+            aggregate_data = dict()
+            aggregate_data["prefix"] = kwargs["address_range"]
+            aggregate_data["config"] = dict()
+            aggregate_data["config"]["prefix"] = kwargs["address_range"]
+            if kwargs.get("summary"):
+                aggregate_data["config"]["summary-only"] = True
+            if kwargs.get("as_set"):
+                aggregate_data["config"]["as-set"] = True
+            afi_safi["openconfig-bgp-ext:aggregate-address-config"]["aggregate-address"].append(aggregate_data)
+            afi_safi_data.append(afi_safi)
+            bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = afi_safi_data
+            if not config_rest(dut, rest_url=url,http_method=cli_type, json_data=bgp_data):
+                st.error("Error in configuring aggregate address")
+                return False
+            return True
+        else:
+            url = rest_urls["bgp_aggregate_address_config"].format(name=vrf, afi_safi_name=afi_safi_name, prefix=kwargs["address_range"])
+            if not delete_rest(dut,rest_url= url):
+                st.error("Error in deleting aggregate address")
+                return False
+            return True
     else:
         st.error("Unsupported CLI TYPE -- {}".format(cli_type))
         return False
@@ -962,9 +1529,29 @@ def create_bgp_update_delay(dut, local_asn, time=0, cli_type="", skip_error_chec
     :return:
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
-    config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
-    command = "update-delay {}".format(time)
-    st.config(dut, command,type=cli_type, skip_error_check=skip_error_check)
+    if cli_type in ["click", "vtysh", "klish"]:
+        config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+        command = "update-delay {}".format(time)
+        st.config(dut, command,type=cli_type, skip_error_check=skip_error_check)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        bgp_data = dict()
+        bgp_data["openconfig-network-instance:bgp"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:update-delay"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:update-delay"]["config"] = dict()
+        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:update-delay"]["config"]["max-delay"] = int(time)
+        if not config_rest(dut, rest_url=url,http_method=cli_type, json_data=bgp_data):
+            st.error("Error in configuring update delay")
+            return False
+        return True
+    else:
+        st.error("UNSUPPORTED CLI TYPE")
+        return False
 
 
 def create_bgp_always_compare_med(dut, local_asn):
@@ -996,6 +1583,44 @@ def create_bgp_best_path(dut, local_asn, user_command, cli_type=""):
         command = list()
         command.append("bestpath {}".format(user_command))
         command.append("exit")
+    elif cli_type in ["rest-put", "rest-patch"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        route_selection_data = dict()
+        route_selection_data["openconfig-network-instance:bgp"] = dict()
+        if user_command == "compare-routerid":
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"]["external-compare-router-id"] = True
+        elif user_command == "as-path confed":
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"][
+                "config"]["openconfig-bgp-ext:compare-confed-as-path"] = True
+        elif user_command == "as-path ignore":
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"][
+                "config"]["ignore-as-path-length"] = True
+        elif user_command == "as-path multipath-relax":
+            route_selection_data["openconfig-network-instance:bgp"]["global"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]["config"]["allow-multiple-as"] = True
+        elif user_command == "med confed":
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"][
+                "config"]["openconfig-bgp-ext:med-confed"] = True
+        elif user_command == "med confed missing-as-worst":
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"]["config"] = dict()
+            route_selection_data["openconfig-network-instance:bgp"]["route-selection-options"][
+                "config"]["openconfig-bgp-ext:med-missing-as-worst"] = True
+        else:
+            st.error("Unsupporte user command")
+            return False
+        if not config_rest(dut,http_method=cli_type, rest_url=url, json_data=route_selection_data):
+            st.error("Error in configuring best path")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1031,6 +1656,23 @@ def create_bgp_client_to_client_reflection(dut, local_asn, config='yes', cli_typ
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_global_config'].format(vrf)
+
+        if cfgmode != 'no':
+            client_client_reflection = True
+        else:
+            client_client_reflection = False
+        global_data = dict()
+        global_data["openconfig-network-instance:config"] = dict()
+        global_data["openconfig-network-instance:config"]["as"] = int(local_asn)
+        global_data["openconfig-network-instance:config"]["openconfig-bgp-ext:clnt-to-clnt-reflection"] = client_client_reflection
+        if not config_rest(dut,http_method=cli_type, rest_url=url, json_data=global_data):
+            st.error("Error in configuring client to client reflection")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1038,7 +1680,6 @@ def create_bgp_client_to_client_reflection(dut, local_asn, config='yes', cli_typ
 
 def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, config='yes', cli_type="", skip_error_check=True):
     """
-
     :param dut:
     :param local_asn:
     :param addr_family:
@@ -1051,31 +1692,13 @@ def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, confi
         command  = "router bgp {}".format(local_asn)
         command += "\n address-family {} {}".format(addr_family, "unicast")
         command += "\n {} neighbor {} route-reflector-client".format(cfgmode, nbr_ip)
-
         st.config(dut, command, type=cli_type)
         return True
     elif cli_type == "klish":
         addr_family_type = "unicast"
         neigh_name = nbr_ip
-        # if re.findall(r'Ethernet|Vlan|PortChannel', nbr_ip):
-        #     neigh_name = get_interface_number_from_name(nbr_ip)
         commands = list()
         commands.append("router bgp {}".format(local_asn))
-
-        # if re.findall(r'Ethernet|Vlan|PortChannel', nbr_ip):
-        #     neigh_name = get_interface_number_from_name(nbr_ip)
-        #     commands.append("{} neighbor interface {} {}".format(cfgmode, neigh_name["type"], neigh_name["number"]))
-        # elif is_valid_ip_address(neigh_name, addr_family):
-        #     commands.append("{} neighbor {}".format(cfgmode, nbr_ip))
-        # else:
-        #     commands.append("{} peer-group {}".format(cfgmode, nbr_ip))
-        # if config == "yes":
-        #     if addr_family == 'l2vpn' : addr_family_type = "evpn"
-        #     commands.append("address-family {} {}".format(addr_family, addr_family_type))
-        #     commands.append("{} route-reflector-client".format(cfgmode))
-        #     commands.append("exit")
-        # else:
-        #     commands.append("exit")
         if re.findall(r'Ethernet|Vlan|PortChannel|Eth', nbr_ip):
             neigh_name = get_interface_number_from_name(nbr_ip)
             commands.append("neighbor interface {} {}".format( neigh_name["type"], neigh_name["number"]))
@@ -1091,8 +1714,62 @@ def create_bgp_route_reflector_client(dut, local_asn, addr_family, nbr_ip, confi
         commands.append("exit")
         commands.append("exit")
         commands.append("exit")
-
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
+        return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_urls['bgp_config'].format(vrf)
+        route_reflector_data = dict()
+        route_reflector_data["openconfig-network-instance:bgp"] = dict()
+        route_reflector_data["openconfig-network-instance:bgp"]["global"] = dict()
+        route_reflector_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        route_reflector_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+
+        if addr_family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        elif addr_family == "l2vpn":
+            afi_safi_name = "L2VPN_EVPN"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+
+        common_data = dict()
+        common_data["afi-safis"] = dict()
+        common_data["afi-safis"]["afi-safi"] = list()
+        afi_safi_data = dict()
+        afi_safi_data["afi-safi-name"] = afi_safi_name
+        afi_safi_data["config"] = dict()
+        afi_safi_data["config"]["afi-safi-name"] = afi_safi_name
+        if cfgmode != 'no':
+            route_reflector_client = True
+        else:
+            route_reflector_client = False
+        afi_safi_data["config"]["openconfig-bgp-ext:route-reflector-client"] = route_reflector_client
+
+        common_data["afi-safis"]["afi-safi"].append(afi_safi_data)
+        if re.findall(r'Ethernet|Vlan|PortChannel|Eth', nbr_ip) or addr_family == 'l2vpn' or is_valid_ip_address(nbr_ip, addr_family):
+            route_reflector_data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+            route_reflector_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+            neigh_data = dict()
+            neigh_data["neighbor-address"] = nbr_ip
+            neigh_data["config"]=dict()
+            neigh_data["config"]["neighbor-address"]= nbr_ip
+            neigh_data.update(common_data)
+            route_reflector_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+        else:
+            route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+            route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+            peer_data = dict()
+            peer_data["peer-group-name"] = nbr_ip
+            peer_data["config"] = dict()
+            peer_data["config"]["peer-group-name"] = nbr_ip
+            peer_data.update(common_data)
+            route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+
+        if not config_rest(dut, rest_url=url, http_method=cli_type,json_data=route_reflector_data):
+            st.error("Error while configuring route reflector client")
+            return False
         return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
@@ -1140,7 +1817,7 @@ def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', co
             commands.append("{} neighbor {}".format(cfgmode, nbr_ip))
         else:
             commands.append("{} peer-group {}".format(cfgmode, nbr_ip))
-        #commands.append("address-family {} {}".format(addr_family, "unicast"))
+
         if config == "yes":
             force_cmd = "force" if force == 'yes' else ""
             commands.append("address-family {} {}".format(addr_family, "unicast"))
@@ -1150,6 +1827,73 @@ def create_bgp_next_hop_self(dut, local_asn, addr_family, nbr_ip, force='no', co
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+
+        vrf = "default"
+        if not cfgmode:
+            url = rest_urls['bgp_config'].format(vrf)
+            route_reflector_data = dict()
+            route_reflector_data["openconfig-network-instance:bgp"] = dict()
+            route_reflector_data["openconfig-network-instance:bgp"]["global"] = dict()
+            route_reflector_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+            route_reflector_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+            if config == "yes":
+                if addr_family == "ipv4":
+                    afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                else:
+                    afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+
+                common_data = dict()
+                common_data["afi-safis"] = dict()
+                common_data["afi-safis"]["afi-safi"] = list()
+                afi_safi_data = dict()
+                afi_safi_data["afi-safi-name"] = afi_safi_name
+                afi_safi_data["config"] = dict()
+                afi_safi_data["config"]["afi-safi-name"] = afi_safi_name
+                afi_safi_data["openconfig-bgp-ext:next-hop-self"] = dict()
+                afi_safi_data["openconfig-bgp-ext:next-hop-self"]["config"] = dict()
+                force_cmd = True if force == 'yes' else False
+                afi_safi_data["openconfig-bgp-ext:next-hop-self"]["config"]["force"] = force_cmd
+                afi_safi_data["openconfig-bgp-ext:next-hop-self"]["config"]["enabled"] = True if force != "yes" else False
+                common_data["afi-safis"]["afi-safi"].append(afi_safi_data)
+            if is_valid_ip_address(nbr_ip, addr_family):
+                route_reflector_data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+                route_reflector_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+                neigh_data = dict()
+                neigh_data["neighbor-address"] = nbr_ip
+                neigh_data["config"]=dict()
+                neigh_data["config"]["neighbor-address"] = nbr_ip
+                neigh_data.update(common_data)
+                route_reflector_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+            else:
+                route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+                route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+                peer_data = dict()
+                peer_data["peer-group-name"] = nbr_ip
+                peer_data["config"] = dict()
+                peer_data["config"]["peer-group-name"] = nbr_ip
+                peer_data.update(common_data)
+                route_reflector_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+
+
+            if not config_rest(dut, rest_url=url, http_method=cli_type,json_data=route_reflector_data):
+                st.error("Error while configuring next hop self")
+                return False
+            return True
+        else:
+            result = True
+            url = rest_urls['bgp_del_neighbor_config'].format(vrf,nbr_ip)
+            if not delete_rest(dut, rest_url=url):
+                st.error("Deleting neighbor with address failed")
+                result = False
+            url = rest_urls['bgp_peer_group_name_config'].format(vrf,nbr_ip)
+            if not delete_rest(dut, rest_url=url):
+                st.error("Deleting peergroup with name failed")
+                result = False
+            if not result:
+                return False
+            return True
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1235,6 +1979,46 @@ def config_bgp_default(dut, local_asn, user_command, config='yes', cli_type="", 
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+
+        data = dict()
+        data["openconfig-network-instance:bgp"]=dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"].update({"as": int(local_asn)})
+        data["openconfig-network-instance:bgp"]["global"]["afi-safis"]=dict()
+        data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"]=list()
+        data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:global-defaults"]=dict()
+        data_sub=dict()
+        data_sub["config"]=dict()
+
+        if user_command == "ipv4-unicast":
+            data_sub["config"]["ipv4-unicast"] = True if cfgmode == 'yes' else False
+        elif "local-preference" in user_command:
+            if cfgmode == "yes":
+                data_sub["config"]["local-preference"] = int(user_command.replace('local-preference', '').strip())
+            else:
+                url = st.get_datastore(dut, "rest_urls")['bgp_del_local_pref']
+                if not delete_rest(dut, rest_url=url.format("default")):
+                    st.error("failed to delete local-pref")
+
+        elif user_command == "show-hostname":
+            data_sub["config"]["show-hostname"] = True if cfgmode == 'yes' else False
+        elif user_command == "shutdown":
+            data_sub["config"]["shutdown"] = True if cfgmode == 'yes' else False
+        elif "subgroup-pkt-queue-max" in user_command:
+            if cfgmode == "yes":
+                data_sub["config"]["subgroup-pkt-queue-max"] = int(user_command.replace("subgroup-pkt-queue-max", "").strip())
+            else:
+                url = st.get_datastore(dut, "rest_urls")['bgp_del_subgrp']
+                if not delete_rest(dut, rest_url=url.format("default")):
+                    st.error("failed to delete subgroup")
+        data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:global-defaults"].update(data_sub)
+        url = st.get_datastore(dut,"rest_urls")['bgp_config'].format("default")
+        if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+            st.error("bgp default router config failed")
+            return False
+        return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1250,11 +2034,13 @@ def config_bgp_always_compare_med(dut, local_asn, config='yes', cli_type=""):
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+
     if cli_type == "vtysh":
         if config == 'yes' :
             command = "bgp always-compare-med"
         else :
             command = "no bgp always-compare-med"
+        st.config(dut, command, type=cli_type)
     elif cli_type == 'klish':
         command = list()
         if config == 'yes' :
@@ -1262,10 +2048,25 @@ def config_bgp_always_compare_med(dut, local_asn, config='yes', cli_type=""):
         else :
             command.append("no always-compare-med")
         command.append('exit')
+        st.config(dut, command, type=cli_type)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        if config == 'yes':
+            url = st.get_datastore(dut, "rest_urls")["bgp_config"]
+            data = {"openconfig-network-instance:bgp": {"global": {"config": {"as": int(local_asn)},
+                                                                   "route-selection-options": {
+                                                                       "config": {"always-compare-med": True}}}}}
+            if not config_rest(dut,rest_url=url.format("default"),http_method=cli_type,json_data=data):
+                st.error("failed to configure always compare med")
+                return False
+        else:
+            url =st.get_datastore(dut,"rest_urls")["bgp_config_med"].format("default")
+            if not delete_rest(dut, rest_url=url):
+                st.error("no form of compare med failed")
+                return False
+            return True
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
-    st.config(dut, command, type=cli_type)
     return True
 
 
@@ -1278,6 +2079,7 @@ def config_bgp_deterministic_med(dut, local_asn, config='yes',cli_type=''):
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+    command=""
     if cli_type == "vtysh":
         if config == 'yes' :
            command = "bgp deterministic-med"
@@ -1290,6 +2092,19 @@ def config_bgp_deterministic_med(dut, local_asn, config='yes',cli_type=''):
         else :
            command.append("no deterministic-med")
         command.append('exit')
+    elif cli_type in ["rest-patch", "rest-put"]:
+        if config == 'yes':
+            url = st.get_datastore(dut, "rest_urls")["bgp_config"].format("default")
+            data = {"openconfig-network-instance:bgp": {"global": {"config": {"as": int(local_asn),
+                                                                              "openconfig-bgp-ext:deterministic-med": True}}}}
+            if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=data):
+                st.error("failed to configure deterministic-med")
+                return False
+        else:
+            url = st.get_datastore(dut, "rest_urls")["bgp_del_deter_med"].format("default")
+            if not delete_rest(dut, rest_url=url):
+                st.error("failed to delete deterministic-med ")
+                return False
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1323,6 +2138,7 @@ def config_bgp_graceful_restart(dut, **kwargs):
     vrf = kwargs.get('vrf', "default")
     skip_error_check = kwargs.get("skip_error_check", True)
     cli_type = get_cfg_cli_type(dut, **kwargs)
+    command =""
     if "local_asn" not in kwargs and "config" not in kwargs :
         st.error("Mandatory params not provided")
         return False
@@ -1340,6 +2156,33 @@ def config_bgp_graceful_restart(dut, **kwargs):
         command += "{} {} graceful-restart preserve-fw-state\n".format(mode, bgp_mode)
     if cli_type == 'klish':
         command += "exit\n"
+    if cli_type in ["rest-patch","rest-put"]:
+        rest_urls=st.get_datastore(dut,"rest_urls")
+        data=dict()
+        data["openconfig-network-instance:bgp"]=dict()
+        data["openconfig-network-instance:bgp"]["global"]=dict()
+        data["openconfig-network-instance:bgp"]["global"]["graceful-restart"]=dict()
+        if mode !='no':
+            data["openconfig-network-instance:bgp"]["global"]["graceful-restart"].update({"config": {"enabled": True}})
+            if preserve_state != None:
+                data["openconfig-network-instance:bgp"]["global"]["graceful-restart"].update({"config": {"openconfig-bgp-ext:preserve-fw-state": True}})
+            else:
+                url=rest_urls['bgp_del_graceful'].format(vrf)
+                if not delete_rest(dut,rest_url=url):
+                    st.error("failed unconfig graceful restart")
+            url=rest_urls['bgp_config'].format(vrf)
+            if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+                st.error("unable enable graceful restart")
+                return False
+            return True
+        else:
+            url=rest_urls['bgp_del_grace'].format(vrf)
+            if not delete_rest(dut,rest_url=url):
+                st.error("unable to disable graceful restart")
+                return False
+            return True
+
+
     if not(mode == 'no ' and cli_type == 'vtysh'):
         if "user_command" in kwargs:
            command += " {}".format(kwargs["user_command"])
@@ -1358,6 +2201,22 @@ def config_bgp_graceful_shutdown(dut, local_asn, config="add", cli_type="vtysh",
     bgp_mode = "bgp" if cli_type == "vtysh" else ""
     command = "{} {} graceful-shutdown".format(mode, bgp_mode)
     st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+    if cli_type in ["rest-patch","rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        data = {"openconfig-bgp-ext:graceful-shutdown": True}
+        if mode !='no':
+            url=rest_urls['bgp_config_graceful_shut'].format("default")
+            if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+                st.error("failed to config graceful shutdown")
+                return False
+            return True
+        else:
+            url=rest_urls['bgp_del_graceful_shut'].format("default")
+            if not delete_rest(dut,rest_url=url):
+                st.error("failed to delete graceful shutdown")
+                return False
+            return True
+
 
 def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, limit, config='yes', cli_type="", skip_error_check=True):
    """
@@ -1392,6 +2251,57 @@ def config_bgp_listen(dut, local_asn, neighbor_address, subnet, peer_grp_name, l
            command = ["{} listen limit {}".format(mode, limit)]
            command.append('exit')
            st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+   elif cli_type in ["rest-patch","rest-put"]:
+       config_data = dict()
+       config_data["openconfig-network-instance:bgp"] = dict()
+       if neighbor_address:
+           if mode != 'no':
+               config_data["openconfig-network-instance:bgp"]["global"] = dict()
+               config_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+               config_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+               config_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+               config_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+               peer_data = dict()
+               peer_data.update({"peer-group-name": peer_grp_name})
+               peer_data["config"] = dict()
+               peer_data["config"].update({"peer-group-name": peer_grp_name})
+               config_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+               config_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"] = dict()
+               config_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"][
+                   "dynamic-neighbor-prefix"] = list()
+               prefix_data = dict()
+               prefix_data.update({"prefix": "{}/{}".format(neighbor_address, subnet)})
+               prefix_data["config"] = dict()
+               prefix_data["config"].update(
+                   {"prefix": "{}/{}".format(neighbor_address, subnet), "peer-group": peer_grp_name})
+               config_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"][
+                   "dynamic-neighbor-prefix"].append(prefix_data)
+               url=st.get_datastore(dut,"rest_urls")['bgp_config'].format("default")
+               if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=config_data):
+                   st.error("unable to config bgp listen")
+
+           else:
+
+               url = st.get_datastore(dut, "rest_urls")['bgp_del_dyn'].format("default")
+               if not delete_rest(dut, rest_url=url):
+                   st.error("unable to delete BGP listen config")
+
+       if limit:
+           if mode != 'no':
+               config_data = {"openconfig-network-instance:max-dynamic-neighbors": limit}
+               url = st.get_datastore(dut,"rest_urls")['bgp_config_dyn'].format("default")
+               response = config_rest(dut,rest_url=url,http_method=cli_type,json_data=config_data)
+
+           else:
+               url=st.get_datastore(dut,"rest_urls")['bgp_del_dyn'].format("default")
+               response = delete_rest(dut,rest_url=url)
+
+           if not response:
+               st.log(response)
+               return False
+           return True
+
+
    else:
        st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
        return False
@@ -1544,7 +2454,45 @@ def config_bgp_max_med(dut, local_asn, config='yes',**kwargs):
                  command += "no max-med administrative {}\n".format(kwargs['administrative_med'])
         command += 'exit\n'
         st.config(dut, command.split("\n"),  type=cli_type)
+
+    elif cli_type in ["rest-patch", "rest-put"]:
+        config_router_bgp_mode(dut, local_asn, cli_type=cli_type)
+        data = dict()
+        if config == 'yes':
+            if 'on_start_time' and 'on_start_med' in kwargs:
+                data.update({"max-med-val": kwargs['on_start_time'], "time":kwargs['on_start_med']})
+            elif 'on_start_time' in kwargs:
+                data.update({"max-med-val": kwargs['on_start_time']})
+            if 'administrative_med' in kwargs:
+                data.update({"administrative": kwargs['administrative_med']})
+            url = st.get_datastore(dut,"rest_urls")['bgp_config'].format("default")
+            if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+                st.error("failed to confgi max med")
+                return False
+            return True
+
+        else:
+            if 'on_start_time' in kwargs and 'on_start_med' in kwargs:
+                url = st.get_datastore(dut,"rest_urls")['bgp_del_med'].format("default")
+                if not delete_rest(dut,rest_url=url):
+                    st.error("failed to delete med on start time")
+                    return False
+            elif 'on_start_time' in kwargs:
+                url = st.get_datastore(dut, "rest_urls")['bgp_del_med'].format("default")
+                if not delete_rest(dut, rest_url=url):
+                    st.error("failed to delete med on start time")
+                    return False
+            if 'administrative_med' in kwargs:
+                url = st.get_datastore(dut,"rest_urls")['bgp_del_med_ad'].format("default")
+                if not delete_rest(dut,rest_url=url):
+                    st.error("failed to delete med on start time")
+                    return False
+                return True
+    else:
+        st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False
     return True
+
 
 
 def config_route_map_delay_timer(dut, local_asn, timer):
@@ -1692,7 +2640,14 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
                 st.log(response)
                 return False
         if remote_asn != None:
-            ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"config":{"peer-as":int(remote_asn)}}]}}
+            if str(remote_asn).isdigit():
+                ocdata = {"openconfig-network-instance:peer-groups":{"peer-group":[{"peer-group-name":peer_grp_name,"config":{"peer-as":int(remote_asn)}}]}}
+            else:
+                if remote_asn == "internal":
+                    peer_type = "INTERNAL"
+                else:
+                    peer_type = "EXTERNAL"
+                ocdata = {"openconfig-network-instance:peer-groups":{"peer-group": [{"peer-group-name": peer_grp_name, "config": {"peer-type": peer_type}}]}}
             response = config_rest(dut, http_method=http_method, rest_url=rest_url_peergroup, json_data=ocdata)
             if not response:
                 st.log('Remote-as config in the Peergroup failed')
@@ -1849,6 +2804,50 @@ def create_bgp_neighbor_use_peergroup(dut, local_asn, peer_grp_name, neighbor_ip
         commands.append("exit")
         commands.append("exit")
         st.config(dut, commands, type=cli_type, skip_error_check=skip_error_check)
+    elif cli_type in ["rest-patch","rest_put"]:
+        if family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        elif family == "l2vpn":
+            afi_safi_name = "L2VPN_EVPN"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+
+        data = dict()
+        data["openconfig-network-instance:bgp"] = dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+        data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+        data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+        peer_data = dict()
+        peer_data.update({"peer-group-name": peer_grp_name})
+        peer_data["config"] = dict()
+        peer_data["config"].update({"peer-group-name": peer_grp_name})
+        data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+        peer_data["afi-safis"] = dict()
+        peer_data["afi-safis"]["afi-safi"] = list()
+        peer_sub = dict()
+        peer_sub.update({"afi-safi-name": afi_safi_name})
+        peer_sub["config"] = dict()
+        peer_sub["config"].update({"afi-safi-name": afi_safi_name, "enabled": True})
+        peer_data["afi-safis"]["afi-safi"].append(peer_sub)
+        data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+        data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+        if family == "ipv6":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+            peer_sub.update({"afi-safi-name": afi_safi_name})
+            peer_sub["config"].update({"afi-safi-name": afi_safi_name, "enabled": True})
+        neigh_data = dict()
+        neigh_data.update({"neighbor-address": neighbor_ip})
+        neigh_data["config"] = dict()
+        neigh_data["config"].update({"neighbor-address": neighbor_ip, "peer-group": peer_grp_name})
+        data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+        url = st.get_datastore(dut,"rest_urls")['bgp_config'].format(vrf)
+        if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+            st.error("failed to config peer group")
+            return False
+        return True
+
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -1893,6 +2892,65 @@ def create_bgp_neighbor_interface(dut, local_asn, interface_name, remote_asn,fam
             commands.append("exit")
         else:
             commands.append("exit")
+    elif cli_type in ["rest-patch","rest-put"]:
+        if family == "ipv4":
+            afi_safi_data = "openconfig-bgp-types:IPV4_UNICAST"
+        elif family == "l2vpn":
+            afi_safi_data = "L2VPN_EVPN"
+        else:
+            afi_safi_data = "openconfig-bgp-types:IPV6_UNICAST"
+
+        data = dict()
+        data["openconfig-network-instance:bgp"] = dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+        data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+        data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+        neigh_data = dict()
+        neigh_data.update({"neighbor-address": interface_name})
+        neigh_data["config"] = dict()
+        if str(remote_asn).isdigit():
+            neigh_data["config"].update({"neighbor-address": interface_name, "peer-as": int(remote_asn)})
+        else:
+            if remote_asn == "internal":
+                peer_type = "INTERNAL"
+            else:
+                peer_type = "EXTERNAL"
+            neigh_data["config"].update({"neighbor-address": interface_name, "peer-type": peer_type})
+
+        if mode == "":
+            neigh_data_sub = dict()
+            neigh_data_sub["afi-safis"] = dict()
+            neigh_data_sub["afi-safis"]["afi-safi"] = list()
+            neigh_data_sub_data = dict()
+            neigh_data_sub_data["config"] = dict()
+            neigh_data_sub_data.update({"afi-safi-name": afi_safi_data})
+            neigh_data_sub_data["config"].update({"afi-safi-name": afi_safi_data, "enabled": True})
+            neigh_data_sub["afi-safis"]["afi-safi"].append(neigh_data_sub_data)
+            neigh_data.update(neigh_data_sub)
+            data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+            url = st.get_datastore(dut,"rest_urls")['bgp_config'].format("default")
+            if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data):
+                st.error("failed to config bgp neighbor")
+                return False
+            return True
+        else:
+            neigh_data_sub = dict()
+            neigh_data_sub["afi-safis"] = dict()
+            neigh_data_sub["afi-safis"]["afi-safi"] = list()
+            neigh_data_sub_data = dict()
+            neigh_data_sub_data["config"] = dict()
+            neigh_data_sub_data.update({"afi-safi-name": afi_safi_data})
+            neigh_data_sub_data["config"].update({"afi-safi-name": afi_safi_data, "enabled": False})
+            neigh_data_sub["afi-safis"]["afi-safi"].append(neigh_data_sub_data)
+            neigh_data.update(neigh_data_sub)
+            data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+            url = st.get_datastore(dut, "rest_urls")['bgp_neighbor_config'].format("default")
+            if not config_rest(dut, rest_url=url,http_method=cli_type,json_data=data):
+                st.error("failed to un-config bgp neighbor activate")
+                return False
+            return True
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -2011,6 +3069,177 @@ def config_bgp_multi_neigh_use_peergroup(dut, **kwargs):
         cmd += 'exit \n'
         cmd += 'exit \n'
         st.config(dut, cmd, type='klish')
+    elif cli_type in ["rest-patch","rest-put"]:
+        family = kwargs.get('family', None)
+        local_asn = kwargs.get('local_asn', None)
+
+        peergroup = kwargs.get('peer_grp_name', '')
+        #remote_as = kwargs.get('remote_asn', None)
+        keepalive = kwargs.get('keep_alive', "60")
+        holdtime = kwargs.get('hold', "180")
+        password = kwargs.get('password', None)
+        redistribute = kwargs.get('redistribute', None)
+        vrf_name = kwargs.get('vrf', "default")
+        routeMap = kwargs.get('routemap', None)
+        remote_as = kwargs.get('remote_asn', None)
+        config = kwargs.get('config', "yes")
+        config_cmd = "" if config.lower() == 'yes' else "no"
+        if family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        elif family == "l2vpn":
+            afi_safi_name = "L2VPN_EVPN"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+        data = dict()
+
+        data["openconfig-network-instance:bgp"] = dict()
+        data["openconfig-network-instance:bgp"]["global"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+
+        data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+        data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+        data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+        data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+
+        peer_data = dict()
+        peer_data.update({"peer-group-name": peergroup})
+        peer_data["config"] = dict()
+        if str(remote_as).isdigit():
+            peer_data["config"].update({"peer-group-name": peergroup, "peer-as": int(remote_as)})
+        else:
+            if remote_as == "internal":
+                peer_type = "INTERNAL"
+            else:
+                peer_type = "EXTERNAL"
+            peer_data["config"].update({"peer-group-name": peergroup, "peer-type": peer_type})
+
+        peer_data["afi-safis"] = dict()
+        peer_data["afi-safis"]["afi-safi"] = list()
+        peer_sub = dict()
+
+        if 'keep_alive' in kwargs and 'hold' in kwargs:
+            peer_data["timers"]=dict()
+            peer_data["timers"]["config"] = dict()
+            peer_data["timers"]["config"].update({"hold-time": str(holdtime), "keepalive-interval": str(keepalive)})
+
+        if 'password' in kwargs:
+            peer_data["openconfig-bgp-ext:auth-password"] = dict()
+            peer_data["openconfig-bgp-ext:auth-password"]["config"] = dict()
+            peer_data["openconfig-bgp-ext:auth-password"]["config"].update({"password": password})
+        if 'activate' in kwargs:
+            peer_sub.update(
+                {"afi-safi-name": afi_safi_name, "config": {"afi-safi-name": afi_safi_name, "enabled": True}})
+
+            open_data = dict()
+            open_data["openconfig-network-instance:table-connections"] = dict()
+            open_data["openconfig-network-instance:table-connections"]["table-connection"] = list()
+            if 'redistribute' in kwargs:
+                sub_data = dict()
+                redis_li = list(kwargs['redistribute']) if isinstance(kwargs['redistribute'], list) else [
+                    kwargs['redistribute']]
+                for each in redis_li:
+                    if each == 'connected':
+
+                        sub_data["config"] = dict()
+
+                        redist_type = 'DIRECTLY_CONNECTED'
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_connected']
+                            url = url.format(vrf_name, redist_type)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute connected")
+
+
+                    elif each == 'static':
+
+                        sub_data["config"] = dict()
+
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(),
+                                 "src-protocol": each.upper()})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(),
+                                 "src-protocol": each.upper()})
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_static']
+                            url = url.format(vrf_name, each.upper())
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute connected")
+
+
+                    elif each == 'ospf':
+
+                        sub_data["config"] = dict()
+
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(),
+                                 "src-protocol": each.upper()})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(),
+                                 "src-protocol": each.upper()})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_ospf']
+                            url = url.format(vrf_name, redistribute.upper())
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute connected")
+
+
+
+                    else:
+                        st.error("unsupported redistribute value")
+                    if sub_data:
+                        open_data["openconfig-network-instance:table-connections"]["table-connection"].append(sub_data)
+
+
+            if 'routemap' in kwargs:
+                if 'routemap_dir' in kwargs:
+                    if kwargs['routemap_dir'] == "out":
+                        peer_sub.update(
+                            {"apply-policy": {
+                                "config": {"export-policy": [routeMap], "default-export-policy": "REJECT_ROUTE"}}})
+                    else:
+                        peer_sub.update(
+                            {"apply-policy": {
+                                "config": {"import-policy": [routeMap], "default-import-policy": "REJECT_ROUTE"}}})
+
+            for each_neigh in neigh_ip_li:
+                neigh = {
+                    "neighbor-address": each_neigh,
+                    "config": {
+                        "peer-group": peergroup,
+                        "neighbor-address": each_neigh
+
+                    },
+                    "timers": {
+                    "config": {
+                    "connect-retry": "60"}}
+
+                }
+                data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh)
+
+            url = st.get_datastore(dut, "rest_urls")['bgp_config_route_map'].format(vrf_name)
+            if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=open_data):
+                st.error("failed to config route-map")
+
+
+        peer_data["afi-safis"]["afi-safi"].append(peer_sub)
+        data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+
+        url = st.get_datastore(dut, "rest_urls")['bgp_config'].format(vrf_name)
+        if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=data):
+            st.error("failed configure neighbor")
+            return False
+        return True
+
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -2051,17 +3280,23 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
             return False
 
     st.debug(output)
+
+
     # Specifically checking neighbor state
     if 'neighbor' in kwargs and 'state' in kwargs:
         neigh_li = list(kwargs['neighbor']) if isinstance(kwargs['neighbor'], list) else [kwargs['neighbor']]
         for each_neigh in neigh_li:
             #For dynamic neighbor, removing *, as it is not displayed in klish
-            if shell == 'klish' or cli_type =='klish':
-                st.log('For dynamic neighbor, removing *, as it is not displayed in klish')
+            if shell in ['klish','rest-patch','rest-put'] or cli_type in ['klish','rest-patch','rest-put']:
+                st.log('For dynamic neighbor, removing *, as it is not displayed in klish, rest-patch,rest-put')
                 each_neigh = each_neigh.lstrip('*')
             match = {'neighbor': each_neigh}
             try:
-                entries = filter_and_select(output, None, match)[0]
+                entries = filter_and_select(output, None, match)
+                if not entries:
+                    st.debug("Entries : {}".format(entries))
+                    return False
+                entries = entries[0]
             except Exception as e:
                 st.error(e)
                 st.log("Neighbor {} given state {}, matching with {}  ".format(each_neigh, kwargs['state'],
@@ -2196,6 +3431,98 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
         cmd = cmd + 'exit\nexit\n'
         st.config(dut, cmd, type=cli_type, skip_error_check=skip_error_check, conf = True)
         return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+
+        #vrf_name1=""
+        vrf_name1=vrf.lower()
+        vrf_name1 = 'default' if vrf_name1 !=vrf.lower() else vrf_name1
+        family=mode_type
+        if family == "ipv4":
+            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        elif family == "l2vpn":
+            afi_safi_name = "L2VPN_EVPN"
+        else:
+            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+        data_asn=dict()
+        data_asn["openconfig-network-instance:bgp"] = dict()
+        data_asn["openconfig-network-instance:bgp"]["global"] = dict()
+        data_asn["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+        data_asn["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(local_asn)
+        data_asn["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+        data_asn["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+        afi_data=dict()
+        afi_data["config"]=dict()
+        afi_data.update({"afi-safi-name": afi_safi_name})
+        afi_data["config"].update({"afi-safi-name": afi_safi_name})
+        data_asn["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+        url=rest_urls['bgp_config'].format(vrf_name1)
+        if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=data_asn):
+            st.error("failed to config local as")
+        if value:
+            if value == "connected":
+                redist_type = value.upper()
+                if redist_type == 'CONNECTED': redist_type = 'DIRECTLY_CONNECTED'
+            elif value == "static":
+                redist_type = value.upper()
+            elif value == "ospf":
+                redist_type = value.upper()
+            else:
+                st.log("invalid redist type")
+
+        if cfgmode != "no":
+            if route_map:
+                url = rest_urls["bgp_route_redistribute"].format(vrf_name1)
+                data = { "openconfig-network-instance:table-connections": {"table-connection": [{
+                        "src-protocol": redist_type,
+                        "dst-protocol": "BGP",
+                        "address-family": family.upper(),
+                        "config": {
+                            "src-protocol": redist_type,
+                            "address-family": family.upper(),
+                            "dst-protocol": "BGP",
+                            "import-policy": [
+                                route_map
+                            ]}}]}, "protocols": {"protocol": [{
+                        "identifier": "BGP",
+                        "name": "bgp",
+                        "config": {
+                            "identifier": "BGP",
+                            "name": "bgp",
+                            "enabled": True,
+                        }
+                        }]}}
+                if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=data):
+                    st.error("redistribute config failed")
+
+            else:
+                url = rest_urls["bgp_route_redistribute"].format(vrf_name1)
+                data = {"openconfig-network-instance:table-connections": {"table-connection": [{
+                    "src-protocol": redist_type,
+                    "dst-protocol": "BGP",
+                    "address-family": family.upper(),
+                    "config": {
+                        "src-protocol": redist_type,
+                        "address-family": family.upper(),
+                        "dst-protocol": "BGP"}}]}, "protocols": {"protocol": [{
+                    "identifier": "BGP",
+                    "name": "bgp",
+                    "config": {
+                        "identifier": "BGP",
+                        "name": "bgp"
+
+                    }
+                }]}}
+                if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=data):
+                    st.error("redistribute config failed")
+                    return False
+
+        else:
+            url = st.get_datastore(dut,"rest_urls")['bgp_del_redist'].format(vrf_name1,redist_type,family.upper())
+            if not delete_rest(dut, rest_url=url):
+                st.error("redistribute delete config failed")
+                return False
+            return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False
@@ -2266,6 +3593,7 @@ def config_bgp(dut, **kwargs):
     removeBGP = kwargs.get('removeBGP', 'no')
     diRection = kwargs.get('diRection', 'in')
     weight = kwargs.get('weight', None)
+    allowas_in = kwargs.get("allowas_in",None)
     config_cmd = "" if config.lower() == 'yes' else "no"
     my_cmd =''
     if cli_type == "vtysh":
@@ -2431,7 +3759,7 @@ def config_bgp(dut, **kwargs):
         no_neighbor = "no" if kwargs.get("config") == "no"  else ""
         sub_list = ["neighbor", "routeMap", "shutdown", "activate", "nexthop_self", "pswd", "update_src",
                     "bfd", "default_originate", "removePrivateAs", "no_neigh","remote-as","filter_list",
-                    "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop","peergroup","update_src_intf","connect"]
+                    "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop","peergroup","update_src_intf","connect","allowas_in"]
 
         if 'local_as' in kwargs and removeBGP != 'yes':
             if vrf_name != 'default':
@@ -2556,7 +3884,7 @@ def config_bgp(dut, **kwargs):
                 elif removePrivateAs:
                     my_cmd = 'address-family {} unicast'.format(addr_family)
                     commands.append(my_cmd)
-                    my_cmd = '{} remove-private-AS'.format(config_cmd)
+                    my_cmd = '{} remove-private-as'.format(config_cmd)
                     commands.append(my_cmd)
                     commands.append("exit")
                     removePrivateAs = False
@@ -2629,6 +3957,13 @@ def config_bgp(dut, **kwargs):
                     my_cmd = '{} timers connect {}'.format(config_cmd, connect)
                     commands.append(my_cmd)
                     connect = None
+                elif allowas_in:
+                    my_cmd = 'address-family {} unicast'.format(addr_family)
+                    commands.append(my_cmd)
+                    my_cmd = '{} allowas-in {}'.format(config_cmd, allowas_in)
+                    commands.append(my_cmd)
+                    commands.append("exit")
+                    allowas_in = None
 
                 st.log('config_bgp command_list: {}'.format(commands))
                 #come back to router bgp context
@@ -2695,7 +4030,7 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'peer_group':
                 st.log("Configuring the peer_group on the device")
             else:
-                st.log('Invalid BGP config parameter')
+                st.log('Invalid BGP config parameter {}'.format(type1))
         if config_cmd == 'no' and 'neighbor' in config_type_list and neigh_name and not peergroup:
            if isinstance(neigh_name, dict):
                my_cmd = "{} neighbor interface {} {}".format(config_cmd, neigh_name["type"],neigh_name["number"])
@@ -2728,51 +4063,74 @@ def config_bgp(dut, **kwargs):
         route_map = True if "routeMap" in config_type_list else False
         default_originate = True if "default_originate" in config_type_list else False
         removePrivateAs = True if "removePrivateAs" in config_type_list else False
-        #no_neighbor = "no" if kwargs.get("config") == "no" else ""
+        no_neighbor = "no" if kwargs.get("config") == "no" else ""
         sub_list = ["neighbor", "routeMap", "shutdown", "activate", "nexthop_self", "pswd", "update_src",
                     "bfd", "default_originate", "removePrivateAs", "no_neigh", "remote-as", "filter_list",
                     "prefix_list", "distribute_list", "weight", "keepalive", "holdtime", "ebgp_mhop", "peergroup",
-                    "update_src_intf", "connect"]
-        bgp_data = dict()
-        bgp_data["openconfig-network-instance:bgp"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["confederation"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["dynamic-neighbor-prefixes"][
-            "dynamic-neighbor-prefixe"] = list()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:bgp-ext-route-reflector"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:global-defaults"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:update-delay"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["global"]["openconfig-bgp-ext:max-med"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["neighbors"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
-        bgp_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
-        bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
-        delete_urls = []  # All the delete URLS should be appended to this list
-        # neigh_name = get_interface_number_from_name(neighbor)
-        family = kwargs.get('family', None)
+                    "update_src_intf", "connect","redist"]
+        #bgp_data = dict()
+        global_data = dict()
+        neigh_data = dict()
+        peer_data = dict()
+        common_data = dict()
+
+        global_data["openconfig-network-instance:bgp"] = dict()
+        global_data["openconfig-network-instance:bgp"]["global"] = dict()
+        global_data["openconfig-network-instance:bgp"]["global"]["config"] = dict()
+
+        open_data = dict()
+        open_data["openconfig-network-instance:table-connections"] = dict()
+        open_data["openconfig-network-instance:table-connections"]["table-connection"] = list()
+
+        neigh_data = dict()
+
+        common_data = dict()
+
+        open_data = dict()
+        open_data["openconfig-network-instance:table-connections"] = dict()
+        open_data["openconfig-network-instance:table-connections"]["table-connection"] = list()
+        if neighbor:
+            neigh_data = dict()
+            global_data["openconfig-network-instance:bgp"]["neighbors"] = dict()
+            global_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"] = list()
+            neigh_data.update({"neighbor-address": neighbor})
+            neigh_data["config"] = dict()
+        if peergroup:
+            peer_data = dict()
+            global_data["openconfig-network-instance:bgp"]["peer-groups"] = dict()
+            global_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"] = list()
+            peer_data.update({'peer-group-address': peergroup})
+            peer_data['config'] = dict()
+
+        family = kwargs.get('addr_family', "ipv4")
         if family == "ipv4":
             afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+        elif addr_family == "l2vpn":
+            afi_safi_name = "L2VPN_EVPN"
         else:
             afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
 
+
         if 'local_as' in kwargs and removeBGP != 'yes':
-            bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = kwargs.get("local_as")
+            global_data["openconfig-network-instance:bgp"]["global"]["config"]["as"] = int(kwargs.get("local_as"))
             if router_id:
-                bgp_data["openconfig-network-instance:bgp"]["global"]["config"]["router-id"] = router_id
+                if config_cmd != "no":
+                    global_data["openconfig-network-instance:bgp"]["global"]["config"]["router-id"] = router_id
+                else:
+                    url=st.get_datastore(dut,"rest_urls")["bgp_del_rid"].format(vrf_name)
+                    if not delete_rest(dut,rest_url=url):
+                        st.error("failed to unconfig router-id")
 
         if peergroup:
-            # print(bgp_data)
-            peer_data = dict()
-            peer_data.update({'peer-group-address': peergroup})
-            bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
-            peer_data['config'] = dict()
-            peer_data["config"].update({'peer-group-address': peergroup})
+            if config_cmd != 'no':
+                peer_data.update({'peer-group-address': peergroup})
+
+                peer_data['config'] = dict()
+                peer_data["config"].update({'peer-group-address': peergroup})
+            else:
+                url=st.get_datastore(dut,"rest_urls")['bgp_del_peer_group'].format(vrf_name,peergroup)
+                if not delete_rest(dut,rest_url=url):
+                    st.error("failed to unconfig peergroup")
 
         config_default_activate = True
         config_remote_as = True
@@ -2781,357 +4139,845 @@ def config_bgp(dut, **kwargs):
         for type1 in config_type_list:
             if type1 in sub_list:
                 if neighbor and not peergroup:
-                    neigh_data = dict()
+
                     neigh_data.update({"neighbor-address": neighbor})
                     neigh_data["config"] = dict()
                     neigh_data["config"].update({"neighbor-address": neighbor})
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+
                 if peergroup:
-                    peer_data = dict()
-                    peer_data.update({'peer-group-address': peergroup})
-                    bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
-                    peer_data['config'] = dict()
-                    peer_data["config"].update({'peer-group-address': peergroup})
-                if 'peergroup' in config_type_list:
-                    # if isinstance(neigh_name, dict):
-                    if activate and config_cmd == "no":
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                # delete_rest(dut, rest_url=url)
-                                if not delete_rest(dut, rest_url=url):
-                                    st.error("neighbor is failed")
+                    if config_cmd != 'no':
+                        peer_data = dict()
+                        peer_data.update({'peer-group-address': peergroup})
+
+                        peer_data['config'] = dict()
+                        peer_data["config"].update({'peer-group-address': peergroup})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_peer_group'].format(vrf_name,peergroup)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to delete peer group")
+
+                    if 'peergroup' in config_type_list:
+
+                        if activate and no_neighbor == "no":
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
+                            url=url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("neighbor delete is failed")
+
                         else:
-                            neigh_data = dict()
+
                             neigh_data.update({"neighbor-address": neighbor})
-                            neigh_data["config"] = dict()
+
                             neigh_data["config"].update({"neighbor-address": neighbor})
-                            bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                            if neighbor:
-                                neigh_data1 = dict()
-                                neigh_data1["afi-safis"] = dict()
-                                neigh_data1["afi-safis"]["afi-safi"] = list()
-                                neigh_data1_sub = dict()
-                                neigh_data1_sub.update({"afi-safi-name": afi_safi_name})
-                                neigh_data1_sub["config"] = dict()
-                                neigh_data1_sub["config"].update({"afi-safi-name": "afi-safi-name", "enabled": True})
-                                neigh_data1.update(neigh_data1_sub)
-                                bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data1)
 
                 if config_remote_as and remote_as:
                     if interface and not peergroup:
-                        neigh_data = dict()
+
                         neigh_data.update({"neighbor-address": neighbor})
                         neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": remote_as})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    config_remote_as = False
+                        neigh_data["config"].update({"neighbor-address": neighbor})
+
+                    if config_cmd != 'no':
+
+                        neigh_data.update({"neighbor-address": neighbor})
+
+                        if str(remote_as).isdigit(): #peer_as = remote_as else peer_type = remote_as
+                            neigh_data["config"].update({"neighbor-address": neighbor, "peer-as": int(remote_as)})
+                        else:
+                            if remote_as == "internal":
+                                peer_type= "INTERNAL"
+                            else:
+                                peer_type="EXTERNAL"
+                            neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": peer_type})
+
+                    else:
+                        url=st.get_datastore(dut,"rest_urls")['bgp_del_remote_as']
+                        url=url.format(vrf_name,neighbor)
+                        if not delete_rest(dut,rest_url=url):
+                            st.error("failed to delete remote-as")
+
+                    #config_remote_as = False
 
                 if config_default_activate and (activate or neighbor):
                     if config_cmd == "":
-                        family = kwargs.get('family', None)
-                        if family == "ipv4":
-                            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
-                        else:
+                        family = kwargs.get('addr_family', "ipv4")
+                        if family == "ipv6":
                             afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
-                        afi_data = dict()
-                        afi_data.update({"afi-safi-name": afi_safi_name})
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                        afi_data['config'] = dict()
-                        afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                        else:
+                            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
+                        neigh_data_sub = dict()
+                        neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                        neigh_data_sub["config"] = dict()
+                        neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name,"enabled":True})
+
+                        common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                        if family == "ipv6":
+                            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                            neigh_data_sub1 = dict()
+                            neigh_data_sub1.update({"afi-safi-name": afi_safi_name})
+                            neigh_data_sub1["config"] = dict()
+                            neigh_data_sub1["config"].update({"afi-safi-name": afi_safi_name, "enabled": True})
+                            common_data["afi-safis"]["afi-safi"].append(neigh_data_sub1)
                     elif activate and config_cmd == "no":
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                    activate = None
+
+                        family = kwargs.get('addr_family', 'ipv4')
+                        if family != "ipv4":
+                            afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                        else:
+                            afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
+                        neigh_data_sub = dict()
+                        neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                        neigh_data_sub["config"] = dict()
+                        neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name, "enabled": False})
+                        common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                #activate = None
 
                 if shutdown:
-                    neigh_data["config"].update({"enabled": False})
-                    shutdown = None
+                    common_data["config"] = dict()
+                    if config_cmd != 'no':
+                        common_data["config"].update({"enabled": True})
+                    else:
+                        common_data["config"].update({"enabled": False})
+                    #shutdown = None
                 elif route_map:
-                    neigh_data = dict()
-                    neigh_data.update({"neighbor-address": neighbor})
-                    neigh_data["config"] = dict()
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    neigh_data["afi-safis"] = dict()
-                    neigh_data["afi-safis"]["afi-safi"] = list()
+
+                    family = kwargs.get('addr_family', "ipv4")
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    if not common_data:
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
                     neigh_data_sub = dict()
-                    neigh_data_sub.update({"afi-safi-name": "afi-safi-name"})
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
                     neigh_data_sub["config"] = dict()
-                    neigh_data_sub["config"].update({"afi-safi-name": "afi-safi-name"})
-                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
                     neigh_data_sub["apply-policy"] = dict()
                     neigh_data_sub["apply-policy"]["config"] = dict()
-                    neigh_data_sub["apply-policy"]["config"].update({"import-policy": ["route-map"]})
-                    route_map = False
+                    if config_cmd != 'no':
+                        if diRection == 'in':
+                            neigh_data_sub["apply-policy"]["config"].update({"import-policy": [routeMap]})
+                        else:
+                            neigh_data_sub["apply-policy"]["config"].update({"export-policy": [routeMap]})
+                    else:
+                        if diRection == 'in':
+                            url=st.get_datastore(dut,"rest_urls")['bgp_del_route_map_in']
+                            url=url.format(vrf_name,neighbor,afi_safi_name[21:],routeMap)
+                            if not delete_rest(dut,rest_url=url):
+                                st.error("failed to delete route-map inboud")
+
+                        else:
+                            url = st.get_datastore(dut,"rest_urls")['bgp_del_route_map_out']
+                            url = url.format(vrf_name, neighbor, afi_safi_name[21:], routeMap)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete route-map outbound")
+
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #route_map = False
                 elif filter_list:
+                    family = kwargs.get('addr_family', "ipv4")
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    if not common_data:
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
                     neigh_data_sub["openconfig-bgp-ext:filter-list"] = dict()
                     neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"].update({"import-policy": "filter-list"})
-                    filter_list = None
-                elif prefix_list:
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update({"import-policy": "prefix-list"})
-                    prefix_list = None
-                elif distribute_list:
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update({"import-policy": "prefix-list"})
-                    distribute_list = None
-                elif default_originate:
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data["ipv4-unicast"] = dict()
-                    afi_data["ipv4-unicast"]["config"] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
-                    if 'routeMap' in kwargs:
-                        afi_data["ipv4-unicast"]["config"].update({"send-default-route": True, "openconfig-bgp-ext:default-policy-name": "routeMap"})
+                    if config_cmd != 'no':
+                        if diRection == 'in':
+                            neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"].update(
+                                {"import-policy": filter_list})
+                        else:
+                            neigh_data_sub["openconfig-bgp-ext:filter-list"]["config"].update(
+                                {"export-policy": filter_list})
                     else:
-                        afi_data["ipv4-unicast"]["config"].update({"send-default-route": True})
-                    default_originate = False
+                        if diRection == 'in':
+                            url = st.get_datastore(dut,"rest_urls")['bgp_del_filter_list_in']
+                            url = url.format(vrf_name, neighbor, afi_safi_name[21:])
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete filter-list inboud")
+
+                        else:
+                            url = st.get_datastore(dut,"rest_urls")['bgp_del_filter_list_out']
+                            url = url.format(vrf_name, neighbor, afi_safi_name[21:])
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete filter-list outbound")
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #filter_list = None
+                elif prefix_list:
+                    family = kwargs.get('addr_family', "ipv4")
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    if not common_data:
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
+
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
+
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
+                    if config_cmd != 'no':
+                        if diRection == 'in':
+                            neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update(
+                                {"import-policy": prefix_list})
+                        else:
+                            neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update(
+                                {"export-policy": prefix_list})
+                    else:
+                        family = kwargs.get('addr_family', "ipv4")
+                        if family == "ipv6":
+                            afi_safi_name_del = "IPV6_UNICAST"
+                        else:
+                            afi_safi_name_del = "IPV4_UNICAST"
+                        if diRection == 'in':
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_prefix_list_in']
+                            url = url.format(vrf_name, neighbor, afi_safi_name_del)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete prefix-list inboud")
+                                return False
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_prefix_list_out']
+                            url = url.format(vrf_name, neighbor, afi_safi_name_del)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete prefix-list outbound")
+
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #prefix_list = None
+                elif distribute_list:
+
+                    common_data["afi-safis"] = dict()
+                    common_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"] = dict()
+                    neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"] = dict()
+                    if config_cmd != 'no':
+                        if diRection == 'in':
+                            neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update(
+                                {"import-policy": prefix_list})
+                        else:
+                            neigh_data_sub["openconfig-bgp-ext:prefix-list"]["config"].update(
+                                {"export-policy": prefix_list})
+                    else:
+                        family = kwargs.get('addr_family', "ipv4")
+                        if family == "ipv6":
+                            afi_safi_name_del = "IPV6_UNICAST"
+                        else:
+                            afi_safi_name_del = "IPV4_UNICAST"
+                        if diRection == 'in':
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_prefix_list_in']
+                            url = url.format(vrf_name, neighbor, afi_safi_name_del,prefix_list)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete ditribute-list inboud")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_prefix_list_out']
+                            url = url.format(vrf_name, neighbor, afi_safi_name_del,prefix_list)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete distribute-list outbound")
+
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #prefix_list = None
+                elif default_originate:
+                    #family = kwargs.get('addr_family', "ipv4")
+                    #if family == "ipv6":
+                        #afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    #else:
+                        #afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    if not common_data:
+                        common_data["afi-safis"] = dict()
+                        common_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub["ipv4-unicast"] = dict()
+                    neigh_data_sub["ipv4-unicast"]["config"] = dict()
+
+                    if 'routeMap' in kwargs:
+                        if config_cmd != 'no':
+                            neigh_data_sub["ipv4-unicast"]["config"].update({"send-default-route": True, "openconfig-bgp-ext:default-policy-name": routeMap})
+
+                        else:
+                            neigh_data_sub["ipv4-unicast"]["config"].update({"send-default-route": False})
+                    else:
+                        neigh_data_sub["ipv4-unicast"]["config"].update({"send-default-route": True})
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #default_originate = False
                 elif removePrivateAs:
+                    common_data["afi-safis"] = dict()
+                    common_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
                     neigh_data_sub["openconfig-bgp-ext:remove-private-as"] = dict()
                     neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"].update({"enabled": True})
-                    removePrivateAs = False
-                elif weight:
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
-                    neigh_data = dict()
-                    neigh_data["afi-safis"] = dict()
-                    neigh_data["afi-safis"]["afi-safi"] = list()
-                    neigh_data_sub = dict()
-                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
-                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
-                    neigh_data_sub['config'] = dict()
-                    neigh_data_sub['config'].update(
-                        {"afi-safi-name": afi_safi_name, "enabled": True, "openconfig-bgp-ext:weight": 0})
-                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["neighbors"]["neighbor"].append(neigh_data)
-                    weight = None
-                elif keepalive and holdtime:
-                    if isinstance(neighbor, dict):
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
+                    if config_cmd != "no":
+                        neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"].update({"enabled": True})
                     else:
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                        neigh_data["timers"] = dict()
-                        neigh_data["timers"]["config"] = dict()
-                        neigh_data["timers"]["config"].update({"hold-time": holdtime, "keepalive-interval": keepalive})
-                    keepalive = 0
-                    holdtime = 0
-                elif nexthop_self:
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
-                    neigh_data = dict()
-                    neigh_data.update({"neighbor-address": "string"})
-                    neigh_data["afi-safis"] = dict()
-                    neigh_data["afi-safis"]["afi-safi"] = list()
+                        neigh_data_sub["openconfig-bgp-ext:remove-private-as"]["config"].update({"enabled": False})
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    #removePrivateAs = False
+                elif weight:
+
+                    family = kwargs.get('addr_family', "ipv4")
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    common_data["afi-safis"] = dict()
+                    common_data["afi-safis"]["afi-safi"] = list()
                     neigh_data_sub = dict()
                     neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+
+                    neigh_data_sub['config'] = dict()
+                    if config_cmd!='no':
+                        neigh_data_sub['config'].update({"afi-safi-name": afi_safi_name, "enabled": True, "openconfig-bgp-ext:weight": int(weight)})
+                    else:
+                        if neighbor and not peergroup:
+                            url=st.get_datastore(dut,"rest_urls")['bgp_del_weight']
+                            url=url.format(vrf_name,neighbor,family)
+                            if not delete_rest(dut,rest_url=url):
+                                st.error("failed to delete weight")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_weight_peer']
+                            url = url.format(vrf_name, peergroup, family)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete weight")
+
+                    common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+
+                    #weight = None
+                elif keepalive and holdtime:
+                    family=kwargs.get("addr_family",'ipv4')
+                    if neighbor:
+                        if no_neighbor == "no":
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config'].format("default",neighbor)
+
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("neighbor delete is failed")
+
+                        else:
+                            neigh_data.update({"neighbor-address":neighbor})
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+
+                    common_data["timers"] = dict()
+                    common_data["timers"]["config"] = dict()
+
+                    if config_cmd != 'no':
+                        common_data["timers"]["config"].update({"hold-time": str(holdtime), "keepalive-interval": str(keepalive)})
+                    else:
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut,"rest_urls")['bgp_del_timers']
+                            url=url.format(vrf_name,neighbor,family)
+                            if not delete_rest(dut,rest_url=url):
+                                st.error("failed to delete timers")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_timers_peer']
+                            url = url.format(vrf_name, peergroup,family)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete timers")
+
+                    #keepalive = 0
+                    #holdtime = 0
+                elif nexthop_self:
+
+                    common_data["afi-safis"] = dict()
+                    common_data["afi-safis"]["afi-safi"] = list()
+                    neigh_data_sub = dict()
+                    neigh_data_sub.update({"afi-safi-name": afi_safi_name})
+                    neigh_data_sub["config"] = dict()
+                    neigh_data_sub["config"].update({"afi-safi-name": afi_safi_name})
                     neigh_data_sub["openconfig-bgp-ext:next-hop-self"] = dict()
                     neigh_data_sub["openconfig-bgp-ext:next-hop-self"]["config"] = dict()
-                    neigh_data_sub["openconfig-bgp-ext:next-hop-self"]["config"].update(
-                        {"enabled": True, "force": True})
-                    neigh_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["neighbors"]["neighbor"].append(neigh_data)
-                    nexthop_self = None
+                    if config_cmd !='no':
+                        neigh_data_sub["openconfig-bgp-ext:next-hop-self"]["config"].update(
+                        {"enabled": True})
+                        common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    else:
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_nexthop_self']
+                            url = url.format(vrf_name,neighbor,family)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete nexthop self")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_nexthop_self_peer']
+                            url = url.format(vrf_name, peergroup,family)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete nexthop self")
+
+                    #nexthop_self = None
                 elif pswd:
                     password = "" if config_cmd == 'no' else password
-                    if password:
+                    #neigh_data_sub = dict()
+                    if config_cmd != 'no':
                         neigh_data["openconfig-bgp-ext:auth-password"] = dict()
                         neigh_data["openconfig-bgp-ext:auth-password"]["config"] = dict()
                         neigh_data["openconfig-bgp-ext:auth-password"]["config"].update({"password": password})
+
                     else:
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                    pswd = False
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_pwd']
+                            url = url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete pwd")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_pwd']
+                            url = url.format(vrf_name, peergroup)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete pwd")
+
+
+                    #pswd = False
                 elif update_src:
-                    neigh_data = dict()
-                    neigh_data.update({"neighbor-address": neighbor})
-                    neigh_data["config"] = dict()
-                    neigh_data["config"].update({"neighbor-address": neighbor})
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    update_src = None
+                    if neighbor:
+                        if no_neighbor == 'no':
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config'].format("default",neighbor)
+
+                            if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                st.error("neighbor is failed")
+
+                        else:
+                            neigh_data.update({"neighbor-address": neighbor})
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+                        common_data.update(neigh_data)
+                    neigh_data_sub = dict()
+                    neigh_data_sub["transport"]=dict()
+                    neigh_data_sub["transport"]["config"] = dict()
+                    if config_cmd!='no':
+                        neigh_data_sub["transport"]["config"].update({"local-address": update_src})
+                        common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
+                    else:
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_update_src']
+                            url = url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete update_src")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_update_src_peer']
+                            url = url.format(vrf_name, peergroup)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete update_src")
+
+                    #update_src = None
                 elif update_src_intf:
                     if neighbor:
-                        neigh_data = dict()
-                        neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        if no_neighbor == 'no':
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config'].format("default", neighbor)
+
+                            if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                st.error("neighbor is failed")
+
+                        else:
+                            neigh_data.update({"neighbor-address": neighbor})
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+
+                    neigh_data_sub = dict()
+                    neigh_data_sub["transport"] = dict()
+                    neigh_data_sub["transport"]["config"] = dict()
+                    if config_cmd != 'no':
+                        neigh_data_sub["transport"]["config"].update({"local-address": update_src})
+                        common_data["afi-safis"]["afi-safi"].append(neigh_data_sub)
                     else:
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                    if update_src_intf:
-                        neigh_data = dict()
-                        neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor})
-                        neigh_data["transport"] = dict()
-                        neigh_data["transport"]["config"] = dict()
-                        neigh_data.update({"local-address": update_src_intf})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                        update_src_intf = None
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_update_src']
+                            url = url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete update_src")
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_update_src_peer']
+                            url = url.format(vrf_name, peergroup)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete update_src")
+
+                    #update_src_intf = None
                 elif ebgp_mhop:
                     if neighbor:
-                        neigh_data = dict()
-                        neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        if no_neighbor == 'no':
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config'].format("default",neighbor)
+
+                            if not delete_rest(dut, rest_url=url.format("default", neighbor)):
+                                st.error("neighbor is failed")
+
+                        else:
+                            neigh_data.update({"neighbor-address": neighbor})
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+
+                    neigh_data_sub = dict()
+                    neigh_data_sub["ebgp-multihop"] = dict()
+                    neigh_data_sub["ebgp-multihop"]["config"] = dict()
+                    if config_cmd != 'no':
+                        neigh_data_sub["ebgp-multihop"]["config"].update({"enabled": True,"multihop-ttl": int(ebgp_mhop) })
+
+                        neigh_data.update(neigh_data_sub)
                     else:
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        delete_urls.append(url.format("default", neighbor))
-                        if delete_urls:
-                            for url in delete_urls:
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                        neigh_data = dict()
-                        neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor})
-                        neigh_data["ebgp-multihop"] = dict()
-                        neigh_data["ebgp-multihop"]["config"] = dict()
-                        neigh_data.update({"multihop-ttl": ebgp_mhop})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                        ebgp_mhop = None
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_ebgp_mhop']
+                            url = url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete ebgp mhop")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_ebgp_mhop_peer']
+                            url = url.format(vrf_name, peergroup)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete ebgp mhop")
+
+                    #ebgp_mhop = None
                 elif bfd:
-                    if interface and remote_as:
-                        neigh_data = dict()
-                        neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
-                        neigh_data["config"].update({"neighbor-address": neighbor})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                elif neighbor and not interface and remote_as:
-                    neigh_data = dict()
-                    neigh_data.update({"neighbor-address": neighbor})
-                    neigh_data["config"] = dict()
-                    neigh_data["config"].update({"neighbor-address": neighbor})
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": remote_as})
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    neigh_data["openconfig-bfd:enable-bfd"] = dict()
-                    neigh_data["openconfig-bfd:enable-bfd"]["config"] = dict()
-                    neigh_data.update({"enabled": True})
-                    bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                    bfd = False
+                    if (neighbor or interface) and remote_as:
+
+                        st.log("interface:")
+                        st.log(interface)
+                        st.log("neighbor:")
+                        st.log(neighbor)
+                        if neighbor:
+
+                            neigh_data.update({"neighbor-address": neighbor})
+                            neigh_data["config"] = dict()
+                            neigh_data["config"].update({"neighbor-address": neighbor})
+                            if str(remote_as).isdigit():
+                                neigh_data["config"].update({"neighbor-address": neighbor, "peer-as": int(remote_as)})
+                            else:
+                                if remote_as == "internal":
+                                    peer_type = "INTERNAL"
+                                else:
+                                    peer_type = "EXTERNAL"
+                                neigh_data["config"].update({"neighbor-address": neighbor, "peer-type": peer_type})
+                        else:
+                            neigh_data.update({"neighbor-address": interface})
+                            neigh_data["config"] = dict()
+                            neigh_data["config"].update({"neighbor-address": interface})
+                            if str(remote_as).isdigit():
+                                neigh_data["config"].update({"neighbor-address": interface, "peer-as": int(remote_as)})
+                            else:
+                                if remote_as == "internal":
+                                    peer_type = "INTERNAL"
+                                else:
+                                    peer_type = "EXTERNAL"
+                                neigh_data["config"].update({"neighbor-address": interface, "peer-type": peer_type})
+
+
+                        neigh_data_sub = dict()
+                        neigh_data_sub["openconfig-bfd:enable-bfd"] = dict()
+                        neigh_data_sub["openconfig-bfd:enable-bfd"]["config"] = dict()
+                        if config_cmd != 'no':
+                            neigh_data_sub["openconfig-bfd:enable-bfd"]["config"].update({"enabled": True})
+                        else:
+                            url=st.get_datastore(dut,"rest_urls")['bgp_del_bfd']
+                            url=url.format(vrf_name,neighbor)
+                            if not delete_rest(dut,rest_url=url):
+                                st.error("failed to disable bfd")
+
+                        neigh_data.update(neigh_data_sub)
+                        global_data["openconfig-network-instance:bgp"]["neighbors"]=dict()
+                        global_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"]=list()
+                        global_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+                        #bfd = False
                 elif connect:
-                    peer_data = dict()
-                    peer_data.update({'peer-group-address': peergroup})
-                    bgp_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
-                    peer_data['timers'] = dict()
-                    peer_data['timers']["config"] = dict()
-                    peer_data.update({"connect-retry": 10})
-                    connect = None
-                elif type1 == 'fast_external_failover':
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update(
-                        {"openconfig-bgp-ext:fast-external-failover": True})
-                elif type1 == 'bgp_bestpath_selection':
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"] = dict()
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"] = dict()
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update(
-                        {"external-compare-router-id": True})
-                elif type1 == 'max_path_ibgp':
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name, "enabled": True})
-                    afi_data["use-multiple-paths"] = dict()
-                    afi_data["use-multiple-paths"]["ibgp"] = dict()
-                    afi_data["use-multiple-paths"]["ibgp"]["config"] = dict()
-                    afi_data["use-multiple-paths"]["ibgp"]["config"].update({"maximum-paths": type1})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                elif type1 == 'max_path_ebgp':
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": 'afi-safi-name'})
-                    if config_cmd == '' or config_cmd == 'yes':
-                        afi_data["use-multiple-paths"] = dict()
-                        afi_data["use-multiple-paths"]["ebgp"] = dict()
-                        afi_data["use-multiple-paths"]["ebgp"]["config"] = dict()
-                        afi_data["use-multiple-paths"]["ebgp"]["config"].update({"maximum-paths": type1})
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    common_data["timers"] = dict()
+                    common_data["timers"]["config"] = dict()
+                    if config_cmd != 'no':
+                        common_data["timers"]["config"].update({"connect-retry": str(connect)})
                     else:
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"] = dict()
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"][
-                            "config"] = dict()
-                        bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"][
-                            "config"].update({"allow-multiple-as": True})
+                        if neighbor and not peergroup:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_connect']
+                            url = url.format(vrf_name, neighbor)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete connect")
+
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_connect_peer']
+                            url = url.format(vrf_name, peergroup)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to delete connect")
+
+                    #connect = None
+                elif type1 == 'fast_external_failover':
+                    st.log("Configuring the fast_external_failover")
+
+                    if config_cmd!='no':
+                        global_data["openconfig-network-instance:bgp"]["global"]["config"].update({"openconfig-bgp-ext:fast-external-failover": True})
+                    else:
+                        global_data["openconfig-network-instance:bgp"]["global"]["config"][config].update({"openconfig-bgp-ext:fast-external-failover": False})
+                elif type1 == 'bgp_bestpath_selection':
+                    global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]=dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]=dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]["config"] = dict()
+                    if 'as-path confed' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-bgp-ext:compare-confed-as-path": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_as_path_confed']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig as-path confed")
+
+                    if 'as-path ignore' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-network-instance:ignore-as-path-length": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_as_path_ig']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig as-path ignore")
+
+                    if 'as-path multipath-relax' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]["config"].update(
+                                {"allow-multiple-as": True, "openconfig-bgp-ext:as-set": False})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_as_path_multipath_relax']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig as-path multipath-relax")
+
+                    if 'as-path multipath-relax as-set' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"]["ebgp"]["config"].update({"allow-multiple-as": True, "openconfig-bgp-ext:as-set": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_as_path_multipath_relax_as']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig as-path multipath-relax as-set")
+
+                    if 'compare-routerid' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"external-compare-router-id": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_comp_rid']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig as-path compare-routerid")
+
+                    if 'med confed' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-bgp-ext:med-missing-as-worst": False})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_med']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig med confed")
+
+                    if 'med confed missing-as-worst' in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-bgp-ext:med-missing-as-worst": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_med']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig med confed")
+
+                    if ('med missing-as-worst confed' or 'med missing-as-worst') in bgp_bestpath_selection:
+                        if config_cmd != 'no':
+                            global_data["openconfig-network-instance:bgp"]["global"]["route-selection-options"]["config"].update({"openconfig-bgp-ext:med-missing-as-worst": True})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_med']
+                            url = url.format(vrf_name)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to unconfig med confed")
+
+                elif type1 == 'max_path_ibgp':
+                    sub_data = dict()
+                    sub_data["config"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    sub_data.update({"afi-safi-name":afi_safi_name})
+                    sub_data["config"].update({"afi-safi-name":afi_safi_name})
+                    sub_data["use-multiple-paths"] = dict()
+                    sub_data["use-multiple-paths"]["ibgp"] = dict()
+                    sub_data["use-multiple-paths"]["ibgp"]["config"] = dict()
+                    if config_cmd != 'no':
+                        sub_data["use-multiple-paths"]["ibpg"]["config"].update({"maximum-paths": max_path_ibgp})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_max_path_ibgp']
+                        url = url.format(vrf_name, family)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to unconfig max paths ibgp")
+
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(sub_data)
+                elif type1 == 'max_path_ebgp':
+                    sub_data = dict()
+                    sub_data["config"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    sub_data.update({"afi-safi-name":afi_safi_name})
+                    sub_data["config"].update({"afi-safi-name":afi_safi_name})
+                    sub_data["use-multiple-paths"] = dict()
+                    sub_data["use-multiple-paths"]["ebgp"] = dict()
+                    sub_data["use-multiple-paths"]["ebgp"]["config"] = dict()
+                    if config_cmd != 'no':
+                        sub_data["use-multiple-paths"]["ebgp"]["config"].update({"maximum-paths": max_path_ebgp})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_max_path_ebgp']
+                        url = url.format(vrf_name, family)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to unconfig max paths ebgp")
+
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(sub_data)
                 elif type1 == 'redist':
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    # my_cmd = '{} redistribute {}'.format(config_cmd, redistribute) # SW defect is there
+                    if redistribute=="connected":
+                        sub_data = dict()
+                        sub_data["config"] = dict()
+                        redist_type = 'connected'
+                        redist_type = redist_type.upper()
+                        if redist_type == 'CONNECTED': redist_type = 'DIRECTLY_CONNECTED'
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_connected']
+                            url = url.format(vrf_name, redist_type)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute connected")
+
+
+                    elif redistribute == 'static':
+                        sub_data = dict()
+                        sub_data["config"] = dict()
+                        redist_type = 'static'
+                        redist_type = redist_type.upper()
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_static']
+                            url = url.format(vrf_name, redist_type)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute static")
+
+
+                    elif redistribute == "ospf":
+                        sub_data = dict()
+                        sub_data["config"] = dict()
+                        redist_type = 'ospf'
+                        redist_type = redist_type.upper()
+                        if config_cmd != 'no':
+                            sub_data.update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                            sub_data["config"].update(
+                                {"dst-protocol": "BGP", "address-family": family.upper(), "src-protocol": redist_type})
+                        else:
+                            url = st.get_datastore(dut, "rest_urls")['bgp_del_redist_ospf']
+                            url = url.format(vrf_name, redist_type)
+                            if not delete_rest(dut, rest_url=url):
+                                st.error("failed to do unconfig redistribute ospf")
+
+                    else:
+                        st.error("unsupported commands")
+                    sub_data1 = dict()
+                    sub_data1["config"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    sub_data1.update({"afi-safi-name": afi_safi_name})
+                    sub_data1["config"].update({"afi-safi-name": afi_safi_name})
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(sub_data1)
+
+                    open_data["openconfig-network-instance:table-connections"]["table-connection"].append(sub_data)
+
                 elif type1 == 'network':
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    afi_data["openconfig-bgp-ext:network-config"] = dict()
-                    afi_data["openconfig-bgp-ext:network-config"]["network"] = list()
-                    obe_data = dict()
-                    obe_data.update({"prefix": "string"})
-                    obe_data["config"] = dict()
-                    obe_data.update({"prefix": "network"})
-                    afi_data["openconfig-bgp-ext:network-config"]["network"].append(obe_data)
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
+                    sub_data = dict()
+                    sub_data["config"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    sub_data.update({"afi-safi-name":afi_safi_name})
+                    sub_data["config"].update({"afi-safi-name":afi_safi_name})
+                    if config_cmd != 'no':
+                        sub_data["openconfig-bgp-ext:network-config"] = dict()
+                        sub_data["openconfig-bgp-ext:network-config"]["network"] = list()
+                        sub_data_net = dict()
+                        sub_data_net["config"] = dict()
+                        sub_data_net.update({"prefix": network})
+                        sub_data_net["config"].update({"prefix": network})
+                        sub_data["openconfig-bgp-ext:network-config"]["network"].append(sub_data_net)
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_network']
+                        url = url.format(vrf_name, afi_safi_name, network)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to unconfig network")
+
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(sub_data)
                 elif type1 == 'import-check':
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update({"openconfig-bgp-ext:network-import-check": True})
+                    global_sub_data = dict()
+                    if config_cmd != 'no':
+                        global_sub_data.update({"openconfig-bgp-ext:network-import-check": True})
+                    else:
+                        global_sub_data.update({"openconfig-bgp-ext:network-import-check": False})
+                    global_data["openconfig-network-instance:bgp"]["config"].update(global_sub_data)
                 elif type1 == 'import_vrf':
-                    afi_data = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(afi_data)
-                    afi_data['config'] = dict()
-                    afi_data.update({"afi-safi-name": afi_safi_name})
-                    afi_data["openconfig-bgp-ext:import-network-instance"] = dict()
-                    afi_data["openconfig-bgp-ext:import-network-instance"]["config"] = dict()
-                    afi_data["openconfig-bgp-ext:import-network-instance"]["config"].update({"name": "import_vrf"})
+                    sub_data = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"] = dict()
+                    global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"] = list()
+                    if family == "ipv6":
+                        afi_safi_name = "openconfig-bgp-types:IPV6_UNICAST"
+                    else:
+                        afi_safi_name = "openconfig-bgp-types:IPV4_UNICAST"
+                    sub_data.update({"afi-safi-name":afi_safi_name})
+                    sub_data["config"].update({"afi-safi-name": afi_safi_name})
+                    if config_cmd != 'no':
+                        sub_data["openconfig-bgp-ext:import-network-instance"] = dict()
+                        sub_data["openconfig-bgp-ext:import-network-instance"]["config"] = dict()
+                        sub_data["openconfig-bgp-ext:import-network-instance"]["config"].update({"name": vrf_name})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_vrf']
+                        url = url.format(vrf_name, afi_safi_name)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to delete vrf")
+
+                        global_data["openconfig-network-instance:bgp"]["global"]["afi-safis"]["afi-safi"].append(sub_data)
                 elif type1 == 'multipath-relax':
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"] = dict()
-                    ump_data = dict()
-                    ump_data["ebpg"] = dict()
-                    ump_data["ebpg"]["config"] = dict()
-                    ump_data["ebpg"]["config"].update({"allow-multiple-as": True})
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["use-multiple-paths"].update(ump_data)
+                    if config_cmd != 'no':
+                        global_data["config"].update({"allow-multiple-as": True, "openconfig-bgp-ext:as-set": False})
+                    else:
+                        url = st.get_datastore(dut, "rest_urls")['bgp_del_bp_as_path_multipath_relax']
+                        url = url.format(vrf_name)
+                        if not delete_rest(dut, rest_url=url):
+                            st.error("failed to unconfig as-path multipath-relax")
+
                 elif type1 == 'removeBGP':
                     st.log("Removing the bgp config from the device")
                 elif type1 == 'router_id':
@@ -3139,34 +4985,50 @@ def config_bgp(dut, **kwargs):
                 elif type1 == 'peer_group':
                     st.log("Configuring the peer_group on the device")
                 else:
-                    st.log('Invalid BGP config parameter')
+                    st.log('{} Invalid BGP config parameter {} '.format(cli_type,type1))
                 if config_cmd == 'no' and 'neighbor' in config_type_list and neighbor and not peergroup:
-                    #if isinstance(neigh_name, dict):
-                    if neighbor and config_cmd == "no":
-                        url = st.get_datastore(dut, "rest_urls")['bgp_del_neighbor_config']
-                        if delete_urls:
-                            for url in delete_urls:
-                                delete_rest(dut, rest_url=url.format("default", neighbor))
-                                if not delete_rest(dut, rest_url=url.format("default", neighbor)):
-                                    st.error("neighbor is failed")
-                    else:
-                        neigh_data = dict()
+
+                    if config_cmd != 'no':
+
                         neigh_data.update({"neighbor-address": neighbor})
-                        neigh_data["config"] = dict()
+
                         neigh_data["config"].update({"neighbor-address": neighbor})
-                        bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
-                        if neighbor:
-                            neigh_data1 = dict()
-                            neigh_data1["afi-safis"] = dict()
-                            neigh_data1["afi-safis"]["afi-safi"] = list()
-                            neigh_data1_sub = dict()
-                            neigh_data1_sub.update({"afi-safi-name": afi_safi_name})
-                            neigh_data1_sub["config"] = dict()
-                            neigh_data1_sub["config"].update({"afi-safi-name": "afi-safi-name", "enabled": True})
-                            neigh_data1.update(neigh_data1_sub)
-                            bgp_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data1)
+
+                    else:
+                        url=st.get_datastore(dut,"rest_urls")['bgp_del_remote_as']
+                        url=url.format(vrf_name,neighbor)
+                        if not delete_rest(dut,rest_url=url):
+                            st.error("failed to delete remote-as")
+
+                    #config_remote_as = False
                 if vrf_name != 'default' and removeBGP == 'yes':
-                    bgp_data["openconfig-network-instance:bgp"]["global"]["config"].update({"as": 0})
+                    global_data["openconfig-network-instance:bgp"]["global"]["config"].update({"as": 0})
+
+            st.log(common_data)
+            st.log(global_data)
+
+            if neighbor:
+                neigh_data.update(common_data)
+                global_data["openconfig-network-instance:bgp"]["neighbors"]["neighbor"].append(neigh_data)
+            elif peergroup:
+                peer_data.update(common_data)
+                global_data["openconfig-network-instance:bgp"]["peer-groups"]["peer-group"].append(peer_data)
+
+            st.log(vrf_name)
+            url = st.get_datastore(dut,"rest_urls")["bgp_config"].format(vrf_name)
+            if not config_rest(dut,rest_url=url,http_method=cli_type,json_data=global_data):
+                st.error("failed to conifg bgp data")
+            url = st.get_datastore(dut, "rest_urls")['bgp_config_route_map'].format(vrf_name)
+            try:
+                if not open_data["openconfig-network-instance:table-connections"]["table-connection"]:
+                    st.log("open_data is empty")
+                else:
+                    if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=open_data):
+                        st.error("unable to configure route-map")
+            except Exception as e:
+                st.log("key not not found")
+                st.log(e)
+            return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
         return False
@@ -3212,6 +5074,70 @@ def show_ip_bgp_route(dut, family='ipv4', **kwargs):
         command = "show bgp {}".format(family)
     elif cli_type == 'klish':
         command = "show bgp {} unicast".format(family)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_url = st.get_datastore(dut, 'rest_urls')
+        vrf = "default"
+        url = rest_url["bgp_routerid_state"].format(vrf)
+        output_router_id = get_rest(dut, rest_url=url)
+        if output_router_id and rest_status(output_router_id["status"]):
+            output_router_id = output_router_id["output"]
+        else:
+            output_router_id ={}
+        result = list()
+        router_id = ""
+        if output_router_id:
+            router_id = output_router_id["openconfig-network-instance:router-id"]
+        if not router_id:
+            return result
+
+        if family != "ipv4":
+            url = rest_url['bgp_unicast_config'].format(vrf, "IPV6_UNICAST", "ipv6-unicast")
+            key_val = "openconfig-network-instance:ipv6-unicast"
+        else:
+            url = rest_url['bgp_unicast_config'].format(vrf, "IPV4_UNICAST", "ipv4-unicast")
+            key_val = "openconfig-network-instance:ipv4-unicast"
+        output = get_rest(dut, rest_url=url)
+        if output and rest_status(output["status"]):
+            output = output["output"]
+        else:
+            return result
+        st.debug(output)
+        if not output:
+            st.log("Empty output from GET Call")
+            return result
+        # routes = output[key_val]["loc-rib"]["routes"]["route"]
+        if key_val in output:
+            if "loc-rib" in output[key_val]:
+                routes = output[key_val]["loc-rib"]["routes"]["route"]
+            else:
+                return result
+        else:
+            return result
+        as_path = {"IGP":"i", "EGP":"e" ,"?":"incomplete","INCOMPLETE" :"incomplete"}
+        for route in routes:
+            show_output = dict()
+            show_output["router_id"] = router_id
+            show_output["network"] =  route["prefix"]
+            show_output["weight"] =  route["openconfig-bgp-ext:attr-sets"]["weight"] if "weight" in route["openconfig-bgp-ext:attr-sets"] else 0
+            show_output["status_code"] = "*>" if route["state"]["valid-route"] is True else ""
+            show_output["metric"] = route["openconfig-bgp-ext:attr-sets"]["med"] if "med" in route["openconfig-bgp-ext:attr-sets"] else 0
+            show_output["as_path"] = as_path[route["openconfig-bgp-ext:attr-sets"]["origin"]]
+            members = ""
+            if "as-path" in route["openconfig-bgp-ext:attr-sets"]:
+                route_as_path = route["openconfig-bgp-ext:attr-sets"]["as-path"]
+                if "as-segment" in route_as_path:
+                    route_as_segment = route_as_path["as-segment"][0]
+                    if "state" in route_as_segment:
+                        members = ' '.join([str(item) for item in route_as_segment["state"]["member"]])
+            show_output["as_path"] = "{} {}".format(members, as_path[route["openconfig-bgp-ext:attr-sets"]["origin"]])
+            show_output["next_hop"] = route["openconfig-bgp-ext:attr-sets"]["next-hop"]
+            show_output["version"] = ""
+            show_output["vrf_id"] = vrf
+            show_output["local_pref"] = route["openconfig-bgp-ext:attr-sets"]["local-pref"] if "local-pref" in route["openconfig-bgp-ext:attr-sets"] else 32768
+            show_output["internal"] = ""
+            result.append(show_output)
+        st.debug(result)
+        return result
     return st.show(dut, command, type=cli_type)
 
 def fetch_ip_bgp_route(dut, family='ipv4', match=None, select=None, **kwargs):
@@ -3229,7 +5155,9 @@ def get_ip_bgp_route(dut, family='ipv4', **kwargs):
     for each in kwargs.keys():
         match = {each: kwargs[each]}
         get_list = ["network", "as_path"]
+        st.log(match)
         entries = filter_and_select(output, get_list, match)
+        st.log(entries)
         if not entries:
             st.log("Could not get bgp route info")
             return False
@@ -3406,6 +5334,7 @@ class ASPathAccessList:
     def __init__(self, name, cli_type=''):
         self.name = name
         self.cli_type = get_cfg_cli_type(None, cli_type=cli_type)
+        self.cli_type = 'klish' if self.cli_type in ['rest-patch','rest-put'] else self.cli_type
         self.match_sequence = []
         if self.cli_type == 'vtysh':
             self.cmdkeyword = 'bgp as-path access-list'

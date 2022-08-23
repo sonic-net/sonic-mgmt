@@ -11,7 +11,12 @@ echo
 echo "STEP 1: Checking for j2cli package..."
 if ! command -v j2; then
     echo "j2cli not found, installing j2cli"
-    apt-get install -y j2cli
+    cmd="install j2cli==0.3.10"
+    if ! command -v pip &> /dev/null; then
+        pip3 $cmd
+    else
+        pip $cmd
+    fi
 fi
 echo
 
@@ -37,7 +42,7 @@ fi
 echo
 
 echo "STEP 5: Checking if bridge br1 already exists..."
-if ! brctl show br1; then
+if ! ifconfig br1; then
     echo "br1 not found, creating bridge network"
     brctl addbr br1
     brctl show br1

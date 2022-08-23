@@ -1,21 +1,26 @@
+import logging
+import re
 import pytest
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
 
+logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope="module", autouse="True")
-def lldp_setup(duthosts, rand_one_dut_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     patch_lldpctl(localhost, duthost)
     yield
     unpatch_lldpctl(localhost, duthost)
 
 
 @pytest.mark.bsl
-def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
+def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, tbinfo):
     """
     Test checks for ieee802_1ab MIBs:
      - lldpLocalSystemData  1.0.8802.1.1.2.1.3
@@ -29,14 +34,17 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
     For remote values check for availability for at least 80% of minigraph neighbors
     (similar to lldp test)
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
-    mg_facts   = duthost.get_extended_minigraph_facts(tbinfo)
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    mg_facts = {}
+    for asic_id in duthost.get_asic_ids():
+        mg_facts_ns   = duthost.asic_instance(asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
+        if mg_facts_ns is not None:
+            mg_facts.update(mg_facts_ns)
 
-    print snmp_facts['snmp_lldp']
+    logger.info('snmp_lldp: {}'.format(snmp_facts['snmp_lldp']))
     for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:
         assert snmp_facts['snmp_lldp'][k]
         assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
@@ -57,10 +65,10 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
         assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
 
     minigraph_lldp_nei = []
-    for k, v in mg_facts['minigraph_neighbors'].items():
+    for k, v in mg_facts.items():
         if "server" not in v['name'].lower():
             minigraph_lldp_nei.append(k)
-    print minigraph_lldp_nei
+    logger.info('minigraph_lldp_nei: {}'.format(minigraph_lldp_nei))
 
     # Check if lldpRemTable is present
     active_intf = []
@@ -75,14 +83,20 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
            v.has_key("lldpRemSysCapSupported") and \
            v.has_key("lldpRemSysCapEnabled"):
             active_intf.append(k)
-    print "lldpRemTable: ", active_intf
+    logger.info('lldpRemTable: {}'.format(active_intf))
 
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8
 
     # skip neighbors that do not send chassis information via lldp
-    lldp_facts = duthost.lldp()['ansible_facts']
-    nei = [k for k, v in lldp_facts['lldp'].items() if k != 'eth0' and v['chassis'].has_key('mgmt-ip') ]
-    print "neighbors {} send chassis management IP information".format(nei)
+    lldp_facts= {}
+    for asic_id in duthost.get_asic_ids():
+       lldp_facts_ns = duthost.lldpctl_facts(asic_instance_id=asic_id)['ansible_facts']['lldpctl']
+       if lldp_facts_ns is not None:
+           lldp_facts.update(lldp_facts_ns)
+    pattern = re.compile(r'^eth0|^Ethernet-IB')
+    nei = [k for k, v in lldp_facts.items() if not re.match(pattern, k) and v['chassis'].has_key('mgmt-ip') ]
+    logger.info("neighbors {} send chassis management IP information".format(nei))
+
 
     # Check if lldpRemManAddrTable is present
     active_intf = []
@@ -90,8 +104,8 @@ def test_snmp_lldp(duthosts, rand_one_dut_hostname, localhost, creds, tbinfo):
         if v.has_key("lldpRemManAddrIfSubtype") and \
            v.has_key("lldpRemManAddrIfId") and \
            v.has_key("lldpRemManAddrOID") and \
-           v['name'] != 'eth0':
+           v['name'] != 'eth0' and 'Etherent-IB' not in v['name']:
             active_intf.append(k)
-    print "lldpRemManAddrTable: ", active_intf
+    logger.info('lldpRemManAddrTable: {}'.format(active_intf))
 
     assert len(active_intf) == len(nei)

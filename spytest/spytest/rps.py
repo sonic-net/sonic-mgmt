@@ -135,7 +135,9 @@ class RPS(object):
         retval.update(d2)
         return retval
 
-    def _rest_send(self, method=None, url=None, params={}, data=None, auth=None, headers={}):
+    def _rest_send(self, method=None, url=None, params=None, data=None, auth=None, headers=None):
+        params = params or {}
+        headers = headers or {}
         method = method or self.rest_method
         url = url or self.rest_url
         auth = auth or (requests.auth.HTTPBasicAuth(self.username, self.password)

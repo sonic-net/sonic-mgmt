@@ -1,4 +1,4 @@
-# This role creates a set of VM with veos or Ubuntu for Kubernetes master
+# This role creates a set of VM with veos or SONiC or Ubuntu for Kubernetes master
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
@@ -15,6 +15,11 @@
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
+- name: Set the default variable package_installation
+  set_fact:
+    package_installation: true
+  when: package_installation is not defined
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -52,57 +57,67 @@
     - name: Prompt for rebooting
       fail:
         msg: "Kernel upgraded, need to reboot!"
-  when: kernel_upgrade_needed is defined
+  when:
+    - kernel_upgrade_needed is defined
+    - package_installation|bool
 
-- name: Install necessary packages
-  apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
-  become: yes
-  with_items:
-    - ifupdown
-    - qemu
-    - openvswitch-switch
-    - net-tools
-    - bridge-utils
-    - util-linux
-    - iproute2
-    - vlan
-    - apt-transport-https
-    - ca-certificates
-    - curl
-    - software-properties-common
-    - libvirt-clients
+- block:
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
+        - ifupdown
+        - qemu
+        - openvswitch-switch
+        - net-tools
+        - bridge-utils
+        - util-linux
+        - iproute2
+        - vlan
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - libvirt-clients
 
-- name:
-  apt:
-    pkg:
-    - python
-    - libvirt-bin
-    - python-libvirt
-    - python-pip
-  become: yes
-  when: host_distribution_version.stdout == "18.04"
+    - name: Install necessary packages
+      apt:
+        pkg:
+        - python
+        - libvirt-bin
+        - python-libvirt
+        - python-pip
+      become: yes
+      when: host_distribution_version.stdout == "18.04"
 
-- name:
-  apt:
-    pkg:
-    - python3-libvirt
-    - python3-pip
-    - libvirt-daemon-system
-    - qemu-system-x86
-  become: yes
-  when: host_distribution_version.stdout == "20.04"
+    - name: Install necessary packages
+      apt:
+        pkg:
+        - python3-libvirt
+        - python3-pip
+        - libvirt-daemon-system
+        - qemu-system-x86
+      become: yes
+      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+  when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
-  when: pip_executable is not defined and host_distribution_version.stdout != "20.04"
+  when: pip_executable is not defined and host_distribution_version.stdout != "20.04" and host_distribution_version.stdout != "22.04"
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
+  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
+
+- name: remove old python packages
+  pip: name=docker-py state=absent executable={{ pip_executable }}
+  environment: "{{ proxy_env | default({}) }}"
+  ignore_errors: yes
 
 - include_tasks: docker.yml
+  when: package_installation|bool
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
@@ -117,7 +132,7 @@
     append: yes
     groups: libvirt
   become: yes
-  when: host_distribution_version.stdout == "20.04"
+  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
 
 - name: Install br_netfilter kernel module
   become: yes
@@ -164,24 +179,37 @@
     - set_fact:
         home_path: "{{ getent_passwd[ansible_user][4] }}"
       when: home_path is not defined
-    - debug: msg="{{ home_path }}"
 
-- name: Require veos VMs by default
-  set_fact:
-    veos_vm_required: true
+    # root_path is supposed to be absolute path.
+    - set_fact:
+        root_path: "{{ home_path + '/' + root_path }}"
+      when: "not '{{ root_path }}'.startswith('/')"
 
-- name: veos VMs not needed when setting up Kubernetes master
+    - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
+
+- name: Require veos or SONiC VMs by default
   set_fact:
-    veos_vm_required: false
+    vm_required: true
+
+- name: veos or SONiC VMs not needed when setting up Kubernetes master
+  set_fact:
+    vm_required: false
   when:
     - k8s is defined
 
 - name: VMs not needed in case of Keysight API Server
   set_fact:
-    veos_vm_required: false
+    vm_required: false
   when:
     - ptf_imagename is defined
     - ptf_imagename == "docker-keysight-api-server"
+
+- name: VMs not needed in case of Keysight IxANVL
+  set_fact:
+    veos_vm_required: false
+  when:
+    - ptf_imagename is defined
+    - ptf_imagename == "docker-ptf-anvl"
 
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
@@ -202,6 +230,16 @@
         state=pause
   register: vm_list_paused
   become: true
+
+- name: Require VMs as VEOS by default
+  set_fact:
+    vm_type: "veos"
+  when: vm_type is not defined
+
+- name: Check VM type
+  fail:
+    msg: "Cannot support this VM type {{ vm_type }}"
+  when: vm_type not in supported_vm_types
 
 - block:
     - name: Ensure {{ root_path }} exists
@@ -232,6 +270,18 @@
       set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
       when: topology['VMs'] is defined
 
+    - name: Set fallback default value for VM_targets
+      set_fact: VM_targets={{ [] }}
+      when: VM_targets is not defined
+
+    - name: Set vm configuration properties when configuration is defined
+      set_fact: vm_properties="{{ configuration | expand_properties(configuration_properties) }}"
+      when: configuration is defined
+
+    - name: Set vm configuration properties when configuration is not defined
+      set_fact: vm_properties={}
+      when: configuration is not defined
+
     - name: Stop VMs
       include_tasks: stop.yml
       when: action == 'stop'
@@ -252,11 +302,15 @@
       include_tasks: renumber_topo.yml
       when: action == 'renumber_topo'
 
-  when: veos_vm_required is defined and veos_vm_required == True
+  when: vm_required is defined and vm_required == True
 
 - name: Add topology
   include_tasks: add_topo.yml
   when: action == 'add_topo'
+
+- name: Add WAN topology
+  include_tasks: add_wan_topo.yml
+  when: action == 'add_wan_topo'
 
 - name: Remove topology
   include_tasks: remove_topo.yml

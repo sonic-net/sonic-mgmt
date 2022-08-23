@@ -2,6 +2,8 @@ import pytest
 import time
 import logging
 
+from tests.common.helpers.snmp_helpers import get_snmp_facts
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -10,7 +12,7 @@ pytestmark = [
 ]
 
 @pytest.mark.bsl
-def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
     Test SNMP CPU Utilization
 
@@ -21,7 +23,7 @@ def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
 
     TODO: abstract the snmp OID by SKU
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
@@ -34,7 +36,7 @@ def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
     logger.info("found {} cpu on the dut".format(host_vcpus))
 
     # Gather facts with SNMP version 2
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
@@ -46,7 +48,7 @@ def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
         time.sleep(20)
 
         # Gather facts with SNMP version 2
-        snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"], is_dell=True)['ansible_facts']
+        snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
         # Pull CPU utilization via shell
         # Explanation: Run top command with 2 iterations, 5sec delay.
@@ -55,8 +57,8 @@ def test_snmp_cpu(duthosts, rand_one_dut_hostname, localhost, creds):
 
         output = duthost.shell("top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };END   { print cpu }' | awk '{printf \"%.0f\",$1}'")
 
-        print int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
-        print int(output['stdout'])
+        logger.info(str(snmp_facts['ansible_ChStackUnitCpuUtil5sec']))
+        logger.info(str(output['stdout']))
 
         cpu_diff = abs(int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']) - int(output['stdout']))
 

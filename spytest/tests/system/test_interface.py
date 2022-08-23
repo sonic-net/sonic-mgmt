@@ -32,7 +32,7 @@ def interface_module_hooks(request):
 
     st.log("Creating TG streams")
     intf_data.streams = {}
-    stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create',
+    stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create', port_handle2=intf_data.tg_ph_2,
                                             length_mode='fixed', rate_pps=100, frame_size=intf_data.mtu1,
                                             l2_encap='ethernet_ii_vlan', transmit_mode='single_burst',
                                             pkts_per_burst=100, vlan_id=intf_data.vlan_id,
@@ -41,7 +41,7 @@ def interface_module_hooks(request):
     st.log('Stream output:{}'.format(stream))
     intf_data.streams['mtu1'] = stream['stream_id']
 
-    stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create',
+    stream = intf_data.tg.tg_traffic_config(port_handle=intf_data.tg_ph_1, mode='create', port_handle2=intf_data.tg_ph_2,
                                             length_mode='fixed', rate_pps=100, frame_size=intf_data.mtu2,
                                             l2_encap='ethernet_ii_vlan', transmit_mode='single_burst',
                                             pkts_per_burst=100, vlan_id=intf_data.vlan_id,
@@ -81,12 +81,12 @@ def initialize_variables():
     intf_data.ip_address = '11.11.11.11'
     intf_data.ip_address1 = "11.11.11.9"
     intf_data.mask = "24"
+    intf_data.mtu = '2000'
     intf_data.mtu1 = '4096'
     intf_data.mtu2 = '9216'
     intf_data.source_mac = "00:00:02:00:00:01"
     intf_data.destination_mac = "00:00:01:00:00:01"
     intf_data.vlan_id = str(random_vlan_list()[0])
-    intf_data.mtu = '2000'
     intf_data.mtu_default = intfapi.get_interface_property(vars.D1, vars.D1T1P1, 'mtu')[0]
     intf_data.wait_sec = 10
 
@@ -145,28 +145,23 @@ def test_ft_port_frame_fwd_diff_mtu():
     st.log("Configuring MTU values for each interface")
     intfapi.interface_properties_set(vars.D1, [vars.D1T1P1, vars.D1T1P2], 'mtu', intf_data.mtu1)
 
-    intf_data.tg.tg_traffic_control(action='run', stream_handle=intf_data.streams['mtu1'])
-    st.wait(intf_data.wait_sec)
-    intf_data.tg.tg_traffic_control(action='stop', stream_handle=intf_data.streams['mtu1'])
+    intf_data.tg.tg_traffic_control(action='run', stream_handle=[intf_data.streams['mtu1'], intf_data.streams['mtu2']])
+    st.wait(2)
+    intf_data.tg.tg_traffic_control(action='stop', stream_handle=[intf_data.streams['mtu1'], intf_data.streams['mtu2']])
     st.log("Fetching TGen statistics")
-    stats_tg1 = tgapi.get_traffic_stats(intf_data.tg, mode="aggregate", port_handle=intf_data.tg_ph_1)
-    total_tx_tg1 = stats_tg1.tx.total_bytes
-    stats_tg2 = tgapi.get_traffic_stats(intf_data.tg, mode="aggregate", port_handle=intf_data.tg_ph_2)
-    total_rx_tg2 = stats_tg2.rx.total_bytes
-    percentage_98_total_tx_tg1 = (98 * int(total_tx_tg1)) / 100
-    st.banner("Sent bytes: {} and Received bytes : {}".format(percentage_98_total_tx_tg1, total_rx_tg2))
-    if int(percentage_98_total_tx_tg1) <= 0 and int(percentage_98_total_tx_tg1) <= int(total_rx_tg2):
-        st.report_fail("traffic_transmission_failed", vars.T1D1P1)
-
-    intf_data.tg.tg_traffic_control(action='run', stream_handle=intf_data.streams['mtu2'])
-    st.wait(intf_data.wait_sec)
-    intf_data.tg.tg_traffic_control(action='stop', stream_handle=intf_data.streams['mtu2'])
-
-    st.log("Fetching TGen statistics")
-    stats_tg2 = tgapi.get_traffic_stats(intf_data.tg, mode="aggregate", port_handle=intf_data.tg_ph_2)
-    total_rx_tg2 = stats_tg2.rx.total_packets
-    st.banner("Received packets : {}" .format(total_rx_tg2))
-    if int(total_rx_tg2) >= 100:
+    traffic_details = {
+        '1': {
+            'tx_ports': [vars.T1D1P1],
+            'tx_obj': [intf_data.tg],
+            'exp_ratio': [[1, 0]],
+            'rx_ports': [vars.T1D1P2],
+            'rx_obj': [intf_data.tg],
+            'stream_list': [[intf_data.streams['mtu1'], intf_data.streams['mtu2']]],
+        },
+    }
+    streamResult = tgapi.validate_tgen_traffic(traffic_details=traffic_details, mode='streamblock',
+                                               comp_type='packet_count')
+    if not streamResult:
         st.report_fail("traffic_transmission_failed", vars.T1D1P1)
     st.report_pass("test_case_passed")
 

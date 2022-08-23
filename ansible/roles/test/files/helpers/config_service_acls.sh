@@ -65,6 +65,31 @@ cat << EOF > /tmp/testacl.json
                     "config": {
                         "name": "ssh-only"
                     }
+                },
+                "ntp-acl": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "IP_TCP",
+                                        "source-ip-address": "1.1.1.1/32"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "config": {
+                        "name": "ntp-acl"
+                    }
                 }
             }
         }
@@ -75,11 +100,19 @@ EOF
 # Install the new service ACLs
 acl-loader update full /tmp/testacl.json
 
+# log control plane acl after install
+logger -t cacltest "added cacl test rules"
+iptables -nL | logger -t cacltest
+
 # Sleep to allow Ansible playbook ample time to attempt to connect and timeout
-sleep 60
+sleep 120
 
 # Delete the test ACL config file
 rm -rf /tmp/testacl.json
 
 # IMPORTANT! Delete the ACLs we just added in order to restore connectivity
 acl-loader delete
+
+# log control plane acl after deletion
+logger -t cacltest "deleted cacl test rules"
+iptables -nL | logger -t cacltest

@@ -1,0 +1,51 @@
+- block:
+  - name: set time out threshold
+    set_fact:
+      timeout_threshold: 240
+
+  - name: wait until container's mgmt-ip is reachable
+    wait_for:
+      port: 22
+      host: "{{ ansible_host }}"
+      state: started
+      delay: 0
+      timeout: "{{ timeout_threshold }}"
+    register: ceos_reachability
+    ignore_errors: yes
+    delegate_to: "localhost"
+
+  - name: restart cEOS container
+    become: yes
+    docker_container:
+      name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+      image: "{{ ceos_image }}"
+      command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
+      pull: no
+      state: started
+      tty: yes
+      network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
+      detach: True
+      restart: yes
+      capabilities:
+        - net_admin
+      privileged: yes
+      memory: 2G
+      memory_swap: 2G
+      env:
+        CEOS=1
+        container=docker
+        EOS_PLATFORM=ceoslab
+        SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1
+        ETBA=1
+        INTFTYPE=eth
+        MGMT_INTF=eth0
+      volumes:
+        - /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}:/mnt/flash
+    when: ceos_reachability.failed and ceos_reachability.elapsed >= timeout_threshold
+    delegate_to: "{{ VM_host[0] }}"
+
+  - name: update variable container_reachable
+    set_fact:
+      container_reachable: "{{ not ceos_reachability.failed|bool }}"
+
+  when: not container_reachable

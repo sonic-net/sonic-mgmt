@@ -5,13 +5,15 @@ function show_help_and_exit()
     echo "Usage ${SCRIPT} [options]"
     echo "    options with (*) must be provided"
     echo "    -h -?          : get this help"
-    echo "    -a <True|False>: specify if autu-recover is allowed (default: True)"
+    echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
-    echo "    -d <dut name>  : specify DUT name (default: DUT name associated with testbed in testbed file)"
+    echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
+    echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
     echo "    -i <inventory> : specify inventory name"
+    echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
     echo "    -l <cli log>   : specify cli log level: error|warning|info|debug (default warning)"
     echo "    -m <method>    : specify test method group|individual|debug (default group)"
@@ -22,6 +24,7 @@ function show_help_and_exit()
     echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s <tests>     : specify list of tests to skip (default: none)"
+    echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
     echo "    -x             : print commands and their arguments as they are executed"
@@ -31,9 +34,26 @@ function show_help_and_exit()
 
 function get_dut_from_testbed_file() {
     if [[ -z ${DUT_NAME} ]]; then
-        LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
-        IFS=',' read -ra ARRAY <<< "$LINE"
-        DUT_NAME=${ARRAY[9]}
+        if [[ $TESTBED_FILE == *.csv ]];
+        then
+            LINE=`cat $TESTBED_FILE | grep "^$TESTBED_NAME"`
+            if [[ -z ${LINE} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
+            IFS=',' read -ra ARRAY <<< "$LINE"
+            DUT_NAME=${ARRAY[9]//[\[\] ]/}
+        elif [[ $TESTBED_FILE == *.yaml ]];
+        then
+            content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            if [[ -z ${content} ]]; then
+                echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
+                show_help_and_exit 4
+            fi
+            IFS=$'+' read -r -a tb_lines <<< $content
+            tb_line=${tb_lines[0]}
+            DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+        fi
     fi
 }
 
@@ -74,12 +94,13 @@ function setup_environment()
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
+    INCLUDE_FOLDERS=""
     INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
     KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
-    SKIP_FOLDERS="ptftests acstests saitests scripts k8s"
+    SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
     TEST_CASES=""
     TEST_INPUT_ORDER="False"
@@ -89,6 +110,16 @@ function setup_environment()
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
     export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+
+    # Kill pytest and ansible-playbook process
+    pkill --signal 9 pytest
+    pkill --signal 9 ansible-playbook
+    # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
+    pkill --signal 9 -f "^ssh.*/\.ansible"
+
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()
@@ -117,6 +148,19 @@ function setup_test_options()
         TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
     fi
 
+    # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
+    FINAL_CASES=""
+    includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
+    for test_case in ${TEST_CASES}; do
+        FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
+    done
+    TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+
+    if [[ -z $TEST_CASES ]]; then
+        echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
+        show_help_and_exit 1
+    fi
+
     PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
                       --testbed ${TESTBED_NAME} \
@@ -134,7 +178,11 @@ function setup_test_options()
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
-        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        if [[ $skip == *"::"* ]]; then
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
+        else
+            PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
+        fi
     done
 
     if [[ -d ${LOG_PATH} ]]; then
@@ -181,6 +229,7 @@ function run_debug_tests()
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
     echo "FILE_LOG_LEVEL:        ${FILE_LOG_LEVEL}"
+    echo "INCLUDE_FOLDERS:       ${INCLUDE_FOLDERS}"
     echo "INVENTORY:             ${INVENTORY}"
     echo "LOG_PATH:              ${LOG_PATH}"
     echo "OMIT_FILE_LOG:         ${OMIT_FILE_LOG}"
@@ -201,24 +250,35 @@ function run_debug_tests()
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
 
+# Extra parameters for pre/post test stage
+function pre_post_extra_params()
+{
+    local params=${EXTRA_PARAMETERS}
+    # The enable_macsec option controls the enabling of macsec links of topology.
+    # It aims to verify common test cases work as expected under macsec links.
+    # At pre/post test stage, enabling macsec only wastes time and is not needed.
+    params=${params//--enable_macsec/}
+    echo $params
+}
+
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m pretest
-
-    # Give some delay for the newly announced routes to propagate.
-    sleep 120
+    echo Running: pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} -m posttest
+    echo Running: pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
+    echo Running: pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
     pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
 }
 
@@ -238,6 +298,7 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
+        echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
         pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
         ret_code=$?
 
@@ -247,6 +308,11 @@ function run_individual_tests()
                 rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
             fi
         else
+            if [ ${ret_code} -eq 10 ]; then     # rc 10 means sanity check failed
+                echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -261,7 +327,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
+while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -269,7 +335,7 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
         a )
             AUTO_RECOVER=${OPTARG}
             ;;
-        b ) 
+        b )
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
@@ -282,11 +348,17 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
             ;;
+        E )
+            set -e
+            ;;
         f )
             TESTBED_FILE=${OPTARG}
             ;;
         i )
             INVENTORY=${OPTARG}
+            ;;
+        I )
+            INCLUDE_FOLDERS="${INCLUDE_FOLDERS} ${OPTARG}"
             ;;
         k )
             FILE_LOG_LEVEL=${OPTARG}
@@ -318,6 +390,9 @@ while getopts "h?a:b:c:d:e:f:i:k:l:m:n:oOp:q:rs:t:ux" opt; do
         s )
             SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
             ;;
+        S )
+            SKIP_FOLDERS="${SKIP_FOLDERS} ${OPTARG}"
+            ;;
         t )
             TOPOLOGY=${OPTARG}
             ;;
@@ -338,7 +413,17 @@ fi
 setup_test_options
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
-    prepare_dut
+    RESULT=0
+    prepare_dut || RESULT=$?
+    if [[ ${RESULT} != 0 ]]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!!!!!  Prepare DUT failed, skip testing  !!!!!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        # exit with specific code 65 for pretest failed.
+        # user-defined exit codes is the range 64 - 113.
+        # nightly test pipeline can check this code to decide if fails pipeline.
+        exit 65
+    fi
 fi
 
 RC=0

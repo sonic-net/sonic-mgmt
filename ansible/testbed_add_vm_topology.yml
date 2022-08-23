@@ -27,16 +27,19 @@
 # -e ptf_ipv6=fec0::ffff:afa:1/64 - the ipv6 address and prefix of ptf container mgmt interface
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
-# -e vm_type=veos|ceos
+# -e vm_type=veos|ceos|vsonic
+# -e netns_mgmt_ip=10.255.0.254/23 - the ip address and prefix of netns mgmt interface, only for dualtor topo with ports in active-active cable type
 
 - hosts: servers:&vm_host
   gather_facts: no
-  vars_files:
-    - vars/docker_registry.yml
   pre_tasks:
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"
     when: "{{ play_hosts|length }} != 1"
+
+  - name: Check that variable testbed_name is defined
+    fail: msg="Define testbed_name variable with -e testbed_name=something"
+    when: testbed_name is not defined
 
   - name: Check that variable vm_set_name is defined
     fail: msg="Define vm_set_name variable with -e vm_set_name=something"
@@ -62,13 +65,19 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
-  - name: Check if it is a known topology
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
-    when: topo not in topologies
+    when: base_topo not in topologies
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
+
+  - name: Load docker variables
+    include_vars: "vars/docker_registry.yml"
 
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
@@ -86,21 +95,32 @@
     when: duts_name.split(',')|length > 1
 
   roles:
+    - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, action: 'start_sonic_vm' }
     - { role: vm_set, action: 'start_sid' }
+    - { role: vm_set, action: 'start_8000e_sonic' }
     - { role: vm_set, action: 'add_topo' }
 
 - hosts: servers:&eos
   gather_facts: no
+  serial: "{{ eos_batch_size | default(0) | int }}"
   pre_tasks:
     - block:
         - name: Check that variable topo is defined
           fail: msg="Define topo variable with -e topo=something"
           when: topo is not defined
 
+        - set_fact:
+            base_topo: "{{ topo.split('_') | first }}"
+
+        - name: Require VMs as VEOS by default
+          set_fact:
+            vm_type: "veos"
+          when: vm_type is not defined
+
         - name: Check if it is a known topology
           fail: msg="Unknown topology {{ topo }}"
-          when: topo not in topologies
+          when: base_topo not in topologies
 
         - name: Check that variable VM_base is defined
           fail: msg="Define VM_base variable with -e VM_base=something"
@@ -114,12 +134,16 @@
 
         - name: Extract VM names from the inventory
           set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+          when: VM_base|length > 0
 
         - name: Generate vm list of target VMs
           set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) }}
-          when: topology['VMs'] is defined
+          when:
+            - topology['VMs'] is defined
+            - VM_base|length > 0
       run_once: True
       delegate_to: localhost
 
   roles:
-    - { role: eos, when: topology.VMs is defined and inventory_hostname in VM_targets } # role eos will be executed in any case, and when will evaluate with every task
+    - { role: eos, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "veos" or vm_type == "ceos" ) } # If the vm_type is eos based, role eos will be executed in any case, and when will evaluate with every task
+    - { role: sonic, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vsonic" ) } # If the vm_type is sonic based, role sonic will be executed in any case, and when will evaluate with every task

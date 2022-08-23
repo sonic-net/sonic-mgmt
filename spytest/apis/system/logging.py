@@ -10,6 +10,7 @@ import apis.system.connection as conf_obj
 import apis.system.switch_configuration as sc_obj
 
 import utilities.utils as utils
+from utilities.common import make_list
 
 
 log_files = [r'/var/log/syslog', r'/var/log/syslog.1']
@@ -133,21 +134,25 @@ def check_unwanted_logs_in_logging(dut, user_filter=None):
     """
     Check unwanted log based on uers filter list
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
-
     :param dut:
     :param user_filter:
     :return:
     """
     result = True
-    if user_filter is None:
-        user_filter = []
     static_filter = ['i2c', 'fan', 'power']
-    over_all_filter = static_filter + user_filter
-    for each_string in over_all_filter:
-        temp_count = get_logging_count(dut, filter_list=each_string)
-        st.log("{} - logs found on the error string '{}'".format(temp_count, each_string))
+    over_all_filter = static_filter + make_list(user_filter) if user_filter else static_filter
+    for filter in over_all_filter:
+        temp_count = get_logging_count(dut, filter_list=filter)
+        st.debug("{} - logs found on the error string '{}'".format(temp_count, filter))
         if temp_count:
-            result = False
+            if filter == 'fan':
+                filters = ["INFO system#monitor: MEM :: Name:fand"]
+                logs = show_logging(dut, filter_list=filter)
+                for log in logs:
+                    if not any(fil.lower() in log.lower() for fil in filters):
+                        result = False
+            else:
+                result = False
     return result
 
 

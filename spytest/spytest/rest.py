@@ -83,7 +83,7 @@ class Rest(object):
             self.session.verify = False
         else:
             if self.curr_pwd:
-                self.session.auth = (self.username, self.curr_pwd)
+                self.session.auth = (self.username, self.curr_pwd ) 
                 self.session.verify = False
         warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
@@ -110,7 +110,6 @@ class Rest(object):
         for key, value in kwargs.items():
             if value:
                 value = value.replace(" ", "%20")
-                value = value.replace("/", "%2F")
                 params.append('{}={}'.format(key, value))
             else:
                 params.append(key)
@@ -299,7 +298,8 @@ class Rest(object):
 
     def send(self, devname, method='get', api='', headers={}, params=None,
              data=None, verify=False, retAs='json', **kwargs):
-        session = self._get_session()
+        credentials = self._get_credentials()
+        session = self._get_session(username = credentials[0], password=credentials[1] or self.password or self.altpassword)
         url     = '{}{}'.format(self.base_url,api)
 
         self._log("REST [{}]: {}".format(method.upper(), url))

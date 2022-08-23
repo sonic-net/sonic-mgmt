@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+service DualToRActive {
+  rpc QueryAdminForwardingPortState(AdminRequest) returns (AdminReply) {}
+
+  rpc SetAdminForwardingPortState(AdminRequest) returns (AdminReply) {}
+
+  rpc QueryOperationPortState(OperationRequest) returns (OperationReply) {}
+
+  rpc QueryLinkState(LinkStateRequest) returns (LinkStateReply) {}
+
+  rpc QueryServerVersion(ServerVersionRequest) returns (ServerVersionReply) {}
+
+  rpc SetDrop(DropRequest) returns (DropReply) {}
+}
+
+message AdminRequest {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message AdminReply {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message OperationRequest {
+  repeated int32 portid = 1;
+}
+
+message OperationReply {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message LinkStateRequest {
+  repeated int32 portid = 1;
+}
+
+message LinkStateReply {
+  repeated int32 portid = 1;
+  repeated bool state = 2;
+}
+
+message ServerVersionRequest {
+  string version = 1;
+}
+
+message ServerVersionReply {
+  string version = 1;
+}
+
+message DropRequest {
+  repeated int32 portid = 1;
+  repeated int32 direction = 2;
+  bool recover = 3;
+}
+
+message DropReply {
+  repeated int32 portid = 1;
+  repeated bool success = 2;
+}

@@ -1,5 +1,9 @@
 - set_fact:
-    disk_image: "{{ home_path }}/sonic-vm/disks/sonic_{{ dut_name }}.img"
+    sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
+    when: sonic_vm_storage_location is not defined
+
+- set_fact:
+    disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
 
 - name: Destroy vm {{ dut_name }}
   virt: name={{ dut_name }}
@@ -15,5 +19,5 @@
   when: dut_name in vm_list_defined.list_vms
   become: yes
 
-- name: Copy sonic disk image for {{ dut_name }}
+- name: Remove sonic disk image for {{ dut_name }}
   file: path={{ disk_image }} state=absent

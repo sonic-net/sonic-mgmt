@@ -5,8 +5,15 @@ from test_vrf import setup_vrf              # lgtm[py/unused-import]
 from test_vrf import dut_facts             # lgtm[py/unused-import]
 from test_vrf import gen_vrf_neigh_file
 from test_vrf import partial_ptf_runner     # lgtm[py/unused-import]
+from test_vrf import ptf_test_port_map      # lgtm[py/unused-import]
+from test_vrf import mg_facts      # lgtm[py/unused-import]
+from test_vrf import vlan_mac      # lgtm[py/unused-import]
+from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # lgtm[py/unused-import]
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # lgtm[py/unused-import]
+
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -22,7 +29,7 @@ class TestVrfAttrSrcMac():
         # -------- Setup ----------
         extra_vars = { 'router_mac': self.new_vrf1_router_mac }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
@@ -36,7 +43,7 @@ class TestVrfAttrSrcMac():
         # -------- Teardown ----------
         extra_vars = { 'router_mac': dut_facts['router_mac'] }
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-        duthost.template(src="vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
+        duthost.template(src="vrf/vrf_attr_src_mac.j2", dest="/tmp/vrf_attr_src_mac.json")
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
@@ -51,7 +58,7 @@ class TestVrfAttrSrcMac():
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
-            fwd_info='/tmp/vrf1_neigh.txt',
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
@@ -62,16 +69,18 @@ class TestVrfAttrSrcMac():
                 "vrf_test.FwdTest",
                 platform_dir='ptftests',
                 params={'testbed_type': tbinfo['topo']['name'],
-                        'router_mac': self.new_vrf1_router_mac,
-                        'fwd_info': "/tmp/vrf1_neigh.txt",
-                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']},
+                        'router_macs': [self.new_vrf1_router_mac],
+                        'fib_info_files': ["/tmp/vrf1_neigh.txt"],
+                        'src_ports': g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+                        'ptf_test_port_map': PTF_TEST_PORT_MAP},
+                socket_recv_size=16384,
                 log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log")
 
     def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):
         # verify router_mac of Vrf2 keep to be default router_mac
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf2_neigh.txt',
+            fib_info_files=['/tmp/vrf2_neigh.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
@@ -101,7 +110,7 @@ class TestVrfAttrTTL():
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
-            fwd_info='/tmp/vrf1_neigh.txt',
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
             ttl=1,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -110,7 +119,7 @@ class TestVrfAttrTTL():
         # verify packets in Vrf1 with ttl=2 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf1_neigh.txt',
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
             ttl=2,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -119,7 +128,7 @@ class TestVrfAttrTTL():
         # verify packets in Vrf2 with ttl=1 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf2_neigh.txt',
+            fib_info_files=['/tmp/vrf2_neigh.txt'],
             ttl=1,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
@@ -146,34 +155,34 @@ class TestVrfAttrIpAction():
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
     def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf1 with ip_option should be drop
+        # verify packets in Vrf1 with ip_options should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
-            fwd_info='/tmp/vrf1_neigh.txt',
-            ip_option=True,
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
+            ip_options=[b'\x94\x04\x00\x00'], # router alert
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf1 without ip_option should be forward
+        # verify packets in Vrf1 without ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf1_neigh.txt',
-            ip_option=False,
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
+            ip_options=False,
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):
-        # verify packets in Vrf2 with ip_option should be forward
+        # verify packets in Vrf2 with ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf2_neigh.txt',
-            ip_option=True,
+            fib_info_files=['/tmp/vrf2_neigh.txt'],
+            ip_options=[b'\x94\x04\x00\x00'], # router alert
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
@@ -204,7 +213,7 @@ class TestVrfAttrIpState():
         # verify ipv4 L3 traffic is dropped in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf1_neigh.txt',
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
             pkt_action='drop',
             ipv4=True,
             ipv6=False,
@@ -215,7 +224,7 @@ class TestVrfAttrIpState():
         # verify ipv6 L3 traffic is forwarded in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf1_neigh.txt',
+            fib_info_files=['/tmp/vrf1_neigh.txt'],
             ipv4=False,
             ipv6=True,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
@@ -225,7 +234,7 @@ class TestVrfAttrIpState():
         # verify ipv4 L3 traffic is forwarded in vrf2
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
-            fwd_info='/tmp/vrf2_neigh.txt',
+            fib_info_files=['/tmp/vrf2_neigh.txt'],
             ipv4=True,
             ipv6=False,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
@@ -236,7 +245,7 @@ class TestVrfAttrIpState():
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
-            fwd_info='/tmp/vrf2_neigh.txt',
+            fib_info_files=['/tmp/vrf2_neigh.txt'],
             ipv4=False,
             ipv6=True,
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']

@@ -37,7 +37,8 @@ def parse_testbed_configuration(filename, target):
 def parse_topology(topology_name, vm_start):
     with open("vars/topo_%s.yml" % topology_name) as fp:
         topo = yaml.load(fp)
-    vms = ["%s%04d" % (vm_start[0:2], int(vm_start[2:]) + v["vm_offset"]) for v in topo['topology']['VMs'].values()]
+    vm_name_fmt = vm_start[0:2] + "%0{}d".format(len(vm_start) - 2)
+    vms = [vm_name_fmt % (int(vm_start[2:]) + v["vm_offset"]) for v in topo['topology']['VMs'].values()]
     ports = list(itertools.chain(*(val['vlans'] for val in topo['topology']['VMs'].values())))
     return vms, ports
 

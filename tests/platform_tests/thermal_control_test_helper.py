@@ -5,6 +5,7 @@ import os
 import pytest
 
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 
@@ -12,6 +13,11 @@ DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, 'files')
+
+daemon_name = "thermalctld"
+
+expected_running_status = "RUNNING"
+expected_stopped_status = "STOPPED"
 
 class BaseMocker:
     """
@@ -87,13 +93,13 @@ def mocker(type_name):
 
 
 @pytest.fixture
-def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
+def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Fixture for thermal control data mocker factory.
     :return: A function for creating thermal control related data mocker.
     """
     mockers = []
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def _create_mocker(dut, mocker_name):
         """
@@ -105,7 +111,7 @@ def mocker_factory(localhost, duthosts, rand_one_dut_hostname):
         platform = dut.facts['platform']
         mocker_object = None
 
-        if 'mlnx' in platform:
+        if 'mlnx' in platform or 'nvidia' in platform:
             from tests.platform_tests.mellanox import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
@@ -229,9 +235,10 @@ def check_cli_output_with_mocker(dut, mocker_object, command, max_wait_time, key
     """
     time.sleep(max_wait_time)
 
-    result = dut.show_and_parse(command)
-    assert len(result) > 0, "Run and parse output of command '{}' failed".format(command)
-    return mocker_object.check_result(result)
+    parsed_output = dut.show_and_parse(command)
+    assert len(parsed_output) > 0, "Run and parse output of command '{}' failed".format(command)
+    result = mocker_object.check_result(parsed_output)
+    pytest_assert(result, 'mock data and command \"{}\" output are mismatched'.format(command))
 
 
 def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
@@ -247,6 +254,9 @@ def check_thermal_algorithm_status(dut, mocker_factory, expected_status):
         return thermal_mocker.check_thermal_algorithm_status(expected_status)
     return True  # if vendor doesn't provide a thermal mocker, ignore this check by return True.
 
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
 
 def restart_thermal_control_daemon(dut):
     """
@@ -255,47 +265,50 @@ def restart_thermal_control_daemon(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return:
     """
-    logging.info('Restarting thermal control daemon...')
-    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep thermalctld | sort\''
-    output = dut.command(find_thermalctld_pid_cmd)
+    if dut.is_multi_asic and dut.sonic_release in ["201911"]:
+        logging.info("thermalctl daemon is not present")
+        return
+    logging.info('Restarting thermal control daemon on {}...'.format(dut.hostname))
+    find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
+    output = dut.shell(find_thermalctld_pid_cmd)
     assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-    assert len(output["stdout_lines"]) == 2, "There should be 2 thermalctld process"
-    pid_0 = int(output["stdout_lines"][0].strip())
-    pid_1 = int(output["stdout_lines"][1].strip())
-    # find and kill the parent process
-    pid_to_kill = pid_0 if pid_0 < pid_1 else pid_1
-    logging.info('Killing old thermal control daemon with pid: {}'.format(pid_to_kill))
-    kill_thermalctld_cmd = 'docker exec -i pmon bash -c \'kill {}\''.format(pid_to_kill)
-    output = dut.command(kill_thermalctld_cmd)  # kill thermalctld and wait supervisord auto reboot thermalctld
-    assert output["rc"] == 0, "Run command '%s' failed" % kill_thermalctld_cmd
+    # Usually there should be 2 thermalctld processes, but there is chance that
+    # sonic platform API might use subprocess which creates extra thermalctld process.
+    # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
+    # use subprocess to call ethtool to do initialization.
+    # So we check here thermalcltd must have at least 2 processes.
+    assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
 
-    # make sure thermalctld has restarted
-    max_wait_time = 30
-    while max_wait_time > 0:
-        max_wait_time -= 1
-        output = dut.command(find_thermalctld_pid_cmd)
-        assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
-        if len(output["stdout_lines"]) != 2:
-            time.sleep(1)
-            continue
-
-        new_pid_0 = int(output["stdout_lines"][0].strip())
-        new_pid_1 = int(output["stdout_lines"][1].strip())
-        parent_pid = new_pid_0 if new_pid_0 < new_pid_1 else new_pid_1
-
-        if parent_pid == pid_to_kill:
-            logging.info('Old thermal control daemon is still alive, waiting...')
-            time.sleep(1)
-            continue
-        else:
-            logging.info('New pid of thermal control daemon is {}'.format(parent_pid))
-            return
-
+    restart_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl restart thermalctld'"
+    output = dut.shell(restart_thermalctl_cmd)
+    if output["rc"] == 0:
+        output = dut.shell(find_thermalctld_pid_cmd)
+        assert output["rc"] == 0, "Run command '{}' failed after restart of thermalctld on {}".format(find_thermalctld_pid_cmd, dut.hostname)
+        assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+        logging.info("thermalctld processes restarted successfully on {}".format(dut.hostname))
+        return
     # try restore by config reload...
     config_reload(dut)
     assert 0, 'Wait thermal control daemon restart failed'
 
+def start_thermal_control_daemon(dut):
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status != expected_running_status:
+        dut.start_pmon_daemon(daemon_name)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_running_status)
+    running_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert running_daemon_status == expected_running_status, "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
 
+def stop_thermal_control_daemon(dut):
+    daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    if daemon_status == expected_running_status:
+        dut.stop_pmon_daemon(daemon_name)
+        wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_stopped_status)
+    stopped_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
+    assert stopped_daemon_status == expected_stopped_status, "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
+    logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
+                                                                
 class ThermalPolicyFileContext:
     """
     Context class to help replace thermal control policy file and restore it automatically.
@@ -318,7 +331,11 @@ class ThermalPolicyFileContext:
         thermal control daemon to make it effect.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        out = self.dut.stat(path=self.thermal_policy_file_path)
+        if out['stat']['exists']:
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_path, self.thermal_policy_file_backup_path))
+        else:
+            logging.warning("Thermal Policy file {} not found".format(self.thermal_policy_file_path))
         self.dut.copy(src=os.path.join(FILES_DIR, self.src), dest=self.thermal_policy_file_path)
         restart_thermal_control_daemon(self.dut)
 
@@ -330,5 +347,24 @@ class ThermalPolicyFileContext:
         :param exc_tb: Not used.
         :return:
         """
-        self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
-        restart_thermal_control_daemon(self.dut)
+        out = self.dut.stat(path=self.thermal_policy_file_backup_path)
+        if out['stat']['exists']:
+            self.dut.command('mv -f {} {}'.format(self.thermal_policy_file_backup_path, self.thermal_policy_file_path))
+            restart_thermal_control_daemon(self.dut)
+
+
+@pytest.fixture
+def disable_thermal_policy(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Fixture to help disable thermal policy during the test. After test, it will
+       automatically re-enable thermal policy. The idea here is to make thermalctld
+       load a invalid policy file. To use this fixture, the test case will probably
+       marked as @pytest.mark.disable_loganalyzer.
+
+    Args:
+        duthosts DUT object representing a SONiC switch under test
+        enum_rand_one_per_hwsku_hostname random DUT hostname
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    invalid_policy_file = os.path.join(FILES_DIR, 'invalid_format_policy.json')
+    with ThermalPolicyFileContext(duthost, invalid_policy_file):
+        yield

@@ -1,0 +1,38 @@
+---
+- name: Include variables for PTF containers
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+
+- name: Set ptf host
+  set_fact:
+    ptf_host: "ptf_{{ vm_set_name }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    hostname: "{{ ptf_host }}"
+    ansible_user: "{{ ptf_host_user }}"
+    ansible_ssh_host: "{{ ptf_host_ip }}"
+    ansible_ssh_pass: "{{ ptf_host_pass }}"
+    ansible_python_interpreter: "/usr/bin/python"
+    groups:
+      - ptf_host
+
+- name: find downlink portchannel configuration
+  set_fact:
+    portchannel_config: "{{ topology['DUT']['portchannel_config'] | default({})}}"
+
+- name: Start PTF portchannel
+  ptf_portchannel:
+    cmd: start
+    portchannel_config: "{{ portchannel_config }}"
+  delegate_to: "{{ ptf_host }}"
+  when: ptf_portchannel_action == 'start'
+
+- name: Stop PTF portchannel
+  ptf_portchannel:
+    cmd: stop
+    portchannel_config: "{{ portchannel_config }}"
+  delegate_to: "{{ ptf_host }}"
+  ignore_unreachable: yes
+  when: ptf_portchannel_action == 'stop'

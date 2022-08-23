@@ -10,6 +10,10 @@ all:
             sonic_s6000:
             sonic_s6100:
             sonic_a7260:
+            sonic_multi_asic:
+            sonic_multi_asic_2:
+            sonic_msft_sup:
+            sonic_msft_lc_100G:
         fanout:
           hosts:
             str-7260-10:
@@ -80,6 +84,22 @@ sonic_s6000:
     vlab-06:
       ansible_host: 10.250.0.111
       ansible_hostv6: fec0::ffff:afa:b
+    vlab-09:
+      ansible_host: 10.250.0.115
+      ansible_hostv6: fec0::ffff:afb:1
+    vlab-10:
+      ansible_host: 10.250.0.117
+      ansible_hostv6: fec0::ffff:afb:3
+    vlab-t2-01:
+      ansible_host: 10.250.0.120
+      ansible_hostv6: fec0::ffff:afa:10
+    vlab-t2-02:
+      ansible_host: 10.250.0.121
+      ansible_hostv6: fec0::ffff:afa:11
+    vlab-t2-sup:
+      ansible_host: 10.250.0.122
+      ansible_hostv6: fec0::ffff:afa:12
+      card_type: supervisor
 
 sonic_s6100:
   vars:
@@ -89,12 +109,90 @@ sonic_s6100:
     lab-s6100-01:
       ansible_host: 10.251.0.190
     vlab-02:
-      ansible_host: 10.250.0.102
+      ansible_host: 10.250.0.114
 
 sonic_a7260:
   vars:
+    hwsku: Arista-7260CX3-C64
     iface_speed: 100000
   hosts:
     lab-a7260-01:
       ansible_host: 10.251.0.191
-      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: SSJ12345678
+      base_mac: 76:34:ab:08:cd:a0
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504B0"
+        "0x23": "SSJ12345678"
+        "0x24": "7634ab08cda0"
+        "0x25": "2017/06/07 12:36:05"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2d": "Arista Networks"
+        "0x2e": "Aboot-norcal7-7.2.3-pcie2x4-12345678"
+
+sonic_multi_asic:
+  vars:
+    hwsku: msft_multi_asic_vs
+    iface_speed: 40000
+    num_asics: 6
+    start_topo_service: True
+    frontend_asics: [0,1,2,3]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
+  hosts:
+    vlab-07:
+      ansible_host: 10.250.0.109
+      ansible_hostv6: fec0::ffff:afa:9
+
+sonic_multi_asic_2:
+  vars:
+    hwsku: msft_four_asic_vs
+    iface_speed: 40000
+    num_asics: 4
+    start_topo_service: True
+    frontend_asics: [0,1]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128]
+  hosts:
+    vlab-08:
+      ansible_host: 10.250.0.112
+      ansible_hostv6: fec0::ffff:afa:c
+
+sonic_msft_sup:
+  vars:
+    HwSku:  msft-RP-O
+    slot_num: slot0
+    card_type: supervisor
+  hosts:
+    lab-msft-sup-1:
+      ansible_host: 2.2.2.2
+      hwsku: msft-RP-O
+      num_asics: 2
+
+sonic_msft_lc_100G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    lab-msft-lc0-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      ansible_host: 2.2.2.3
+    lab-msft-lc1-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
+      ansible_host: 2.2.2.4
+    lab-msft-lc2-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot3
+      loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 2.2.2.5

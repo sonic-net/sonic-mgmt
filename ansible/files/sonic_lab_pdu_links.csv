@@ -1,0 +1,9 @@
+StartDevice,StartPort,EndDevice,EndPort
+pdu-1,1,str-msn2700-01,PSU1
+pdu-1,3,str-msn2700-01,PSU2
+pdu-1,2,str-7260-10,PSU1
+pdu-1,4,str-7260-10,PSU2
+pdu-2,1,str-7260-11,PSU1
+pdu-2,3,str-7260-11,PSU2
+pdu-2,2,str-acs-serv-01,PSU1
+pdu-2,4,str-acs-serv-01,PSU2

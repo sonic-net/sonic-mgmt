@@ -1,0 +1,32 @@
+---
+- name: Include variables for PTF containers
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+
+- name: Set ptf host
+  set_fact:
+    ptf_host: "ptf_{{ vm_set_name }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    hostname: "{{ ptf_host }}"
+    ansible_user: "{{ ptf_host_user }}"
+    ansible_ssh_host: "{{ ptf_host_ip }}"
+    ansible_ssh_pass: "{{ ptf_host_pass }}"
+    ansible_python_interpreter: "/usr/bin/python"
+    groups:
+      - ptf_host
+
+- name: wait until ptf is reachable
+  wait_for:
+    port: 22
+    host: "{{ ptf_host_ip }}"
+    state: started
+    delay: 0
+    timeout: 300
+  delegate_to: "localhost"
+
+- name: Change PTF interface MAC addresses
+  script: change_mac.sh
+  delegate_to: "{{ ptf_host }}"

@@ -2,14 +2,16 @@
   become: yes
   vm_topology:
     cmd:          'create'
-    vm_names:     "{{ VM_hosts }}"
+    vm_names:     "{{ VM_targets }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
+    topo: "{{ topology }}"
 
 - name: Check if cEOS image exists or not
   docker_image_info:
     name:
       - "{{ ceos_image_orig }}"
+      - "{{ ceos_image }}"
   become: yes
   register: ceos_stat
 
@@ -25,6 +27,7 @@
     url: "{{ vm_images_url }}/{{ ceos_image_filename }}?{{ ceosimage_saskey }}"
     dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
     timeout: 1800
+  environment: "{{ proxy_env | default({}) }}"
   when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
 
 - name: Import cEOS image
@@ -56,7 +59,7 @@
   docker_container:
     name: net_{{ vm_set_name }}_{{ vm_name }}
     image: debian:jessie
-    pull: yes
+    pull: no
     state: started
     restart: no
     tty: yes
@@ -65,6 +68,8 @@
     capabilities:
       - net_admin
     privileged: yes
+    memory: 200M
+    memory_swap: 200M
   async: 300
   poll: 0
   loop: "{{ VM_targets|flatten(levels=1) }}"
@@ -84,7 +89,14 @@
   retries: 10
   delay: 30
 
-- include_tasks: add_ceos_network.yml
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
+  become: yes
+  ceos_network:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    vm_name:    "{{ vm_name }}"
+    fp_mtu:     "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name

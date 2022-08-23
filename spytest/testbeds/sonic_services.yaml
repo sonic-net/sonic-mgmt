@@ -51,11 +51,11 @@ tacacs:
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 8}]
 
 radius:
-  hosts: [{ip: 10.52.140.51, username: test, password: test,
+  hosts: [{ip: 10.52.145.181, username: test, password: test,
            timeout: 5, passkey: Lvl7india, udp_port: 1812, auth_type: pap, priority: 8},
           {ip: '10.52.1.1', username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 2},
-          {ip: '10.52.145.181', username: root, password: lvl7india,
+          {ip: '10.52.140.51', username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 3},
           {ip: "4001::1", username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, udp_port: 1812, auth_type: pap, priority: 4},
@@ -81,7 +81,7 @@ radius:
   logs_path: {path: '/var/log/auth.log'}
   cisco_acs_server: {ip: 10.52.136.77, username: qauser, password: qauser123, passkey: lvl7india}
   radius_conf_files: {path: '/usr/share/sonic/templates/radius_nss.conf.j2', backup_path: '/usr/share/sonic/templates/radius_nss_bkp.conf.j2'}
-  ro_user: {username: test1, password: password}
+  ro_user: {username: test1, password: password, password1: test1}
 
 syslog:
   ip: 192.168.1.1
@@ -92,7 +92,7 @@ syslog:
 
 ntp:
   default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
-  host: [162.246.94.71,192.111.144.114,47.190.36.230]
+  host: [50.205.244.20,  104.194.8.227, 50.205.244.107]
 
 smtp:
   host: smtphost.broadcom.com
@@ -190,4 +190,3 @@ dhcp_server_vxlan:
     dhcp_server_ipv6: 2072::210
     username: root
     password: broadcom
-

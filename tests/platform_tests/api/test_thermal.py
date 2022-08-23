@@ -8,6 +8,7 @@ import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, thermal
+from tests.common.utilities import skip_release_for_platform
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -28,12 +29,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-@pytest.fixture(scope="class")
-def gather_facts(request, duthost):
-    # Get platform facts from platform.json file
-    request.cls.chassis_facts = duthost.facts.get("chassis")
 
-@pytest.mark.usefixtures("gather_facts")
 class TestThermalApi(PlatformApiTestBase):
 
     num_thermals = None
@@ -50,38 +46,59 @@ class TestThermalApi(PlatformApiTestBase):
                 self.num_thermals = int(chassis.get_num_thermals(platform_api_conn))
             except:
                 pytest.fail("num_thermals is not an integer")
+            else:
+                if self.num_thermals == 0:
+                    pytest.skip("No thermals found on device")
 
     #
     # Helper functions
     #
 
-    def compare_value_with_platform_facts(self, key, value, thermal_idx):
-        expected_value = None
-
-        if self.chassis_facts:
-            expected_thermals = self.chassis_facts.get("thermals")
+    def compare_value_with_platform_facts(self, duthost, key, value):
+        expected_values = []
+        if duthost.facts.get("chassis").get("thermals"):
+            expected_thermals = duthost.facts.get("chassis").get("thermals")
             if expected_thermals:
-                expected_value = expected_thermals[thermal_idx].get(key)
+                for thermal in expected_thermals:
+                    thermal_name = thermal.get(key)
+                    if thermal_name:
+                        expected_values.append(thermal_name)
 
-        if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for thermal {}".format(key, thermal_idx)):
-            self.expect(value == expected_value,
-                          "'{}' value is incorrect. Got '{}', expected '{}' for thermal {}".format(key, value, expected_value, thermal_idx))
+        if self.expect(len(expected_values) > 0,
+                       "Unable to get thermal name list containing thermal '{}' from platform.json file".format(value)):
+            self.expect(value in expected_values, "Thermal name '{}' is not included in {}".format(value,
+                                                                                                   expected_values))
+
+    def get_thermal_facts(self, duthost, thermal_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            thermals = duthost.facts.get("chassis").get("thermals")
+            if thermals:
+                value = thermals[thermal_idx]
+                for key in keys:
+                    value = value.get(key)
+                    if value is None:
+                        return def_value
+
+                return value
+
+        return def_value
 
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthost, localhost, platform_api_conn):
+
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_thermals):
             name = thermal.get_name(platform_api_conn, i)
 
             if self.expect(name is not None, "Unable to retrieve Thermal {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Thermal {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts('name', name, i)
+                self.compare_value_with_platform_facts(duthost, 'name', name)
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthost, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             presence = thermal.get_presence(platform_api_conn, i)
 
@@ -91,7 +108,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthost, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             model = thermal.get_model(platform_api_conn, i)
 
@@ -100,7 +117,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthost, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             serial = thermal.get_serial(platform_api_conn, i)
 
@@ -109,7 +126,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthost, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             status = thermal.get_status(platform_api_conn, i)
 
@@ -136,63 +153,161 @@ class TestThermalApi(PlatformApiTestBase):
     # Functions to test methods defined in ThermalBase class
     #
 
-    def test_get_temperature(self, duthost, localhost, platform_api_conn):
+    def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_thermals):
             temperature = thermal.get_temperature(platform_api_conn, i)
+
+            if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
+                self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i))
+        self.assert_expectations()
+
+    def test_get_minimum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
+        for i in range(self.num_thermals):
+            record_supported = self.get_thermal_facts(duthost, i, True, "minimum-recorded")
+            if not record_supported:
+                logger.info("test_get_minimum_recorded: Skipping thermal {} (not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
+            temperature = thermal.get_minimum_recorded(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
                     self.expect(temperature > 0 and temperature <= 100,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' minimum-recorded is not supported")
+
         self.assert_expectations()
 
-    def test_get_low_threshold(self, duthost, localhost, platform_api_conn):
-        # Ensure the thermal low threshold temperature is sane
+    def test_get_maximum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            record_supported = self.get_thermal_facts(duthost, i, True, "maximum-recorded")
+            if not record_supported:
+                logger.info("test_get_maximum_recorded: Skipping thermal {} (not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
+            temperature = thermal.get_maximum_recorded(platform_api_conn, i)
+
+            if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
+                if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
+                    self.expect(temperature > 0 and temperature <= 100,
+                                "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' maximum-recorded is not supported")
+
+        self.assert_expectations()
+
+    def test_get_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
+        for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "low-threshold")
+            logger.info("threshold_supported: {}".format(threshold_supported))
+            if not threshold_supported:
+                logger.info("test_get_low_threshold: Skipping thermal {} (threshold not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
             low_threshold = thermal.get_low_threshold(platform_api_conn, i)
 
+            # Ensure the thermal low threshold temperature is sane
             if self.expect(low_threshold is not None, "Unable to retrieve Thermal {} low threshold".format(i)):
-                if self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_threshold > 0 and low_threshold <= 100,
-                                "Thermal {} low threshold {} reading is not within range".format(i, low_threshold))
+                self.expect(isinstance(low_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' low-threshold is not supported")
+
         self.assert_expectations()
 
-    def test_get_high_threshold(self, duthost, localhost, platform_api_conn):
-        # Ensure the thermal high threshold temperature is sane
+    def test_get_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "high-threshold")
+            if not threshold_supported:
+                logger.info("test_get_high_threshold: Skipping thermal {} (threshold not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
             high_threshold = thermal.get_high_threshold(platform_api_conn, i)
 
+            # Ensure the thermal high threshold temperature is sane
             if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
-                if self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(high_threshold > 0 and high_threshold <= 100,
-                                "Thermal {} high threshold {} reading is not within range".format(i, high_threshold))
+                self.expect(isinstance(high_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' high-threshold is not supported")
+
         self.assert_expectations()
 
-    def test_get_low_critical_threshold(self, duthost, localhost, platform_api_conn):
-        # Ensure the thermal low critical threshold temperature is sane
+    def test_get_low_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "low-crit-threshold")
+            if not threshold_supported:
+                logger.info("test_get_low_critical_threshold: Skipping thermal {} (threshold not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
             low_critical_threshold = thermal.get_low_critical_threshold(platform_api_conn, i)
 
+            # Ensure the thermal low critical threshold temperature is sane
             if self.expect(low_critical_threshold is not None, "Unable to retrieve Thermal {} low critical threshold".format(i)):
-                if self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i)):
-                    self.expect(low_critical_threshold > 0 and low_critical_threshold <= 110,
-                                "Thermal {} low critical threshold {} reading is not within range".format(i, low_critical_threshold))
+                self.expect(isinstance(low_critical_threshold, float), "Thermal {} low threshold appears incorrect".format(i))
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' low-critical-threshold is not supported")
+
         self.assert_expectations()
 
-    def test_get_high_critical_threshold(self, duthost, localhost, platform_api_conn):
-        # Ensure the thermal high threshold temperature is sane
+    def test_get_high_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "high-crit-threshold")
+            if not threshold_supported:
+                logger.info("test_get_high_critical_threshold: Skipping thermal {} (threshold not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
             high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
 
+            # Ensure the thermal high threshold temperature is sane
             if self.expect(high_critical_threshold is not None, "Unable to retrieve Thermal {} high critical threshold".format(i)):
-                if self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i)):
-                    self.expect(high_critical_threshold > 0 and high_critical_threshold <= 110,
-                                "Thermal {} high critical threshold {} reading is not within range".format(i, high_critical_threshold))
+                self.expect(isinstance(high_critical_threshold, float), "Thermal {} high threshold appears incorrect".format(i))
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' high-critical-threshold is not supported")
+
         self.assert_expectations()
 
-    def test_set_low_threshold(self, duthost, localhost, platform_api_conn):
+    def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "low-threshold")
+            threshold_controllable = self.get_thermal_facts(duthost, i, True, "controllable")
+            if not threshold_supported or not threshold_controllable:
+                logger.info("test_set_low_threshold: Skipping thermal {} (threshold not supported or controllable)".format(i))
+                thermals_skipped += 1
+                continue
+
             low_temperature = 20
             result = thermal.set_low_threshold(platform_api_conn, i, low_temperature)
             if self.expect(result is not None, "Failed to perform set_low_threshold"):
@@ -204,11 +319,25 @@ class TestThermalApi(PlatformApiTestBase):
                     self.expect(temperature == 20,
                                 "Thermal {} low threshold {} is not matching the set value {}".format(i, temperature, low_temperature))
 
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' low-threshold is not controllable")
+
         self.assert_expectations()
 
-    def test_set_high_threshold(self, duthost, localhost, platform_api_conn):
+    def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+
         # Ensure the thermal temperature is sane
         for i in range(self.num_thermals):
+            threshold_supported = self.get_thermal_facts(duthost, i, True, "high-threshold")
+            threshold_controllable = self.get_thermal_facts(duthost, i, True, "controllable")
+            if not threshold_supported or not threshold_controllable:
+                logger.info("test_set_high_threshold: Skipping thermal {} (threshold not controllable)".format(i))
+                thermals_skipped += 1
+                continue
+
             high_temperature = 80
             result = thermal.set_high_threshold(platform_api_conn, i, high_temperature)
             if self.expect(result is not None, "Failed to perform set_high_threshold"):
@@ -219,4 +348,8 @@ class TestThermalApi(PlatformApiTestBase):
                 if self.expect(isinstance(temperature, float), "Thermal {} high threshold appears incorrect".format(i)):
                     self.expect(temperature == 80,
                                 "Thermal {} high threshold {} is not matching the set value {}".format(i, temperature, high_temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' high-threshold is not controllable")
+
         self.assert_expectations()

@@ -1,16 +1,18 @@
 """Check how fast FRR or QUAGGA will send updates to neighbors."""
 import contextlib
 import ipaddress
-import jinja2
 import logging
 import pytest
-import requests
 import tempfile
 import time
 
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
-from tests.common.utilities import wait_tcp_connection
+from tests.common.helpers.bgp import BGPNeighbor
+
+
+from tests.common.dualtor.mux_simulator_control import mux_server_url
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 
 
 pytestmark = [
@@ -18,8 +20,6 @@ pytestmark = [
 ]
 
 PEER_COUNT = 2
-BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
-NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
 ANNOUNCED_SUBNETS = [
     "10.10.100.0/27",
@@ -34,117 +34,16 @@ NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 
 
-def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
-    save_dest_path = kwargs.pop("save_dest_path", "/tmp/temp.j2")
-    keep_dest_file = kwargs.pop("keep_dest_file", True)
-    config_template = jinja2.Template(open(template_file).read())
-    duthost.copy(content=config_template.render(**kwargs), dest=save_dest_path)
-    duthost.shell("sonic-cfggen -j %s --write-to-db" % save_dest_path)
-    if not keep_dest_file:
-        duthost.file(path=save_dest_path, state="absent")
-
-
-class BGPNeighbor(object):
-
-    def __init__(self, duthost, ptfhost, name,
-                 neighbor_ip, neighbor_asn,
-                 dut_ip, dut_asn, port, is_quagga=False):
-        self.duthost = duthost
-        self.ptfhost = ptfhost
-        self.ptfip = ptfhost.mgmt_ip
-        self.name = name
-        self.ip = neighbor_ip
-        self.asn = neighbor_asn
-        self.peer_ip = dut_ip
-        self.peer_asn = dut_asn
-        self.port = port
-        self.is_quagga = is_quagga
-
-    def start_session(self):
-        """Start the BGP session."""
-        logging.debug("start bgp session %s", self.name)
-        self.ptfhost.exabgp(
-            name=self.name,
-            state="started",
-            local_ip=self.ip,
-            router_id=self.ip,
-            peer_ip=self.peer_ip,
-            local_asn=self.asn,
-            peer_asn=self.peer_asn,
-            port=self.port
-        )
-        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
-            raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
-
-        _write_variable_from_j2_to_configdb(
-            self.duthost,
-            "bgp/templates/neighbor_metadata_template.j2",
-            save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % self.name,
-            neighbor_name=self.name,
-            neighbor_lo_addr=self.ip,
-            neighbor_mgmt_addr=self.ip,
-            neighbor_hwsku=None,
-            neighbor_type="ToRRouter"
-        )
-
-        _write_variable_from_j2_to_configdb(
-            self.duthost,
-            "bgp/templates/bgp_template.j2",
-            save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
-            db_table_name="BGP_NEIGHBOR",
-            peer_addr=self.ip,
-            asn=self.asn,
-            local_addr=self.peer_ip,
-            peer_name=self.name
-        )
-
-        if self.is_quagga:
-            allow_ebgp_multihop_cmd = (
-                "vtysh "
-                "-c 'configure terminal' "
-                "-c 'router bgp %s' "
-                "-c 'neighbor %s ebgp-multihop'"
-            )
-            allow_ebgp_multihop_cmd %= (self.peer_asn, self.ip)
-            self.duthost.shell(allow_ebgp_multihop_cmd)
-
-    def stop_session(self):
-        """Stop the BGP session."""
-        logging.debug("stop bgp session %s", self.name)
-        self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
-        self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
-        self.ptfhost.exabgp(name=self.name, state="absent")
-
-    # TODO: let's put those BGP utility functions in a common place.
-    def announce_route(self, route):
-        if "aspath" in route:
-            msg = "announce route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
-        else:
-            msg = "announce route {prefix} next-hop {nexthop}"
-        msg = msg.format(**route)
-        logging.debug("announce route: %s", msg)
-        url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
-        logging.debug("announce return: %s", resp)
-        assert resp.status_code == 200
-
-    def withdraw_route(self, route):
-        if "aspath" in route:
-            msg = "withdraw route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
-        else:
-            msg = "withdraw route {prefix} next-hop {nexthop}"
-        msg = msg.format(**route)
-        logging.debug("withdraw route: %s", msg)
-        url = "http://%s:%d" % (self.ptfip, self.port)
-        resp = requests.post(url, data={"commands": msg})
-        logging.debug("withdraw return: %s", resp)
-        assert resp.status_code == 200
-
-
 @contextlib.contextmanager
 def log_bgp_updates(duthost, iface, save_path):
     """Capture bgp packets to file."""
-    start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
+    if iface == "any":
+        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+        # defaults to writing in that format when listening on any interface. Therefore,
+        # have it use LINUX_SLL (Linux cooked) instead.
+        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    else:
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     stop_pcap = "pkill -f '%s'" % start_pcap
     start_pcap = "nohup %s &" % start_pcap
     duthost.shell(start_pcap)
@@ -155,17 +54,35 @@ def log_bgp_updates(duthost, iface, save_path):
 
 
 @pytest.fixture
-def is_quagga(duthost):
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.shell("vtysh -c 'show version'")
     return "Quagga" in show_res["stdout"]
 
 
 @pytest.fixture
-def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+def is_dualtor(tbinfo):
+    return "dualtor" in tbinfo["topo"]["name"]
+
+
+@pytest.fixture
+def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
     dut_asn = mg_facts["minigraph_bgp_asn"]
+
+    dut_type = ''
+    for k, v in mg_facts['minigraph_devices'].iteritems():
+        if k == duthost.hostname:
+            dut_type = v['type']
+
+    if 'ToRRouter' in dut_type:
+        neigh_type = 'LeafRouter'
+    else:
+        neigh_type = 'ToRRouter'
+
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
@@ -176,7 +93,8 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
-            is_quagga=is_quagga
+            neigh_type,
+            is_multihop=is_quagga or is_dualtor
         ),
         BGPNeighbor(
             duthost,
@@ -187,7 +105,8 @@ def common_setup_teardown(duthost, is_quagga, ptfhost, setup_interfaces):
             conn1["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT1,
-            is_quagga=is_quagga
+            neigh_type,
+            is_multihop=is_quagga or is_dualtor
         )
     )
 
@@ -217,13 +136,14 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthost):
+def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          toggle_all_simulator_ports_to_rand_selected_tor_m):
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
         packets = sniff(
             offline=pcap_file,
-            lfilter=lambda p: bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
+            lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
         )
         return packets
 
@@ -232,14 +152,45 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthost):
         if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
             return False
         subnet = ipaddress.ip_network(route["prefix"].decode())
-        _route = (subnet.prefixlen, str(subnet.network_address))
+
+        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+        # address the compatibility issue of scapy versions.
+        if hasattr(bgp, 'BGPNLRI_IPv4'):
+            _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
+        else:
+            _route = (subnet.prefixlen, str(subnet.network_address))
         bgp_fields = packet[bgp.BGPUpdate].fields
         if action == "announce":
-            return bgp_fields["tp_len"] > 0 and _route in bgp_fields["nlri"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            path_attr_valid = False
+            if "tp_len" in bgp_fields:
+                path_attr_valid = bgp_fields['tp_len'] > 0
+            elif "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            return path_attr_valid and _route in bgp_fields["nlri"]
         elif action == "withdraw":
-            return bgp_fields["withdrawn_len"] > 0 and _route in bgp_fields["withdrawn"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_len_valid = False
+            if "withdrawn_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
+            elif "withdrawn_routes_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
+
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_route_valid = False
+            if "withdrawn" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+            elif "withdrawn_routes" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
+
+            return withdrawn_len_valid and withdrawn_route_valid
         else:
             return False
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
     try:

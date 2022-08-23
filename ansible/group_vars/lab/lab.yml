@@ -12,20 +12,18 @@ syslog_servers: ['10.0.0.5', '10.0.0.6']
 dns_servers: ['10.0.0.5', '10.0.0.6']
 
 # forced_mgmt_routes
-forced_mgmt_routes: []
+forced_mgmt_routes: ['172.17.0.1']
 
 # ErspanDestinationIpv4
 erspan_dest: ['10.0.0.7']
 
 radius_servers: []
 
+radius_passkey: testing123
+
 tacacs_servers: ['10.0.0.9', '10.0.0.8']
 
 tacacs_passkey: testing123
-tacacs_rw_user: test_rwuser
-tacacs_rw_user_passwd: '123456'
-tacacs_ro_user: test_rouser
-tacacs_ro_user_passwd: '123456'
 
 # tacacs grous
 tacacs_group: 'testlab'
@@ -35,6 +33,9 @@ snmp_servers: ['10.0.0.9']
 
 # dhcp relay servers
 dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
+
+# dhcpv6 relay servers
+dhcpv6_servers: ['fc02:2000::1', 'fc02:2000::2', 'fc02:2000::3', 'fc02:2000::4']
 
 # snmp variables
 snmp_rocommunity: public

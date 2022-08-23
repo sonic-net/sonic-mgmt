@@ -1,16 +1,16 @@
 import pytest
+from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
 
-def test_snmp_queues(duthosts, rand_one_dut_hostname, localhost, creds, collect_techsupport):
-    duthost = duthosts[rand_one_dut_hostname]
-
+def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, collect_techsupport_all_duts):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
-    snmp_facts = localhost.snmp_facts(host=hostip, version="v2c", community=creds["snmp_rocommunity"])['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
     for k, v in snmp_facts['snmp_interfaces'].items():
         if "Ethernet" in v['description']:

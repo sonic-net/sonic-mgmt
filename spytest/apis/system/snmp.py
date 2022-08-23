@@ -5,8 +5,9 @@ import subprocess
 import re
 
 from spytest import st
-from spytest.utils import filter_and_select
+
 import utilities.utils as utils_obj
+from utilities.common import filter_and_select, iterable
 
 from apis.system.basic import replace_line_in_file, service_operations
 from apis.system.connection import execute_command
@@ -402,18 +403,6 @@ def walk_snmp_operation(**kwargs):
                 st.error(output)
                 return False
 
-def get_snmp_memory(ipaddress,oid,community_name):
-    res=dict()
-    output=walk_snmp_operation(ipaddress=ipaddress, oid=oid, community_name=community_name,skip_tmpl=False)
-    if len(output) == 0:
-        st.error("Failed to get the memory data")
-        return False
-    for data in output:
-        out = re.findall(r"UCD-SNMP-MIB::mem(TotalReal|AvailReal|TotalFree|Cached).0 = INTEGER: (\d+) kB", data)
-        if out:
-            for i in out:
-                res[i[0]] = i[1]
-    return res
 
 def poll_for_snmp(dut, iteration_count=30, delay=1, **kwargs):
     """
@@ -743,7 +732,7 @@ def config(dut, params):
             if not value.get("no_form"):
                 command += " {}".format(value.get("name"))
                 if value.get("group_name"):
-                    command += " groupname {}".format(value.get("group_name"))
+                    command += " group {}".format(value.get("group_name"))
             else:
                 command = "no {} {}".format(command, value.get("name"))
             if command:
@@ -995,6 +984,44 @@ def show(dut, **kwargs):
     return response
 
 
+def show_snmp_counters(dut, **kwargs):
+    """
+    Api to show snmp counters
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    #cli_type = st.get_ui_type(dut, **kwargs)
+    command = "show snmp counters"
+    return st.show(dut, command, type="klish")
+
+def clear_snmp_counters(dut, **kwargs):
+    """
+    Api to clear snmp counters
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    #cli_type = kwargs.get("cli_type", "klish")
+    command = "clear snmp counters"
+    return st.config(dut, command, type="klish")
+
+def verify_snmp_counters(dut, **kwargs):
+    cli_type = kwargs.get("cli_type", "klish")
+    output = show_snmp_counters(dut, cli_type=cli_type)
+    if not output:
+        st.error("Couldn't get the output for snmp counters")
+        return False
+    map = kwargs.get('map', {})
+    if not map:
+        st.error("Mandatory fields missing to verify the output for snmp counters")
+        return False
+    for key, value in map.items():
+        if int(output[0][key]) != value:
+            st.error('Match not found for %s :: Expected: %s  Actual : %s' % (key, value, output[0][key]))
+            return False
+        st.log('Match Found for %s :: Expected: %s  Actual : %s' % (key, value, output[0][key]))
+    return True
 
 def verify(dut, **kwargs):
     """
@@ -1052,7 +1079,7 @@ def poll_for_snmp_walk_output(dut, iteration_count=5, delay=1, expected_output="
     i = 1
     while True:
         snmp_walk_out_put = walk_snmp_operation(**kwargs)
-        for match in snmp_walk_out_put:
+        for match in iterable(snmp_walk_out_put):
             if expected_output in match:
                 st.log("Found expected output\n")
                 return snmp_walk_out_put
@@ -1077,7 +1104,7 @@ def poll_for_snmp_get_output(dut, iteration_count=5, delay=1, expected_output=""
     i = 1
     while True:
         snmp_get_out_put = get_snmp_operation(**kwargs)
-        for match in snmp_get_out_put:
+        for match in iterable(snmp_get_out_put):
             if expected_output in match:
                 st.log("Found expected output\n")
                 return snmp_get_out_put
@@ -1181,3 +1208,71 @@ def config_agentx(dut, config='yes', cli_type=''):
     cmd = config + ' agentx'
     st.config(dut, cmd, type=cli_type)
 
+def report_set_snmp_operation_fail(msg):
+    #st.report_fail('snmp_operation_fail', 'SET', msg)
+    return False
+
+def set_snmp_operation(**kwargs):
+    """
+    To perform SNMP SET operation
+    Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
+
+    :param :ipaddress:
+    :param :oid:
+    :param :community_name:
+    :param :timeout:
+    :param :object_name:
+    :return:
+    """
+    community_name = kwargs.get("community_name")
+    ip_address = kwargs.get("ipaddress")
+    oid = kwargs.get("oid")
+    object_type = kwargs.get("objtype")
+    object_name = kwargs.get("objname")
+    version = kwargs.get("version", "2")
+    filter = kwargs.get("filter", "-Oqv")
+
+    command = 'snmpset'
+    if version not in ["1", "2"]:
+        st.log("Unsupported version provided")
+        return False
+    if not ip_address or not oid:
+        st.log("Mandatory parameters like ipaddress or/and oid not passed")
+        return False
+    if version in ["1", "2"]:
+        if not community_name:
+            st.log("Mandatory parameter community_name not passed")
+            return False
+        act_version = "1" if version == "1" else "2c"
+        snmp_command = "{} {} -v {} -c {} {} {}".format(command, filter, act_version, community_name,
+                                                        ip_address, oid)
+        if object_name:
+            snmp_command = "{} {} -v {} -c {} {} {} {} '{}'".format(command, filter, act_version, community_name, ip_address,
+                                                               oid, object_type, object_name)
+        st.log("snmp command:{}".format(snmp_command))
+        pprocess = subprocess.Popen(snmp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                universal_newlines=True)
+        (stdout, stderr) = pprocess.communicate()
+        st.log("SNMP stdout: {}".format(stdout))
+        if pprocess.poll() is not None:
+            if pprocess.returncode == 0 \
+                    and "No Such Object available on this agent at this OID" not in stdout \
+                    and "No Such Instance currently exists at this OID" not in stdout \
+                    and "No more" not in stdout:
+                result = stdout.rstrip('\n').split("\n")
+                result1 = [each.replace('"', '') for each in result]
+                return result1
+            elif "Timeout" in stderr:
+                st.error("SNMP Timeout occurs")
+                return report_set_snmp_operation_fail('Timeout')
+            elif "No Such Instance currently exists at this OID" in stdout:
+                result = stderr.strip("\n")
+                st.error(result)
+                return report_set_snmp_operation_fail('No Instance Found')
+            else:
+                st.log("SNMP Error: return code = {}".format(pprocess.returncode))
+                st.log("SNMP stdout: {}".format(stdout))
+                st.error("SNMP stderr: {}".format(stderr))
+                return report_set_snmp_operation_fail('Error')
+
+    return True

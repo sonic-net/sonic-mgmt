@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "nic_simulator_grpc_service.proto";
+
+service DualTorMgmtService {
+  rpc QueryAdminForwardingPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
+  
+  rpc SetAdminForwardingPortState(ListOfAdminRequest) returns (ListOfAdminReply) {}
+  
+  rpc QueryOperationPortState(ListOfOperationRequest) returns (ListOfOperationReply) {}
+
+  rpc SetDrop(ListOfDropRequest) returns (ListOfDropReply) {}
+}
+
+message ListOfAdminRequest {
+  repeated string nic_addresses = 1;
+  repeated AdminRequest admin_requests = 2;
+}
+  
+message ListOfAdminReply {
+  repeated string nic_addresses = 1;
+  repeated AdminReply admin_replies = 2;
+}
+
+message ListOfOperationRequest {
+  repeated string nic_addresses = 1;
+  repeated OperationRequest operation_requests = 2;
+}
+
+message ListOfOperationReply {
+  repeated string nic_addresses = 1;
+  repeated OperationReply operation_replies = 2;
+}
+
+message ListOfDropRequest {
+  repeated string nic_addresses = 1;
+  repeated DropRequest drop_requests = 2;
+}
+
+message ListOfDropReply {
+  repeated string nic_addresses = 1;
+  repeated DropReply drop_replies = 2;
+}

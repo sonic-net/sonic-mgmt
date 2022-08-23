@@ -4,7 +4,6 @@ import json
 import time
 import logging
 
-from spytest.dicts import SpyTestDict
 from spytest.tgen.tg_scapy import ScapyClient
 import utilities.common as utils
 
@@ -19,10 +18,7 @@ logging.getLogger("Pyro4.core").setLevel(logging.DEBUG)
 
 class TGScapyTest(ScapyClient):
     def __init__(self, tg_ip=None, tg_port=8009, tg_port_list=None):
-        self.tg_ip = tg_ip
-        self.tg_port_list = tg_port_list
-        self.tg_port_handle = SpyTestDict()
-        ScapyClient.__init__(self, None, tg_port)
+        ScapyClient.__init__(self, tg_ip, tg_port, tg_port_list)
         #os.environ["SCAPY_TGEN_PORTMAP"] = "vde"
         #self.scapy_connect()
         self.scapy_connect(True)

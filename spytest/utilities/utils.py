@@ -719,3 +719,9 @@ def is_valid_ip_address(address, family, subnet=None):
 
     return True
 
+def convert_microsecs_to_time(microseconds):
+    from datetime import timedelta
+    time = str(timedelta(microseconds=int(microseconds))).split(".")
+    if time:
+        return time[0]
+    return "0:00:00"

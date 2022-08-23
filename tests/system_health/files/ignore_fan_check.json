@@ -1,7 +1,7 @@
 {
     "services_to_ignore": [],
     "devices_to_ignore": ["fan"],
-    "external_checkers": [],
+    "user_defined_checkers": [],
     "polling_interval": 10,
     "led_color": {
       "fault": "orange",

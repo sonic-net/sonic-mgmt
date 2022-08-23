@@ -122,16 +122,18 @@ def tg_ixia_load(version, logger, logs_path=None):
     tcl_path = os.getenv("SCID_TCL85_BIN", def_tcl_path)
     tcl_lib_path = os.path.join(tcl_path, "..", "lib")
     ixia_root = os.path.join(tgen_path, "ixia", "all", "ixia-" + py_version)
+    
+    ixnetwork_version = os.getenv("IXNETWORK_VERSION", version_string)
+    hltapi_version = os.getenv("HLAPI_VERSION", version_string)
+    
     if not os.path.exists(ixia_root):
-        ixia_root = os.path.join(tgen_path, "ixia", "all", "ixia")
-    hlt_api = os.path.join(ixia_root, "hlapi", version_string)
+        ixia_root = os.path.join(tgen_path, "ixia")
+    hlt_api = os.path.join(ixia_root, "hlapi", hltapi_version)
     ngpf_api = os.path.join(hlt_api, "library", "common", "ixiangpf", "python")
-    ixn_py_api = os.path.join(ixia_root, "ixnetwork", version_string,
-                              "lib", "PythonApi")
-    ixn_tcl_api_1 = os.path.join(ixia_root, "ixnetwork", version_string,
-                                 "lib", "IxTclNetwork")
-    ixn_tcl_api_2 = os.path.join(ixia_root, "ixnetwork", version_string,
-                                 "lib", "TclApi", "IxTclNetwork")
+    ixn_py_api = os.path.join(ixia_root, "ixnetwork", ixnetwork_version,"lib", "PythonApi")
+    ixn_tcl_api_1 = os.path.join(ixia_root, "ixnetwork", ixnetwork_version,"lib", "IxTclNetwork")
+    ixn_tcl_api_2 = os.path.join(ixia_root, "ixnetwork", ixnetwork_version,"lib", "TclApi", "IxTclNetwork")
+
     os.environ["IXIA_VERSION"] = ixia_hltapi_map[version_string]
     os.environ["TCLLIBPATH"] = " ".join([hlt_api, ixn_tcl_api_1, ixn_tcl_api_2, tcl_lib_path])
     sys.path.append(ngpf_api)

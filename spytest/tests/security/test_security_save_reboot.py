@@ -3,9 +3,9 @@ from spytest import st
 from spytest.dicts import SpyTestDict
 import apis.security.radius as radius
 import apis.security.tacacs as tacacs
+from utilities.utils import ensure_service_params
 import apis.system.reboot as reboot
 import apis.system.switch_configuration as switchconf
-from utilities.utils import ensure_service_params
 
 security_data = SpyTestDict()
 

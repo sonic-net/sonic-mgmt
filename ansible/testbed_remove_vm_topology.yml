@@ -23,6 +23,10 @@
     fail: msg="Please use -l server_X to limit this playbook to one host"
     when: "{{ play_hosts|length }} != 1"
 
+  - name: Check that variable testbed_name is defined
+    fail: msg="Define testbed_name variable with -e testbed_name=something"
+    when: testbed_name is not defined
+
   - name: Check that variable vm_set_name is defined
     fail: msg="Define vm_set_name variable with -e vm_set_name=something"
     when: vm_set_name is not defined
@@ -41,7 +45,14 @@
 
   - name: Check that variable topo is defined
     fail: msg="Define topo variable with -e topo=something"
-    when: topo is not defined or topo not in topologies
+    when: topo is not defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: base_topo not in topologies
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -66,4 +77,5 @@
     - { role: vm_set, action: 'remove_topo' }
     - { role: vm_set, action: 'stop_sid' }
     - { role: vm_set, action: 'stop_sonic_vm' }
+    - { role: vm_set, action: 'stop_8000e_sonic' }
 

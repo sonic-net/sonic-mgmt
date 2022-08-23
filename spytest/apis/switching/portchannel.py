@@ -30,7 +30,10 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
         for portchannel_name in utils.make_list(portchannel_list):
             if not fallback:
                 if not min_link:
-                    command = "config portchannel add {} --static=true".format(portchannel_name)
+                    static_flag = "--static=true" if static else ""
+                    command = "config portchannel add {} {}".format(portchannel_name, static_flag).strip()
+                    if not st.is_feature_supported("config_static_portchannel", dut):
+                        command = "config portchannel add {}".format(portchannel_name)
                 else:
                     command = "config portchannel add {} --min-links {}".format(portchannel_name, min_link)
             else:
@@ -148,7 +151,8 @@ def delete_all_portchannels(dut, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     available_portchannels = list()
     st.log("Deleting all availabe port channels...", dut=dut)
-    for portchannel in get_portchannel_list(dut, cli_type=cli_type):
+    output = get_portchannel_list(dut, cli_type=cli_type)
+    for portchannel in utils.iterable(output):
         if cli_type == "click":
             available_portchannels.append(portchannel["teamdev"])
         elif cli_type in ["klish","rest-patch","rest-put"]:
@@ -409,7 +413,7 @@ def verify_portchannel_member(dut, portchannel, members, flag='add', cli_type=""
         return True
     elif flag == 'del':
         for member in utils.make_list(members):
-            if member in portchannel_members:
+            if member in utils.iterable(portchannel_members):
                 return False
         return True
 
@@ -1229,7 +1233,7 @@ def get_portchannel_names(dut, cli_type=''):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     result = []
     output = get_portchannel_list(dut, cli_type=cli_type)
-    for entry in output:
+    for entry in utils.iterable(output):
         if cli_type == "click":
             result.append(entry['teamdev'])
         elif cli_type in ["klish","rest-put","rest-patch"]:

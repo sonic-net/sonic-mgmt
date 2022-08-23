@@ -15,10 +15,10 @@ def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_fa
     duthost = duthosts[rand_one_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
-    for intf, val in dev_conn[duthost.hostname].items():
+    for _, val in dev_conn[duthost.hostname].items():
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = get_graph_facts(duthost, localhost, fanout)
+            facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
     return facts
 
 

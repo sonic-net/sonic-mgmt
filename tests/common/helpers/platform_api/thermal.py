@@ -79,3 +79,11 @@ def get_high_critical_threshold(conn, index):
 
 def get_low_critical_threshold(conn, index):
     return thermal_api(conn, index, 'get_low_critical_threshold')
+
+
+def get_minimum_recorded(conn, index):
+    return thermal_api(conn, index, 'get_minimum_recorded')
+
+
+def get_maximum_recorded(conn, index):
+    return thermal_api(conn, index, 'get_maximum_recorded')

@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from vnet_constants import *
 from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
                        apply_dut_config_files, generate_dut_config_files
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,6 @@ SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
 SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 RESTART_BGP_CMD = "sudo systemctl restart bgp"
 CONFIG_SAVE_CMD = "sudo config save -y"
-CONFIG_RELOAD_CMD = "sudo config reload -y"
 BACKUP_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json /etc/sonic/config_db.json.route_leak_orig"
 RESTORE_CONFIG_DB_CMD = "sudo cp /etc/sonic/config_db.json.route_leak_orig /etc/sonic/config_db.json"
 DELETE_BACKUP_CONFIG_DB_CMD = "sudo rm /etc/sonic/config_db.json.route_leak_orig"
@@ -36,7 +36,7 @@ LEAKED_ROUTES_TEMPLATE = "Leaked routes: {}"
 
 
 @pytest.fixture(scope="module")
-def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
+def configure_dut(request, minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
     """
     Setup/teardown fixture for VNET route leak test
 
@@ -54,9 +54,10 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
     logger.info("Backing up config_db.json")
     duthost.shell(BACKUP_CONFIG_DB_CMD)
 
+    num_routes = request.config.option.num_routes
     duthost.shell("sonic-clear fdb all")
     generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
-    apply_dut_config_files(duthost, vnet_test_params)
+    apply_dut_config_files(duthost, vnet_test_params, num_routes)
 
     # In this case yield is used only to separate this fixture into setup and teardown portions
     yield
@@ -66,16 +67,16 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
         duthost.shell(RESTORE_CONFIG_DB_CMD)
         duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
 
-        cleanup_vnet_routes(duthost, vnet_test_params)
+        cleanup_vnet_routes(duthost, vnet_test_params, num_routes)
         cleanup_dut_vnets(duthost, minigraph_facts, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
 
         logger.info("Restarting BGP and waiting for BGP sessions")
         duthost.shell(RESTART_BGP_CMD)
 
-        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost):
+        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost):
             logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
-            duthost.shell(CONFIG_RELOAD_CMD)
+            config_reload(duthost)
     else:
         logger.info("Skipping cleanup")
 
@@ -189,16 +190,16 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     logger.info("Restarting BGP")
     duthost.shell(RESTART_BGP_CMD)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))
 
     logger.info("Saving and reloading CONFIG_DB")
     duthost.shell(CONFIG_SAVE_CMD)
-    duthost.shell(CONFIG_RELOAD_CMD)
+    config_reload(duthost)
 
-    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+    pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes, LEAKED_ROUTES_TEMPLATE.format(leaked_routes))

@@ -2,6 +2,7 @@
 Test the auto-restart feature of containers
 """
 import logging
+import re
 from collections import defaultdict
 
 import pytest
@@ -9,8 +10,8 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common import config_reload
+from tests.common.helpers.dut_utils import get_disabled_container_list
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +20,22 @@ pytestmark = [
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
-CONTAINER_STOP_THRESHOLD_SECS = 30
-CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_STOP_THRESHOLD_SECS = 60
+CONTAINER_RESTART_THRESHOLD_SECS = 300
+CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
+POST_CHECK_INTERVAL_SECS = 1
+POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     yield
-    config_reload(duthost)
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        config_reload(duthost, safe_reload=True)
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                          enum_dut_feature, loganalyzer):
     """
         Ignore expected failure/error messages during testing the autorestart feature.
 
@@ -60,19 +67,22 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
 
     """
     swss_syncd_teamd_regex = [
-            ".*ERR swss#orchagent.*removeLag.*",
-            ".*ERR syncd#syncd.*driverEgressMemoryUpdate.*",
-            ".*ERR syncd#syncd.*brcm_sai*",
-            ".*ERR syncd#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
-            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
-            ".*ERR syncd#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
-            ".*ERR syncd#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
-            ".*ERR syncd#syncd.*processQuadEvent.*",
-            ".*WARNING syncd#syncd.*skipping since it causes crash.*",
-            ".*ERR swss#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-            ".*ERR teamd#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
-            ".*ERR swss#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
-            ".*ERR swss#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#orchagent.*removeLag.*",
+            ".*ERR syncd[0-9]*#syncd.*driverEgressMemoryUpdate.*",
+            ".*ERR syncd[0-9]*#syncd.*brcm_sai*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
+            ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
+            ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
+            ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
+            ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
+            ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
+            ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
@@ -92,12 +102,13 @@ def ignore_expected_loganalyzer_exception(loganalyzer, enum_dut_feature):
         'teamd' : swss_syncd_teamd_regex,
     }
 
-    _, feature = decode_dut_port_name(enum_dut_feature)
+    feature = enum_dut_feature
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if loganalyzer:
-        loganalyzer.ignore_regex.extend(ignore_regex_dict['common'])
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
         if feature in ignore_regex_dict:
-            loganalyzer.ignore_regex.extend(ignore_regex_dict[feature])
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict[feature])
 
 
 def get_group_program_info(duthost, container_name, group_name):
@@ -153,23 +164,6 @@ def get_program_info(duthost, container_name, program_name):
     return program_status, program_pid
 
 
-def get_disabled_container_list(duthost):
-    """
-    @summary: Get the container/service names which are disabled
-    @return: A list includes the names of disabled containers/services
-    """
-    disabled_containers = []
-
-    container_status, succeeded = duthost.get_feature_status()
-    pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
-
-    for container_name, status in container_status.items():
-        if status == "disabled":
-            disabled_containers.append(container_name)
-
-    return disabled_containers
-
-
 def is_container_running(duthost, container_name):
     """
     @summary: Decide whether the container is running or not
@@ -201,12 +195,12 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
                 .format(program_name, container_name))
 
 
-def is_hiting_start_limit(duthost, container_name):
+def is_hiting_start_limit(duthost, service_name):
     """
-    @summary: Determine whether the container can not be restarted is due to
+    @summary: Determine whether the service can not be restarted is due to
               start-limit-hit or not
     """
-    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(container_name))
+    service_status = duthost.shell("sudo systemctl status {}.service | grep 'Active'".format(service_name))
     for line in service_status["stdout_lines"]:
         if "start-limit-hit" in line:
             return True
@@ -214,21 +208,22 @@ def is_hiting_start_limit(duthost, container_name):
     return False
 
 
-def clear_failed_flag_and_restart(duthost, container_name):
+def clear_failed_flag_and_restart(duthost, service_name, container_name):
     """
     @summary: If a container hits the restart limitation, then we clear the failed flag and
               restart it.
     """
-    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
-    duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    logger.info("{} hits start limit and clear reset-failed flag".format(service_name))
+    duthost.shell("sudo systemctl reset-failed {}.service".format(service_name))
+    duthost.shell("sudo systemctl start {}.service".format(service_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
-def verify_autorestart_with_critical_process(duthost, container_name, program_name,
+def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
                                              program_status, program_pid):
     """
     @summary: Kill a critical process in a container to verify whether the container
@@ -246,6 +241,7 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' was stopped".format(container_name))
@@ -253,10 +249,11 @@ def verify_autorestart_with_critical_process(duthost, container_name, program_na
     logger.info("Waiting until container '{}' is restarted...".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     if not restarted:
-        if is_hiting_start_limit(duthost, container_name):
-            clear_failed_flag_and_restart(duthost, container_name)
+        if is_hiting_start_limit(duthost, service_name):
+            clear_failed_flag_and_restart(duthost, service_name, container_name)
         else:
             pytest.fail("Failed to restart container '{}'".format(container_name))
 
@@ -281,6 +278,7 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
     logger.info("Waiting to ensure container '{}' does not stop...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
+                         0,
                          check_container_state, duthost, container_name, False)
     pytest_assert(not stopped, "Container '{}' was stopped unexpectedly".format(container_name))
     logger.info("Container '{}' did not stop".format(container_name))
@@ -289,56 +287,94 @@ def verify_no_autorestart_with_non_critical_process(duthost, container_name, pro
 
 
 def check_all_critical_processes_status(duthost):
+    """Checks whether critical processes are running.
+
+    Args:
+      duthost: An ansible object of DuT.
+
+    Returns:
+      Ture if critical processes are running. Otherwise False.
+    """
     processes_status = duthost.all_critical_process_status()
     for container_name, processes in processes_status.items():
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
+            logger.info("The status of checking process in container '{}' is: {}"
+                        .format(container_name, processes["status"]))
+            logger.info("The processes not running in container '{}' are: '{}'"
+                        .format(container_name, processes["exited_critical_process"]))
             return False
 
     return True
 
-def post_test_check(duthost, up_bgp_neighbors):
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
 
+def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_bgp_neighbors):
+    """Restarts the containers which hit the restart limitation. Then post checks
+       to see whether all the critical processes are alive and
+       expected BGP sessions are up after testing the autorestart feature.
 
-def postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
+    Args:
+      duthost: An ansible object of DuT.
+      feature_autorestart_states: A dictionary includes the feature name (key) and
+        its auto-restart state (value).
+      up_bgp_neighbors: A list includes the IP of neighbors whose BGP session are up.
+
+    Returns:
+      True if post check succeeds; Otherwise False.
     """
-    @summary: Do the post check to see whether all the critical processes are alive after testing
-              the autorestart feature.
-              First we restart the containers which hit the restart limitation and then do the post check
-    """
-    for container_name in container_autorestart_states.keys():
-        if is_hiting_start_limit(duthost, container_name):
-            clear_failed_flag_and_restart(duthost, container_name)
+    for feature_name in feature_autorestart_states.keys():
+        if feature_name in duthost.DEFAULT_ASIC_SERVICES:
+            for asic in duthost.asics:
+                service_name = asic.get_service_name(feature_name)
+                container_name = asic.get_docker_name(feature_name)
+                if is_hiting_start_limit(duthost, service_name):
+                    clear_failed_flag_and_restart(duthost, service_name, container_name)
+        else:
+            # service_name and container_name will be same as feature
+            # name for features that are not in DEFAULT_ASIC_SERVICES.
+            if is_hiting_start_limit(duthost, feature_name):
+                clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    return wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS,
-                      post_test_check, duthost, up_bgp_neighbors)
+    critical_proceses = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
+    bgp_check = wait_until(
+        POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+        duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"
+    )
+
+    return critical_proceses, bgp_check
 
 
-def run_test_on_single_container(duthost, container_name, tbinfo):
-    container_autorestart_states = duthost.get_container_autorestart_states()
+def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_condition = disabled_containers[:]
     skip_condition.append("database")
+    skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
+    # bgp0 -> bgp, bgp -> bgp
+    feature_name = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
+
     # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
-    pytest_require(container_name not in skip_condition,
-                   "Skipping test for container {}".format(container_name))
+    pytest_require(feature_name not in skip_condition,
+                   "Skipping test for container {}".format(feature_name))
 
     is_running = is_container_running(duthost, container_name)
     pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
 
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     logger.info("Start testing the container '{}'...".format(container_name))
 
     restore_disabled_state = False
-    if container_autorestart_states[container_name] == "disabled":
+    if feature_autorestart_states[feature_name] == "disabled":
         logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} enabled".format(container_name))
+        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
         restore_disabled_state = True
 
     # Currently we select 'rsyslogd' as non-critical processes for testing based on
@@ -354,11 +390,11 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     for critical_process in critical_process_list:
         # Skip 'dsserve' process since it was not managed by supervisord
         # TODO: Should remove the following two lines once the issue was solved in the image.
-        if container_name == "syncd" and critical_process == "dsserve":
+        if feature_name == "syncd" and critical_process == "dsserve":
             continue
 
         program_status, program_pid = get_program_info(duthost, container_name, critical_process)
-        verify_autorestart_with_critical_process(duthost, container_name, critical_process,
+        verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
                                                  program_status, program_pid)
         # Sleep 20 seconds in order to let the processes come into live after container is restarted.
         # We will uncomment the following line once the "extended" mode is added
@@ -370,7 +406,7 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
     for critical_group in critical_group_list:
         group_program_info = get_group_program_info(duthost, container_name, critical_group)
         for program_name in group_program_info:
-            verify_autorestart_with_critical_process(duthost, container_name, program_name,
+            verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
                                                      group_program_info[program_name][0],
                                                      group_program_info[program_name][1])
             # We are currently only testing one critical program for each critical group, which is
@@ -380,25 +416,47 @@ def run_test_on_single_container(duthost, container_name, tbinfo):
 
     if restore_disabled_state:
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
-    if not postcheck_critical_processes_status(duthost, container_autorestart_states, up_bgp_neighbors):
-        config_reload(duthost)
-        pytest.fail("Some post check failed after testing feature {}".format(container_name))
+    critical_proceses, bgp_check = postcheck_critical_processes_status(
+        duthost, feature_autorestart_states, up_bgp_neighbors
+    )
+    if not (critical_proceses and bgp_check):
+        config_reload(duthost, safe_reload=True)
+        failed_check = "[Critical Process] " if not critical_proceses else ""
+        failed_check += "[BGP] " if not bgp_check else ""
+        processes_status = duthost.all_critical_process_status()
+        pstatus = [
+            {
+                k:{
+                    "status": v["status"],
+                    "exited_critical_process": v["exited_critical_process"]
+                }
+            } for k, v in processes_status.items() if v[
+                "status"
+            ] is False and len(v["exited_critical_process"]) > 0
+        ]
+
+        pytest.fail(
+            ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
+             "\nProcess status {}").format(
+                failed_check, container_name,
+                [{x: v['state']} for x, v in duthost.get_bgp_neighbors().items() if v['state'] != 'established'],
+                up_bgp_neighbors, pstatus
+            )
+        )
 
     logger.info("End of testing the container '{}'".format(container_name))
 
-
-def test_containers_autorestart(duthosts, enum_dut_feature, rand_one_dut_hostname, tbinfo):
+def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                enum_dut_feature, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
               critical process to verify the container will be stopped and restarted
     """
-    dut_name, feature = decode_dut_port_name(enum_dut_feature)
-    pytest_require(dut_name == rand_one_dut_hostname and feature != "unknown",
-                   "Skip test on dut host {} (chosen {}) feature {}".format(dut_name, rand_one_dut_hostname, feature))
-
-    duthost = duthosts[dut_name]
-    run_test_on_single_container(duthost, feature, tbinfo)
-
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    service_name = asic.get_service_name(enum_dut_feature)
+    container_name = asic.get_docker_name(enum_dut_feature)
+    run_test_on_single_container(duthost, container_name, service_name, tbinfo)

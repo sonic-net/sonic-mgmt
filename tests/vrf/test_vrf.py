@@ -6,6 +6,8 @@ import yaml
 import json
 import random
 import logging
+import tempfile
+import traceback
 
 from collections import OrderedDict
 from natsort import natsorted
@@ -13,11 +15,13 @@ from netaddr import IPNetwork
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # lgtm[py/unused-import]
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # lgtm[py/unused-import]
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
+from tests.common.helpers.assertions import pytest_assert
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -32,13 +36,17 @@ from tests.common.reboot import reboot
 """
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)
 
 # global variables
 g_vars = {}
+PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
+PORTCHANNEL_TEMP_NAME = 'PortChannel10{}'
+PORTCHANNEL_TEMP_1 = PORTCHANNEL_TEMP_NAME.format(1)
+PORTCHANNEL_TEMP_2 = PORTCHANNEL_TEMP_NAME.format(2)
 
 # helper functions
 def get_vlan_members(vlan_name, cfg_facts):
@@ -308,8 +316,9 @@ def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
     for vrf, ns in vlan_peer_vrf2ns_map.iteritems():
         ptfhost.shell("ip netns del {}".format(ns))
 
-def gen_vrf_fib_file(vrf, tbinfo, ptfhost, dst_intfs, \
-                     render_file, limited_podset_number=10, limited_tor_number=10):
+def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None, \
+                     limited_podset_number=10, limited_tor_number=10):
+    dst_intfs = dst_intfs if dst_intfs else get_default_vrf_fib_dst_intfs(vrf, tbinfo)
     extra_vars = {
         'testbed_type': tbinfo['topo']['name'],
         'props': g_vars['props'],
@@ -323,6 +332,23 @@ def gen_vrf_fib_file(vrf, tbinfo, ptfhost, dst_intfs, \
 
     ptfhost.template(src="vrf/vrf_fib.j2", dest=render_file)
 
+def get_default_vrf_fib_dst_intfs(vrf, tbinfo):
+    '''
+    Get default vrf fib destination interfaces(PortChannels) according to the given vrf.
+    The test configuration is dynamic and can work with 4 and 8 PCs as the number of VMs.
+    The first half of PCs are related to Vrf1 and the second to Vrf2.
+    '''
+    dst_intfs = []
+    vms_num = len(tbinfo['topo']['properties']['topology']['VMs'])
+    if vrf == 'Vrf1':
+        dst_intfs_range = list(range(1, int(vms_num / 2) + 1))
+    else:
+        dst_intfs_range = list(range(int(vms_num / 2) + 1, vms_num + 1))
+    for intfs_num in dst_intfs_range:
+        dst_intfs.append(PORTCHANNEL_TEMP_NAME.format(intfs_num))
+
+    return dst_intfs
+
 def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     extra_vars = {
         'intf_member_indices': g_vars['vrf_intf_member_port_indices'][vrf],
@@ -332,6 +358,41 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     ptfhost.template(src="vrf/vrf_neigh.j2", dest=render_file)
+
+def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
+    dst_ports = [str(port) for port_list in dst_ports for port in port_list]
+    tmp_file = tempfile.NamedTemporaryFile()
+    for ip in dst_ips:
+        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+    tmp_file.flush()
+    ptfhost.copy(src=tmp_file.name, dest=render_file)
+
+# For dualtor
+def get_dut_enabled_ptf_ports(tbinfo, hostname):
+    dut_index = str(tbinfo['duts_map'][hostname])
+    ptf_ports = set(tbinfo['topo']['ptf_map'][dut_index].values())
+    disabled_ports = set()
+    if dut_index in tbinfo['topo']['ptf_map_disabled']:
+        disabled_ports = set(tbinfo['topo']['ptf_map_disabled'][dut_index].values())
+    return ptf_ports - disabled_ports
+
+# For dualtor
+def get_dut_vlan_ptf_ports(mg_facts):
+    ports = set()
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            ports.add(mg_facts['minigraph_port_indices'][member])
+    return ports
+
+def check_vlan_members(duthost, member1, member2, exp_count):
+    out1 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))['stdout']
+    out2 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))['stdout']
+    added = int(out1) + int(out2)
+    if added >= exp_count * 2:
+        logger.info('All vlan members added')
+        return True
+    logger.info('Not all vlan members are added, {} when expected => {}'.format(added, (exp_count * 2)))
+    return False
 
 # fixtures
 
@@ -362,7 +423,7 @@ def restore_config_db(localhost, duthost, ptfhost):
         cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, skip_test_module_over_backend_topologies):
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -418,19 +479,69 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost):
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
+def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(testname, **kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_mac': dut_facts['router_mac']}
+                  'ptf_test_port_map': PTF_TEST_PORT_MAP
+                  }
         params.update(kwargs)
         ptf_runner(host=ptfhost,
                    testdir="ptftests",
                    platform_dir="ptftests",
                    testname=testname,
                    params=params,
+                   socket_recv_size=16384,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
     return _partial_ptf_runner
 
+@pytest.fixture(scope="module")
+def mg_facts(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts
+
+# For dualtor
+@pytest.fixture(scope='module')
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dut_vlan_mac = None
+    for vlan in config_facts.get('VLAN', {}).values():
+        if 'mac' in vlan:
+            logger.debug('Found VLAN mac')
+            dut_vlan_mac = vlan['mac']
+            break
+    if not dut_vlan_mac:
+        logger.debug('No VLAN mac, use default router_mac')
+        dut_vlan_mac = duthost.facts['router_mac']
+    return dut_vlan_mac
+
+@pytest.fixture(scope="module", autouse=True)
+def ptf_test_port_map(tbinfo, duthosts, mg_facts, ptfhost, rand_one_dut_hostname, vlan_mac):
+    duthost = duthosts[rand_one_dut_hostname]
+    ptf_test_port_map = {}
+    enabled_ptf_ports = get_dut_enabled_ptf_ports(tbinfo, duthost.hostname)
+    vlan_ptf_ports = get_dut_vlan_ptf_ports(mg_facts)
+    for port in enabled_ptf_ports:
+        if port in vlan_ptf_ports:
+            target_mac = vlan_mac
+        else:
+            target_mac = duthost.facts['router_mac']
+        ptf_test_port_map[str(port)] = {
+            'target_dut': 0,
+            'target_dest_mac': target_mac,
+            'target_src_mac': duthost.facts['router_mac']
+        }
+    ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
+
+@pytest.fixture()
+def disable_swss_warm_boot_flag(duthosts, rand_one_dut_hostname):
+    yield
+
+    duthost = duthosts[rand_one_dut_hostname]
+    swss_flag = duthost.shell("sonic-db-cli STATE_DB HGET 'WARM_RESTART_ENABLE_TABLE|swss' 'enable'")['stdout']
+    if swss_flag == 'true':
+        duthost.shell("config warm_restart disable swss")
 
 # tests
 class TestVrfCreateAndBind():
@@ -497,7 +608,7 @@ class TestVrfNeigh():
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
@@ -506,7 +617,7 @@ class TestVrfNeigh():
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf2']
         )
 
@@ -515,11 +626,9 @@ class TestVrfFib():
     @pytest.fixture(scope="class", autouse=True)
     def setup_fib_test(self, ptfhost, tbinfo):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
     def test_show_bgp_summary(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -534,7 +643,7 @@ class TestVrfFib():
 
             for info in bgp_summary:
                 for peer, attr in bgp_summary[info]['peers'].iteritems():
-                    prefix_count = attr['prefixReceivedCount']
+                    prefix_count = attr['pfxRcd']
                     # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
                     if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
                         continue
@@ -544,14 +653,14 @@ class TestVrfFib():
     def test_vrf1_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
     def test_vrf2_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf2']
         )
 
@@ -561,11 +670,9 @@ class TestVrfIsolation():
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_isolation(self, ptfhost, tbinfo):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file='/tmp/vrf1_fib.txt')
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file='/tmp/vrf2_fib.txt')
 
         gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
@@ -576,7 +683,7 @@ class TestVrfIsolation():
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -585,7 +692,7 @@ class TestVrfIsolation():
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
@@ -594,7 +701,7 @@ class TestVrfIsolation():
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
@@ -603,7 +710,7 @@ class TestVrfIsolation():
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             pkt_action='drop',
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
@@ -613,7 +720,17 @@ class TestVrfAclRedirect():
     c_vars = {}
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts):
+    def is_redirect_supported(self, duthosts, rand_one_dut_hostname):
+        """
+        Check if switch supports acl redirect_action, if not then skip test cases
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        acl_stage_cap  = duthost.shell('redis-cli -n 6 hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')['stdout']
+        if "REDIRECT_ACTION" not in acl_stage_cap:
+            pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
+
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
 
@@ -624,27 +741,26 @@ class TestVrfAclRedirect():
 
         vrf_intf_ports = g_vars['vrf_intf_member_port_indices']
         src_ports = [vrf_intf_ports['Vrf1']['Vlan1000'][0]]
-        dst_ports = [vrf_intf_ports['Vrf1']['PortChannel0001']]
+        dst_ports = [vrf_intf_ports['Vrf1'][PORTCHANNEL_TEMP_1]]
 
-        pc1_intf_ips = get_intf_ips('PortChannel0001', cfg_facts)
+        pc1_intf_ips = get_intf_ips(PORTCHANNEL_TEMP_1, cfg_facts)
         pc1_v4_neigh_ips = [ str(ip.ip+1) for ip in pc1_intf_ips['ipv4'] ]
         pc1_v6_neigh_ips = [ str(ip.ip+1) for ip in pc1_intf_ips['ipv6'] ]
 
-        pc2_if_name = 'PortChannel0002'
-        pc2_if_ips = get_intf_ips(pc2_if_name, cfg_facts)
-        pc2_v4_neigh_ips = [ (pc2_if_name, str(ip.ip+1)) for ip in pc2_if_ips['ipv4'] ]
-        pc2_v6_neigh_ips = [ (pc2_if_name, str(ip.ip+1)) for ip in pc2_if_ips['ipv6'] ]
+        pc2_if_ips = get_intf_ips(PORTCHANNEL_TEMP_2, cfg_facts)
+        pc2_v4_neigh_ips = [ (PORTCHANNEL_TEMP_2, str(ip.ip+1)) for ip in pc2_if_ips['ipv4'] ]
+        pc2_v6_neigh_ips = [ (PORTCHANNEL_TEMP_2, str(ip.ip+1)) for ip in pc2_if_ips['ipv6'] ]
 
-        pc4_if_name = 'PortChannel0004'
-        pc4_if_ips = get_intf_ips(pc4_if_name, cfg_facts)
-        pc4_v4_neigh_ips = [ (pc4_if_name, str(ip.ip+1)) for ip in pc4_if_ips['ipv4'] ]
-        pc4_v6_neigh_ips = [ (pc4_if_name, str(ip.ip+1)) for ip in pc4_if_ips['ipv6'] ]
+        pc_vrf2_if_name = PORTCHANNEL_TEMP_NAME.format(len(tbinfo['topo']['properties']['topology']['VMs']))
+        pc_vrf2_if_ips = get_intf_ips(pc_vrf2_if_name, cfg_facts)
+        pc_vrf2_v4_neigh_ips = [ (pc_vrf2_if_name, str(ip.ip+1)) for ip in pc_vrf2_if_ips['ipv4'] ]
+        pc_vrf2_v6_neigh_ips = [ (pc_vrf2_if_name, str(ip.ip+1)) for ip in pc_vrf2_if_ips['ipv6'] ]
 
-        redirect_dst_ips = pc2_v4_neigh_ips + pc4_v4_neigh_ips
-        redirect_dst_ipv6s = pc2_v6_neigh_ips + pc4_v6_neigh_ips
+        redirect_dst_ips = pc2_v4_neigh_ips + pc_vrf2_v4_neigh_ips
+        redirect_dst_ipv6s = pc2_v6_neigh_ips + pc_vrf2_v6_neigh_ips
         redirect_dst_ports = []
-        redirect_dst_ports.append(vrf_intf_ports['Vrf1'][pc2_if_name])
-        redirect_dst_ports.append(vrf_intf_ports['Vrf2'][pc4_if_name])
+        redirect_dst_ports.append(vrf_intf_ports['Vrf1'][PORTCHANNEL_TEMP_2])
+        redirect_dst_ports.append(vrf_intf_ports['Vrf2'][pc_vrf2_if_name])
 
         self.c_vars['src_ports'] = src_ports
         self.c_vars['dst_ports'] = dst_ports
@@ -671,48 +787,56 @@ class TestVrfAclRedirect():
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
-    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner):
+    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more
+        gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['dst_ports'],
+                                '/tmp/pc01_neigh_ipv4.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['dst_ports'],
-            dst_ips=self.c_vars['pc1_v4_neigh_ips']
+            fib_info_files=['/tmp/pc01_neigh_ipv4.txt']
         )
 
-    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner):
+    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more
+        gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['dst_ports'],
+                                '/tmp/pc01_neigh_ipv6.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['dst_ports'],
-            dst_ips=self.c_vars['pc1_v6_neigh_ips']
+            fib_info_files=['/tmp/pc01_neigh_ipv6.txt']
         )
 
-    def test_redirect_to_new_ports_v4(self, partial_ptf_runner):
+    def test_redirect_to_new_ports_v4(self, partial_ptf_runner, ptfhost):
         # verify redicect ports should receive packets
+        gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['redirect_dst_ports'],
+                                '/tmp/redirect_pc01_neigh_ipv4.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['redirect_dst_ports'],
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            dst_ips=self.c_vars['pc1_v4_neigh_ips']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv4.txt']
         )
 
-    def test_redirect_to_new_ports_v6(self, partial_ptf_runner):
+    def test_redirect_to_new_ports_v6(self, partial_ptf_runner, ptfhost):
         # verify redicect ports should receive packets
+        gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['redirect_dst_ports'],
+                                '/tmp/redirect_pc01_neigh_ipv6.txt', ptfhost)
+
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             src_ports=self.c_vars['src_ports'],
-            dst_ports=self.c_vars['redirect_dst_ports'],
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            dst_ips=self.c_vars['pc1_v6_neigh_ips']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv6.txt']
         )
 
 
@@ -886,7 +1010,7 @@ class TestVrfLoopbackIntf():
             assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['state'] == 'Established', \
                    "Bgp peer {} should be Established!".format(ptf_speaker_ip.ip)
             # Verify accepted prefixes of the dynamic neighbors are correct
-            assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['prefixReceivedCount'] == 1
+            assert bgp_info['ipv4Unicast']['peers'][str(ptf_speaker_ip.ip)]['pfxRcd'] == 1
 
 
 class TestVrfWarmReboot():
@@ -894,7 +1018,6 @@ class TestVrfWarmReboot():
     def setup_vrf_warm_reboot(self, ptfhost, tbinfo):
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/vrf1_fib.txt',
                          limited_podset_number=50,
                          limited_tor_number=16)
@@ -906,6 +1029,7 @@ class TestVrfWarmReboot():
         #FIXME Might need cold reboot if test failed?
         pass
 
+    @pytest.mark.usefixtures('disable_swss_warm_boot_flag')
     def test_vrf_swss_warm_reboot(self, duthosts, rand_one_dut_hostname, cfg_facts, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         # enable swss warm-reboot
@@ -916,7 +1040,7 @@ class TestVrfWarmReboot():
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
-            'fib_info': "/tmp/vrf1_fib.txt",
+            'fib_info_files': ["/tmp/vrf1_fib.txt"],
             'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
         }
 
@@ -946,11 +1070,11 @@ class TestVrfWarmReboot():
                "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(300, 20, duthost.critical_services_fully_started), \
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
                "All critical services should fully started!{}".format(duthost.critical_services)
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
-        assert wait_until(300, 20, check_interface_status, duthost, up_ports), \
+        assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
     def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
@@ -960,7 +1084,7 @@ class TestVrfWarmReboot():
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
-            'fib_info': "/tmp/vrf1_fib.txt",
+            'fib_info_files': ["/tmp/vrf1_fib.txt"],
             'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
         }
         traffic_in_bg = threading.Thread(target=ex_ptf_runner, kwargs=params)
@@ -989,10 +1113,10 @@ class TestVrfWarmReboot():
         assert len(tbd_comp_list) == 0, "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(300, 20, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
 
         up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
-        assert wait_until(300, 20, check_interface_status, duthost, up_ports), "Not all interfaces are up"
+        assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "Not all interfaces are up"
 
 
 class TestVrfCapacity():
@@ -1103,7 +1227,11 @@ class TestVrfCapacity():
             duthost.template(src=src_template, dest=render_file)
             duthost.shell("sonic-cfggen -j {} --write-to-db".format(render_file))
 
-            time.sleep(attrs['add_sleep_time'])
+            if cfg_name == 'vlan_member':
+                pytest_assert(wait_until(220, 10, 0, check_vlan_members, duthost, dut_port1, dut_port2, vrf_count),
+                              "Not all vlan members were added by the end of timeout")
+            else:
+                time.sleep(attrs['add_sleep_time'])
 
         # setup static routes
         duthost.template(src='vrf/vrf_capacity_route_cfg.j2', dest='/tmp/vrf_capacity_route_cfg.sh', mode="0755")
@@ -1194,16 +1322,16 @@ class TestVrfCapacity():
 
         duthost.shell('/tmp/vrf_capacity_ping.sh')
 
-    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list):
+    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list, ptfhost):
         ptf_port1 = g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'][1]
         ptf_port2 = g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'][1]
         dst_ips = [str(IPNetwork(self.route_prefix)[1])]
+        gen_specific_neigh_file(dst_ips, [[ptf_port2]], '/tmp/vrf_capability_fwd.txt', ptfhost)
 
         partial_ptf_runner(
             testname="vrf_test.CapTest",
             src_ports=[ptf_port1],
-            dst_ports=[[ptf_port2]],
-            dst_ips=dst_ips,
+            fib_info_files=['/tmp/vrf_capability_fwd.txt'],
             random_vrf_list=random_vrf_list,
             src_base_vid=self.src_base_vid,
             dst_base_vid=self.dst_base_vid
@@ -1214,12 +1342,14 @@ class TestVrfUnbindIntf():
     c_vars = {
         'rebind_intf': True  # rebind interface during teardown stage
     }
+    pc1 = PORTCHANNEL_TEMP_NAME.format(1)
+    pc2 = PORTCHANNEL_TEMP_NAME.format(2)
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_unbindintf(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
-        duthost.shell("config interface vrf unbind PortChannel0001")
+        duthost.shell("config interface vrf unbind {}".format(PORTCHANNEL_TEMP_1))
 
         # wait for neigh/route flush
         time.sleep(5)
@@ -1230,13 +1360,13 @@ class TestVrfUnbindIntf():
         # -------- Teardown ----------
         if self.c_vars['rebind_intf']:
             self.rebind_intf(duthost)
-            wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
+            wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts)
 
     def rebind_intf(self, duthost):
-        duthost.shell("config interface vrf bind PortChannel0001 Vrf1")
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
+        duthost.shell("config interface vrf bind {} Vrf1".format(PORTCHANNEL_TEMP_1))
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
-                duthost.shell("config interface ip add PortChannel0001 {}".format(ip))
+                duthost.shell("config interface ip add {} {}".format(PORTCHANNEL_TEMP_1, ip))
 
     @pytest.fixture(scope='class')
     def setup_vrf_rebind_intf(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1245,21 +1375,21 @@ class TestVrfUnbindIntf():
         self.c_vars['rebind_intf'] = False  # Mark to skip rebind interface during teardown
 
         # check bgp session state after rebind
-        assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
-               "Bgp sessions should be re-estabalished after Portchannel0001 rebind to Vrf"
+        assert wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts), \
+               "Bgp sessions should be re-estabalished after {} rebind to Vrf".format(PORTCHANNEL_TEMP_1)
 
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
-        ip_addr_show = duthost.shell("ip addr show PortChannel0001")['stdout']
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
+        ip_addr_show = duthost.shell("ip addr show {}".format(PORTCHANNEL_TEMP_1))['stdout']
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
-                assert str(ip) not in ip_addr_show, "The ip addresses on PortChannel0001 should be flushed after unbind from vrf."
+                assert str(ip) not in ip_addr_show, "The ip addresses on {} should be flushed after unbind from vrf.".format(PORTCHANNEL_TEMP_1)
 
     def test_pc1_neigh_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         # verify ipv4
         show_arp = duthost.shell("show arp")['stdout']
-        assert 'PortChannel0001' not in show_arp, "The arps on PortChannel0001 should be flushed after unbind from vrf."
+        assert PORTCHANNEL_TEMP_1 not in show_arp, "The arps on {} should be flushed after unbind from vrf.".format(PORTCHANNEL_TEMP_1)
 
         # FIXME
         # ipv6 neighbors do not seem to be flushed by kernel whenever remove ipv6 addresses
@@ -1269,74 +1399,70 @@ class TestVrfUnbindIntf():
         # show_ndp = duthost.shell("show ndp")['stdout']
         # assert 'PortChannel0001' not in show_ndp, "The neighbors on PortChannel0001 should be flushed after unbind from vrf."
 
-    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner):
+    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner, ptfhost):
         pc1_neigh_ips = []
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
                 pc1_neigh_ips.append(str(ip.ip+1))
 
+        gen_specific_neigh_file(pc1_neigh_ips, [g_vars['vrf_intf_member_port_indices']['Vrf1'][PORTCHANNEL_TEMP_1]],
+                                '/tmp/unbindvrf_neigh_1.txt', ptfhost)
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
-            dst_ips=pc1_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0001']],
             ipv4=True,
             ipv6=False
         )
 
     def test_pc1_routes_flushed(self, ptfhost, tbinfo, partial_ptf_runner):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0001'],
+                         dst_intfs=[PORTCHANNEL_TEMP_1],
                          render_file="/tmp/unbindvrf_fib_1.txt")
 
         # Send packet from downlink to uplink, port channel1 should no longer receive any packets
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             pkt_action='drop',
-            fib_info="/tmp/unbindvrf_fib_1.txt",
+            fib_info_files=["/tmp/unbindvrf_fib_1.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
-    def test_pc2_neigh(self, partial_ptf_runner):
+    def test_pc2_neigh(self, partial_ptf_runner, ptfhost):
         pc2_neigh_ips = []
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0002'].iteritems():
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_2].iteritems():
             for ip in ips:
                 pc2_neigh_ips.append(str(ip.ip+1))
 
+        gen_specific_neigh_file(pc2_neigh_ips, [g_vars['vrf_intf_member_port_indices']['Vrf1'][PORTCHANNEL_TEMP_2]],
+                                '/tmp/unbindvrf_neigh_2.txt', ptfhost)
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='fwd',
-            dst_ips=pc2_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_2.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0002']]
         )
 
     def test_pc2_fib(self, ptfhost, tbinfo, partial_ptf_runner):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0002'],
+                         dst_intfs=[PORTCHANNEL_TEMP_2],
                          render_file="/tmp/unbindvrf_fib_2.txt")
 
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/unbindvrf_fib_2.txt",
+            fib_info_files=["/tmp/unbindvrf_fib_2.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
 
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
     def test_pc1_neigh_after_rebind(self, partial_ptf_runner):
-        pc1_neigh_ips = []
-        for ver, ips in g_vars['vrf_intfs']['Vrf1']['PortChannel0001'].iteritems():
-            for ip in ips:
-                pc1_neigh_ips.append(str(ip.ip+1))
-
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='fwd',
-            dst_ips=pc1_neigh_ips,
+            fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
-            dst_ports=[g_vars['vrf_intf_member_port_indices']['Vrf1']['PortChannel0001']],
             ipv4=True,
             ipv6=False
         )
@@ -1344,12 +1470,11 @@ class TestVrfUnbindIntf():
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
     def test_vrf1_fib_after_rebind(self, ptfhost, tbinfo, partial_ptf_runner):
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                         dst_intfs=['PortChannel0001', 'PortChannel0002'],
                          render_file='/tmp/rebindvrf_vrf1_fib.txt')
 
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/rebindvrf_vrf1_fib.txt",
+            fib_info_files=["/tmp/rebindvrf_vrf1_fib.txt"],
             src_ports=g_vars['vrf_member_port_indices']['Vrf1']
         )
 
@@ -1371,11 +1496,9 @@ class TestVrfDeletion():
         duthost = duthosts[rand_one_dut_hostname]
         # -------- Setup ----------
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0001', 'PortChannel0002'],
                     render_file="/tmp/vrf1_fib.txt")
 
         gen_vrf_fib_file('Vrf2', tbinfo, ptfhost,
-                    dst_intfs=['PortChannel0003', 'PortChannel0004'],
                     render_file="/tmp/vrf2_fib.txt")
 
         gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
@@ -1383,6 +1506,7 @@ class TestVrfDeletion():
         gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         duthost.shell("config vrf del Vrf1")
+        time.sleep(5)
 
         # -------- Testing ----------
         yield
@@ -1390,7 +1514,7 @@ class TestVrfDeletion():
         # -------- Teardown ----------
         if self.c_vars['restore_vrf']:
             self.restore_vrf(duthost)
-            wait_until(120, 10, check_bgp_facts, duthost, cfg_facts)
+            wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts)
 
     @pytest.fixture(scope='class')
     def setup_vrf_restore(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1399,18 +1523,18 @@ class TestVrfDeletion():
         self.c_vars['restore_vrf'] = False  # Mark to skip restore vrf during teardown
 
         # check bgp session state after restore
-        assert wait_until(120, 10, check_bgp_facts, duthost, cfg_facts), \
+        assert wait_until(120, 10, 0, check_bgp_facts, duthost, cfg_facts), \
                "Bgp sessions should be re-estabalished after restore Vrf1"
 
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
-        assert 'PortChannel0001' not in show_interfaces, "The ip addr of PortChannel0001 should be flushed after Vrf1 is deleted."
+        assert PORTCHANNEL_TEMP_1 not in show_interfaces, "The ip addr of {} should be flushed after Vrf1 is deleted.".format(PORTCHANNEL_TEMP_1)
 
     def test_pc2_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         show_interfaces = duthost.shell("show ip interfaces")['stdout']
-        assert 'PortChannel0002' not in show_interfaces, "The ip addr of PortChannel0002 should be flushed after Vrf1 is deleted."
+        assert PORTCHANNEL_TEMP_2 not in show_interfaces, "The ip addr of {} should be flushed after Vrf1 is deleted.".format(PORTCHANNEL_TEMP_2)
 
     def test_vlan1000_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
@@ -1431,7 +1555,7 @@ class TestVrfDeletion():
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
@@ -1439,21 +1563,21 @@ class TestVrfDeletion():
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             pkt_action='drop',
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
     def test_vrf2_neigh(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf2_neigh.txt",
+            fib_info_files=["/tmp/vrf2_neigh.txt"],
             src_ports= g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
     def test_vrf2_fib(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf2_fib.txt",
+            fib_info_files=["/tmp/vrf2_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
         )
 
@@ -1461,7 +1585,7 @@ class TestVrfDeletion():
     def test_vrf1_neigh_after_restore(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
-            fwd_info="/tmp/vrf1_neigh.txt",
+            fib_info_files=["/tmp/vrf1_neigh.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )
 
@@ -1469,6 +1593,6 @@ class TestVrfDeletion():
     def test_vrf1_fib_after_resotre(self, partial_ptf_runner):
         partial_ptf_runner(
             testname="vrf_test.FibTest",
-            fib_info="/tmp/vrf1_fib.txt",
+            fib_info_files=["/tmp/vrf1_fib.txt"],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
         )

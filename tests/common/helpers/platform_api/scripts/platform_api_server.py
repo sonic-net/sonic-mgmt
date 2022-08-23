@@ -2,10 +2,14 @@ import argparse
 import inspect
 import json
 import os
+import sys
 import syslog
-from io import BytesIO
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+# TODO: Clean this up once we no longer need to support Python 2
+if sys.version_info.major == 3:
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+else:
+    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
 import sonic_platform
 
@@ -18,11 +22,14 @@ def obj_serialize(obj):
     ''' JSON serializer for objects not serializable by default json library code
         We simply return a dictionary containing the object's class and module
     '''
-    syslog.syslog(syslog.LOG_WARNING, 'Unserializable object: {}.{}'.format(obj.__module__, obj.__class__.__name__))
+    syslog.syslog(syslog.LOG_WARNING,
+            'Unserializable object: {}.{} at {}'.format(
+                obj.__module__, obj.__class__.__name__, hex(id(obj))))
 
     data = {
         '__class__': obj.__class__.__name__,
-        '__module__': obj.__module__
+        '__module__': obj.__module__,
+        'object_id' : hex(id(obj))
     }
     return data
 
@@ -66,7 +73,13 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         obj = platform
         while len(path) != 1:
             _dir = path.pop()
-            args = inspect.getargspec(getattr(obj, 'get_' + _dir)).args
+
+            # TODO: Clean this up once we no longer need to support Python 2
+            if sys.version_info.major == 3:
+                args = inspect.getfullargspec(getattr(obj, 'get_' + _dir)).args
+            else:
+                args = inspect.getargspec(getattr(obj, 'get_' + _dir)).args
+
             if 'index' in args:
                 _idx = int(path.pop())
                 obj = getattr(obj, 'get_' + _dir)(_idx)
@@ -83,10 +96,7 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         except NotImplementedError as e:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
-        response = BytesIO()
-        response.write(json.dumps({'res': res}, default=obj_serialize))
-
-        self.wfile.write(response.getvalue())
+        self.wfile.write(json.dumps({'res': res}, default=obj_serialize).encode('utf-8'))
 
 
 if __name__ == '__main__':

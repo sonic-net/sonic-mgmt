@@ -7,6 +7,7 @@
 # ARPTest
 # DHCPTest
 # DHCPTopoT1Test
+# DHCP6Test
 # LLDPTest
 # BGPTest
 # LACPTest
@@ -32,14 +33,14 @@ class ControlPlaneBaseTest(BaseTest):
     MAX_PORTS = 128
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
-    PPS_LIMIT_MAX = PPS_LIMIT * 1.1
+    PPS_LIMIT_MAX = PPS_LIMIT * 1.3
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
-    TASK_TIMEOUT = 300  # Wait up to 5 minutes for tasks to complete
+    TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
 
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
-    DEFAULT_SEND_INTERVAL_SEC = 10
-    DEFAULT_RECEIVE_WAIT_TIME = 1
+    DEFAULT_SEND_INTERVAL_SEC = 30
+    DEFAULT_RECEIVE_WAIT_TIME = 3
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -54,8 +55,10 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
+        self.default_server_send_rate_limit_pps = test_params.get('send_rate_limit', 2000)
 
         self.needPreSend = None
+        self.has_trap = test_params.get('has_trap', True)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -116,9 +119,9 @@ class ControlPlaneBaseTest(BaseTest):
                 testutils.send_packet(self, send_intf, packet)
                 pre_send_count += 1
 
-            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=0.01)
+            rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (pre_send_count, rcv_pkt_cnt))
-            self.dataplane.flush()
+
 
         pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
@@ -129,14 +132,20 @@ class ControlPlaneBaseTest(BaseTest):
         end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
 
         send_count = 0
+        self.dataplane.flush()
         while datetime.datetime.now() < end_time:
             testutils.send_packet(self, send_intf, packet)
             send_count += 1
 
+            # Depending on the server/platform combination it is possible for the server to
+            # overwhelm the DUT, so we add an artificial delay here to rate-limit the server.
+            time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
+
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
 
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)  # Wait a little bit for all the packets to make it through
-        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0])
+        recv_count = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+        self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
         post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
@@ -222,8 +231,12 @@ class NoPolicyTest(ControlPlaneBaseTest):
             (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
         )
 
-        assert(rx_pps > self.NO_POLICER_LIMIT)
-        assert(recv_count > pkt_rx_limit)
+        if self.has_trap:
+            assert (rx_pps > self.NO_POLICER_LIMIT)
+            assert (recv_count > pkt_rx_limit)
+        else:
+            assert (rx_pps < self.NO_POLICER_LIMIT)
+            assert (recv_count < pkt_rx_limit)
 
 
 class PolicyTest(ControlPlaneBaseTest):
@@ -242,7 +255,7 @@ class PolicyTest(ControlPlaneBaseTest):
              str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
         )
 
-        assert(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX)
+        assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -342,6 +355,57 @@ class DHCPTest(NoPolicyTest):
 
         return packet
 
+
+# SONIC configuration has no policer limiting for DHCPv6
+class DHCP6Test(NoPolicyTest):
+    def __init__(self):
+        NoPolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("DHCP6Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udpv6_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            ipv6_src='::1',
+            ipv6_dst='ff02::1:2',
+            udp_sport=546,
+            udp_dport=547
+        )
+
+        return packet
+    
+ #SONIC configuration has no packets to CPU for DHCPv6-T1 Topo
+class DHCP6TopoT1Test(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+        # T1 DHCP6 no packet to packet to CPU so police rate is 0
+        self.PPS_LIMIT_MIN = 0
+        self.PPS_LIMIT_MAX = 0
+
+    def runTest(self):
+        self.log("DHCP6TopoT1Test")
+        self.run_suite()
+
+    def contruct_packet(self, port_number):
+        src_mac = self.my_mac[port_number]
+
+        packet = testutils.simple_udpv6_packet(
+            pktlen=100,
+            eth_dst='33:33:00:01:00:02',
+            eth_src=src_mac,
+            ipv6_src='::1',
+            ipv6_dst='ff02::1:2',
+            udp_sport=546,
+            udp_dport=547
+        )
+
+        return packet
 
 # SONIC configuration has no policer limiting for LLDP
 class LLDPTest(NoPolicyTest):

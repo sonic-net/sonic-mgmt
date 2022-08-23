@@ -6,6 +6,8 @@ from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
+from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -39,7 +41,7 @@ def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
             ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*"
         ]
-        loganalyzer.ignore_regex.extend(ignoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 
@@ -77,9 +79,10 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand
     # enable routing from mgmt interface to localhost
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=1, sysctl_set=True)
     # rule to forward syslog packets from mgmt interface to localhost
+    syslog_ip = duthost.get_rsyslog_ipv4()
     dut.iptables(action="insert", chain="PREROUTING", table="nat", protocol="udp",
                  destination=eth0_ip, destination_port=514, jump="DNAT",
-                 to_destination="127.0.0.1:514")
+                 to_destination="{}:514".format(syslog_ip))
 
     logger.info("--- Pfcwd Timer Testrun ---")
     yield { 'timers' : timers,
@@ -132,6 +135,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
+
 @pytest.mark.usefixtures('pfcwd_timer_setup_restore')
 class TestPfcwdAllTimer(object):
     """ PFCwd timer test class """
@@ -139,11 +143,12 @@ class TestPfcwdAllTimer(object):
         """
         Test execution
         """
-        logger.info("Flush logs")
-        self.dut.shell("logrotate -f /etc/logrotate.conf")
+        with DisableLogrotateCronContext(self.dut):
+            logger.info("Flush logs")
+            self.dut.shell("logrotate -f /etc/logrotate.conf")
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
-        time.sleep(5)
+        time.sleep(8)
 
         storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
         storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
@@ -169,17 +174,19 @@ class TestPfcwdAllTimer(object):
                                                                          config_detect_time))
         pytest_assert(self.all_detect_time[9] < config_detect_time, err_msg)
 
-        logger.info("Verify that real detection time is not less than configured")
-        err_msg = ("Real detection time is less than configured: Real detect time: {} "
-                   "Expected: {} (wd_detect_time)".format(self.all_detect_time[9],
-                                                          self.timers['pfc_wd_detect_time']))
-        pytest_assert(self.all_detect_time[9] > self.timers['pfc_wd_detect_time'], err_msg)
+        if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_detect_time']:
+            logger.info("Verify that real detection time is not less than configured")
+            err_msg = ("Real detection time is less than configured: Real detect time: {} "
+                       "Expected: {} (wd_detect_time)".format(self.all_detect_time[9],
+                                                              self.timers['pfc_wd_detect_time']))
+            pytest_assert(self.all_detect_time[9] > self.timers['pfc_wd_detect_time'], err_msg)
 
-        logger.info("Verify that real restoration time is not less than configured")
-        err_msg = ("Real restoration time is less than configured: Real restore time: {} "
-                   "Expected: {} (wd_restore_time)".format(self.all_restore_time[9],
-                                                           self.timers['pfc_wd_restore_time']))
-        pytest_assert(self.all_restore_time[9] > self.timers['pfc_wd_restore_time'], err_msg)
+        if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_restore_time']:
+            logger.info("Verify that real restoration time is not less than configured")
+            err_msg = ("Real restoration time is less than configured: Real restore time: {} "
+                       "Expected: {} (wd_restore_time)".format(self.all_restore_time[9],
+                                                               self.timers['pfc_wd_restore_time']))
+            pytest_assert(self.all_restore_time[9] > self.timers['pfc_wd_restore_time'], err_msg)
 
         logger.info("Verify that real restoration time is less than configured")
         config_restore_time = self.timers['pfc_wd_restore_time'] + self.timers['pfc_wd_poll_time']

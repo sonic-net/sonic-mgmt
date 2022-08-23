@@ -17,19 +17,22 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
         return None
 
     lossless_priorities = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
-    dscp_to_tc_map = config_facts["DSCP_TO_TC_MAP"]
+    if "DSCP_TO_TC_MAP" in config_facts:
+        prio_to_tc_map = config_facts["DSCP_TO_TC_MAP"]
+    elif "DOT1P_TO_TC_MAP" in config_facts:
+        prio_to_tc_map = config_facts["DOT1P_TO_TC_MAP"]
 
     result = dict()
     for prio in lossless_priorities:
         result[prio] = list()
 
-    profile = dscp_to_tc_map.keys()[0]
+    profile = prio_to_tc_map.keys()[0]
 
-    for dscp in dscp_to_tc_map[profile]:
-        tc = dscp_to_tc_map[profile][dscp]
+    for prio in prio_to_tc_map[profile]:
+        tc = prio_to_tc_map[profile][prio]
 
         if int(tc) in lossless_priorities:
-            result[int(tc)].append(int(dscp))
+            result[int(tc)].append(int(prio))
 
     return result
 

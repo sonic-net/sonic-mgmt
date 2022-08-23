@@ -148,7 +148,7 @@ class TestBGPRrTraffic():
                                       rate_pps=1000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv4_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):
@@ -214,7 +214,7 @@ class TestBGPRrTraffic():
                                       rate_pps=1000)
         stream_id1 = tr1['stream_id']
         tg_ob.tg_traffic_control(action='run', handle=stream_id1)
-        st.wait(20)
+        st.tg_wait(20)
         tg1_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D1)])
         tg2_stats = tgapi.get_traffic_stats(tg_ob, port_handle=topo["T1{}P1_ipv6_tg_ph".format(TG_D2)])
         if not (int(tg2_stats.tx.total_packets) and int(tg1_stats.rx.total_packets)):

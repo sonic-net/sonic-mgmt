@@ -1,43 +1,79 @@
 import os
 import glob
 import json
-import tarfile
 import logging
 import getpass
 import random
+import re
 
 import pytest
 import yaml
 import jinja2
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
+import copy
 
 from datetime import datetime
+from ipaddress import ip_interface, IPv4Interface
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.devices import Localhost
-from tests.common.devices import PTFHost, EosHost, FanoutHost, K8sMasterHost, K8sMasterCluster
-from tests.common.helpers.constants import ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID
+from tests.common.devices.local import Localhost
+from tests.common.devices.ptf import PTFHost
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
+from tests.common.devices.fanout import FanoutHost
+from tests.common.devices.k8s import K8sMasterHost
+from tests.common.devices.k8s import K8sMasterCluster
+from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.vmhost import VMHost
+from tests.common.devices.base import NeighborDevice
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
+
+from tests.common.helpers.constants import (
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
+)
 from tests.common.helpers.dut_ports import encode_dut_port_name
-from tests.common.devices import DutHosts
+from tests.common.helpers.dut_utils import encode_dut_and_container_name
+from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
+from tests.common.utilities import get_inventory_files
+from tests.common.utilities import get_host_vars
+from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_test_server_host
+from tests.common.utilities import str2bool
+from tests.common.utilities import safe_filename
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
+from tests.common.cache import FactsCache
 
+from tests.common.connections.console_host import ConsoleHost
 
+try:
+    from tests.macsec import MacsecPlugin
+except ImportError as e:
+    logging.error(e)
+
+from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
+from ptf import testutils # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
+cache = FactsCache()
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
-                  'tests.common.plugins.fib',
-                  'tests.common.plugins.tacacs',
                   'tests.common.plugins.loganalyzer',
-                  'tests.common.plugins.psu_controller',
+                  'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
+                  'tests.common.plugins.custom_skipif.CustomSkipIf',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
-                  'tests.vxlan')
+                  'tests.common.dualtor',
+                  'tests.decap',
+                  'tests.common.plugins.allure_server',
+                  'tests.common.plugins.conditional_mark')
 
 
 def pytest_addoption(parser):
@@ -54,6 +90,13 @@ def pytest_addoption(parser):
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
+    # neighbor device type
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
+                    help="Neighbor devices type")
+
+    # FWUtil options
+    parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
     ############################
     # pfc_asym options         #
     ############################
@@ -69,7 +112,7 @@ def pytest_addoption(parser):
                     help="Change default loops delay")
     parser.addoption("--logs_since", action="store", type=int,
                     help="number of minutes for show techsupport command")
-    parser.addoption("--collect_techsupport", action="store", default=True, type=bool,
+    parser.addoption("--collect_techsupport", action="store", default=True, type=str2bool,
                     help="Enable/Disable tech support collection. Default is enabled (True)")
 
     ############################
@@ -81,12 +124,59 @@ def pytest_addoption(parser):
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
+    parser.addoption("--post_check", action="store_true", default=False,
+                     help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--post_check_items", action="store", default=False,
+                     help="Change (add|remove) post test check items based on pre test check items")
+    parser.addoption("--recover_method", action="store", default="adaptive",
+                     help="Set method to use for recover if sanity failed")
 
     ########################
     #   pre-test options   #
     ########################
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
+    parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
+                     help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    ############################
+    #  keysight ixanvl options #
+    ############################
+    parser.addoption("--testnum", action="store", default=None, type=str)
+
+    ##################################
+    # advance-reboot,upgrade options #
+    ##################################
+    add_advanced_reboot_args(parser)
+    add_cont_warm_reboot_args(parser)
+    add_normal_reboot_args(parser)
+
+    ############################
+    #   loop_times options     #
+    ############################
+    parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
+                     help="Define the loop times of the test")
+    ############################
+    #   collect logs option    #
+    ############################
+    parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
+
+    ############################
+    #   macsec options         #
+    ############################
+    parser.addoption("--enable_macsec", action="store_true", default=False,
+                     help="Enable macsec on some links of testbed")
+    parser.addoption("--macsec_profile", action="store", default="all",
+                     type=str, help="profile name list in macsec/profile.json")
+
+    ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                    help="To use public docker registry for syncd swap, by default is disabled (False)")
+
+def pytest_configure(config):
+    if config.getoption("enable_macsec"):
+        config.pluginmanager.register(MacsecPlugin())
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -111,8 +201,7 @@ def enhance_inventory(request):
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def config_logging(request):
+def pytest_cmdline_main(config):
 
     # Filter out unnecessary pytest_ansible plugin log messages
     pytest_ansible_logger = logging.getLogger("pytest_ansible")
@@ -138,22 +227,72 @@ def config_logging(request):
         dataplane_logger.setLevel(logging.ERROR)
 
 
-@pytest.fixture(scope="session")
-def tbinfo(request):
+def pytest_collection(session):
+    """Workaround to reduce messy plugin logs generated during collection only
+
+    Args:
+        session (ojb): Pytest session object
     """
-    Create and return testbed information
+    if session.config.option.collectonly:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
+
+
+def get_tbinfo(request):
+    """
+    Helper function to create and return testbed information
     """
     tbname = request.config.getoption("--testbed")
     tbfile = request.config.getoption("--testbed_file")
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    testbedinfo = TestbedInfo(tbfile)
-    return testbedinfo.testbed_topo.get(tbname, {})
+    testbedinfo = cache.read(tbname, 'tbinfo')
+    if testbedinfo is cache.NOTEXIST:
+        testbedinfo = TestbedInfo(tbfile)
+        cache.write(tbname, 'tbinfo', testbedinfo)
+
+    return tbname, testbedinfo.testbed_topo.get(tbname, {})
+
+@pytest.fixture(scope="session")
+def tbinfo(request):
+    """
+    Create and return testbed information
+    """
+    _, testbedinfo = get_tbinfo(request)
+    return testbedinfo
+
+
+def get_specified_duts(request):
+    """
+    Get a list of DUT hostnames specified with the --host-pattern CLI option
+    or -d if using `run_tests.sh`
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    testbed_duts = tbinfo['duts']
+
+    host_pattern = request.config.getoption("--host-pattern")
+    if host_pattern=='all':
+        return testbed_duts
+
+    if ';' in host_pattern:
+        specified_duts = host_pattern.replace('[', '').replace(']', '').split(';')
+    else:
+        specified_duts = host_pattern.split(',')
+
+    if any([dut not in testbed_duts for dut in specified_duts]):
+        pytest.fail("One of the specified DUTs {} does not belong to the testbed {}".format(specified_duts, tbname))
+
+    if len(testbed_duts) != specified_duts:
+        duts = specified_duts
+        logger.debug("Different DUTs specified than in testbed file, using {}"
+                    .format(str(duts)))
+
+    return duts
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(ansible_adhoc, tbinfo):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param ansible_adhoc: Fixture provided by the pytest-ansible package.
@@ -161,7 +300,7 @@ def fixture_duthosts(ansible_adhoc, tbinfo):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo)
+    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
 
 
 @pytest.fixture(scope="session")
@@ -189,7 +328,59 @@ def rand_one_dut_hostname(request):
     dut_hostnames = generate_params_dut_hostname(request)
     if len(dut_hostnames) > 1:
         dut_hostnames = random.sample(dut_hostnames, 1)
+    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
+
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def rand_unselected_dut(request, duthosts, rand_one_dut_hostname):
+    """
+    Return the left duthost after random selection.
+    Return None for non dualtor testbed
+    """
+    dut_hostnames = generate_params_dut_hostname(request)
+    if len(dut_hostnames) <= 1:
+        return None
+    idx = dut_hostnames.index(rand_one_dut_hostname)
+    return duthosts[dut_hostnames[1 - idx]]
+
+
+@pytest.fixture(scope="module")
+def selected_rand_one_per_hwsku_hostname(request):
+    """
+    Return the selected hostnames for the given module.
+    This fixture will return the list of selected dut hostnames
+    when another fixture like enum_rand_one_per_hwsku_hostname
+    or enum_rand_one_per_hwsku_frontend_hostname is used.
+    """
+    if request.module in _hosts_per_hwsku_per_module:
+        return _hosts_per_hwsku_per_module[request.module]
+    else:
+        return []
+
+
+@pytest.fixture(scope="module")
+def rand_one_dut_portname_oper_up(request):
+    oper_up_ports = generate_port_lists(request, "oper_up_ports")
+    if len(oper_up_ports) > 1:
+        oper_up_ports = random.sample(oper_up_ports, 1)
+    return oper_up_ports[0]
+
+
+@pytest.fixture(scope="module")
+def rand_one_dut_lossless_prio(request):
+    lossless_prio_list = generate_priority_lists(request, 'lossless')
+    if len(lossless_prio_list) > 1:
+        lossless_prio_list = random.sample(lossless_prio_list, 1)
+    return lossless_prio_list[0]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
@@ -197,7 +388,8 @@ def reset_critical_services_list(duthosts):
     Resets the critical services list between test modules to ensure that it is
     left in a known state after tests finish running.
     """
-    [a_dut.reset_critical_services_tracking_list() for a_dut in duthosts]
+    [a_dut.critical_services_tracking_list() for a_dut in duthosts]
+
 
 @pytest.fixture(scope="session")
 def localhost(ansible_adhoc):
@@ -205,32 +397,38 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost):
+def ptfhost(ansible_adhoc, tbinfo, duthost, request):
+    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+        return None
     if "ptf" in tbinfo:
-        return PTFHost(ansible_adhoc, tbinfo["ptf"])
+        return PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo, macsec_enabled = request.config.option.enable_macsec)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        return PTFHost(ansible_adhoc, ptf_host)
+        return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled = request.config.option.enable_macsec)
+
 
 @pytest.fixture(scope="module")
 def k8smasters(ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
-    k8s_master_ansible_group = request.config.getoption("--kube_master") 
+    k8s_master_ansible_group = request.config.getoption("--kube_master")
     master_vms = {}
     inv_files = request.config.getoption("ansible_inventory")
+    k8s_inv_file = None
     for inv_file in inv_files:
         if "k8s" in inv_file:
             k8s_inv_file = inv_file
+    if not k8s_inv_file:
+        pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
             if 'haproxy' in attributes:
                 is_haproxy = True
-            else: 
+            else:
                 is_haproxy = False
             master_vms[hostname] = {'host': K8sMasterHost(ansible_adhoc,
                                                                hostname,
@@ -242,26 +440,52 @@ def k8scluster(k8smasters):
     k8s_master_cluster = K8sMasterCluster(k8smasters)
     return k8s_master_cluster
 
-@pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, tbinfo, creds):
+
+@pytest.fixture(scope="session")
+def nbrhosts(ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
 
-    vm_base = int(tbinfo['vm_base'][2:])
     devices = {}
+    if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
+        return devices
+
+    vm_base = int(tbinfo['vm_base'][2:])
+    vm_name_fmt = 'VM%0{}d'.format(len(tbinfo['vm_base']) - 2)
+    neighbor_type = request.config.getoption("--neighbor_type")
+
+    if not 'VMs' in tbinfo['topo']['properties']['topology']:
+        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        return devices
+
     for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
-        devices[k] = {'host': EosHost(ansible_adhoc,
-                                      "VM%04d" % (vm_base + v['vm_offset']),
-                                      creds['eos_login'],
-                                      creds['eos_password'],
-                                      shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                                      shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None),
-                      'conf': tbinfo['topo']['properties']['configuration'][k]}
+        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
+        if neighbor_type == "eos":
+            device = NeighborDevice({'host': EosHost(ansible_adhoc,
+                                                     vm_name,
+                                                     creds['eos_login'],
+                                                     creds['eos_password'],
+                                                     shell_user=creds[
+                                                         'eos_root_user'] if 'eos_root_user' in creds else None,
+                                                     shell_passwd=creds[
+                                                         'eos_root_password'] if 'eos_root_password' in creds else None),
+                                     'conf': tbinfo['topo']['properties']['configuration'][k]})
+        elif neighbor_type == "sonic":
+            device = NeighborDevice({'host': SonicHost(ansible_adhoc,
+                                        vm_name,
+                                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None),
+                                    'conf': tbinfo['topo']['properties']['configuration'][k]})
+        else:
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+        devices[k] = device
     return devices
 
+
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -271,10 +495,12 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
+            duthost = duthosts[dut_host]
+            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
-                fanout_host = fanout_rec['peerdevice']
-                fanout_port = fanout_rec['peerport']
+                fanout_host = str(fanout_rec['peerdevice'])
+                fanout_port = str(fanout_rec['peerport'])
 
                 if fanout_host in fanout_hosts.keys():
                     fanout = fanout_hosts[fanout_host]
@@ -305,16 +531,49 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds):
                                         network_password,
                                         shell_user=shell_user,
                                         shell_passwd=shell_password)
+                    fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+
+                # Add port name to fanout port mapping port if dut_port is alias.
+                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                    # it happens when an interface has the same name with another alias, for example:
+                    # Interface     Alias
+                    # --------------------
+                    # Ethernet108   Ethernet32
+                    # Ethernet32    Ethernet13/1
+                    if mapped_port not in value.keys():
+                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+
+                if dut_host not in fanout.dut_hostnames:
+                    fanout.dut_hostnames.append(dut_host)
     except:
         pass
     return fanout_hosts
+
+
+@pytest.fixture(scope="session")
+def vmhost(ansible_adhoc, request, tbinfo):
+    server = tbinfo["server"]
+    inv_files = get_inventory_files(request)
+    vmhost = get_test_server_host(inv_files, server)
+    return VMHost(ansible_adhoc, vmhost.name)
+
 
 @pytest.fixture(scope='session')
 def eos():
     """ read and yield eos configuration """
     with open('eos/eos.yml') as stream:
+        eos = yaml.safe_load(stream)
+        return eos
+
+
+@pytest.fixture(scope='session')
+def sonic():
+    """ read and yield sonic configuration """
+    with open('sonic/sonic.yml') as stream:
         eos = yaml.safe_load(stream)
         return eos
 
@@ -327,19 +586,28 @@ def pdu():
         return pdu
 
 
-@pytest.fixture(scope="module")
-def creds(duthosts, rand_one_dut_hostname):
+def creds_on_dut(duthost):
     """ read credential information according to the dut inventory """
-    duthost = duthosts[rand_one_dut_hostname]
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
+    exclude_regex_patterns = [
+        'topo_.*\.yml',
+        'breakout_speed\.yml',
+        'lag_fanout_ports_test_vars\.yml',
+        'qos\.yml',
+        'mux_simulator_http_port_map\.yml'
+        ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
         files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
+    filtered_files = [
+        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
+    ]
+
     creds = {}
-    for f in files:
+    for f in filtered_files:
         with open(f) as stream:
             v = yaml.safe_load(stream)
             if v is not None:
@@ -352,21 +620,50 @@ def creds(duthosts, rand_one_dut_hostname):
         "sonicadmin_password",
         "docker_registry_host",
         "docker_registry_username",
-        "docker_registry_password"
+        "docker_registry_password",
+        "public_docker_registry_host"
     ]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+    # load creds for console
+    if "console_login" not in hostvars.keys():
+        console_login_creds = {}
+    else:
+        console_login_creds = hostvars["console_login"]
+    creds["console_user"] = {}
+    creds["console_password"] = {}
+
+    for k, v in console_login_creds.items():
+        creds["console_user"][k] = v["user"]
+        creds["console_password"][k] = v["passwd"]
 
     return creds
+
+@pytest.fixture(scope="session")
+def creds(duthost):
+    return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope='module')
+def creds_all_duts(duthosts):
+    creds_all_duts = dict()
+    for duthost in duthosts.nodes:
+        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
+    return creds_all_duts
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
 
+    if call.when == 'setup':
+        item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
+    elif call.when == 'teardown':
+        item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
+
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections)
+    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
 
     # execute all other hooks to obtain the report object
     outcome = yield
@@ -377,12 +674,6 @@ def pytest_runtest_makereport(item, call):
 
     setattr(item, "rep_" + rep.when, rep)
 
-def fetch_dbs(duthost, testname):
-    dbs = [[0, "appdb"], [1, "asicdb"], [2, "counterdb"], [4, "configdb"]]
-    for db in dbs:
-        duthost.shell("redis-dump -d {} --pretty -o {}.json".format(db[0], db[1]))
-        duthost.fetch(src="{}.json".format(db[1]), dest="logs/{}".format(testname))
-
 
 def collect_techsupport_on_dut(request, a_dut):
     # request.node is an "item" because we use the default
@@ -390,14 +681,11 @@ def collect_techsupport_on_dut(request, a_dut):
     testname = request.node.name
     if request.config.getoption("--collect_techsupport") and request.node.rep_call.failed:
         res = a_dut.shell("generate_dump -s \"-2 hours\"")
-        fname = res['stdout']
+        fname = res['stdout_lines'][-1]
         a_dut.fetch(src=fname, dest="logs/{}".format(testname))
-        tar = tarfile.open("logs/{}/{}/{}".format(testname, a_dut.hostname, fname))
-        for m in tar.getmembers():
-            if m.isfile():
-                tar.extract(m, path="logs/{}/{}/".format(testname, a_dut.hostname))
 
         logging.info("########### Collected tech support for test {} ###########".format(testname))
+
 
 @pytest.fixture
 def collect_techsupport(request, duthosts, enum_dut_hostname):
@@ -407,10 +695,12 @@ def collect_techsupport(request, duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     collect_techsupport_on_dut(request, duthost)
 
+
 @pytest.fixture
 def collect_techsupport_all_duts(request, duthosts):
     yield
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
@@ -546,69 +836,186 @@ def enable_container_autorestart():
 
     return enable_container_autorestart
 
+@pytest.fixture(scope='module')
+def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+    """
+        Swap syncd on DUT host
+
+        Args:
+            request (Fixture): pytest request object
+            duthost (AnsibleHost): Device Under Test (DUT)
+
+        Returns:
+            None
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    swapSyncd = request.config.getoption("--qos_swap_syncd")
+    public_docker_reg = request.config.getoption("--public_docker_registry")
+    try:
+        if swapSyncd:
+            if public_docker_reg:
+                new_creds = copy.deepcopy(creds)
+                new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+                new_creds['docker_registry_username'] = ''
+                new_creds['docker_registry_password'] = ''
+            else:
+                new_creds = creds
+            docker.swap_syncd(duthost, new_creds)
+
+        yield
+    finally:
+        if swapSyncd:
+            docker.restore_default_syncd(duthost, new_creds)
 
 def get_host_data(request, dut):
     '''
     This function parses multple inventory files and returns the dut information present in the inventory
     '''
-    inv_data = None
-    inv_files = [inv_file.strip() for inv_file in request.config.getoption("ansible_inventory").split(",")]
-    for inv_file in inv_files:
-        inv_mgr = InventoryManager(loader=DataLoader(), sources=inv_file)
-        if dut in inv_mgr.hosts:
-            return inv_mgr.get_host(dut).get_vars()
+    inv_files = get_inventory_files(request)
+    return get_host_vars(inv_files, dut)
 
-    return inv_data
 
-def generate_param_asic_index(request, dut_indices, param_type):
-    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_indices))
+def generate_params_frontend_hostname(request):
+    frontend_duts = []
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
+    inv_files = get_inventory_files(request)
+    for dut in duts:
+        if is_frontend_node(inv_files, dut):
+            frontend_duts.append(dut)
+    assert len(frontend_duts) > 0, \
+        "Test selected require at-least one frontend node, " \
+        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
+    return frontend_duts
 
-    tbname = request.config.getoption("--testbed")
-    tbfile = request.config.getoption("--testbed_file")
-    if tbname is None or tbfile is None:
-        raise ValueError("testbed and testbed_file are required!")
 
-    tbinfo = TestbedInfo(tbfile)
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+    hosts = get_specified_duts(request)
+    if frontend_only:
+        hosts = generate_params_frontend_hostname(request)
+    inv_files = get_inventory_files(request)
+    # Create a list of hosts per hwsku
+    host_hwskus = {}
+    for a_host in hosts:
+        host_vars = get_host_visible_vars(inv_files, a_host)
+        a_host_hwsku = None
+        if 'hwsku' in host_vars:
+            a_host_hwsku = host_vars['hwsku']
+        else:
+            # Lets try 'sonic_hwsku' as well
+            if 'sonic_hwsku' in host_vars:
+                a_host_hwsku = host_vars['sonic_hwsku']
+        if a_host_hwsku:
+            if a_host_hwsku not in host_hwskus:
+                host_hwskus[a_host_hwsku] = [a_host]
+            else:
+                host_hwskus[a_host_hwsku].append(a_host)
+        else:
+            pytest.fail("Test selected require a node per hwsku, but 'hwsku' for '{}' not defined in the inventory".format(a_host))
 
-    #if the params are not present treat the device as a single asic device
-    asic_index_params = [DEFAULT_ASIC_ID]
+    hosts_per_hwsku = []
+    for hosts in host_hwskus.values():
+        if len(hosts) == 1:
+            hosts_per_hwsku.append(hosts[0])
+        else:
+            hosts_per_hwsku.extend(random.sample(hosts, 1))
 
-    for dut_id in dut_indices:
-        dut = tbinfo.testbed_topo[tbname]["duts"][dut_id]
-        inv_data = get_host_data(request, dut)
-        if inv_data is not None:
+    return hosts_per_hwsku
+
+
+def generate_params_supervisor_hostname(request):
+    duts = get_specified_duts(request)
+    if len(duts) == 1:
+        # We have a single node - dealing with pizza box, return it
+        return [duts[0]]
+    inv_files = get_inventory_files(request)
+    for dut in duts:
+        # Expecting only a single supervisor node
+        if is_supervisor_node(inv_files, dut):
+            return [dut]
+    # If there are no supervisor cards in a multi-dut tesbed, we are dealing with all pizza box in the testbed, pick the first DUT
+    return [duts[0]]
+
+def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
+    _, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
+    logging.info("generating {} asic indicies for  DUT [{}] in ".format(param_type, dut_hostnames))
+
+    asic_index_params = []
+    for dut in dut_hostnames:
+        inv_data = get_host_visible_vars(inv_files, dut)
+        # if the params are not present treat the device as a single asic device
+        dut_asic_params = [DEFAULT_ASIC_ID]
+        if inv_data:
             if param_type == ASIC_PARAM_TYPE_ALL and ASIC_PARAM_TYPE_ALL in inv_data:
-                asic_index_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                if int(inv_data[ASIC_PARAM_TYPE_ALL]) == 1:
+                    dut_asic_params = [DEFAULT_ASIC_ID]
+                else:
+                    if ASICS_PRESENT in inv_data:
+                        dut_asic_params = inv_data[ASICS_PRESENT]
+                    else:
+                        dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
-                asic_index_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
-            logging.info("dut_index {} dut name {}  asics params = {}".format(
-                dut_id, dut, asic_index_params))
+                dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
+            logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
+
+        if random_asic:
+            asic_index_params.append(random.sample(dut_asic_params, 1))
+        else:
+            asic_index_params.append(dut_asic_params)
     return asic_index_params
 
+
 def generate_params_dut_index(request):
-    tbname = request.config.getoption("--testbed")
-    tbfile = request.config.getoption("--testbed_file")
-    if tbname is None or tbfile is None:
-        raise ValueError("testbed and testbed_file are required!")
-    tbinfo = TestbedInfo(tbfile)
-    num_duts = len(tbinfo.testbed_topo[tbname]["duts"])
-    logging.info("Num of duts in testbed topology {}".format(num_duts))
+    tbname, _ = get_tbinfo(request)
+    num_duts = len(get_specified_duts(request))
+    logging.info("Using {} duts from testbed '{}'".format(num_duts, tbname))
+
     return range(num_duts)
 
 
 def generate_params_dut_hostname(request):
-    tbname = request.config.getoption("--testbed")
-    tbfile = request.config.getoption("--testbed_file")
-    if tbname is None or tbfile is None:
-        raise ValueError("testbed and testbed_file are required!")
-    tbinfo = TestbedInfo(tbfile)
-    duts = tbinfo.testbed_topo[tbname]["duts"]
-    logging.info("DUTs in testbed topology: {}".format(str(duts)))
+    tbname, _ = get_tbinfo(request)
+    duts = get_specified_duts(request)
+    logging.info("Using DUTs {} in testbed '{}'".format(str(duts), tbname))
+
     return duts
 
 
-def generate_port_lists(request, port_scope):
-    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+def get_completeness_level_metadata(request):
+    completeness_level = request.config.getoption("--completeness_level")
+    # if completeness_level is not set or an unknown completeness_level is set
+    # return "thorough" to run all test set
+    if not completeness_level or completeness_level not in ["debug", "basic", "confident", "thorough"]:
+        return "thorough"
+    return completeness_level
+
+
+def get_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError as e:
+        return None
+
+    return metadata.get(tbname)
+
+
+def generate_port_lists(request, port_scope, with_completeness_level=False):
+    empty = [encode_dut_port_name('unknown', 'unknown')]
     if 'ports' in port_scope:
         scope = 'Ethernet'
     elif 'pcs' in port_scope:
@@ -625,62 +1032,132 @@ def generate_port_lists(request, port_scope):
     else:
         return empty
 
-    tbname = request.config.getoption("--testbed")
-    if not tbname:
+    dut_ports = get_testbed_metadata(request)
+
+    if dut_ports is None:
         return empty
 
-    folder = 'metadata'
-    filepath = os.path.join(folder, tbname + '.json')
-
-    try:
-        with open(filepath, 'r') as yf:
-            ports = json.load(yf)
-    except IOError as e:
-        return empty
-
-    if tbname not in ports:
-        return empty
-
-    dut_ports = ports[tbname]
-    ret = []
+    dut_port_map = {}
     for dut, val in dut_ports.items():
+        dut_port_pairs = []
         if 'intf_status' not in val:
             continue
         for intf, status in val['intf_status'].items():
             if scope in intf and (not state or status[state] == 'up'):
-                ret.append(encode_dut_port_name(dut, intf))
+                dut_port_pairs.append(encode_dut_port_name(dut, intf))
+        dut_port_map[dut] = dut_port_pairs
+    logger.info("Generate dut_port_map: {}".format(dut_port_map))
 
+    if with_completeness_level:
+        completeness_level = get_completeness_level_metadata(request)
+        # if completeness_level in ["debug", "basic", "confident"],
+        # only select several ports on every DUT to save test time
+
+        def trim_dut_port_lists(dut_port_list, target_len):
+            if len(dut_port_list) <= target_len:
+                return dut_port_list
+            # for diversity, fetch the ports from both the start and the end of the original list
+            pos_1 = target_len / 2
+            pos_2 = target_len - pos_1
+            return dut_ports[:pos_1] + dut_ports[-pos_2:]
+
+        if completeness_level in ["debug"]:
+            for dut, dut_ports in dut_port_map.items():
+                dut_port_map[dut] = trim_dut_port_lists(dut_ports, 1)
+        elif completeness_level in ["basic", "confident"]:
+            for dut, dut_ports in dut_port_map.items():
+                dut_port_map[dut] = trim_dut_port_lists(dut_ports, 4)
+
+    ret = reduce(lambda dut_ports_1, dut_ports_2: dut_ports_1 + dut_ports_2, dut_port_map.values())
+    logger.info("Generate port_list: {}".format(ret))
     return ret if ret else empty
 
 
-def generate_dut_feature_list(request):
-    empty = [ encode_dut_port_name('unknown', 'unknown') ]
+def generate_dut_feature_container_list(request):
+    """
+    Generate list of containers given the list of features.
+    List of features and container names are both obtained from
+    metadata file
+    """
+    empty = [ encode_dut_and_container_name("unknown", "unknown") ]
 
-    tbname = request.config.getoption("--testbed")
-    if not tbname:
+    meta = get_testbed_metadata(request)
+
+    if meta is None:
         return empty
 
-    folder = 'metadata'
-    filepath = os.path.join(folder, tbname + '.json')
+    container_list = []
 
-    try:
-        with open(filepath, 'r') as yf:
-            metadata = json.load(yf)
-    except IOError as e:
-        return empty
-
-    if tbname not in metadata:
-        return empty
-
-    meta = metadata[tbname]
-    ret = []
     for dut, val in meta.items():
-        if 'features' not in val:
+        if "features" not in val:
             continue
-        for feature, _ in val['features'].items():
-            ret.append(encode_dut_port_name(dut, feature))
+        for feature in val["features"].keys():
+            if "disabled" in val["features"][feature]:
+                continue
 
-    return ret if ret else empty
+            dut_info = meta[dut]
+
+            if "asic_services" in dut_info and dut_info["asic_services"].get(feature) is not None:
+                for service in dut_info["asic_services"].get(feature):
+                    container_list.append(encode_dut_and_container_name(dut, service))
+            else:
+                container_list.append(encode_dut_and_container_name(dut, feature))
+
+    return container_list
+
+
+def generate_dut_feature_list(request, duts_selected, asics_selected):
+    """
+    Generate a list of features.
+    The list of features willl be obtained from
+    metadata file.
+    This list will be features that can be stopped
+    or restarted.
+    """
+    meta = get_testbed_metadata(request)
+    tuple_list = []
+
+    if meta is None:
+        return tuple_list
+
+    skip_feature_list = ['database', 'database-chassis', 'gbsyncd']
+
+    for a_dut_index, a_dut in enumerate(duts_selected):
+        if len(asics_selected):
+            for a_asic in asics_selected[a_dut_index]:
+                # Create tuple of dut and asic index
+                if "features" in meta[a_dut]:
+                    for a_feature in meta[a_dut]["features"].keys():
+                        if a_feature not in skip_feature_list:
+                            tuple_list.append((a_dut, a_asic, a_feature))
+                else:
+                    tuple_list.append((a_dut, a_asic, None))
+        else:
+            if "features" in meta[a_dut]:
+                for a_feature in meta[a_dut]["features"].keys():
+                    if a_feature not in skip_feature_list:
+                        tuple_list.append((a_dut, None, a_feature))
+            else:
+                tuple_list.append((a_dut, None, None))
+    return tuple_list
+
+
+def generate_dut_backend_asics(request, duts_selected):
+    dut_asic_list = []
+
+    metadata = get_testbed_metadata(request)
+
+    if metadata is None:
+        return [[None]]
+
+    for dut in duts_selected:
+        mdata = metadata.get(dut)
+        if mdata is None:
+            continue
+        dut_asic_list.append(mdata.get("backend_asics", [None]))
+
+    return dut_asic_list
+
 
 def generate_priority_lists(request, prio_scope):
     empty = []
@@ -697,10 +1174,10 @@ def generate_priority_lists(request, prio_scope):
             info = json.load(yf)
     except IOError as e:
         return empty
-    
+
     if tbname not in info:
         return empty
-    
+
     dut_prio = info[tbname]
     ret = []
 
@@ -710,25 +1187,90 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
+_frontend_hosts_per_hwsku_per_module = {}
+_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
-    dut_indices = [0]
+    dut_fixture_name = None
+    duts_selected = None
+    global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    # Enumerators for duts are mutually exclusive
+    if "enum_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_dut_hostname(metafunc)
+        dut_fixture_name = "enum_dut_hostname"
+    elif "enum_supervisor_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_supervisor_hostname(metafunc)
+        dut_fixture_name = "enum_supervisor_dut_hostname"
+    elif "enum_frontend_dut_hostname" in metafunc.fixturenames:
+        duts_selected = generate_params_frontend_hostname(metafunc)
+        dut_fixture_name = "enum_frontend_dut_hostname"
+    elif "enum_rand_one_per_hwsku_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc)
+            _hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_hostname"
+    elif "enum_rand_one_per_hwsku_frontend_hostname" in metafunc.fixturenames:
+        if metafunc.module not in _frontend_hosts_per_hwsku_per_module:
+            hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(metafunc, frontend_only=True)
+            _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+        duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
+        dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
 
-    # Enumerators ("enum_dut_index", "enum_dut_hostname", "rand_one_dut_hostname") are mutually exclusive
-    if "enum_dut_index" in metafunc.fixturenames:
-        dut_indices = generate_params_dut_index(metafunc)
-        metafunc.parametrize("enum_dut_index",dut_indices)
-    elif "enum_dut_hostname" in metafunc.fixturenames:
-        dut_hostnames = generate_params_dut_hostname(metafunc)
-        metafunc.parametrize("enum_dut_hostname", dut_hostnames)
+    asics_selected = None
+    asic_fixture_name = None
+
+    if duts_selected is None:
+        tbname, tbinfo = get_tbinfo(metafunc)
+        duts_selected = [tbinfo["duts"][0]]
 
     if "enum_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_ALL))
-    if "enum_frontend_asic_index" in metafunc.fixturenames:
-        metafunc.parametrize("enum_frontend_asic_index",generate_param_asic_index(metafunc, dut_indices, ASIC_PARAM_TYPE_FRONTEND))
+        asic_fixture_name = "enum_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
+    elif "enum_frontend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_frontend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND)
+    elif "enum_backend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_backend_asic_index"
+        asics_selected = generate_dut_backend_asics(metafunc, duts_selected)
+    elif "enum_rand_one_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_rand_one_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+    elif "enum_rand_one_frontend_asic_index" in metafunc.fixturenames:
+        asic_fixture_name = "enum_rand_one_frontend_asic_index"
+        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+
+    # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
+    if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
+        tuple_list = generate_dut_feature_list(metafunc, duts_selected, asics_selected)
+        feature_fixture = "enum_dut_feature"
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name + "," + feature_fixture, tuple_list, scope="module", indirect=True)
+    # Create parameterization tuple of dut_fixture_name and asic_fixture_name to parameterize
+    elif dut_fixture_name and asic_fixture_name:
+        # parameterize on both - create tuple for each
+        tuple_list = []
+        for a_dut_index, a_dut in enumerate(duts_selected):
+            if len(asics_selected):
+                for a_asic in asics_selected[a_dut_index]:
+                    # Create tuple of dut and asic index
+                    tuple_list.append((a_dut, a_asic))
+            else:
+                tuple_list.append((a_dut, None))
+        metafunc.parametrize(dut_fixture_name + "," + asic_fixture_name, tuple_list, scope="module", indirect=True)
+    elif dut_fixture_name:
+        # parameterize only on DUT
+        metafunc.parametrize(dut_fixture_name, duts_selected, scope="module", indirect=True)
+    elif asic_fixture_name:
+        # We have no duts selected, so need asic list for the first DUT
+        if len(asics_selected):
+            metafunc.parametrize(asic_fixture_name, asics_selected[0], scope="module", indirect=True)
+        else:
+            metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portname_module_fixture", parametrise_autoneg_tests(), scope="module")
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -739,11 +1281,431 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_portchannel_oper_up", generate_port_lists(metafunc, "oper_up_pcs"))
     if "enum_dut_portchannel_admin_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portchannel_admin_up", generate_port_lists(metafunc, "admin_up_pcs"))
-
-    if "enum_dut_feature" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_feature", generate_dut_feature_list(metafunc))
-
+    if "enum_dut_portchannel_with_completeness_level" in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_portchannel_with_completeness_level", generate_port_lists(metafunc, "all_pcs", with_completeness_level=True))
+    if "enum_dut_feature_container" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
+        )
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+
+
+def parametrise_autoneg_tests():
+    folder = 'metadata'
+    filepath = os.path.join(folder, 'autoneg-test-params.json')
+    data = {}
+    try:
+        with open(filepath) as yf:
+            data = json.load(yf)
+    except IOError:
+        logger.warning('Cannot find a datafile for autoneg tests at {}. Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
+        return []
+
+    def limit_ports(ports):
+        return random.sample(ports, min(3, len(ports)))
+
+    return [encode_dut_port_name(dutname,dutport) for dutname in data for dutport in limit_ports(data[dutname]) ]
+
+
+### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
+@pytest.fixture(scope="module")
+def enum_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_supervisor_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_dut_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_frontend_hostname(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_backend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_dut_feature(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def enum_rand_one_frontend_asic_index(request):
+    return request.param
+
+@pytest.fixture(scope="module")
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_hostname = duthost.hostname
+    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
+    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
+
+    console_type = "console_" + console_type
+
+    # console password and sonic_password are lists, which may contain more than one password
+    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
+        "ansible_altpassword")
+    host = ConsoleHost(console_type=console_type,
+                       console_host=console_host,
+                       console_port=console_port,
+                       sonic_username=creds['sonicadmin_user'],
+                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                       console_username=console_username,
+                       console_password=creds['console_password'][console_type])
+    yield host
+    host.disconnect()
+
+@pytest.fixture(scope='session')
+def cleanup_cache_for_session(request):
+    """
+    This fixture allows developers to cleanup the cached data for all DUTs in the testbed before test.
+    Use cases:
+      - Running tests where some 'facts' about the DUT that get cached are changed.
+      - Running tests/regression without running test_pretest which has a test to clean up cache (PR#2978)
+      - Test case development phase to work out testbed information changes.
+
+    This fixture is not automatically applied, if you want to use it, you have to add a call to it in your tests.
+    """
+    tbname, tbinfo = get_tbinfo(request)
+    inv_files = get_inventory_files(request)
+    cache.cleanup(zone=tbname)
+    for a_dut in tbinfo['duts']:
+        cache.cleanup(zone=a_dut)
+    inv_data = get_host_visible_vars(inv_files, a_dut)
+    if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
+            for asic_id in range(inv_data['num_asics']):
+                cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
+
+
+def get_l2_info(dut):
+    """
+    Helper function for l2 mode fixture
+    """
+    config_facts = dut.get_running_config_facts()
+    mgmt_intf_table = config_facts['MGMT_INTERFACE']
+    metadata_table = config_facts['DEVICE_METADATA']['localhost']
+    mgmt_ip = None
+    for ip in mgmt_intf_table['eth0'].keys():
+        if type(ip_interface(ip)) is IPv4Interface:
+            mgmt_ip = ip
+    mgmt_gw = mgmt_intf_table['eth0'][mgmt_ip]['gwaddr']
+    hwsku = metadata_table['hwsku']
+
+    return mgmt_ip, mgmt_gw, hwsku
+
+@pytest.fixture(scope='session')
+def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):
+    """
+    Configures L2 switch mode according to
+    https://github.com/Azure/SONiC/wiki/L2-Switch-mode
+
+    Currently not compatible with version 201811
+
+    This fixture does not auto-cleanup after itself
+    A manual config reload is required to restore regular state
+    """
+    base_config_db_cmd = 'echo \'{}\' | config reload /dev/stdin -y'
+    l2_preset_cmd = 'sonic-cfggen --preset l2 -p -H -k {} -a \'{}\' | config load /dev/stdin -y'
+    is_dualtor = 'dualtor' in tbinfo['topo']['name']
+
+    for dut in duthosts:
+        logger.info("Setting L2 mode on {}".format(dut))
+        cmds = []
+        mgmt_ip, mgmt_gw, hwsku = get_l2_info(dut)
+        # step 1
+        base_config_db = {
+                            "MGMT_INTERFACE": {
+                                "eth0|{}".format(mgmt_ip): {
+                                    "gwaddr": "{}".format(mgmt_gw)
+                                }
+                            },
+                            "DEVICE_METADATA": {
+                                "localhost": {
+                                    "hostname": "sonic"
+                                }
+                            }
+                        }
+
+        if is_dualtor:
+            base_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "DualToR"
+        cmds.append(base_config_db_cmd.format(json.dumps(base_config_db)))
+
+        # step 2
+        cmds.append('sonic-cfggen -H --write-to-db')
+
+        # step 3 is optional and skipped here
+        # step 4
+        if is_dualtor:
+            mg_facts = dut.get_extended_minigraph_facts(tbinfo)
+            all_ports = mg_facts['minigraph_ports'].keys()
+            downlinks = []
+            for vlan_info in mg_facts['minigraph_vlans'].values():
+                downlinks.extend(vlan_info['members'])
+            uplinks = [intf for intf in all_ports if intf not in downlinks]
+            extra_args = {
+                'is_dualtor': 'true',
+                'uplinks': uplinks,
+                'downlinks': downlinks
+            }
+        else:
+            extra_args = {}
+        cmds.append(l2_preset_cmd.format(hwsku, json.dumps(extra_args)))
+
+        # extra step needed to render the feature table correctly
+        if is_dualtor:
+            cmds.append('while [ $(show feature config mux | awk \'{print $2}\' | tail -n 1) != "enabled" ]; do sleep 1; done')
+
+        # step 5
+        cmds.append('config save -y')
+
+        # step 6
+        cmds.append('config reload -y')
+
+        logger.debug("Commands to be run:\n{}".format(cmds))
+
+        dut.shell_cmds(cmds=cmds)
+
+@pytest.fixture(scope='session')
+def duts_running_config_facts(duthosts):
+    """Return running config facts for all multi-ASIC DUT hosts
+
+    Args:
+        duthosts (DutHosts): Instance of DutHosts for interacting with DUT hosts.
+
+    Returns:
+        dict: {
+            <dut hostname>: [
+                {asic0_cfg_facts},
+                {asic1_cfg_facts}
+            ]
+        }
+    """
+    cfg_facts = {}
+    for duthost in duthosts:
+        cfg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
+            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+    return cfg_facts
+
+@pytest.fixture(scope='class')
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+    """
+        Prepares DUT host test params
+
+        Args:
+            duthost (AnsibleHost): Device Under Test (DUT)
+            tbinfo (Fixture, dict): Map containing testbed information
+            ptfPortMapFile (Fxiture, str): filename residing
+              on PTF host and contains port maps information
+
+        Returns:
+            dut_test_params (dict): DUT host test params
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    topo = tbinfo["topo"]["name"]
+
+    yield {
+        "topo": topo,
+        "hwsku": mgFacts["minigraph_hwsku"],
+        "basicParams": {
+            "router_mac": duthost.facts["router_mac"],
+            "server": duthost.host.options['inventory_manager'].get_host(
+                        duthost.hostname
+                    ).vars['ansible_host'],
+            "port_map_file": ptf_portmap_file,
+            "sonic_asic_type": duthost.facts['asic_type'],
+            "sonic_version": duthost.os_version
+        }
+    }
+
+@pytest.fixture(scope='module')
+def duts_minigraph_facts(duthosts, tbinfo):
+    """Return minigraph facts for all DUT hosts
+
+    Args:
+        duthosts (DutHosts): Instance of DutHosts for interacting with DUT hosts.
+        tbinfo (object): Instance of TestbedInfo.
+
+    Returns:
+        dict: {
+            <dut hostname>: [
+                {asic0_mg_facts},
+                {asic1_mg_facts}
+            ]
+        }
+    """
+    mg_facts = {}
+    for duthost in duthosts:
+        mg_facts[duthost.hostname] = []
+        for asic in duthost.asics:
+            if asic.is_it_backend():
+                continue
+            asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
+            mg_facts[duthost.hostname].append(asic_mg_facts)
+
+    return mg_facts
+
+@pytest.fixture(scope="module", autouse=True)
+def get_reboot_cause(duthost):
+    uptime_start = duthost.get_up_time()
+    yield
+    uptime_end = duthost.get_up_time()
+    if not uptime_end == uptime_start:
+        if "201811" in duthost.os_version or "201911" in duthost.os_version:
+            duthost.show_and_parse("show reboot-cause")
+        else:
+            duthost.show_and_parse("show reboot-cause history")
+
+def collect_db_dump_on_duts(request, duthosts):
+    '''When test failed, this fixture will dump all the DBs on DUT and collect them to local
+    '''
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        dut_file_path = "/tmp/db_dump"
+        local_file_path = "./logs/db_dump"
+
+        # Remove characters that can't be used in filename
+        nodename = safe_filename(request.node.nodeid)
+        db_dump_path = os.path.join(dut_file_path, nodename)
+        db_dump_tarfile = os.path.join(dut_file_path, "{}.tar.gz".format(nodename))
+
+        # We don't need to collect all DBs, db_names specify the DBs we want to collect
+        db_names = ["APPL_DB", "ASIC_DB", "COUNTERS_DB", "CONFIG_DB", "STATE_DB"]
+        raw_db_config = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")["stdout"]
+        db_config = json.loads(raw_db_config).get("DATABASES", {})
+        db_ids = set()
+        for db_name in db_names:
+            # Skip STATE_DB dump on release 201911.
+            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
+            # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
+            # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
+            # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
+            # to avoid raising exception when dumping the STATE_DB.
+            if db_name == "STATE_DB" and duthosts[0].sonic_release in ['201911']:
+                continue
+
+            if db_name in db_config:
+                db_ids.add(db_config[db_name].get("id", 0))
+
+        namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
+        if namespace_list:
+            for namespace in namespace_list:
+                # Collect DB dump
+                dump_dest_path = os.path.join(db_dump_path, namespace)
+                dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
+                for db_id in db_ids:
+                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}".format(namespace, db_id, dump_dest_path, db_id)
+                    dump_cmds.append(dump_cmd)
+                duthosts.shell_cmds(cmds=dump_cmds)
+        else:
+            # Collect DB dump
+            dump_dest_path = db_dump_path
+            dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
+            for db_id in db_ids:
+                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(db_id, dump_dest_path, db_id)
+                dump_cmds.append(dump_cmd)
+            duthosts.shell_cmds(cmds=dump_cmds)
+
+        #compress dump file and fetch to docker
+        duthosts.shell("tar -czf {} -C {} {}".format(db_dump_tarfile, dut_file_path, nodename))
+        duthosts.fetch(src = db_dump_tarfile, dest = local_file_path)
+
+        #remove dump file from dut
+        duthosts.shell("rm -fr {} {}".format(db_dump_tarfile, db_dump_path))
+
+
+@pytest.fixture(autouse=True)
+def collect_db_dump(request, duthosts):
+    """This autoused fixture is to generate DB dumps on DUT and collect them to local for later troubleshooting when
+    a test case failed.
+    """
+    yield
+    if request.config.getoption("--collect_db_data"):
+        collect_db_dump_on_duts(request, duthosts)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def verify_new_core_dumps(duthost):
+    if "20191130" in duthost.os_version:
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+    else:
+        pre_existing_cores = duthost.shell('ls /var/core/')['stdout'].split()
+
+    yield
+    if "20191130" in duthost.os_version:
+        cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+    else:
+        cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
+
+    new_core_dumps = set(cur_cores) - set(pre_existing_cores)
+    # convert to list so print msg will not contain "set()"
+    new_core_dumps = list(new_core_dumps)
+
+    if new_core_dumps:
+        pytest.fail("Core dumps found. Expected: %s Found: %s. Test failed. New core dumps: %s" % (len(pre_existing_cores),\
+            len(cur_cores), new_core_dumps))
+
+def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
+    """
+    Check that a packet is received on _any_ of the specified ports belonging to
+    the given device (default device_number is 0).
+
+    Also verifies that the packet is not received on any other ports for this
+    device, and that no other packets are received on the device (unless --relax
+    is in effect).
+
+    The function is redefined here to workaround code bug in testutils.verify_packets_any
+    """
+    received = False
+    failures = []
+    for device, port in testutils.ptf_ports():
+        if device != device_number:
+            continue
+        if port in ports:
+            logging.debug("Checking for pkt on device %d, port %d", device_number, port)
+            result = testutils.dp_poll(test, device_number=device, port_number=port, exp_pkt=pkt)
+            if isinstance(result, test.dataplane.PollSuccess):
+                received = True
+            else:
+                failures.append((port, result))
+        else:
+            testutils.verify_no_packet(test, pkt, (device, port))
+    testutils.verify_no_other_packets(test)
+
+    if not received:
+        def format_failure(port, failure):
+            return "On port %d:\n%s" % (port, failure.format())
+        failure_report = "\n".join([format_failure(*f) for f in failures])
+        test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
+                    % (ports, device_number, failure_report))
+
+# HACK: testutils.verify_packets_any to workaround code bug
+# TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
+testutils.verify_packets_any = verify_packets_any_fixed
