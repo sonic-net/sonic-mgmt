@@ -27,7 +27,8 @@ __all__ = [
     "mux_status_from_nic_simulator",
     "toggle_active_all_ports_both_tors",
     "set_drop_active_active",
-    "TrafficDirection"
+    "TrafficDirection",
+    "ForwardingState"
 ]
 
 logger = logging.getLogger(__name__)
