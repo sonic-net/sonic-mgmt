@@ -1,6 +1,7 @@
 """
 Test the feature of container_checker
 """
+import time
 import logging
 
 import pytest
@@ -44,8 +45,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     up_bgp_neighbors = {}
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        bgp_neighbors = duthost.get_bgp_neighbors()
-        up_bgp_neighbors[duthost] = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+        up_bgp_neighbors[duthost] = duthost.get_bgp_neighbors_per_asic("established")
 
     yield
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -143,7 +143,7 @@ def post_test_check(duthost, up_bgp_neighbors):
       This function will return True if all critical processes are running and
       all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
+    return check_all_critical_processes_status(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
