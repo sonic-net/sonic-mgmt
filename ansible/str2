@@ -90,6 +90,8 @@ all:
           ansible_host: 10.64.246.243
         vms28-7:
           ansible_host: 10.64.246.246
+        vms28-8:
+          ansible_host: 10.64.247.9
         vms29-1:
           ansible_host: 10.64.246.244
         vms29-2:
@@ -101,6 +103,12 @@ all:
 
     pdu:
       hosts:
+        pdu-84:
+          ansible_host: 10.3.155.84
+          protocol: snmp
+        pdu-85:
+          ansible_host: 10.3.155.85
+          protocol: snmp
         pdu-96:
           ansible_host: 10.3.155.96
           protocol: snmp
@@ -282,6 +290,8 @@ fanout:
       ansible_host: 10.3.147.168
     str2-7260cx3-acs-fan-35:
       ansible_host: 10.3.147.79
+    str2-7260cx3-acs-fan-36:
+      ansible_host: 10.3.146.23
     str2-7260cx3-d09-u04:
       ansible_host: 10.3.146.19
     str2-7260cx3-d09-u02:
@@ -663,6 +673,24 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE20432360"
+    str2-7050cx3-acs-12:
+      ansible_host: 10.3.146.13
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPE21131034
+      base_mac: 2c:dd:e9:0e:d3:14
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x22": "ASY0323106A0"
+        "0x23": "JPE21131034"
+        "0x24": "2c:dd:e9:0e:d3:14"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.11-18938843"
+        "0x2F": "JPE21131034"
     str2-7060-spy-1:
       ansible_host: 10.3.146.241
       hwsku: Arista-7060CX-32S-C32
