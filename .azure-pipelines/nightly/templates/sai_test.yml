@@ -296,7 +296,7 @@ stages:
 
           - task: Bash@3
             displayName: Generate SAI testbed file
-            condition: eq(variables.IMG_UPGRADE_SUCC, 'succ')
+            condition: or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false))
             inputs:
               targetType: 'inline'
               script: |
