@@ -21,6 +21,11 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import cable_type                                                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                           # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports                                            # lgtm[py/unused-import]
+
 import ipaddress
 
 from ptf import mask
@@ -30,7 +35,7 @@ from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common import constants
 
 
-__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
+__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +299,31 @@ def force_active_tor():
         x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
 
+@pytest.fixture
+def force_standby_tor():
+    """
+    @summary: Manually set dut host to the standby tor for intf
+    @param dut: The duthost for which to toggle mux
+    @param intf: One or a list of names of interface or 'all' for all interfaces
+    """
+    forced_intfs = []
+    def force_standby_tor_fn(dut, intf):
+        logger.info('Setting {} as standby for intfs {}'.format(dut, intf))
+        if type(intf) == str:
+            cmds = ["config muxcable mode standby {}; true".format(intf)]
+            forced_intfs.append((dut, intf))
+        else:
+            cmds = []
+            for i in intf:
+                forced_intfs.append((dut, i))
+                cmds.append("config muxcable mode standby {}; true".format(i))
+        dut.shell_cmds(cmds=cmds, continue_on_fail=True)
+
+    yield force_standby_tor_fn
+
+    for x in forced_intfs:
+        x[0].shell("config muxcable mode auto {}; true".format(x[1]))        
+
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
     """Helper function to get the fanout host objects that the current tor_host connected to.
@@ -401,7 +431,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
 
 @pytest.fixture
-def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo):
+def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """
     Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
@@ -416,8 +446,12 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
@@ -430,7 +464,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """
     Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
@@ -445,8 +479,12 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
@@ -459,7 +497,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
@@ -475,10 +513,15 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     down_intfs = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
             logger.info('lower=False and upper=False, no fanout interface will be shutdown.')
             return
+
+        if dut_intfs is None:
+            dut_intfs = mux_ports
 
         if upper:
             logger.info('Shutdown fanout ports connected to upper_tor')
@@ -1219,17 +1262,18 @@ def build_packet_to_server(duthost, ptfadapter, target_server_ip):
 
 
 @contextlib.contextmanager
-def crm_neighbor_checker(duthost):
+def crm_neighbor_checker(duthost, ip_version="ipv4", expect_change=False):
+    resource_name = "{}_neighbor".format(ip_version)
     crm_facts_before = duthost.get_crm_facts()
-    ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+    neighbor_before = crm_facts_before["resources"][resource_name]["used"]
+    logging.info("{} neighbor before test: {}".format(ip_version, neighbor_before))
     yield
     time.sleep(crm_facts_before["polling_interval"])
     crm_facts_after = duthost.get_crm_facts()
-    ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
-    if ipv4_neighbor_after != ipv4_neighbor_before:
-        raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+    neighbor_after = crm_facts_after["resources"][resource_name]["used"]
+    logging.info("{} neighbor after test: {}".format(ip_version, neighbor_after))
+    if neighbor_after != neighbor_before and not expect_change:
+        raise ValueError("{} neighbor differs, before {}, after {}".format(ip_version, neighbor_before, neighbor_after))
 
 
 def get_ptf_server_intf_index(tor, tbinfo, iface):

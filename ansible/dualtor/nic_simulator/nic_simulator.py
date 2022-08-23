@@ -44,6 +44,8 @@ ACTIVE_ACTIVE_INTERFACES_TEMPLATE = "iaa-%s-%d"
 ACTIVE_ACTIVE_INTERFACE_PATTERN = "iaa-[\w-]+-\d+"
 SERVER_NIC_INTERFACE_TEMPLATE = "nic-%s-%d"
 SERVER_NIC_INTERFACE_PATTERN = "nic-[\w-]+-\d+"
+
+# gRPC settings
 GRPC_TIMEOUT = 0.5
 GRPC_SERVER_OPTIONS = [
     ('grpc.http2.min_ping_interval_without_data_ms', 1000),
@@ -96,6 +98,7 @@ class OVSCommand(object):
     OVS_VSCTL_LIST_PORTS_CMD = "ovs-vsctl list-ports {bridge_name}"
     OVS_OFCTL_DEL_FLOWS_CMD = "ovs-ofctl del-flows {bridge_name}"
     OVS_OFCTL_ADD_FLOWS_CMD = "ovs-ofctl add-flow {bridge_name} {flow}"
+    OVS_OFCTL_MOD_FLOWS_CMD = "ovs-ofctl mod-flows {bridge_name} {flow}"
     OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
     OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
     OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
@@ -115,6 +118,10 @@ class OVSCommand(object):
     @staticmethod
     def ovs_ofctl_add_flow(bridge_name, flow):
         return run_command(OVSCommand.OVS_OFCTL_ADD_FLOWS_CMD.format(bridge_name=bridge_name, flow=flow))
+
+    @staticmethod
+    def ovs_ofctl_mod_flow(bridge_name, flow):
+        return run_command(OVSCommand.OVS_OFCTL_MOD_FLOWS_CMD.format(bridge_name=bridge_name, flow=flow))
 
     @staticmethod
     def ovs_ofctl_add_group(bridge_name, group):
@@ -180,7 +187,7 @@ class OVSFlow(StrObj):
     def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
         self.in_port = in_port
         self.packet_filter = packet_filter
-        self.output_ports = set(output_ports)
+        self.output_ports = output_ports
         self.group = group
         self.priority = priority
         self._str_prefix = []
@@ -190,17 +197,63 @@ class OVSFlow(StrObj):
             self._str_prefix.append(str(self.packet_filter))
         self._str_prefix.append("in_port=%s" % self.in_port)
         self._str_prefix = ",".join(self._str_prefix)
+        self.drop = False
 
     def to_string(self):
         flow_parts = [self._str_prefix]
-        if self.output_ports:
-            flow_parts.append("actions=")
-            flow_parts.extend("output:%s" % _ for _ in self.output_ports)
+        if self.drop:
+            flow_parts.append("actions=drop")
+        elif self.output_ports:
+            output = ["output:%s" % _ for _ in self.output_ports]
+            flow_parts.append("actions=%s" % ",".join(output))
         elif self.group:
             flow_parts.append("actions=group:%s" % self.group.group_id)
         else:
             flow_parts.append("actions=drop")
         return ",".join(flow_parts)
+
+    def set_drop(self, recover=False):
+        if recover:
+            self.drop = False
+        else:
+            self.drop = True
+        self.reset()
+
+
+class OVSUpstreamFlow(OVSFlow):
+    """Object to represent an OVS upstream flow to output to both ToRs."""
+
+    __slots__ = ("drop_output",)
+
+    def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
+        super(OVSUpstreamFlow, self).__init__(in_port, packet_filter, output_ports, group, priority)
+        self.drop_output = [False, False]
+
+    def to_string(self):
+        flow_parts = [self._str_prefix]
+        has_output = False
+        if self.output_ports:
+            output = ["output:%s" % port for (portid, port) in enumerate(self.output_ports) if not self.drop_output[portid]]
+            has_output = bool(output)
+            if has_output:
+                flow_parts.append("actions=%s" % ",".join(output))
+
+        if not has_output:
+            flow_parts.append("actions=drop")
+        return ",".join(flow_parts)
+
+    def get_drop(self, portid):
+        return self.drop_output[portid]
+
+    def set_drop(self, portid=None, recover=False):
+        is_drop = not recover
+  
+        if portid is None:
+            self.drop_output = [is_drop, is_drop]
+        else:
+            self.drop_output[portid] = is_drop
+
+        self.reset()
 
 
 class ForwardingState(object):
@@ -317,7 +370,13 @@ class OVSBridge(object):
         "upstream_ecmp_flow",
         "upstream_ecmp_group",
         "states_getter",
-        "states_setter"
+        "states_setter",
+        "downstream_flows",
+        "downstream_upper_tor_flow",
+        "downstream_lower_tor_flow",
+        "upstream_nic_flow",
+        "upstream_icmp_flow",
+        "upstream_arp_flow"
     )
 
     def __init__(self, bridge_name):
@@ -341,6 +400,10 @@ class OVSBridge(object):
         self.states_setter = {
             1: self.upstream_ecmp_flow.set_upper_tor_forwarding_state,
             0: self.upstream_ecmp_flow.set_lower_tor_forwarding_state
+        }
+        self.downstream_flows = {
+            1: self.downstream_upper_tor_flow,
+            0: self.downstream_lower_tor_flow
         }
 
     def _init_ports(self):
@@ -376,16 +439,16 @@ class OVSBridge(object):
         self._del_flows()
         self._del_groups()
         # downstream flows
-        self._add_flow(self.upper_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
-        self._add_flow(self.lower_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
+        self.downstream_upper_tor_flow = self._add_flow(self.upper_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
+        self.downstream_lower_tor_flow = self._add_flow(self.lower_tor_port, output_ports=[self.ptf_port, self.server_nic], priority=10)
 
         # upstream flows
         # upstream packet from server NiC should be directed to both ToRs
-        self._add_flow(self.server_nic, output_ports=[self.upper_tor_port, self.lower_tor_port], priority=9)
+        self.upstream_nic_flow = self._add_flow(self.server_nic, output_ports=[self.lower_tor_port, self.upper_tor_port], priority=9, upstream=True)
         # upstream icmp packet from ptf port should be directed to both ToRs
-        self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.upper_tor_port, self.lower_tor_port], priority=8)
+        self.upstream_icmp_flow = self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.lower_tor_port, self.upper_tor_port], priority=8, upstream=True)
         # upstream arp packet from ptf port should be directed to both ToRs
-        self._add_flow(self.ptf_port, packet_filter="arp", output_ports=[self.upper_tor_port, self.lower_tor_port], priority=7)
+        self.upstream_arp_flow = self._add_flow(self.ptf_port, packet_filter="arp", output_ports=[self.lower_tor_port, self.upper_tor_port], priority=7, upstream=True)
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(1, self.upper_tor_port, self.lower_tor_port)
         self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=6)
@@ -404,8 +467,11 @@ class OVSBridge(object):
         self.upstream_ecmp_group = None
         self.groups.clear()
 
-    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
-        flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports, group=group, priority=priority)
+    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None, upstream=False):
+        if upstream:
+            flow = OVSUpstreamFlow(in_port, packet_filter=packet_filter, output_ports=output_ports, group=group, priority=priority)
+        else:
+            flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports, group=group, priority=priority)
         logging.info("Add flow to bridge %s: %s", self.bridge_name, flow)
         OVSCommand.ovs_ofctl_add_flow(self.bridge_name, flow)
         self.flows.append(flow)
@@ -441,6 +507,70 @@ class OVSBridge(object):
             logging.info("Query bridge %s forwarding state for ports %s: %s", self.bridge_name, portids, tuple(ForwardingState.STATE_LABELS[_] for _ in states))
             return states
 
+    def set_drop(self, portids, directions, recover):
+        """Set drop on a link."""
+        logging.info("Set drop on bridge %s: portids=%s, directions=%s, recover=%s" % (self.bridge_name, portids, directions, recover))
+        with self.lock:
+            result = []
+            for portid, direction in zip(portids, directions):
+                downstream_flow = self.downstream_flows[portid]
+                forwarding_state_getter = self.states_getter[portid]
+                forwarding_state_setter = self.states_setter[portid]
+                if recover:
+                    # recover both upstream and downstream flows
+                    # recover downstream
+                    if downstream_flow.drop:
+                        downstream_flow.set_drop(recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, downstream_flow)
+
+                    # recover upstream
+                    # recover upstream traffic from server NiC
+                    if self.upstream_nic_flow.get_drop(portid):
+                        self.upstream_nic_flow.set_drop(portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_nic_flow)
+                    # recover upstream icmp traffic(heartbeats) from ptf
+                    if self.upstream_icmp_flow.get_drop(portid):
+                        self.upstream_icmp_flow.set_drop(portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_icmp_flow)
+                    # recover upstream arp traffic from ptf
+                    if self.upstream_arp_flow.get_drop(portid):
+                        self.upstream_arp_flow.set_drop(portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_arp_flow)
+
+                    forwarding_state = forwarding_state_getter()
+                    if forwarding_state == ForwardingState.STANDBY:
+                        forwarding_state_setter(ForwardingState.ACTIVE)
+                        OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
+                else:
+                    if direction == 0:
+                        # downstream
+                        if not downstream_flow.drop:
+                            downstream_flow.set_drop()
+                            OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, downstream_flow)
+                    elif direction == 1:
+                        # upstream
+                        # drop upstream traffic from server NiC
+                        if not self.upstream_nic_flow.get_drop(portid):
+                            self.upstream_nic_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_nic_flow)
+                        # drop upstream icmp traffic(heartbeats) from ptf
+                        if not self.upstream_icmp_flow.get_drop(portid):
+                            self.upstream_icmp_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_icmp_flow)
+                        # drop upstream arp traffic from ptf
+                        if not self.upstream_arp_flow.get_drop(portid):
+                            self.upstream_arp_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_arp_flow)
+
+                        forwarding_state = forwarding_state_getter()
+                        # use set forwarding state to standby to simulator link drop
+                        if forwarding_state == ForwardingState.ACTIVE:
+                            forwarding_state_setter(ForwardingState.STANDBY)
+                            OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
+                    else:
+                        raise ValueError("Invalid direction %s, please use 0 for downstream and 1 for upstream" % (direction))
+                result.append(True)
+            return result
 
 def validate_request_certificate(response):
     """Decorator to validate client certificate."""
@@ -538,6 +668,17 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     def QueryServerVersion(self, request, context):
         # TODO: add QueryServerVersion implementation
         return nic_simulator_grpc_service_pb2.ServerVersionReply()
+
+    @validate_request_certificate(nic_simulator_grpc_service_pb2.DropReply())
+    def SetDrop(self, request, context):
+        logging.debug("SetDrop: request to server %s from client %s\n", self.nic_addr, context.peer())
+        portids, directions, recover = request.portid, request.direction, request.recover
+        response = nic_simulator_grpc_service_pb2.DropReply(
+            portid=portids,
+            success=self.ovs_bridge.set_drop(portids, directions, recover)
+        )
+        logging.debug("SetDrop: response to client %s from server %s\n%s", context.peer(), self.nic_addr, response)
+        return response
 
     def _run_server(self, binding_port):
         """Run the gRPC server."""
@@ -641,6 +782,30 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 
     def QueryOperationPortState(self, request, context):
         return nic_simulator_grpc_mgmt_service_pb2.ListOfOperationReply()
+
+    def SetDrop(self, request, context):
+        nic_addresses = request.nic_addresses
+        drop_requests = request.drop_requests
+        logging.debug("SetDrop[mgmt]: request set drop: %s\n", request)
+        set_drop_responses = []
+        for nic_address, drop_request in zip(nic_addresses, drop_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                set_drop_response = client_stub.SetDrop(
+                    drop_request,
+                    timeout=10
+                )
+                set_drop_responses.append(set_drop_response)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details("Error in SetDrop to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfDropReply()
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfDropReply(
+            nic_addresses=nic_addresses,
+            drop_replies=set_drop_responses
+        )
+        logging.debug("SetDrop[mgmt]: response of set drop: %s\n", response)
+        return response
 
     def start(self):
         self.server = grpc.server(
