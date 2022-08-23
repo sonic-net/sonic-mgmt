@@ -266,7 +266,7 @@ class TestbedInfo(object):
             logger.warning("Unsupported testbed type - {}".format(topo_name))
             return "unsupported"
         tb_type = match.group()
-        if tb_type in ['mgmttor', 'dualtor', 'm0']:
+        if tb_type in ['mgmttor', 'dualtor']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
         return tb_type

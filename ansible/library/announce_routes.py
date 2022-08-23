@@ -78,7 +78,7 @@ def get_topo_type(topo_name):
     if not match:
         return "unsupported"
     topo_type = match.group()
-    if topo_type in ['dualtor', 'mgmttor', 'm0']:
+    if topo_type in ['dualtor', 'mgmttor']:
         # set dualtor/mgmttor topology type to 't0' to avoid adding it in each test script.
         topo_type = 't0'
     return topo_type

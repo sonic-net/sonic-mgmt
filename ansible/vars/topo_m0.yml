@@ -63,11 +63,11 @@ topology:
       vlans:
         - 49
       vm_offset: 3
-    ARISTA05MX:
+    ARISTA01MX:
       vlans:
         - 50
       vm_offset: 4
-    ARISTA06MX:
+    ARISTA02MX:
       vlans:
         - 51
       vm_offset: 5
@@ -81,44 +81,6 @@ topology:
           prefix: 192.168.0.1/21
           prefix_v6: fc02:1000::1/64
           tag: 1000
-      two_vlan_a:
-        Vlan100:
-          id: 100
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-          prefix: 192.168.0.1/22
-          prefix_v6: fc02:100::1/64
-          tag: 100
-        Vlan200:
-          id: 200
-          intfs: [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
-          prefix: 192.168.4.1/22
-          prefix_v6: fc02:200::1/64
-          tag: 200
-      four_vlan_a:
-        Vlan1000:
-          id: 1000
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-          prefix: 192.168.0.1/23
-          prefix_v6: fc02:400::1/64
-          tag: 1000
-        Vlan2000:
-          id: 2000
-          intfs: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-          prefix: 192.168.2.1/23
-          prefix_v6: fc02:401::1/64
-          tag: 2000
-        Vlan3000:
-          id: 3000
-          intfs: [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
-          prefix: 192.168.4.1/23
-          prefix_v6: fc02:402::1/64
-          tag: 3000
-        Vlan4000:
-          id: 4000
-          intfs: [36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
-          prefix: 192.168.6.1/23
-          prefix_v6: fc02:403::1/64
-          tag: 4000
 
 configuration_properties:
   common:
@@ -129,20 +91,21 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    spine_asn: 65534
-    leaf_asn_start: 64600
-    tor_asn_start: 65100
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
+  tor:
+    swrole: tor
+  leaf:
     swrole: leaf
 
 configuration:
   ARISTA01M1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64600
+      asn: 65200
       peers:
         65100:
         - 10.0.0.56
@@ -163,8 +126,9 @@ configuration:
   ARISTA02M1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64600
+      asn: 65200
       peers:
         65100:
         - 10.0.0.58
@@ -185,8 +149,9 @@ configuration:
   ARISTA03M1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64600
+      asn: 65200
       peers:
         65100:
         - 10.0.0.60
@@ -207,8 +172,9 @@ configuration:
   ARISTA04M1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64600
+      asn: 65200
       peers:
         65100:
         - 10.0.0.62
@@ -226,11 +192,13 @@ configuration:
       ipv4: 10.10.246.32/24
       ipv6: fc0a::41/64
 
-  ARISTA05MX:
+  ARISTA01MX:
     properties:
     - common
+    - tor
+    tornum: 1
     bgp:
-      asn: 64600
+      asn: 64001
       peers:
         65100:
         - 10.0.0.64
@@ -240,19 +208,19 @@ configuration:
         ipv4: 100.1.0.33/32
         ipv6: 2064:100::21/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.65/31
         ipv6: fc00::82/126
     bp_interface:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::44/64
 
-  ARISTA06MX:
+  ARISTA02MX:
     properties:
     - common
+    - tor
+    tornum: 2
     bgp:
-      asn: 64600
+      asn: 64002
       peers:
         65100:
         - 10.0.0.66
@@ -262,8 +230,6 @@ configuration:
         ipv4: 100.1.0.34/32
         ipv6: 2064:100::22/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.67/31
         ipv6: fc00::86/126
     bp_interface:
