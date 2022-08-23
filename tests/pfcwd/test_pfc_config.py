@@ -115,9 +115,13 @@ def cfg_setup(setup_pfc_test, duthosts, rand_one_dut_hostname):
     logger.info("--- Clean up config dir from DUT ---")
     cfg_teardown(duthost)
 
-def update_init_cfg_file(duthost, default_pfcwd_value):
+
+def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     """
-    Set default_pfcwd_status in /etc/sonic/init_cfg.json with parameter default_pfcwd_value
+    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
+    The path is expected to be one of:
+    - /etc/sonic/init_cfg.json
+    - /etc/sonic/config_db.json
 
     Args:
         duthost (AnsibleHost): instance
@@ -133,7 +137,7 @@ def update_init_cfg_file(duthost, default_pfcwd_value):
     else:
         pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
 
-    sed_command = "sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' /etc/sonic/init_cfg.json".format(original_value, default_pfcwd_value)
+    sed_command = "sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}".format(original_value, default_pfcwd_value, filepath)
     duthost.shell(sed_command)
 
     return original_value
@@ -149,7 +153,8 @@ def mg_cfg_teardown(duthost, default_pfcwd_value):
     Returns:
         None
     """
-    update_init_cfg_file(duthost, default_pfcwd_value)
+    update_pfcwd_default_state(duthost, '/etc/sonic/init_cfg.json', default_pfcwd_value)
+    update_pfcwd_default_state(duthost, '/etc/sonic/config_db.json', default_pfcwd_value)
 
 @pytest.fixture(scope='class', autouse=True)
 def mg_cfg_setup(duthosts, rand_one_dut_hostname):
@@ -167,7 +172,7 @@ def mg_cfg_setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Enable pfcwd in configuration file")
-    original_pfcwd_value = update_init_cfg_file(duthost, "enable")
+    original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "enable")
 
     yield
     logger.info("--- Start running default pfcwd config test---")
@@ -186,6 +191,7 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
     Returns:
         None
     """
+    yield
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")

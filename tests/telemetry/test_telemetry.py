@@ -56,11 +56,19 @@ def setup_telemetry_forpyclient(duthost):
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
+    return client_auth
 
-def generate_client_cli(duthost, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
+def restore_telemetry_forpyclient(duthost, default_client_auth):
+    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"', module_ignore_errors=False)['stdout_lines']
+    client_auth = str(client_auth_out[0])
+    if client_auth != default_client_auth:
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" {}'.format(default_client_auth), module_ignore_errors=False)
+        duthost.service(name="telemetry", state="restarted")
+
+def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB", subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE, intervalms=0, update_count=3):
     """Generate the py_gnmicli command line based on the given params.
     """
-    cmdFormat = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
+    cmdFormat = 'python '+ gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
@@ -71,6 +79,24 @@ def assert_equal(actual, expected, message):
     """Helper method to compare an expected value vs the actual value.
     """
     pytest_assert(actual == expected, "{0}. Expected {1} vs actual {2}".format(message, expected, actual))
+
+@pytest.fixture(scope="module")
+def gnxi_path(ptfhost):
+    """
+    gnxi's location is updated from /gnxi to /root/gnxi
+    in RP https://github.com/Azure/sonic-buildimage/pull/10599.
+    But old docker-ptf images don't have this update,
+    test case will fail for these docker-ptf images,
+    because it should still call /gnxi files.
+    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
+    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
+    """
+    path_exists = ptfhost.stat(path="/root/gnxi/")
+    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
+        gnxipath = "/root/gnxi/"
+    else:
+        gnxipath = "/gnxi/"
+    return gnxipath
 
 @pytest.fixture(scope="module", autouse=True)
 def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
@@ -84,13 +110,13 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
-@pytest.fixture
-def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost):
+@pytest.fixture(scope="module")
+def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    setup_telemetry_forpyclient(duthost)
+    default_client_auth = setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
@@ -101,8 +127,11 @@ def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfho
     wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
 
     # pyclient should be available on ptfhost. If it was not available, then fail pytest.
-    file_exists = ptfhost.stat(path="/gnxi/gnmi_cli_py/py_gnmicli.py")
+    file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
     pytest_assert(file_exists["stat"]["exists"] is True)
+
+    yield
+    restore_telemetry_forpyclient(duthost, default_client_auth)
 
 def skip_201911_and_older(duthost):
     """ Skip the current test if the DUT version is 201911 or older.
@@ -153,14 +182,14 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
+def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
@@ -169,19 +198,19 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
     """ Test osbuild/version query.
     """
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost):
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
@@ -191,7 +220,7 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
-    cmd = 'python /gnxi/gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
+    cmd = 'python '+ gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
@@ -226,14 +255,14 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_tel
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
-def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, method=METHOD_SUBSCRIBE, update_count = 3)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count = 3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 

@@ -10,10 +10,7 @@ pytestmark = [
 
 def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    support_testbed_types = frozenset(['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116'])
     testbed_type = tbinfo['topo']['name']
-    if testbed_type not in support_testbed_types:
-        pytest.skip("Not support given test bed type %s" % testbed_type)
 
     # Copy VLAN information file to PTF-docker
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -39,4 +36,5 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         'dir_bcast_test.BcastTest',
         '/root/ptftests',
         params=params,
-        log_file=log_file)
+        log_file=log_file,
+        is_python3=True)

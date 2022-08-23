@@ -753,7 +753,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
 
     config_vlan_members = cfg_facts['port_index_map']
     port_status = cfg_facts['PORT']
-    config_port_indices = {}
+    config_port_indices = OrderedDict()
     for port, port_id in config_vlan_members.items():
         if ((port not in portchannel_members) and
             (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
@@ -766,17 +766,35 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
     pytest_require(len(config_port_indices) == interface_num, "No port for testing")
 
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    ptf_ports = {}
+    ptf_ports = OrderedDict()
     for port_id in config_port_indices:
         ptf_ports[port_id] = ptf_ports_available_in_topo[port_id]
 
     if 'port_in_lag' in port_type:
+        remove_acl_table(duthost, config_port_indices)
         lag_port_map = create_lag_port(duthost, config_port_indices)
         bond_port_map = create_bond_port(ptfhost, ptf_ports)
 
         return (lag_port_map, bond_port_map)
 
     return (config_port_indices, ptf_ports.values())
+
+
+def remove_acl_table(duthost, config_port_indices):
+    """
+    Remove ACL table when ingress/egress ACL binding is configured on LAG members
+
+    Args:
+        duthost: DUT host object
+        config_port_indices: Dictionary of port on the DUT
+    """
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    port_list = config_port_indices.values()
+
+    for table_name in acl_facts.keys():
+        acl_ports = acl_facts[table_name].get("ports", [])
+        if set(acl_ports).intersection(port_list):
+            duthost.shell('config acl remove table {}'.format(table_name))
 
 
 def remove_sub_port(duthost, sub_port, ip):
@@ -972,47 +990,6 @@ def update_dut_arp_table(duthost, ip):
     duthost.command("ping {} -c 3".format(ip), module_ignore_errors=True)
 
 
-def configure_ptf_nn_agent(ptfhost, ptfadapter, ifaces):
-    """
-    Add new interfaces to interfaces map of ptfadapter
-    Args:
-        ptfhost: PTF host object
-        ptfadapter: PTF adapter
-        ifaces: List of interface names
-    """
-    ifaces = [ifaces] if not isinstance(ifaces, list) else ifaces
-    last_iface_id = sorted(ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].keys())[-1]
-
-    for iface_id, iface in enumerate(ifaces, last_iface_id+1):
-        ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'][iface_id] = iface
-        ptfadapter.ptf_port_set.append(iface_id)
-
-    restart_ptf_nn_agent(ptfhost)
-
-    ptfadapter.reinit()
-
-
-def cleanup_ptf_nn_agent(ptfhost, ptfadapter, ifaces):
-    """
-    Remove interfaces from interfaces map of ptfadapter
-    Args:
-        ptfhost: PTF host object
-        ptfadapter: PTF adapter
-        ifaces: List of interface names
-    """
-    ifaces = [ifaces] if not isinstance(ifaces, list) else ifaces
-    ifaces_map = ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
-    config_port_indices = {v: k for k, v in ifaces_map.items()}
-
-    for iface in ifaces:
-        ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].pop(config_port_indices[iface])
-        ptfadapter.ptf_port_set.remove(config_port_indices[iface])
-
-    restart_ptf_nn_agent(ptfhost)
-
-    ptfadapter.reinit()
-
-
 def check_balancing(port_hit_cnt):
     """
     Verify load-balancing
@@ -1027,15 +1004,3 @@ def check_balancing(port_hit_cnt):
         return True
 
     return False
-
-
-def restart_ptf_nn_agent(ptfhost):
-    """
-    Restart ptf_nn_agent
-    Args:
-        ptfhost: PTF host object
-    """
-    ptfhost.template(src=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE), dest='/etc/supervisor/conf.d/ptf_nn_agent.conf')
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl restart ptf_nn_agent')

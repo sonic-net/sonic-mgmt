@@ -1,0 +1,54 @@
+parameters:
+- name: TOPOLOGY
+  type: string
+
+- name: POLL_INTERVAL
+  type: number
+  default: 10
+
+- name: POLL_TIMEOUT
+  type: number
+  default: 36000
+
+steps:
+  - script: |
+      set -e
+
+      pip install PyYAML
+
+      rm -f new_test_plan_id.txt
+      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt
+      TEST_PLAN_ID=`cat new_test_plan_id.txt`
+
+      echo "Created test plan $TEST_PLAN_ID"
+      echo "Check https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID for test plan status"
+      echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
+    displayName: Trigger test
+
+  - script: |
+      echo "Polling Test plan"
+      echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient(We will improve the indication in a short time)"
+      echo "If the progress keeps as 0 for more than 1 hour, please cancel and retry this pipeline"
+      echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
+      echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID"
+      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID)
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+    displayName: Running test
+    timeoutInMinutes: 300
+
+  - script: |
+      echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
+      python ./.azure-pipelines/test_plan.py cancel -i $(TEST_PLAN_ID)
+    condition: always()
+    env:
+      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
+    displayName: Finalize running test plan

@@ -1,25 +1,27 @@
 import math
 
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize):
-        asic_param_dic = {
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
+        self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
-                'headroom_overhead': 95
+                'headroom_overhead': 95,
+                'private_headroom': 30
             },
             'spc2': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             },
             'spc3': {
                 'cell_size': 144,
-                'headroom_overhead': 64
+                'headroom_overhead': 64,
+                'private_headroom': 30
             }
         }
-
         self.asic_type = asic_type
-        self.cell_size = asic_param_dic[asic_type]['cell_size']
-        self.headroom_overhead = asic_param_dic[asic_type]['headroom_overhead']
+        self.cell_size = self.asic_param_dic[asic_type]['cell_size']
+        self.headroom_overhead = self.asic_param_dic[asic_type]['headroom_overhead']
         if speed_cable_len[0:6] == '400000':
             self.headroom_overhead += 59
             # for 400G ports we need an extra margin in case it is filled unbalancely between two buffer units
@@ -41,6 +43,7 @@ class QosParamMellanox(object):
         else:
             self.sharedHeadroomPoolSize = None
         self.dutConfig = dutConfig
+        self.dualTor = dualTor
 
         return
 
@@ -77,6 +80,8 @@ class QosParamMellanox(object):
         pkts_num_trig_ingr_drp = ingress_lossless_size + headroom
         if self.sharedHeadroomPoolSize:
             pkts_num_trig_ingr_drp += xoff
+            if self.dualTor:
+                pkts_num_trig_ingr_drp += 2 * xoff
         else:
             pkts_num_trig_ingr_drp -= self.headroom_overhead
         pkts_num_dismiss_pfc = ingress_lossless_size + 1
@@ -89,13 +94,11 @@ class QosParamMellanox(object):
             ingress_ports_list_shp = []
             occupancy_per_port = ingress_lossless_size
             self.qos_parameters['dst_port_id'] = testPortIds[0]
+            pgs_per_port = 2 if not self.dualTor else 4
             for i in range(1, ingress_ports_num_shp):
-                # for the first PG
-                pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                # for the second PG
-                occupancy_per_port /= 2
-                pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                occupancy_per_port /= 2
+                for j in range(pgs_per_port):
+                    pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
+                    occupancy_per_port /= 2
                 ingress_ports_list_shp.append(testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
@@ -135,7 +138,7 @@ class QosParamMellanox(object):
             hdrm_pool_size['pkts_num_hdrm_partial'] = self.qos_parameters['pkts_num_hdrm_partial']
             hdrm_pool_size['dst_port_id'] = self.qos_parameters['dst_port_id']
             hdrm_pool_size['src_port_ids'] = self.qos_parameters['src_port_ids']
-            hdrm_pool_size['pgs_num'] = 2 * len(self.qos_parameters['src_port_ids'])
+            hdrm_pool_size['pgs_num'] = (2 if not self.dualTor else 4) * len(self.qos_parameters['src_port_ids'])
             hdrm_pool_size['cell_size'] = self.cell_size
             hdrm_pool_size['margin'] = 3
         else:
@@ -149,6 +152,8 @@ class QosParamMellanox(object):
         xoff['pkts_num_margin'] = 3
         self.qos_params_mlnx[self.speed_cable_len]['xoff_1'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_2'].update(xoff)
+        self.qos_params_mlnx[self.speed_cable_len]['xoff_3'].update(xoff)
+        self.qos_params_mlnx[self.speed_cable_len]['xoff_4'].update(xoff)
 
         xon = {}
         xon['pkts_num_trig_pfc'] = pkts_num_trig_pfc
@@ -157,6 +162,8 @@ class QosParamMellanox(object):
         xon['pkts_num_margin'] = 3
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
+        self.qos_params_mlnx['xon_3'].update(xon)
+        self.qos_params_mlnx['xon_4'].update(xon)
 
         wm_pg_headroom = self.qos_params_mlnx[self.speed_cable_len]['wm_pg_headroom']
         wm_pg_headroom['pkts_num_trig_pfc'] = pkts_num_trig_pfc
@@ -200,3 +207,4 @@ class QosParamMellanox(object):
             self.qos_params_mlnx['ecn_{}'.format(i+1)]['cell_size'] = self.cell_size
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
+        self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']

@@ -17,22 +17,14 @@ from tests.common import config_reload
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
-from pkg_resources import parse_version
 from tests.common import constants
+from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported
 
 
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
-
-
-def skip_201911_and_older(duthost):
-    """ Skip the current test if the DUT version is 201911 or older.
-    """
-    if parse_version(duthost.kernel_version) <= parse_version('4.9.0'):
-        pytest.skip("Test not supported for 201911 images or older. Skipping the test")
-
 
 def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
@@ -151,7 +143,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 
     assert(wait_until(60, 15, 0, _check_routes))
 
-def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
+def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp
     clear_arp_ndp(duthost, ipv6=ipv6)
 
@@ -165,7 +157,8 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
-        generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+        with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix: {'packets': '1'}}):
+            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
         # Check the route is advertised to the neighbors
         check_route_redistribution(duthost, prefix, ipv6)
@@ -177,7 +170,8 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
             #FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
-            generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+            with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix: {'packets': '1'}}):
+                generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
     finally:
@@ -231,33 +225,31 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices], [nexthop_interfaces[_] for _ in indices]
 
 
-def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
-    skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported)
 
 
-def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+@pytest.mark.disable_loganalyzer
+def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
-    skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, config_reload_test=True)
 
 
-def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
-    skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=True)
 
 
-def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):
+@pytest.mark.disable_loganalyzer
+def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
-    skip_201911_and_older(duthost)
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
     run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
-                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=True, config_reload_test=True)
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=True, config_reload_test=True)

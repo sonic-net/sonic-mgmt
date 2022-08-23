@@ -45,7 +45,7 @@ def test_dynamic_minimum_table(duthosts, rand_one_dut_hostname, mocker_factory):
             pytest.skip('The cooling level {} is higher than threshold {}.'.format(cooling_cur_state, COOLING_CUR_STATE_THRESHOLD))
 
         mocker = mocker_factory(duthost, 'MinTableMocker')
-
+        mocker.mock_normal_temperature()
         temperature = random.randint(0, max_temperature)
         trust_state = True if random.randint(0, 1) else False
         logger.info('Testing with temperature={}, trust_state={}'.format(temperature, trust_state))

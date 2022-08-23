@@ -14,13 +14,13 @@ class DualTorMgmtServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.QueryAdminPortState = channel.unary_unary(
-                '/DualTorMgmtService/QueryAdminPortState',
+        self.QueryAdminForwardingPortState = channel.unary_unary(
+                '/DualTorMgmtService/QueryAdminForwardingPortState',
                 request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
                 )
-        self.SetAdminPortState = channel.unary_unary(
-                '/DualTorMgmtService/SetAdminPortState',
+        self.SetAdminForwardingPortState = channel.unary_unary(
+                '/DualTorMgmtService/SetAdminForwardingPortState',
                 request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
                 )
@@ -29,18 +29,23 @@ class DualTorMgmtServiceStub(object):
                 request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
                 )
+        self.SetDrop = channel.unary_unary(
+                '/DualTorMgmtService/SetDrop',
+                request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
+                response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
+                )
 
 
 class DualTorMgmtServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def QueryAdminPortState(self, request, context):
+    def QueryAdminForwardingPortState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetAdminPortState(self, request, context):
+    def SetAdminForwardingPortState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -52,16 +57,22 @@ class DualTorMgmtServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetDrop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DualTorMgmtServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'QueryAdminPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryAdminPortState,
+            'QueryAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+                    servicer.QueryAdminForwardingPortState,
                     request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.FromString,
                     response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.SerializeToString,
             ),
-            'SetAdminPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetAdminPortState,
+            'SetAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetAdminForwardingPortState,
                     request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.FromString,
                     response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.SerializeToString,
             ),
@@ -69,6 +80,11 @@ def add_DualTorMgmtServiceServicer_to_server(servicer, server):
                     servicer.QueryOperationPortState,
                     request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.FromString,
                     response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.SerializeToString,
+            ),
+            'SetDrop': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetDrop,
+                    request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.FromString,
+                    response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -81,7 +97,7 @@ class DualTorMgmtService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def QueryAdminPortState(request,
+    def QueryAdminForwardingPortState(request,
             target,
             options=(),
             channel_credentials=None,
@@ -91,14 +107,14 @@ class DualTorMgmtService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryAdminPortState',
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryAdminForwardingPortState',
             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def SetAdminPortState(request,
+    def SetAdminForwardingPortState(request,
             target,
             options=(),
             channel_credentials=None,
@@ -108,7 +124,7 @@ class DualTorMgmtService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetAdminPortState',
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetAdminForwardingPortState',
             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
             options, channel_credentials,
@@ -128,5 +144,22 @@ class DualTorMgmtService(object):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryOperationPortState',
             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,
             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetDrop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetDrop',
+            nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
+            nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

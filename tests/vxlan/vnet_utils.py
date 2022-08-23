@@ -4,11 +4,12 @@ import logging
 from jinja2 import Template
 from os import path
 from time import sleep
-from vnet_constants import *
-from vnet_constants import VXLAN_PORT, VXLAN_MAC
+from .vnet_constants import *
+from .vnet_constants import VXLAN_PORT, VXLAN_MAC
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
+
 
 def safe_open_template(template_path):
     """
@@ -26,6 +27,7 @@ def safe_open_template(template_path):
 
     with open(template_path) as template_file:
         return Template(template_file.read())
+
 
 def combine_dicts(*args):
     """
@@ -47,6 +49,7 @@ def combine_dicts(*args):
 
     return combined_args
 
+
 def render_template_to_host(template_name, host, dest_file, *template_args, **template_kwargs):
     """
     Renders a template with the given arguments and copies it to the host
@@ -64,6 +67,7 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
     rendered = safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(combined_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)
+
 
 def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
     """
@@ -108,7 +112,8 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
     render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config)
     render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
 
-def apply_dut_config_files(duthost, vnet_test_params):
+
+def apply_dut_config_files(duthost, vnet_test_params, num_routes):
     """
     Applies config files that are stored on the given DUT
 
@@ -121,12 +126,17 @@ def apply_dut_config_files(duthost, vnet_test_params):
         config_files = [DUT_VNET_INTF_JSON, DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
         for config in config_files:
             duthost.shell("sonic-cfggen -j {} --write-to-db".format(config))
-            sleep(3)
+            if num_routes > 3000:
+                sleep(15)
+            else:
+                sleep(3)
 
         duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
         duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_JSON))
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
+        if num_routes > 3000:
+            sleep(300)
 
         if vnet_test_params[VXLAN_RANGE_ENABLE_KEY]:
             logger.info("VXLAN src port range enable. Set params 'sport' and 'mask'")
@@ -135,6 +145,7 @@ def apply_dut_config_files(duthost, vnet_test_params):
         sleep(3)
     else:
         logger.info("Skip applying config files on DUT")
+
 
 def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
     """
@@ -168,6 +179,7 @@ def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
         duthost.shell("redis-cli -n 4 del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
         duthost.shell("redis-cli -n 4 del \"INTERFACE|{}\"".format(intf['ifname']))
 
+
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     """
     Removes all VxLAN tunnels from DUT
@@ -184,7 +196,8 @@ def cleanup_vxlan_tunnels(duthost, vnet_test_params):
     for tunnel in tunnels:
         duthost.shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
-def cleanup_vnet_routes(duthost, vnet_config):
+
+def cleanup_vnet_routes(duthost, vnet_config, num_routes):
     """
     Generates, pushes, and applies VNET route config to clear routes set during test
 
@@ -196,4 +209,7 @@ def cleanup_vnet_routes(duthost, vnet_config):
     render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
     duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    sleep(3)
+    if num_routes > 3000:
+        sleep(300)
+    else:
+        sleep(3)

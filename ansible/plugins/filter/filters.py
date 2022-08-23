@@ -1,5 +1,8 @@
+import ipaddress
+import math
+import os.path
+
 from ansible import errors
-from math import log
 
 
 class FilterModule(object):
@@ -10,7 +13,9 @@ class FilterModule(object):
             'filter_vm_targets': filter_vm_targets,
             'extract_hostname': extract_hostname,
             'first_n_elements': first_n_elements,
-            'expand_properties': expand_properties
+            'expand_properties': expand_properties,
+            'first_ip_of_subnet': first_ip_of_subnet,
+            'path_join': path_join
         }
 
 
@@ -151,7 +156,6 @@ def extract_hostname(values, topology, vm_base, inventory_hostname):
     if vm_base not in values:
         raise errors.AnsibleFilterError('Current vm_base: %s is not found in vm_list' % vm_base)
 
-    hash = {}
     base = values.index(vm_base)
     for hostname, attr in topology.items():
         if base + attr['vm_offset'] >= len(values):
@@ -192,3 +196,16 @@ def expand_properties(value, configuration_properties):
             if p in configuration_properties:
                 vm_properties[vm].update(configuration_properties[p])
     return vm_properties
+
+
+def first_ip_of_subnet(value):
+    subnet = ipaddress.ip_network(unicode(value), strict=False)
+    if subnet.num_addresses >= 2:
+        return str(subnet[1])
+    else:
+        return ''
+
+
+def path_join(paths):
+    """Join path strings."""
+    return os.path.join(*paths)
