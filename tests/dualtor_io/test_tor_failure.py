@@ -16,6 +16,7 @@ from tests.common.dualtor.dual_tor_common import cable_type
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 logger = logging.getLogger(__name__)
@@ -173,13 +174,17 @@ def test_active_tor_reboot_downstream(
 
     # reboot the upper ToR and verify the upper ToR forwarding state is changed to standby
     toggle_upper_tor_pdu()
-    if not wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE):
+    pytest_assert(
+        wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
         pytest.fail("Forwarding state check failed after reboot.")
+    )
 
     # verify the upper ToR changes back to active after the upper comes back from reboot
     wait_for_device_reachable(upper_tor_host)
-    if not wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE):
-        pytest.fail("Forwarding state check failed after the upper ToR comes back from reboot.")
+    pytest_assert(
+        wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE),
+        "Forwarding state check failed after the upper ToR comes back from reboot."
+    )
     verify_tor_states(
         expected_active_host=[upper_tor_host, lower_tor_host],
         expected_standby_host=None,
