@@ -4,7 +4,6 @@ import random
 import socket
 import sys
 import struct
-import ipaddress
 import re
 
 import ptf

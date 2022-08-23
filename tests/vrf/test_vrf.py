@@ -21,6 +21,7 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
+from tests.common.helpers.assertions import pytest_assert
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -383,6 +384,16 @@ def get_dut_vlan_ptf_ports(mg_facts):
             ports.add(mg_facts['minigraph_port_indices'][member])
     return ports
 
+def check_vlan_members(duthost, member1, member2, exp_count):
+    out1 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))['stdout']
+    out2 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))['stdout']
+    added = int(out1) + int(out2)
+    if added >= exp_count * 2:
+        logger.info('All vlan members added')
+        return True
+    logger.info('Not all vlan members are added, {} when expected => {}'.format(added, (exp_count * 2)))
+    return False
+
 # fixtures
 
 @pytest.fixture(scope="module")
@@ -468,10 +479,9 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, skip_
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
+def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(testname, **kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
-                  'router_macs': [dut_facts['router_mac']],
                   'ptf_test_port_map': PTF_TEST_PORT_MAP
                   }
         params.update(kwargs)
@@ -480,6 +490,7 @@ def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
                    platform_dir="ptftests",
                    testname=testname,
                    params=params,
+                   socket_recv_size=16384,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
     return _partial_ptf_runner
 
@@ -518,7 +529,8 @@ def ptf_test_port_map(tbinfo, duthosts, mg_facts, ptfhost, rand_one_dut_hostname
             target_mac = duthost.facts['router_mac']
         ptf_test_port_map[str(port)] = {
             'target_dut': 0,
-            'target_mac': target_mac
+            'target_dest_mac': target_mac,
+            'target_src_mac': duthost.facts['router_mac']
         }
     ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
@@ -713,10 +725,9 @@ class TestVrfAclRedirect():
         Check if switch supports acl redirect_action, if not then skip test cases
         """
         duthost = duthosts[rand_one_dut_hostname]
-        switch_cap = duthost.switch_capabilities_facts()['ansible_facts']['switch_capabilities']['switch']
-        res = [capabilities for capabilities in switch_cap.values() if "REDIRECT_ACTION" in capabilities]
-        if not res:
-            pytest.skip("Switch does not support ACL REDIRECT_ACTION")
+        acl_stage_cap  = duthost.shell('redis-cli -n 6 hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')['stdout']
+        if "REDIRECT_ACTION" not in acl_stage_cap:
+            pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_acl_redirect(self, duthosts, rand_one_dut_hostname, cfg_facts, tbinfo):
@@ -1216,7 +1227,11 @@ class TestVrfCapacity():
             duthost.template(src=src_template, dest=render_file)
             duthost.shell("sonic-cfggen -j {} --write-to-db".format(render_file))
 
-            time.sleep(attrs['add_sleep_time'])
+            if cfg_name == 'vlan_member':
+                pytest_assert(wait_until(220, 10, 0, check_vlan_members, duthost, dut_port1, dut_port2, vrf_count),
+                              "Not all vlan members were added by the end of timeout")
+            else:
+                time.sleep(attrs['add_sleep_time'])
 
         # setup static routes
         duthost.template(src='vrf/vrf_capacity_route_cfg.j2', dest='/tmp/vrf_capacity_route_cfg.sh', mode="0755")
@@ -1491,6 +1506,7 @@ class TestVrfDeletion():
         gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         duthost.shell("config vrf del Vrf1")
+        time.sleep(5)
 
         # -------- Testing ----------
         yield

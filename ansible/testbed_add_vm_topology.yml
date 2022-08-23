@@ -28,6 +28,7 @@
 # -e topo=t0                 - the name of removed topo
 # -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
 # -e vm_type=veos|ceos|vsonic
+# -e netns_mgmt_ip=10.255.0.254/23 - the ip address and prefix of netns mgmt interface, only for dualtor topo with ports in active-active cable type
 
 - hosts: servers:&vm_host
   gather_facts: no
@@ -97,10 +98,12 @@
     - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, action: 'start_sonic_vm' }
     - { role: vm_set, action: 'start_sid' }
+    - { role: vm_set, action: 'start_8000e_sonic' }
     - { role: vm_set, action: 'add_topo' }
 
 - hosts: servers:&eos
   gather_facts: no
+  serial: "{{ eos_batch_size | default(0) | int }}"
   pre_tasks:
     - block:
         - name: Check that variable topo is defined

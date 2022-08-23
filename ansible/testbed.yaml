@@ -3,7 +3,7 @@
 - conf-name: ptf1-m
   group-name: ptf1
   topo: ptf32
-  ptf_image_name: docker-ptf-sai-mlnx
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.188/24
   ptf_ipv6:
@@ -11,12 +11,14 @@
   vm_base:
   dut:
     - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'False'
   comment: Test ptf Mellanox
 
 - conf-name: ptf2-b
   group-name: ptf2
   topo: ptf64
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.189/24
   ptf_ipv6:
@@ -24,12 +26,14 @@
   vm_base:
   dut:
     - lab-s6100-01
+  inv_name: lab
+  auto_recover: 'False'
   comment: Test ptf Broadcom
 
 - conf-name: vms-sn2700-t1
   group-name: vms1-1
   topo: t1
-  ptf_image_name: docker-ptf-sai-mlnx
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.178/24
   ptf_ipv6:
@@ -37,12 +41,14 @@
   vm_base: VM0100
   dut:
     - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-sn2700-t1-lag
   group-name: vms1-1
   topo: t1-lag
-  ptf_image_name: docker-ptf-sai-mlnx
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.178/24
   ptf_ipv6:
@@ -50,12 +56,14 @@
   vm_base: VM0100
   dut:
     - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-sn2700-t0
   group-name: vms1-1
   topo: t0
-  ptf_image_name: docker-ptf-sai-mlnx
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.178/24
   ptf_ipv6:
@@ -63,12 +71,14 @@
   vm_base: VM0100
   dut:
     - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-s6000-t0
   group-name: vms2-1
   topo: t0
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.179/24
   ptf_ipv6:
@@ -76,12 +86,14 @@
   vm_base: VM0100
   dut:
     - lab-s6000-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Dell S6000 vms
 
 - conf-name: vms-a7260-t0
   group-name: vms3-1
   topo: t0-116
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.180/24
   ptf_ipv6:
@@ -89,12 +101,14 @@
   vm_base: VM0100
   dut:
     - lab-a7260-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Arista A7260 vms
 
 - conf-name: vms-s6100-t0
   group-name: vms4-1
   topo: t0-64
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.181/24
   ptf_ipv6:
@@ -102,12 +116,14 @@
   vm_base: VM0100
   dut:
     - lab-s6100-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Dell S6100 vms
 
 - conf-name: vms-s6100-t1
   group-name: vms4-1
   topo: t1-64
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.182/24
   ptf_ipv6:
@@ -115,12 +131,14 @@
   vm_base: VM0100
   dut:
     - lab-s6100-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Tests Dell S6100 vms
 
 - conf-name: vms-s6100-t1-lag
   group-name: vms5-1
   topo: t1-64-lag
-  ptf_image_name: docker-ptf-sai-brcm
+  ptf_image_name: docker-ptf
   ptf: ptf-unknown
   ptf_ip: 10.255.0.183/24
   ptf_ipv6:
@@ -128,7 +146,9 @@
   vm_base: VM0100
   dut:
     - lab-s6100-01
-  comment: Tests Dell S6100 vms
+  inv_name: lab
+  auto_recover: 'True'
+  comment: ests Dell S6100 vms
 
 - conf-name: vms-multi-dut
   group-name: vms1-duts
@@ -142,6 +162,8 @@
   dut:
     - dut-host1
     - dut-host2
+  inv_name: lab
+  auto_recover: 'True'
   comment: Example Multi DUTs testbed
 
 - conf-name: vms-example-ixia-1
@@ -155,9 +177,11 @@
   vm_base: VM0600
   dut:
     - example-s6100-dut-1
+  inv_name: lab
+  auto_recover: 'True'
   comment: superman
 
-- conf-name: ixanvl-vs-conf 
+- conf-name: ixanvl-vs-conf
   group-name: anvl
   topo: ptf32
   ptf_image_name: docker-ptf-anvl
@@ -168,6 +192,8 @@
   vm_base:
   dut:
     - vlab-01
+  inv_name: lab
+  auto_recover: 'True'
   comment: Test ptf ANVL SONIC VM
 
 - conf-name: vms-chassis-packet-dut

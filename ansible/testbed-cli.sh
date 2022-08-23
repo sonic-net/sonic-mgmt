@@ -8,15 +8,17 @@ function usage
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (add-topo | remove-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] announce-routes <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (gen-mg | deploy-mg | test-mg | activate-wan-sonic-device) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
+  echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
+  echo "    $0 [options] activate-vendor-device <testbed-name> <server-name> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -67,6 +69,7 @@ function usage
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
+  echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
@@ -130,7 +133,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 server vm_base dut inv_name auto_recover comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 netns_mgmt_ip server vm_base dut inv_name auto_recover comment;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -143,11 +146,12 @@ function read_yaml
   ptf=${line_arr[4]}
   ptf_ip=${line_arr[5]}
   ptf_ipv6=${line_arr[6]}
-  server=${line_arr[7]}
-  vm_base=${line_arr[8]}
-  dut=${line_arr[9]}
+  netns_mgmt_ip=${line_arr[7]}
+  server=${line_arr[8]}
+  vm_base=${line_arr[9]}
+  dut=${line_arr[10]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
-  inv_name=${line_arr[10]}
+  inv_name=${line_arr[11]}
 }
 
 function read_file
@@ -177,6 +181,22 @@ function start_vms
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
       --vault-password-file="${passwd}" -l "${server}" $@
+}
+
+function activate_vendor_device
+{
+  testbed_name=$1
+  server=$2
+  passwd=$3
+  shift
+  shift
+  shift 
+  echo "Activate vendor device on server '${server}'"
+  
+  read_file ${testbed_name}
+  
+  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile activate_vendor_config.yml \
+      --vault-password-file="${passwd}" -l "${server}" -e dut_name="$duts" $@
 }
 
 function stop_vms
@@ -230,6 +250,34 @@ function stop_topo_vms
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
+function add_wan_topo
+{
+  testbed_name=$1
+  passwd=$2
+  shift
+  shift
+  echo "Deploying topology for wan testbed '${testbed_name}'"
+
+  read_file ${testbed_name}
+  echo "Virtual devices:" "$dut" "$duts"
+  echo $duts
+
+  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile testbed_add_wan_topology.yml --vault-password-file="${passwd}" -l "$server" \
+        -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
+        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" -e wan_sonic_topo="yes" \
+        $ansible_options $@
+
+  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  fi
+
+  # Delete the obsoleted arp entry for the PTF IP
+  ip neighbor flush $ptf_ip || true
+
+  echo Done
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -239,9 +287,9 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
-
+  
   echo "$dut" "$duts"
-
+  
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
@@ -249,7 +297,7 @@ function add_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6"  -e netns_mgmt_ip="$netns_mgmt_ip" \
         $ansible_options $@
 
   if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
@@ -288,11 +336,19 @@ function remove_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
       -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
       -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
+      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" -e netns_mgmt_ip="$netns_mgmt_ip" \
       -e remove_keysight_api_server="$remove_keysight_api_server" \
       $ansible_options $@
 
   echo Done
+}
+
+function redeploy_topo()
+{
+    remove_topo $@ || true
+    echo "Sleep 60 seconds ..."
+    sleep 60
+    add_topo $@
 }
 
 function connect_topo
@@ -350,7 +406,7 @@ function restart_ptf
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
-      -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" $@
+      -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" -e netns_mgmt_ip="$netns_mgmt_ip" $@
 
   echo Done
 }
@@ -436,6 +492,25 @@ function generate_minigraph
   echo Done
 }
 
+function activate_wan_sonic_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Configure WAN SONiC config in testbed '$testbed_name'"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" config_wan_sonic_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+
 function deploy_minigraph
 {
   testbed_name=$1
@@ -488,6 +563,25 @@ function config_y_cable
   ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
 
   echo Done
+}
+
+function set_l2_mode
+{
+  testbed_name=$1
+  passfile=$2
+  shift
+  shift
+
+  read_file ${testbed_name}
+
+  echo "Set DUTs of testbed $testbed_name to l2 mode"
+  echo "Reference: https://github.com/sonic-net/SONiC/wiki/L2-Switch-mode"
+  if [[ $topo != t0* ]]; then
+    echo "Only topology type t0 is supported"
+    exit 1
+  fi
+
+  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" $@
 }
 
 function config_vm
@@ -602,7 +696,13 @@ case "${subcmd}" in
                ;;
   add-topo)    add_topo $@
                ;;
+  add-wan-topo) add_wan_topo $@
+               ;;
+  activate-vendor-device) activate_vendor_device $@
+               ;;
   remove-topo) remove_topo $@
+               ;;
+  redeploy-topo) redeploy_topo $@
                ;;
   renumber-topo) renumber_topo $@
                ;;
@@ -622,9 +722,13 @@ case "${subcmd}" in
                ;;
   deploy-mg)   deploy_minigraph $@
                ;;
+  activate-wan-sonic-device)   activate_wan_sonic_config $@
+               ;;
   test-mg)     test_minigraph $@
                ;;
   config-y-cable) config_y_cable $@
+               ;;
+  set-l2) set_l2_mode $@
                ;;
   cleanup-vmhost) cleanup_vmhost $@
                ;;

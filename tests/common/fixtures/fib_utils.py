@@ -37,19 +37,23 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
     # Collect system neighbors, inband intf and port channel info to resolve ptf ports
     # for system neigh or lags.
-    voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
-    sys_neigh = {}
-    for entry in voq_db.dump_neighbor_table():
-        neigh_key = entry.split('|')
-        neigh_ip = neigh_key[-1]
-        sys_neigh[neigh_ip] = {'duthost_name' : neigh_key[-4], 'intf' : neigh_key[-2]}
     dut_inband_intfs = {}
     dut_port_channels = {}
+    switch_type = ''
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
         for asic_cfg_facts in cfg_facts:
-            dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts['VOQ_INBAND_INTERFACE'])
+            if duthost.facts['switch_type'] == "voq":
+                switch_type = "voq"
+                dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts['VOQ_INBAND_INTERFACE'])
             dut_port_channels.setdefault(duthost.hostname,{}).update(asic_cfg_facts.get('PORTCHANNEL', {}))
+    sys_neigh = {}
+    if switch_type == "voq":
+        voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
+        for entry in voq_db.dump_neighbor_table():
+            neigh_key = entry.split('|')
+            neigh_ip = neigh_key[-1]
+            sys_neigh[neigh_ip] = {'duthost_name' : neigh_key[-4], 'intf' : neigh_key[-2]}
 
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
@@ -75,17 +79,17 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
                     oports = []
                     for idx, ifname in enumerate(ifnames):
-                        if po.has_key(ifname):
+                        if ifname in po:
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
                                 if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
                                 else:
-                                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                    oports.append([str(mg_facts[asic_index]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                                     skip = False
                         else:
-                            if ports.has_key(ifname):
+                            if ifname in ports:
                                 if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
@@ -107,16 +111,22 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                     if remote_neigh_intf.startswith('PortChannel'):
                                         # The nexthop is a system lag.
                                         if dut_port_channels[remote_duthost_name].has_key(remote_neigh_intf):
-                                            oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][x])
-                                                          for x in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']])
+                                            oport_list = []
+                                            for a_member in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']:
+                                                for a_asic_mg_facts in remote_dut_mg_facts:
+                                                    if a_member in a_asic_mg_facts['minigraph_port_indices']:
+                                                        oport_list.append(str(a_asic_mg_facts['minigraph_ptf_indices'][a_member]))
+                                            oports.append(oport_list)
                                         else:
                                             pytest_assert(False, "Coundn't find {} in the config of {}".format(
                                                remote_neigh_intf, remote_duthost_name) )
                                     else:
                                         # The nexthop is a system neighbor.
-                                        oports.append([str(remote_dut_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
+                                        for a_asic_mg_facts in remote_dut_mg_facts:
+                                            if remote_neigh_intf in a_asic_mg_facts['minigraph_port_indices']:
+                                                oports.append([str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
                                 else:
-                                    oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
+                                    oports.append([str(mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
                                     skip = False
                             else:
                                 logger.info("Route point to non front panel port {}:{}".format(k, v))
@@ -182,21 +192,21 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
 
                 oports = []
                 for ifname in ifnames:
-                    if po.has_key(ifname):
+                    if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
                         if 'members' in po[ifname]:
                             if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
-                        if sub_interfaces.has_key(ifname):
-                            oports.append([str(duts_mg_facts['minigraph_ptf_indices'][ifname.split('.')[0]])])
-                        elif ports.has_key(ifname):
+                        if ifname in sub_interfaces:
+                            oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                        elif ifname in ports:
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts['minigraph_ptf_indices'][ifname])])
+                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
                         else:
                             logger.info("Route point to non front panel port {}:{}".format(k, v))
                             skip = True
@@ -227,13 +237,13 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
     """
     tmp_fib_info = tempfile.NamedTemporaryFile()
     for prefix, oports in fib_info.items():
-        tmp_fib_info.write(prefix)
+        tmp_fib_info.write(prefix.encode())
         if oports:
             for op in oports:
-                tmp_fib_info.write(' [{}]'.format(' '.join(op)))
+                tmp_fib_info.write(' [{}]'.format(' '.join(op)).encode())
         else:
-            tmp_fib_info.write(' []')
-        tmp_fib_info.write('\n')
+            tmp_fib_info.write(' []'.encode())
+        tmp_fib_info.write('\n'.encode())
     tmp_fib_info.flush()
     ptfhost.copy(src=tmp_fib_info.name, dest=filename)
 
@@ -321,9 +331,11 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 
 @pytest.fixture(scope="module")
-def single_fib_for_duts(tbinfo):
+def single_fib_for_duts(tbinfo, duthosts):
     # For a T2 topology, we are generating a single fib file across all asics, but have multiple frontend nodes (DUTS).
     if tbinfo['topo']['type'] == "t2":
-        return True
-    return False
- 
+        if duthosts[0].facts['switch_type'] == "voq":
+            return "single-fib-single-hop"
+        else:
+            return "single-fib-multi-hop"
+    return "multiple-fib"

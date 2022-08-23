@@ -27,11 +27,9 @@ logger = logging.getLogger(__file__)
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
 
     asic_type = rand_selected_dut.facts["asic_type"]
-    unsupported_platforms = ["mellanox", "marvell", "barefoot", "cisco-8000"]
+    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
@@ -77,9 +75,15 @@ def apply_mirror_session(rand_selected_dut):
     logger.info("Applying mirror session to DUT")
     BaseEverflowTest.apply_mirror_config(rand_selected_dut, mirror_session_info)
     time.sleep(10)
-    cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
-    monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
-    pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
+    single_asic_cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
+    if rand_selected_dut.is_multi_asic:
+        for front_ns in rand_selected_dut.get_frontend_asic_namespace_list():
+            cmd = "{} -n {}".format(single_asic_cmd, front_ns)
+            monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
+            pytest_assert(monitor_port != "", "Failed to retrieve monitor_port on multi-asic dut's frontend namespace: {}".format(front_ns))
+    else:
+        monitor_port = rand_selected_dut.shell(cmd=single_asic_cmd)['stdout']
+        pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
 
     yield mirror_session_info, monitor_port
 

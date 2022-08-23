@@ -12,6 +12,7 @@ import ptf.testutils as testutils
 from operator import itemgetter
 from itertools import groupby
 
+from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.utilities import InterruptableThread
 from natsort import natsorted
 from collections import defaultdict
@@ -28,8 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 class DualTorIO:
+    """Class to conduct IO over ports in `active-standby` mode."""
+
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, tor_vlan_port=None, send_interval=0.01):
+                io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -40,6 +43,8 @@ class DualTorIO:
         self.dut_mac = self.duthost.facts["router_mac"]
         self.active_mac = self.dut_mac
         self.standby_mac = standbyhost.facts["router_mac"]
+
+        self.cable_type = cable_type
 
         self.dataplane = self.ptfadapter.dataplane
         self.dataplane.flush()
@@ -74,11 +79,14 @@ class DualTorIO:
         self.vlan_mac = vlan_table[vlan_name]['mac']
         self.mux_cable_table = config_facts['MUX_CABLE']
 
+        self.test_interfaces = self._select_test_interfaces()
+
         self.ptf_intf_to_server_ip_map = self._generate_vlan_servers()
         self.__configure_arp_responder()
 
         logger.info("VLAN interfaces: {}".format(str(self.vlan_interfaces)))
         logger.info("PORTCHANNEL interfaces: {}".format(str(self.tor_pc_intfs)))
+        logger.info("Selected testing interfaces: %s", self.test_interfaces)
 
         self.time_to_listen = 300.0
         self.sniff_time_incr = 0
@@ -99,7 +107,7 @@ class DualTorIO:
         if self.tor_vlan_intf:
             self.packets_per_server = self.packets_to_send
         else:
-            self.packets_per_server = self.packets_to_send // len(self.vlan_interfaces)
+            self.packets_per_server = self.packets_to_send // len(self.test_interfaces)
 
         self.all_packets = []
 
@@ -114,13 +122,21 @@ class DualTorIO:
         logger.info("ALL server address:\n {}".format(server_ip_list))
 
         ptf_to_server_map = dict()
-        for i, vlan_intf in enumerate(natsorted(self.vlan_interfaces)):
-            ptf_intf = self.tor_to_ptf_intf_map[vlan_intf]
-            addr = server_ip_list[i]
-            ptf_to_server_map[ptf_intf] = [str(addr)]
+        for intf in natsorted(self.test_interfaces):
+            ptf_intf = self.tor_to_ptf_intf_map[intf]
+            server_ip = str(self.mux_cable_table[intf]['server_ipv4'].split("/")[0])
+            ptf_to_server_map[ptf_intf] = [server_ip]
 
         logger.debug('VLAN intf to server IP map: {}'.format(json.dumps(ptf_to_server_map, indent=4, sort_keys=True)))
         return ptf_to_server_map
+
+    def _select_test_interfaces(self):
+        """Select DUT interfaces that is in `active-standby` cable type."""
+        test_interfaces = []
+        for port, port_config in natsorted(self.mux_cable_table.items()):
+            if port_config.get("cable_type", CableType.active_standby) == self.cable_type:
+                test_interfaces.append(port)
+        return test_interfaces
 
     def __configure_arp_responder(self):
         """
@@ -258,7 +274,7 @@ class DualTorIO:
             # use only the connected server
         else:
             # Otherwise send packets to all servers
-            vlan_src_intfs = self.vlan_interfaces
+            vlan_src_intfs = self.test_interfaces
 
         ptf_intf_to_mac_map = {}
 
@@ -302,6 +318,10 @@ class DualTorIO:
         )
         tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
+
+        # use the same dst ip to ensure that packets from one server are always forwarded
+        # to the same active ToR by the server NiC
+        dst_ips = {vlan_intf: self.random_host_ip() for vlan_intf in vlan_src_intfs}
         for i in range(self.packets_per_server):
             for vlan_intf in vlan_src_intfs:
                 ptf_src_intf = self.tor_to_ptf_intf_map[vlan_intf]
@@ -311,7 +331,7 @@ class DualTorIO:
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = server_ip
-                packet[scapyall.IP].dst = self.random_host_ip()
+                packet[scapyall.IP].dst = dst_ips[vlan_intf] if self.cable_type == CableType.active_active else self.random_host_ip()
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
@@ -646,3 +666,4 @@ class DualTorIO:
             return True
         except Exception as err:
             return False
+

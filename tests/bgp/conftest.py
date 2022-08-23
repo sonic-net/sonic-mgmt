@@ -183,7 +183,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 intf_name = fields[-1]
                 duthost.shell("config interface %s ip remove %s %s" % (namespace, intf_name, ip))
 
-        ip_intfs = duthost.show_and_parse('show ip {} interface'.format(namespace))
+        ip_intfs = duthost.show_and_parse('show ip interface {}'.format(namespace))
 
         # For interface that has two IP configured, the output looks like:
         #       admin@vlab-03:~$ show ip int
@@ -496,7 +496,7 @@ def backup_bgp_config(duthost):
     try:
         apply_default_bgp_config(duthost)
     except Exception:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         apply_default_bgp_config(duthost)
 
 @pytest.fixture(scope="module")

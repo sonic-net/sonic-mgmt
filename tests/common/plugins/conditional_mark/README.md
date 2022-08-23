@@ -12,8 +12,8 @@ This plugin works at the collection stage of pytest. It mainly uses two pytest h
 
 In `pytest_collection` hook function, it reads the specified conditions file and collect some basic facts that can be used in condition evaluation. The loaded information is stored in pytest object `session.config.cache`.
 
-In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for the longest matches test case name defined in the conditions content. If a match is found, then it will add the marks specified for this case based on conditions for each of the marks. 
-Different marks in multiple files are allowed. If different marks are found, all of them will be added to the test item(test case). However, when having the duplicate mark, it will choose the first one. 
+In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for the longest matches test case name defined in the conditions content. If a match is found, then it will add the marks specified for this case based on conditions for each of the marks.
+Different marks in multiple files are allowed. If different marks are found, all of them will be added to the test item(test case). However, when having the duplicate mark, it will choose the first one.
 
 ## How to use `--mark-conditions-files`
 `--mark-conditions-files` supports exactly file name such as `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` or the pattern of the file name such as `tests/common/plugins/conditional_mark/test_mark_conditions*.yaml` which will collect all files under the path `tests/common/plugins/conditional_mark` named as `test_mark_conditions*.yaml`.
@@ -21,11 +21,11 @@ It can be supplied multiple times to specify multiple condition files.
 
 For example:
 ```buildoutcfg
-./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.csv -i veos_vtb -u -l INFO -e "--mark-conditions-files path1/test1.yaml" -e "--mark-conditions-files path2/test2.yaml"
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.yaml -i ../ansible/veos_vtb -u -l INFO -e "--mark-conditions-files path1/test1.yaml" -e "--mark-conditions-files path2/test2.yaml"
 ```
-or 
+or
 ```buildoutcfg
-./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.csv -i veos_vtb -u -l INFO -e "--mark-conditions-files path1/{pattern}.yaml" 
+./run_tests.sh -n vms-kvm-t0 -d vlab-01 -c ssh/test_ssh_stress.py -f vtestbed.yaml -i ../ansible/veos_vtb -u -l INFO -e "--mark-conditions-files path1/{pattern}.yaml"
 ```
 
 
@@ -119,7 +119,7 @@ Example variables can be used in condition string:
       "commit_id": "db529af20",
       "build_date": "Mon Sep 13 17:41:03 UTC 2021",
       "sonic_utilities": 1.2,
-      "kernel_version": "4.19.0-12-2-amd64",
+      "kernel_version": "4.19.0",
       "debian_version": "10.10",
       "built_by": "AzDevOps@sonic-build-workers-000OU4",
       "libswsscommon": "1.0.0",
@@ -127,13 +127,34 @@ Example variables can be used in condition string:
       "branch": "master",
       "release": "master",
       "topo_type": "t0",
-      "topo_name": "t0"
+      "topo_name": "t0",
       "platform": "x86_64-kvm_x86_64-r0",
       "hwsku": "Force10-S6000",
       "build_number": 36262,
       "asic_type": "vs",
       "num_asic": 1,
       "is_multi_asic": False,
+      "feature_status": {
+        "lldp": "enabled", 
+        "pmon": "enabled", 
+        "sflow": "disabled", 
+        "database": "always_enabled", 
+        "radv": "enabled", 
+        "macsec": "disabled", 
+        "telemetry": "enabled", 
+        "snmp": "enabled", 
+        "mux": "always_disabled", 
+        "bgp": "enabled", 
+        "dhcp_relay": "enabled", 
+        "mgmt-framework": "enabled", 
+        "nat": "disabled", 
+        "teamd": "enabled", 
+        "gbsyncd": "enabled", 
+        "syncd": "enabled", 
+        "swss": "enabled"
+      },
+      "asic_gen": "td2",
+      "is_supervisor": False
     }
 ```
 

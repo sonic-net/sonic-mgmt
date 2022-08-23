@@ -81,6 +81,13 @@ class TestPsuApi(PlatformApiTestBase):
 
         return def_value
 
+    def skip_absent_psu(self, psu_num, platform_api_conn):
+        name = psu.get_name(platform_api_conn, psu_num)
+        if name in self.psu_skip_list:
+            logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))
+            return True
+        return False
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -88,6 +95,8 @@ class TestPsuApi(PlatformApiTestBase):
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_psus):
+            if self.skip_absent_psu(i,platform_api_conn):
+                continue
             name = psu.get_name(platform_api_conn, i)
             if name in self.psu_skip_list:
 		logger.info("skipping check for {}".format(name))
@@ -112,6 +121,8 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
+            if self.skip_absent_psu(i,platform_api_conn):
+                continue
             model = psu.get_model(platform_api_conn, i)
             name = psu.get_name(platform_api_conn, i)
             if name in self.psu_skip_list:
@@ -123,6 +134,8 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
+            if self.skip_absent_psu(i,platform_api_conn):
+                continue
             serial = psu.get_serial(platform_api_conn, i)
             name = psu.get_name(platform_api_conn, i)
             if name in self.psu_skip_list:
@@ -137,8 +150,7 @@ class TestPsuApi(PlatformApiTestBase):
         skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
             name = psu.get_name(platform_api_conn, i)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if self.skip_absent_psu(i,platform_api_conn):
                 continue
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
@@ -147,9 +159,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         for i in range(self.num_psus):
-            name = psu.get_name(platform_api_conn, i)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if self.skip_absent_psu(i,platform_api_conn):
                 continue
             status = psu.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
@@ -158,9 +168,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_position_in_parent(self, platform_api_conn):
         for psu_id in range(self.num_psus):
-            name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if self.skip_absent_psu(psu_id,platform_api_conn):
                 continue
             position = psu.get_position_in_parent(platform_api_conn, psu_id)
             if self.expect(position is not None, "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
@@ -169,9 +177,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_is_replaceable(self, platform_api_conn):
         for psu_id in range(self.num_psus):
-            name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if self.skip_absent_psu(psu_id,platform_api_conn):
                 continue
             replaceable = psu.is_replaceable(platform_api_conn, psu_id)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for psu id {}".format(psu_id)):
@@ -210,9 +216,12 @@ class TestPsuApi(PlatformApiTestBase):
             if name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
             else:
-                voltage = psu.get_voltage(platform_api_conn, psu_id)
-                if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
-                    self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
+                voltage = None
+                voltage_supported = self.get_psu_facts(duthost, psu_id, True, "voltage")
+                if voltage_supported:
+                    voltage = psu.get_voltage(platform_api_conn, psu_id)
+                    if self.expect(voltage is not None, "Failed to retrieve voltage of PSU {}".format(psu_id)):
+                        self.expect(isinstance(voltage, float), "PSU {} voltage appears incorrect".format(psu_id))
                 current = None
                 current_supported = self.get_psu_facts(duthost, psu_id, True, "current")
                 if current_supported:
@@ -231,7 +240,7 @@ class TestPsuApi(PlatformApiTestBase):
                     max_supp_power = psu.get_maximum_supplied_power(platform_api_conn, psu_id)
                     if self.expect(max_supp_power is not None,
                                    "Failed to retrieve maximum supplied power power of PSU {}".format(psu_id)):
-                        self.expect(isinstance(power, float), "PSU {} power appears incorrect".format(psu_id))
+                        self.expect(isinstance(max_supp_power, float), "PSU {} maximum supplied power appears incorrect".format(psu_id))
 
                 if current is not None and voltage is not None and power is not None:
                     self.expect(abs(power - (voltage*current)) < power*0.1, "PSU {} reading does not make sense \
@@ -327,6 +336,8 @@ class TestPsuApi(PlatformApiTestBase):
 
         psus_skipped = 0
         for psu_id in range(self.num_psus):
+            if self.skip_absent_psu(psu_id,platform_api_conn):
+                continue
             name = psu.get_name(platform_api_conn, psu_id)
             if name in self.psu_skip_list:
                 logger.info("skipping check for {}".format(name))
@@ -384,11 +395,8 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_thermals(self, platform_api_conn):
         for psu_id in range(self.num_psus):
-            name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if self.skip_absent_psu(psu_id,platform_api_conn):
                 continue
-
             try:
                 num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
             except Exception:

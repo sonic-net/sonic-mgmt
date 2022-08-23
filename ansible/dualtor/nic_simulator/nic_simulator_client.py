@@ -127,7 +127,7 @@ def main():
             response = stub.QueryAdminPortState(request)
             print(response)
         else:
-            stub = nic_simulator_grpc_service_pb2_grpc.DualTorServiceStub(channel)
+            stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(channel)
             request = nic_simulator_grpc_service_pb2.AdminRequest(
                 portid=[0, 1],
                 state=[True, True]
