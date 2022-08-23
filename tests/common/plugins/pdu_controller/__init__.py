@@ -55,5 +55,6 @@ def get_pdu_controller(conn_graph_facts, pdu):
     yield pdu_controller_helper
 
     for controller in controller_map.values():
-        controller.turn_on_outlet()
-        controller.close()
+        if controller:
+            controller.turn_on_outlet()
+            controller.close()
