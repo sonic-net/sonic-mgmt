@@ -21,6 +21,11 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import cable_type                                                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                           # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports                                            # lgtm[py/unused-import]
+
 import ipaddress
 
 from ptf import mask
@@ -426,7 +431,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
 
 @pytest.fixture
-def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo):
+def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """
     Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
@@ -441,8 +446,12 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
@@ -455,7 +464,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """
     Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
@@ -470,8 +479,12 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
     shut_fanouts = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
@@ -484,7 +497,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
@@ -500,10 +513,15 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     down_intfs = []
     fanout_intfs_to_recover.clear()
 
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
+
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
             logger.info('lower=False and upper=False, no fanout interface will be shutdown.')
             return
+
+        if dut_intfs is None:
+            dut_intfs = mux_ports
 
         if upper:
             logger.info('Shutdown fanout ports connected to upper_tor')

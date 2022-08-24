@@ -103,7 +103,8 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2'] or \
+        (asic_type in ['broadcom'] and release in ['master', 'internal'])"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   xfail:
@@ -429,6 +430,18 @@ platform_tests/test_auto_negotiation.py:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/Azure/sonic-mgmt/issues/5447
 
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/api/test_sfp.py::test_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
 #######################################
 #####             pc              #####
 #######################################
@@ -472,7 +485,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend'] or asic_type not in ['mellanox']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend'] or asic_type in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:

@@ -149,6 +149,8 @@ class EverflowTest(BaseTest):
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
         if self.asic_type in ["barefoot"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[12:]
+        if self.asic_type in ["innovium"]:
+            payload = str(scapy_pkt[scapy.GRE].payload)[8:]
 
         if self.hwsku in ["Nexus-9232-C32", "Nexus-9232-Q32"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[8:]
