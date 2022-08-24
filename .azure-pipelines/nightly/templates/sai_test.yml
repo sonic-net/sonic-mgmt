@@ -44,6 +44,11 @@ parameters:
     displayName: "Lock Testbed"
     type: boolean
     default: true
+
+  - name: PREPARE_SAI_TB
+    displayName: "Prepare PTF env for SAI"
+    type: boolean
+    default: false
   
   - name: UPDATE_IMAGE
     displayName: "Update Image"
@@ -60,11 +65,6 @@ parameters:
     type: boolean
     default: true
   
-  - name: RUN_TEST
-    displayName: "Run Test"
-    type: boolean
-    default: true
-
   # ============ Test Parameters ============
   - name: PY_SAITHRIFT_URL
     type: string
@@ -113,6 +113,11 @@ parameters:
  
   - name: ENABLE_WARM_REBOOT_TEST
     displayName: "Run warm reboot test"
+    type: boolean
+    default: false
+
+  - name: RUN_TEST
+    displayName: "Run Test"
     type: boolean
     default: false
 
@@ -360,12 +365,33 @@ stages:
                   echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
 
           - task: Bash@3
-            displayName: Fetch SAI Repo
-            condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
+            displayName: Prepare PTF testing env
+            condition: ${{ parameters.PREPARE_SAI_TB }}
             inputs:
               targetType: 'inline'
               script: |
                 set -x
+                BASE_PATH=$(pwd)
+
+                export ANSIBLE_CONFIG=${BASE_PATH}/ansible
+                export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+                export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+                export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+                export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+
+                SAI_ADHOC_PATH=$BASE_PATH/tests/common/sai_adhoc.py
+
+                PLATFORM=$(python $SAI_ADHOC_PATH --type dut -t cmd -n ${{ parameters.TESTBED_NAME }} -c "sonic-cfggen -d -v DEVICE_METADATA.localhost.platform")
+                HWSKU=$(python $SAI_ADHOC_PATH --type dut -t cmd -n ${{ parameters.TESTBED_NAME }} -c "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku")
+
+                CONFIG_DB_PATH=/etc/sonic/config_db.json
+                PORT_CONFIG_PATH=/usr/share/sonic/device/$PLATFORM/$HWSKU/port_config.ini
+                SAI_TEST_PATH=$BASE_PATH/SAI/test/sai_test
+                RESOURCE_PATH=$SAI_TEST_PATH/resources
+
+                PTF_PATH=/tmp/sai_qualify
+                PY_SAITHRIFT_PATH=$PTF_PATH/sai_test/resources/
+                PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
 
                 rm -rf ./SAI
                 git init SAI
@@ -373,9 +399,23 @@ stages:
                 git remote add origin https://github.com/${{ parameters.SAI_REPO }}/SAI.git
                 git fetch origin
                 git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
-                ls -l
+                cd $BASE_PATH
+                wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
+
+                #fetch files from dut to server     
+
+                python $SAI_ADHOC_PATH --type dut -t fetch -n ${{ parameters.TESTBED_NAME }} -c 'src='$CONFIG_DB_PATH' dest='$RESOURCE_PATH'/ flat=true'
+                python $SAI_ADHOC_PATH --type dut -t fetch -n ${{ parameters.TESTBED_NAME }} -c 'src='$PORT_CONFIG_PATH' dest='$RESOURCE_PATH'/ flat=true'
+
+                #copy files from server to ptf
+
+                python $SAI_ADHOC_PATH --type ptf -t copy -n  ${{ parameters.TESTBED_NAME }} -c 'src='$SAI_TEST_PATH' dest='$PTF_PATH
+                #install deb pkg into ptf
+
+                python $SAI_ADHOC_PATH --type ptf -t cmd -n ${{ parameters.TESTBED_NAME }} -c 'dpkg -i '$PY_SAITHRIFT_PATH$PY_SAITHRIFT
             env:
               ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
+              PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
 
           - task: Bash@3
             displayName: Run SAI tests
