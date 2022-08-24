@@ -90,7 +90,7 @@ def cfg_teardown(duthost):
         os.system("rm -rf {}".format(TMP_DIR))
     duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='class')
 def cfg_setup(setup_pfc_test, duthosts, rand_one_dut_hostname):
     """
     Class level automatic fixture. Prior to the test run, create all the templates
@@ -130,7 +130,7 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     Returns:
         original value of default_pfcwd_status
     """
-    output = duthost.shell("cat /etc/sonic/init_cfg.json | grep default_pfcwd_status")['stdout']
+    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
     matched = re.search('"default_pfcwd_status": "(.*)"', output)
     if matched:
         original_value = matched.group(1)
@@ -142,21 +142,7 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
 
     return original_value
 
-def mg_cfg_teardown(duthost, default_pfcwd_value):
-    """
-    Reset default_pfcwd_status to its orignial value after the case run
-
-    Args:
-        duthost (AnsibleHost): instance
-        default_pfcwd_value: value of default_pfcwd_status, enable or disable
-
-    Returns:
-        None
-    """
-    update_pfcwd_default_state(duthost, '/etc/sonic/init_cfg.json', default_pfcwd_value)
-    update_pfcwd_default_state(duthost, '/etc/sonic/config_db.json', default_pfcwd_value)
-
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='class')
 def mg_cfg_setup(duthosts, rand_one_dut_hostname):
     """
     Class level automatic fixture. Prior to the test run, enable default pfcwd configuration
@@ -175,10 +161,11 @@ def mg_cfg_setup(duthosts, rand_one_dut_hostname):
     original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "enable")
 
     yield
-    logger.info("--- Start running default pfcwd config test---")
 
     logger.info("--- Recover configuration ---")
-    mg_cfg_teardown(duthost, original_pfcwd_value)
+    if original_pfcwd_value == 'disable':
+        update_pfcwd_default_state(duthost, '/etc/sonic/init_cfg.json', 'disable')
+        config_reload(duthost, config_source='minigraph')
 
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, rand_one_dut_hostname):
