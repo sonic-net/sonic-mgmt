@@ -35,7 +35,7 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,
                           expected_standby_host=None,
                           cable_type=cable_type)
 
-
+@pytest.mark.enable_active_active
 def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,
                                      send_t1_to_server_with_action,
                                      toggle_all_simulator_ports_to_upper_tor,
@@ -56,7 +56,7 @@ def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,
                             expected_standby_host=None,
                             cable_type=cable_type)
 
-
+@pytest.mark.enable_active_active
 def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,
                                       send_t1_to_server_with_action,
                                       toggle_all_simulator_ports_to_upper_tor,
@@ -177,7 +177,7 @@ def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host,
                             expected_standby_host=None,
                             cable_type=cable_type)
 
-
+@pytest.mark.enable_active_active
 def test_tor_switch_upstream(upper_tor_host, lower_tor_host,
                              send_server_to_t1_with_action,
                              toggle_all_simulator_ports_to_upper_tor,
@@ -197,13 +197,13 @@ def test_tor_switch_upstream(upper_tor_host, lower_tor_host,
                         expected_standby_host=upper_tor_host)
     
     if cable_type == CableType.active_active:
-        send_server_to_t1_with_action(upper_tor_host, verify=True,
+        send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
                                     action=lambda: force_standby_tor(upper_tor_host, 'all'))
         verify_tor_states(expected_active_host=lower_tor_host,
                             expected_standby_host=upper_tor_host,
                             cable_type=cable_type)
 
-
+@pytest.mark.enable_active_active
 def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,
                                       send_t1_to_server_with_action,
                                       toggle_all_simulator_ports_to_upper_tor,
@@ -229,7 +229,7 @@ def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,
                             expected_standby_host=upper_tor_host,
                             cable_type=cable_type)
 
-
+@pytest.mark.enable_active_active
 def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,
                                        send_t1_to_server_with_action,
                                        toggle_all_simulator_ports_to_upper_tor,
