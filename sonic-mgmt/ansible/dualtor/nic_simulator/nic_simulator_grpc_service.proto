@@ -10,6 +10,8 @@ service DualToRActive {
   rpc QueryLinkState(LinkStateRequest) returns (LinkStateReply) {}
 
   rpc QueryServerVersion(ServerVersionRequest) returns (ServerVersionReply) {}
+
+  rpc SetDrop(DropRequest) returns (DropReply) {}
 }
 
 message AdminRequest {
@@ -46,4 +48,15 @@ message ServerVersionRequest {
 
 message ServerVersionReply {
   string version = 1;
+}
+
+message DropRequest {
+  repeated int32 portid = 1;
+  repeated int32 direction = 2;
+  bool recover = 3;
+}
+
+message DropReply {
+  repeated int32 portid = 1;
+  repeated bool success = 2;
 }

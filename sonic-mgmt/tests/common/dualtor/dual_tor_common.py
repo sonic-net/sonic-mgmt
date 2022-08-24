@@ -8,7 +8,8 @@ __all__ = [
     'CableType',
     'mux_config',
     'active_standby_ports',
-    'active_active_ports'
+    'active_active_ports',
+    'ActiveActivePortID'
 ]
 
 
@@ -17,6 +18,12 @@ class CableType(object):
     active_active = "active-active"
     active_standby = "active-standby"
     default_type = "active-standby"
+
+
+class ActiveActivePortID(object):
+    """Port id for active-active."""
+    UPPER_TOR = 1
+    LOWER_TOR = 0
 
 
 @pytest.fixture(params=[CableType.active_standby, CableType.active_active])

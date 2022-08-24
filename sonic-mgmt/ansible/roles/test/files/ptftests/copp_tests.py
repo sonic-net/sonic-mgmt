@@ -39,7 +39,7 @@ class ControlPlaneBaseTest(BaseTest):
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
 
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
-    DEFAULT_SEND_INTERVAL_SEC = 10
+    DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
 
     def __init__(self):

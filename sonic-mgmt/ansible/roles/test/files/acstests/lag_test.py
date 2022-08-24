@@ -153,3 +153,100 @@ class LacpTimingTest(BaseTest,RouterUtility):
         # Check that packet timing matches the expected value.
         current_pkt_timing = self.getMedianInterval(masked_exp_pkt)
         self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" % (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))
+
+class LagMemberTrafficTest(BaseTest,RouterUtility):
+    '''
+    @ summary: Verify traiffic in lag is okay.
+
+    @ param: dut_mac      -   mac of dut lag.
+    @ param: dut_vlan        -   information about vlan in dut.
+    @ param: ptf_lag         -   information about lag in ptf.
+    @ param: port_not_behind_lag     -   information about port not behind lag in ptf.
+    '''
+
+    def __init__(self):
+        BaseTest.__init__(self)
+        self.test_params = testutils.test_params_get()
+
+    def setUp(self):
+        '''
+        @summary: Setup for the test
+        '''
+        self.dataplane = ptf.dataplane_instance
+
+    def get_port_number(self, port_name):
+        return int(''.join([i for i in port_name if i.isdigit()]))
+
+    def build_icmp_packet(self, vlan_id, src_ip, dst_ip, src_mac, dst_mac,
+                            ttl=64, icmp_type=8):
+        pkt = testutils.simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
+                                    eth_dst=dst_mac,
+                                    eth_src=src_mac,
+                                    dl_vlan_enable=False if vlan_id == 0 else True,
+                                    vlan_vid=vlan_id,
+                                    vlan_pcp=0,
+                                    ip_src=src_ip,
+                                    ip_dst=dst_ip,
+                                    ip_ttl=ttl,
+                                    icmp_type=icmp_type)
+        return pkt
+
+    def get_mask_pkt(self, pkt):
+        masked_exp_pkt = Mask(pkt)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, 'id')
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, 'chksum')
+        masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, 'chksum')
+        return masked_exp_pkt
+
+    def send_and_verify_packets(self, send_pkt, exp_pkt, src_port, dst_ports):
+        self.dataplane.flush()
+        send(self, src_port, send_pkt)
+        verify_packet_any_port(self, exp_pkt, dst_ports)
+
+    def run_ptf_to_dut_traffic_test(self):
+        '''
+        @summary: send icmp request packet from ptf to dut and verify icmp reply packet in ptf
+        '''
+        for port_behind_lag in self.lag_ports:
+            src_mac = self.dataplane.get_mac(0, port_behind_lag)
+            dst_mac = self.dut_mac
+
+            src_ip = self.ptf_lag['ip'].split('/')[0]
+            dst_ip = self.dut_vlan['ip'].split('/')[0]
+
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac, src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
+            exp_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac, src_ip=dst_ip, dst_ip=src_ip, icmp_type=0)
+            masked_exp_pkt = self.get_mask_pkt(exp_pkt)
+            self.send_and_verify_packets(send_pkt, masked_exp_pkt, port_behind_lag, self.lag_ports)
+
+    def run_ptf_to_ptf_traffic_test(self):
+        '''
+        @summary: send icmp request packet from port behind lag to port not behind lag in ptf, and verify packet arrive successfully.
+        '''
+        for src_port in self.lag_ports:
+            dst_port = [ src_port ]
+            src_port = [ self.port_not_behind_lag['port_id'] ]
+            src_mac = self.dataplane.get_mac(0, src_port[0])
+            dst_mac = self.dataplane.get_mac(0, dst_port[0])
+            dst_ip=self.ptf_lag['ip'].split('/')[0]
+            src_ip=self.port_not_behind_lag['ip'].split('/')[0]
+
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac, src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
+            masked_exp_pkt = self.get_mask_pkt(send_pkt)
+            self.send_and_verify_packets(send_pkt, masked_exp_pkt, src_port[0], self.lag_ports)
+
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac, src_ip=dst_ip, dst_ip=src_ip, icmp_type=8)
+            masked_exp_pkt = self.get_mask_pkt(send_pkt)
+            self.send_and_verify_packets(send_pkt, masked_exp_pkt, self.lag_ports[0], src_port)
+
+    def runTest(self):
+        # Get test parameters
+        self.dut_mac = self.test_params['dut_mac']
+        self.dut_vlan = self.test_params['dut_vlan']
+        self.ptf_lag = self.test_params['ptf_lag']
+        self.port_not_behind_lag = self.test_params['port_not_behind_lag']
+        port_behind_lag_list = self.ptf_lag['port_list']
+        self.lag_ports = [ self.get_port_number(i) for i in port_behind_lag_list ]
+
+        self.run_ptf_to_dut_traffic_test()
+        self.run_ptf_to_ptf_traffic_test()
