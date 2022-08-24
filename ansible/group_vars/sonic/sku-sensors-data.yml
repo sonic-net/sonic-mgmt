@@ -1554,6 +1554,231 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
+  x86_64-mlnx_msn3700-r0-swb-respined:
+    alarms:
+      fan:
+        - dps460-i2c-4-58/PSU-1 Fan 1/fan1_alarm
+        - dps460-i2c-4-58/PSU-1 Fan 1/fan1_fault
+
+        - dps460-i2c-4-59/PSU-2 Fan 1/fan1_alarm
+        - dps460-i2c-4-59/PSU-2 Fan 1/fan1_fault
+
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 1/fan1_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 2/fan2_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 1/fan3_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 2/fan4_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 1/fan5_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 2/fan6_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 1/fan7_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 2/fan8_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-5 Tach 1/fan9_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-5 Tach 2/fan10_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-6 Tach 1/fan11_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-6 Tach 2/fan12_fault
+      power:
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail (in)/in1_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail (out)/in3_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail Curr (out)/curr9_alarm
+
+        - mp2975-i2c-5-66/PMIC-2 PSU 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-5-66/PMIC-2 PSU 12V Rail (in)/in1_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail Curr (out)/curr5_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail (out)/in3_crit_alarm
+
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-15-6a/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail Curr (out)/curr5_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail (out)/in3_crit_alarm
+
+        - mp2975-i2c-15-61/PMIC-4 PSU 12V Rail (in1)/in1_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr2_alarm
+
+        - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_max_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail Pwr (in)/power1_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_cap_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_min_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_max_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_min_alarm
+
+        - dps460-i2c-4-59/PSU-2 220V Rail Curr (in)/curr1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail Curr (in)/curr1_max_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail Pwr (in)/power1_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_cap_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_min_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_max_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_min_alarm
+      temp:
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
+        - coretemp-isa-0000/Core 0/temp2_crit_alarm
+        - coretemp-isa-0000/Core 1/temp3_crit_alarm
+
+        - mlxsw-i2c-2-48/front panel 001/temp2_fault
+        - mlxsw-i2c-2-48/front panel 001/temp2_crit_alarm
+        - mlxsw-i2c-2-48/front panel 002/temp3_fault
+        - mlxsw-i2c-2-48/front panel 002/temp3_crit_alarm
+        - mlxsw-i2c-2-48/front panel 003/temp4_fault
+        - mlxsw-i2c-2-48/front panel 003/temp4_crit_alarm
+        - mlxsw-i2c-2-48/front panel 004/temp5_fault
+        - mlxsw-i2c-2-48/front panel 004/temp5_crit_alarm
+        - mlxsw-i2c-2-48/front panel 005/temp6_fault
+        - mlxsw-i2c-2-48/front panel 005/temp6_crit_alarm
+        - mlxsw-i2c-2-48/front panel 006/temp7_fault
+        - mlxsw-i2c-2-48/front panel 006/temp7_crit_alarm
+        - mlxsw-i2c-2-48/front panel 007/temp8_fault
+        - mlxsw-i2c-2-48/front panel 007/temp8_crit_alarm
+        - mlxsw-i2c-2-48/front panel 008/temp9_fault
+        - mlxsw-i2c-2-48/front panel 008/temp9_crit_alarm
+        - mlxsw-i2c-2-48/front panel 009/temp10_fault
+        - mlxsw-i2c-2-48/front panel 009/temp10_crit_alarm
+        - mlxsw-i2c-2-48/front panel 010/temp11_fault
+        - mlxsw-i2c-2-48/front panel 010/temp11_crit_alarm
+        - mlxsw-i2c-2-48/front panel 011/temp12_fault
+        - mlxsw-i2c-2-48/front panel 011/temp12_crit_alarm
+        - mlxsw-i2c-2-48/front panel 012/temp13_fault
+        - mlxsw-i2c-2-48/front panel 012/temp13_crit_alarm
+        - mlxsw-i2c-2-48/front panel 013/temp14_fault
+        - mlxsw-i2c-2-48/front panel 013/temp14_crit_alarm
+        - mlxsw-i2c-2-48/front panel 014/temp15_fault
+        - mlxsw-i2c-2-48/front panel 014/temp15_crit_alarm
+        - mlxsw-i2c-2-48/front panel 015/temp16_fault
+        - mlxsw-i2c-2-48/front panel 015/temp16_crit_alarm
+        - mlxsw-i2c-2-48/front panel 016/temp17_fault
+        - mlxsw-i2c-2-48/front panel 016/temp17_crit_alarm
+        - mlxsw-i2c-2-48/front panel 017/temp18_fault
+        - mlxsw-i2c-2-48/front panel 017/temp18_crit_alarm
+        - mlxsw-i2c-2-48/front panel 018/temp19_fault
+        - mlxsw-i2c-2-48/front panel 018/temp19_crit_alarm
+        - mlxsw-i2c-2-48/front panel 019/temp20_fault
+        - mlxsw-i2c-2-48/front panel 019/temp20_crit_alarm
+        - mlxsw-i2c-2-48/front panel 020/temp21_fault
+        - mlxsw-i2c-2-48/front panel 020/temp21_crit_alarm
+        - mlxsw-i2c-2-48/front panel 021/temp22_fault
+        - mlxsw-i2c-2-48/front panel 021/temp22_crit_alarm
+        - mlxsw-i2c-2-48/front panel 022/temp23_fault
+        - mlxsw-i2c-2-48/front panel 022/temp23_crit_alarm
+        - mlxsw-i2c-2-48/front panel 023/temp24_fault
+        - mlxsw-i2c-2-48/front panel 023/temp24_crit_alarm
+        - mlxsw-i2c-2-48/front panel 024/temp25_fault
+        - mlxsw-i2c-2-48/front panel 024/temp25_crit_alarm
+        - mlxsw-i2c-2-48/front panel 025/temp26_fault
+        - mlxsw-i2c-2-48/front panel 025/temp26_crit_alarm
+        - mlxsw-i2c-2-48/front panel 026/temp27_fault
+        - mlxsw-i2c-2-48/front panel 026/temp27_crit_alarm
+        - mlxsw-i2c-2-48/front panel 027/temp28_fault
+        - mlxsw-i2c-2-48/front panel 027/temp28_crit_alarm
+        - mlxsw-i2c-2-48/front panel 028/temp29_fault
+        - mlxsw-i2c-2-48/front panel 028/temp29_crit_alarm
+        - mlxsw-i2c-2-48/front panel 029/temp30_fault
+        - mlxsw-i2c-2-48/front panel 029/temp30_crit_alarm
+        - mlxsw-i2c-2-48/front panel 030/temp31_fault
+        - mlxsw-i2c-2-48/front panel 030/temp31_crit_alarm
+        - mlxsw-i2c-2-48/front panel 031/temp32_fault
+        - mlxsw-i2c-2-48/front panel 031/temp32_crit_alarm
+        - mlxsw-i2c-2-48/front panel 032/temp33_fault
+        - mlxsw-i2c-2-48/front panel 032/temp33_crit_alarm
+
+        - mp2975-i2c-5-62/PMIC-1 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-5-66/PMIC-2 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_max_alarm
+
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_min_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_min_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_min_alarm
+
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_min_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_min_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_min_alarm
+    compares:
+      power: [ ]
+      temp:
+        - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+          - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
+        - - coretemp-isa-0000/Core 0/temp2_input
+          - coretemp-isa-0000/Core 0/temp2_crit
+        - - coretemp-isa-0000/Core 1/temp3_input
+          - coretemp-isa-0000/Core 1/temp3_crit
+
+        - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
+          - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
+
+        - - adt75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
+          - adt75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
+
+        - - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_input
+          - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_max
+    non_zero:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }
+
   x86_64-mlnx_msn3700c-r0:
     alarms:
       fan:
@@ -2011,6 +2236,227 @@ sensors_checks:
       temp: []
     psu_skips: {}
     sensor_skip_per_version: {}
+
+  x86_64-mlnx_msn3700c-r0-swb-respined:
+    alarms:
+      fan:
+        - dps460-i2c-4-58/PSU-1 Fan 1/fan1_alarm
+        - dps460-i2c-4-58/PSU-1 Fan 1/fan1_fault
+
+        - dps460-i2c-4-59/PSU-2 Fan 1/fan1_alarm
+        - dps460-i2c-4-59/PSU-2 Fan 1/fan1_fault
+
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 1/fan1_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 2/fan2_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 1/fan3_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 2/fan4_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 1/fan5_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 2/fan6_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 1/fan7_fault
+        - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 2/fan8_fault
+      power:
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail (in)/in1_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-5-62/PMIC-1 PSU 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 0.8V VCORE Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail (out)/in3_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 ASIC 1.2V Rail Curr (out)/curr9_alarm
+
+        - mp2975-i2c-5-66/PMIC-2 PSU 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-5-66/PMIC-2 PSU 12V Rail (in)/in1_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 3.3V Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail Curr (out)/curr5_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-5-66/PMIC-2 ASIC 1.8V Rail (out)/in3_crit_alarm
+
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-15-6a/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail Curr (out)/curr2_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail Curr (out)/curr5_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail (out)/in3_lcrit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail (out)/in3_crit_alarm
+
+        - mp2975-i2c-15-61/PMIC-4 PSU 12V Rail (in1)/in1_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 12V Rail Pwr (in)/power1_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 12V Rail Curr (in)/curr1_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_lcrit_alarm
+        - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr2_alarm
+
+        - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail Curr (in)/curr1_max_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Curr (out)/curr2_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail Pwr (in)/power1_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_cap_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail Pwr (out)/power2_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_max_alarm
+        - dps460-i2c-4-58/PSU-1 220V Rail (in)/in1_min_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_crit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_max_alarm
+        - dps460-i2c-4-58/PSU-1 12V Rail (out)/in3_min_alarm
+
+        - dps460-i2c-4-59/PSU-2 220V Rail Curr (in)/curr1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail Curr (in)/curr1_max_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Curr (out)/curr2_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail Pwr (in)/power1_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_cap_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail Pwr (out)/power2_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_max_alarm
+        - dps460-i2c-4-59/PSU-2 220V Rail (in)/in1_min_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_crit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_max_alarm
+        - dps460-i2c-4-59/PSU-2 12V Rail (out)/in3_min_alarm
+      temp:
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
+        - coretemp-isa-0000/Core 0/temp2_crit_alarm
+        - coretemp-isa-0000/Core 1/temp3_crit_alarm
+
+        - mlxsw-i2c-2-48/front panel 001/temp2_fault
+        - mlxsw-i2c-2-48/front panel 001/temp2_crit_alarm
+        - mlxsw-i2c-2-48/front panel 002/temp3_fault
+        - mlxsw-i2c-2-48/front panel 002/temp3_crit_alarm
+        - mlxsw-i2c-2-48/front panel 003/temp4_fault
+        - mlxsw-i2c-2-48/front panel 003/temp4_crit_alarm
+        - mlxsw-i2c-2-48/front panel 004/temp5_fault
+        - mlxsw-i2c-2-48/front panel 004/temp5_crit_alarm
+        - mlxsw-i2c-2-48/front panel 005/temp6_fault
+        - mlxsw-i2c-2-48/front panel 005/temp6_crit_alarm
+        - mlxsw-i2c-2-48/front panel 006/temp7_fault
+        - mlxsw-i2c-2-48/front panel 006/temp7_crit_alarm
+        - mlxsw-i2c-2-48/front panel 007/temp8_fault
+        - mlxsw-i2c-2-48/front panel 007/temp8_crit_alarm
+        - mlxsw-i2c-2-48/front panel 008/temp9_fault
+        - mlxsw-i2c-2-48/front panel 008/temp9_crit_alarm
+        - mlxsw-i2c-2-48/front panel 009/temp10_fault
+        - mlxsw-i2c-2-48/front panel 009/temp10_crit_alarm
+        - mlxsw-i2c-2-48/front panel 010/temp11_fault
+        - mlxsw-i2c-2-48/front panel 010/temp11_crit_alarm
+        - mlxsw-i2c-2-48/front panel 011/temp12_fault
+        - mlxsw-i2c-2-48/front panel 011/temp12_crit_alarm
+        - mlxsw-i2c-2-48/front panel 012/temp13_fault
+        - mlxsw-i2c-2-48/front panel 012/temp13_crit_alarm
+        - mlxsw-i2c-2-48/front panel 013/temp14_fault
+        - mlxsw-i2c-2-48/front panel 013/temp14_crit_alarm
+        - mlxsw-i2c-2-48/front panel 014/temp15_fault
+        - mlxsw-i2c-2-48/front panel 014/temp15_crit_alarm
+        - mlxsw-i2c-2-48/front panel 015/temp16_fault
+        - mlxsw-i2c-2-48/front panel 015/temp16_crit_alarm
+        - mlxsw-i2c-2-48/front panel 016/temp17_fault
+        - mlxsw-i2c-2-48/front panel 016/temp17_crit_alarm
+        - mlxsw-i2c-2-48/front panel 017/temp18_fault
+        - mlxsw-i2c-2-48/front panel 017/temp18_crit_alarm
+        - mlxsw-i2c-2-48/front panel 018/temp19_fault
+        - mlxsw-i2c-2-48/front panel 018/temp19_crit_alarm
+        - mlxsw-i2c-2-48/front panel 019/temp20_fault
+        - mlxsw-i2c-2-48/front panel 019/temp20_crit_alarm
+        - mlxsw-i2c-2-48/front panel 020/temp21_fault
+        - mlxsw-i2c-2-48/front panel 020/temp21_crit_alarm
+        - mlxsw-i2c-2-48/front panel 021/temp22_fault
+        - mlxsw-i2c-2-48/front panel 021/temp22_crit_alarm
+        - mlxsw-i2c-2-48/front panel 022/temp23_fault
+        - mlxsw-i2c-2-48/front panel 022/temp23_crit_alarm
+        - mlxsw-i2c-2-48/front panel 023/temp24_fault
+        - mlxsw-i2c-2-48/front panel 023/temp24_crit_alarm
+        - mlxsw-i2c-2-48/front panel 024/temp25_fault
+        - mlxsw-i2c-2-48/front panel 024/temp25_crit_alarm
+        - mlxsw-i2c-2-48/front panel 025/temp26_fault
+        - mlxsw-i2c-2-48/front panel 025/temp26_crit_alarm
+        - mlxsw-i2c-2-48/front panel 026/temp27_fault
+        - mlxsw-i2c-2-48/front panel 026/temp27_crit_alarm
+        - mlxsw-i2c-2-48/front panel 027/temp28_fault
+        - mlxsw-i2c-2-48/front panel 027/temp28_crit_alarm
+        - mlxsw-i2c-2-48/front panel 028/temp29_fault
+        - mlxsw-i2c-2-48/front panel 028/temp29_crit_alarm
+        - mlxsw-i2c-2-48/front panel 029/temp30_fault
+        - mlxsw-i2c-2-48/front panel 029/temp30_crit_alarm
+        - mlxsw-i2c-2-48/front panel 030/temp31_fault
+        - mlxsw-i2c-2-48/front panel 030/temp31_crit_alarm
+        - mlxsw-i2c-2-48/front panel 031/temp32_fault
+        - mlxsw-i2c-2-48/front panel 031/temp32_crit_alarm
+        - mlxsw-i2c-2-48/front panel 032/temp33_fault
+        - mlxsw-i2c-2-48/front panel 032/temp33_crit_alarm
+
+        - mp2975-i2c-5-62/PMIC-1 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-5-62/PMIC-1 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-5-66/PMIC-2 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-5-66/PMIC-2 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_max_alarm
+
+        - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_crit_alarm
+        - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_max_alarm
+
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 1/temp1_min_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 2/temp2_min_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_crit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_lcrit_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_max_alarm
+        - dps460-i2c-4-58/PSU-1 Temp 3/temp3_min_alarm
+
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 1/temp1_min_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 2/temp2_min_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_crit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_lcrit_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_max_alarm
+        - dps460-i2c-4-59/PSU-2 Temp 3/temp3_min_alarm
+    compares:
+      power: [ ]
+      temp:
+        - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+          - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
+        - - coretemp-isa-0000/Core 0/temp2_input
+          - coretemp-isa-0000/Core 0/temp2_crit
+        - - coretemp-isa-0000/Core 1/temp3_input
+          - coretemp-isa-0000/Core 1/temp3_crit
+
+        - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
+          - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
+
+        - - adt75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
+          - adt75-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
+
+        - - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_input
+          - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_max
+    non_zero:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }
 
   x86_64-mlnx_msn3800-r0:
     alarms:
