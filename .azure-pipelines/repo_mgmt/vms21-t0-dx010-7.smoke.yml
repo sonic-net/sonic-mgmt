@@ -74,6 +74,16 @@ parameters:
       - NO
     displayName: "Whether to use option '--force' while run 'git push'"
 
+  - name: MIN_PASSING_RATE
+    type: number
+    default: 60
+    displayName: "Minimum passing rate"
+
+  - name: TOLERANCE
+    type: number
+    default: 3
+    displayName: "Allowed passing rate drop"
+
 stages:
   - template: ./smoke_test_template.yml
     parameters:
@@ -87,3 +97,5 @@ stages:
       SKIP_MERGE_GITHUB: ${{ parameters.SKIP_MERGE_GITHUB }}
       MSSONIC_SONIC_MGMT_BRANCH: ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
       FORCE_PUSH: ${{ parameters.FORCE_PUSH }}
+      MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
+      TOLERANCE: ${{ parameters.TOLERANCE }}

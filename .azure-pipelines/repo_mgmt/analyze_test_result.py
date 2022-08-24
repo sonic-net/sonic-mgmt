@@ -30,14 +30,6 @@ logger = logging.getLogger(__name__)
 DATABASE = 'SonicTestData'
 
 
-class Thresholds(object):
-    '''Thresholds for determining pass or not.
-    '''
-    PASSING_RATE = 0.6
-    TESTED_CASES = 1000
-    TOLERANCE = 0.01
-
-
 class RC(object):
     '''Return code constants.
     '''
@@ -132,15 +124,15 @@ def get_kusto_pass_rates(kusto_response):
     return pass_rates
 
 
-def is_current_pass_rate_ok(pass_rate, history_pass_rates):
+def is_current_pass_rate_ok(pass_rate, history_pass_rates, thresholds):
     if len(history_pass_rates) == 0:
-        if pass_rate > Thresholds.PASSING_RATE:
+        if pass_rate > thresholds['MIN_PASSING_RATE']:
             return RC.SUCCESS
         else:
             return RC.LOW_PASS_RATE
     else:
         average = sum(history_pass_rates)/len(history_pass_rates)
-        base = average - Thresholds.TOLERANCE
+        base = average - thresholds['TOLERANCE']
         if pass_rate > base:
             return RC.SUCCESS
         else:
@@ -152,10 +144,16 @@ def main(args):
         with open(args.report) as f:
             tr = json.load(f)
 
+        thresholds = {
+            'TESTED_CASES': 200,
+            'MIN_PASSING_RATE': args.min_passing_rate / 100.0,
+            'TOLERANCE': args.tolerance / 100.0
+        }
+
         cases = []
         for feature in tr['test_cases']:
             cases.extend(tr['test_cases'][feature])
-        if len(cases) < Thresholds.TESTED_CASES:
+        if len(cases) < thresholds['TESTED_CASES']:
             sys.exit(RC.LOW_TESTED_CASES)
 
         logger.debug('Test Metadata:\n{}'.format(json.dumps(tr['test_metadata'], indent=2)))
@@ -171,7 +169,7 @@ def main(args):
         logger.info('Current pass_rate {:.2f}'.format(pass_rate))
         logger.info('History pass rate: {}'.format(history_pass_rates))
 
-        result = is_current_pass_rate_ok(pass_rate, history_pass_rates)
+        result = is_current_pass_rate_ok(pass_rate, history_pass_rates, thresholds)
         logger.info('Result of analyzing test results: {} - {}'.format(result, RC.meaning(result)))
         sys.exit(result)
     except Exception as e:
@@ -191,6 +189,24 @@ if __name__ == '__main__':
         dest='report',
         required=True,
         help='Test report json file.')
+
+    parser.add_argument('-m', '--min-passing-rate',
+        type=int,
+        dest='min_passing_rate',
+        default=60,
+        help='The int will used as percentage. For example, 3 means 3%.'
+             'This argument specifies the minimum passing rate. If the current passing rate is below than this number,'
+             'then the test results would be unacceptable.'
+    )
+
+    parser.add_argument('-t', '--tolerance',
+        type=int,
+        dest='tolerance',
+        default=3,
+        help='The int will used as percentage. For example, 3 means 3%.'
+             'This argument specifies the allowed passing rate dropping. If the average history passing rate is 95%,'
+             'and this parameter is 3, then current passing rate 91% would not be acceptable.'
+    )
 
     args = parser.parse_args()
 
