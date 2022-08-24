@@ -1595,9 +1595,8 @@ def main():
             if vms_exists:
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
-                if vm_type != "vsonic":
-                    net.bind_vm_backplane()
-                    net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+                net.bind_vm_backplane()
+                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if net.netns:
                 net.add_network_namespace()
@@ -1661,8 +1660,7 @@ def main():
                         net.unbind_mgmt_port(dut_mgmt_port)
 
             if vms_exists:
-                if vm_type != "vsonic":
-                    net.unbind_vm_backplane()
+                net.unbind_vm_backplane()
                 net.unbind_fp_ports()
 
             if hostif_exists:

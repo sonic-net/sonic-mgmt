@@ -2,7 +2,7 @@
   set_fact: ansible_user="admin" ansible_password={{ sonic_password }}
 
 - name: Get VM front panel interface number
-  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^{{ inventory_hostname }}-t" | wc -l
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "{{ inventory_hostname }}-t" | wc -l
   register: fp_num
   delegate_to: "{{ VM_host[0] }}"
   become: yes
@@ -36,7 +36,7 @@
   when: hostname in configuration
 
 - name: create topo config
-  template: src="configdb-{{ topo }}-{{ props.swrole }}.j2"
+  template: src="configdb-{{ base_topo }}-{{ props.swrole }}.j2"
             dest=config-topo.json
   when: hostname in configuration
 
@@ -51,7 +51,7 @@
     - wait for SONiC update config db to finish
 
 - name: create frr config
-  template: src="frr-{{ topo }}-{{ props.swrole }}.j2"
+  template: src="frr-{{ base_topo }}-{{ props.swrole }}.j2"
             dest=/etc/sonic/frr/bgpd.conf
   become: yes
   when: hostname in configuration
@@ -59,7 +59,7 @@
     - Restart BGP service
 
 - name: create zebra config
-  template: src="zebra-{{ topo }}-{{ props.swrole }}.j2"
+  template: src="zebra-{{ base_topo }}-{{ props.swrole }}.j2"
             dest=/etc/sonic/frr/zebra.conf
   become: yes
   when: hostname in configuration
