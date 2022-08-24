@@ -307,6 +307,7 @@ def load_basic_facts(session):
 
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
+    results['testbed'] = testbed_name
 
     dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
