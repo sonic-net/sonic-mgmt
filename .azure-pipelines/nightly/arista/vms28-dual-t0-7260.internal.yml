@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   # Deploy parameters
@@ -40,9 +40,7 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "arp/test_wr_arp.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py"
+    default: "platform_tests/test_cont_warm_reboot.py"
     displayName: "Skip Scripts"
 
   - name: TESTBED_SPECIFIC
