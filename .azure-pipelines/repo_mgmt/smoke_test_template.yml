@@ -121,6 +121,16 @@ parameters:
       - YES
       - NO
 
+  - name: MIN_PASSING_RATE
+    type: number
+    default: 60
+    displayName: "Minimum passing rate"
+
+  - name: TOLERANCE
+    type: number
+    default: 3
+    displayName: "Allowed passing rate drop"
+
 stages:
 
   - stage: Test
@@ -523,7 +533,9 @@ stages:
               echo "Activate python3 virtual environment"
               source /var/AzDevOps/env-python3/bin/activate
 
-              python ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json
+              python ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json \
+              --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} \
+              --tolerance ${{ parameters.TOLERANCE }}
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
