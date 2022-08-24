@@ -1654,13 +1654,13 @@ def collect_db_dump(request, duthosts):
 @pytest.fixture(scope="module", autouse=True)
 def verify_new_core_dumps(duthost):
     if "20191130" in duthost.os_version:
-        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
     else:
         pre_existing_cores = duthost.shell('ls /var/core/')['stdout'].split()
 
     yield
     if "20191130" in duthost.os_version:
-        cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+        cur_cores = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
     else:
         cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
 
