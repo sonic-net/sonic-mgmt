@@ -25,8 +25,7 @@ def test_ssh_default_password(duthost):
         duthost: AnsibleHost instance for DUT
     """
 
-    # set default value with public
-
+    # set default password with public value
     default_password = DEFAULT_PASSWORD_PUBLIC
 
     # 1. check SONiC version
