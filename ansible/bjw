@@ -35,9 +35,9 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
-    bjw-can-720dt:
+    bjw_can_720dt_1:
 
-bjw-can-720dt:
+bjw_can_720dt_1:
   vars:
     hwsku: Arista-720DT-48S
     iface_speed: 1000
