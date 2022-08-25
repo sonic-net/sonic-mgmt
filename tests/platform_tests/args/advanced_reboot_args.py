@@ -70,6 +70,22 @@ def add_advanced_reboot_args(parser):
     )
 
     parser.addoption(
+        "--new_docker_image",
+        action="store",
+        type=str,
+        default=None,
+        help="URL of new docker image",
+    )
+
+    parser.addoption(
+        "--ignore_service",
+        action="store",
+        type=str,
+        default=None,
+        help="Services that ignore for warm restart test",
+    )
+
+    parser.addoption(
         "--ready_timeout",
         action="store",
         type=int,

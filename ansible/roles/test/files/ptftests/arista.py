@@ -241,7 +241,8 @@ class Arista(object):
                 log_data = self.parse_logs(log_lines)
                 if (self.reboot_type == 'fast-reboot' and \
                     any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
-                        or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                        or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)) \
+                        or (self.reboot_type == 'service-warm-restart' and any(k.startswith('BGP') for k in log_data)):
                     log_present = True
                     break
                 time.sleep(1) # wait until logs are populated
@@ -323,6 +324,8 @@ class Arista(object):
         if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
             return result
         elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
+            return result
+        elif self.reboot_type == 'service-warm-restart' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
@@ -592,7 +595,7 @@ class Arista(object):
             if is_up == True:
                 self.do_cmd('%s' % state[is_up])
             else:
-                # shutdown BGP will pop confirm message, the message is 
+                # shutdown BGP will pop confirm message, the message is
                 # "You are attempting to shutdown BGP. Are you sure you want to shutdown? [confirm]"
                 self.do_cmd('%s' % state[is_up], prompt = '[confirm]')
                 self.do_cmd('y')
@@ -705,6 +708,10 @@ class Arista(object):
             return 0, 0
         if not output[sorted_keys[-1]][entity]:
             self.fails.add("%s must be up when the test stops" % what)
+            return 0, 0
+
+        if len(sorted_keys) == 1:
+            # for service warm restart, the down count could be 0
             return 0, 0
 
         start = sorted_keys[0]

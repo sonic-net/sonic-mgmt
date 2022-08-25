@@ -13,7 +13,6 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
-
 def pytest_generate_tests(metafunc):
     input_sad_cases = metafunc.config.getoption("sad_case_list")
     input_sad_list = list()
