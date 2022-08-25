@@ -44,6 +44,7 @@ r, ".* ERR syncd#syncd.*meta_validate_stats: object.*don't exists.*"
 r, ".* ERR syncd#syncd.*translateVidToRid: unable to get RID for VID.*"
 r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 r, ".* ERR syncd#syncd.*Failed to get attr of SAI_OBJECT_TYPE_ACL_COUNTER.*"
+r, ".* ERR syncd#syncd.*Failed to get (stats|attr) of SAI_OBJECT_TYPE_MACSEC_.*"
 
 ##### White list below messages found on physical devices for now. Need to address them later.
 
