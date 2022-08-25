@@ -47,10 +47,6 @@ parameters:
     default: '-I "metadata-scripts platform_tests/test_advanced_reboot.py"'
     displayName: Testbed specific
 
-  - name: TEST_IN_BRANCH_UPGRADE
-    default: true
-    type: boolean
-
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/test_reboot.py::test_fast_reboot, \
@@ -69,4 +65,3 @@ stages:
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
-      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}
