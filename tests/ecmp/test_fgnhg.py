@@ -292,7 +292,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
         configure_dut(duthost, cmd)
 
-    time.sleep(3)
 
     # Calculate expected flow counts per port to verify in ptf host
     exp_flow_count = {}
@@ -352,7 +351,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == withdraw_nh_port:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
     for port in bank_0_port:
@@ -416,7 +414,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == withdraw_nh_port:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(port_list)
@@ -461,7 +458,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port in withdraw_nh_bank:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(bank_1_port)
@@ -483,7 +479,6 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == first_nh:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = (NUM_FLOWS/2)/(len(bank_1_port))
@@ -539,7 +534,6 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     for nexthop in ip_to_port.keys():
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     exp_flow_count = {}
     flows_per_nh = (NUM_FLOWS)/(len(net_ports))
@@ -567,7 +561,6 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     for ip in pc_ips:
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, ip)
     configure_dut(duthost, cmd)
-    time.sleep(3)
 
     partial_ptf_runner(ptfhost, 'create_flows', dst_ip, exp_flow_count)
 
