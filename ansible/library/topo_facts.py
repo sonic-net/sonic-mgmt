@@ -312,7 +312,7 @@ def main():
             topo=dict(required=True, default=None),
             hwsku=dict(required=True, default=None),
             asic_name=dict(required=True, default=None),
-            asics_present=dict(type = 'list', required=True, default=[]),
+            asics_present=dict(type = 'list', required=True, default=None),
             card_type=dict(required=True, default=None),
         ),
         supports_check_mode=True
