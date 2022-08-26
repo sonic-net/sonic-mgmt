@@ -30,6 +30,7 @@ fanout:
       ansible_host: 10.150.22.30
     bjw-can-720dt-2:
       ansible_host: 10.150.22.113
+      os: sonic
 
 sonic:
   vars:

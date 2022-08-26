@@ -2,7 +2,7 @@
   <PhysicalNetworkGraphDeclaration>
     <Devices>
       <Device Hostname="bjw-can-7260-root-1" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
-      <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S-C32" Type="FanoutLeaf"/>
+      <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-48S" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-serv-1" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-2" HwSku="TestServ" Type="Server"/>
@@ -65,7 +65,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet1/2" StartDevice="bjw-can-720dt-1" StartPort="Ethernet49"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet1/3" StartDevice="bjw-can-720dt-1" StartPort="Ethernet50"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet1/4" StartDevice="bjw-can-720dt-1" StartPort="Ethernet51"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet64/1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet4/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet32/1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet4/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-720dt-2" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-2" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-3" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet8/1"/>
@@ -95,7 +95,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet1/2" vlanids="250"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="251"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/4" vlanids="252"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="249-252"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-720dt-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.113/23"/>
