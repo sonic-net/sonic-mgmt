@@ -89,7 +89,11 @@ RUNTEST_CLI_COMMON_OPTS="\
 -a False \
 -O \
 -r \
--e --allow_recover"
+-e --allow_recover \
+-e --completeness_level=confident"
+
+# the following option is for multi-asic testing pipeline, to not fail on 1st test failure
+MULTI_ASIC_CLI_OPTIONS=`echo $RUNTEST_CLI_COMMON_OPTS | sed 's/-q 1//g'`
 
 if [ -n "$exit_on_error" ]; then
     RUNTEST_CLI_COMMON_OPTS="$RUNTEST_CLI_COMMON_OPTS -E"
@@ -112,7 +116,6 @@ test_t0() {
       container_checker/test_container_checker.py \
       cacl/test_cacl_application.py \
       cacl/test_cacl_function.py \
-      cacl/test_ebtables_application.py \
       dhcp_relay/test_dhcp_relay.py \
       dhcp_relay/test_dhcpv6_relay.py \
       iface_namingmode/test_iface_namingmode.py \
@@ -167,7 +170,8 @@ test_t0() {
       generic_config_updater/test_vlan_interface.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
-      system_health/test_system_status.py"
+      system_health/test_system_status.py \
+      radv/test_radv_ipv6_ra.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -266,7 +270,7 @@ test_multi_asic_t1_lag() {
 
     pushd $SONIC_MGMT_DIR/tests
     # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -e --skip_sanity -u
+    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer
     popd
 }
 

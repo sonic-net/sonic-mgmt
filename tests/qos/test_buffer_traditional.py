@@ -28,9 +28,6 @@ def setup_module(duthosts, rand_one_dut_hostname):
     else:
         RECLAIM_BUFFER_ON_ADMIN_DOWN = False
 
-    if "201911" not in duthost.os_version:
-        pytest.skip("Buffer test runs on 201911 branch only, skip")
-
     load_lossless_info_from_pg_profile_lookup(duthost)
 
 

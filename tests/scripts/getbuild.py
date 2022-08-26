@@ -9,6 +9,9 @@ from urllib.request import urlopen, urlretrieve
 _start_time = None
 _last_time = None
 artifact_size = 0
+NOT_FOUND_BUILD_ID = -999
+
+
 def reporthook(count, block_size, total_size):
     global _start_time, _last_time, artifact_size
     cur_time = int(time.time())
@@ -98,16 +101,21 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
             print("Download error", e)
             sys.exit(1)
 
-def find_latest_build_id(branch):
+def find_latest_build_id(branch, success_flag = "succeeded"):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0".format(branch)
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
 
     resp = urlopen(builds_url)
 
     j = json.loads(resp.read().decode('utf-8'))
 
-    latest_build_id = int(j['value'][0]['id'])
+    value = j.get('value', [])
+
+    if len(value) > 0:
+        latest_build_id = int(value[0]['id'])
+    else:
+        latest_build_id = NOT_FOUND_BUILD_ID
 
     return latest_build_id
 
@@ -130,7 +138,11 @@ def main():
     args = parser.parse_args()
 
     if args.buildid is None:
-        buildid = find_latest_build_id(args.branch)
+        buildid_succ = find_latest_build_id(args.branch, "succeeded")
+        buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
+        if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
+            raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
+        buildid = max(buildid_succ, buildid_partial)
     else:
         buildid = int(args.buildid)
 
