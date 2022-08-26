@@ -26,13 +26,10 @@ __all__ = [
     "nic_simulator_client",
     "mux_status_from_nic_simulator",
     "toggle_active_all_ports_both_tors",
-<<<<<<< HEAD
+    "toggle_auto_all_ports_both_tors", 
     "set_drop_active_active",
     "TrafficDirection",
     "ForwardingState"
-=======
-    "toggle_auto_all_ports_both_tors"
->>>>>>> 2fd39344a... ..
 ]
 
 logger = logging.getLogger(__name__)
