@@ -7,10 +7,6 @@
   shell: cat /etc/sonic/sonic_version.yml
   register: sonic_version_content
 
-- debug: msg="{{ sonic_version_content['stdout_lines'] }}"
-
-- debug: msg="{{ fanout_sonic_version | default({}) }}"
-
 - name: format SONiC version content
   set_fact:
     fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
