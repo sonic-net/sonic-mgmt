@@ -129,7 +129,7 @@ def check_sysfs(dut):
                 assert "Invalid PSU fan speed value {} for PSU {}, exception: {}".format(psu_info["fan_speed"],
                                                                                          psu_id, e)
 
-            if "201911" not in dut.os_version and "202012" not in dut.os_version:
+            if "201911" not in dut.sonic_release and "202012" not in dut.sonic_release:
                 # Check consistency between voltage capability and sysfs
                 all_capabilities = platform_data["psus"].get("capabilities")
                 if all_capabilities:

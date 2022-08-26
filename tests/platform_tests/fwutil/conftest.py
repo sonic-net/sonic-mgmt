@@ -45,7 +45,8 @@ def fw_pkg(fw_pkg_name):
 def random_component(duthost, fw_pkg):
     chass = show_firmware(duthost)["chassis"].keys()[0]
     components = fw_pkg["chassis"].get(chass, {}).get("component", []).keys()
-
+    if 'ONIE' in components:
+        components.remove('ONIE')
     if len(components) == 0:
         pytest.skip("No suitable components found in config file for platform {}.".format(duthost.facts['platform']))
 

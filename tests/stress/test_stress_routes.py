@@ -18,6 +18,9 @@ MAX_WAIT_TIME = 120
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("announce ipv4 and ipv6 routes")

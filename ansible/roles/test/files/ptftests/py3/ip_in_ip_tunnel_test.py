@@ -149,6 +149,7 @@ class IpinIPTunnelTest(BaseTest):
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
         exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "flags") # DF bit may be set
         return exp_tunnel_pkt
 
 
@@ -197,7 +198,7 @@ class IpinIPTunnelTest(BaseTest):
         """
         Send packet from ptf (T1) to standby ToR, and verify
         """
-        dst_ports = self.indice_to_portchannel.keys()
+        dst_ports = list(self.indice_to_portchannel.keys())
         # Select the first ptf indice as src port
         src_port = dst_ports[0]
         # Step 1. verify no packet is received from standby_tor to server

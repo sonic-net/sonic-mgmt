@@ -27,11 +27,9 @@ logger = logging.getLogger(__file__)
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
 
     asic_type = rand_selected_dut.facts["asic_type"]
-    unsupported_platforms = ["mellanox", "marvell", "barefoot", "cisco-8000"]
+    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
