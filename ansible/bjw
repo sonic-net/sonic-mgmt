@@ -29,7 +29,7 @@ fanout:
     bjw-can-7060-fanout-1:
       ansible_host: 10.150.22.30
     bjw-can-720dt-2:
-      os: emc
+      ansible_host: 10.150.22.113
 
 sonic:
   vars:
