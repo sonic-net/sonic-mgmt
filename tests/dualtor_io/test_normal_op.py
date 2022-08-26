@@ -97,7 +97,7 @@ def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,
                       expected_standby_host=upper_tor_host)
     
     if cable_type == CableType.active_active:
-        send_server_to_t1_with_action(upper_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
+        send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
                                     action=lambda: config_reload(upper_tor_host, wait=0))
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                             expected_standby_host=None,
@@ -122,7 +122,7 @@ def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,
                         expected_standby_host=lower_tor_host)
 
     if cable_type == CableType.active_active:
-        send_server_to_t1_with_action(upper_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
+        send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
                                     action=lambda: config_reload(lower_tor_host, wait=0))
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                             expected_standby_host=None,
