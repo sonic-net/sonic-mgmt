@@ -48,7 +48,8 @@ from scapy.all import *
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
 # This list is used in many locations in the script.
-SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+# SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+SUPPORTED_ENCAP_TYPES = ['v4_in_v6']
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
@@ -59,8 +60,6 @@ pytestmark = [
     pytest.mark.sanity_check(post_check=True)
 ]
 
-# Allowable tolerance for ECMP Packets during entropy validation
-ECMP_TOLERANCE = 0.01
 
 @pytest.fixture(scope="module", params=SUPPORTED_ENCAP_TYPES)
 def encap_type(request):
@@ -70,6 +69,12 @@ def encap_type(request):
 @pytest.fixture(scope="module")
 def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
           tbinfo, encap_type):
+    
+    asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
+    if asic_type == "cisco-8000":
+        ECMP_TOLERANCE = 0.01
+    else:
+        ECMP_TOLERANCE = 0.01
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = request.config.option.keep_temp_files
@@ -88,12 +93,14 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     SUPPORTED_ENCAP_TYPES = [encap_type]
 
     data = {}
+    data['tolerance'] = ECMP_TOLERANCE
     data['ptfhost'] = ptfhost
     data['tbinfo'] = tbinfo
     data['duthost'] = duthosts[rand_one_dut_hostname]
     data['minigraph_facts'] = data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     data['vxlan_port'] = request.config.option.vxlan_port
+    data['crm'] =data['duthost'].get_crm_resources()['main_resources']
     ecmp_utils.configure_vxlan_switch(data['duthost'], vxlan_port=data['vxlan_port'], dutmac=data['dut_mac'])
 
     selected_interfaces = {}
@@ -196,11 +203,12 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
 
 class Test_VxLAN:
 
-    def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4, random_dport = True, random_sport = False, random_src_ip = False, tolerance = ECMP_TOLERANCE):
+    def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4, random_dport = True, random_sport = False, varying_src_ip = False, tolerance = None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines everytime.
         '''
-
+        if tolerance is None:
+            tolerance = self.setup['tolerance'] 
         if ecmp_utils.Constants['DEBUG']:
             config_filename = "/tmp/vxlan_configs.json"
         else:
@@ -229,7 +237,7 @@ class Test_VxLAN:
                        "packet_count":packet_count,
                        "random_dport":random_dport,
                        "random_sport":random_sport,
-                       "random_src_ip":random_src_ip,
+                       "varying_src_ip":varying_src_ip,
                        "tolerance": tolerance
                        },
                    qlen=1000,
@@ -241,6 +249,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
             tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.
         '''
         self.setup = setUp
+        import pdb; pdb.set_trace();
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
 
     def test_vxlan_modify_route_different_endpoint(self, setUp, request, encap_type):
@@ -748,41 +757,50 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
         endpoint_nhmap = self.setup[encap_type]['dest_to_nh_map'][vnet]
         backup_t2_ports = self.setup[encap_type]['t2_ports']
-        # All T2 Neighbors VM's name to Neighbor IP Mapping
-        all_neighbors = ecmp_utils.get_all_bgp_neighbors(minigraph_facts, "T2")
-        t2_neighbor = all_neighbors.keys()[0]
-        all_pcs = minigraph_facts['minigraph_portchannel_interfaces']
-        #Neighbor IP to Portchannel interfaces mapping
-        pc_to_ip_map = {}
-        for each_pc in all_pcs:
-            pc_to_ip_map[each_pc['peer_addr']] = each_pc['attachto']
-        #Finding the portchannel under shutdown T2 Neighbor
-        required_pc = pc_to_ip_map[all_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()]
-        #Finding ethernet interfaces under that specific portchannel
-        required_ethernet_interfaces = minigraph_facts['minigraph_portchannels'][required_pc]['members']
-        #Finding interfaces with PTF indices
-        ret_list = []
-        for iface in required_ethernet_interfaces:
-            ret_list.append(minigraph_facts["minigraph_ptf_indices"][iface])
-        self.setup['duthost'].shell("sudo config bgp shutdown neighbor {}".format(t2_neighbor))
-        #endpoint_nhmap will be prefix to endpoint mapping.
+        #Gathering all T2 Neighbors
+        all_t2_neighbors = ecmp_utils.get_all_bgp_neighbors(minigraph_facts, "T2")
+
+        #Choosing a specific T2 Neighbor to add static route
+        t2_neighbor = all_t2_neighbors.keys()[0]
+        
+        #Gathering PTF indices corresponding to specific T2 Neighbor
+        ret_list = ecmp_utils.gather_ptf_indices_t2_neighbor(minigraph_facts, all_t2_neighbors, t2_neighbor, encap_type)
+        
+        #Addition & Modification of static routes - endpoint_nhmap will be prefix to endpoint mapping.
         #Static routes are added towards endpoint with T2 VM's ip as nexthop
         for destination, nexthops in endpoint_nhmap.items():
             for nexthop in nexthops:
-                static_route = "sudo config route add prefix {}/{} nexthop {}".format(nexthop,ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)],all_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower())
-                self.setup['duthost'].shell(static_route)
+                add_static_route = []
+                if ecmp_utils.get_outer_layer_version(encap_type) == "v6":
+                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(nexthop, "64", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(nexthop, "68", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                elif ecmp_utils.get_outer_layer_version(encap_type) == "v4":
+                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(".".join(nexthop.split(".")[:-1])+".0", "24", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(nexthop, ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)], all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                self.setup['duthost'].shell_cmds(cmds = add_static_route)
                 self.setup[encap_type]['t2_ports'] = ret_list
-        try:
-            self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, True)
-        finally:
-            self.setup['duthost'].shell("sudo config bgp startup neighbor {}".format(t2_neighbor))
-            for destination, nexthops in endpoint_nhmap.items():
-                for nexthop in nexthops:
-                    static_route = "sudo config route del prefix {}/{} nexthop {}".format(nexthop,ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)],all_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower())
-                    self.setup['duthost'].shell(static_route)
+        
+        #Traffic verification to see if specific route is preferred before deletion of static route
+        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, False)
+
+        #Deletion of all static routes
+        for destination, nexthops in endpoint_nhmap.items():
+            for nexthop in nexthops:
+                del_static_route = []
+                if ecmp_utils.get_outer_layer_version(encap_type) == "v6":
+                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(nexthop, "64", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(nexthop, "68", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                elif ecmp_utils.get_outer_layer_version(encap_type) == "v4":
+                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(".".join(nexthop.split(".")[:-1])+".0", "24", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(nexthop, ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)], all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                self.setup['duthost'].shell_cmds(cmds = del_static_route)
+                self.setup[encap_type]['t2_ports'] = backup_t2_ports
+        
+        #Traffic verification to see if default route is preferred after deletion of static route
+        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, False)
 
 class Test_VxLAN_entrophy(Test_VxLAN):
-    def verify_entropy(self, setup, encap_type,random_sport = False, random_dport = True, random_src_ip = False, tolerance = ECMP_TOLERANCE):
+    def verify_entropy(self, setup, encap_type,random_sport = False, random_dport = True, varying_src_ip = False, tolerance = None):
         logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
         logger.info("Create a new list of endpoint(s).")
@@ -797,13 +815,13 @@ class Test_VxLAN_entrophy(Test_VxLAN):
         config = '[\n' + ecmp_utils.create_single_route(vnet, new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET") + '\n]'
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], config, "vnet_route_tc4_"+encap_type)
         logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("entropy", encap_type, True, random_sport = random_sport, random_dport = random_dport, random_src_ip = random_src_ip, packet_count = 400, tolerance = tolerance)
+        self.dump_self_info_and_run_ptf("entropy", encap_type, True, random_sport = random_sport, random_dport = random_dport, varying_src_ip = varying_src_ip, packet_count = 400, tolerance = tolerance)
     def test_verify_entropy(self, setUp, encap_type):
         '''
         Verification of entrophy - Create tunnel route 4 to endpoint group A Send packets (fixed tuple) to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, random_dport = True, random_sport = True, random_src_ip = True, tolerance = 0.03)
+        self.verify_entropy(self.setup, encap_type, random_dport = True, random_sport = True, varying_src_ip = True, tolerance = 0.03)
 
     def test_vxlan_random_dst_port(self, setUp, encap_type):
         '''
@@ -819,9 +837,34 @@ class Test_VxLAN_entrophy(Test_VxLAN):
         self.setup = setUp
         self.verify_entropy(self.setup, encap_type, random_dport = False, random_sport = True, tolerance = 0.03)
 
-    def test_vxlan_random_src_ip(self, setUp, encap_type):
+    def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
         Verification of entrophy - Change the udp src ip of original packet to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, random_dport = False, random_src_ip = True, tolerance = 0.03)
+        self.verify_entropy(self.setup, encap_type, random_dport = False, varying_src_ip = True, tolerance = 0.03)
+
+class Test_VxLAN_Crm:
+    
+    def test_crm_16k_routes(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+        self.setup = setUp
+        crm_output = self.setup['duthost'].get_crm_resources()['main_resources']
+        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+        if outer_layer_version == "v6":
+            pytest_assert(crm_output['ipv6_route']['used'] >= (self.setup['crm']['ipv6_route']['used'] + 16000))
+            pytest_assert(crm_output['ipv6_nexthop']['used'] >= (self.setup['crm']['ipv6_nexthop']['used'] + 16000))
+        elif outer_layer_version == "v4":
+            pytest_assert(crm_output['ipv4_route']['used'] >= (self.setup['crm']['ipv4_route']['used'] + 16000))
+            pytest_assert(crm_output['ipv4_nexthop']['used'] >= (self.setup['crm']['ipv4_nexthop']['used'] + 16000))
+    
+    def test_crm_512_nexthop_groups(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+        self.setup = setUp
+        crm_output = self.setup['duthost'].get_crm_resources()['main_resources']
+        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+        pytest_assert(crm_output['nexthop_group']['used'] >= (self.setup['crm']['nexthop_group']['used'] + 16000))
+    
+    def test_crm_128_group_memebers(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+        self.setup = setUp
+        crm_output = self.setup['duthost'].get_crm_resources()['main_resources']
+        pytest_assert(crm_output['nexthop_group_member']['used'] >= (self.setup['crm']['nexthop_group_member']['used'] + 16000))
+        

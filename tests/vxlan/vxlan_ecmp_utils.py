@@ -33,6 +33,7 @@ class Ecmp_Utils:
     # This is the mask values to use for destination
     # in the vnet routes.
     HOST_MASK = {'v4' : 32, 'v6' : 128}
+        
     def create_vxlan_tunnel(self, duthost, minigraph_data, af, tunnel_name=None, src_ip=None):
         '''
             Function to create a vxlan tunnel. The arguments:
@@ -555,6 +556,23 @@ class Ecmp_Utils:
 
         return ret_list
     
+    def gather_ptf_indices_t2_neighbor(self, minigraph_facts, all_t2_neighbors, t2_neighbor, encap_type):
+         # All T2 Neighbors VM's name to Neighbor IP Mapping
+        all_pcs = minigraph_facts['minigraph_portchannel_interfaces']
+        #Neighbor IP to Portchannel interfaces mapping
+        pc_to_ip_map = {}
+        for each_pc in all_pcs:
+            pc_to_ip_map[each_pc['peer_addr']] = each_pc['attachto']
+        #Finding the portchannel under shutdown T2 Neighbor
+        required_pc = pc_to_ip_map[all_t2_neighbors[t2_neighbor][self.get_outer_layer_version(encap_type)].lower()]
+        #Finding ethernet interfaces under that specific portchannel
+        required_ethernet_interfaces = minigraph_facts['minigraph_portchannels'][required_pc]['members']
+        #Finding interfaces with PTF indices
+        ret_list = []
+        for iface in required_ethernet_interfaces:
+            ret_list.append(minigraph_facts["minigraph_ptf_indices"][iface])
+        return ret_list
+
     def ptf_config(self,duthost, ptfhost, tbinfo):
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for element in mg_facts['minigraph_lo_interfaces']:
