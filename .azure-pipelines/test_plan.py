@@ -48,19 +48,20 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, name="my_test_plan", pr_id="unknown", scripts=[], output=None):
+    def create(self, topology, test_plan_name="my_test_plan", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
+               output=None):
         tp_url = "{}/test_plan".format(self.url)
-        print("Creating test plan, topology: {}, name: {}, pr_id: {}".format(topology, name, pr_id))
+        print("Creating test plan, topology: {}, name: {}, pr_id: {}".format(topology, test_plan_name, pr_id))
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
         payload = json.dumps({
-            "name": name,
+            "name": test_plan_name,
             "testbed": {
                 "platform": "kvm",
                 "topology": topology,
-                "min": 1,
-                "max": 2
+                "min": min_worker,
+                "max": max_worker
             },
             "test_option": {
                 "stop_on_failure": True,
@@ -217,6 +218,22 @@ if __name__ == "__main__":
         required=False,
         help="Output id of created test plan to the specified file."
     )
+    parser_create.add_argument(
+        "--min-worker",
+        type=int,
+        dest="min_worker",
+        default=1,
+        required=False,
+        help="Min worker number for the test plan."
+    )
+    parser_create.add_argument(
+        "--max-worker",
+        type=int,
+        dest="max_worker",
+        default=2,
+        required=False,
+        help="Max worker number for the test plan."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -285,7 +302,7 @@ if __name__ == "__main__":
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = os.environ.get("BUILD_REPOSITORY_NAME")
 
-            name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
+            test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
                 repo=repo,
                 reason=reason,
@@ -295,7 +312,9 @@ if __name__ == "__main__":
             ).replace(' ', '_')
             tp.create(
                 args.topology,
-                name=name,
+                test_plan_name=test_plan_name,
+                min_worker=args.min_worker,
+                max_worker=args.max_worker,
                 pr_id=pr_id,
                 scripts=get_test_scripts(args.topology),
                 output=args.output

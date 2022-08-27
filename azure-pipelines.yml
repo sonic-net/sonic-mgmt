@@ -51,6 +51,16 @@ stages:
         vmtype: ceos
         section: part-2
 
+  - job: t0_testbedv2
+    displayName: "kvmtest-t0 by TestbedV2"
+    timeoutInMinutes: 540
+    condition: and(succeeded(), eq(variables.RUN_TEST_BY_SCHEDULER, 'YES'))
+    steps:
+    - template: .azure-pipelines/run-test-scheduler-template.yml
+      parameters:
+        TOPOLOGY: t0
+        MAX_WORKER: 3
+
   - job:
     pool:
       vmImage: 'ubuntu-20.04'
@@ -58,13 +68,20 @@ stages:
     dependsOn:
     - t0_part1
     - t0_part2
+    - t0_testbedv2
     condition: always()
     variables:
       resultOfPart1: $[ dependencies.t0_part1.result ]
       resultOfPart2: $[ dependencies.t0_part2.result ]
+      resultOfTestbedV2: $[ dependencies.t0_testbedv2.result ]
 
     steps:
     - script: |
+        if [ $(resultOfTestbedV2) == "Succeeded" ]; then
+          echo "TestbedV2 t0 passed."
+          exit 0
+        fi
+
         if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
           echo "Both job kvmtest-t0-part1 and kvmtest-t0-part2 are passed."
           exit 0
