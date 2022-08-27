@@ -13,12 +13,12 @@ PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
 
-def get_test_scripts(topology):
+def get_test_scripts(test_set):
     _self_path = os.path.abspath(__file__)
     pr_test_scripts_file = os.path.join(os.path.dirname(_self_path), PR_TEST_SCRIPTS_FILE)
     with open(pr_test_scripts_file) as f:
         pr_test_scripts = yaml.safe_load(f)
-        return pr_test_scripts.get(topology, [])
+        return pr_test_scripts.get(test_set, [])
 
 
 class TestPlanManager(object):
@@ -48,7 +48,7 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, test_plan_name="my_test_plan", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
+    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
                output=None):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, pr_id: {}".format(topology, test_plan_name, pr_id))
@@ -77,7 +77,8 @@ class TestPlanManager(object):
                     "--allow_recover"
                 ],
                 "specified_params": {
-                }
+                },
+                "deploy_mg_params": deploy_mg_extra_params
             },
             "extra_params": {
                 "pull_request_id": pr_id,
@@ -234,6 +235,22 @@ if __name__ == "__main__":
         required=False,
         help="Max worker number for the test plan."
     )
+    parser_create.add_argument(
+        "--test-set",
+        type=str,
+        dest="test_set",
+        default="",
+        required=False,
+        help="Test set."
+    )
+    parser_create.add_argument(
+        "--deploy-mg-extra-params",
+        type=str,
+        dest="deploy_mg_extra_params",
+        default="",
+        required=False,
+        help="Deploy minigraph extra params"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -310,13 +327,17 @@ if __name__ == "__main__":
                 build_id=build_id,
                 job_name=job_name
             ).replace(' ', '_')
+            if args.test_set is None or args.test_set == "":
+                # Use topology as default test set if not passed
+                args.test_set = args.topology
             tp.create(
                 args.topology,
                 test_plan_name=test_plan_name,
+                deploy_mg_extra_params=args.deploy_mg_extra_params,
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
-                scripts=get_test_scripts(args.topology),
+                scripts=get_test_scripts(args.test_set),
                 output=args.output
             )
         elif args.action == "poll":

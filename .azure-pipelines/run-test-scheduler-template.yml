@@ -18,6 +18,14 @@ parameters:
   type: number
   default: 2
 
+- name: TEST_SET
+  type: string
+  default: ""
+
+- name: DEPLOY_MG_EXTRA_PARAMS
+  type: string
+  default: ""
+
 steps:
   - script: |
       set -e
@@ -25,7 +33,7 @@ steps:
       pip install PyYAML
 
       rm -f new_test_plan_id.txt
-      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }}
+      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} --test-set ${{ TEST_SET }} --deploy-mg-extra-params ${{ DEPLOY_MG_EXTRA_PARAMS }}
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
       echo "Created test plan $TEST_PLAN_ID"
