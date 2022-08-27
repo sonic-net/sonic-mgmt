@@ -239,7 +239,8 @@ if __name__ == "__main__":
         "--test-set",
         type=str,
         dest="test_set",
-        action="store",
+        nargs='?',
+        const='',
         default="",
         required=False,
         help="Test set."
@@ -247,7 +248,8 @@ if __name__ == "__main__":
     parser_create.add_argument(
         "--deploy-mg-extra-params",
         type=str,
-        action="store",
+        nargs='?',
+        const='',
         dest="deploy_mg_extra_params",
         default="",
         required=False,
