@@ -77,12 +77,12 @@ def check_log_analyzer(loganalyzer, marker):
 
 @pytest.mark.disable_loganalyzer
 def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_power_threshold):
-    def _check_psu_info_in_db(psu_index, power, power_threshold, power_critical_threshold, power_overload):
+    def _check_psu_info_in_db(psu_index, power, power_warning_threshold, power_critical_threshold, power_overload):
         psuname = 'PSU {}'.format(psu_index)
-        command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power power_threshold power_critical_threshold power_overload'.format(psuname)
+        command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power power_warning_threshold power_critical_threshold power_overload'.format(psuname)
         output = duthost.shell(command_check_psu_db)['stdout'].split()
         if int(float(output[0])) != power/1000000 \
-           or int(float(output[1])) != power_threshold/1000000 \
+           or int(float(output[1])) != power_warning_threshold/1000000 \
            or int(float(output[2])) != power_critical_threshold/1000000 \
            or output[3] != str(power_overload):
             return False
