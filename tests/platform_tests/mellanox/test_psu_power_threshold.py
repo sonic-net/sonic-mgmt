@@ -82,23 +82,26 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power power_warning_threshold power_critical_threshold power_overload'.format(psuname)
         output = duthost.shell(command_check_psu_db)['stdout'].split()
         if int(float(output[0])) != power/1000000 \
-           or int(float(output[1])) != power_warning_threshold/1000000 \
-           or int(float(output[2])) != power_critical_threshold/1000000 \
-           or output[3] != str(power_overload):
+               or int(float(output[1])) != power_warning_threshold/1000000 \
+               or int(float(output[2])) != power_critical_threshold/1000000 \
+               or output[3] != str(power_overload):
             return False
 
-        command_check_system_health_db = 'sonic-db-cli STATE_DB hgetall SYSTEM_HEALTH_INFO'
-        output = duthost.shell(command_check_system_health_db)['stdout']
-        system_health_dict = eval(output)
+        command_check_system_health_db = 'sonic-db-cli STATE_DB hget SYSTEM_HEALTH_INFO "{}"'
+        summary = duthost.shell(command_check_system_health_db.format('summary'))['stdout'].strip()
         if power_overload:
-            if 'Not OK' not in system_health_dict['summary'] \
-               or 'exceeds threshold' not in system_health_dict[psuname]:
-                return False
+            if 'Not OK' in summary:
+                detail = duthost.shell(command_check_system_health_db.format(psuname))['stdout'].strip()
+                if 'exceeds threshold' in detail:
+                    return True
+        elif summary == 'OK':
+            return True
         else:
-            if system_health_dict['summary'] != 'OK':
-                return False
+            detail = duthost.shell(command_check_system_health_db.format(psuname))['stdout'].strip()
+            if not detail:
+                return True
 
-        return True
+        return False
 
     def _calculate_psu_power_threshold(ambient_threshold, port_ambient, fan_ambient):
         ambient_temperature = min(port_ambient, fan_ambient)
