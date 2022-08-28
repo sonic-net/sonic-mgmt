@@ -290,7 +290,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     args = parser.parse_args()
-
+    print("Test plan utils parameters: {}".format(args))
     auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
     required_env = ["TESTBED_TOOLS_URL"]
 
