@@ -442,6 +442,13 @@ platform_tests/api/test_sfp.py::test_reset:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
+platform_tests/broadcom/test_ser.py::test_ser:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
+
 #######################################
 #####             pc              #####
 #######################################
