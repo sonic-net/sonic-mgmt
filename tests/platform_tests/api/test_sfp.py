@@ -94,6 +94,18 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
+    # some new keys added for QSFP-DD in 202205 or later branch
+    EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS = ['active_firmware',
+                                           'host_lane_count',
+                                           'media_lane_count',
+                                           'cmis_rev',
+                                           'host_lane_assignment_option',
+                                           'inactive_firmware',
+                                           'media_interface_technology',
+                                           'media_interface_code',
+                                           'host_electrical_interface',
+                                           'media_lane_assignment_option']
+
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
     # using their own custom parsers, they do not yet provide these
@@ -257,11 +269,18 @@ class TestSfpApi(PlatformApiTestBase):
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
-                        EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
                             self.EXPECTED_XCVR_INFO_KEYS]
-                        self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
+                        #self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
+                    else:
 
-                    missing_keys = set(self.EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
+                        if info_dict["type_abbrv_name"] == "QSFP-DD":
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
+                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
+                                                           ["active_apsel_hostlane{}".format(i) for i in range(1, info_dict['host_lane_count'] + 1)]
+                        else:
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
+                    missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} info does not contain field: '{}'".format(i, key))
 
@@ -272,7 +291,7 @@ class TestSfpApi(PlatformApiTestBase):
                         elif info_dict[key] == "N/A":
                             logger.warning("test_get_transceiver_info: Transceiver {} info value for '{}' is 'N/A'. Vendor needs to add support.".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
+                    unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
                         #hardware_rev is applicable only for QSFP-DD
                         if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
