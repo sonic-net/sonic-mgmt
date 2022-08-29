@@ -51,16 +51,16 @@ class MacsecPlugin(object):
                                  ids=profiles,
                                  scope="module")
 
-    @pytest.fixture(scope="module")
-    def start_macsec_service(self, duthost, macsec_nbrhosts):
+    @pytest.fixture(scope="session")
+    def start_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __start_macsec_service():
-            enable_macsec_feature(duthost, macsec_nbrhosts)
+            enable_macsec_feature(macsec_duthost, macsec_nbrhosts)
         return __start_macsec_service
 
-    @pytest.fixture(scope="module")
-    def stop_macsec_service(self, duthost, macsec_nbrhosts):
+    @pytest.fixture(scope="session")
+    def stop_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __stop_macsec_service():
-            disable_macsec_feature(duthost, macsec_nbrhosts)
+            disable_macsec_feature(macsec_duthost, macsec_nbrhosts)
         return __stop_macsec_service
 
     @pytest.fixture(scope="module")
@@ -118,14 +118,17 @@ class MacsecPlugin(object):
         ctrl_nbr_names = natsort.natsorted(list(nbrhosts.keys()))[:2]
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
-        return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
+        return self.find_links_from_nbr(dut, tbinfo, nbrhosts)
 
-    @pytest.fixture(scope="module")
-    def unctrl_links(self, duthost, tbinfo, nbrhosts, ctrl_links):
-        unctrl_nbr_names = set(nbrhosts.keys())
-        for _, nbr in list(ctrl_links.items()):
+
+    @pytest.fixture(scope="session")
+    def unctrl_links(self, macsec_duthost, tbinfo, nbrhosts, ctrl_links):
+        mg_facts =  macsec_duthost.get_extended_minigraph_facts()
+        unctrl_nbr_names = mg_facts['macsec_neighbors']
+        for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
+        
         logger.info("Uncontrolled links {}".format(unctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
         return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
@@ -146,8 +149,8 @@ class MacsecPlugin(object):
         self.find_links(duthost, tbinfo, filter)
         return links
 
-    @pytest.fixture(scope="module")
-    def upstream_links(self, duthost, tbinfo, nbrhosts):
+    @pytest.fixture(scope="session")
+    def upstream_links(self, duthosts, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
@@ -170,13 +173,21 @@ class MacsecPlugin(object):
                     "port": port,
                     "host": nbrhosts[neighbor["name"]]["host"]
                 }
+
+        def filter(interface, neighbor, mg_facts, tbinfo):
+            if "t2" in tbinfo["topo"]["type"]:
+                return filter_t2(interface, neighbor, mg_facts, tbinfo)
+            elif tbinfo["topo"]["type"] == "t0":
+                return filter_t2(interface, neighbor, mg_facts, tbinfo)
+
         self.find_links(duthost, tbinfo, filter)
         return links
 
-    def find_links(self, duthost, tbinfo, filter):
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            filter(interface, neighbor, mg_facts, tbinfo)
+    def find_links(self, duthosts, tbinfo, filter):
+        for duthost in duthosts:
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+                filter(interface, neighbor, mg_facts, tbinfo)
 
     def is_interface_portchannel_member(self, pc, interface):
         for pc_name, elements in list(pc.items()):

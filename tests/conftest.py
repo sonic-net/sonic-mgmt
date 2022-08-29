@@ -360,11 +360,24 @@ def duthost(duthosts, request):
 
     return duthost
 
-
 @pytest.fixture(scope="session")
 def mg_facts(duthost):
     return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
+@pytest.fixture(scope="session")
+def macsec_duthost(duthosts, tb_info):
+    # get the first macsec capable node
+    macsec_dut = None
+    if 't2' in tbinfo['topo']['name']:
+        # currently in the T2 topo only the uplink linecard will have
+        # macsec enabled
+        for duthost in duthosts:
+            if duthost.is_macsec_capable_node():
+                macsec_dut = duthost
+            break
+    else:
+        return duthosts[0]
+    return macsec_dut
 
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):

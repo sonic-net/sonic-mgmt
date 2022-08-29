@@ -625,6 +625,28 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
     return port_alias_to_name_map
 
+def parse_linkmeta(meta, hname):
+    link = meta.find(str(QName(ns, "Link")))
+    linkmetas = {}
+    macsec_neighbors = []
+    macsec_enabled_ports = []
+    for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
+        local_port = None
+        # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
+        key = linkmeta.find(str(QName(ns1, "Key"))).text
+        endpoints = key.split(';')
+        local_endpoint = endpoint[0]
+        remote_endpoint = endpoint[1]
+        t = local_endpoint.split(':')
+        if len(t) == 2 and t[0].lower() == hname.lower():
+            local_port = t[1]
+            macsec_enabled_ports.append(local_port)
+            neighbor_host = remote_endpoint.split(':')[0]
+            macsec_neighbor.append(neighbor_host)
+        else:
+            # Cannot find a matching hname, something went wrong
+            continue
+    return macsec_enabled_ports, macsec_neighbors
 
 def parse_xml(filename, hostname, asic_name=None):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
@@ -845,6 +867,8 @@ def parse_xml(filename, hostname, asic_name=None):
     if is_storage_device:
         results['minigraph_device_metadata']['storage_device'] = "true"
 
+    results['macsec_enabled_ports'] = macsec_enabled_ports
+    results['macsec_neighbors'] = macsec_neighors
     return results
 
 
