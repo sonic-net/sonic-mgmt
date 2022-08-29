@@ -1572,7 +1572,7 @@
   ptf: bjw-vms6-1
   ptf_ip: 10.150.23.50/23
   ptf_ipv6:
-  server: bjw-can-serv-6
+  server: server_bjw_6
   vm_base: VM56000
   dut:
     - bjw-can-720dt-1
