@@ -169,7 +169,7 @@ def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts, enum_sup
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
+    wait_until(50, 10, 5, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
