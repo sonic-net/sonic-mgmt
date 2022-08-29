@@ -61,6 +61,7 @@ stages:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t0
+        MIN_WORKER: 2
         MAX_WORKER: 3
 
   - job: t0_2vlans_testbedv2
@@ -129,6 +130,8 @@ stages:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t1-lag
+        MIN_WORKER: 2
+        MAX_WORKER: 3
 
   - job:
     displayName: "kvmtest-t1-lag"
