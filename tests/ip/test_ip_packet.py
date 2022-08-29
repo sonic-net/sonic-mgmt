@@ -126,11 +126,11 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "Ptf sent {} packets, not in expected range".format(match_cnt))
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= tx_ok <= self.PKT_NUM_MAX, "Transferred {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(rx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT sent {} packets, not in expected range".format(match_cnt))
 
     @pytest.mark.xfail
     def test_forward_ip_packet_with_0xffff_chksum_tolerant(self, duthost, ptfadapter, common_param):
@@ -177,11 +177,11 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "Ptf sent {} packets, not in expected range".format(match_cnt))
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= tx_ok <= self.PKT_NUM_MAX, "Transferred {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(rx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT sent {} packets, not in expected range".format(match_cnt))
 
     @pytest.mark.xfail
     def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthost, ptfadapter, common_param):
@@ -221,7 +221,7 @@ class TestIPPacket(object):
         time.sleep(5)
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
 
-        pytest_assert(match_cnt == 0, "Ptf shouldn't send packets, but sent {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt == 0, "DUT shouldn't send packets, but sent {} packets, not in expected range".format(match_cnt))
 
     def test_forward_ip_packet_recomputed_0xffff_chksum(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT,
@@ -269,11 +269,11 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "Ptf sent {} packets, not in expected range".format(match_cnt))
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= tx_ok <= self.PKT_NUM_MAX, "Transferred {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(rx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT sent {} packets, not in expected range".format(match_cnt))
 
     def test_forward_ip_packet_recomputed_0x0000_chksum(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT, it's checksum will be 0x0000 after recompute from scratch
@@ -318,11 +318,11 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "Ptf sent {} packets, not in expected range".format(match_cnt))
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= tx_ok <= self.PKT_NUM_MAX, "Transferred {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(rx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT sent {} packets, not in expected range".format(match_cnt))
 
     def test_forward_normal_ip_packet(self, duthost, ptfadapter, common_param):
         # GIVEN a random normal ip packet
@@ -360,11 +360,11 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "Ptf sent {} packets, not in expected range".format(match_cnt))
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= tx_ok <= self.PKT_NUM_MAX, "Transferred {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(rx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT sent {} packets, not in expected range".format(match_cnt))
 
     def test_drop_ip_packet_with_wrong_0xffff_chksum(self, duthost, ptfadapter, common_param):
         # GIVEN a random normal ip packet, and manually modify checksum to 0xffff
@@ -395,7 +395,7 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_portstat_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
 
-        pytest_assert(self.PKT_NUM_MIN <= rx_ok <= self.PKT_NUM_MAX, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(self.PKT_NUM_MIN <= rx_drp <= self.PKT_NUM_MAX, "Dropped {} packets in rx, not in expected range".format(rx_drp))
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(rx_drp >= self.PKT_NUM_MIN, "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO, "Transferred {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(tx_drp <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_drp))
