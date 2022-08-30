@@ -7203,3 +7203,8 @@ sensors_checks:
       temp:
       - acbel_fshxxx-i2c-0-59/temp1/temp1_input
       - acbel_fshxxx-i2c-0-5a/temp1/temp1_input
+
+    psu_skips: {}
+
+    sensor_skip_per_version: {}
+
