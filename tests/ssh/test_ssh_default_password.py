@@ -9,42 +9,48 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_USERNAME = "admin"
-DEFAULT_PASSWORD_PUBLIC = "YourPaSsWoRd"
-DEFAULT_PASSWORD_NON_PUBLIC = "password"
+DEFAULT_LOGIN_PARAMS_DICT = {
+    "public": {"username": "admin",
+               "password": "YourPaSsWoRd"}
+}
 
 
 def test_ssh_default_password(duthost):
     """verify the initial SSH password is always expected.
 
-    When connecting SONiC via SSH, there are two kind of passwords:
-    1. if SONiC was built from public image, SSH password is YourPaSsWoRd.
-    2. if SONiC was built from non-public image, SSH password is password.
-
     Args:
         duthost: AnsibleHost instance for DUT
     """
 
-    # set default password with public value
-    default_password = DEFAULT_PASSWORD_PUBLIC
+    # 1. check SONiC version and get default username and password
+    default_username_password = DEFAULT_LOGIN_PARAMS_DICT[get_image_type(duthost=duthost)]
 
-    # 1. check SONiC version
-    # If SONiC was built from non-public image, there should be information which has the key word 'sonic-dri' in motd
-    res = duthost.shell("cat /etc/motd | grep sonic-dri",module_ignore_errors=True)["stdout"]
-
-    if res:
-        default_password = DEFAULT_PASSWORD_NON_PUBLIC
-
-    logger.info("current login params:\tusername={}, password={}".format(DEFAULT_USERNAME, default_password))
+    logger.info("current login params:\tusername={}, password={}".format(default_username_password["username"],
+                                                                         default_username_password["password"]))
 
     # 2. re-connect SONiC via SSH with expected password
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(duthost.mgmt_ip, username=DEFAULT_USERNAME, password=default_password, allow_agent=False,
+        ssh.connect(duthost.mgmt_ip, username=default_username_password["username"],
+                    password=default_username_password["password"], allow_agent=False,
                     look_for_keys=False)
     except paramiko.AuthenticationException:
         logger.info("SSH connect failed. Make sure use the expected password according to the SONiC image.")
         raise
-    except Exception:
-        raise
+
+
+def get_image_type(duthost):
+    """get the SONiC image type
+
+    It might be public/microsoft/...or any other type.
+    Different vendors can define their different type by check the specific information from the build image.
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+
+    Returns: image type. Str
+
+    """
+
+    return "public"
