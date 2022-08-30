@@ -25,56 +25,31 @@ stages:
     pool: sonictest
     displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-
     steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-1
+    - script: |
+        exit 1
 
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
     timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-
     steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-2
+    - script: |
+        exit 1
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
     timeoutInMinutes: 540
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
-      parameters:
-        TOPOLOGY: t0
-        MIN_WORKER: 2
-        MAX_WORKER: 3
+    - script: |
+        exit 0
 
   - job: t0_2vlans_testbedv2
     displayName: "kvmtest-t0-2vlans by TestbedV2"
     timeoutInMinutes: 540
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
-      parameters:
-        TOPOLOGY: t0
-        TEST_SET: t0-2vlans
-        MAX_WORKER: 1
-        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+    - script: |
+        exit 0
 
   - job:
     pool:
@@ -114,24 +89,16 @@ stages:
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-03
-        tbname: vms-kvm-t1-lag
-        ptf_name: ptf_vms6-2
-        tbtype: t1-lag
-        vmtype: ceos
+    - script: |
+        exit 1
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
     timeoutInMinutes: 540
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
-      parameters:
-        TOPOLOGY: t1-lag
-        MIN_WORKER: 2
-        MAX_WORKER: 3
+    - script: |
+        exit 0
 
   - job:
     displayName: "kvmtest-t1-lag"
@@ -154,44 +121,9 @@ stages:
         fi
 
   - job:
-    pool: sonictest-sonic-t0
-    displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 400
-
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-02
-        tbname: vms-kvm-t0-64-32
-        ptf_name: ptf_vms6-1
-        tbtype: t0-sonic
-        vmtype: vsonic
-
-  - job:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
     timeoutInMinutes: 400
-
     steps:
-      - template: .azure-pipelines/run-test-template.yml
-        parameters:
-          dut: all
-          tbname: vms-kvm-dual-t0
-          ptf_name: ptf-04
-          tbtype: dualtor
-          vmtype: ceos
-
-  - job:
-    pool: sonictest-ma
-    displayName: "kvmtest-multi-asic-t1-lag"
-    timeoutInMinutes: 400
-
-    steps:
-      - template: .azure-pipelines/run-test-template.yml
-        parameters:
-          dut: vlab-08
-          tbname: vms-kvm-four-asic-t1-lag
-          ptf_name: ptf_vms6-4
-          tbtype: multi-asic-t1-lag-pr
-          vmtype: ceos
-          image: sonic-4asic-vs.img.gz
+    - script: |
+        exit 0
