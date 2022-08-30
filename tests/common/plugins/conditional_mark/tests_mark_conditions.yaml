@@ -423,7 +423,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/test_auto_negotiation.py:
   skip:
@@ -441,6 +441,13 @@ platform_tests/api/test_sfp.py::test_reset:
     reason: "platform does not support sfp reset"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/broadcom/test_ser.py::test_ser:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
 #######################################
 #####             pc              #####
