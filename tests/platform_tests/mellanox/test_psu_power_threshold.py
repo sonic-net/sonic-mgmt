@@ -1,3 +1,4 @@
+import allure
 import logging
 import pytest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -222,77 +223,80 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         logger.info('Mock PSU power to {} which is in normal range'.format(power/1000000)) 
         mocker.mock_psu_power(psu_index, power)
 
-        # 1. Mock power to range (warning, critical)
-        # 1.1 Mock ambient temperature sensors
-        power_warning_threshold, power_critical_threshold = \
-            _update_ambient_sensors_and_check_db(psu_index,
-                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                                 ambient_critical_threshold,
-                                                 power,
-                                                 False)
+        power_warning_threshold = None
+        power_critical_threshold = None
 
-        # 1.2 Mock the power
-        power = power_warning_threshold + 1000000
-        _update_power_and_check_db(psu_index,
-                                   power_warning_threshold,
-                                   power_critical_threshold,
-                                   power,
-                                   False)
+        with allure.step('Mock power to range (warning, critical)'):
+            with allure.step('Mock ambient temperature sensors'):
+                power_warning_threshold, power_critical_threshold = \
+                    _update_ambient_sensors_and_check_db(psu_index,
+                                                         ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                                         ambient_critical_threshold,
+                                                         power,
+                                                         False)
 
-        # 2. Mock power to range (critical, )
-        # 2.1 Mock ambient temperature sensors
-        power_warning_threshold, power_critical_threshold = \
-            _update_ambient_sensors_and_check_db(psu_index,
-                                                 ambient_critical_threshold + 5000,
-                                                 ambient_critical_threshold + 1000,
-                                                 power,
-                                                 False)
-        # Prepare for log analyzer
-        check_log_analyzer(loganalyzer, marker)
-        loganalyzer, marker = init_log_analyzer(duthost,
-                                                'PSU power exceeds threshold',
-                                                ['PSU power warning: PSU {} power .* exceeds critical threshold'.format(psu_index)])
+            with allure.step('Mock the power'):
+                power = power_warning_threshold + 1000000
+                _update_power_and_check_db(psu_index,
+                                           power_warning_threshold,
+                                           power_critical_threshold,
+                                           power,
+                                           False)
 
-        # 2.2 Mock the power
-        power = power_critical_threshold + 1000000
-        _update_power_and_check_db(psu_index,
-                                   power_warning_threshold,
-                                   power_critical_threshold,
-                                   power,
-                                   False)
+        with allure.step('Mock power to range (critical, infinity)'):
+            with allure.step('Mock ambient temperature sensors'):
+                power_warning_threshold, power_critical_threshold = \
+                    _update_ambient_sensors_and_check_db(psu_index,
+                                                         ambient_critical_threshold + 5000,
+                                                         ambient_critical_threshold + 1000,
+                                                         power,
+                                                         False)
+                # Prepare for log analyzer
+                check_log_analyzer(loganalyzer, marker)
+                loganalyzer, marker = init_log_analyzer(duthost,
+                                                        'PSU power exceeds threshold',
+                                                        ['PSU power warning: PSU {} power .* exceeds critical threshold'.format(psu_index)])
 
-        # Check whether the expected message is found
-        check_log_analyzer(loganalyzer, marker)
-        loganalyzer, marker = init_log_analyzer(duthost, 'PSU power exceeding threshold', [])
+            with allure.step('Mock the power'):
+                power = power_critical_threshold + 1000000
+                _update_power_and_check_db(psu_index,
+                                           power_warning_threshold,
+                                           power_critical_threshold,
+                                           power,
+                                           False)
 
-        # 3. Mock power to range (warning, critical)
-        power = power_critical_threshold - 1000000
-        _update_power_and_check_db(psu_index,
-                                   power_warning_threshold,
-                                   power_critical_threshold,
-                                   power,
-                                   True)
+                # Check whether the expected message is found
+                check_log_analyzer(loganalyzer, marker)
+                loganalyzer, marker = init_log_analyzer(duthost, 'PSU power exceeding threshold', [])
 
-        # 4. Mock power to range (, warning)
-        # 4.1 Mock ambient temperature sensors
-        power_warning_threshold, power_critical_threshold = \
-            _update_ambient_sensors_and_check_db(psu_index,
-                                                 ambient_critical_threshold + 1000,
-                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                                 power,
-                                                 True)
+        with allure.step('Mock power to range (warning, critical)'):
+            power = power_critical_threshold - 1000000
+            _update_power_and_check_db(psu_index,
+                                       power_warning_threshold,
+                                       power_critical_threshold,
+                                       power,
+                                       True)
 
-        # Prepare log analyzer
-        check_log_analyzer(loganalyzer, marker)
-        loganalyzer, marker = init_log_analyzer(duthost,
-                                                'PSU power become back to normal',
-                                                ['PSU power warning cleared: PSU {} power .* is back to normal'.format(psu_index)])
+        with allure.step('Mock power to range (a low value, warning)'):
+            with allure.step('Mock ambient temperature sensors'):
+                power_warning_threshold, power_critical_threshold = \
+                    _update_ambient_sensors_and_check_db(psu_index,
+                                                         ambient_critical_threshold + 1000,
+                                                         ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                                         power,
+                                                         True)
 
-        # 4.2 Mock power
-        _update_power_and_check_db(psu_index,
-                                   power_warning_threshold,
-                                   power_critical_threshold,
-                                   power_warning_threshold - 1000000,
-                                   True)
+                # Prepare log analyzer
+                check_log_analyzer(loganalyzer, marker)
+                loganalyzer, marker = init_log_analyzer(duthost,
+                                                        'PSU power become back to normal',
+                                                        ['PSU power warning cleared: PSU {} power .* is back to normal'.format(psu_index)])
 
-        check_log_analyzer(loganalyzer, marker)
+            with allure.step('Mock power'):
+                _update_power_and_check_db(psu_index,
+                                           power_warning_threshold,
+                                           power_critical_threshold,
+                                           power_warning_threshold - 1000000,
+                                           True)
+
+                check_log_analyzer(loganalyzer, marker)
