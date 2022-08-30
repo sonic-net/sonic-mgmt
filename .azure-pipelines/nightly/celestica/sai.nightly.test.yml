@@ -50,7 +50,7 @@ parameters:
   - name: PREPARE_SAI_TB
     displayName: "Prepare PTF env for SAI"
     type: boolean
-    default: false
+    default: true
   
   - name: UPDATE_IMAGE
     displayName: "Update Image"
