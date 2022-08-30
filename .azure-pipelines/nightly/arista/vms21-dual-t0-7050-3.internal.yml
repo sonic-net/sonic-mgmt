@@ -40,7 +40,7 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "platform_tests/test_cont_warm_reboot.py"
+    default: "platform_tests/test_cont_warm_reboot.py dualtor/test_orch_stress.py"
     displayName: "Skip Scripts"
 
   - name: TESTBED_SPECIFIC
