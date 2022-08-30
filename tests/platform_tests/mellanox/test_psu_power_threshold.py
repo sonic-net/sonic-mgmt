@@ -33,9 +33,10 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
     mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
 
     all_psus_supporting_thresholds = True
+
     try:
         for psu_index in range(MAX_PSUS):
-            _ = mocker.read_psu_power_threshold(psu_index + 1)
+            mocker.read_psu_power_threshold(psu_index + 1)
     except Exception as e:
         all_psus_supporting_thresholds = False
 
@@ -85,8 +86,7 @@ def init_log_analyzer(duthost, marker, expected, ignored=None):
     marker = loganalyzer.init()
 
     loganalyzer.load_common_config()
-    loganalyzer.expect_regex = []
-    loganalyzer.expect_regex.extend(expected)
+    loganalyzer.expect_regex = expected
     if ignored:
         loganalyzer.ignore_regex.extend(ignored)
 
@@ -105,7 +105,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power power_warning_threshold power_critical_threshold power_overload'.format(psuname)
         output = duthost.shell(command_check_psu_db)['stdout'].split()
         if len(output) != 4:
-            pytest.fail('Unable to retrieve information from STATE_DB PSU_INFO|{}'.format(psuname))
+            pytest.fail('Got wrong information ({}) from STATE_DB PSU_INFO|{}'.format(output, psuname))
 
         if int(float(output[0])) != power/1000000 \
                or int(float(output[1])) != power_warning_threshold/1000000 \
@@ -126,6 +126,8 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             detail = duthost.shell(command_check_system_health_db.format(psuname))['stdout'].strip()
             if not detail:
                 return True
+            else:
+                logger.info('SYSTEM_HEALTH_INFO: {} is not OK due to {}'.format(psuname, detail))
 
         return False
 
