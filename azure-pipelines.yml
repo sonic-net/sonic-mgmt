@@ -69,6 +69,7 @@ stages:
 
     steps:
     - script: |
+        set -x
         if [ $(resultOfT0TestbedV2) == "Succeeded" ] && [ $(resultOfT02VlansTestbedV2) == "Succeeded" ]; then
           echo "TestbedV2 t0 passed."
           exit 0
@@ -86,7 +87,6 @@ stages:
   - job: t1_lag_classic
     displayName: "kvmtest-t1-lag classic"
     timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     steps:
     - script: |
         exit 1
@@ -94,7 +94,6 @@ stages:
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
     timeoutInMinutes: 540
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     steps:
     - script: |
         exit 0
@@ -111,6 +110,7 @@ stages:
 
     steps:
     - script: |
+        set -x
         if [ $(resultOfClassic) == "Succeeded" ] || [ $(resultOfTestbedV2) == "Succeeded" ]; then
           echo "One or both of t1_lag_classic and t1_lag_testbedv2 passed."
           exit 0
