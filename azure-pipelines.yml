@@ -127,4 +127,4 @@ stages:
     timeoutInMinutes: 400
     steps:
     - script: |
-        exit 0
+        exit 1
