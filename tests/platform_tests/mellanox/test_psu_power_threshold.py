@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 mocker = None
 
+MAX_PSUS = 2
+
 @pytest.fixture
 # We can not set it as module because mocker_factory is function scope
 def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factory):
@@ -28,23 +30,43 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    all_psus_supporting_thresholds = True
+    try:
+        for psu_index in range(MAX_PSUS):
+            _ = mocker.read_psu_power_threshold(psu_index + 1)
+    except Exception as e:
+        all_psus_supporting_thresholds = False
+
+    if all_psus_supporting_thresholds:
+        try:
+            slope = None
+            ambient_critical_threshold = None
+            ambient_warning_threshold = None
+            slope = mocker.read_psu_power_slope()
+            ambient_critical_threshold = mocker.read_ambient_temp_critical_threshold()
+            ambient_warning_threshold = mocker.read_ambient_temp_warning_threshold()
+        except Exception as e:
+            pytest.fail('Some required information does not exist (slope {}, ambient thresholds critical {} warning {})'.format(
+                slope,
+                ambient_critical_threshold,
+                ambient_warning_threshold))
+
     MockPlatform = request.config.getoption("--mock_any_testbed")
     mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
     if MockPlatform:
-        try:
-            if mocker.read_psu_power_threshold(1) or mock.read_psu_power_threshold(2):
-                logger.info('CLI option "--mock_any_testbed" ignored since PSU power threshold is supported')
-        except Exception as e:
-            pass
+        if all_psus_supporting_thresholds:
+            logger.info('CLI option "--mock_any_testbed" is provided while power thresholds are supported on both PSUs')
 
         logger.info('Mocking the system to support PSU power threshold')
-        mocker.mock_power_threshold(2)
+        mocker.mock_power_threshold(MAX_PSUS)
 
         # Restart PSU daemon to take the mock stuff
         logger.info('Restart PSU daemon to take mock PSU power threshold')
         duthost.shell('docker exec -ti pmon supervisorctl restart psud')
         psudaemon_restarted = True
         time.sleep(2)
+    elif not all_psus_supporting_thresholds:
+        pytest.skip('PSU power threshold is not supported')
 
     yield
 
