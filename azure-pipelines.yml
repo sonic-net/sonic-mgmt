@@ -22,7 +22,6 @@ stages:
 
   jobs:
   - job: t0_part1
-    pool: sonictest
     displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 400
     continueOnError: true
@@ -31,7 +30,6 @@ stages:
         exit 1
 
   - job: t0_part2
-    pool: sonictest
     displayName: "kvmtest-t0-part2"
     timeoutInMinutes: 400
     steps:
@@ -71,13 +69,13 @@ stages:
     steps:
     - script: |
         set -x
-        if [ $(resultOfT0TestbedV2) == "Succeeded" ] && [ $(resultOfT02VlansTestbedV2) == "Succeeded" ]; then
-          echo "TestbedV2 t0 passed."
+        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
+          echo "Classic t0 jobs(both part1 and part2) passed."
           exit 0
         fi
 
-        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
-          echo "Classic t0 jobs(both part1 and part2) passed."
+        if [ $(resultOfT0TestbedV2) == "Succeeded" ] && [ $(resultOfT02VlansTestbedV2) == "Succeeded" ]; then
+          echo "TestbedV2 t0 passed."
           exit 0
         fi
 
