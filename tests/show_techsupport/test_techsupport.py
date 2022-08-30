@@ -468,7 +468,7 @@ def test_techsupport_commands(
 
     for cmd_group_name, cmd_group_to_check in commands_to_check.items():
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )
 
     pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
