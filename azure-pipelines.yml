@@ -84,7 +84,6 @@ stages:
 
 
   - job: t1_lag_classic
-    pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag classic"
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
