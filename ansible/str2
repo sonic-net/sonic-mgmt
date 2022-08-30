@@ -56,6 +56,10 @@ all:
           ansible_host: 10.64.246.231
         vms21-9:
           ansible_host: 10.64.246.236
+        vms21-10:
+          ansible_host: 10.64.247.29
+        vms21-11:
+          ansible_host: 10.64.247.241
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
@@ -1462,6 +1466,18 @@ sonic_dell_z9332f:
         "0xFD": ""
         "0xFE": "0x8D29EEBB"
       pdu_host: pdu-111
+
+sonic_appliance:
+  vars:
+    iface_speed: 100000
+  hosts:
+    str2-bluefield-01:
+      ansible_host: 10.64.246.248
+      hwsku: Bluefield
+    str2-bluefield-02:
+      ansible_host: 10.64.246.249
+      hwsku: Bluefield
+
 server:
   hosts:
     str2-acs-serv-16:
