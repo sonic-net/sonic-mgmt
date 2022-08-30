@@ -30,6 +30,8 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
     platform_data = get_platform_data(duthost)
     MAX_PSUS = platform_data['psus']['number']
 
+    mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
+
     all_psus_supporting_thresholds = True
     try:
         for psu_index in range(MAX_PSUS):
@@ -52,7 +54,6 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
                 ambient_warning_threshold))
 
     MockPlatform = request.config.getoption("--mock_any_testbed")
-    mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
     if MockPlatform:
         if all_psus_supporting_thresholds:
             logger.info('CLI option "--mock_any_testbed" is provided while power thresholds are supported on both PSUs')
@@ -103,6 +104,9 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         psuname = 'PSU {}'.format(psu_index)
         command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power power_warning_threshold power_critical_threshold power_overload'.format(psuname)
         output = duthost.shell(command_check_psu_db)['stdout'].split()
+        if len(output) != 4:
+            pytest.fail('Unable to retrieve information from STATE_DB PSU_INFO|{}'.format(psuname))
+
         if int(float(output[0])) != power/1000000 \
                or int(float(output[1])) != power_warning_threshold/1000000 \
                or int(float(output[2])) != power_critical_threshold/1000000 \
