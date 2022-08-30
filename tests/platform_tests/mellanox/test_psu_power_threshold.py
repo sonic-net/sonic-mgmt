@@ -238,8 +238,8 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         # 2.1 Mock ambient temperature sensors
         power_warning_threshold, power_critical_threshold = \
             _update_ambient_sensors_and_check_db(psu_index,
-                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                                 ambient_critical_threshold,
+                                                 ambient_critical_threshold + 5000,
+                                                 ambient_critical_threshold + 1000,
                                                  power,
                                                  False)
         # Prepare for log analyzer
