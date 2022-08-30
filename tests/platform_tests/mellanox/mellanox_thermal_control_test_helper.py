@@ -297,7 +297,7 @@ class MockerHelper:
         for file_path, value in self.regular_file_list.items():
             try:
                 if value is None:
-                    self.dut.shell('rm {}'.format(file_path))
+                    self.dut.shell('rm -f {}'.format(file_path))
                 else:
                     self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
             except Exception as e:
