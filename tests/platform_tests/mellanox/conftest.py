@@ -14,8 +14,7 @@ def pytest_addoption(parser):
 
     mellanox_group.addoption(
         "--mock_any_testbed",
-        action="store",
-        type=str2bool,
-        default=True,
+        action="store_true",
+        default=False,
         help="Mock on testbeds which do not support PSU power thresholds",
     )
