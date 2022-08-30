@@ -25,6 +25,7 @@ stages:
     pool: sonictest
     displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 400
+    continueOnError: true
     steps:
     - script: |
         exit 1
