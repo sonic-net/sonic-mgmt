@@ -11,7 +11,7 @@ all:
         server:
     ptf:
       hosts:
-        bjw-vms6-1:
+        bjw6-1:
           ansible_host: 10.150.23.50
     pdu:
       hosts:
