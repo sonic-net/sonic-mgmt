@@ -1,15 +1,11 @@
 import logging
-import operator
 import pytest
-import random
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
-from tests.platform_tests.thermal_control_test_helper import *
+from tests.platform_tests.thermal_control_test_helper import mocker_factory
 from mellanox_thermal_control_test_helper import MockerHelper, PsuPowerThresholdMocker
-from tabulate import tabulate
-import re
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -20,15 +16,19 @@ logger = logging.getLogger(__name__)
 
 mocker = None
 
-MAX_PSUS = 2
+MAX_PSUS = None
 
 @pytest.fixture
 # We can not set it as module because mocker_factory is function scope
 def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factory):
     global mocker
+    global MAX_PSUS
+
     psudaemon_restarted = False
 
     duthost = duthosts[rand_one_dut_hostname]
+    platform_data = get_platform_data(duthost)
+    MAX_PSUS = platform_data['psus']['number']
 
     all_psus_supporting_thresholds = True
     try:
@@ -142,15 +142,15 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         mocker.mock_port_ambient_thermal(port_ambient_mock)
         mocker.mock_fan_ambient_thermal(fan_ambient_mock)
         # Check whether thresholds are updated
-        assert wait_until(10,
-                          2,
-                          0,
-                          _check_psu_info_in_db,
-                          psu_index,
-                          power,
-                          power_warning_threshold,
-                          power_critical_threshold,
-                          was_power_exceeded)
+        pytest_assert(wait_until(10,
+                                 2,
+                                 0,
+                                 _check_psu_info_in_db,
+                                 psu_index,
+                                 power,
+                                 power_warning_threshold,
+                                 power_critical_threshold,
+                                 was_power_exceeded))
 
         return power_warning_threshold, power_critical_threshold
 
@@ -171,16 +171,15 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             interval = 2
             is_power_exceeded = was_power_exceeded
 
-        assert wait_until(timeout,
-                          interval,
-                          0,
-                          _check_psu_info_in_db,
-                          psu_index,
-                          power,
-                          power_warning_threshold,
-                          power_critical_threshold,
-                          is_power_exceeded
-                          )
+        pytest_assert(wait_until(timeout,
+                                 interval,
+                                 0,
+                                 _check_psu_info_in_db,
+                                 psu_index,
+                                 power,
+                                 power_warning_threshold,
+                                 power_critical_threshold,
+                                 is_power_exceeded))
 
     global mocker
 
