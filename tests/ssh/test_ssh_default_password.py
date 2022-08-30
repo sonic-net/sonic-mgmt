@@ -22,13 +22,16 @@ def test_ssh_default_password(duthost):
         duthost: AnsibleHost instance for DUT
     """
 
-    # 1. check SONiC version and get default username and password
+    # 1. define the default params in global value `DEFAULT_LOGIN_PARAMS_DICT`
+    # and the specific approach to get the image type in `get_image_type()`
+
+    # 2. check SONiC version and get default username and password
     default_username_password = DEFAULT_LOGIN_PARAMS_DICT[get_image_type(duthost=duthost)]
 
     logger.info("current login params:\tusername={}, password={}".format(default_username_password["username"],
                                                                          default_username_password["password"]))
 
-    # 2. re-connect SONiC via SSH with expected password
+    # 3. re-connect SONiC via SSH with expected password
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
@@ -44,12 +47,12 @@ def get_image_type(duthost):
     """get the SONiC image type
 
     It might be public/microsoft/...or any other type.
-    Different vendors can define their different type by check the specific information from the build image.
+    Different vendors can define their different types by checking the specific information from the build image.
 
     Args:
         duthost: AnsibleHost instance for DUT
 
-    Returns: image type. Str
+    Returns: image type. Str. It should be the right key in DEFAULT_LOGIN_PARAMS_DICT.
 
     """
 
