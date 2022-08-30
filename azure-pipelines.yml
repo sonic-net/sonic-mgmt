@@ -32,6 +32,7 @@ stages:
   - job: t0_part2
     displayName: "kvmtest-t0-part2"
     timeoutInMinutes: 400
+    continueOnError: true
     steps:
     - script: |
         exit 1
@@ -60,6 +61,7 @@ stages:
     - t0_testbedv2
     - t0_2vlans_testbedv2
     condition: always()
+    continueOnError: true
     variables:
       resultOfPart1: $[ dependencies.t0_part1.result ]
       resultOfPart2: $[ dependencies.t0_part2.result ]
