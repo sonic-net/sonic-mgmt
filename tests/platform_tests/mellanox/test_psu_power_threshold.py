@@ -110,6 +110,55 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
         return power_capacity - slope * (ambient_temperature - ambient_threshold)
 
+    def _update_ambient_sensors_and_check_db(psu_index, port_ambient_mock, fan_ambient_mock, power, was_power_exceeded):
+        power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock, fan_ambient_mock)
+        power_warning_threshold = _calculate_psu_power_threshold(ambient_warning_threshold, port_ambient_mock, fan_ambient_mock)
+
+        logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds'.format(
+            port_ambient_mock/1000,
+            fan_ambient_mock/1000))
+        mocker.mock_port_ambient_thermal(port_ambient_mock)
+        mocker.mock_fan_ambient_thermal(fan_ambient_mock)
+        # Check whether thresholds are updated
+        assert wait_until(10,
+                          2,
+                          0,
+                          _check_psu_info_in_db,
+                          psu_index,
+                          power,
+                          power_warning_threshold,
+                          power_critical_threshold,
+                          was_power_exceeded)
+
+        return power_warning_threshold, power_critical_threshold
+
+    def _update_power_and_check_db(psu_index, power_warning_threshold, power_critical_threshold, power, was_power_exceeded):
+        logger.info('Mock PSU power to {} (the warning threshold {}, the critical threshold {}'.format(
+            power/1000000,
+            power_warning_threshold/1000000,
+            power_critical_threshold/1000000))
+
+        mocker.mock_psu_power(psu_index, power)
+        if was_power_exceeded and power < power_warning_threshold or not was_power_exceeded and power >= power_critical_threshold:
+            timeout = 80
+            interval = 10
+            is_power_exceeded = not was_power_exceeded
+        else:
+            timeout = 10
+            interval = 2
+            is_power_exceeded = was_power_exceeded
+
+        assert wait_until(timeout,
+                          interval,
+                          0,
+                          _check_psu_info_in_db,
+                          psu_index,
+                          power,
+                          power_warning_threshold,
+                          power_critical_threshold,
+                          is_power_exceeded
+                          )
+
     global mocker
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -143,68 +192,29 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
     # 1. Mock power to range (warning, critical)
     # 1.2 Mock ambient temperature sensors
-    port_ambient_mock = ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2
-    fan_ambient_mock = ambient_critical_threshold
-    power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock, fan_ambient_mock)
-    power_warning_threshold = _calculate_psu_power_threshold(ambient_warning_threshold, port_ambient_mock, fan_ambient_mock)
-
-    logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds'.format(
-        port_ambient_mock/1000,
-        fan_ambient_mock/1000))
-    mocker.mock_port_ambient_thermal(port_ambient_mock)
-    mocker.mock_fan_ambient_thermal(fan_ambient_mock)
-    # Check whether thresholds are updated
-    assert wait_until(10,
-                      2,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      False)
+    power_warning_threshold, power_critical_threshold = \
+        _update_ambient_sensors_and_check_db(psu_index,
+                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                             ambient_critical_threshold,
+                                             power,
+                                             False)
 
     # 1.2 Mock the power
-    power = power_warning_threshold
-    logger.info('Mock PSU power to {} which is in the range between warning {} and critical {} thresholds'.format(
-        power/1000000,
-        power_warning_threshold/1000000,
-        power_critical_threshold/1000000))
-    mocker.mock_psu_power(psu_index, power)
-    assert wait_until(10,
-                      2,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      False)
+    power = power_warning_threshold + 1000000
+    _update_power_and_check_db(psu_index,
+                               power_warning_threshold,
+                               power_critical_threshold,
+                               power,
+                               False)
 
     # 2. Mock power to range (critical, )
     # 2.1 Mock ambient temperature sensors
-    port_ambient_mock = ambient_critical_threshold + 1000
-    fan_ambient_mock = ambient_critical_threshold + 5000
-    power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock, fan_ambient_mock)
-    power_warning_threshold = _calculate_psu_power_threshold(ambient_warning_threshold, port_ambient_mock, fan_ambient_mock)
-
-    logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds'.format(
-        port_ambient_mock/1000,
-        fan_ambient_mock/1000))
-    mocker.mock_port_ambient_thermal(port_ambient_mock)
-    mocker.mock_fan_ambient_thermal(fan_ambient_mock)
-
-    # Check whether thresholds are updated
-    assert wait_until(10,
-                      2,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      False)
-
+    power_warning_threshold, power_critical_threshold = \
+        _update_ambient_sensors_and_check_db(psu_index,
+                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                             ambient_critical_threshold,
+                                             power,
+                                             False)
     # Prepare for log analyzer
     check_log_analyzer(loganalyzer, marker)
     loganalyzer, marker = init_log_analyzer(duthost,
@@ -213,19 +223,11 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
     # 2.2 Mock the power
     power = power_critical_threshold + 1000000
-    logger.info('Mock PSU power to {} which is in greater than the critical threshold {}, make sure alarm is raised'.format(
-        power/1000000,
-        power_critical_threshold/1000000))
-    mocker.mock_psu_power(psu_index, power)
-    assert wait_until(80,
-                      10,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      True)
+    _update_power_and_check_db(psu_index,
+                               power_warning_threshold,
+                               power_critical_threshold,
+                               power,
+                               False)
 
     # Check whether the expected message is found
     check_log_analyzer(loganalyzer, marker)
@@ -233,43 +235,20 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
     # 3. Mock power to range (warning, critical)
     power = power_critical_threshold - 1000000
-    logger.info('Mock PSU power to {} which is in the range the between warning {} and the critical {} thresholds, make sure alarm remains'.format(
-        power/1000000,
-        power_warning_threshold/1000000,
-        power_critical_threshold/1000000))
-    mocker.mock_psu_power(psu_index, power)
-    assert wait_until(10,
-                      2,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      True)
+    _update_power_and_check_db(psu_index,
+                               power_warning_threshold,
+                               power_critical_threshold,
+                               power,
+                               True)
 
     # 4. Mock power to range (, warning)
     # 4.1 Mock ambient temperature sensors
-    port_ambient_mock = ambient_critical_threshold + 1000
-    fan_ambient_mock = ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2
-    power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock, fan_ambient_mock)
-    power_warning_threshold = _calculate_psu_power_threshold(ambient_warning_threshold, port_ambient_mock, fan_ambient_mock)
-
-    logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds'.format(
-        port_ambient_mock/1000,
-        fan_ambient_mock/1000))
-    mocker.mock_port_ambient_thermal(port_ambient_mock)
-    mocker.mock_fan_ambient_thermal(fan_ambient_mock)
-    # Check whether thresholds are updated
-    assert wait_until(10,
-                      2,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      True)
+    power_warning_threshold, power_critical_threshold = \
+        _update_ambient_sensors_and_check_db(psu_index,
+                                             ambient_critical_threshold + 1000,
+                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                             power,
+                                             True)
 
     # Prepare log analyzer
     check_log_analyzer(loganalyzer, marker)
@@ -278,19 +257,10 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                                             ['PSU power warning cleared: .* power .* is back to normal'])
 
     # 4.2 Mock power
-    power = power_warning_threshold - 1000000
-    logger.info('Mock PSU power to {} which is less than the warning threshold {}, make sure alarm is cleared'.format(
-        power/1000000,
-        power_warning_threshold/1000000))
-    mocker.mock_psu_power(psu_index, power)
-    assert wait_until(80,
-                      10,
-                      0,
-                      _check_psu_info_in_db,
-                      psu_index,
-                      power,
-                      power_warning_threshold,
-                      power_critical_threshold,
-                      False)
+    _update_power_and_check_db(psu_index,
+                               power_warning_threshold,
+                               power_critical_threshold,
+                               power_warning_threshold - 1000000,
+                               True)
 
     check_log_analyzer(loganalyzer, marker)
