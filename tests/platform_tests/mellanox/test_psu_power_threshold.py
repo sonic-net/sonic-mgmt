@@ -136,7 +136,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock, fan_ambient_mock)
         power_warning_threshold = _calculate_psu_power_threshold(ambient_warning_threshold, port_ambient_mock, fan_ambient_mock)
 
-        logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds'.format(
+        logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds)'.format(
             port_ambient_mock/1000,
             fan_ambient_mock/1000))
         mocker.mock_port_ambient_thermal(port_ambient_mock)
@@ -155,7 +155,8 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         return power_warning_threshold, power_critical_threshold
 
     def _update_power_and_check_db(psu_index, power_warning_threshold, power_critical_threshold, power, was_power_exceeded):
-        logger.info('Mock PSU power to {} (the warning threshold {}, the critical threshold {}'.format(
+        logger.info('Mock PSU {} power to {} (the warning threshold {}, the critical threshold {})'.format(
+            psu_index,
             power/1000000,
             power_warning_threshold/1000000,
             power_critical_threshold/1000000))
@@ -185,10 +186,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    psu_index = 1
-    power_capacity = mocker.read_psu_power_threshold(psu_index)
     slope = mocker.read_psu_power_slope()
-    power = mocker.read_psu_power(psu_index)
     ambient_critical_threshold = mocker.read_ambient_temp_critical_threshold()
     ambient_warning_threshold = mocker.read_ambient_temp_warning_threshold()
     fan_ambient = mocker.read_fan_ambient_thermal()
@@ -197,92 +195,99 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
     if fan_ambient > ambient_warning_threshold or port_ambient > ambient_warning_threshold:
         pytest.fail('Fan ambient temperature {} or port ambient temperature exceeds the ambient warning threshold'.format(fan_ambient, port_ambient))
 
-    if power > power_capacity:
-        pytest.fail('Current power {} exceeds maximum power capacity {}'.format(power, power_capacity))
+    for i in range(MAX_PSUS):
+        psu_index = i + 1
 
-    # Ignore some possible errors
-    loganalyzer, marker = init_log_analyzer(duthost,
-                                            'PSU power exceeding test',
-                                            [],
-                                            ['Failed to read from file {}'.format(PsuPowerThresholdMocker.PORT_AMBIENT_TEMP),
-                                             'Failed to read from file {}'.format(PsuPowerThresholdMocker.FAN_AMBIENT_TEMP)])
+        logging.info('Starting mock test on PSU {}'.format(psu_index))
 
-    # Mock the power as well.
-    # This is to make sure the power will be a fixed value because it can flucuate if it was read from a sensor.
-    logger.info('Mock PSU power to {} which is in normal range'.format(power/1000000)) 
-    mocker.mock_psu_power(psu_index, power)
+        power_capacity = mocker.read_psu_power_threshold(psu_index)
+        power = mocker.read_psu_power(psu_index)
 
-    # 1. Mock power to range (warning, critical)
-    # 1.2 Mock ambient temperature sensors
-    power_warning_threshold, power_critical_threshold = \
-        _update_ambient_sensors_and_check_db(psu_index,
-                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                             ambient_critical_threshold,
-                                             power,
-                                             False)
+        if power > power_capacity:
+            pytest.fail('Current power {} exceeds maximum power capacity {}'.format(power, power_capacity))
 
-    # 1.2 Mock the power
-    power = power_warning_threshold + 1000000
-    _update_power_and_check_db(psu_index,
-                               power_warning_threshold,
-                               power_critical_threshold,
-                               power,
-                               False)
+        # Ignore some possible errors
+        loganalyzer, marker = init_log_analyzer(duthost,
+                                                'PSU power exceeding test',
+                                                [],
+                                                [])
 
-    # 2. Mock power to range (critical, )
-    # 2.1 Mock ambient temperature sensors
-    power_warning_threshold, power_critical_threshold = \
-        _update_ambient_sensors_and_check_db(psu_index,
-                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                             ambient_critical_threshold,
-                                             power,
-                                             False)
-    # Prepare for log analyzer
-    check_log_analyzer(loganalyzer, marker)
-    loganalyzer, marker = init_log_analyzer(duthost,
-                                            'PSU power exceeds threshold',
-                                            ['PSU power warning: .* power .* exceeds critical threshold'])
+        # Mock the power as well.
+        # This is to make sure the power will be a fixed value because it can flucuate if it was read from a sensor.
+        logger.info('Mock PSU power to {} which is in normal range'.format(power/1000000)) 
+        mocker.mock_psu_power(psu_index, power)
 
-    # 2.2 Mock the power
-    power = power_critical_threshold + 1000000
-    _update_power_and_check_db(psu_index,
-                               power_warning_threshold,
-                               power_critical_threshold,
-                               power,
-                               False)
+        # 1. Mock power to range (warning, critical)
+        # 1.1 Mock ambient temperature sensors
+        power_warning_threshold, power_critical_threshold = \
+            _update_ambient_sensors_and_check_db(psu_index,
+                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                                 ambient_critical_threshold,
+                                                 power,
+                                                 False)
 
-    # Check whether the expected message is found
-    check_log_analyzer(loganalyzer, marker)
-    loganalyzer, marker = init_log_analyzer(duthost, 'PSU power exceeding threshold', [])
+        # 1.2 Mock the power
+        power = power_warning_threshold + 1000000
+        _update_power_and_check_db(psu_index,
+                                   power_warning_threshold,
+                                   power_critical_threshold,
+                                   power,
+                                   False)
 
-    # 3. Mock power to range (warning, critical)
-    power = power_critical_threshold - 1000000
-    _update_power_and_check_db(psu_index,
-                               power_warning_threshold,
-                               power_critical_threshold,
-                               power,
-                               True)
+        # 2. Mock power to range (critical, )
+        # 2.1 Mock ambient temperature sensors
+        power_warning_threshold, power_critical_threshold = \
+            _update_ambient_sensors_and_check_db(psu_index,
+                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                                 ambient_critical_threshold,
+                                                 power,
+                                                 False)
+        # Prepare for log analyzer
+        check_log_analyzer(loganalyzer, marker)
+        loganalyzer, marker = init_log_analyzer(duthost,
+                                                'PSU power exceeds threshold',
+                                                ['PSU power warning: PSU {} power .* exceeds critical threshold'.format(psu_index)])
 
-    # 4. Mock power to range (, warning)
-    # 4.1 Mock ambient temperature sensors
-    power_warning_threshold, power_critical_threshold = \
-        _update_ambient_sensors_and_check_db(psu_index,
-                                             ambient_critical_threshold + 1000,
-                                             ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
-                                             power,
-                                             True)
+        # 2.2 Mock the power
+        power = power_critical_threshold + 1000000
+        _update_power_and_check_db(psu_index,
+                                   power_warning_threshold,
+                                   power_critical_threshold,
+                                   power,
+                                   False)
 
-    # Prepare log analyzer
-    check_log_analyzer(loganalyzer, marker)
-    loganalyzer, marker = init_log_analyzer(duthost,
-                                            'PSU power become back to normal',
-                                            ['PSU power warning cleared: .* power .* is back to normal'])
+        # Check whether the expected message is found
+        check_log_analyzer(loganalyzer, marker)
+        loganalyzer, marker = init_log_analyzer(duthost, 'PSU power exceeding threshold', [])
 
-    # 4.2 Mock power
-    _update_power_and_check_db(psu_index,
-                               power_warning_threshold,
-                               power_critical_threshold,
-                               power_warning_threshold - 1000000,
-                               True)
+        # 3. Mock power to range (warning, critical)
+        power = power_critical_threshold - 1000000
+        _update_power_and_check_db(psu_index,
+                                   power_warning_threshold,
+                                   power_critical_threshold,
+                                   power,
+                                   True)
 
-    check_log_analyzer(loganalyzer, marker)
+        # 4. Mock power to range (, warning)
+        # 4.1 Mock ambient temperature sensors
+        power_warning_threshold, power_critical_threshold = \
+            _update_ambient_sensors_and_check_db(psu_index,
+                                                 ambient_critical_threshold + 1000,
+                                                 ambient_warning_threshold + (ambient_critical_threshold - ambient_warning_threshold)/2,
+                                                 power,
+                                                 True)
+
+        # Prepare log analyzer
+        check_log_analyzer(loganalyzer, marker)
+        loganalyzer, marker = init_log_analyzer(duthost,
+                                                'PSU power become back to normal',
+                                                ['PSU power warning cleared: PSU {} power .* is back to normal'.format(psu_index)])
+
+        # 4.2 Mock power
+        _update_power_and_check_db(psu_index,
+                                   power_warning_threshold,
+                                   power_critical_threshold,
+                                   power_warning_threshold - 1000000,
+                                   True)
+
+        check_log_analyzer(loganalyzer, marker)
