@@ -120,6 +120,8 @@ def find_latest_build_id(branch, success_flag = "succeeded"):
     return latest_build_id
 
 def main():
+    print("Download error!")
+    sys.exit(1)
     global artifact_size
 
     parser = argparse.ArgumentParser(description='Download artifacts from sonic azure devops.')
