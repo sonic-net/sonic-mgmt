@@ -303,7 +303,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
-    if not is_mellanox_device(duthost) and not is_innovium_device(duthost):
+    if not is_mellanox_device(duthost) and not is_innovium_device(duthost) and not is_barefoot_device(duthost):
         load_lossless_headroom_data(duthost)
         yield
         return
@@ -519,19 +519,44 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
             logging.debug("Expected pool {}, expec shp {}, curr_shp {} default ovs {}".format(expected_pool_size, expected_shp_size, curr_shp_size, DEFAULT_OVER_SUBSCRIBE_RATIO))
 
-    pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
-                  "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
-                      expected_pool_size,
-                      expected_shp_size,
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
-                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                  if DEFAULT_OVER_SUBSCRIBE_RATIO else
-                  "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
-                      expected_pool_size,
-                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                  )
+        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
+                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
+                          expected_pool_size,
+                          expected_shp_size,
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                      if DEFAULT_OVER_SUBSCRIBE_RATIO else
+                      "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
+                          expected_pool_size,
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                      )
+    elif duthost.facts['asic_type'] == 'barefoot':
+        expected_pool_size = 43067728
+        expected_shp_size = 3153920
+        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
+                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
+                          expected_pool_size,
+                          expected_shp_size,
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                      )
+    else:
+        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
+                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
+                          expected_pool_size,
+                          expected_shp_size,
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                      if DEFAULT_OVER_SUBSCRIBE_RATIO else
+                      "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
+                          expected_pool_size,
+                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                      )
 
 
 def get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
@@ -846,7 +871,7 @@ def port_to_test(request, duthost):
     return PORT_TO_TEST
 
 
-@pytest.fixture(params=['3-4', '5', '6'])
+@pytest.fixture(params=['3-4', '6'])
 def pg_to_test(request):
     """Used to parametrized test cases for PGs under test
 
@@ -982,10 +1007,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
             # Re-add another lossless priority
             logging.info('Re-add a lossless_pg and check pool size and pfc_enable')
-            if duthost.facts['asic_type'] == 'barefoot':
-                duthost.shell('config interface buffer priority-group lossless add {} 5'.format(port_to_test))
-            else:
-                duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
+            duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
 
             check_pool_size(duthost,
                             pool_oid,
@@ -997,10 +1019,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             new_size = pg_size,
                             new_pg_number = 1)
 
-            if duthost.facts['asic_type'] == 'barefoot':
-                check_pfc_enable(duthost, port_to_test, '5')
-            else:
-                check_pfc_enable(duthost, port_to_test, '6')
+            check_pfc_enable(duthost, port_to_test, '6')
             profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, None, pool_oid, port_to_test)
 
             if cable_len_to_test != original_cable_len:
@@ -1015,11 +1034,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
             logging.info('[Remove dynamic profile on cable length and/or MTU updated] Checking whether the old profile is removed')
             check_lossless_profile_removed(duthost, expected_profile, profile_oid)
             expected_profile = make_expected_profile_name(speed_to_test, original_cable_len)
-
-            if duthost.facts['asic_type'] == 'barefoot':
-                check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:5'.format(port_to_test), expected_profile)
-            else:
-                check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
 
             pg_size = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
             pg_xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(expected_profile))['stdout']) if DEFAULT_OVER_SUBSCRIBE_RATIO else None
@@ -1033,10 +1048,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                             new_size = pg_size,
                             new_pg_number = 1)
 
-            if duthost.facts['asic_type'] == 'barefoot':
-                duthost.shell('config interface buffer priority-group lossless remove {} 5'.format(port_to_test))
-            else:
-                duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test))
+            duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test))
 
             check_pool_size(duthost,
                             pool_oid,
@@ -1074,14 +1086,10 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                         old_size = original_pg_size)
 
         logging.info('[Extra lossless PG]')
-        if duthost.facts['asic_type'] == 'barefoot':
-            duthost.shell('config interface buffer priority-group lossless add {} 5'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:5'.format(port_to_test), expected_profile)
-            check_pfc_enable(duthost, port_to_test, '3,4,5')
-        else:
-            duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
-            check_pfc_enable(duthost, port_to_test, '3,4,6')
+        duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
+
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+        check_pfc_enable(duthost, port_to_test, '3,4,6')
 
         check_pool_size(duthost,
                         pool_oid,
@@ -1092,11 +1100,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                         new_pg_number = 3)
 
         logging.info('[Restore config]')
-
-        if duthost.facts['asic_type'] == 'barefoot':
-            duthost.shell('config interface buffer priority-group lossless remove {} 5'.format(port_to_test))
-        else:
-            duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test))
+        duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test))
 
         check_pfc_enable(duthost, port_to_test, '3,4')
 
@@ -1232,16 +1236,12 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
                         new_size = new_size)
 
         # Add another headroom override
-        if duthost.facts['asic_type'] == 'barefoot':
-            logging.info("[Test: headroom override on more lossless PGs 5] Apply the profile on the PG and check pool size")
-            duthost.shell('config interface buffer priority-group lossless add {} 5 headroom-override'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:5'.format(port_to_test), 'headroom-override')
-            check_pfc_enable(duthost, port_to_test, '3,4,5')
-        else:
-            logging.info("[Test: headroom override on more lossless PGs 6] Apply the profile on the PG and check pool size")
-            duthost.shell('config interface buffer priority-group lossless add {} 6 headroom-override'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), 'headroom-override')
-            check_pfc_enable(duthost, port_to_test, '3,4,6')
+        logging.info("[Test: headroom override on more lossless PGs 6] Apply the profile on the PG and check pool size")
+        duthost.shell('config interface buffer priority-group lossless add {} 6 headroom-override'.format(port_to_test))
+
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), 'headroom-override')
+        check_pfc_enable(duthost, port_to_test, '3,4,6')
+        profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, "headroom-override", profile_oid, pool_oid, port_to_test)
 
         check_pool_size(duthost,
                         pool_oid,
@@ -1491,10 +1491,6 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
     skip_traditional_model()
 
     duthost = duthosts[rand_one_dut_hostname]
-
-    if (pg_to_test == '6' and is_barefoot_device(duthost)) or (pg_to_test == '5' and not is_barefoot_device(duthost)):
-        pytest.skip("Skip test case for " + pg_to_test + "th PG")
-
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
@@ -1914,6 +1910,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
+@pytest.mark.disable_loganalyzer
 def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
     """The test case for auto negotiation enabled ports
 
@@ -2021,31 +2018,20 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
 
         # Add new PGs. The maximum advertised speed should be used
-        if duthost.facts['asic_type'] == 'barefoot':
-            logging.info('Add new PG 5')
-            duthost.shell('config interface buffer priority-group lossless add {} 5'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:5'.format(port_to_test), expected_profile)
-        else:
-            logging.info('Add new PG 6')
-            duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+        logging.info('Add new PG 6')
+        duthost.shell('config interface buffer priority-group lossless add {} 6'.format(port_to_test))
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
 
         # Update the advertised speed to all
         logging.info('Update advertised speeds to all')
         duthost.shell('config interface advertised-speeds {} all'.format(port_to_test))
         expected_profile = make_expected_profile_name(max_supported_speed, cable_length_to_test)
         check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile)
-        if duthost.facts['asic_type'] == 'barefoot':
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:5'.format(port_to_test), expected_profile)
-        else:
-            check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
+        check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:6'.format(port_to_test), expected_profile)
         check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_profile, new_profile_id, pool_id, port_to_test)
     finally:
         # Clean up
-        if duthost.facts['asic_type'] == 'barefoot':
-            duthost.shell('config interface buffer priority-group lossless remove {} 5'.format(port_to_test), module_ignore_errors=True)
-        else:
-            duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test), module_ignore_errors=True)
+        duthost.shell('config interface buffer priority-group lossless remove {} 6'.format(port_to_test), module_ignore_errors=True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test, original_cable_length), module_ignore_errors=True)
         duthost.shell('config interface speed {} {}'.format(port_to_test, original_speed), module_ignore_errors=True)
         duthost.shell('config interface advertised-speeds {} all'.format(port_to_test), module_ignore_errors=True)
@@ -2267,7 +2253,6 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
-@pytest.mark.disable_loganalyzer
 def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
     """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
