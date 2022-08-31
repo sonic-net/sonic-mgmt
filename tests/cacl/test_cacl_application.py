@@ -57,7 +57,7 @@ def expected_dhcp_rules_for_standby(duthost_dualtor):
             mark = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "DHCP_PACKET_MARK|{}" "mark"'.format(interface_name), module_ignore_errors=False)['stdout']
             rule = "-A DHCP -m mark --mark {} -j DROP".format(mark)
             expected_dhcp_rules.append(rule)
-    logger.info("Generate expected dhcp rules for standby interfaces: {}".format(expected_dhcp_rules))
+    logger.info("Generated expected dhcp rules for standby interfaces: {}".format(expected_dhcp_rules))
     return expected_dhcp_rules
 
 @pytest.fixture(scope="module")
