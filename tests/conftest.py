@@ -1689,7 +1689,7 @@ def check_dut_health_status(duthosts, request):
     if check_flag:
         for duthost in duthosts:
             duts_data[duthost.hostname] = {}
-            new_core_dumps[duthost.hostname] = {}
+            new_core_dumps[duthost.hostname] = []
 
             if "20191130" in duthost.os_version:
                 pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
@@ -1698,17 +1698,16 @@ def check_dut_health_status(duthosts, request):
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
             # get running config before running
-            duts_data[duthost.hostname]["pre_running_config"] = json.loads(
-                duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
     yield
 
     if check_flag:
-        inconsistent_config[duthost.hostname] = {}
-        pre_only_config[duthost.hostname] = {}
-        cur_only_config[duthost.hostname] = {}
-
         for duthost in duthosts:
+            inconsistent_config[duthost.hostname] = {}
+            pre_only_config[duthost.hostname] = {}
+            cur_only_config[duthost.hostname] = {}
+
             if "20191130" in duthost.os_version:
                 cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
             else:
@@ -1731,12 +1730,12 @@ def check_dut_health_status(duthosts, request):
             # Check if there are extra keys in pre running config
             pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys)
             for key in pre_config_extra_keys:
-                pre_only_config[duthost.hostname] = {key: duts_data[duthost.hostname]["pre_running_config"][key]}
+                pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
 
             # Check if there are extra keys in cur running config
             cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys)
             for key in cur_config_extra_keys:
-                cur_only_config[duthost.hostname] = {key: duts_data[duthost.hostname]["cur_running_config"][key]}
+                cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
 
             # Get common keys in pre running config and cur running config
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys)
@@ -1744,10 +1743,9 @@ def check_dut_health_status(duthosts, request):
             # Check if the running config is modified after the test case running
             for key in common_config_keys:
                 if duts_data[duthost.hostname]["pre_running_config"][key] != duts_data[duthost.hostname]["cur_running_config"][key]:
-                    inconsistent_config[duthost.hostname] = { key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}}
+                    inconsistent_config[duthost.hostname].update({ key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}})
 
-            if pre_only_config[duthost.hostname] or cur_only_config[duthost.hostname] or inconsistent_config[
-                duthost.hostname]:
+            if pre_only_config[duthost.hostname] or cur_only_config[duthost.hostname] or inconsistent_config[duthost.hostname]:
                 config_db_check_pass = False
 
         if not (core_dump_check_pass and config_db_check_pass):
