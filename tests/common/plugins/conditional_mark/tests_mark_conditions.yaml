@@ -423,7 +423,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/test_auto_negotiation.py:
   skip:
@@ -441,6 +441,13 @@ platform_tests/api/test_sfp.py::test_reset:
     reason: "platform does not support sfp reset"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/broadcom/test_ser.py::test_ser:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
 #######################################
 #####             pc              #####
@@ -485,7 +492,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend'] or asic_type in ['mellanox']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] or asic_type in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
