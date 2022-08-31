@@ -20,7 +20,7 @@ pytestmark = [
     pytest.mark.topology("t0", "t2"),
 ]
 
-
+1/0
 class TestControlPlane():
     def test_wpa_supplicant_processes(self, duthost, ctrl_links):
         def _test_wpa_supplicant_processes():
