@@ -69,6 +69,11 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
     BGP_ENTRY_HEADING = r"BGP routing table entry for "
     BGP_COMMUNITY_HEADING = r"Community: "
 
+    # {'VM0122': 'ARISTA11T0',...}
+    host_name_map = {}
+    for hostname, neigh_host in neigh_hosts.items():
+        host_name_map[neigh_host['host'].hostname] = hostname
+
     # Retrieve the routes on all VMs  in parallel by using a thread poll
     def parse_routes_process(node=None, results=None):
         """
@@ -76,7 +81,8 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         :param neigh_host_item: tuple of hostname and host_conf dict
         :return: no return value
         """
-        hostname = node['host'].hostname
+        # get hostname('ARISTA11T0') by VM name('VM0122')
+        hostname = host_name_map[node['host'].hostname]
         host = node['host']
         peer_ips = node['conf']['bgp']['peers'][asn]
         for ip in peer_ips:
@@ -133,7 +139,7 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     logger.info("Verifying all routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
     # Check routes on all neigh
-    for hostname, routes in routes_on_all_eos.iteritems():
+    for hostname, routes in routes_on_all_eos.items():
         logger.info("Verifying all routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for route, aspaths in routes_dut.iteritems():
             # Filter out routes announced by this neigh
@@ -165,7 +171,7 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
     else:
         lo_addr = lo_addr_v6
     routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
-    for hostname, routes in routes_on_all_eos.iteritems():
+    for hostname, routes in routes_on_all_eos.items():
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for prefix, received_community in routes.iteritems():
             if ipaddress.IPNetwork(prefix) != lo_addr:
