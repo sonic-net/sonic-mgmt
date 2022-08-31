@@ -105,7 +105,6 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
-          - appliance
 
 vm_host_1:
   hosts:

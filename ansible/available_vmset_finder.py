@@ -37,15 +37,12 @@ def build_topo_vmcnt():
     topo_vm_cnt = dict()
 
     try:
-        topo_files = [f for f in os.listdir(TOPO_PATH) if os.path.isfile('{}{}'.format(TOPO_PATH, f)) and f.startswith('topo')]
+        topo_files = [f for f in os.listdir(TOPO_PATH) if os.path.isfile('{}{}'.format(TOPO_PATH, f)) and f.startswith('topo_t') or f.startswith('topo_mgmt')]
         for tfile in topo_files:
             topo = re.findall('topo_(.*)\.yml', tfile)[0]
             with open(TOPO_PATH + tfile) as f:
                 vmtopo = yaml.load(f, Loader=yaml.FullLoader)
-                try:
-                    topo_vm_cnt[topo] = len(vmtopo['topology']['VMs'])
-                except KeyError:
-                    pass
+                topo_vm_cnt[topo] = len(vmtopo['topology']['VMs'])
     except EnvironmentError as e:
         print 'Error while trying to open/read topo files: {}'.format(str(e))
         exit(1)
@@ -61,21 +58,10 @@ def parse_file(topo_vm_cnt, testbed_file, server_pool):
             if "ptf" in tb["topo"]["name"]:
                 continue
             if tb["server"] in server_pool:
-                try:
-                    server_info[tb["server"]].append((tb["vm_base"], topo_vm_cnt[tb["topo"]["name"]]))
-                except KeyError:
-                    pass
+                server_info[tb["server"]].append((tb["vm_base"], topo_vm_cnt[tb["topo"]["name"]]))
     except EnvironmentError as e:
         print 'Error while trying to open/read testbed file: {}'.format(str(e))
         exit(1)
-
-    unused_servers = []
-    for server, vm_list in server_info.items():
-        if not vm_list:
-            unused_servers.append(server)
-
-    for server in unused_servers:
-        server_info.pop(server)
 
     for key in server_info:
         server_info[key] = sorted(server_info[key], key=itemgetter(0))
