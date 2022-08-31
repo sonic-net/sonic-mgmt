@@ -140,7 +140,7 @@ def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params
         SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
         dut_ip,
         PORT_MAP_FILE_PATH)
-    ptfhost.shell(("ptf {} {} --relax --xunit --xunit-dir {} {}")
+    ptfhost.shell(("ptf {} {} --relax --fail-skipped --xunit --xunit-dir {} {}")
     .format( 
         test_case, 
         test_interface_params,
