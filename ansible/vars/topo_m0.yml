@@ -47,27 +47,27 @@ topology:
     - 44
     - 45
   VMs:
-    ARISTA01M1:
+    ARISTA01MX:
       vlans:
         - 46
       vm_offset: 0
-    ARISTA02M1:
+    ARISTA02MX:
       vlans:
         - 47
       vm_offset: 1
-    ARISTA03M1:
+    ARISTA01M1:
       vlans:
         - 48
       vm_offset: 2
-    ARISTA04M1:
+    ARISTA02M1:
       vlans:
         - 49
       vm_offset: 3
-    ARISTA01MX:
+    ARISTA03M1:
       vlans:
         - 50
       vm_offset: 4
-    ARISTA02MX:
+    ARISTA04M1:
       vlans:
         - 51
       vm_offset: 5
@@ -100,6 +100,48 @@ configuration_properties:
     swrole: leaf
 
 configuration:
+  ARISTA01MX:
+    properties:
+    - common
+    - mx
+    bgp:
+      asn: 64001
+      peers:
+        65100:
+        - 10.0.0.64
+        - FC00::81
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.33/32
+        ipv6: 2064:100::21/128
+      Ethernet1:
+        ipv4: 10.0.0.65/31
+        ipv6: fc00::82/126
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::44/64
+
+  ARISTA02MX:
+    properties:
+    - common
+    - mx
+    bgp:
+      asn: 64002
+      peers:
+        65100:
+        - 10.0.0.66
+        - FC00::85
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.34/32
+        ipv6: 2064:100::22/128
+      Ethernet1:
+        ipv4: 10.0.0.67/31
+        ipv6: fc00::86/126
+    bp_interface:
+      ipv4: 10.10.246.34/24
+      ipv6: fc0a::47/64
+
   ARISTA01M1:
     properties:
     - common
@@ -191,45 +233,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.32/24
       ipv6: fc0a::41/64
-
-  ARISTA01MX:
-    properties:
-    - common
-    - mx
-    bgp:
-      asn: 64001
-      peers:
-        65100:
-        - 10.0.0.64
-        - FC00::81
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.33/32
-        ipv6: 2064:100::21/128
-      Ethernet1:
-        ipv4: 10.0.0.65/31
-        ipv6: fc00::82/126
-    bp_interface:
-      ipv4: 10.10.246.33/24
-      ipv6: fc0a::44/64
-
-  ARISTA02MX:
-    properties:
-    - common
-    - mx
-    bgp:
-      asn: 64002
-      peers:
-        65100:
-        - 10.0.0.66
-        - FC00::85
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.34/32
-        ipv6: 2064:100::22/128
-      Ethernet1:
-        ipv4: 10.0.0.67/31
-        ipv6: fc00::86/126
-    bp_interface:
-      ipv4: 10.10.246.34/24
-      ipv6: fc0a::47/64

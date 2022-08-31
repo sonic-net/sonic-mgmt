@@ -506,7 +506,7 @@ def main():
     topo_type = get_topo_type(topo_name)
 
     try:
-        if topo_type == "t0":
+        if topo_type == "t0" or topo_type == "m0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1":
