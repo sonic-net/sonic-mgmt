@@ -48,7 +48,6 @@ class QosParamBarefoot(object):
         """
         xon = int(math.ceil(float(self.ingressLosslessProfile['xon']) / self.cell_size))
         xoff = int(math.ceil(float(self.ingressLosslessProfile['xoff']) / self.cell_size))
-        size = int(math.ceil(float(self.ingressLosslessProfile['size']) / self.cell_size))
 
         # For Shared Headroom Pool Size
         headroom = xon + xoff

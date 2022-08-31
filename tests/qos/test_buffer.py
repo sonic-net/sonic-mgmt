@@ -2878,10 +2878,6 @@ def barefoot_calculate_headroom_data(duthost, port_to_test):
     if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
         LOSSLESS_MTU, SMALL_PACKET_PERCENTAGE = get_lossless_traffic_pattern_data_from_db(duthost)
 
-    shp_size_raw = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
-
-    shp_size = float(shp_size_raw)
-
     speed_of_light = 198000000
     minimal_packet_size = 64
 
