@@ -1657,7 +1657,7 @@ def dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node]["pre_running_config"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"], indent=4),
                  dest='/etc/sonic/config_db.json', verbose=False)
     config_reload(node)
 
@@ -1689,7 +1689,6 @@ def check_dut_health_status(duthosts, request):
     if check_flag:
         for duthost in duthosts:
             duts_data[duthost.hostname] = {}
-            new_core_dumps[duthost.hostname] = []
 
             if "20191130" in duthost.os_version:
                 pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
@@ -1707,6 +1706,7 @@ def check_dut_health_status(duthosts, request):
             inconsistent_config[duthost.hostname] = {}
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
+            new_core_dumps[duthost.hostname] = []
 
             if "20191130" in duthost.os_version:
                 cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
@@ -1714,14 +1714,13 @@ def check_dut_health_status(duthosts, request):
                 cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["cur_core_dumps"] = cur_cores
 
-            # convert to list so print msg will not contain "set()"
             new_core_dumps[duthost.hostname] = list(
                 set(duts_data[duthost.hostname]["cur_core_dumps"]) - set(duts_data[duthost.hostname]["pre_core_dumps"]))
 
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
-            # get running config before running
+            # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
             pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
@@ -1740,10 +1739,10 @@ def check_dut_health_status(duthosts, request):
             # Get common keys in pre running config and cur running config
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys)
 
-            # Check if the running config is modified after the test case running
+            # Check if the running config is modified after module running
             for key in common_config_keys:
                 if duts_data[duthost.hostname]["pre_running_config"][key] != duts_data[duthost.hostname]["cur_running_config"][key]:
-                    inconsistent_config[duthost.hostname].update({ key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}})
+                    inconsistent_config[duthost.hostname].update({key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}})
 
             if pre_only_config[duthost.hostname] or cur_only_config[duthost.hostname] or inconsistent_config[duthost.hostname]:
                 config_db_check_pass = False
@@ -1752,7 +1751,7 @@ def check_dut_health_status(duthosts, request):
             check_result = {"core_dump_check": {"pass": core_dump_check_pass, "new_core_dumps": new_core_dumps},
                             "config_db_check": {"pass": config_db_check_pass, "pre_only_config": pre_only_config, "cur_only_config": cur_only_config, "inconsistent_config": inconsistent_config}}
             logger.warning("Check Dut health failed: Dut health check results {}, running module {}".format(json.dumps(check_result), module_name))
-            results = parallel_run(dut_reload, (), {"duts_data": duts_data}, duts_data.keys(), timeout=300)
+            results = parallel_run(dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Dut is healthy after the module {} running.".format(module_name))
