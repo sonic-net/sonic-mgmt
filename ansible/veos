@@ -35,6 +35,7 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
+          - m0
       children:
         server_1:
         server_2:
