@@ -235,6 +235,31 @@ class LogAnalyzer:
 
         return self._setup_marker(log_files=log_files)
 
+    def add_start_ignore_mark(self, log_files=None):
+        """
+        Adds the start ignore marker to the log files
+        """
+        add_start_ignore_mark = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}".format(run_dir=self.dut_run_dir, add_start_ignore_mark=add_start_ignore_mark)
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
+
+        logging.debug("Adding start ignore marker '{}'".format(add_start_ignore_mark))
+        self.ansible_host.command(cmd)
+        self._markers.append(add_start_ignore_mark)
+
+    def add_end_ignore_mark(self, log_files=None):
+        """
+        Adds the end ignore marker to the log files
+        """
+        marker = self._markers.pop()
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}".format(run_dir=self.dut_run_dir, marker=marker)
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
+
+        logging.debug("Adding end ignore marker '{}'".format(marker))
+        self.ansible_host.command(cmd)
+
     def _setup_marker(self, log_files=None):
         """
         Adds the marker to the log files

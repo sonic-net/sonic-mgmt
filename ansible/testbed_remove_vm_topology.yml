@@ -77,4 +77,5 @@
     - { role: vm_set, action: 'remove_topo' }
     - { role: vm_set, action: 'stop_sid' }
     - { role: vm_set, action: 'stop_sonic_vm' }
+    - { role: vm_set, action: 'stop_8000e_sonic' }
 

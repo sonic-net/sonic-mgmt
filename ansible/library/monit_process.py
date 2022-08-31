@@ -83,6 +83,7 @@ def monit_process(module, interval, iterations):
             time.sleep(interval)
             processes = []
             for proc in psutil.process_iter(['pid', 'name',
+                                             'cmdline',
                                              'cpu_percent',
                                              'memory_percent',
                                              'status']):

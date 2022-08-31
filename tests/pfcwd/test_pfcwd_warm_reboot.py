@@ -276,7 +276,7 @@ class SendVerifyTraffic(object):
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
                    log_file=log_file)
 
-    def verify_wd_func(self, detect=True):
+    def verify_wd_func(self, dut, detect=True):
         """
         PTF traffic send and verify
 
@@ -284,12 +284,20 @@ class SendVerifyTraffic(object):
             detect(bool) : if the current iteration is a storm detect or not (default: True)
         """
         if detect:
+            rx_action = "drop"
+            tx_action = "drop"
             wd_action="drop"
         else:
+            rx_action = "forward"
+            tx_action = "forward"
             wd_action = "forward"
-        logger.info("--- Verify PFCwd function for action {} ---".format(wd_action))
-        self.verify_tx_egress(wd_action)
-        self.verify_rx_ingress(wd_action)
+
+        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000']:
+            rx_action = "forward"
+
+        logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---".format(wd_action, tx_action, rx_action))
+        self.verify_tx_egress(tx_action)
+        self.verify_rx_ingress(rx_action)
 
 
 class TestPfcwdWb(SetupPfcwdFunc):
@@ -411,7 +419,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             logger.info("--- Storm restoration path for port {} queue {} ---".format(port, queue))
             self.storm_restore_path(port, queue)
         # test pfcwd functionality on a storm/restore
-        self.traffic_inst.verify_wd_func(detect=detect)
+        self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self):

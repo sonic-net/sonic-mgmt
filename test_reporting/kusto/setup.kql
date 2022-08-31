@@ -41,12 +41,14 @@
         Result = tostring(cases["result"]),
         ReportId = tostring(cases["id"]),
 	    Error = tobool(cases["error"]),
-        Summary = tostring(cases["summary"])
+        Summary = tostring(cases["summary"]),
+        StartTime = todatetime(cases["start"]),
+        EndTime = todatetime(cases["end"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
-                         ReportId: string, Error: bool, Summary: string)
+                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
@@ -61,6 +63,8 @@
                                                                      '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                      '{"column":"Error","Properties":{"path":"$.error"}},'
                                                                      '{"column":"Summary","Properties":{"path":"$.summary"}},'
+                                                                     '{"column":"StartTime","Properties":{"path":"$.start"}},'
+                                                                     '{"column":"EndTime","Properties":{"path":"$.end"}},'
                                                                      ']'
 
 ###############################################################################
@@ -100,6 +104,26 @@
                                                                                   '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                                   '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
                                                                                   '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+
+###############################################################################
+# PIPELINE TABLE SETUP                                                        #
+# 1. Create a TestReportPipeline table to store pipeline task results         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportPipeline (StartTimestamp: datetime, UploadTimestamp: datetime, TrackingId: string,
+                                  ReportId: string, TestbedName: string,
+                                  OSVersion: string, SuccessTasks: string,
+                                  FailedTasks: string, CancelledTasks: string)
+
+.create table TestReportPipeline ingestion json mapping 'FlatPipelineMappingV1' @'[{"column":"StartTimestamp","Properties":{"path":"$.start_time"}},'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
+                                                                                  '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
+                                                                                  '{"column":"CancelledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
 
 ###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
@@ -186,3 +210,30 @@
                                                             '{"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},'
                                                             '{"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},'
                                                             '{"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'
+
+###############################################################################
+# TESTBEDREACHABILITY TABLE SETUP                                             #
+# 1. Create a TestbedReachability table to store testbed health info          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
+                                  DutName: string, DutIP: string,
+                                  DutIcmpReachability: bool, ServerName: string,
+                                  ServerIP: string, ServerIcmpReachability: bool,
+                                  PtfName: string, PtfIP: string, PtfIcmpReachability: bool,
+                                  DutConsoleReachability: bool, DutSshReachability: bool)
+
+.create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
+                                                                     '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                     '{"column":"DutName","Properties":{"path":"$.DutName"}},'
+                                                                     '{"column":"DutIP","Properties":{"path":"$.DutIP"}},'
+                                                                     '{"column":"DutIcmpReachability","Properties":{"path":"$.DutIcmpReachability"}},'
+                                                                     '{"column":"ServerName","Properties":{"path":"$.ServerName"}},'
+                                                                     '{"column":"ServerIP","Properties":{"path":"$.ServerIP"}},'
+                                                                     '{"column":"ServerIcmpReachability","Properties":{"path":"$.ServerIcmpReachability"}},'
+                                                                     '{"column":"PtfName","Properties":{"path":"$.PtfName"}},'
+                                                                     '{"column":"PtfIP","Properties":{"path":"$.PtfIP"}},'
+                                                                     '{"column":"PtfIcmpReachability","Properties":{"path":"$.PtfIcmpReachability"}},'
+                                                                     '{"column":"DutConsoleReachability","Properties":{"path":"$.DutConsoleReachability"}},'
+                                                                     '{"column":"DutSshReachability","Properties":{"path":"$.DutSshReachability"}},'
+                                                                     ']'

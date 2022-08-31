@@ -27,6 +27,14 @@
       nic_simulator_action: stop
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
+  - name: Stop exabgp processes
+    include_tasks: announce_routes.yml
+    vars:
+      exabgp_action: stop
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
     vars:
@@ -49,6 +57,13 @@
       ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
     when: ptf_docker_info.exists
+
+  - name: Stop ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
 
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
@@ -133,6 +148,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces

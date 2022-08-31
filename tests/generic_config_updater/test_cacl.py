@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
 
+
 def get_cacl_tables(duthost):
     """Get acl control palne tables
     """
@@ -35,6 +36,7 @@ def get_cacl_tables(duthost):
     cacl_tables = output['stdout'].splitlines()
     return cacl_tables
 
+
 def get_iptable_rules(duthost):
     cmds = "iptables -S"
     output = duthost.shell(cmds)
@@ -43,6 +45,7 @@ def get_iptable_rules(duthost):
     )
     rules_chain = output['stdout'].splitlines()
     return rules_chain
+
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -74,6 +77,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     finally:
         delete_checkpoint(duthost)
 
+
 def expect_acl_table_match(duthost, table_name, expected_content_list):
     """Check if acl table show as expected
     """
@@ -92,6 +96,7 @@ def expect_acl_table_match(duthost, table_name, expected_content_list):
         "ACL table doesn't match"
     )
 
+
 def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list):
     """Check if acl rule added as expected
     """
@@ -104,7 +109,8 @@ def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_conte
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
-def test_cacl_tc1_add_new_table(duthost):
+
+def cacl_tc1_add_new_table(duthost):
     """ Add acl table for test
 
     Sample output
@@ -141,7 +147,8 @@ def test_cacl_tc1_add_new_table(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_cacl_tc2_add_duplicate_table(duthost):
+
+def cacl_tc1_add_duplicate_table(duthost):
     """ Add duplicate acl table
     """
     json_patch = [
@@ -168,7 +175,8 @@ def test_cacl_tc2_add_duplicate_table(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_cacl_tc3_replace_table_variable(duthost):
+
+def cacl_tc1_replace_table_variable(duthost):
     """ Replace acl table with SSH service
 
     Expected output
@@ -202,17 +210,22 @@ def test_cacl_tc3_replace_table_variable(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["SNMP_ACL", "CTRLPLANE", "SSH", "SNMP_TO_SSH", "egress"]
+        expected_content_list = ["SNMP_ACL", "CTRLPLANE", "SSH",
+                                 "SNMP_TO_SSH", "egress"]
         expect_acl_table_match(duthost, "SNMP_ACL", expected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_cacl_tc4_add_invalid_table(duthost):
+
+def cacl_tc1_add_invalid_table(duthost):
     """ Add invalid acl table
+
+    {"service": "SSH", "stage": "ogress", "type": "CTRLPLANE"}, # wrong stage
+    {"service": "SSH", "stage": "ingress", "type": "TRLPLANE"}  # wrong type
     """
     invalid_table = [
-        {"service":"SSH", "stage":"ogress", "type":"CTRLPLANE"}, # wrong stage
-        {"service":"SSH", "stage":"ingress", "type":"TRLPLANE"}  # wrong type
+        {"service": "SSH", "stage": "ogress", "type": "CTRLPLANE"},
+        {"service": "SSH", "stage": "ingress", "type": "TRLPLANE"}
     ]
 
     for ele in invalid_table:
@@ -240,7 +253,8 @@ def test_cacl_tc4_add_invalid_table(duthost):
         finally:
             delete_tmpfile(duthost, tmpfile)
 
-def test_cacl_tc5_remove_unexisted_table(duthost):
+
+def cacl_tc1_remove_unexisted_table(duthost):
     """ Remove unexisted acl table
     """
     json_patch = [
@@ -258,7 +272,8 @@ def test_cacl_tc5_remove_unexisted_table(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def test_cacl_tc6_remove_table(duthost):
+
+def cacl_tc1_remove_table(duthost):
     """ Remove acl table test
     """
     json_patch = [
@@ -279,7 +294,17 @@ def test_cacl_tc6_remove_table(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_add_init_rule(duthost):
+
+def test_cacl_tc1_acl_table_suite(rand_selected_dut):
+    cacl_tc1_add_new_table(rand_selected_dut)
+    cacl_tc1_add_duplicate_table(rand_selected_dut)
+    cacl_tc1_replace_table_variable(rand_selected_dut)
+    cacl_tc1_add_invalid_table(rand_selected_dut)
+    cacl_tc1_remove_unexisted_table(rand_selected_dut)
+    cacl_tc1_remove_table(rand_selected_dut)
+
+
+def cacl_tc2_add_init_rule(duthost):
     """ Add acl rule for test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -322,7 +347,8 @@ def cacl_tc7_add_init_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_add_duplicate_rule(duthost):
+
+def cacl_tc2_add_duplicate_rule(duthost):
     """ Add duplicate acl rule for test
     """
     json_patch = [
@@ -351,7 +377,8 @@ def cacl_tc7_add_duplicate_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_replace_rule(duthost):
+
+def cacl_tc2_replace_rule(duthost):
     """ Replace a value from acl rule test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -385,7 +412,8 @@ def cacl_tc7_replace_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_add_rule_to_unexisted_table(duthost):
+
+def cacl_tc2_add_rule_to_unexisted_table(duthost):
     """ Add acl rule to unexisted table
     """
     json_patch = [
@@ -412,7 +440,8 @@ def cacl_tc7_add_rule_to_unexisted_table(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_remove_table_before_rule(duthost):
+
+def cacl_tc2_remove_table_before_rule(duthost):
     """ Remove acl table before removing acl rule
     """
     json_patch = [
@@ -431,7 +460,8 @@ def cacl_tc7_remove_table_before_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_remove_unexist_rule(duthost):
+
+def cacl_tc2_remove_unexist_rule(duthost):
     """ Remove unexisted acl rule
     """
     json_patch = [
@@ -448,7 +478,8 @@ def cacl_tc7_remove_unexist_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-def cacl_tc7_remove_rule(duthost):
+
+def cacl_tc2_remove_rule(duthost):
     """ Remove acl rule test
     """
     json_patch = [
@@ -470,12 +501,13 @@ def cacl_tc7_remove_rule(duthost):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 # ACL_RULE tests are related. So group them into one test.
-def test_cacl_tc7_acl_rule_test(duthost):
-    cacl_tc7_add_init_rule(duthost)
-    cacl_tc7_add_duplicate_rule(duthost)
-    cacl_tc7_replace_rule(duthost)
-    cacl_tc7_add_rule_to_unexisted_table(duthost)
-    cacl_tc7_remove_table_before_rule(duthost)
-    cacl_tc7_remove_unexist_rule(duthost)
-    cacl_tc7_remove_rule(duthost)
+def test_cacl_tc2_acl_rule_test(rand_selected_dut):
+    cacl_tc2_add_init_rule(rand_selected_dut)
+    cacl_tc2_add_duplicate_rule(rand_selected_dut)
+    cacl_tc2_replace_rule(rand_selected_dut)
+    cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut)
+    cacl_tc2_remove_table_before_rule(rand_selected_dut)
+    cacl_tc2_remove_unexist_rule(rand_selected_dut)
+    cacl_tc2_remove_rule(rand_selected_dut)

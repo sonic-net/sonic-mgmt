@@ -11,7 +11,6 @@ from ptf import testutils, mask, packet
 from tests.common import config_reload
 import ipaddress
 
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.voq.voq_helpers import verify_no_routes_from_nexthop
@@ -47,7 +46,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope="function")
-def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
         Reload dut after test function finished
     """
@@ -56,8 +55,7 @@ def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend
     if request.node.rep_call.failed:
         # if test case failed, means bgp session down or port channel status not recovered, execute config reload
         logging.info("Reloading config and restarting swss...")
-        config_reload(duthost)
-        wait_critical_processes(duthost)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
 def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
@@ -69,8 +67,6 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     int_facts = asichost.interface_facts()['ansible_facts']
 
     portchannel, portchannel_members = asichost.get_portchannel_and_members_in_ns(tbinfo)
-    if portchannel is None:
-        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
 
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
@@ -88,9 +84,6 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     logging.info("portchannel_members=%s" % portchannel_members)
 
     try:
-        if len(portchannel_members) == 0:
-            pytest.skip("Skip test due to there is no portchannel member exists in current topology.")
-
         # Step 1: Remove portchannel members from portchannel
         for member in portchannel_members:
             asichost.config_portchannel_member(portchannel, member, "del")
@@ -155,9 +148,6 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    if len(dut_mg_facts["minigraph_portchannel_interfaces"]) < 2:
-        pytest.skip("Skip test due to there isn't enough port channel exists in current topology.")
-
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"]) for pc in
                        dut_mg_facts["minigraph_portchannel_interfaces"]
@@ -202,6 +192,11 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     pc_ip = out_pc[0]
     in_peer_ip = in_pc[1]
     out_peer_ip = out_pc[1]
+    remove_pc_members = False
+    remove_pc_ip = False
+    create_tmp_pc = False
+    add_tmp_pc_members = False
+    add_tmp_pc_ip = False
     try:
         # Step 1: Remove port channel members from port channel
         for member in pc_members:
@@ -262,13 +257,13 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             while packet_sending_flag.empty() or (not packet_sending_flag.get()):
                 time.sleep(0.2)
             asichost.config_portchannel_member(tmp_pc, pc_members[0], "del")
-            time.sleep(0.5)
+            time.sleep(2)
             asichost.config_portchannel_member(tmp_pc, pc_members[0], "add")
-            time.sleep(0.5)
+            time.sleep(4)
             asichost.config_portchannel_member(tmp_pc, pc_members[1], "del")
-            time.sleep(0.5)
+            time.sleep(2)
             asichost.config_portchannel_member(tmp_pc, pc_members[1], "add")
-            time.sleep(1)
+            time.sleep(2)
             member_update_finished_flag.put(True)
 
         t = threading.Thread(target=del_add_members, name="del_add_members_thread")
@@ -290,10 +285,12 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             stop_sending = reach_max_time or member_update_thread_finished
         t.join(20)
         time.sleep(2)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices, timeout=10)
-        logging.info("match_cnt is {}, and send_count is {}".format(match_cnt, send_count))
-        pytest_assert(match_cnt > 0, "Packets not send")
-        pytest_assert(match_cnt == send_count, "Packets lost during pc members add/removal")
+        match_count = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices, timeout=10)
+        logging.info("match_count: {}, send_count: {}".format(match_count, send_count))
+        max_loss_rate = 0.01
+        pytest_assert(match_count > send_count * (1 - max_loss_rate),
+                      "Packets lost rate > {} during pc members add/removal, send_count: {}, match_count: {}".format(
+                          max_loss_rate, send_count, match_count))
     finally:
         if add_tmp_pc_ip:
             asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
