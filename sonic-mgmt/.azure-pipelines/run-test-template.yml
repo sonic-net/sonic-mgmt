@@ -72,8 +72,6 @@ steps:
     GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
   timeoutInMinutes: 360
-  ${{ if eq(parameters.tbtype, 'multi-asic-t1-lag-pr') }}:
-    continueOnError: true
 
 - script: |
     # save dut state if test fails

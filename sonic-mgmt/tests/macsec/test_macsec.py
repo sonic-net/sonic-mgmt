@@ -431,6 +431,7 @@ class TestInteropProtocol():
             "BGP_NEIGHBOR"].values()[0]
         BGP_KEEPALIVE = int(bgp_config["keepalive"])
         BGP_HOLDTIME = int(bgp_config["holdtime"])
+        BGP_TIMEOUT = 90
 
         def check_bgp_established(up_link):
             command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(
@@ -441,32 +442,32 @@ class TestInteropProtocol():
 
         # Ensure the BGP sessions have been established
         for ctrl_port in ctrl_links.keys():
-            assert wait_until(30, 5, 0,
+            assert wait_until(BGP_TIMEOUT, 5, 0,
                               check_bgp_established, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in ctrl_links.items():
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
-            wait_until(20, 3, 0,
+            wait_until(BGP_TIMEOUT, 3, 0,
                 lambda: not duthost.iface_macsec_ok(ctrl_port) and
                         not nbr["host"].iface_macsec_ok(nbr["port"]))
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in ctrl_links.items():
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-            wait_until(20, 3, 0,
+            wait_until(BGP_TIMEOUT, 3, 0,
                 lambda: duthost.iface_macsec_ok(ctrl_port) and
                         nbr["host"].iface_macsec_ok(nbr["port"]))
             # Wait PortChannel up, which might flap if having one port member
-            wait_until(20, 5, 5, lambda: find_portchannel_from_member(
+            wait_until(BGP_TIMEOUT, 5, 5, lambda: find_portchannel_from_member(
                 ctrl_port, get_portchannel(duthost))["status"] == "Up")
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
+            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, upstream_links[ctrl_port])
 
     def test_snmp(self, duthost, ctrl_links, upstream_links, creds):

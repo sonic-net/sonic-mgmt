@@ -157,6 +157,8 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     duthost.user(name=tacacs_creds['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
     duthost.user(name=tacacs_creds['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
 
+    duthost.copy(src="./tacacs/templates/del_tacacs_keys.json", dest='/tmp/del_tacacs_keys.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_keys.json"))
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config

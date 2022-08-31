@@ -126,7 +126,6 @@ def run_case_from_ptf(duthost, dut_ip, ptfhost, test_case, test_interface_params
     if request.config.option.enable_sai_test:
         test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(dut_ip, request.config.option.sai_port_config_file)
-        test_interface_params = DX010_PORT_MAP
     elif request.config.option.enable_ptf_sai_test:
         test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(dut_ip, request.config.option.sai_port_config_file)
