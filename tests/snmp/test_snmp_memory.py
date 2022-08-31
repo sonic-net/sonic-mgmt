@@ -53,7 +53,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    compare = (('ansible_sysTotalFreeMemery', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
+    compare = (('ansible_sysTotalFreeMemory', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
                ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
     # Checking memory attributes within a certain percentage is not guarantee to
@@ -64,11 +64,11 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                     community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
         facts = collect_memory(duthost)
-        # Verify correct behaviour of sysTotalMemery
-        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemery'] - int(facts['MemTotal'])),
-                      "Unexpected res sysTotalMemery {} v.s. {}".format(snmp_facts['ansible_sysTotalMemery'], facts['MemTotal']))
+        # Verify correct behaviour of sysTotalMemory
+        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemory'] - int(facts['MemTotal'])),
+                      "Unexpected res sysTotalMemory {} v.s. {}".format(snmp_facts['ansible_sysTotalMemory'], facts['MemTotal']))
 
-        # Verify correct behaviour of sysTotalFreeMemery, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
+        # Verify correct behaviour of sysTotalFreeMemory, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
         new_comp = set()
         snmp_diff = []
         for snmp, sys_data in compare:
@@ -95,5 +95,41 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
-    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemery'], mem_free) < percent,
-                  "sysTotalFreeMemery differs by more than {}".format(percent))
+    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemory'], mem_free) < percent,
+                  "sysTotalFreeMemory differs by more than {}".format(percent))
+
+def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+    """
+    Verify swap info is correct
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+
+    total_swap = duthost.shell("grep SwapTotal /proc/meminfo | awk '{print $2}'")['stdout']
+    free_swap = duthost.shell("grep SwapFree /proc/meminfo | awk '{print $2}'")['stdout']
+
+    if total_swap == "0":
+        pytest.skip("Swap is not on for this device, snmp does not support swap related queries when swap isn't on")
+
+    snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c", include_swap=True,
+                                community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_total_swap = snmp_facts['ansible_sysTotalSwap']
+    snmp_free_swap = snmp_facts['ansible_sysTotalFreeSwap']
+
+    logging.info("total_swap {}, free_swap {}, snmp_total_swap {}, snmp_free_swap {}".format(total_swap, free_swap, snmp_total_swap, snmp_free_swap))
+
+    pytest_assert(CALC_DIFF(snmp_total_swap, total_swap) < percent,
+                  "sysTotalSwap differs by more than {}: expect {} received {}".format(percent, total_swap, snmp_total_swap))
+
+    if snmp_free_swap == 0 or snmp_total_swap / snmp_free_swap >= 2:
+        """
+        Free swap is less than half of total swap, compare used swap instead
+        The comparison could get inaccurate if the number to compare is close to 0,
+        so we test only one of used/free swap space.
+        """
+        pytest_assert(CALC_DIFF(snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)) < percent,
+                      "Used Swap (calculated using sysTotalFreeSwap) differs by more than {}: expect {} received {}".format(
+                          percent, snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)))
+    else:
+        pytest_assert(CALC_DIFF(snmp_free_swap, free_swap) < percent,
+                      "sysTotalFreeSwap differs by more than {}: expect {} received {}".format(percent, snmp_free_swap, free_swap))
