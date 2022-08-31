@@ -1,7 +1,7 @@
 import pytest
 import time
 import datetime
-import  os.path
+import os.path
 
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
