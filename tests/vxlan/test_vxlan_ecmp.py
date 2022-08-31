@@ -48,7 +48,8 @@ from scapy.all import *
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
 # This list is used in many locations in the script.
-SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+# SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+SUPPORTED_ENCAP_TYPES = ['v4_in_v4']
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
@@ -155,6 +156,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
                                                                nh_af=outer_layer_version,
                                                                bfd = request.config.option.bfd)
 
+        
         data[encap_type] = encap_type_data
         if request.config.option.bfd:
             ecmp_utils.ptf_config(data['duthost'], data['ptfhost'], data['tbinfo'])
@@ -248,7 +250,6 @@ class Test_VxLAN_route_tests(Test_VxLAN):
             tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.
         '''
         self.setup = setUp
-        import pdb; pdb.set_trace();
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
 
     def test_vxlan_modify_route_different_endpoint(self, setUp, request, encap_type):
@@ -301,7 +302,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
             ecmp_utils.set_routes_in_dut(self.setup['duthost'], self.setup[encap_type]['dest_to_nh_map'], ecmp_utils.get_payload_version(encap_type), "SET")
 
 class Test_VxLAN_ecmp_create(Test_VxLAN):
-    def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
+    def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type, request):
         '''
             tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send packets to the route 1's prefix dst. packets are received at either a1 or a2.
         '''
@@ -322,10 +323,13 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = tc4_end_point_list
 
         logger.info("Create a new config and Copy to the DUT.")
-        tc4_config = '[\n' + ecmp_utils.create_single_route(vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc4_end_point_list, "SET") + '\n]'
+        tc4_config = '[\n' + ecmp_utils.create_single_route(vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc4_end_point_list, "SET", bfd = request.config.option.bfd) + '\n]'
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc4_config, "vnet_route_tc4_"+encap_type)
-
+        if request.config.option.bfd:
+            ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'])
+    
         logger.info("Verify that the new config takes effect and run traffic.")
+        
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
     def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type):

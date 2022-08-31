@@ -574,6 +574,8 @@ class Ecmp_Utils:
         return ret_list
 
     def ptf_config(self,duthost, ptfhost, tbinfo):
+        ptfhost.command('supervisorctl stop bfd_responder')
+        time.sleep(2)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for element in mg_facts['minigraph_lo_interfaces']:
             if element['prefixlen'] == 32:
