@@ -177,8 +177,8 @@ The M0 type topology is to simulate a SONiC DUT running as a Management ToR Rout
 * The DUT has 52 ports.
 * Requires 6 VMs.
 * The first 46 ports are connected to PTF docker simulating servers.
-* The next 4 ports are connected to 4 VMs simulating M1 devices. The connection to each of the upstream M1 is configured as a port-channel with single link.
-* The last 2 ports are connected to another 2 VMs simulating downstream Mx neighbors. No port-channel is configured for the links between DUT and Mx neighbors.
+* The next 2 ports are connected to 2 VMs simulating downstream Mx neighbors. No port-channel is configured for the links between DUT and Mx neighbors.
+* The last 4 ports are connected to another 4 VMs simulating upstream M1 devices. The connection to each of the upstream M1 is configured as a port-channel with single link.
 
 ### PTF type topology
 
