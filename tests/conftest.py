@@ -1750,7 +1750,7 @@ def check_dut_health_status(duthosts, request):
                 duthost.hostname]:
                 config_db_check_pass = False
 
-        if not (core_dump_check_pass or config_db_check_pass):
+        if not (core_dump_check_pass and config_db_check_pass):
             check_result = {"core_dump_check": {"pass": core_dump_check_pass, "new_core_dumps": new_core_dumps},
                             "config_db_check": {"pass": config_db_check_pass, "pre_only_config": pre_only_config, "cur_only_config": cur_only_config, "inconsistent_config": inconsistent_config}}
             logger.warning("Check Dut health failed: Dut health check results {}, running module {}".format(json.dumps(check_result), module_name))
