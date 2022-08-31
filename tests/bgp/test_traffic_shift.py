@@ -1,16 +1,16 @@
-import pytest
 import logging
-import ipaddr as ipaddress
-from bgp_helpers import parse_rib, get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.parallel import parallel_run
-from tests.common.utilities import wait_until
-from multiprocessing.dummy import Pool as ThreadPool
-from tests.common import config_reload
 import re
 
+import ipaddr as ipaddress
+import pytest
+
+from bgp_helpers import parse_rib, get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors
+from tests.common import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.parallel import parallel_run
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
