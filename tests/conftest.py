@@ -1675,71 +1675,89 @@ def check_dut_health_status(duthosts, request):
             check_flag = False
 
     module_name = request.node.name
+
     duts_data = {}
+
+    new_core_dumps = {}
+    core_dump_check_pass = True
+
+    inconsistent_config = {}
+    pre_only_config = {}
+    cur_only_config = {}
+    config_db_check_pass = True
 
     if check_flag:
         for duthost in duthosts:
-            duts_data[duthost] = {}
-            duts_data[duthost]["core_dump"] = {"failed": False, "core_dump_files":None}
-            duts_data[duthost]["config"] = {"failed": False, "config_differences":None}
+            duts_data[duthost.hostname] = {}
+            new_core_dumps[duthost.hostname] = {}
 
             if "20191130" in duthost.os_version:
                 pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
             else:
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-            duts_data[duthost]["pre_core_dumps"] = pre_existing_core_dumps
+            duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
             # get running config before running
-            duts_data[duthost]["pre_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(
+                duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
     yield
 
     if check_flag:
-        for duthost in duts_data:
+        inconsistent_config[duthost.hostname] = {}
+        pre_only_config[duthost.hostname] = {}
+        cur_only_config[duthost.hostname] = {}
+
+        for duthost in duthosts:
             if "20191130" in duthost.os_version:
                 cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
             else:
                 cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
-            duts_data[duthost]["cur_core_dumps"] = cur_cores
+            duts_data[duthost.hostname]["cur_core_dumps"] = cur_cores
 
-            new_core_dumps = set(duts_data[duthost]["cur_core_dumps"]) - set(duts_data[duthost]["pre_core_dumps"])
             # convert to list so print msg will not contain "set()"
-            new_core_dumps = list(new_core_dumps)
+            new_core_dumps[duthost.hostname] = list(
+                set(duts_data[duthost.hostname]["cur_core_dumps"]) - set(duts_data[duthost.hostname]["pre_core_dumps"]))
 
-            if new_core_dumps:
-                duts_data[duthost]["core_dump"]["failed"] = True
-                duts_data[duthost]["core_dump"]["core_dump_files"] = new_core_dumps
-                logger.info("Core dumps found. Expected: %s Found: %s. New core dumps: %s" % (len(pre_existing_core_dumps), len(cur_cores), new_core_dumps))
+            if new_core_dumps[duthost.hostname]:
+                core_dump_check_pass = False
 
             # get running config before running
-            duts_data[duthost]["cur_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            duts_data[duthost.hostname]["cur_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
-            different_config_pre = {}
-            different_config_cur = {}
+            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
+            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
+
+            # Check if there are extra keys in pre running config
+            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys)
+            for key in pre_config_extra_keys:
+                pre_only_config[duthost.hostname] = {key: duts_data[duthost.hostname]["pre_running_config"][key]}
+
+            # Check if there are extra keys in cur running config
+            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys)
+            for key in cur_config_extra_keys:
+                cur_only_config[duthost.hostname] = {key: duts_data[duthost.hostname]["cur_running_config"][key]}
+
+            # Get common keys in pre running config and cur running config
+            common_config_keys = list(pre_running_config_keys & cur_running_config_keys)
 
             # Check if the running config is modified after the test case running
-            for key, value in duts_data[duthost]["cur_running_config"].items():
-                try:
-                    if duts_data[duthost]["pre_running_config"][key] != value:
-                        different_config_cur.update({key: value})
-                        different_config_pre.update({key: duts_data[duthost]["pre_running_config"][key]})
-                except KeyError:
-                    logger.warning("Check Dut health failed: Extra key {} is added into config db, running module {}".format(key, module_name))
+            for key in common_config_keys:
+                if duts_data[duthost.hostname]["pre_running_config"][key] != duts_data[duthost.hostname]["cur_running_config"][key]:
+                    inconsistent_config[duthost.hostname] = { key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}}
 
-            different_config = {"pre_running_config": different_config_pre, "cur_running_config": different_config_cur}
-            if different_config["cur_running_config"]:
-                duts_data[duthost]["config"]["failed"] = True
-                duts_data[duthost]["config"]["config_differences"] = different_config
+            if pre_only_config[duthost.hostname] or cur_only_config[duthost.hostname] or inconsistent_config[
+                duthost.hostname]:
+                config_db_check_pass = False
 
-        for duthost in duts_data:
-            new_failed_results = [{key: value} for key, value in duts_data[duthost].items() if ((key == "core_dump" or key == "config") and value["failed"])]
-        if new_failed_results:
-            # Reload with config before test running
-            for fail_result in new_failed_results:
-                logger.warning("Check Dut health failed: Dut health check results {}, running module {}".format(json.dumps(fail_result, indent=4), module_name))
-
+        if not (core_dump_check_pass or config_db_check_pass):
+            check_result = {"core_dump_check": {"pass": core_dump_check_pass, "new_core_dumps": new_core_dumps},
+                            "config_db_check": {"pass": config_db_check_pass, "pre_only_config": pre_only_config, "cur_only_config": cur_only_config, "inconsistent_config": inconsistent_config}}
+            logger.warning("Check Dut health failed: Dut health check results {}, running module {}".format(json.dumps(check_result), module_name))
             results = parallel_run(dut_reload, (), {"duts_data": duts_data}, duts_data.keys(), timeout=300)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
+        else:
+            logger.info("Dut is healthy after the module {} running.".format(module_name))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
