@@ -618,7 +618,7 @@ class QosSaiBase(QosBase):
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
         dutinterfaces = {}
         for port, index in mgFacts["minigraph_ptf_indices"].items():
-            if 'Ethernet-Rec' not in port or 'Ethernet-IB' not in port:
+            if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
                 dutinterfaces[index] = port
         yield {
             "dutInterfaces": dutinterfaces,
