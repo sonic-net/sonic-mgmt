@@ -332,16 +332,16 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
-    def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type):
+    def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type, request):
         '''
             tc5: set tunnel route 2 to endpoint group a = {a1, a2}. send packets to route 2"s prefix dst. packets are received at either a1 or a2
         '''
         self.setup = setUp
-        self.setup_route2_ecmp_group_b(encap_type)
+        self.setup_route2_ecmp_group_b(encap_type, request)
         logger.info("Verify the configs work and traffic flows correctly.")
         self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
-    def setup_route2_ecmp_group_b(self, encap_type):
+    def setup_route2_ecmp_group_b(self, encap_type, request):
         if self.setup[encap_type].get('tc5_dest', None):
             return
         logger.info("Choose a vnet for testing.")
@@ -357,16 +357,20 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc5_new_dest] = tc5_end_point_list
 
         logger.info("Create the new config and apply to the DUT.")
-        tc5_config = '[\n' + ecmp_utils.create_single_route(vnet, tc5_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc5_end_point_list, "SET") + '\n]'
+        tc5_config = '[\n' + ecmp_utils.create_single_route(vnet, tc5_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc5_end_point_list, "SET", bfd = request.config.option.bfd) + '\n]'
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc5_config, "vnet_route_tc5_"+encap_type)
+        
+        if request.config.option.bfd:
+            ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'])
+        
         self.setup[encap_type]['tc5_dest'] = tc5_new_dest
 
-    def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type):
+    def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type, request):
         '''
             tc6: set tunnel route 2 to endpoint group b = {b1, b2}. send packets to route 2"s prefix dst. packets are received at either b1 or b2.
         '''
         self.setup = setUp
-        self.setup_route2_ecmp_group_b(encap_type)
+        self.setup_route2_ecmp_group_b(encap_type, request)
 
         logger.info("Choose a vnet for testing.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
@@ -383,10 +387,14 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc6_new_dest] = tc6_end_point_list
 
         logger.info("Create the config and apply on the DUT.")
-        tc6_config = '[\n' + ecmp_utils.create_single_route(vnet, tc6_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc6_end_point_list, "SET") + '\n]'
+        tc6_config = '[\n' + ecmp_utils.create_single_route(vnet, tc6_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc6_end_point_list, "SET", bfd = request.config.option.bfd) + '\n]'
+        
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc6_config, "vnet_route_tc6_"+encap_type)
-
+        if request.config.option.bfd:
+            ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'])
+        
         logger.info("Verify that the traffic works.")
+
         self.dump_self_info_and_run_ptf("tc6", encap_type, True)
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
@@ -782,9 +790,8 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                     add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(nexthop, ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)], all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
                 self.setup['duthost'].shell_cmds(cmds = add_static_route)
                 self.setup[encap_type]['t2_ports'] = ret_list
-        
         #Traffic verification to see if specific route is preferred before deletion of static route
-        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, False)
+        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, True)
 
         #Deletion of all static routes
         for destination, nexthops in endpoint_nhmap.items():
@@ -800,7 +807,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.setup[encap_type]['t2_ports'] = backup_t2_ports
         
         #Traffic verification to see if default route is preferred after deletion of static route
-        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, False)
+        self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, True)
 
 class Test_VxLAN_entrophy(Test_VxLAN):
     def verify_entropy(self, setup, encap_type,random_sport = False, random_dport = True, varying_src_ip = False, tolerance = None):
