@@ -26,7 +26,7 @@ import glob
 import json
 import sys
 import os
-
+from json2html import *
 from collections import defaultdict
 from datetime import datetime
 from utilities import TestResultJSONValidationError
@@ -696,6 +696,9 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
     else:
         print(output)
 
+    html_op = json2html.convert(json = output)
+    with open('report.html', "w+") as html_file:
+        html_file.write(html_op)
 
 if __name__ == "__main__":
     _run_script()
