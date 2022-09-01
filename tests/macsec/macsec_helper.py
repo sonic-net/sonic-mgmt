@@ -29,7 +29,9 @@ __all__ = [
     'get_mka_session',
     'get_macsec_sa_name',
     'get_macsec_counters',
-    'get_sci'
+    'get_sci',
+    'getns_prefix',
+    'get_ipnetns_prefix'
 ]
 
 
@@ -66,6 +68,15 @@ def getns_prefix(host, intf):
         asic = host.get_port_asic_instance(intf)
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         ns_prefix = "-n {}".format(ns)
+
+    return ns_prefix
+
+def get_ipnetns_prefix(host, intf):
+    ns_prefix = " "
+    if host.is_multi_asic:
+        asic = host.get_port_asic_instance(intf)
+        ns = host.get_namespace_from_asic_id(asic.asic_index)
+        ns_prefix = "sudo ip netns exec {}".format(ns)
 
     return ns_prefix
 
@@ -377,15 +388,17 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 
-def get_macsec_counters(sonic_asic, name):
+def get_macsec_counters(sonic_asic, namespace, name):
     lines = [
-        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter',
-        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0))',
+        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter,SonicDBConfig',
+        'from sonic_py_common import multi_asic',
+        'SonicDBConfig.initializeGlobalConfig() if multi_asic.is_multi_asic() else {}',
+        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0, False, "{}"))'.format(namespace),
         '_, values = counterTable.get(MacsecCounter(), "{}")'.format(name),
         'print(dict(values))'
         ]
     cmd = "python -c '{}'".format(';'.join(lines))
-    output = sonic_asic.command(cmd)["stdout_lines"][0]
+    output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
     return {k:int(v) for k,v in ast.literal_eval(output).items()}
 
 
