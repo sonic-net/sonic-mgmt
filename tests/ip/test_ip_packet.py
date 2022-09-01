@@ -140,7 +140,8 @@ class TestIPPacket(object):
             rif_counter_out = TestIPPacket.parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
             rif_iface = list(rif_counter_out.keys())[0]
             rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
-        except:
+        except Exception as e:
+            logger.info("Show rif counters failed with exception: {}".format(repr(e)))
             rif_support = False
 
         yield selected_peer_ip_ifaces_pairs, rif_rx_ifaces, rif_support, ptf_port_idx, pc_ports_map, mg_facts["minigraph_ptf_indices"]
