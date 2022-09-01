@@ -10,7 +10,6 @@ from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
 
 
 def derive_queue_id_from_dscp(dscp):
