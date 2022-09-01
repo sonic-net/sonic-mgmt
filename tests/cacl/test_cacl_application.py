@@ -31,30 +31,33 @@ def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
         ignored_iptable_rules += rules_to_ignore
 
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
-def duthost_dualtor(request, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_upper_tor):
+def duthost_dualtor(request, upper_tor_host, lower_tor_host):
     which_tor = request.param
 
     # Add expected DHCP mark iptable rules for standby tor, not for active tor.
     if which_tor == 'standby_tor':
         dut = lower_tor_host
-        logger.info("Select standby tor, generate expected DHCP iptables rules for standby tor.")
+        logger.info("Select lower tor...")
     else:
-        logger.info("Select active tor, don't need to add expected DHCP mark rules.")
+        logger.info("Select upper tor...")
         dut = upper_tor_host
     return dut
 
 @pytest.fixture
-def expected_dhcp_rules_for_standby(duthost_dualtor, lower_tor_host):
+def expected_dhcp_rules_for_standby(duthost_dualtor):
     expected_dhcp_rules = []
-    if duthost_dualtor.hostname == lower_tor_host.hostname: 
-        mark_keys = duthost_dualtor.shell('/usr/bin/redis-cli -n 6  --raw keys "DHCP_PACKET_MARK*"', module_ignore_errors=True)['stdout']
-        mark_keys = mark_keys.split("\n")
-        for key in mark_keys:
-            mark = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "{}" "mark"'.format(key), module_ignore_errors=False)['stdout']
-            if not mark:
-                continue
+    mux_cable_int_keys = duthost_dualtor.shell('/usr/bin/redis-cli -n 6  --raw keys "MUX_CABLE_TABLE*"', module_ignore_errors=True)['stdout']
+    mux_cable_int_keys = mux_cable_int_keys.split("\n")
+    for mux_cable_int in mux_cable_int_keys:
+        interface_name = mux_cable_int.split("|")[1]
+        mux_status = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "{}" "state"'.format(mux_cable_int), module_ignore_errors=False)['stdout']
+        if not mux_status:
+            continue
+        if mux_status == 'standby':
+            mark = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "DHCP_PACKET_MARK|{}" "mark"'.format(interface_name), module_ignore_errors=False)['stdout']
             rule = "-A DHCP -m mark --mark {} -j DROP".format(mark)
             expected_dhcp_rules.append(rule)
+    logger.info("Generated expected dhcp rules for standby interfaces: {}".format(expected_dhcp_rules))
     return expected_dhcp_rules
 
 @pytest.fixture(scope="module")
