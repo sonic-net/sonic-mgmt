@@ -426,10 +426,25 @@ stages:
                     test_interfaces.py"
                 fi
 
+                # Skip stable tests
+                SKIP_STABLE_SCRIPTS="\
+                    acl/test_acl_outer_vlan.py \
+                    acl/test_null_route_helper.py \
+                    arp/test_tagged_arp.py \
+                    arp/test_unknown_mac.py \
+                    generic_config_updater/test_cacl.py \
+                    generic_config_updater/test_ipv6.py \
+                    generic_config_updater/test_ntp.py \
+                    pc/test_lag_2.py \
+                    pfcwd/test_pfc_config.py \
+                    pfcwd/test_pfcwd_function.py \
+                    route/test_route_flap.py \
+                    route/test_route_perf.py"
+
                 # Run rest of the tests.
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }} $github_updated_files $SKIP_COVERED_SCRIPTS" \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }} $github_updated_files $SKIP_COVERED_SCRIPTS $SKIP_STABLE_SCRIPTS" \
                     -S "$SKIP_FOLDERS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
