@@ -1937,13 +1937,10 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_length = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_pool_size = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
-    if duthost.facts['asic_type'] == 'barefoot':
+    if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
-        if DEFAULT_OVER_SUBSCRIBE_RATIO:
-            original_shp_size = int(duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
-        else:
-            original_shp_size = None
+        original_shp_size = None
 
     max_supported_speed = _get_max_speed_from_list(supported_speeds)
     supported_speeds_list = natsorted(supported_speeds.split(','))
