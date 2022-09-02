@@ -48,8 +48,8 @@ from scapy.all import *
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
 # This list is used in many locations in the script.
-# SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
-SUPPORTED_ENCAP_TYPES = ['v4_in_v4']
+SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
+
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
@@ -250,6 +250,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
             tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.
         '''
         self.setup = setUp
+        import pdb; pdb.set_trace();
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
 
     def test_vxlan_modify_route_different_endpoint(self, setUp, request, encap_type):
@@ -419,7 +420,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc8_config, "vnet_route_tc8_"+encap_type)
         self.setup[encap_type]['tc8_dest'] = tc8_new_dest
 
-    def setup_route2_shared_endpoints(self, encap_type):
+    def setup_route2_shared_endpoints(self, encap_type, request):
         if self.setup[encap_type].get('tc9_dest', None):
             return
         self.setup_route2_single_endpoint(encap_type)
@@ -450,10 +451,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         logger.info("Map the destination 1 to the combined list.")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = tc9_new_nhs
-        tc9_config = '[\n' + ecmp_utils.create_single_route(vnet, tc9_new_dest1, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc9_new_nhs, "SET") + '\n]'
+        tc9_config = '[\n' + ecmp_utils.create_single_route(vnet, tc9_new_dest1, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc9_new_nhs, "SET", bfd = request.config.option.bfd) + '\n]'
 
         logger.info("Apply the new config to the DUT and send traffic.")
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc9_config, "vnet_route_tc9_"+encap_type)
+        if request.config.option.bfd:
+            ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'])
         self.setup[encap_type]['tc9_dest'] = tc9_new_dest1
 
     def setup_route2_shared_different_endpoints(self, encap_type):
@@ -539,7 +542,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         logger.info("Remove the chosen dest/endpoint from the DUT.")
         tc7_config = '[\n' + ecmp_utils.create_single_route(vnet, tc7_removed_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc7_removed_endpoint, "DEL") + '\n]'
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc7_config, "vnet_route_tc7_"+encap_type)
-
+        
         logger.info("Verify the rest of the traffic still works.")
         self.dump_self_info_and_run_ptf("tc7", encap_type, True)
 
@@ -551,12 +554,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup_route2_single_endpoint(encap_type)
         self.dump_self_info_and_run_ptf("tc8", encap_type, True)
 
-    def test_vxlan_route2_shared_nh(self, setUp, encap_type):
+    def test_vxlan_route2_shared_nh(self, setUp, encap_type, request):
         '''
             tc9: set tunnel route 2 to shared endpoints a1 and b1. send packets to route 2's prefix dst.
         '''
         self.setup = setUp
-        self.setup_route2_shared_endpoints(encap_type)
+        self.setup_route2_shared_endpoints(encap_type, request)
         self.dump_self_info_and_run_ptf("tc9", encap_type, True)
 
     def test_vxlan_route2_shared_different_nh(self, setUp, encap_type):
@@ -567,12 +570,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup_route2_shared_different_endpoints(encap_type)
         self.dump_self_info_and_run_ptf("tc9.2", encap_type, True)
 
-    def test_vxlan_remove_ecmp_route2(self, setUp, encap_type):
+    def test_vxlan_remove_ecmp_route2(self, setUp, encap_type, request):
         '''
             tc10: remove tunnel route 2. send packets to route 2's prefix dst.
         '''
         self.setup = setUp
-        self.setup_route2_shared_endpoints(encap_type)
+        self.setup_route2_shared_endpoints(encap_type, request)
         logger.info("Backup the current route config.")
         full_map = dict(self.setup[encap_type]['dest_to_nh_map'])
 
@@ -588,8 +591,11 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             logger.info("Using destination: dest:{}, nh:{}".format(tc10_dest, tc10_nhs))
 
             logger.info("Delete the dest and nh in the DUT.")
-            tc10_config = '[\n' + ecmp_utils.create_single_route(vnet, tc10_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc10_nhs, "DEL") + '\n]'
+            tc10_config = '[\n' + ecmp_utils.create_single_route(vnet, tc10_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc10_nhs, "DEL", bfd = request.config.option.bfd) + '\n]'
             ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc10_config, "vnet_route_tc10_"+encap_type)
+            if request.config.option.bfd:
+                ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'])
+            
             del_needed = True
 
             logger.info("We should pass only the deleted entry to the ptf call, and expect encap to fail.")
