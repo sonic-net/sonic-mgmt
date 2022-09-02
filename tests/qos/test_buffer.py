@@ -519,44 +519,23 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
             logging.debug("Expected pool {}, expec shp {}, curr_shp {} default ovs {}".format(expected_pool_size, expected_shp_size, curr_shp_size, DEFAULT_OVER_SUBSCRIBE_RATIO))
 
-        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
-                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
-                          expected_pool_size,
-                          expected_shp_size,
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
-                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                      if DEFAULT_OVER_SUBSCRIBE_RATIO else
-                      "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
-                          expected_pool_size,
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                      )
     elif duthost.facts['asic_type'] == 'barefoot':
         expected_pool_size = 43067728
         expected_shp_size = 3153920
-        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
-                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
-                          expected_pool_size,
-                          expected_shp_size,
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
-                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                      )
-    else:
-        pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
-                      "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
-                          expected_pool_size,
-                          expected_shp_size,
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
-                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                      if DEFAULT_OVER_SUBSCRIBE_RATIO else
-                      "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
-                          expected_pool_size,
-                          duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
-                          get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                      )
+
+    pytest_assert(ensure_pool_size(duthost, 20, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid),
+                  "Pool size isn't correct in database: expected pool {} shp {}, size in APPL_DB pool {} shp {}, size in ASIC_DB {}".format(
+                      expected_pool_size,
+                      expected_shp_size,
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                  if DEFAULT_OVER_SUBSCRIBE_RATIO or duthost.facts['asic_type'] in ['barefoot'] else
+                  "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
+                      expected_pool_size,
+                      duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                      get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
+                  )
 
 
 def get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
