@@ -334,22 +334,14 @@ class TestIPPacket(object):
         # THEN DUT recompute new checksum correctly and forward packet as expected.
 
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx, pc_ports_map, ptf_indices) = common_param
-        pkt = testutils.simple_ip_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
-            pktlen=1246,
-            ip_src="10.250.40.40",
-            ip_dst="10.156.190.188",
-            ip_proto=47,
-            ip_tos=0x84,
-            ip_id=0,
-            ip_ihl=5,
-            ip_ttl=122,
-        )
-        pkt.payload.flags = 2
+        ip_layer_str = "4500005ecd064000802fffff646b2e0c646b36880000000000000000000000000000000000000000000000000000"
+        ip_layer_hex = ip_layer_str.decode("hex")
+        pkt = packet.Ether(dst=duthost.facts["router_mac"], src=ptfadapter.dataplane.get_mac(0, ptf_port_idx))
+        pkt /= packet.IP(ip_layer_hex)
+        
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 121
-        exp_pkt.payload.chksum = 0x0001
+        exp_pkt.payload.ttl = 127
+        exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
