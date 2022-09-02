@@ -105,6 +105,7 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - m0
 
 vm_host_1:
   hosts:
@@ -3891,7 +3892,7 @@ vms_svc_1:
       ansible_host: 172.16.139.126
     VM10095:
       ansible_host: 172.16.139.127
-      
+
 vms_bjw_6:
   hosts:
     VM56000:
