@@ -332,10 +332,11 @@ stages:
                     -r \
                     ${{ parameters.TESTBED_SPECIFIC }} \
                     -e "$PARAMS"
-                if [[ $? == 65 ]]; then
+                RUN_TESTS_RC=$?
+                if [[ $RUN_TESTS_RC == 65 ]]; then
                   echo "pretest failed. Please check the detailed log."
                   exit 1
-                elif [[ $? == 10 ]]; then
+                elif [[ $RUN_TESTS_RC == 10 ]]; then
                   echo "Sanity check failed. Please check the detailed log."
                   exit 1
                 else
