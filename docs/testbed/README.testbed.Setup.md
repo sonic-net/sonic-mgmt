@@ -87,7 +87,7 @@ Managing the testbed and running tests requires various dependencies to be insta
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
-    git clone https://github.com/Azure/sonic-mgmt
+    git clone https://github.com/sonic-net/sonic-mgmt
     ```
 
 3. Setup management port configuration using this sample `/etc/network/interfaces`:
