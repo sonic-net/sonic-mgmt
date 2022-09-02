@@ -396,7 +396,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return cmds_to_check
 
 
-def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
     """ 
     Check commands within a group against the command list 
 
@@ -412,9 +412,16 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
 
         for command in cmdlist:
             if isinstance(cmd_name, str):
-                result = cmd_name in command
+                if strbash_in_cmdlist :
+                    result = (cmd_name.replace('"', '\\"') in command)
+                else :
+                    result = (cmd_name in command)
             else:
-                result = cmd_name.search(command)
+                if strbash_in_cmdlist :
+                    new_pattern = re.compile(cmd_name.pattern.replace('"', '\\\\"'))
+                    result = new_pattern.search(command)
+                else :
+                    result = cmd_name.search(command)
             if result:
                 found = True
                 break
@@ -453,9 +460,15 @@ def test_techsupport_commands(
 
     cmd_list = stdout["stdout_lines"]
 
+    strbash_in_cmdlist = False
+    for command in cmd_list:
+        if "bash -c" in command :
+            strbash_in_cmdlist = True
+            break
+
     for cmd_group_name, cmd_group_to_check in commands_to_check.items():
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )
 
     pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
