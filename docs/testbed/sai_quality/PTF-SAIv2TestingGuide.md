@@ -1,7 +1,7 @@
 # PTF-SAIv2 testing guide
 ## Overview
 This article will introduce the detailed processing of entire PTF-SAIv2 testing, including:
-* Build PTF-SAIv2 infras leveraged by [sonic-buildimage](https://github.com/Azure/sonic-buildimage)
+* Build PTF-SAIv2 infras leveraged by [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage)
 * Setup the testbed by sonic-mgmt
 * Setup saiserverv2 docker on DUT (Device under testing)
 * Prepare the testing env and start PTF-SAIv2 testing within ptf-sai docker
@@ -13,7 +13,7 @@ In this part, we will build PTF-SAIv2 infras using sonic-buildimage.
 2. Reset the sonic-buildimage with the branch and commit id previous checked
     ```
     rm -rf ./sonic-buildimage
-    git clone https://github.com/Azure/sonic-buildimage.git
+    git clone https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
 
     git checkout <specific branch>
@@ -44,7 +44,7 @@ In this part, we will build PTF-SAIv2 infras using sonic-buildimage.
 ## Setup the testbed by sonic-mgmt
 
 In this section, we will setup the physical switch testbed.
-1. Install the sonic image in the DUT, as for how to install a sonic image on supported switch, please refer to this doc [Install sonic eos image](https://github.com/Azure/SONiC/wiki/Quick-Start#install-sonic-eos-image)
+1. Install the sonic image in the DUT, as for how to install a sonic image on supported switch, please refer to this doc [Install sonic eos image](https://github.com/sonic-net/SONiC/wiki/Quick-Start#install-sonic-eos-image)
 2. Remove the topology for the current Testbed
 3. Deploy the non-topology
 4. Push the mini-graph to DUT

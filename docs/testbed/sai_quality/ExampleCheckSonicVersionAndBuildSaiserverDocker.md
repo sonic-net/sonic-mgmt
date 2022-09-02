@@ -16,7 +16,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
       *ps. sonic-buildimage is a repository which used to build sonic images and docker images. SAI is a submodule in sonic-buildimage(/sonic-buildimage/tree/master/src/sonic-sairedis). The commit id in sonic-buildimage can be used to get all the submodule for its submodule, like sai.*
 
       In your dev envrironment, install prerequirment lib, e.g. pip and jinja, re-located code to that tag and resident on a new branch,
-      here we use repository [sonic-buildimage](https://github.com/Azure/sonic-buildimage)
+      here we use repository [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage)
       Follow the doc at [Check SAI header version and SONiC branch](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/sai_quality/CheckSAIHeaderVersionAndSONiCBranch.md)
 
    - Get commit id from tag.
@@ -60,7 +60,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
    ```
    *Note: Follow the resource to get how to build a binary and docker*
 
-   [GitHub - Azure/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/Azure/sonic-buildimage)
+   [GitHub - Azure/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/sonic-net/sonic-buildimage)
 
 3. Start a local build
    ```

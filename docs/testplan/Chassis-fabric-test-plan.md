@@ -8,7 +8,7 @@
 
 # Introduction
 
-This is the test plan for Fabric link testing on SONIC Distributed VOQ System, as described in the [VOQ Fabric HLD](https://github.com/Azure/SONiC/blob/master/doc/voq/fabric.md)
+This is the test plan for Fabric link testing on SONIC Distributed VOQ System, as described in the [VOQ Fabric HLD](https://github.com/sonic-net/SONiC/blob/master/doc/voq/fabric.md)
 
 ## Scope
 

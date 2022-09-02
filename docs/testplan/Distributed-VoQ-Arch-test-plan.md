@@ -14,13 +14,13 @@
 
 # Introduction <a name="intro"></a>
 
-This is the test plan for SONIC Distributed VOQ support, as described in the [Distributed VOQ HLD](https://github.com/Azure/SONiC/blob/master/doc/voq/voq_hld.md).
+This is the test plan for SONIC Distributed VOQ support, as described in the [Distributed VOQ HLD](https://github.com/sonic-net/SONiC/blob/master/doc/voq/voq_hld.md).
 
 The associated PRs covered in this test plan are:
 
-1. [Distributed VOQ PR 380](https://github.com/Azure/sonic-swss-common/pull/380)
-2. [Distributed VOQ PR 657](https://github.com/Azure/sonic-sairedis/pull/657)
-3. [Distributed VOQ PR 1431](https://github.com/Azure/sonic-swss/pull/1431)
+1. [Distributed VOQ PR 380](https://github.com/sonic-net/sonic-swss-common/pull/380)
+2. [Distributed VOQ PR 657](https://github.com/sonic-net/sonic-sairedis/pull/657)
+3. [Distributed VOQ PR 1431](https://github.com/sonic-net/sonic-swss/pull/1431)
 
 Redis CLI commands will be used for some validation until SONIC CLI commands are available for system port information.
 
@@ -31,7 +31,7 @@ The functionalty covered in this test plan is:
 * router interfaces, when configured on multiple cards, and
 * neighbors, when learned on local and remote ports.
 
-Other HLDs in the [Chassis Subgroup feature list](https://github.com/Azure/SONiC/wiki/SONiC-Chassis-Subgroup) will be covered in other test plans.
+Other HLDs in the [Chassis Subgroup feature list](https://github.com/sonic-net/SONiC/wiki/SONiC-Chassis-Subgroup) will be covered in other test plans.
 
 ## Debuggability  <a name="debug"></a>
 The following are useful commands for validating the testcases that follow.

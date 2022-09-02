@@ -122,7 +122,7 @@ For each topology you use in your testbed environment, define the following:
 - group-name - used in interface names, up to 8 characters. The variable can be anything but should be identifiable.
 - topo - name of topology
 - ptf_image_name - defines PTF image. In this guide, the docker-ptf was an image already on the local registry. However, there is a docker-ptf from the sonic-mgmt github that a user can pull from
-    > git clone --recursive https://github.com/Azure/sonic-buildimage.git <br/>
+    > git clone --recursive https://github.com/sonic-net/sonic-buildimage.git <br/>
     > make configure PLATFORM=generic <br/>
     > make target/docker-ptf.gz
     > You can also download a pre-built docker-ptf image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz)

@@ -62,7 +62,7 @@ The PTF docker container is used to send and receive data plane packets to the D
 
 1. Build `docker-ptf` image
     ```
-    git clone --recursive https://github.com/Azure/sonic-buildimage.git
+    git clone --recursive https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
@@ -77,7 +77,7 @@ Managing the testbed and running tests requires various dependencies to be insta
 
 1.  Build `docker-sonic-mgmt` image from scratch:
     ```
-    git clone --recursive https://github.com/Azure/sonic-buildimage.git
+    git clone --recursive https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
     make configure PLATFORM=generic
     make target/docker-sonic-mgmt.gz

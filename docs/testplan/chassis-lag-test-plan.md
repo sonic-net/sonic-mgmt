@@ -9,9 +9,9 @@
 
 # Introduction
 
-This is the test plan for LAG on SONIC Distributed VOQ System, as described in the [VOQ LAG HLD](https://github.com/Azure/SONiC/blob/2e05c6b8ac570fd237484a18e732a58eec004b9c/doc/voq/lag_hld.md)
+This is the test plan for LAG on SONIC Distributed VOQ System, as described in the [VOQ LAG HLD](https://github.com/sonic-net/SONiC/blob/2e05c6b8ac570fd237484a18e732a58eec004b9c/doc/voq/lag_hld.md)
 
-The PR covered in this test plan is [Distributed VOQ LAG HLD PR 697](https://github.com/Azure/SONiC/pull/697/files#diff-77ea0c16b4ae9885fa0e388e81f6343c6bda0f24b999f93e64fcee8467df63fc)
+The PR covered in this test plan is [Distributed VOQ LAG HLD PR 697](https://github.com/sonic-net/SONiC/pull/697/files#diff-77ea0c16b4ae9885fa0e388e81f6343c6bda0f24b999f93e64fcee8467df63fc)
 
 ## Scope
 
