@@ -128,7 +128,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             routes[entry] = community
         results[hostname] = routes
 
-    all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=120)
+    all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=120, concurrent_tasks=8)
     return all_routes
 
 
