@@ -7,6 +7,7 @@ from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize('multipath',[1])
 @pytest.mark.parametrize('ipv4_routes',[16000])
