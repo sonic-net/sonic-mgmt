@@ -530,7 +530,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                       duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
                       duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
                       get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
-                  if DEFAULT_OVER_SUBSCRIBE_RATIO or duthost.facts['asic_type'] in ['barefoot'] else
+                  if DEFAULT_OVER_SUBSCRIBE_RATIO else
                   "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
                       expected_pool_size,
                       duthost.shell('redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
@@ -1889,7 +1889,6 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         ensure_pool_size(duthost, 60, original_pool_size, original_shp_size, None)
 
 
-@pytest.mark.disable_loganalyzer
 def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test):
     """The test case for auto negotiation enabled ports
 
