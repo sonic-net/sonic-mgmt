@@ -518,6 +518,11 @@ class AdvancedReboot:
             finally:
                 # always capture the test logs
                 log_dir = self.__fetchTestLogs(rebootOper)
+                log_files = os.listdir(log_dir)
+                for log_file in log_files:
+                    if log_file.endswith('reboot.log'):
+                        with open(os.path.join(log_dir, log_file)) as reboot_log:
+                            logger.info(reboot_log.read())
                 if self.advanceboot_loganalyzer:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                         reboot_oper=rebootOper, log_dir=log_dir)
