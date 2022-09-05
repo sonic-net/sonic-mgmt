@@ -18,7 +18,7 @@ Migration includes 4 stages:
 ## Stage 1: Prepare Python3 virtual environment in docker-ptf
 Add Python3 virtual environment in docker-ptf, we will keep Python2 in this stage for incremental migration.
 
-[PR](https://github.com/sonic-net-net/sonic-buildimage/pull/10599) to address this.
+[PR](https://github.com/sonic-net/sonic-buildimage/pull/10599) to address this.
 
 `/root/env-python3/bin/ptf` is installed and will be used for `ptftests` Python3 scripts.
 

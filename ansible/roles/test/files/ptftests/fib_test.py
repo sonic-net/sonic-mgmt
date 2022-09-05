@@ -1,7 +1,7 @@
 '''
 Description:    This file contains the FIB test for SONIC
 
-                Design is available in https://github.com/sonic-net-net-net/SONiC/wiki/FIB-Scale-Test-Plan
+                Design is available in https://github.com/sonic-net/SONiC/wiki/FIB-Scale-Test-Plan
 
 Usage:          Examples of how to use log analyzer
                 ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote \

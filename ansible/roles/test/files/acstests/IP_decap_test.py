@@ -3,7 +3,7 @@ Owner:          Dor Marcus <Dorm@mellanox.com>
 Created on:     12/09/2017
 Description:    This file contains the Decapasulation test for SONIC, to test Decapsulation of IPv4 with double and triple encapsulated packets
 
-                Design is available in https://github.com/sonic-net-net/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the route_info.txt file, in addition to the decap rule that need to be set as the dspc_mode
 topology:         The test need to run on non-lag systems with at least 31 active ports
