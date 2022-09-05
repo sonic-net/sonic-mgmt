@@ -26,6 +26,8 @@ l2_l3:
     - "x86_64-accton_as9516.*"
     - "x86_64-accton_wedge100bf.*"
     - "x86_64-8.*"
+    - "x86_64-cel_midstone-r0"
+    - "x86_64-wistron_sw_to3200k-r0"
 
 acl_l2:
     - "x86_64-mlnx"
