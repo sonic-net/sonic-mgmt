@@ -67,11 +67,11 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet1/4" StartDevice="bjw-can-720dt-1" StartPort="Ethernet51"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet32/1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet4/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-720dt-2" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-2" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet7/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-3" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet8/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-4" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet9/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-5" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet10/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-6" EndPort="ens4f0" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet11/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-2" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet7/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-3" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet8/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-4" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet9/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-5" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet10/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-6" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet11/1"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
