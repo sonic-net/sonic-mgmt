@@ -676,6 +676,8 @@ def parse_xml(filename, hostname, asic_name=None):
     bgp_peers_with_range = []
     deployment_id = None
     is_storage_device = None
+    macsec_enabled_ports = []
+    macsec_neighbors = []
 
     if asic_name is not None:
         asic_id = asic_name[len('asic'):]
@@ -721,8 +723,9 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
-                 resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+            elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
+                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls,
@@ -732,8 +735,9 @@ def parse_xml(filename, hostname, asic_name=None):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(
                     child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
-                (neighbors, devices, _) = parse_asic_png(
-                    child, asic_name, hostname)
+                (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
+            elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
+                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
 
     current_device = [devices[key]
                       for key in devices if key.lower() == hostname.lower()][0]
@@ -867,8 +871,10 @@ def parse_xml(filename, hostname, asic_name=None):
     if is_storage_device:
         results['minigraph_device_metadata']['storage_device'] = "true"
 
-    results['macsec_enabled_ports'] = macsec_enabled_ports
-    results['macsec_neighbors'] = macsec_neighors
+    if macsec_enabled_ports:
+        results['macsec_enabled_ports'] = macsec_enabled_ports
+    if macsec_neighbors:
+        results['macsec_neighbors'] = macsec_neighbors
     return results
 
 

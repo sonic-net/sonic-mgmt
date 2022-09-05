@@ -51,7 +51,7 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
-    from tests.macsec import MacsecPlugin
+    from tests.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -199,7 +199,11 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
-        config.pluginmanager.register(MacsecPlugin())
+        topo = config.getoption("topology")
+        if topo is not None and "t2" in topo:
+            config.pluginmanager.register(MacsecPluginT2())
+        else:
+            config.pluginmanager.register(MacsecPluginT0())
 
 
 @pytest.fixture(scope="session", autouse=True)
