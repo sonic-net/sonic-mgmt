@@ -69,5 +69,20 @@ TEST_CASE = [
         "sai_rif_test.IngressDisableTestV4",
         "sai_rif_test.IngressDisableTestV6",
         "sai_rif_test.IngressMtuTestV4",
-        "sai_rif_test.IngressMtuTestV6"
+        "sai_rif_test.IngressMtuTestV6",
+        "sai_route_test.RouteRifTest",
+        "sai_route_test.RouteRifv6Test",
+        "sai_route_test.LagMultipleRouteTest",
+        "sai_route_test.LagMultipleRoutev6Test",
+        "sai_route_test.DropRouteTest",
+        "sai_route_test.DropRoutev6Test",
+        "sai_route_test.RouteUpdateTest",
+        "sai_route_test.RouteUpdatev6Test",
+        "sai_route_test.RouteLPMRouteNexthopTest",
+        "sai_route_test.RouteLPMRouteNexthopv6Test",
+        "sai_route_test.RouteLPMRouteRifTest",
+        "sai_route_test.RouteLPMRouteRifv6Test",
+        "sai_route_test.SviMacFloodingTest",
+        "sai_route_test.SviMacFloodingv6Test",
+        "sai_route_test.SviDirectBroadcastTest"
         ]
