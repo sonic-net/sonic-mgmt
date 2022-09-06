@@ -119,9 +119,7 @@ def juniperhosts(request, ansible_adhoc, tbinfo, creds):
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'juniper' == data.get('image'):
-            duts.append(JuniperHost(host, data.get('ansible_host'),
-                                creds['junos_login'] if 'junos_login' in creds else None,
-                                creds['junos_password'] if 'junos_password' in creds else None))
+            duts.append(JuniperHost(ansible_adhoc, host, data.get('ansible_user'), data.get('ansible_password')))
     return duts
 
 @pytest.fixture(scope='session')
