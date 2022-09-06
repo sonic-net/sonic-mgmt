@@ -16,7 +16,7 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 # tests

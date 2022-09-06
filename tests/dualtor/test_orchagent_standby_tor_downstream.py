@@ -26,7 +26,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0'),
     pytest.mark.usefixtures('apply_mock_dual_tor_tables',
                             'apply_mock_dual_tor_kernel_configs',
                             'apply_standby_state_to_orchagent',

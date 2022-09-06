@@ -16,7 +16,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)

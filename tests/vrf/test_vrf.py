@@ -36,7 +36,7 @@ from tests.common.helpers.assertions import pytest_assert
 """
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)

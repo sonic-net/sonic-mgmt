@@ -7,7 +7,7 @@ from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 @pytest.fixture(autouse=True, scope="module")

@@ -11,7 +11,7 @@ from ptf import testutils
 from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 logger = logging.getLogger(__name__)

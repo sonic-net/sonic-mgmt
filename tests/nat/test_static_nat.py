@@ -43,7 +43,7 @@ from tests.nat.conftest import nat_global_config
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0')
 ]
 
 

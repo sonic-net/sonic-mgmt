@@ -12,7 +12,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 
 pytestmark = [
-    pytest.mark.topology('t0', 'dualtor', 'm0')
+    pytest.mark.topology('t0', 'dualtor')
 ]
 
 logger = logging.getLogger(__name__)

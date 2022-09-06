@@ -22,7 +22,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0'),
     pytest.mark.usefixtures('apply_mock_dual_tor_tables',
                             'apply_mock_dual_tor_kernel_configs',
                             'apply_active_state_to_orchagent',

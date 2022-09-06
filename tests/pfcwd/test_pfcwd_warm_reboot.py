@@ -33,7 +33,7 @@ ACTIONS = { 'detect': 0,
           }
 
 pytestmark = [pytest.mark.disable_loganalyzer,
-              pytest.mark.topology('t0', 'm0')
+              pytest.mark.topology('t0')
              ]
 
 logger = logging.getLogger(__name__)
