@@ -20,7 +20,7 @@ from tests.generic_config_updater.gu_utils import check_show_ip_intf, check_vrf_
 #                                   fe80::4a3:18ff:fec2:f9e3%Loopback0/64                     N/A             N/A
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
 ]
 
 logger = logging.getLogger(__name__)

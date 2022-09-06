@@ -22,7 +22,7 @@ from tests.common import constants
 
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
 ]
 
