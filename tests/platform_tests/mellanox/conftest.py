@@ -1,5 +1,3 @@
-from tests.common.utilities import str2bool
-
 def pytest_addoption(parser):
     '''
         Adds option to Mellanox specific pytest
