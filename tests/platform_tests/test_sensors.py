@@ -37,10 +37,11 @@ def test_sensors(duthosts, rand_one_dut_hostname, creds):
 
     # Prepare check list
     sensors_checks = creds['sensors_checks']
-    logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))
 
     if platform not in sensors_checks.keys():
         pytest.skip("Skip test due to not support check sensors for current platform({})".format(platform))
+
+    logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))
 
     # Gather sensor facts
     sensors_facts = duthost.sensors_facts(checks=sensors_checks[platform])['ansible_facts']
