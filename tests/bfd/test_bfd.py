@@ -128,7 +128,7 @@ def get_loopback_intf(mg_facts, ipv6):
 
 def get_neighbors_multihop(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    t0_ipv4_pattern = '4.4.{}.1'
+    t0_ipv4_pattern = '4.{}.{}.1'
     t0_ipv6_pattern = '3000:3000:{:x}::3000'
     t0_intfs = get_t0_intfs(mg_facts)
     ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
@@ -149,11 +149,14 @@ def get_neighbors_multihop(duthost, tbinfo, ipv6=False, count=1):
     if nexthop_ip =="":
         assert False
     neighbor_addrs = []
+    idx2 =0
     for idx in range(1, count):
+        if idx %250 ==0:
+            idx2 +=1
         if ipv6:
-            neighbor_addrs.append(t0_ipv6_pattern.format(idx+3000))
+            neighbor_addrs.append(t0_ipv6_pattern.format(idx))
         else:
-            neighbor_addrs.append(t0_ipv4_pattern.format(idx))
+            neighbor_addrs.append(t0_ipv4_pattern.format((idx%250),idx2))
     
     return loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs
 
@@ -408,7 +411,6 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo, toggle_all_si
     duthost = rand_selected_dut
 
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-    skip_201911_and_older(duthost)
     loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs = get_neighbors_multihop(duthost, tbinfo, ipv6, count = bfd_session_cnt)
     try:
         cmd_buffer = ""
