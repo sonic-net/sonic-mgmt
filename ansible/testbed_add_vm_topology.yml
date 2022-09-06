@@ -16,10 +16,11 @@
 #  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
 #
 # To add a topology please use following command
-# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/.password -l server_3 -e inv_name=veos_vtb -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
 #
 # Parameters
 # -l server_3                - this playbook have to be limited to run only on one server
+# -e inv_name=veos_vtb       - the inventory name of testbed
 # -e vm_set_name=first       - the name of vm_set
 # -e duts_name=str-msn2700-01 - the name of target duts
 # -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
@@ -33,6 +34,12 @@
 - hosts: servers:&vm_host
   gather_facts: no
   pre_tasks:
+
+  # Overwrite the default values in group_vars/all/env.yml
+  - name: Load inventory specified environment variables
+    include_vars: "group_vars/{{ inv_name }}/env.yml"
+    ignore_errors: true
+
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"
     when: "{{ play_hosts|length }} != 1"
