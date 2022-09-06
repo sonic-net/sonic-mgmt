@@ -94,7 +94,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from platform.json file".format(key))
 
-        pytest_assert(value == expected_value,
+        pytest_assert(re.match(expected_value, value),
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     def compare_value_with_device_facts(self, duthost, key, value, case_sensitive=True):
