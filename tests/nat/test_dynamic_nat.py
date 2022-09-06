@@ -40,7 +40,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 class TestDynamicNat(object):

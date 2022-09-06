@@ -8,7 +8,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lg
 from span_helpers import send_and_verify_mirrored_packet
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 def test_mirroring_rx(ptfadapter, setup_session):

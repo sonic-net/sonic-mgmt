@@ -6,7 +6,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_s
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.usefixtures('run_garp_service', 'run_icmp_responder')
 ]
 

@@ -15,7 +15,7 @@ from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FIL
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.asic('mellanox')
 ]
 

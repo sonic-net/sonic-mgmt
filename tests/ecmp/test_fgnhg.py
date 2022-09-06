@@ -30,7 +30,7 @@ VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.asic('mellanox'),
     pytest.mark.disable_loganalyzer
 ]

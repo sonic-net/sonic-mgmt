@@ -17,7 +17,7 @@ from sub_ports_helpers import remove_sub_port
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 'm0')
 ]
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
