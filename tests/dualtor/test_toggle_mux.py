@@ -78,7 +78,7 @@ def check_mux_status(duthosts, active_side):
         return False
 
 
-def validate_check_result(check_result, duthosts):
+def validate_check_result(check_result, duthosts, get_mux_status):
     """If check_result is False, collect some log and fail the test.
 
     Args:
@@ -106,11 +106,11 @@ def test_toggle_mux_from_simulator(duthosts, active_side, toggle_all_simulator_p
 
     check_result = wait_until(10, 2, 2, check_mux_status, duthosts, active_side)
 
-    validate_check_result(check_result, duthosts)
+    validate_check_result(check_result, duthosts, get_mux_status)
 
 
 @pytest.mark.parametrize("active_side", [UPPER_TOR, LOWER_TOR])
-def test_toggle_mux_from_cli(duthosts, active_side, restore_mux_auto_mode):
+def test_toggle_mux_from_cli(duthosts, active_side, get_mux_status, restore_mux_auto_mode):
 
     logger.info('Reset muxcable mode to auto for all ports on all DUTs')
     duthosts.shell('config muxcable mode auto all')
@@ -124,4 +124,4 @@ def test_toggle_mux_from_cli(duthosts, active_side, restore_mux_auto_mode):
 
     check_result = wait_until(10, 2, 2, check_mux_status, duthosts, active_side)
 
-    validate_check_result(check_result, duthosts)
+    validate_check_result(check_result, duthosts, get_mux_status)
