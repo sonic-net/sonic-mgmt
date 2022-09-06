@@ -15,11 +15,11 @@ endif
 
 t0_run:
 	echo "run T0 testing..."
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r --cicd --cicd_clean"
 
 t1_run:
 	echo "run T1 testing..."
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r --cicd --cicd_clean"
 
 collect:
 	echo "run T0 testing..."
