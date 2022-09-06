@@ -79,6 +79,9 @@ def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):
     }
     ptfhost.copy(content=json.dumps(vnet_json, indent=2), dest="/tmp/vnet.json")
 
+    return vnet_json
+
+
 @pytest.fixture(scope="module")
 def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config, vnet_test_params):
     """
@@ -95,11 +98,12 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
 
     dut_facts = duthost.facts
 
-    prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
+    vnet_json_data = prepare_ptf(ptfhost, minigraph_facts, dut_facts, vnet_config)
 
     generate_dut_config_files(duthost, minigraph_facts, vnet_test_params, vnet_config)
 
-    return minigraph_facts
+    return minigraph_facts, vnet_json_data
+
 
 @pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
 def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_test_params, vnet_config, creds, tbinfo):
@@ -115,7 +119,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
         A tuple containing the VxLAN status (True or False), and the test scenario (one of the pytest parameters)
     """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = setup
+    mg_facts, _ = setup
     attached_vlan = mg_facts["minigraph_vlan_interfaces"][0]['attachto']
     vlan_member = mg_facts["minigraph_vlans"][attached_vlan]['members'][0]
     global vlan_tagging_mode
@@ -141,7 +145,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname, ptfhost, vnet_
 
         vxlan_enabled = True
         cleanup_vnet_routes(duthost, vnet_config, num_routes)
-        cleanup_dut_vnets(duthost, setup, vnet_config)
+        cleanup_dut_vnets(duthost, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     elif request.param == "WR_ARP":
         testWrArp = test_wr_arp.TestWrArp()
@@ -186,6 +190,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
     duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_enabled, scenario = vxlan_status
+    _, vnet_json_data = setup
 
     logger.info("vxlan_enabled={}, scenario={}".format(vxlan_enabled, scenario))
 
@@ -210,7 +215,8 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
     logger.debug("Starting PTF runner")
     if scenario == 'Enabled' and vxlan_enabled:
         route_pattern = 'Vnet1|100.1.1.1/32'
-        with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [route_pattern], {route_pattern: {'packets': '3'}}):
+        expected_route_flow_packets = get_expected_flow_counter_packets_number(vnet_json_data)
+        with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [route_pattern], {route_pattern: {'packets': expected_route_flow_packets}}):
             ptf_runner(ptfhost,
                 "ptftests",
                 "vnet_vxlan.VNET",
@@ -227,3 +233,24 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
                 qlen=1000,
                 log_file=log_file)
 
+
+def get_expected_flow_counter_packets_number(vnet_json_data):
+    total_routes = 0
+    for routes in vnet_json_data['vnet_routes']:
+        for name, rt_list in routes.items():
+            total_routes += len(rt_list)
+            for peers in vnet_json_data['vnet_peers']:
+                for key, peer in peers.items():
+                    if name.split('_')[0] == key:
+                        total_routes += len(rt_list)
+            for l_routes in vnet_json_data['vnet_local_routes']:
+                for l_name, l_rt_list in l_routes.items():
+                    if name == l_name:
+                        total_routes += len(l_rt_list)
+
+    max_routes_wo_scaling = 1000
+    packets_without_scale = 3
+    packets_with_scale = 2
+    expected_route_flow_packets = packets_without_scale if total_routes <= max_routes_wo_scaling else packets_with_scale
+
+    return expected_route_flow_packets
