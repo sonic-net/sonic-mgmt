@@ -384,6 +384,7 @@ class TestInteropProtocol():
     Macsec interop with other protocols
     '''
 
+    @pytest.mark.disable_loganalyzer
     def test_port_channel(self, duthost, profile_name, ctrl_links):
         '''Verify lacp
         '''
@@ -403,6 +404,7 @@ class TestInteropProtocol():
         assert wait_until(20, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
+    @pytest.mark.disable_loganalyzer
     def test_lldp(self, duthost, ctrl_links, profile_name):
         '''Verify lldp
         '''
@@ -431,6 +433,7 @@ class TestInteropProtocol():
             assert wait_until(1, 1, LLDP_TIMEOUT,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
+    @pytest.mark.disable_loganalyzer
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
         '''Verify BGP neighbourship
         '''
