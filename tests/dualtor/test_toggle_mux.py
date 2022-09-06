@@ -4,8 +4,6 @@ import logging
 import pytest
 
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
-from tests.common.dualtor.mux_simulator_control import get_mux_status
 from tests.common.utilities import wait_until
 
 
