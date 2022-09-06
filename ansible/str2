@@ -333,6 +333,7 @@ sonic:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
+    sonic_appliance:
 
 sonic_mlnx:
   vars:
@@ -1473,10 +1474,10 @@ sonic_appliance:
   hosts:
     str2-bluefield-01:
       ansible_host: 10.64.246.248
-      hwsku: Bluefield
+      hwsku: Nvidia-MBF2H536C
     str2-bluefield-02:
       ansible_host: 10.64.246.249
-      hwsku: Bluefield
+      hwsku: Nvidia-MBF2H536C
 
 server:
   hosts:
