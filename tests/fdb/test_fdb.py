@@ -19,7 +19,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_al
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.usefixtures('disable_fdb_aging')
 ]
 

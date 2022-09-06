@@ -8,7 +8,7 @@ from tests.common.plugins import ptfadapter
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-52')
+    pytest.mark.topology('t0', 't0-52', 'm0')
 ]
 
 

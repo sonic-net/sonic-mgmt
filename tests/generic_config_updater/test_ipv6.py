@@ -11,7 +11,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 'm0'),
 ]
 
 
