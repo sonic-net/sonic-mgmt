@@ -377,7 +377,7 @@
         pause:
           seconds: 60
     become: true
-    when: proxy_env is defined
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
