@@ -15,3 +15,8 @@ interface {{ name }}
 link detect
 !
 {% endfor %}
+{% if host['bp_interface'] is defined %}
+interface {{ bp_ifname }}
+link detect
+!
+{% endif %}

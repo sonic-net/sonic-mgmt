@@ -20,13 +20,27 @@ def get_tasks_results(buildid):
         dict: Dict of tasks' results
     """
     task_results = {
+        "start_time": "",
         "success_tasks": "",
         "failed_tasks": "",
         "cancelled_tasks": ""
     }
-    pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
-    print("Collect task results from here:{}".format(pipeline_url))
-    build_records = requests.get(pipeline_url, auth=AUTH).json()["records"]
+
+    pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/"+ str(buildid)
+    print("Collect pipeline startTime from here:{}".format(pipeline_url))
+    api_result = requests.get(pipeline_url, auth=AUTH)
+    starttime_str = api_result.json()["startTime"]
+
+    # Convert the time format from 2022-08-09T03:00:32.7088577Z
+    # to 2022-08-09 03:00:32.7088577
+    starttime_str = starttime_str.replace("T", " ")
+    starttime_str = starttime_str.replace("Z", "")
+    task_results["start_time"] = starttime_str
+
+    timeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
+    print("Collect task results from here:{}".format(timeline_url))
+    api_result = requests.get(timeline_url, auth=AUTH)
+    build_records = api_result.json()["records"]
     if not build_records:
         print("Failed to get build records for buildid {}".format(buildid))
         return

@@ -486,6 +486,10 @@
         become: true
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
+        register: result
+        retries: 3
+        delay: 10
+        until: result is not failed
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true

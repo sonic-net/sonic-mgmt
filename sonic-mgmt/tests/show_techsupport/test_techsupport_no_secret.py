@@ -26,6 +26,10 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config radius default passkey")
 
+    # Remove TACACS/Radius keys
+    duthost.copy(src="./show_techsupport/templates/del_keys.json", dest='/tmp/del_keys.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_keys.json"))
+
 def check_no_result(duthost, command):
     res = duthost.shell(command)
     logger.info(command)

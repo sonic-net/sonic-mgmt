@@ -59,8 +59,6 @@ SAISERVER_CONTAINER = "saiserver"
 SYNCD_CONATINER = "syncd"
 
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
-DX010_PORT_MAP = "--interface '0-0@eth20' --interface '0-1@eth21' --interface '0-2@eth22' --interface '0-3@eth23' --interface '0-4@eth24' --interface '0-5@eth25' --interface '0-6@eth26' --interface '0-7@eth27' --interface '0-8@eth4' --interface '0-9@eth5' --interface '0-10@eth6' --interface '0-11@eth7' --interface '0-12@eth8' --interface '0-13@eth9' --interface '0-14@eth10' --interface '0-15@eth11' --interface '0-16@eth0' --interface '0-17@eth1' --interface '0-18@eth2' --interface '0-19@eth3' --interface '0-20@eth12' --interface '0-21@eth13' --interface '0-22@eth14' --interface '0-23@eth15' --interface '0-24@eth16' --interface '0-25@eth17' --interface '0-26@eth18' --interface '0-27@eth19' --interface '0-28@eth28' --interface '0-29@eth29' --interface '0-30@eth30' --interface '0-31@eth31'"
-
 
 SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC = 140
 SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC = 35

@@ -253,6 +253,17 @@ class ReloadTest(BaseTest):
             self.kvm_test = True
         else:
             self.kvm_test = False
+        if "service-warm-restart" in self.test_params['reboot_type']:
+            self.check_param('service_list', None, required=True)
+            self.check_param('service_data', None, required=True)
+            self.service_data = self.test_params['service_data']
+            for service_name in self.test_params['service_list']:
+                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
+                stdout, _, _ = self.dut_connection.execCommand(cmd)
+                if service_name not in self.service_data:
+                    self.service_data[service_name] = {}
+                self.service_data[service_name]['service_start_time'] = str(stdout[0]).strip()
+                self.log("Service start time for {} is {}".format(service_name, self.service_data[service_name]['service_start_time']))
         return
 
     def read_json(self, name):
@@ -437,7 +448,7 @@ class ReloadTest(BaseTest):
         portchannel_names = [pc['name'] for pc in portchannel_content.values()]
 
         vlan_content = self.read_json('vlan_ports_file')
-        
+
         vlan_if_port = []
         for vlan in self.vlan_ip_range:
             for ifname in vlan_content[vlan]['members']:
@@ -926,6 +937,31 @@ class ReloadTest(BaseTest):
         self.no_control_stop = datetime.datetime.now()
         self.log("Dut reboots: control plane up at %s" % str(self.no_control_stop))
 
+    def wait_until_service_restart(self):
+        self.log("Wait until sevice restart")
+        self.reboot_start = datetime.datetime.now()
+        service_set = set(self.test_params['service_list'])
+        wait_time = 120
+        while wait_time > 0:
+            for service_name in self.test_params['service_list']:
+                if service_name not in service_set:
+                    continue
+                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
+                stdout, _, _ = self.dut_connection.execCommand(cmd)
+                if self.service_data[service_name]['service_start_time'] != str(stdout[0]).strip():
+                    service_set.remove(service_name)
+            if not service_set:
+                break
+            wait_time -= 10
+            time.sleep(10)
+
+        if service_set:
+            self.fails['dut'].add("Container {} hasn't come back up in {} seconds".format(','.join(service_set), wait_time))
+            raise TimeoutError
+
+        # TODO: add timestamp
+        self.log("Service has restarted")
+
     def handle_fast_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
@@ -1016,6 +1052,10 @@ class ReloadTest(BaseTest):
             else:
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
+
+        if 'service-warm-restart' == self.reboot_type:
+            # verify there are no interface flaps after warm boot
+            self.neigh_lag_status_check()
 
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
@@ -1193,8 +1233,11 @@ class ReloadTest(BaseTest):
             thr = threading.Thread(target=self.reboot_dut)
             thr.setDaemon(True)
             thr.start()
-            self.wait_until_control_plane_down()
-            self.no_control_start = self.cpu_state.get_state_time('down')
+            if self.reboot_type != 'service-warm-restart':
+                self.wait_until_control_plane_down()
+                self.no_control_start = self.cpu_state.get_state_time('down')
+            else:
+                self.wait_until_service_restart()
 
             if 'warm-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
@@ -1210,7 +1253,7 @@ class ReloadTest(BaseTest):
             else:
                 if self.reboot_type == 'fast-reboot':
                     self.handle_fast_reboot_health_check()
-                if 'warm-reboot' in self.reboot_type:
+                if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
                     self.handle_warm_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
@@ -1276,7 +1319,7 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         if not self.kvm_test and\
-            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type):
+            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type):
             self.sender_thr = threading.Thread(target = self.send_in_background)
             self.sniff_thr = threading.Thread(target = self.sniff_in_background)
             self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
@@ -1284,7 +1327,12 @@ class ReloadTest(BaseTest):
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        if self.reboot_type != 'service-warm-restart':
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        else:
+            self.restart_service()
+            return
+
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
@@ -1299,6 +1347,42 @@ class ReloadTest(BaseTest):
             thread.interrupt_main()
 
         return
+
+    def restart_service(self):
+        for service_name in self.test_params['service_list']:
+            if 'image_path_on_dut' in self.service_data[service_name]:
+                stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic-installer upgrade-docker {} {} -y --warm".format(service_name, self.service_data[service_name]['image_path_on_dut']), timeout=30)
+            else:
+                self.dut_connection.execCommand('sudo config warm_restart enable {}'.format(service_name))
+                self.pre_service_warm_restart(service_name)
+                stdout, stderr, return_code = self.dut_connection.execCommand('sudo service {} restart'.format(service_name))
+
+            if stdout != []:
+                self.log("stdout from %s %s: %s" % (self.reboot_type, service_name, str(stdout)))
+            if stderr != []:
+                self.log("stderr from %s %s: %s" % (self.reboot_type, service_name, str(stderr)))
+                self.fails['dut'].add("service warm restart {} failed with error {}".format(service_name, stderr))
+                thread.interrupt_main()
+                raise Exception("{} failed with error {}".format(self.reboot_type, stderr))
+            self.log("return code from %s %s: %s" % (self.reboot_type, service_name, str(return_code)))
+            if return_code not in [0, 255]:
+                thread.interrupt_main()
+
+    def pre_service_warm_restart(self, service_name):
+        """Copy from src/sonic-utilities/sonic_installer/main.py to do some special operation for particular containers
+        """
+        if service_name == 'swss':
+            cmd = 'docker exec -i swss orchagent_restart_check -w 2000 -r 5'
+            stdout, stderr, return_code = self.dut_connection.execCommand(cmd)
+            if return_code != 0:
+                self.log('stdout from {}: {}'.format(cmd, str(stdout)))
+                self.log('stderr from {}: {}'.format(cmd, str(stderr)))
+                self.log('orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
+        elif service_name == 'bgp':
+            self.dut_connection.execCommand('docker exec -i bgp pkill -9 zebra')
+            self.dut_connection.execCommand('docker exec -i bgp pkill -9 bgpd')
+        elif service_name == 'teamd':
+            self.dut_connection.execCommand('docker exec -i teamd pkill -USR1 teamd > /dev/null')
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -1325,7 +1409,7 @@ class ReloadTest(BaseTest):
             lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
         lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
             lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
-        if 'warm-reboot' in self.reboot_type and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
+        if ('warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type) and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
             lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
             if lacp_time_diff >= 90 and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\

@@ -78,6 +78,10 @@ def _create_parser():
                       required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
                       default=False)
+    parser.add_argument('--cicd', action='store_true', help='Use CICD related parameters',
+                      default=False)
+    parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
+                      default=False)    
     return parser
 
 def repo_update(data):
@@ -675,6 +679,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
             else:
                 print("Looks like test is taking longer than two hours. Check list of sanity scripts or increase time to wait")
                 break
+    
     ssh.close()
     delta2 = datetime.datetime.now()
     time_delta = (delta2 - delta1)
@@ -737,6 +742,9 @@ def main():
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     branch = args['branch']
+    cicd = args['cicd']
+    cicd_clean = args['cicd_clean']
+
     ptf_intfcount = 32
     if device_type == 'sherman':
         dut_platform = "sherman"
@@ -791,17 +799,20 @@ def main():
     input_file = args['input_file']
 
     delta1 = datetime.datetime.now()
+    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    if cicd:
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
+
     if input_file is None:
         if clean_sim:
-            #os.system("/auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
-            os.system("python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean")
+            os.system("{} clean".format(vxr_path))
 
-        os.system("bash -c 'python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py start {} |& tee sim_op.log'".format(topo_yaml))
+        os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
+        
         sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
         if not int(sim_output):
             sys.exit("Sim is not up. Exiting now")
-
-        os.system("python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py ports > vxr_ports.yaml")
+        os.system("{} ports > vxr_ports.yaml".format(vxr_path))
         input_file = "vxr_ports.yaml"
     delta2 = datetime.datetime.now()
 
@@ -913,6 +924,8 @@ def main():
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
+    if cicd_clean:
+        os.system("{} clean".format(vxr_path))
 
 
 if __name__ == '__main__':
