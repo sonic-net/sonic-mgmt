@@ -19,8 +19,8 @@ Code below will skip test if we have active issue in: ((GitHub or Jira or Redmin
 ````
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   - GitHub:
-    - https://github.com/Azure/sonic-buildimage/issues/7602
-    - https://github.com/Azure/sonic-buildimage/issues/7643
+    - https://github.com/sonic-net/sonic-buildimage/issues/7602
+    - https://github.com/sonic-net/sonic-buildimage/issues/7643
     Platform:
       - msn4600
   - Jira:

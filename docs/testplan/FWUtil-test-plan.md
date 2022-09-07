@@ -8,7 +8,7 @@
 
 ## 1. Introduction
 
-The firmware CLI utility in SONiC `fwutil` is used to install firmware onto devices within the switch hardware. The high level design is located [here](https://github.com/Azure/SONiC/blob/master/doc/fwutil/fwutil.md)
+The firmware CLI utility in SONiC `fwutil` is used to install firmware onto devices within the switch hardware. The high level design is located [here](https://github.com/sonic-net/SONiC/blob/master/doc/fwutil/fwutil.md)
 
 Examples of these devices are:
 

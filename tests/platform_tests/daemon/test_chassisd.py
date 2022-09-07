@@ -4,7 +4,7 @@ Check daemon status inside PMON container. Each daemon status is checked under t
 * Daemon Stop status
 * Daemon Restart status
 This script is to cover the test case in the SONiC platform daemon and service test plan:
-https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
+https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
 import re

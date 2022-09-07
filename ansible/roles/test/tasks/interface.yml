@@ -62,7 +62,7 @@
   assert: { that: "'{{ ansible_interface_facts[item]['active'] }}' == 'True'" }
   with_items: "{{ minigraph_vlans.keys() }}"
 
-# TODO: uncomment when issue https://github.com/Azure/sonic-buildimage/issues/2738 will be fixed
-# and PR https://github.com/Azure/sonic-mgmt/pull/1165 will be merged
+# TODO: uncomment when issue https://github.com/sonic-net/sonic-buildimage/issues/2738 will be fixed
+# and PR https://github.com/sonic-net/sonic-mgmt/pull/1165 will be merged
 # - name: Verify interfaces counters
 #   include: interface_counters.yml

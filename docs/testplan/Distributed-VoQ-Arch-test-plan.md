@@ -11,27 +11,27 @@
      - [Host IP Connectivity](#ipfwd)
      - [Inband VLAN](#inbandvlan)
 
-     
+
 # Introduction <a name="intro"></a>
 
-This is the test plan for SONIC Distributed VOQ support, as described in the [Distributed VOQ HLD](https://github.com/Azure/SONiC/blob/master/doc/voq/voq_hld.md). 
+This is the test plan for SONIC Distributed VOQ support, as described in the [Distributed VOQ HLD](https://github.com/sonic-net/SONiC/blob/master/doc/voq/voq_hld.md).
 
 The associated PRs covered in this test plan are:
 
-1. [Distributed VOQ PR 380](https://github.com/Azure/sonic-swss-common/pull/380)
-2. [Distributed VOQ PR 657](https://github.com/Azure/sonic-sairedis/pull/657)
-3. [Distributed VOQ PR 1431](https://github.com/Azure/sonic-swss/pull/1431)
+1. [Distributed VOQ PR 380](https://github.com/sonic-net/sonic-swss-common/pull/380)
+2. [Distributed VOQ PR 657](https://github.com/sonic-net/sonic-sairedis/pull/657)
+3. [Distributed VOQ PR 1431](https://github.com/sonic-net/sonic-swss/pull/1431)
 
 Redis CLI commands will be used for some validation until SONIC CLI commands are available for system port information.
 
 ## Scope
 
 The functionalty covered in this test plan is:
-* system ports, 
+* system ports,
 * router interfaces, when configured on multiple cards, and
-* neighbors, when learned on local and remote ports. 
+* neighbors, when learned on local and remote ports.
 
-Other HLDs in the [Chassis Subgroup feature list](https://github.com/Azure/SONiC/wiki/SONiC-Chassis-Subgroup) will be covered in other test plans.
+Other HLDs in the [Chassis Subgroup feature list](https://github.com/sonic-net/SONiC/wiki/SONiC-Chassis-Subgroup) will be covered in other test plans.
 
 ## Debuggability  <a name="debug"></a>
 The following are useful commands for validating the testcases that follow.
@@ -51,7 +51,7 @@ The following are useful commands for validating the testcases that follow.
 
 # Test Setup <a name="test-setup"></a>
 
-These test cases will be run in the proposed [T2 topology](https://github.com/Azure/sonic-mgmt/pull/2638/). It is assumed that such a configuration is deployed on the chassis.
+These test cases will be run in the proposed [T2 topology](https://github.com/sonic-net/sonic-mgmt/pull/2638/). It is assumed that such a configuration is deployed on the chassis.
 
 # Test Cases <a name="test-cases"></a>
 
@@ -67,7 +67,7 @@ Verify VoQ system initializes correctly on startup.
 * Verify supervisor card is up, and all required containers and processes are running.
 * Verify redis on supervisor is running and Chassis AppDB is reachable.
 * Verify line cards are up and reachable from supervisor.
-    
+
 #### Test Case 2. Switch Creation
 ##### Test Objective
 Verify ASIC Switch object is correct on all line cards.
@@ -166,7 +166,7 @@ Verify router interfaces are created on all line cards and present in Chassis Ap
 * Verify creation of different subnet masks in config_db.json.
 * Repeat with IPv4, IPv6, dual-stack.
 
-##### Sample output 
+##### Sample output
 ASIC:
 ```
   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000012b3": {
@@ -223,13 +223,13 @@ Verify inband ports, neighbors, and routes are setup as in device configuration.
 #### Test Case 7. Local Neighbors
 
 ##### Test Objective
-Verify neighbor entries are created on linecards for locally adjacent VMS. 
+Verify neighbor entries are created on linecards for locally adjacent VMS.
 
 ##### Test Steps
 * ARP/NDP should be resolved when BGP to adjacent VMs is established.
 * On local linecard, verify ASIC DB entries.
     * MAC address matches MAC of neighbor VM.
-    * Router interface OID matches back to the correct interface and port the neighbor was learned on.        
+    * Router interface OID matches back to the correct interface and port the neighbor was learned on.
 * On local linecard, verify show arp/ndp, ip neigh commands.
     * MAC address matches MAC of neighbor VM.
 * On local linecard. verify neighbor table in appDB.
@@ -238,7 +238,7 @@ Verify neighbor entries are created on linecards for locally adjacent VMS.
     * Verify encap index and MAC address match between ASICDB the Chassis AppDB
 * Repeat with IPv4, IPv6, dual-stack.
 
-##### Sample output     
+##### Sample output
 * Asic:
 ```
   "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY:{\"ip\":\"102.0.0.1\",\"rif\":\"oid:0x6000000001290\",\"switch_id\":\"oid:0x21000000000000\"}": {
@@ -295,7 +295,7 @@ Verify when local neighbors are established on a linecard, other linecards in th
 ##### Test Steps
 * When local neighbors are established as in the Local Neighbor testcase, corresponding entries will be established on all other line cards.  On each remote card, verify:
 * Verify ASIC DB entries on remote linecards.
-    * Verify impose index=True in ASIC DB. 
+    * Verify impose index=True in ASIC DB.
     * Verify MAC address in ASIC DB is the remote neighbor mac.
     * Verify encap index for ASIC DB entry matches Chassis App DB.
     * Verify router interface OID matches the interface the neighbor was learned on.
@@ -372,7 +372,7 @@ netstat -rn
 
 ### Preconditions
 
-In order to verify neighbor behaviors, BGP sessions on the DUT and attached VMs will be temporarily shutdown.  This 
+In order to verify neighbor behaviors, BGP sessions on the DUT and attached VMs will be temporarily shutdown.  This
 will allow the tests to validate the various table deletes before the entries are recreated.
 
 
@@ -439,7 +439,7 @@ Verify tables, databases, and kernel routes are correctly updated when a unsolic
 * On local linecard:
     * Verify table entries in local ASIC, APP, and host ARP table are updated with new MAC.
 * On supervisor card:
-    * Verify Chassis App DB entry is correct for with the updated MAC address. 
+    * Verify Chassis App DB entry is correct for with the updated MAC address.
 * On remote linecards:
     * Verify table entries in remote hosts/ASICs in APPDB, and host ARP table are still present with inband MAC address
     * Verify ASIC DB is updated with new MAC.
@@ -456,7 +456,7 @@ Verify tables, databases, and kernel routes are correctly updated when the MAC a
 * On local linecard:
     * Verify table entries in local ASIC, APP, and host ARP table are updated with new MAC.
 * On supervisor card:
-    * Verify Chassis App DB entry is correct for with the updated MAC address. 
+    * Verify Chassis App DB entry is correct for with the updated MAC address.
 * On remote linecards:
     * Verify table entries in remote hosts/ASICs in APPDB, and host ARP table are still present with inband MAC address
     * Verify ASIC DB is updated with new MAC.
@@ -475,7 +475,7 @@ Verify port, router interface, and neighbor recovery after disruptive events.
     * Local neighbor learning,
     * remote neighbor learning and route creation
     * timeout and clear of neighbors
-     
+
 
 ## Router Interface Lifecycle <a name = "ri"></a>
 
@@ -499,7 +499,7 @@ Verify Chassis App DB is updated with new interface entry when a new IP Interfac
 ##### Test Objective
 Verify Chassis App DB is updated with new interface entry when an IP interface is removed from a port.
 ##### Test Steps
-* Remove IP configuration from a previously configured port by removing the minigraph configuration for that port 
+* Remove IP configuration from a previously configured port by removing the minigraph configuration for that port
 on the linecard minigraph.
 * Reload the new minigraph and line card.
 * On the line card:
@@ -509,14 +509,14 @@ on the linecard minigraph.
     * Verify the interface is removed from the SYSTEM_INTERFACE table of the Chassis App DB.
 * Verify bidirectional traffic to attached host on the port from local and remote ASICs is dropped.
 * Repeat with IPv4, IPv6, dual-stack.
-        
+
 
 ## Host IP Forwarding <a name="ipfwd">
 
 
 ### Configuration
 
-Please reference the [T2 topology](https://github.com/Azure/sonic-mgmt/pull/2638/) files topo_t2.yml and testbed-t2.png for network topology and sample IP addresses.  The addresses and VMS below are taken from that example topology.
+Please reference the [T2 topology](https://github.com/sonic-net/sonic-mgmt/pull/2638/) files topo_t2.yml and testbed-t2.png for network topology and sample IP addresses.  The addresses and VMS below are taken from that example topology.
 
 VMs attached to line card 1 and line card 2 will be used for this test.
 DUT Port A&B are on line card 1, D is on line card 2.
@@ -524,7 +524,7 @@ DUT Port A&B are on line card 1, D is on line card 2.
 The HIDE_INTERNAL route policy will prevent inband and interface address from being advertised to EBGP peers. Looback addresses will be used to test traffic flows across cards and VMs.
 
 ```
-                      ---------- DUT ----------    
+                      ---------- DUT ----------
                       |--- LC1 ---|--- LC2 ---|
 VM01T3   -------------|A          |           |
                       |         F0|F1        D|------------- VM01T1
@@ -578,7 +578,7 @@ _DUT_
     * Inband IP (Port F1)
         * `133.133.133.5`
         * `2064:133::5`
-    * Loopback LB2 
+    * Loopback LB2
         * `11.1.0.2/32`
         * `2064:111::2/128`
 
@@ -594,17 +594,17 @@ Verify the kernel route table is correct based on the topology.
 * Repeat for IPv4 only, IPv6 only, dual-stack.
 
 #### Test Case 2. Router Interface to Router Interface
-##### Test Objective  
+##### Test Objective
 Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to local line card interfaces.
 ##### Test Steps
 * On linecard 1, send ping from:
-    * DUT IP interface A to DUT IP Interface B. (10.0.0.0 to 10.0.0.2) 
+    * DUT IP interface A to DUT IP Interface B. (10.0.0.0 to 10.0.0.2)
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
 
 #### Test Case 3. Router Interface to neighbor addresses
-##### Test Objective  
+##### Test Objective
 Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to neighbor addresses.
 ##### Test Steps
 * On linecard 1, send ping from:
@@ -615,8 +615,8 @@ Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
 
-#### Test Case 4. Router Interface to routed addresses. 
-##### Test Objective 
+#### Test Case 4. Router Interface to routed addresses.
+##### Test Objective
 Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to learned route addresses.
 ##### Test Steps
 * On linecard 1, send ping from:
@@ -628,7 +628,7 @@ Verify Host IP forwarding for IPv4 and IPv6 for various packet sizes and ttls to
 * Repeat for IPv6
 
 #### Test Case 5. Inband Router Interface connectivity
-##### Test Objective 
+##### Test Objective
 Verify IP connectivity over inband interfaces.
 ##### Test Steps
 * On linecard 1 send ping from:
@@ -640,7 +640,7 @@ Verify IP connectivity over inband interfaces.
 
 #### Test Case 6. Line card loopback interface connectivity
 ##### Test Objective
-Verify IP Connectivity to DUT loopback addresses. 
+Verify IP Connectivity to DUT loopback addresses.
 ##### Test Steps
 * On linecard 1 send ping from:
     * Loopback to IP interface of port D (11.1.0.1 to 10.0.0.64)
@@ -654,8 +654,8 @@ Verify IP Connectivity to DUT loopback addresses.
 * Repeat for 64, 1500, 9100B packets
 * Repeat for IPv6
 
-#### Test Case 7. End to End traffic. 
-##### Test Objective            
+#### Test Case 7. End to End traffic.
+##### Test Objective
 Verify end to end routing IPv4/v6, packet sizes, ttl(0,1,2,255)
 ##### Test Steps
 * On Router 1, send ping from:
@@ -663,14 +663,14 @@ Verify end to end routing IPv4/v6, packet sizes, ttl(0,1,2,255)
     * End to end port A to D, ports across multiple linecards. (100.1.0.1 to 100.1.0.33)
 * Repeat for TTL 0,1,2,255
 * Repeat for 64, 1500, 9100B packets
-* Repeat for IPv6          
+* Repeat for IPv6
 
 #### Test Case 8. Front Panel port link flap
-##### Test Objective            
+##### Test Objective
 Traffic to Sonic host interfaces recovers after the front panel port flaps.
 ##### Test Steps
 * Admin down interface on fanout connected to DUT port A to cause LOS on DUT.
-* On linecard 1 verify ping is successful from: 
+* On linecard 1 verify ping is successful from:
     * DUT IP Interface B to DUT Interface D
     * DUT Neighbor IP B to DUT Neighbor IP D
 * On Router 02T3, verify ping is successful from Router Interface to DUT IP Interface B and D.
@@ -682,12 +682,12 @@ Traffic to Sonic host interfaces recovers after the front panel port flaps.
 * Validate all traffic flows are correct as in test cases 2-7.
 * Retry traffic with TTL 0,1,2,255
 * Retry traffic with 64, 1500, 9100B packets
-* Retry traffic with IPv6  
+* Retry traffic with IPv6
 
 ## VLAN Inband Mode <a name="inbandvlan"></a>
 
 #### Test Case 1. Inband VLAN mode configuration.
-##### Test Objective  
+##### Test Objective
 Verify system initialization in Inband VLAN mode.
 ##### Test Steps
 * Verify vlan inband interface is used when in this mode.
@@ -696,7 +696,7 @@ Verify system initialization in Inband VLAN mode.
 * On supervisor card, verify inband VLAN router interfaces are present in Chassis App DB
 
 #### Test Case 2. Inband VLAN neighbors
-##### Test Objective 
+##### Test Objective
 Verify neighbor adjacency as in [arp](#arp). Inband port will be replaced with VLAN interface as neighbor interface.
 ##### Test Steps
 * Repeat tests for:
@@ -705,7 +705,7 @@ Verify neighbor adjacency as in [arp](#arp). Inband port will be replaced with V
     * timeout and clearing of neighbors
 
 #### Test Case 3. Inband VLAN host connectivity
-##### Test Objective 
+##### Test Objective
 Verify host reachability as in [Host IP Connectivity](#ipfwd).  VLAN interface will replace inband port as next hop.
 ##### Test Steps
 * Repeat traffic tests for:
@@ -716,7 +716,7 @@ Verify host reachability as in [Host IP Connectivity](#ipfwd).  VLAN interface w
     * DUT loopback interface to all addresses.
 
 #### Test Case 4. Mode Switch.
-##### Test Objective 
+##### Test Objective
 Verify VoQ system can be switched between modes when configuration is replaced.
 ##### Test Steps
 * Regenerate configuration of VoQ system, switching device from inband port to inband VLAN.

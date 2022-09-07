@@ -5,7 +5,7 @@
 - [Test cases](#test-cases)
 
 ## Overview
-The goal of the test to check that [Allow List](https://github.com/Azure/sonic-buildimage/pull/5309) feature works correctly. The feature is implemented on bgpcfgd. The bgpcfgd dynamicaly changes BGP configuration, which adjust BGP routing policy.
+The goal of the test to check that [Allow List](https://github.com/sonic-net/sonic-buildimage/pull/5309) feature works correctly. The feature is implemented on bgpcfgd. The bgpcfgd dynamicaly changes BGP configuration, which adjust BGP routing policy.
 
 ### Scope
 The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test BBR feature, which includes bgpcfgd implementation and BGP.

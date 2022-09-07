@@ -129,7 +129,7 @@ def create_acl_rule(dut, skip_verify=True, acl_type=None, host_1=None, host_2=No
     :param skip_verify: True(Default) / False
     :return:
     create_acl_rule(1, table_name="DATAACL",rule_name = "DATARULE", <REST OF THE PARAMETERS CHECK REF LINK>)
-    REF: https://github.com/Azure/SONiC/wiki/ACL-High-Level-Design -- Follow the rule attributes names from this link
+    REF: https://github.com/sonic-net/SONiC/wiki/ACL-High-Level-Design -- Follow the rule attributes names from this link
     """
     st.log("KWARGS : {}".format(kwargs))
     cli_type = st.get_ui_type(dut, **kwargs)

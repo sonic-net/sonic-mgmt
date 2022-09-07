@@ -1,7 +1,7 @@
 '''
 Description:    This file contains the FIB test for SONIC
 
-                Design is available in https://github.com/Azure/SONiC/wiki/FIB-Scale-Test-Plan
+                Design is available in https://github.com/sonic-net/SONiC/wiki/FIB-Scale-Test-Plan
 
 Usage:          Examples of how to use log analyzer
                 ptf --test-dir ptftests fib_test.FibTest --platform-dir ptftests --qlen=2000 --platform remote \
@@ -42,7 +42,7 @@ class FibTest(BaseTest):
     @summary: Overview of functionality
     Test routes advertised by BGP peers of SONIC are working properly.
     The setup of peers is described in 'VM set' section in
-    https://github.com/Azure/sonic-mgmt/blob/master/docs/ansible/README.testbed.md
+    https://github.com/sonic-net/sonic-mgmt/blob/master/docs/ansible/README.testbed.md
 
     Routes advertized by the peers have ECMP groups. The purpose of the test is to make sure
     that packets are forwarded through one of the ports specified in route's ECMP group.

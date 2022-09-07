@@ -2,7 +2,7 @@
 Description:
 
     This file contains the ACL test for SONiC testbed
-    Implemented according to the https://github.com/Azure/SONiC/wiki/ACL-test-plan
+    Implemented according to the https://github.com/sonic-net/SONiC/wiki/ACL-test-plan
 
 Usage:
     Examples of how to use:

@@ -2,7 +2,7 @@
 
 [TOC]
 
-This [sonic-mgmt repository](https://github.com/Azure/sonic-mgmt) contains all the scripts for setting up testbed and running feature/functional tests. Documents under this folder are for explaining the SONiC testbed and running tests.
+This [sonic-mgmt repository](https://github.com/sonic-net/sonic-mgmt) contains all the scripts for setting up testbed and running feature/functional tests. Documents under this folder are for explaining the SONiC testbed and running tests.
 
 ## Physical topology
 
@@ -293,7 +293,7 @@ The created KVM VM is loaded with [vEOS]([CloudEOS and vEOS Router - Overview - 
 
 ![](./img/veos.png)
 
-Template of the KVM VM is defined in [sonic-mgmt/ansible/roles/vm_set/templates/arista.xml.j2](https://github.com/Azure/sonic-mgmt/blob/master/ansible/roles/vm_set/templates/arista.xml.j2). Based on the template, each VM is created with 6 interfaces. The same interface may have different name if view from test server or view inside the VM. Take VM0100 as an example, it has below interfaces:
+Template of the KVM VM is defined in [sonic-mgmt/ansible/roles/vm_set/templates/arista.xml.j2](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/roles/vm_set/templates/arista.xml.j2). Based on the template, each VM is created with 6 interfaces. The same interface may have different name if view from test server or view inside the VM. Take VM0100 as an example, it has below interfaces:
 
 | Network    | Internal Name | External Name |
 | ---------- | ------------- | ------------- |
@@ -324,7 +324,7 @@ Under the hood, another ansible playbook is executed to do stuff like creating V
 
 ##### Create VLAN interfaces
 
-For each testbed, the physical connection need to be described in files called connection graph. Example connection graph files are under [sonic-mgmt/ansible/files](https://github.com/Azure/sonic-mgmt/tree/master/ansible/files). There are couple of .csv files for describing physical devices and physical connections between the physical devices. Script tool `creategraphy.py` can generate a connection graph xml file based on the input .csv files. The VLAN id assigned to each fanout port connected with DUT port is defined in the connection graph. Based on the VLAN assignment, a VLAN interface is created for each of the DUT port. VLAN id of the VLAN interface in test server is the VLAN id assigned to the fanout port connected with the corresponding DUT port.
+For each testbed, the physical connection need to be described in files called connection graph. Example connection graph files are under [sonic-mgmt/ansible/files](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/files). There are couple of .csv files for describing physical devices and physical connections between the physical devices. Script tool `creategraphy.py` can generate a connection graph xml file based on the input .csv files. The VLAN id assigned to each fanout port connected with DUT port is defined in the connection graph. Based on the VLAN assignment, a VLAN interface is created for each of the DUT port. VLAN id of the VLAN interface in test server is the VLAN id assigned to the fanout port connected with the corresponding DUT port.
 
 The t0 topology assumes that the DUT has 32 ports. Totally 32 VLAN interfaces are created for a DUT running t0 topology.
 
