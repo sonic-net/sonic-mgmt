@@ -94,11 +94,11 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
     reason: "SONiC can't enable loop-back filter feature"
 
 drop_packets/test_drop_counters.py::test_non_routable_igmp_pkts[vlan_members:
-  # This test case may fail due to a known issue https://github.com/Azure/sonic-mgmt/issues/5207.
+  # This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/5207.
   # Temporarily disabling the test case due to the this issue.
   skip:
     reason: "This test failed intermittent due to known issue in sonic-mgmt, skip for now."
-    conditions: https://github.com/Azure/sonic-mgmt/issues/5207
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/5207
 
 drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members]:
   skip:

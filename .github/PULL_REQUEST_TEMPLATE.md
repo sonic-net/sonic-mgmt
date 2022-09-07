@@ -1,6 +1,6 @@
 <!--
 Please make sure you've read and understood our contributing guidelines;
-https://github.com/Azure/SONiC/blob/gh-pages/CONTRIBUTING.md
+https://github.com/sonic-net/SONiC/blob/gh-pages/CONTRIBUTING.md
 
 Please provide following information to help code review process a bit easier:
 -->

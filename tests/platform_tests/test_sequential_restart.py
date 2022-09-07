@@ -2,7 +2,7 @@
 Check platform status after service is restarted
 
 This script is to cover the test case 'Sequential syncd/swss restart' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
 

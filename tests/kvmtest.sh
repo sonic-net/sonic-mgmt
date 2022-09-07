@@ -334,7 +334,7 @@ popd
 
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
-# workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
+# workaround for issue https://github.com/sonic-net/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
 export GIT_USER_NAME=$GIT_USER_NAME
 export GIT_API_TOKEN=$GIT_API_TOKEN

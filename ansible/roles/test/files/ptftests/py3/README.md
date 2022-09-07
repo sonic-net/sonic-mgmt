@@ -3,9 +3,9 @@
 # why migrate docker-ptf
 
 
-As of January 1, 2020, Python 2 is no longer supported by the Python core team, that's why we have to migrate our code from Python2 to python3. 
+As of January 1, 2020, Python 2 is no longer supported by the Python core team, that's why we have to migrate our code from Python2 to python3.
 
-`docker-ptf` is our first goal, because it's a separated docker container and only scripts under `ansible/role/test/files/ptftests` in `sonic-mgmt` repo run in `docker-ptf`. 
+`docker-ptf` is our first goal, because it's a separated docker container and only scripts under `ansible/role/test/files/ptftests` in `sonic-mgmt` repo run in `docker-ptf`.
 
 The dependency is not very complicated and it's much easier to start with it.
 
@@ -18,7 +18,7 @@ Migration includes 4 stages:
 ## Stage 1: Prepare Python3 virtual environment in docker-ptf
 Add Python3 virtual environment in docker-ptf, we will keep Python2 in this stage for incremental migration.
 
-[PR](https://github.com/Azure/sonic-buildimage/pull/10599) to address this.
+[PR](https://github.com/sonic-net/sonic-buildimage/pull/10599) to address this.
 
 `/root/env-python3/bin/ptf` is installed and will be used for `ptftests` Python3 scripts.
 
@@ -41,7 +41,7 @@ The command looks like this:
 `2to3 --write --nobackups ansible/role/test/files/ptftests/your_script`
 
 Here is the [doc](https://docs.python.org/3/library/2to3.html) for 2to3.
- 
+
 
 If it is not available on your host, you need to first install the following packages:
 
@@ -83,14 +83,14 @@ if MACSEC_SUPPORTED:
 
 If your scripts involves the following library scripts, please create a **soft link** under `py3` for them after modification. Other remained scripts of Python2 will still use them. They will be used for both sides during the period of migration.
  - `lmp.py`
- - `fib.py` 
+ - `fib.py`
  - `fib_test.py`
  - `device_connection.py`
 
 **Important: These library scripts should be both Python2 and Python3 compatible.**
 
 
-Please check [this PR](https://github.com/Azure/sonic-mgmt/pull/5490) for reference.
+Please check [this PR](https://github.com/sonic-net/sonic-mgmt/pull/5490) for reference.
 
 **3. Update `tests` script to call virtual env ptf**
 
@@ -120,13 +120,13 @@ And it will also call your modified ptftests scripts under subfolder `py3`.
 
 That's the difference of usage between Python2 and Python3 script.
 
-Please take [DHCP Relay PR](https://github.com/Azure/sonic-mgmt/pull/5534)  and [dir bcast RP](https://github.com/Azure/sonic-mgmt/pull/5540)for reference.
+Please take [DHCP Relay PR](https://github.com/sonic-net/sonic-mgmt/pull/5534)  and [dir bcast RP](https://github.com/sonic-net/sonic-mgmt/pull/5540)for reference.
 
 
 
 **4. Run test cases with correct docker-ptf image to do verification**
 
-`2to3` only does some common format or syntax changes, it's not enough. 
+`2to3` only does some common format or syntax changes, it's not enough.
 
 For Python3, scripts use `ptf 0.9.3` and `scapy 2.4.5`, some packet format could be different, we have to retest scripts manually before submit PR.
 

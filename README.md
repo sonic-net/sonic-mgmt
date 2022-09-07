@@ -8,7 +8,7 @@ Management and automation code used for SONiC testbed deployment, tests and repo
 
 # Contribution guide
 All contributors must sign a contribution license agreement before contributions can be accepted.
-[How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)
+[How to become a contributer](https://github.com/sonic-net/SONiC/wiki/Becoming-a-contributor)
 
 ### GitHub Workflow
 

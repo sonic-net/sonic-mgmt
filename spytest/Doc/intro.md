@@ -297,7 +297,7 @@ The SPyTest supports executing tests in standalone environment and PTF environme
 
 #### PTF Mode
 
-Refer to [README.testbed.md](https://github.com/Azure/sonic-mgmt/blob/master/ansible/README.testbed.md) for setting up PTF-32  or PTF-64 topology.
+Refer to [README.testbed.md](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/README.testbed.md) for setting up PTF-32  or PTF-64 topology.
 
 #### Standalone Mode
 
@@ -306,7 +306,7 @@ In standalone mode, the DUTs can be connected to each other and TGen.
 Environment - PTF Mode
 ==============================
 
-Refer to [README.testbed.Overview.md](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Overview.md) for setting up PTF environment details.
+Refer to [README.testbed.Overview.md](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/doc/README.testbed.Overview.md) for setting up PTF environment details.
 
 Environment - Standalone Mode
 ==============================
