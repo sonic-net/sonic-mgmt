@@ -103,7 +103,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2'] or \
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0'] or \
         (asic_type in ['broadcom'] and release in ['master', 'internal'])"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
@@ -117,9 +117,9 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
-    reason: "Unsupported topology, expected to run only on 'T0*' topology"
+    reason: "Unsupported topology, expected to run only on 'T0*' or 'M0' topology"
     conditions:
-      - "'t0' not in topo_name"
+      - "'t0' not in topo_name and 'm0' not in topo_name"
 
 #######################################
 #####            decap            #####
@@ -232,7 +232,7 @@ fdb/test_fdb_mac_expire.py:
   skip:
     reason: "Not supported on this DUT topology."
     conditions:
-      - "'t0' not in topo_type"
+      - "topo_type not in ['t0', 'm0']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -302,13 +302,13 @@ ipfwd/test_dip_sip.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 't1', 't2']"
+      - "topo_type not in ['t0', 't1', 't2', 'm0']"
 
 ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0']"
+      - "topo_type not in ['t0', 'm0']"
 
 ipfwd/test_mtu.py:
   skip:
