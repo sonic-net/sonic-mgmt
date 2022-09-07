@@ -4,7 +4,7 @@ import time
 import json
 
 pytestmark = [
-    pytest.mark.topology('t1', 't1-lag', 't1-64-lag')
+    pytest.mark.topology('t1')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
