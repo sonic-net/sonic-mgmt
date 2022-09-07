@@ -19,11 +19,23 @@ CALC_DIFF = lambda snmp, sys_data: float(abs(snmp - int(sys_data)) * 100) / floa
 @pytest.fixture(autouse=True, scope="module")
 def get_parameter(request):
     """
-    Get optional parameter percentage or return default 4%
+    Get optional parameter percentage
     """
-    global percent
-    percent = request.config.getoption("--percentage") or 4
-    return percent
+    global user_input_percentage
+    user_input_percentage = request.config.getoption("--percentage")
+    return user_input_percentage
+
+def get_percentage_threshold(total_mem):
+    """
+    When total memory is small, the same difference will be more
+    pronounced. So we should allow for more difference.
+    """
+    if user_input_percentage:
+        return user_input_percentage
+    if total_mem > 2 * 1024 * 1024:
+        return 4
+    else:
+        return 12
 
 @pytest.fixture()
 def load_memory(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -56,6 +68,9 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     compare = (('ansible_sysTotalFreeMemory', 'MemFree'), ('ansible_sysTotalBuffMemory', 'Buffers'),
                ('ansible_sysCachedMemory', 'Cached'), ('ansible_sysTotalSharedMemory', 'Shmem'))
 
+    mem_total = collect_memory(duthost)['MemTotal']
+    percentage = get_percentage_threshold(int(mem_total))
+
     # Checking memory attributes within a certain percentage is not guarantee to
     # work 100% of the time. There could always be a big memory change between the
     # test read from snmp and read from system.
@@ -72,7 +87,7 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         new_comp = set()
         snmp_diff = []
         for snmp, sys_data in compare:
-            if CALC_DIFF(snmp_facts[snmp], facts[sys_data]) > percent:
+            if CALC_DIFF(snmp_facts[snmp], facts[sys_data]) > percentage:
                 snmp_diff.append(snmp)
                 new_comp.add((snmp, sys_data))
 
@@ -80,9 +95,9 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         if not snmp_diff:
             return
 
-        logging.info("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
+        logging.info("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percentage))
 
-    pytest.fail("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percent))
+    pytest.fail("Snmp memory MIBs: {} differs more than {} %".format(snmp_diff, percentage))
 
 
 def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, load_memory):
@@ -95,8 +110,10 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
-    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemory'], mem_free) < percent,
-                  "sysTotalFreeMemory differs by more than {}".format(percent))
+    mem_total = duthost.shell("grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
+    percentage = get_percentage_threshold(int(mem_total))
+    pytest_assert(CALC_DIFF(snmp_facts['ansible_sysTotalFreeMemory'], mem_free) < percentage,
+                  "sysTotalFreeMemory differs by more than {}".format(percentage))
 
 def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
