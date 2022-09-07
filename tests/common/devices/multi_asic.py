@@ -126,7 +126,7 @@ class MultiAsicSonicHost(object):
             else:
                 asic = self.get_port_asic_instance(iface_name)
                 cmd_prefix = "sudo ip netns exec {} ".format(asic.namespace)
- 
+
             mac = self.command('{} cat /sys/class/net/{}/address'.format(cmd_prefix, iface_name))['stdout']
             return mac
         except Exception as e:
@@ -294,14 +294,14 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             asic.stop_service(service)
-            
+
     def reset_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.reset_service(service, service)
 
         for asic in self.asics:
             asic.reset_service(service)
-        
+
     def restart_service(self, service):
         if service in self._DEFAULT_SERVICES:
             return self.sonichost.restart_service(service, service)
@@ -435,7 +435,7 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            #TODO: https://github.com/Azure/sonic-mgmt/issues/5970
+            #TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
             if self.sonichost.is_multi_asic and docker == "gbsyncd":
                 continue
             cmd_disable_rate_limit = (
@@ -478,7 +478,7 @@ class MultiAsicSonicHost(object):
         """
         Get a diction of BGP neighbor states
 
-        Args: 
+        Args:
         state: BGP session state, return neighbor IP of sessions that match this state
         Returns: dictionary {namespace: { (neighbor_ip : info_dict)* }}
 
@@ -489,7 +489,7 @@ class MultiAsicSonicHost(object):
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
             for k, v in bgp_info.items():
                 if v["state"] != state:
-                    bgp_info.pop(k)                    
+                    bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
 
         return bgp_neigh
@@ -521,7 +521,7 @@ class MultiAsicSonicHost(object):
         """
         @summary: check if current bgp session equals to the target state in each namespace
 
-        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }} 
+        @param bgp_neighbors: dictionary {namespace: { (neighbor_ip : info_dict)* }}
         @param state: target state
         """
         for asic in self.asics:
@@ -664,14 +664,14 @@ class MultiAsicSonicHost(object):
         if duthost.is_multi_asic:
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
-        
+
     def is_service_fully_started_per_asic_or_host(self, service):
         """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
         if duthost.is_multi_asic:
             for asic in self.asics:
                 docker_name = asic.get_docker_name(service)
-                if not duthost.is_service_fully_started(docker_name): 
+                if not duthost.is_service_fully_started(docker_name):
                     return False
             return True
         else:
@@ -689,7 +689,7 @@ class MultiAsicSonicHost(object):
         else:
             return self.shell('docker exec -i {} swssconfig {}'.format(container_name, json_name),
                            module_ignore_errors=True)
-      
+
     def get_bgp_name_to_ns_mapping(self):
         """ This function returns mapping of bgp name -- namespace
             e.g. {'ARISTAT2': 'asic0', ...}
@@ -700,7 +700,7 @@ class MultiAsicSonicHost(object):
         neighbors = mg_facts['minigraph_neighbors']
         mapping = dict()
         for neigh in neighbors.values():
-            mapping[neigh['name']] = neigh['namespace']        
+            mapping[neigh['name']] = neigh['namespace']
         return mapping
 
     def get_default_route_from_app_db(self, af='ipv4'):
@@ -711,7 +711,7 @@ class MultiAsicSonicHost(object):
         else:
             default_routes = self.asic_instance(0).get_default_route_from_app_db(af)
         return default_routes
-    
+
     def is_default_route_removed_from_app_db(self, uplink_asics = DEFAULT_NAMESPACE):
         if self.sonichost.is_multi_asic:
             for ns in uplink_asics:

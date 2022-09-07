@@ -93,7 +93,7 @@ def setup_ptf(ptfhost, collector_ports):
 # ----------------------------------------------------------------------------------
 
 def config_dut_ports(duthost, ports, vlan):
-   # https://github.com/Azure/sonic-buildimage/issues/2665
+   # https://github.com/sonic-net/sonic-buildimage/issues/2665
    # Introducing config vlan member add and remove for the test port due to above mentioned PR.
    # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
    # Hence config reload is done as workaround. ##FIXME
