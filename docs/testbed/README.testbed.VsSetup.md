@@ -28,7 +28,7 @@ First, we need to prepare the host where we will be configuring the virtual test
 3. Run the host setup script to install required packages and initialize the management bridge network
 
 ```
-git clone https://github.com/Azure/sonic-mgmt
+git clone https://github.com/sonic-net/sonic-mgmt
 cd sonic-mgmt/ansible
 sudo ./setup-management-network.sh
 ```
@@ -63,7 +63,7 @@ The actual image version that is needed in the installation process is defined i
 
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
-1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
+1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
 
 2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
 
