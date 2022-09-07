@@ -10,7 +10,7 @@ import pytest
 # import ipaddr as ipaddress
 
 # from jinja2 import Template
-# from natsort import natsorted
+from natsort import natsorted
 # from tests.common.helpers.assertions import pytest_assert
 # from tests.common.helpers.constants import DEFAULT_NAMESPACE
 # from tests.common.helpers.parallel import reset_ansible_local_tmp
@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.sanity_check(skip_sanity=True)]
 
-def test_bgp_session_established(duthosts, rand_one_dut_hostname):
+def test_bgp_session_established(duthosts, rand_one_dut_hostname, nbrhosts):
     duthost=duthosts[rand_one_dut_hostname]
-    logger.info("DUT set to {}".format(duthost))
+    duthost.shell('show ip bgp summary')
+    duthost.shell('show ipv6 bgp summary')
+    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
+    tor1 = tor_neighbors[0]
+    logger.info(tor1)
