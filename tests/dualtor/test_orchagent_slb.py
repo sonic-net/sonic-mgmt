@@ -200,9 +200,18 @@ def test_orchagent_slb(
         is_tunnel_traffic_existed = is_route_existed and not is_duthost_active
         is_server_traffic_existed = is_route_existed and is_duthost_active
 
-        tunnel_innner_pkt = pkt[scapyall.IP].copy()
-        tunnel_innner_pkt[scapyall.IP].ttl -= 1
-        tunnel_monitor = tunnel_traffic_monitor(duthost, existing=is_tunnel_traffic_existed, inner_packet=tunnel_innner_pkt)
+        if isinstance(prefix, ipaddress.IPv4Network):
+            tunnel_innner_pkt = pkt[scapyall.IP].copy()
+            tunnel_innner_pkt[scapyall.IP].ttl -= 1
+        else:
+            tunnel_innner_pkt = pkt[scapyall.IPv6].copy()
+            tunnel_innner_pkt[scapyall.IPv6].hlim -= 1
+        tunnel_monitor = tunnel_traffic_monitor(
+            duthost,
+            existing=is_tunnel_traffic_existed,
+            inner_packet=tunnel_innner_pkt,
+            check_items=["ttl", "queue"]
+        )
         server_traffic_monitor = ServerTrafficMonitor(
             duthost, ptfhost, vmhost, tbinfo, connection["test_intf"],
             conn_graph_facts, exp_pkt, existing=is_server_traffic_existed
