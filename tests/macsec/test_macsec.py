@@ -94,7 +94,7 @@ class TestDataPlane():
     BATCH_COUNT = 10
 
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, ptfadapter):
-        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
+        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
 
         down_link = downstream_links.values()[0]
         dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
@@ -138,7 +138,7 @@ class TestDataPlane():
                 testutils.send_packet(
                     ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
                 result = check_macsec_pkt(test=ptfadapter,
-                                          ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
+                                          ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=30)
                 if result is None:
                     return
                 fail_message += result
