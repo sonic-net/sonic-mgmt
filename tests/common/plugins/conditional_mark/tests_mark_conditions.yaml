@@ -769,3 +769,30 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
       - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+ 
+#######################################
+#####        memory_checker       #####
+#######################################
+memory_checker/test_memory_checker.py::test_memory_checker_restart_container:
+  skip:
+    reason: "Skips DuT either with limited memory platform Celestica-E1031 or with 20191130.72, 201811, older image without memory monitoring!"
+    conditions:
+      - "build_version <= '20191130.72' or platform in ['x86_64-cel_e1031-r0']"
+
+memory_checker/test_memory_checker.py::test_memory_checker_without_container_created:
+  skip:
+    reason: "Skips DuT with 201911, 201811 or older image since there will be no log message if container is not created!"
+    conditions:
+      - "release in ['201911', '201811']"
+
+memory_checker/test_memory_checker.py::test_monit_new_syntax:
+  skip:
+    reason: "Skips DuT either with limited memory platform Celestica-E1031 or with 201911, 201811 or older image since new syntax is not backported!"
+    conditions:
+      - "release in ['201911', '201811'] or platform in ['x86_64-cel_e1031-r0']"
+
+memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
+  skip:
+    reason: "Skips DuT either with limited memory platform Celestica-E1031 or with 20191130.72, 201811, older image without memory monitoring!"
+    conditions:
+      - "build_version <= '20191130.72' or platform in ['x86_64-cel_e1031-r0']"
