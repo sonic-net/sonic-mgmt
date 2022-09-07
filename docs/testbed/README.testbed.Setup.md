@@ -15,6 +15,7 @@ This document describes the steps to setup the testbed and deploy a topology.
       python3-pip \
       curl \
       git \
+      openssh-server \
       make
     ```
 - Install Python prerequisites
@@ -67,7 +68,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
-   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz).
+   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fdocker-ptf.gz).
 
 2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry.
 
@@ -83,7 +84,8 @@ Managing the testbed and running tests requires various dependencies to be insta
     make target/docker-sonic-mgmt.gz
     ```
 
-    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master/docker-sonic-mgmt.gz&definitionId=194&artifactName=docker-sonic-mgmt&buildId=42201&target=target%2Fdocker-sonic-mgmt.gz).
+    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&definitionId=194&artifactName=docker-sonic-mgmt&target=target%2Fdocker-sonic-mgmt.gz).
+    
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
@@ -134,8 +136,11 @@ Managing the testbed and running tests requires various dependencies to be insta
             forward-delay: 0
             max-age: 0
           dhcp4: no
-          dhcp6: no
+          dhcp6: no    
+          
     ```
+    Since the bridge is assigned a virtual ip address, it is better to have one more management network interface (e.g. ma1) so that you can access your server from your lab.
+    
     alternatively use this script but settings will be lost on reboot
 
     ```
