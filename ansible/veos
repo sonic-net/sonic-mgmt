@@ -1,8 +1,8 @@
 all:
   children:
-    veos_vtb:
+    vm_host:
       children:
-        vm_host:
+        veos_vtb:
           children:
             vm_host_1:
             vm_host_2:
