@@ -2,7 +2,7 @@
 Description:    This file contains the decapasulation test for SONIC, to test decapsulation of IPv4 with double and
                 triple encapsulated packets
 
-                Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode

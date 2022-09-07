@@ -7,7 +7,7 @@ Description:    This file contains the log analyzer functionality in order
                 to verify no failures are detected in the system logs while
                 it can be that traffic/functionality works.
 
-                Design is available in https://github.com/Azure/SONiC/wiki/LogAnalyzer
+                Design is available in https://github.com/sonic-net/SONiC/wiki/LogAnalyzer
 
 Usage:          Examples of how to use log analyzer
                 sudo python loganalyzer.py  --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results --action analyze --run_id myTest114 --logs file3.log -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log  -i ignore.file.1.log,ignore.file.2.log -v
