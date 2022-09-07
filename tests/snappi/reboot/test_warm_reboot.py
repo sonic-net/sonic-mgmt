@@ -8,7 +8,7 @@ from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-
+pytestmark = [pytest.mark.topology('snappi')]
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm'])
 def test_reboot(cvg_api,
