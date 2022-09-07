@@ -473,6 +473,8 @@ def get_report_file(data):
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
     ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/test-results.xml.html','test-results.xml.html')
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.html','report.html')
     ftp_client.close() 
 
 def replace_dut_mgmt_address(data):
@@ -679,7 +681,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
             else:
                 print("Looks like test is taking longer than two hours. Check list of sanity scripts or increase time to wait")
                 break
-    
+
     ssh.close()
     delta2 = datetime.datetime.now()
     time_delta = (delta2 - delta1)
@@ -688,6 +690,32 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
     print("Total run time for sanity suite: {} mins".format(minutes))
     return minutes
+
+def create_report_html(data,log_dir):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    ssh.close()
 
 def get_log_files(data):
 
@@ -886,6 +914,7 @@ def main():
         print("Running Sanity Scripts")
         run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
+        create_report_html(data,log_dir)
         get_report_file(data)
         get_log_files(data)
 

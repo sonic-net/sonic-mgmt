@@ -1,0 +1,11 @@
+acl/test_acl.py::TestBasicAcl
+arp/test_arpall.py
+cacl/test_cacl_function.py
+crm/test_crm.py
+decap/test_decap.py
+iface_namingmode/test_iface_namingmode.py
+ipfwd/test_mtu.py
+ntp/test_ntp.py
+platform_tests/api/test_chassis.py
+system_health/test_system_health.py
+tacacs/test_accounting.py
