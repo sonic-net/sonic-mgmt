@@ -274,6 +274,7 @@ class TestFaultHandling():
     MKA_TIMEOUT = 6
     LACP_TIMEOUT = 90
 
+    @pytest.mark.disable_loganalyzer
     def test_link_flap(self, duthost, ctrl_links):
         # Only pick one link for link flap test
         assert ctrl_links
@@ -282,7 +283,6 @@ class TestFaultHandling():
             nbr["host"], nbr["port"])
         _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
-
 
         # Flap < 6 seconds
         # Not working on eos neighbour
@@ -342,6 +342,7 @@ class TestFaultHandling():
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
+    @pytest.mark.disable_loganalyzer
     def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, request):
