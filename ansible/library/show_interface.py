@@ -51,6 +51,7 @@ RETURN = '''
                 "vlan": "routed"
                 "oper_state": "down"
                 "admin_state": "up"
+                "type": "QSFP28 or later"
                 }
                }
       ansible_facts:
@@ -97,6 +98,18 @@ class ShowInterfaceModule(object):
             self.collect_interface_counter(namespace, include_internal_intfs)
         self.module.exit_json(ansible_facts=self.facts)
 
+    def _fetch_interface_type(self, line):
+        """
+            Fetch the type from the line
+            There can be spaces in type field so we can not match it via using regular expression
+            The logic is to split the line into a list by spaces and the remove all the leading and tail elements, and then piece the rest together
+            Eg. for output "Ethernet48  192,193,194,195     100G   9100    N/A    etp49  routed      up       up  QSFP28 or later         N/A"
+            the list is ['Ethernet48', '192,193,194,195', '100G', '9100', 'N/A', 'etp49', 'routed', 'up', 'up'  'QSFP28', 'or', 'later', 'N/A']
+            There is no space in the rest elements, so we can remove the first 9 and the last 1 elements, and piece 'QSFP28', 'or', 'later' together.
+            This function should be called on if regex_int_fec is matched.
+        """
+        return ' '.join(line.split()[9:-1])
+
     def collect_interface_status(self, namespace=None, include_internal_intfs=False):
         regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
@@ -120,6 +133,7 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['vlan'] = fec.group(6)
                             self.int_status[interface]['oper_state'] = fec.group(7)
                             self.int_status[interface]['admin_state'] = fec.group(8)
+                            self.int_status[interface]['type'] = self._fetch_interface_type(line)
                         elif old and interface == old.group(1):
                             self.int_status[interface]['name'] = old.group(1)
                             self.int_status[interface]['speed'] = old.group(2)
@@ -128,7 +142,8 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['vlan'] = old.group(5)
                             self.int_status[interface]['oper_state'] = old.group(6)
                             self.int_status[interface]['admin_state'] = old.group(7)
-                    self.facts['int_status'] = self.int_status
+                            self.int_status[interface]['type'] = 'N/A'
+                        self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
                 if rc != 0:
@@ -155,6 +170,7 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['vlan'] = fec.group(6)
                         self.int_status[interface]['oper_state'] = fec.group(7)
                         self.int_status[interface]['admin_state'] = fec.group(8)
+                        self.int_status[interface]['type'] = self._fetch_interface_type(line)
                     elif old:
                         interface = old.group(1)
                         self.int_status[interface] = {}
@@ -165,6 +181,7 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['vlan'] = old.group(5)
                         self.int_status[interface]['oper_state'] = old.group(6)
                         self.int_status[interface]['admin_state'] = old.group(7)
+                        self.int_status[interface]['type'] = 'N/A'
                     elif internal and include_internal_intfs:
                         interface = internal.group(1)
                         self.int_status[interface] = {}
@@ -175,7 +192,8 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['vlan'] = internal.group(6)
                         self.int_status[interface]['oper_state'] = internal.group(7)
                         self.int_status[interface]['admin_state'] = internal.group(8)
-                self.facts['int_status'] = self.int_status
+                        self.int_status[interface]['type'] = 'N/A'
+                    self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
             if rc != 0:
