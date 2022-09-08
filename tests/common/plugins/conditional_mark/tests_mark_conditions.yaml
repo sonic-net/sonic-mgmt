@@ -20,9 +20,9 @@ acl/test_acl_outer_vlan.py:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for 201911 images or older. Skipping the test"
+    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
     conditions:
-      - "kernel_version <= '4.9.0'"
+      - "(kernel_version <= '4.9.0') or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
 
 #######################################
 #####            bgp              #####
