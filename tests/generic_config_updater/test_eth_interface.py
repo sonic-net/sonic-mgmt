@@ -94,19 +94,34 @@ def test_remove_lanes(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-@pytest.mark.skip(reason="Bypass as it is blocking submodule update")
 def test_replace_lanes(duthost, ensure_dut_readiness):
-    cur_lanes = check_interface_status(duthost, "Lanes")
-    cur_lanes = cur_lanes.split(",")
-    cur_lanes.sort()
-    update_lanes = cur_lanes
-    update_lanes[-1] = str(int(update_lanes[-1]) + 1)
-    update_lanes = ",".join(update_lanes)
+    config_facts = duthost.get_running_config_facts()
+    for port in config_facts['PORT'].keys():
+        if port != "Ethernet0":
+            swap_port = port
+            break
+    eth0_cur_lanes = check_interface_status(duthost, "Lanes", "Ethernet0").split(",")
+    swap_port_cur_lanes = check_interface_status(duthost, "Lanes", swap_port).split(",")
+    eth0_cur_lanes.sort()
+    swap_port_cur_lanes.sort()
+
+    tmp = eth0_cur_lanes[-1]
+    eth0_cur_lanes[-1] = swap_port_cur_lanes[-1]
+    swap_port_cur_lanes[-1] = tmp
+    
+    eth0_update_lanes = ",".join(eth0_cur_lanes)
+    swap_port_update_lanes = ",".join(swap_port_cur_lanes)
+    
     json_patch = [
         {
             "op": "replace",
             "path": "/PORT/Ethernet0/lanes",
-            "value": "{}".format(update_lanes)
+            "value": "{}".format(eth0_update_lanes)
+        },
+        {
+            "op": "replace",
+            "path": "/PORT/{}/lanes".format(swap_port),
+            "value": "{}".format(swap_port_update_lanes)
         }
     ]
 
@@ -115,7 +130,7 @@ def test_replace_lanes(duthost, ensure_dut_readiness):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_failure(output)
+        expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
