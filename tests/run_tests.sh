@@ -279,12 +279,14 @@ function run_group_tests()
 {
     echo "=== Running tests in groups ==="
     echo Running: pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-    pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
 function run_individual_tests()
 {
     EXIT_CODE=0
+
+    CACHE_CLEAR="--cache-clear"
 
     echo "=== Running tests individually ==="
     for test_script in ${TEST_CASES}; do
@@ -299,8 +301,13 @@ function run_individual_tests()
         fi
 
         echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
         ret_code=$?
+
+        # Clear pytest cache for the first run
+        if [[ -n ${CACHE_CLEAR} ]]; then
+            CACHE_CLEAR=""
+        fi
 
         # If test passed, no need to keep its log.
         if [ ${ret_code} -eq 0 ]; then
