@@ -102,7 +102,7 @@ def test_toggle_mux_from_simulator(duthosts, active_side, toggle_all_simulator_p
     logger.info('Toggle mux active side from mux simulator')
     toggle_all_simulator_ports(active_side)
 
-    check_result = wait_until(10, 2, 2, check_mux_status, duthosts, active_side)
+    check_result = wait_until(60, 5, 2, check_mux_status, duthosts, active_side)
 
     validate_check_result(check_result, duthosts, get_mux_status)
 
@@ -120,6 +120,6 @@ def test_toggle_mux_from_cli(duthosts, active_side, get_mux_status, restore_mux_
         mux_active_dut = duthosts[1]
     mux_active_dut.shell('config muxcable mode active all')
 
-    check_result = wait_until(10, 2, 2, check_mux_status, duthosts, active_side)
+    check_result = wait_until(60, 5, 2, check_mux_status, duthosts, active_side)
 
     validate_check_result(check_result, duthosts, get_mux_status)
