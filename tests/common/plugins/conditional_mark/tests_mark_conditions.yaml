@@ -17,7 +17,6 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     reason: "`accept_untracked_na` currently only available in 202012"
     conditions:
       - "release not in ['202012']"
-
 #######################################
 #####            bgp              #####
 #######################################
