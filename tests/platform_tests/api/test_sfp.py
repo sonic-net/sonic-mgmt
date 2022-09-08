@@ -176,7 +176,7 @@ class TestSfpApi(PlatformApiTestBase):
                 compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
                 if "CR" in compliance_code:
                    return False
-                extended_code = spec_compliance_dict.get("Extended Specification Complianc", " ")
+                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
                 if "CR" in extended_code:
                    return False
         return True
