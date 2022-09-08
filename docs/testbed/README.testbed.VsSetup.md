@@ -127,12 +127,12 @@ diff --git a/ansible/veos_vtb b/ansible/veos_vtb
 index 3e7b3c4e..edabfc40 100644
 --- a/ansible/veos_vtb
 +++ b/ansible/veos_vtb
-@@ -73,7 +73,7 @@ vm_host_1:
-   hosts:
+@@ -258,7 +258,7 @@ vm_host_1:
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
--      ansible_user: use_own_value
-+      ansible_user: foo
+       ansible_user: use_own_value
+-      vm_host_user: use_own_value
++      vm_host_user: foo
 
  vms_1:
    hosts:

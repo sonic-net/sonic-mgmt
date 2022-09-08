@@ -258,6 +258,7 @@ vm_host_1:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
       ansible_user: use_own_value
+      vm_host_user: use_own_value
 
 vms_1:
   hosts:
