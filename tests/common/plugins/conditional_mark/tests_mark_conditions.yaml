@@ -329,6 +329,15 @@ macsec/test_macsec.py::TestDataPlane::test_server_to_neighbor:
       - "'t2' in topo_name"
 
 #######################################
+#####            mpls             #####
+#######################################
+mpls/test_mpls.py:
+  skip:
+    reason: "MPLS TCs are not supported on Barefoot plarforms"
+    conditions:
+      - "asic_type in ['barefoot']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
