@@ -21,7 +21,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "dnx"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -558,9 +558,14 @@ class QosSaiBase(QosBase):
 
         elif tbinfo["topo"]["type"] == "t2":
             for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
+                vlan_id = None
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
+                    if "." in iface:
+                        iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    if vlan_id is not None:
+                        portIpMap['vlan_id'] = vlan_id
                     dutPortIps.update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
@@ -569,6 +574,7 @@ class QosSaiBase(QosBase):
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
                     dutPortIps.update({portIndex: portIpMap})
+                    
             testPortIds = sorted(dutPortIps.keys())
 
         # restore currently assigned IPs
