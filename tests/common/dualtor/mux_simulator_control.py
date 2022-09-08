@@ -431,6 +431,33 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
         pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
 
 
+def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo):
+    """Helper function to toggle all ports to active on the target DUT."""
+    logging.info("Toggling mux cable to {}".format(target_dut_hostname))
+    duthost = duthosts[target_dut_hostname]
+    dut_index = tbinfo['duts'].index(target_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": UPPER_TOR}
+    else:
+        data = {"active_side": LOWER_TOR}
+
+    # Allow retry for mux cable toggling
+    is_toggle_done = False
+    for attempt in range(1, 4):
+        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
+            attempt,
+            data['active_side']
+        ))
+        _post(mux_server_url, data)
+        time.sleep(5)
+        if _are_muxcables_active(duthost):
+            is_toggle_done = True
+            break
+
+    if not is_toggle_done and not utilities.wait_until(60, 10, 0, _are_muxcables_active, duthost):        
+        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
+
+
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
