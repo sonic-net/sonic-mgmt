@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class BGPProtocol():
+class BGPProtocol:
     def __init__(self, dut_handler, dut_interface=None, neighbor_device=None, neighbor_device_interface=None):
         self.device_a = dut_handler
         self.interface_a = dut_interface
