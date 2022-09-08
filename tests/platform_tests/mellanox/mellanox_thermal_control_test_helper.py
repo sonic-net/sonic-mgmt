@@ -114,6 +114,12 @@ class MockerHelper:
     # LED related sys fs folder path.
     LED_PATH = '/var/run/hw-management/led/'
 
+    # Config path
+    CONFIG_PATH = '/var/run/hw-management/config/'
+
+    # Power path
+    POWER_PATH = '/var/run/hw-management/power/'
+
     # FAN number of DUT.
     FAN_NUM = 0
 
@@ -190,21 +196,26 @@ class MockerHelper:
         file_path = os.path.join(MockerHelper.LED_PATH, file_path)
         self.mock_value(file_path, value)
 
-    def mock_value(self, file_path, value):
+    def mock_value(self, file_path, value, force=False):
         """
         Unlink existing sys fs file and replace it with a new one. Write given value to the new file.
         :param file_path: Sys fs file path.
         :param value: Value to write to sys fs file.
+        :param force: Force mock even if the file does not exist.
         :return:
         """
         if file_path not in self.regular_file_list and file_path not in self.unlink_file_list:
             out = self.dut.stat(path=file_path)
+            exist = True
             if not out['stat']['exists']:
-                raise SysfsNotExistError('{} not exist'.format(file_path))
-            if out['stat']['islnk']:
+                if force:
+                    exist = False
+                else:
+                    raise SysfsNotExistError('{} not exist'.format(file_path))
+            if exist and out['stat']['islnk']:
                 self._unlink(file_path)
             else:
-                self._cache_file_value(file_path)
+                self._cache_file_value(file_path, force)
         self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
 
     def read_thermal_value(self, file_path):
@@ -241,7 +252,7 @@ class MockerHelper:
         except Exception as e:
             assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
 
-    def _cache_file_value(self, file_path):
+    def _cache_file_value(self, file_path, may_nexist=False):
         """
         Cache file value for regular file.
         :param file_path: Regular file path.
@@ -252,7 +263,10 @@ class MockerHelper:
             value = output["stdout"]
             self.regular_file_list[file_path] = value.strip()
         except Exception as e:
-            assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
+            if may_nexist:
+                self.regular_file_list[file_path] = None
+            else:
+                assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
 
     def _unlink(self, file_path):
         """
@@ -282,7 +296,10 @@ class MockerHelper:
         failed_recover_files = {}
         for file_path, value in self.regular_file_list.items():
             try:
-                self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
+                if value is None:
+                    self.dut.shell('rm -f {}'.format(file_path))
+                else:
+                    self.dut.shell('echo \'{}\' > {}'.format(value, file_path))
             except Exception as e:
                 # Catch any exception for later retry
                 failed_recover_files[file_path] = value
@@ -1192,3 +1209,67 @@ class CpuThermalMocker(object):
 
     def get_cpu_cooling_state(self):
         return int(self.mock_helper.read_value(self.CPU_COOLING_STATE_FILE))
+
+
+@mocker('PsuPowerThresholdMocker')
+class PsuPowerThresholdMocker(object):
+    PORT_AMBIENT_TEMP = '/var/run/hw-management/thermal/port_amb'
+    FAN_AMBIENT_TEMP = '/var/run/hw-management/thermal/fan_amb'
+    AMBIENT_TEMP_CRITICAL_THRESHOLD = '/var/run/hw-management/config/amb_tmp_crit_limit'
+    AMBIENT_TEMP_WARNING_THRESHOLD = '/var/run/hw-management/config/amb_tmp_warn_limit'
+    PSU_POWER_SLOPE = '/var/run/hw-management/config/psu_power_slope'
+    PSU_POWER_CAPACITY = '/var/run/hw-management/config/psu{}_power_capacity'
+    PSU_POWER = '/var/run/hw-management/power/psu{}_power'
+
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+
+    def deinit(self):
+        self.mock_helper.deinit()
+
+    def mock_power_threshold(self, number_psus):
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
+        self.mock_helper.mock_value(self.PSU_POWER_SLOPE, 2000, True)
+
+        max_power = None
+        for i in range(number_psus):
+            if not max_power:
+                power = int(self.mock_helper.read_value(self.PSU_POWER.format(i + 1)))
+                # Round up to 100 watt and then double it to avoid noise when power fluctuate
+                max_power = int(round(power/100000000.0)) * 100000000 * 2
+            self.mock_helper.mock_value(self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
+
+        # Also mock ambient temperatures
+        self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, self.read_port_ambient_thermal())
+        self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
+
+    def mock_psu_power(self, psu, power):
+        self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))
+
+    def mock_fan_ambient_thermal(self, temperature):
+        self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, int(temperature))
+
+    def mock_port_ambient_thermal(self, temperature):
+        self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, int(temperature))
+
+    def read_psu_power_threshold(self, psu):
+        return int(self.mock_helper.read_value(self.PSU_POWER_CAPACITY.format(psu)))
+
+    def read_psu_power_slope(self):
+        return int(self.mock_helper.read_value(self.PSU_POWER_SLOPE))
+
+    def read_psu_power(self, psu):
+        return int(self.mock_helper.read_value(self.PSU_POWER.format(psu)))
+
+    def read_ambient_temp_critical_threshold(self):
+        return int(self.mock_helper.read_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD))
+
+    def read_ambient_temp_warning_threshold(self):
+        return int(self.mock_helper.read_value(self.AMBIENT_TEMP_WARNING_THRESHOLD))
+
+    def read_port_ambient_thermal(self):
+        return int(self.mock_helper.read_value(self.PORT_AMBIENT_TEMP))
+
+    def read_fan_ambient_thermal(self):
+        return int(self.mock_helper.read_value(self.FAN_AMBIENT_TEMP))
