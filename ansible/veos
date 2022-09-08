@@ -2,8 +2,10 @@ all:
   children:
     vm_host:
       children:
-        vm_host_1:
-        vm_host_2:
+        veos_vtb:
+          children:
+            vm_host_1:
+            vm_host_2:
     eos:
       children:
         vms_1:
