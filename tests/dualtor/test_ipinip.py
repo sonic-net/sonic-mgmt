@@ -19,6 +19,7 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor            # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
@@ -126,8 +127,7 @@ def test_decap_active_tor(
 
 
 def test_decap_standby_tor(
-    apply_standby_state_to_orchagent,
-    build_encapsulated_packet,
+    build_encapsulated_packet, request,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
@@ -139,6 +139,11 @@ def test_decap_standby_tor(
             if exp_pkt.pkt_match(packet):
                 return True
         return False
+
+    if is_t0_mocked_dualtor(tbinfo):
+        request.getfixturevalue('apply_standby_state_to_orchagent')
+    else:
+        request.getfixturevalue('toggle_all_simulator_ports_to_rand_unselected_tor')
 
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_packet
