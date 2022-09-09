@@ -106,6 +106,8 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
             except Exception as e:
                 print("Download error", e)
                 if download_times < MAX_DOWNLOAD_TIMES:
+                    print('Download times: {}, sleep: {} seconds before retry.'.format(download_times, 30 * download_times))
+                    time.sleep(30 * download_times)
                     continue
                 else:
                     sys.exit(1)
