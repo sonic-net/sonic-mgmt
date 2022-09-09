@@ -627,7 +627,6 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
 def parse_linkmeta(meta, hname):
     link = meta.find(str(QName(ns, "Link")))
-    linkmetas = {}
     macsec_neighbors = []
     macsec_enabled_ports = []
     for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
@@ -635,8 +634,8 @@ def parse_linkmeta(meta, hname):
         # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
         key = linkmeta.find(str(QName(ns1, "Key"))).text
         endpoints = key.split(';')
-        local_endpoint = endpoint[0]
-        remote_endpoint = endpoint[1]
+        local_endpoint = endpoints[0]
+        remote_endpoint = endpoints[1]
         t = local_endpoint.split(':')
         if len(t) == 2 and t[0].lower() == hname.lower():
             local_port = t[1]

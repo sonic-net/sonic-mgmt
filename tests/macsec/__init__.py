@@ -135,7 +135,7 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="session")
     def unctrl_links(self, macsec_duthost, tbinfo, nbrhosts, ctrl_links):
-        unctrl_nbr_names = self.get_ctrl_nbr_names()
+        unctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts)
         for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
