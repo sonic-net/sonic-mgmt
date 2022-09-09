@@ -9,7 +9,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import  get_ecn_markings_dut, setup_ecn_markings_dut
-from ixia.ptf_utils import get_sai_attributes
+from ptf_utils import get_sai_attributes
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
