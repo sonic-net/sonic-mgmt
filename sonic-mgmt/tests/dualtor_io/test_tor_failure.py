@@ -46,7 +46,10 @@ def toggle_upper_tor_pdu(upper_tor_host, get_pdu_controller):
 @pytest.fixture(scope='module')
 def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):
     pdu_controller = get_pdu_controller(lower_tor_host)
-    return lambda: toggle_pdu_outlet(pdu_controller)
+    if pdu_controller is None:
+        return lambda: lower_tor_host.shell("nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null &")
+    else:
+        return lambda: toggle_pdu_outlet(pdu_controller)
 
 
 @pytest.mark.enable_active_active

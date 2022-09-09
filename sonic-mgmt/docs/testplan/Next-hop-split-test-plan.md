@@ -9,7 +9,7 @@
 
 This is the test plan for the next hop group split enhancement
 
-The PR covered in this test plan is [Next hop group split HLD PR 712](https://github.com/Azure/SONiC/pull/712)
+The PR covered in this test plan is [Next hop group split HLD PR 712](https://github.com/sonic-net/SONiC/pull/712)
 
 ## Scope
 

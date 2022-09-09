@@ -1,7 +1,7 @@
 import time
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from macsec_platform_helper import global_cmd
+from macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from macsec_helper import get_mka_session, getns_prefix
 
 
@@ -66,8 +66,15 @@ def delete_macsec_profile(host, port, profile_name):
             parents=['mac security'])
         return
 
-    cmd = "sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'".format(getns_prefix(host, port), profile_name)
-    host.command(cmd)
+    #if port is None, the macsec profile is deleted from all namespaces if multi-asic
+    if host.is_multi_asic and port is None:
+        for ns in host.get_asic_namespace_list():
+            CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
+            cmd = "sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            host.command(cmd)
+    else:
+        cmd = "sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'".format(getns_prefix(host, port), profile_name)
+        host.command(cmd)
 
 
 def enable_macsec_port(host, port, profile_name):
@@ -76,12 +83,22 @@ def enable_macsec_port(host, port, profile_name):
             lines=['mac security profile {}'.format(profile_name)],
             parents=['interface {}'.format(port)])
         return
+    
+    pc = find_portchannel_from_member(port, get_portchannel(host))
+    if pc:
+        host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
+        time.sleep(2)
 
-    cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(
-        getns_prefix(host, port), port, profile_name)
+    cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(getns_prefix(host, port), port, profile_name)
     host.command(cmd)
 
-
+    if pc:
+        time.sleep(2)
+        host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
+    
+    # wait after macsec enable 
+    time.sleep(2)
+        
 def disable_macsec_port(host, port):
     if isinstance(host, EosHost):
         host.eos_config(
@@ -89,9 +106,20 @@ def disable_macsec_port(host, port):
             parents=['interface {}'.format(port)])
         return
 
+    pc = find_portchannel_from_member(port, get_portchannel(host))
+    if pc:
+        host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
+        time.sleep(2)
+        
     cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
     host.command(cmd)
 
+    if pc:
+        time.sleep(2)
+        host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
+
+    # wait after macsec disable 
+    time.sleep(2)
 
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = macsec_nbrhosts
@@ -125,9 +153,16 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     for dut_port, nbr in ctrl_links.items():
         disable_macsec_port(duthost, dut_port)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
         devices.add(nbr["host"])
-        delete_macsec_profile(duthost, dut_port, profile_name)
+
+    # Delete the macsec profile once after it is removed from all interfaces. if we pass port as None, 
+    # the profile is removed from the DB in all namespaces.
+    delete_macsec_profile(duthost, None, profile_name)
+
+    # Delete the macsec profile in neighbors
+    for d in devices:
+       delete_macsec_profile(d, None, profile_name) 
+
     # Waiting for all mka session were cleared in all devices
     for d in devices:
         if isinstance(d, EosHost):

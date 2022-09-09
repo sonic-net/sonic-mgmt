@@ -1,7 +1,7 @@
 '''
 Description:    This file contains the Everflow test for SONiC testbed
 
-                Implemented according to the https://github.com/Azure/SONiC/wiki/Everflow-test-plan
+                Implemented according to the https://github.com/sonic-net/SONiC/wiki/Everflow-test-plan
 
 Usage:          Examples of how to use:
                 ptf --test-dir acstests everflow_tb_test.EverflowTest --platform remote -t 'router_mac="00:02:03:04:05:00";src_port="20";dst_ports="21,22";session_src_ip="1.1.1.1";session_dst_ip="2.2.2.2";session_ttl="64";session_dscp="0";verbose=True'

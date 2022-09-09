@@ -2,7 +2,7 @@
 Dual ToR Orchagent - Stress Test
 
 This script is to cover the stress test case in the Dual ToR Orchagent test plan:
-https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_orch_test_plan.md
+https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_orch_test_plan.md
 
 Test summary:
 

@@ -16,7 +16,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0"),
+    pytest.mark.topology("t0", "m0"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 

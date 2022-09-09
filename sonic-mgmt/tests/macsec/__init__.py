@@ -130,7 +130,7 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]:
+            if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]) or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])) :
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],
@@ -145,7 +145,7 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]:
+            if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]) or (tbinfo["topo"]["type"] == "t2" and "T3" in neighbor["name"])):
                 for item in mg_facts["minigraph_bgp"]:
                     if item["name"] == neighbor["name"]:
                         if isinstance(ip_address(item["addr"]), IPv4Address):
@@ -185,9 +185,6 @@ class MacsecPlugin(object):
                 return
             port = mg_facts["minigraph_neighbors"][interface]["port"]
 
-            # Currently in t2 topology macsec is validated on regular interfaces. To remove this once it is validated with PC.
-            if tbinfo["topo"]["type"] == "t2" and self.is_interface_portchannel_member(mg_facts['minigraph_portchannels'], interface):
-                return
             links[interface] = {
                 "name": neighbor["name"],
                 "host": nbrhosts[neighbor["name"]]["host"],

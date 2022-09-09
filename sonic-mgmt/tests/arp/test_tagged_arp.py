@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 PTF_PORT_MAPPING_MODE = "use_orig_interface"

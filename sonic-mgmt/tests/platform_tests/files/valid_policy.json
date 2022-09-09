@@ -1,6 +1,6 @@
 {
     "thermal_control_algorithm": {
-        "run_at_boot_up": "false",
+        "run_at_boot_up": "true",
         "fan_speed_when_suspend": "60"
     },
     "info_types": [

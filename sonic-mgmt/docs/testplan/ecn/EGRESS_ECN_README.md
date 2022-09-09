@@ -7,7 +7,7 @@ Conventionally, TCP/IP networks signal congestion by dropping packets. When ECN 
 
 Commodity switches typically use [Random Early Detection (RED)](https://en.wikipedia.org/wiki/Random_early_detection) algorithm to perform ECN marking. RED algorithm has at least three parameters: the minimum threshold *Kmin*, the maximum threshold *Kmax*, and the maximum marking (or dropping) probability *Pmax*. When the instantaneous queue length is smaller than the minimum marking threshold, the marking probability is 0%. When the instantneous queue length is larger than the maixmum marking threshold, the marking probability is 100%. Otherwise, the marking probability varies is *(queue_length - Kmin) / (Kmax - Kmin) * Pmax*.
 
-Commodity switches can run RED at ingress (enqueue packet to the switch buffer) or egress (dequeue packet from the switch buffer). Compared to ingress RED/ECN, egress RED/ECN can achieve lower feedback delay. 
+Commodity switches can run RED at ingress (enqueue packet to the switch buffer) or egress (dequeue packet from the switch buffer). Compared to ingress RED/ECN, egress RED/ECN can achieve lower feedback delay.
 
 ## RED/ECN on SONiC
 On SONiC, you can use <code>ecnconfig</code> to check and modify RED/ECN configuration.
@@ -39,7 +39,7 @@ To set Pmax:
 <code>$ ecnconfig -p [profile_name] -gdrop [Kmin in byte]</code>
 
 ## Testbed Setup
-The testbed consists of two IXIA ports and a SONiC device under test (DUT) as follows. Both IXIA ports should have the same bandwidth capacity. To reduce the configuration complexity, we recommond configuring the switch as a Top of Rack (ToR) / Tier 0 (T0) switch and binding two switch interfaces to the Vlan. 
+The testbed consists of two IXIA ports and a SONiC device under test (DUT) as follows. Both IXIA ports should have the same bandwidth capacity. To reduce the configuration complexity, we recommond configuring the switch as a Top of Rack (ToR) / Tier 0 (T0) switch and binding two switch interfaces to the Vlan.
 
 ```
                      _________
@@ -47,25 +47,25 @@ The testbed consists of two IXIA ports and a SONiC device under test (DUT) as fo
 IXIA tx port ------ |   DUT   |------ IXIA rx port
                     |_________|
 ```
-In addition, [PFC watchdog](https://github.com/Azure/SONiC/wiki/PFC-Watchdog-Design) must be disabled at the SONiC DUT. Otherwise, the DUT will trigger PFC watchdog to drop packets when it detects persistent PFC pause storms. The command to disable PFC watchdog is <code>sudo pfcwd stop</code>.
+In addition, [PFC watchdog](https://github.com/sonic-net/SONiC/wiki/PFC-Watchdog-Design) must be disabled at the SONiC DUT. Otherwise, the DUT will trigger PFC watchdog to drop packets when it detects persistent PFC pause storms. The command to disable PFC watchdog is <code>sudo pfcwd stop</code>.
 
 ## Experiment Steps
 In this experiment, we need to create two traffic items:
 
-- Test data traffic: A *fixed number* of data packets sent from the IXIA tx port to the IXIA rx port at a lossless priorities (e.g., e.g., 3 or 4). Note that the packets should be marked with the correct DSCP value (e.g., DSCP 3 for priority 3).  
+- Test data traffic: A *fixed number* of data packets sent from the IXIA tx port to the IXIA rx port at a lossless priorities (e.g., e.g., 3 or 4). Note that the packets should be marked with the correct DSCP value (e.g., DSCP 3 for priority 3).
 
-- PFC pause storm: Persistent PFC pause frames from the IXIA rx port to the IXIA tx port. The priorities of PFC pause frames should be same as those of test data traffic. And the inter-frame transmission interval should be smaller than per-frame pause duration. 
-  
+- PFC pause storm: Persistent PFC pause frames from the IXIA rx port to the IXIA tx port. The priorities of PFC pause frames should be same as those of test data traffic. And the inter-frame transmission interval should be smaller than per-frame pause duration.
+
 This experiment repeats the following steps for each lossless priority:
 
 - Configure both the minimum and maximum ECN marking threshold of the lossless priority *i* to *N* (e.g., N=100) KB.
 
 - Start packet capturing at the receiver.
-  
+
 - The receiver sends persistent PFC pause frames (PFC storm) to block the priority *i* of DUT.
 
-- The sender sends *2N* 1KB data packets to the receiver. The packets should be mapped to priority *i* on the DUT. Note that the DUT should have enough buffer to hold all these packets. 
+- The sender sends *2N* 1KB data packets to the receiver. The packets should be mapped to priority *i* on the DUT. Note that the DUT should have enough buffer to hold all these packets.
 
 - The receiver stops PFC storm and captures data packets sent by the sender.
 
-- Check 1) if the IXIA rx port receives all the *2N* data packets; (2) if the first data packet is marked; and (3) if the last packet is not marked.    
+- Check 1) if the IXIA rx port receives all the *2N* data packets; (2) if the first data packet is marked; and (3) if the last packet is not marked.

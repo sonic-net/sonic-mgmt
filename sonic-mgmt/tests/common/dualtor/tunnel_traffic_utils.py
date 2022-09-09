@@ -10,7 +10,6 @@ from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
 
 
 def derive_queue_id_from_dscp(dscp):
@@ -148,7 +147,6 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("outer packet ECN not same as inner packet ECN")
             return " ,".join(check_res)
 
-        @staticmethod
         def _check_queue(self, packet):
             """Check queue for encap packet."""
 
@@ -163,18 +161,17 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             else:
                 return "Not a valid IPinIP or IPv6inIP tunnel packet"
 
-            outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
-            inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
+            outer_dscp, _ = _disassemble_ip_tos(outer_tos)
+            inner_dscp, _ = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             check_res = []
-            if outer_dscp != inner_dscp:
-                check_res.append("outer packet DSCP not same as inner packet DSCP")
             exp_queue = derive_queue_id_from_dscp(outer_dscp)
+            logging.info("Expect queue: %s", exp_queue)
+            if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue):
+                check_res.append("no expect counter in the expected queue %s" % exp_queue)
+            return " ,".join(check_res)
 
-            pytest_assert(wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue))
-            return check_res
-
-        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None, check_items=("ttl", "tos", "queue")):
             """
             Init the tunnel traffic monitor.
 
@@ -206,6 +203,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 self.inner_packet = inner_packet
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
             self.rec_pkt = None
+            self.check_items = check_items
 
         def __enter__(self):
             # clear queue counters before IO to ensure _check_queue could get more precise result
@@ -235,17 +233,16 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 logging.info("Encapsulated packet:\n%s", dump_scapy_packet_show_output(self.rec_pkt))
                 if not self.existing:
                     raise RuntimeError("Detected tunnel traffic from host %s." % self.standby_tor.hostname)
-                ttl_check_res = self._check_ttl(self.rec_pkt)
-                tos_check_res = self._check_tos(self.rec_pkt)
-                queue_check_res = self._check_queue(self, self.rec_pkt)
-                check_res = []
-                if ttl_check_res:
-                    check_res.append(ttl_check_res)
-                if tos_check_res:
-                    check_res.append(tos_check_res)
-                if queue_check_res:
-                    check_res.append(queue_check_res)
-                if check_res:
-                    raise ValueError(", ".join(check_res) + ".")
+
+                check_result = []
+                for check_item in self.check_items:
+                    check_func = getattr(self, "_check_%s" % check_item, None)
+                    if check_func is not None:
+                        result = check_func(self.rec_pkt)
+                        if result:
+                            check_result.append(result)
+
+                if check_result:
+                    raise ValueError(", ".join(check_result) + ".")
 
     return TunnelTrafficMonitor

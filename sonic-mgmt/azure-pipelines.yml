@@ -194,7 +194,7 @@ stages:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
     timeoutInMinutes: 400
-    continueOnError: true
+    continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-template.yml
         parameters:

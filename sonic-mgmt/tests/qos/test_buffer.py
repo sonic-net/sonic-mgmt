@@ -484,9 +484,9 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number + adjust_extra_overhead
 
             if DEFAULT_OVER_SUBSCRIBE_RATIO:
-                private_headroom_str = TESTPARAM_SHARED_HEADROOM_POOL.get("private_pg_headroom") 
+                private_headroom_str = TESTPARAM_SHARED_HEADROOM_POOL.get("private_pg_headroom")
                 if private_headroom_str:
-                    private_headroom_number = int(private_headroom_str) 
+                    private_headroom_number = int(private_headroom_str)
                 else:
                     private_headroom_number = 0
                 curr_shp_size = int(kwargs["shp_size"])
@@ -2404,7 +2404,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     }
     if is_tunnel_qos_remap_enabled(duthost):
         buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
-    
+
     if not is_mellanox_device(duthost):
         buffer_table_up[KEY_2_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         if is_tunnel_qos_remap_enabled(duthost):
@@ -2415,7 +2415,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         buffer_table_up[KEY_4_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         buffer_table_up[KEY_4_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         buffer_table_up[KEY_4_LOSSLESS_QUEUE][5] = ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
-    
+
     buffer_table_down = {
         KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
                                            ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
@@ -2428,7 +2428,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     if is_tunnel_qos_remap_enabled(duthost):
         buffer_table_down[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
-    
+
     buffer_items_to_check_dict = {"up": buffer_table_up, "down": buffer_table_down}
 
 
@@ -2549,7 +2549,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                 profile_name = None
             else:
                 profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
-            
+
             return profile_name
 
         port_to_shutdown = admin_up_ports.pop()
@@ -2586,7 +2586,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     """
     This function is Mellanox platform specific.
     It intends to calculate the headroom size based on the input port attributes(speed, cable_length, number of lanes..., etc)
-    This algorithm is the same as the implementation in https://github.com/Azure/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
+    This algorithm is the same as the implementation in https://github.com/sonic-net/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
     """
     global ASIC_TABLE_KEYS_LOADED
     global CELL_SIZE

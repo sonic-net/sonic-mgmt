@@ -22,10 +22,10 @@
 The purpose is to test the status of daemons in PMON docker on the SONIC switch DUT.
 
 ## Scope
-The test is targeting all expected daemons running inside SONIC PMON docker with fully functioning configuration.  
+The test is targeting all expected daemons running inside SONIC PMON docker with fully functioning configuration.
 The purpose of the test is not to test specific api but to verify the platform daemon status and functionality on each platform.
 1. check if pmon docker is running: this can be covered by the critical process check in sanity_check plugin
-2. check if all expected daemons are running on the DUT based on the SONiC pmon docker configuration file and platform specific configuration files:  
+2. check if all expected daemons are running on the DUT based on the SONiC pmon docker configuration file and platform specific configuration files:
    - /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2
    - /usr/share/sonic/platform/pmon_daemon_control.json
    - /etc/supervisor/conf.d/supervisord.conf
@@ -47,7 +47,7 @@ Extend "check_pmon_daemon_status()" to cover all steps below.
 ### Test steps
 1. Parse /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2,
    /usr/share/sonic/platform/pmon_daemon_control.json, and /etc/supervisor/conf.d/supervisord.conf
-2. Find the list of daemons running in PMON docker for the specific platform of DUT 
+2. Find the list of daemons running in PMON docker for the specific platform of DUT
    a. Check all available daemons in SONiC image
       - Check the output of `sudo docker exec pmon bash -c '[ -f /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2 ] \
       && cat /usr/share/sonic/templates/docker-pmon.supervisord.conf.j2 | grep program'`
@@ -65,7 +65,7 @@ Extend "check_pmon_daemon_status()" to cover all steps below.
    [program:thermalctld]
    [program:xcvrd]
       ```
-   b. Find any daemon that isn't supported by the platform 
+   b. Find any daemon that isn't supported by the platform
       - Check the output of `sudo docker exec pmon bash -c '[ -f /usr/share/sonic/platform/pmon_daemon_control.json ] \
       && cat /usr/share/sonic/platform/pmon_daemon_control.json'`
       - Add each skip_<daemon_name> entry to a "skipped_daemons" list
@@ -100,9 +100,9 @@ Extend "check_pmon_daemon_status()" to cover all steps below.
    [program:syseepromd]
    [program:xcvrd]
       ```
-   
+
    e. Verify each daemon status using `sudo docker exec pmon supervisorctl status`
-      - compare the output with 
+      - compare the output with
       - Example) "skip_ledd"==true && "skip_thermalctld"==true && none of three config files in c. available
       ```
    admin@sonic:~$ sudo docker exec pmon supervisorctl status
@@ -124,10 +124,10 @@ Refer to daemon-specific dpis and atabase data verification procedure below.
 Perform the following steps for the list of the expected daemon
   - This flow will be able to be used for each daemon test (Test case #3 ~ #11) if it's applicable
 1. Verify the daemon is running and check if all expected DB data is populated
-2. Disable the critical process autorestart if it's enabled using [disable_and_enable_autorestart](https://github.com/Azure/sonic-mgmt/blob/73830827460750d88ba0a5de71bb5c79ad33c46e/tests/process_monitoring/test_critical_process_monitoring.py#L37)
+2. Disable the critical process autorestart if it's enabled using [disable_and_enable_autorestart](https://github.com/sonic-net/sonic-mgmt/blob/73830827460750d88ba0a5de71bb5c79ad33c46e/tests/process_monitoring/test_critical_process_monitoring.py#L37)
 3. Stop the daemon using `sudo docker exec pmon supervisorctl stop {daemon}`
-4. Verify the daemon is not running using `sudo docker exec pmon supervisorctl status {daemon}` 
-5. Verify all DB data is cleared if any DB data has been populated while daemon was running 
+4. Verify the daemon is not running using `sudo docker exec pmon supervisorctl status {daemon}`
+5. Verify all DB data is cleared if any DB data has been populated while daemon was running
 6. Restart the daemon using `sudo docker exec pmon supervisorctl start {daemon}`
 7. Verify the daemon is running using `sudo docker exec pmon supervisorctl status {daemon}`
 8. Verify all expected DB data is populated same as step 1.
@@ -138,7 +138,7 @@ Perform the following steps for the list of the expected daemon
 ## chassisd daemon
 ### Test objective
 Verify the expected data for chassisd daemon
-   - This test is covered by [PMON-Chassis-Enhancements-test-plan](https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Chassis-Enhancements-test-plan.md)
+   - This test is covered by [PMON-Chassis-Enhancements-test-plan](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Chassis-Enhancements-test-plan.md)
    - condition to start : "skip_chassisd" != true and [ -e "/usr/share/sonic/platform/chassisdb.conf" ]
 ### Test steps
 1. Verify the chassisd running status
