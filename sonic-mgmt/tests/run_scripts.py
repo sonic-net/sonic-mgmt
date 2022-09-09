@@ -287,7 +287,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,c
             tc_name = tc_name + "_" + drop_version
 
         print("Executing: {}\n".format(tc))
-        current_result_file.write("Executing: {}".format(tc));current_result_file.flush()
+        current_result_file.write("Executing: {}\n".format(tc));current_result_file.flush()
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
