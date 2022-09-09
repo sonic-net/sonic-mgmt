@@ -146,7 +146,7 @@ def repo_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("wget http://172.27.147.152/golden-code/golden_code.tar.gz\n")
+    chan.send("wget http://172.29.93.10/sonic-images/golden-code/golden_code.tar.gz\n")
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
