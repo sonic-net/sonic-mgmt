@@ -31,11 +31,16 @@ parameters:
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: "--disable_loganalyzer --sai_port_config=dx010-port_config.ini"
+    default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
+    type: boolean
+    default: false
+
+  - name: PREPARE_SAI_TB
+    displayName: "Prepare PTF env for SAI"
     type: boolean
     default: false
   
@@ -73,12 +78,7 @@ parameters:
     displayName: "Run warm reboot test"
     type: boolean
     default: false
-
-  - name: RUN_TEST
-    displayName: "Run Test"
-    type: boolean
-    default: false
-  
+ 
   - name: UPLOAD_TEST_REPORT
     displayName: "Upload Test Report"
     type: boolean
@@ -122,6 +122,7 @@ stages:
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+      PREPARE_SAI_TB: ${{ parameters.PREPARE_SAI_TB }}
       UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
       CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
       RECOVER_TOPO: ${{ parameters.RECOVER_TOPO }}
@@ -129,7 +130,7 @@ stages:
       ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
       ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
       ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
-      RUN_TEST: ${{ parameters.RUN_TEST }}
+      RUN_TEST: ${{ or(or(parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST), or( parameters.ENABLE_COMMUNITY_TEST, parameters.ENABLE_WARM_REBOOT_TEST )) }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}

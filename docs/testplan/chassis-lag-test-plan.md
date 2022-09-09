@@ -6,12 +6,12 @@
  - [Debuggability](#debuggability)
  - [Test Setup](#test-setup)
  - [Test Cases](#test-cases)
-     
-# Introduction 
 
-This is the test plan for LAG on SONIC Distributed VOQ System, as described in the [VOQ LAG HLD](https://github.com/Azure/SONiC/blob/2e05c6b8ac570fd237484a18e732a58eec004b9c/doc/voq/lag_hld.md)
+# Introduction
 
-The PR covered in this test plan is [Distributed VOQ LAG HLD PR 697](https://github.com/Azure/SONiC/pull/697/files#diff-77ea0c16b4ae9885fa0e388e81f6343c6bda0f24b999f93e64fcee8467df63fc)
+This is the test plan for LAG on SONIC Distributed VOQ System, as described in the [VOQ LAG HLD](https://github.com/sonic-net/SONiC/blob/2e05c6b8ac570fd237484a18e732a58eec004b9c/doc/voq/lag_hld.md)
+
+The PR covered in this test plan is [Distributed VOQ LAG HLD PR 697](https://github.com/sonic-net/SONiC/pull/697/files#diff-77ea0c16b4ae9885fa0e388e81f6343c6bda0f24b999f93e64fcee8467df63fc)
 
 ## Scope
 
@@ -45,7 +45,7 @@ The following are useful commands for validating the testcases that follow, in l
 
 # Test Setup
 
-These test cases will be run in the proposed [T2 topology](https://github.com/Azure/sonic-mgmt/blob/master/ansible/vars/topo_t2.yml). It is assumed that such a configuration is deployed on the chassis.
+These test cases will be run in the proposed [T2 topology](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t2.yml). It is assumed that such a configuration is deployed on the chassis.
 
 The pretest checks (prerequisite) will ensure that the LAGs and members are in configured correctly in the CHASSIS_DB, APPL_DB and ASIC_DB on each line card.
 
@@ -70,11 +70,11 @@ To verify SYSTEM_LAG_ID from SYSTEM_LAG_ID_TABLE on CHASSIS_DB
 ```
 admin@Linecard8:/$redis-dump -H 10.0.0.16 -p 6380 -d 12 -y -k "*SYSTEM_LAG_TABLE*"
 	  "SYSTEM_LAG_ID_TABLE": {
-	    "expireat": 1554651948.54161, 
-	    "ttl": -0.001, 
-	    "type": "hash", 
+	    "expireat": 1554651948.54161,
+	    "ttl": -0.001,
+	    "type": "hash",
 	    "value": {
-	      "Linecard8|Asic0|PortChannel0001": "1", 
+	      "Linecard8|Asic0|PortChannel0001": "1",
 	      "Linecard8|Asic0|PortChannel0002": "2"
 	    }
 	  }
@@ -83,22 +83,22 @@ admin@Linecard8:/$redis-dump -H 10.0.0.16 -p 6380 -d 12 -y -k "*SYSTEM_LAG_TABLE
   ```
   admin@Linecard8:/$ redis-dump -d 0 -y -k "*LAG_TABLE*"
 	  "LAG_TABLE:PortChannel0001": {
-	    "expireat": 1554687165.581525, 
-	    "ttl": -0.001, 
-	    "type": "hash", 
+	    "expireat": 1554687165.581525,
+	    "ttl": -0.001,
+	    "type": "hash",
 	    "value": {
-	      "admin_status": "up", 
-	      "mtu": "9100", 
+	      "admin_status": "up",
+	      "mtu": "9100",
 	      "oper_status": "up"
 	    }
-	  }, 
+	  },
 	  "LAG_TABLE:PortChannel0002": {
-	    "expireat": 1554687165.5814252, 
-	    "ttl": -0.001, 
-	    "type": "hash", 
+	    "expireat": 1554687165.5814252,
+	    "ttl": -0.001,
+	    "type": "hash",
 	    "value": {
-	      "admin_status": "up", 
-	      "mtu": "9100", 
+	      "admin_status": "up",
+	      "mtu": "9100",
 	      "oper_status": "up"
 	    }
 	  }
@@ -106,13 +106,13 @@ admin@Linecard8:/$redis-dump -H 10.0.0.16 -p 6380 -d 12 -y -k "*SYSTEM_LAG_TABLE
 
 To verify that the LAG is synchronized to local/remote ASIC_DB:
 ```
-on an asic 
-1. Get lag id for a lag from chassis db 
+on an asic
+1. Get lag id for a lag from chassis db
 
 2. admin@ixr-vdk-board4:~$ redis-cli -n 1 keys "*LAG:*"
  	1) "ASIC_STATE:SAI_OBJECT_TYPE_LAG:oid:0x20000000013fd"
 
-3. admin@ixr-vdk-board4:~$ redis-cli -n 1 hgetall "ASIC_STATE:SAI_OBJECT_TYPE_LAG:oid:0x20000000013fd" 
+3. admin@ixr-vdk-board4:~$ redis-cli -n 1 hgetall "ASIC_STATE:SAI_OBJECT_TYPE_LAG:oid:0x20000000013fd"
 	1) "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID"
 	2) "19"
 
@@ -148,7 +148,7 @@ Verify that when a LAG MEMBER is dynamically added via CLI on an ASIC, new membe
 
 ### Sample output
 ```
-admin@Linecard1:/etc/sonic$ redis-cli -n 0 keys "LAG_MEMBER_TABLE:*"  
+admin@Linecard1:/etc/sonic$ redis-cli -n 0 keys "LAG_MEMBER_TABLE:*"
 1) "LAG_MEMBER_TABLE:PortChannel0001:Ethernet2"
 2) "LAG_MEMBER_TABLE:PortChannel0002:Ethernet11"
 ```

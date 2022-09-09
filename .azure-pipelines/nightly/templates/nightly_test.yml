@@ -332,8 +332,12 @@ stages:
                     -r \
                     ${{ parameters.TESTBED_SPECIFIC }} \
                     -e "$PARAMS"
-                if [[ $? == 65 ]]; then
+                RUN_TESTS_RC=$?
+                if [[ $RUN_TESTS_RC == 65 ]]; then
                   echo "pretest failed. Please check the detailed log."
+                  exit 1
+                elif [[ $RUN_TESTS_RC == 10 ]]; then
+                  echo "Sanity check failed. Please check the detailed log."
                   exit 1
                 else
                   exit 0
@@ -478,8 +482,11 @@ stages:
                 python3 collect_azp_results.py $(Build.BuildId)
 
                 report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
-
-                python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} $report_upload_files SonicTestData
+                if [[ -z ${{ parameters.IMAGE_URL }} ]]; then
+                  python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} $report_upload_files SonicTestData
+                else
+                  python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} $report_upload_files SonicTestData
+                fi
             condition: always()
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)

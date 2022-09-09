@@ -44,7 +44,7 @@ str2-7260cx3-acs-root02,Ethernet42/1,str2-7260cx3-acs-fan-24,Ethernet64/1,100000
 str2-7260cx3-acs-root02,Ethernet43/1,str2-7260cx3-acs-fan-25,Ethernet64/1,100000,"1314-1373",Trunk
 str2-7260cx3-acs-root02,Ethernet47/1,str2-7260cx3-acs-fan-26,Ethernet64/1,100000,"1442-1501",Trunk
 str2-7260cx3-acs-root02,Ethernet48/1,str2-7260cx3-acs-fan-27,Ethernet64/1,100000,"1378-1437",Trunk
-str2-7260cx3-acs-root02,Ethernet49/1,str2-7260cx3-acs-fan-28,Ethernet64/1,100000,"1438-1441,1502-1505",Trunk
+str2-7260cx3-acs-root02,Ethernet49/1,str2-7260cx3-acs-fan-28,Ethernet64/1,100000,"1438-1441,1502-1505,3997-4000",Trunk
 str2-7260cx3-acs-root02,Ethernet50/1,str2-7260cx3-acs-fan-29,Ethernet64/1,100000,"1630-1633,1636-1665",Trunk
 str2-7260cx3-acs-root02,Ethernet52/1,str2-7260cx3-acs-fan-30,Ethernet64/1,100000,"2039-2068",Trunk
 str2-7260cx3-acs-root02,Ethernet56/1,str2-7260cx3-acs-fan-31,Ethernet64/1,100000,"1506-1565",Trunk
@@ -1641,6 +1641,10 @@ str2-7260cx3-acs-11,Ethernet248,str2-7260cx3-acs-fan-13,Ethernet34/1,50000,3993,
 str2-7260cx3-acs-11,Ethernet250,str2-7260cx3-acs-fan-13,Ethernet34/3,50000,3994,Access
 str2-7260cx3-acs-11,Ethernet252,str2-7260cx3-acs-fan-13,Ethernet35/1,50000,3995,Access
 str2-7260cx3-acs-11,Ethernet254,str2-7260cx3-acs-fan-13,Ethernet35/3,50000,3996,Access
+str2-bluefield-01,Ethernet0,str2-7260cx3-acs-fan-28,Ethernet9/1,100000,3997,Access
+str2-bluefield-01,Ethernet4,str2-7260cx3-acs-fan-28,Ethernet10/1,100000,3998,Access
+str2-bluefield-02,Ethernet0,str2-7260cx3-acs-fan-28,Ethernet11/1,100000,3999,Access
+str2-bluefield-02,Ethernet4,str2-7260cx3-acs-fan-28,Ethernet12/1,100000,4000,Access
 str2-7050qx-32s-acs-02,Ethernet0,str2-7260cx3-acs-fan-20,Ethernet1/1,40000,2000,Access
 str2-7050qx-32s-acs-02,Ethernet1,str2-7260cx3-acs-fan-20,Ethernet1/2,40000,2001,Access
 str2-7050qx-32s-acs-02,Ethernet2,str2-7260cx3-acs-fan-20,Ethernet1/3,40000,2002,Access

@@ -191,8 +191,12 @@
 {% endif %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
+{% elif 'M1' in dev %}
+{% set dev_type = 'MgmtLeafRouter' %}
+{% elif 'MX' in dev %}
+{% set dev_type = 'BmcMgmtToRRouter' %}
 {% else %}
-{% set dev_ytpe = 'Unknown' %}
+{% set dev_type = 'Unknown' %}
 {% endif %}
       <Device i:type="{{ dev_type }}">
          <Hostname>{{ dev }}</Hostname>

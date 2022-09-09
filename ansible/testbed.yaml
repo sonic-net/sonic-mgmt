@@ -1051,6 +1051,34 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms21-dpu-01
+  group-name: vms21-10
+  topo: appliance 
+  ptf_image_name: docker-ptf
+  ptf: vms21-10
+  ptf_ip: 10.64.247.29/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM21040
+  dut:
+    - str2-bluefield-01
+  auto_recover: 'True'
+  comment: lawlee
+
+- conf-name: vms21-dpu-02
+  group-name: vms21-11
+  topo: appliance 
+  ptf_image_name: docker-ptf
+  ptf: vms21-11
+  ptf_ip: 10.64.247.241/23
+  ptf_ipv6:
+  server: server_21
+  vm_base: VM21042
+  dut:
+    - str2-bluefield-02
+  auto_recover: 'True'
+  comment: lawlee
+
 - conf-name: vms28-t1-8102-02
   group-name: vms28-1
   topo: t1-64-lag

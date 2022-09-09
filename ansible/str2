@@ -56,6 +56,10 @@ all:
           ansible_host: 10.64.246.231
         vms21-9:
           ansible_host: 10.64.246.236
+        vms21-10:
+          ansible_host: 10.64.247.29
+        vms21-11:
+          ansible_host: 10.64.247.241
         vms18-3:
           ansible_host: 10.64.246.158
         vms24-2:
@@ -252,6 +256,9 @@ fanout:
     str2-z9332f-03:
       ansible_host: 10.3.146.229
       os: sonic
+    str2-z9332f-02:
+      ansible_host: 10.3.146.84
+      os: sonic
     str2-7260cx3-acs-fan-17:
       ansible_host: 10.3.146.77
     str2-7260cx3-acs-fan-18:
@@ -329,6 +336,7 @@ sonic:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
+    sonic_appliance:
 
 sonic_mlnx:
   vars:
@@ -1042,7 +1050,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
       ansible_host: 10.3.147.178
-      serial: FOC2508N29C
+      serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:39:F0 
     str2-8800-lc2-3:
       hwsku: 8800-LC-48H-O
@@ -1052,7 +1060,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
       loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
       ansible_host: 10.3.147.179
-      serial: FOC2508N29C
+      serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:38:60 
     str2-8800-lc3-3:
       hwsku: 8800-LC-48H-O
@@ -1062,7 +1070,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.147.180
-      serial: FOC2508N29C
+      serial: FOX2531P3F5
       base_mac: CC:ED:4D:86:C1:50 
 
 sonic_cisco_lc_400G:
@@ -1225,9 +1233,10 @@ sonic_cisco_sup:
     str2-8800-sup-3:
       ansible_host: 10.3.147.175
       hwsku: 8800-RP-O
+      model: '8808'
       num_asics: 16
       asic_name: Q200
-      serial: FOC2508N29C
+      serial: FOX2531P3F5
       base_mac: F8:7A:41:E4:1D:F8 
       skip_modules:
           'line-cards':
@@ -1387,31 +1396,6 @@ sonic_dell_z9332f:
   vars:
     iface_speed: 400000
   hosts:
-    str2-z9332f-02:
-      ansible_host: 10.3.146.84
-      hwsku: DellEMC-Z9332f-M-O16C64
-      model: 04CN21
-      serial: 8ZHXCW2
-      base_mac: C8:F7:50:EB:AE:C1
-      syseeprom_info:
-        "0x21": "Z9332F-ON"
-        "0x22": "04CN21"
-        "0x23": "TH04CN21CET009BR0030"
-        "0x24": "C8:F7:50:EB:AE:C1"
-        "0x25": "12/02/2019 10:38:54"
-        "0x26": "1"
-        "0x27": "A00"
-        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
-        "0x29": "0.0.3"
-        "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
-        "0x2D": "Dell EMC"
-        "0x2E": "0.5.1"
-        "0x2F": "8ZHXCW2"
-        "0xFD": ""
-        "0xFE": "0x98790533"
-      pdu_host: pdu-111
     str2-z9332f-05:
       ansible_host: 10.3.146.228
       hwsku: DellEMC-Z9332f-M-O16C64
@@ -1462,6 +1446,18 @@ sonic_dell_z9332f:
         "0xFD": ""
         "0xFE": "0x8D29EEBB"
       pdu_host: pdu-111
+
+sonic_appliance:
+  vars:
+    iface_speed: 100000
+  hosts:
+    str2-bluefield-01:
+      ansible_host: 10.64.246.248
+      hwsku: Nvidia-MBF2H536C
+    str2-bluefield-02:
+      ansible_host: 10.64.246.249
+      hwsku: Nvidia-MBF2H536C
+
 server:
   hosts:
     str2-acs-serv-16:

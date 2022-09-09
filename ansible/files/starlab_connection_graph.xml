@@ -5226,7 +5226,8 @@
       <PowerControlLinkInfo EndDevice="str-7260cx3-fan-06" EndPort="PSU1" StartDevice="pdu-107" StartPort="10"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-2" EndPort="PSU1" StartDevice="pdu-107" StartPort="31"/>
       <PowerControlLinkInfo EndDevice="str-e1031-acs-2" EndPort="PSU2" StartDevice="pdu-108" StartPort="31"/>
-      <PowerControlLinkInfo EndDevice="str-e1031-acs-4" EndPort="PSU1" StartDevice="pdu-113" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str-e1031-acs-4" EndPort="PSU1" StartDevice="pdu-112" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str-e1031-acs-4" EndPort="PSU2" StartDevice="pdu-113" StartPort="14"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU1" StartDevice="pdu-101" StartPort="27"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-02" EndPort="PSU1" StartDevice="pdu-101" StartPort="25"/>
       <PowerControlLinkInfo EndDevice="str-acs-serv-03" EndPort="PSU1" StartDevice="pdu-100" StartPort="21"/>

@@ -84,7 +84,7 @@ def assert_equal(actual, expected, message):
 def gnxi_path(ptfhost):
     """
     gnxi's location is updated from /gnxi to /root/gnxi
-    in RP https://github.com/Azure/sonic-buildimage/pull/10599.
+    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
     But old docker-ptf images don't have this update,
     test case will fail for these docker-ptf images,
     because it should still call /gnxi files.
