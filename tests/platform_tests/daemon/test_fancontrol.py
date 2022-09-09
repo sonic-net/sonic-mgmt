@@ -1,11 +1,11 @@
 """
 Check daemon status inside PMON container. Each daemon status is checked under the conditions below in this script:
-* Daemon Running Status 
+* Daemon Running Status
 * Daemon Stop status
 * Daemon Restart status
 
 This script is to cover the test case in the SONiC platform daemon and service test plan:
-https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
+https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
 import re
@@ -81,7 +81,7 @@ def test_pmon_fancontrol_running_status(duthosts, rand_one_dut_hostname):
 
 def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case is to check the fancontrol stopped and restarted status 
+    @summary: This test case is to check the fancontrol stopped and restarted status
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)

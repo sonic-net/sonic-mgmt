@@ -137,7 +137,7 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-# The sort factor values are got from https://github.com/Azure/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
+# The sort factor values are got from https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
 XCVR_SENSOR_PATTERN = {
     'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
     'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
@@ -345,8 +345,6 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not duthost.is_supervisor_node():
-        pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:
@@ -756,7 +754,8 @@ def redis_hgetall(duthost, db_id, key):
     content = output['stdout'].strip()
     if not content:
         return {}
-
+    # fix to make literal_eval() work with nested dictionaries
+    content = content.replace("'{", '"{').replace("}'", '}"')
     return ast.literal_eval(content)
 
 

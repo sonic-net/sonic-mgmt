@@ -12,7 +12,7 @@ First, we need to prepare the host where we will be configuring the virtual test
    1. Option : If your host is **Ubuntu 20.04**
 
         ```
-        sudo apt install python3 python3-pip
+        sudo apt install python3 python3-pip openssh-server
         ```
         If the server was upgraded from Ubuntu 18.04, check the default python version using command `python --version`. If the default python version is still 2.x, replace it with python3 using symbolic link:
         ```
@@ -20,7 +20,7 @@ First, we need to prepare the host where we will be configuring the virtual test
         ```
    2. Option : If your host is **Ubuntu 18.04**
         ```
-        sudo apt install python python-pip
+        sudo apt install python python-pip openssh-server
         # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
         sudo pip install j2cli==0.3.10
         ```
@@ -28,7 +28,7 @@ First, we need to prepare the host where we will be configuring the virtual test
 3. Run the host setup script to install required packages and initialize the management bridge network
 
 ```
-git clone https://github.com/Azure/sonic-mgmt
+git clone https://github.com/sonic-net/sonic-mgmt
 cd sonic-mgmt/ansible
 sudo ./setup-management-network.sh
 ```
@@ -63,7 +63,7 @@ The actual image version that is needed in the installation process is defined i
 
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
-1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
+1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
 
 2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
 
@@ -127,12 +127,12 @@ diff --git a/ansible/veos_vtb b/ansible/veos_vtb
 index 3e7b3c4e..edabfc40 100644
 --- a/ansible/veos_vtb
 +++ b/ansible/veos_vtb
-@@ -73,7 +73,7 @@ vm_host_1:
-   hosts:
+@@ -258,7 +258,7 @@ vm_host_1:
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
--      ansible_user: use_own_value
-+      ansible_user: foo
+       ansible_user: use_own_value
+-      vm_host_user: use_own_value
++      vm_host_user: foo
 
  vms_1:
    hosts:
