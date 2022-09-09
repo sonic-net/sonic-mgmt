@@ -8,7 +8,6 @@ import requests
 
 from ipaddress import ip_interface
 from jinja2 import Template
-from natsort import natsorted
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
