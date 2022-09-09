@@ -10,6 +10,9 @@ all:
         fanout:
         server:
     ptf:
+      vars:
+        ansible_user: root
+        ansible_password: root
       hosts:
         bjw6-1:
           ansible_host: 10.150.23.50
