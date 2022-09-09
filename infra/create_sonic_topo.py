@@ -668,6 +668,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     later = datetime.datetime.now() + datetime.timedelta(hours=6)
     while True:
         chan.send('ps -ef | grep run_scripts.py\n')
@@ -676,8 +677,13 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         print(resp.decode("ascii"))
 
         if script_file in resp.decode("ascii"):
+            time.sleep(150)
+            chan.send('cat ~/golden-code/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
+            time.sleep(3)
+            resp = chan.recv(9999)
+            print(resp.decode("ascii"))
             if datetime.datetime.now() < later:
-                time.sleep(300)
+                time.sleep(150)
             else:
                 print("Looks like test is taking longer than six hours. Check list of sanity scripts or increase time to wait")
                 break
