@@ -121,7 +121,7 @@ interface {{ intf }}
 !
 interface Management 1
  description TO LAB MGMT SWITCH
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }}/{{ hostvars[inventory_hostname].mgmt_subnet_mask_length }}
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
  no shutdown
 !
 # LACP packets pass through

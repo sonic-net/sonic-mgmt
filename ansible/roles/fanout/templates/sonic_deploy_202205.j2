@@ -1,0 +1,376 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hwsku": "{{ fanout_hwsku}}",
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+
+    "PORT": {
+    {% for alias in fanout_port_config %}
+        "{{ fanout_port_config[alias]['name'] }}": {
+            "alias": "{{ alias }}",
+            "speed" : "{{ fanout_port_config[alias]['speed'] | default('100000') }}",
+            "index": "{{ fanout_port_config[alias]['index'] }}",
+            "lanes": "{{ fanout_port_config[alias]['lanes'] }}",
+            "pfc_asym": "off",
+            "mtu": "9100",
+    {% if fanout_port_config[alias]['speed'] | default('100000') == "100000" %}
+            "fec" : "rs",
+    {% endif %}
+    {% if 'peerdevice' in fanout_port_config[alias] %}
+            "admin_status": "up"
+    {% else %}
+            "admin_status": "down"
+    {% endif %}
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "VLAN": {
+    {% for vlanid in device_vlan_list[inventory_hostname] | unique %}
+        "Vlan{{ vlanid }}": {
+            "vlanid": "{{ vlanid }}"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    {% set ns = {'firstPrinted': False} %}
+    "VLAN_MEMBER": {
+    {% for alias in device_port_vlans[inventory_hostname] %}
+    {% if device_port_vlans[inventory_hostname][alias]['mode'] == 'Access' %}
+    {% if ns.firstPrinted %},{% endif %}
+        "Vlan{{ device_port_vlans[inventory_hostname][alias]['vlanids'] }}|{{ fanout_port_config[alias]['name'] }}": {
+            "tagging_mode" : "untagged"
+        }
+    {% if ns.update({'firstPrinted': True}) %} {% endif %}
+    {% elif device_port_vlans[inventory_hostname][alias]['mode'] == 'Trunk' %}
+    {% for vlanid in device_port_vlans[inventory_hostname][alias]['vlanlist'] %}
+    {% if ns.firstPrinted %},{% endif %}
+        "Vlan{{ vlanid }}|{{ fanout_port_config[alias]['name'] }}": {
+            "tagging_mode" : "tagged"
+        }
+    {% if ns.update({'firstPrinted': True}) %} {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
+    },
+
+    "MGMT_INTERFACE": {
+        "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
+            "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+
+    "FLEX_COUNTER_TABLE": {
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "enable"
+        }
+    },
+
+    "QUEUE": {
+    {% for alias in fanout_port_config %}
+        "{{ fanout_port_config[alias]['name'] }}|0": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|1": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|2": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|3": {
+            "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+            "scheduler": "[SCHEDULER|scheduler.1]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|4": {
+            "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+            "scheduler": "[SCHEDULER|scheduler.1]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|5": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|6": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "BUFFER_QUEUE": {
+    {% for alias in fanout_port_config %}
+        "{{ fanout_port_config[alias]['name'] }}|0-2": {
+            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|3-4": {
+            "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|5-6": {
+            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "BUFFER_PG": {
+    {% for alias in fanout_port_config %}
+        "{{ fanout_port_config[alias]['name'] }}|0": {
+            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+        },
+        "{{ fanout_port_config[alias]['name'] }}|3-4": {
+            "profile": "[BUFFER_PROFILE|pg_lossless_100000_300m_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "CABLE_LENGTH": {
+        "AZURE": {
+    {% for alias in fanout_port_config %}
+        "{{ fanout_port_config[alias]['name'] }}": "300m"{% if not loop.last %},{% endif %}
+    {% endfor %}
+        }
+    },
+
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_1_0_1"
+        }
+    },
+
+    "PFC_WD": {
+        "GLOBAL": {
+            "POLL_INTERVAL": "200"
+        }
+    },
+
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "14"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "15"
+        }
+    },
+
+    "WRED_PROFILE": {
+        "AZURE_LOSSLESS": {
+            "red_max_threshold": "2097152",
+            "red_drop_probability": "5",
+            "wred_green_enable": "true",
+            "ecn": "ecn_all",
+            "green_min_threshold": "250000",
+            "red_min_threshold": "1048576",
+            "wred_yellow_enable": "true",
+            "yellow_min_threshold": "1048576",
+            "green_max_threshold": "2097152",
+            "green_drop_probability": "5",
+            "yellow_max_threshold": "2097152",
+            "yellow_drop_probability": "5",
+            "wred_red_enable": "true"
+        }
+    },
+
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "14"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "15"
+        }
+    },
+
+    "BUFFER_POOL": {
+        "egress_lossless_pool": {
+            "type": "egress",
+            "mode": "static",
+            "size": "15982720"
+        },
+        "egress_lossy_pool": {
+            "type": "egress",
+            "mode": "dynamic",
+            "size": "9243812"
+        },
+        "ingress_lossless_pool": {
+            "xoff": "4194112",
+            "type": "ingress",
+            "mode": "dynamic",
+            "size": "10875072"
+        }
+    },
+
+    "BUFFER_PROFILE": {
+        "egress_lossless_profile": {
+            "static_th": "15982720",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "1518"
+        },
+        "egress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "1518"
+        },
+        "ingress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "pg_lossless_100000_300m_profile": {
+            "xon_offset": "2288",
+            "dynamic_th": "0",
+            "xon": "2288",
+            "xoff": "268736",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "1248"
+        }
+    },
+
+    "FEATURE": {
+        "acms": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "mux": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "bgp": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "database": {
+            "state": "always_enabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": true,
+            "auto_restart": "always_enabled",
+            "high_mem_alert": "disabled"
+        },
+        "dhcp_relay": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "lldp": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "pmon": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "radv": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "snmp": {
+            "state": "enabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "swss": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "syncd": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "teamd": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "mgmt-framework": {
+            "state": "disabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "nat": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "sflow": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "telemetry": {
+            "state": "disabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "restapi": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        }
+    }
+}
