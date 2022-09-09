@@ -1594,13 +1594,13 @@
   comment: Chasiss Testbed
   
 - conf-name: bjw-vms6-t0-720dt-1
-  group-name: bjw-vms6-1
+  group-name: bjw6-1
   topo: t0-52
   ptf_image_name: docker-ptf
-  ptf: bjw-vms6-1
+  ptf: bjw6-1
   ptf_ip: 10.150.23.50/23
   ptf_ipv6:
-  server: bjw-can-serv-6
+  server: server_bjw_6
   vm_base: VM56000
   dut:
     - bjw-can-720dt-1

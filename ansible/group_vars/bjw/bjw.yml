@@ -25,6 +25,8 @@ radius_servers: []
 #'TacacsGroup' in minigraph
 tacacs_group: 'BeijingLab'
 
+tacacs_servers: []
+
 # tacacs facts required for pytest
 tacacs_passkey: testing123
 
