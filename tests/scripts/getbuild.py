@@ -10,6 +10,7 @@ _start_time = None
 _last_time = None
 artifact_size = 0
 NOT_FOUND_BUILD_ID = -999
+MAX_DOWNLOAD_TIMES = 3
 
 
 def reporthook(count, block_size, total_size):
@@ -93,13 +94,21 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
         filename = "{}.zip".format(platform)
 
     if url.startswith('http://') or url.startswith('https://'):
-        print('Downloading {} from build {}...'.format(filename, buildid))
         validate_url_or_abort(url)
-        try:
-            urlretrieve(url, filename, reporthook)
-        except Exception as e:
-            print("Download error", e)
-            sys.exit(1)
+        download_times = 0
+        while download_times < MAX_DOWNLOAD_TIMES:
+            try:
+                print('Downloading {} from build {}...'.format(filename, buildid))
+                download_times += 1
+                urlretrieve(url, filename, reporthook)
+                print('\nDownload finished!')
+                break
+            except Exception as e:
+                print("Download error", e)
+                if download_times < MAX_DOWNLOAD_TIMES:
+                    continue
+                else:
+                    sys.exit(1)
 
 def find_latest_build_id(branch, success_flag = "succeeded"):
     """find latest successful build id for a branch"""
