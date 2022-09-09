@@ -678,7 +678,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
 
         if script_file in resp.decode("ascii"):
             time.sleep(150)
-            chan.send('cat ~/golden-code/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
+            chan.send('cat /data/tests/{} \n'.format(result_file))
             time.sleep(3)
             resp = chan.recv(9999)
             print(resp.decode("ascii"))
