@@ -753,7 +753,7 @@ def create_report_html(data,log_dir):
     print(resp.decode("ascii"))
     ssh.close()
 
-def get_log_files(data):
+def get_log_files(data,log_dir):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -766,29 +766,29 @@ def get_log_files(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests\n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests/{} \n".format(log_dir))
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     chan.send("tar -cvf sanity_logs.tar *.log \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     chan.send("gzip sanity_logs.tar \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests$ '):
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     ftp_client=ssh.open_sftp()
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/sanity_logs.tar.gz','sanity_logs.tar.gz')
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(log_dir),'sanity_logs.tar.gz')
     ftp_client.close() 
     ssh.close()
 
@@ -956,7 +956,7 @@ def main():
         delta4 = datetime.datetime.now()
         create_report_html(data,log_dir)
         get_report_file(data)
-        get_log_files(data)
+        get_log_files(data,log_dir)
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
