@@ -307,11 +307,11 @@ class TestFaultHandling():
         # Flap > 6 seconds but < 90 seconds
         if isinstance(nbr["host"], EosHost):
             nbr["host"].shutdown(nbr_eth_port)
-            sleep(TestFaultHandling.MKA_TIMEOUT)
+            sleep(TestFaultHandling.MKA_TIMEOUT * 2)
             nbr["host"].no_shutdown(nbr_eth_port)
         else:
             nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
-                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT * 2, nbr_eth_port))
 
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
