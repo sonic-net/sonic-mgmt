@@ -9,7 +9,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
-from tests.common.cisco_data import get_ecn_markings_dut, setup_ecn_markings_dut
+from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
@@ -66,8 +66,8 @@ def test_red_accuracy(request,
     result_file_name = 'result.txt'
 
     if cisco_platform:
-        original_ecn_markings = get_ecn_markings_dut(duthost)
-        setup_ecn_markings_dut(duthost, localhost, dequeue = True, latency = False)
+        original_ecn_markings = get_markings_dut(duthost)
+        setup_markings_dut(duthost, localhost, dequeue = True, latency = False)
 
     try:
         ip_pkts_list = run_ecn_test(api=ixia_api,
@@ -116,5 +116,5 @@ def test_red_accuracy(request,
         f.close()
     finally:
         if cisco_platform:
-            setup_ecn_markings_dut(duthost, localhost, **original_ecn_markings)
+            setup_markings_dut(duthost, localhost, **original_ecn_markings)
 

@@ -8,7 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
-from tests.common.cisco_data import  get_ecn_markings_dut, setup_ecn_markings_dut
+from tests.common.cisco_data import  get_markings_dut, setup_markings_dut
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
@@ -62,7 +62,7 @@ def test_dequeue_ecn(request,
     pkt_cnt = 100
 
     if cisco_platform:
-        original_ecn_markings = get_ecn_markings_dut(duthost)
+        original_ecn_markings = get_markings_dut(duthost)
         setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
         oq_cell_count = 100      # Number of cells in OQ for this lossless priority 
         cell_size = 384
@@ -104,4 +104,4 @@ def test_dequeue_ecn(request,
                       "The last packet should not be marked")
     finally:
          if cisco_platform:
-            setup_ecn_markings_dut(duthost, localhost, **original_ecn_markings)
+            setup_markings_dut(duthost, localhost, **original_ecn_markings)
