@@ -1,5 +1,7 @@
 import logging
 import re
+from tests.common.devices.eos import EosHost
+import json
 
 import ipaddr as ipaddress
 import pytest
@@ -68,6 +70,50 @@ def get_traffic_shift_state(host):
     if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
     pytest.fail("TSC return unexpected state {}".format("ERROR"))
+
+
+def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
+    mg_facts = dut_host.minigraph_facts(host=dut_host.hostname)['ansible_facts']
+    asn = mg_facts['minigraph_bgp_asn']
+    neigh_host_items = neigh_hosts.items()
+    all_routes = {}
+
+    host_name_map = {}
+    for hostname, neigh_host in neigh_hosts.items():
+        host_name_map[neigh_host['host'].hostname] = hostname
+
+    def parse_routes_process_vsonic(node=None, results=None):
+        hostname = host_name_map[node['host'].hostname]
+        host = node['host']
+        peer_ips = node['conf']['bgp']['peers'][asn]
+
+        for ip in peer_ips:
+            if ipaddress.IPNetwork(ip).version == 4:
+                peer_ip_v4 = ip
+            else:
+                peer_ip_v6 = ip
+
+        if 4 == ip_ver:
+            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv4'  -c 'neighbor {} soft-reconfiguration inbound' ".format(
+                    peer_ip_v4)
+            bgp_nbr_cmd = "sudo vtysh -c 'show ip bgp neighbors {} received-routes json'".format(peer_ip_v4)
+        else:
+            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv6'  -c 'neighbor {} soft-reconfiguration inbound' ".format(
+                    peer_ip_v6)
+            bgp_nbr_cmd = "sudo vtysh -c 'show bgp ipv6 neighbors {} received-routes json'".format(peer_ip_v6)
+
+        host.shell(conf_cmd)
+        res = host.shell(bgp_nbr_cmd)
+        routes_json = json.loads(res['stdout'])['receivedRoutes']
+
+        routes = {}
+        for a_route in routes_json:
+            # empty community string
+            routes[a_route] = ""
+        all_routes[hostname] = routes
+
+    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(), timeout=120, concurrent_tasks=8)
+    return all_routes
 
 
 def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
@@ -143,22 +189,32 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
+def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver):
+    if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+        routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
+    else:
+        routes_on_all_nbrs = parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver)
+    return routes_on_all_nbrs
+
+
 def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_ver):
     """
     Verify all routes are announced to neighbors in TSB
     """
     logger.info("Verifying all routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
-    routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
+    routes_on_all_nbrs = parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver)
     # Check routes on all neigh
-    for hostname, routes in routes_on_all_eos.items():
+    for hostname, routes in routes_on_all_nbrs.items():
         logger.info("Verifying all routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for route, aspaths in routes_dut.iteritems():
             # Filter out routes announced by this neigh
             skip = False
-            for aspath in aspaths:
-                if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
-                    skip = True
-                    break
+            # We will skip aspath on KVM since KVM does not support aspath
+            if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                for aspath in aspaths:
+                    if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
+                        skip = True
+                        break
             if skip:
                 continue
             if route not in routes.keys():
@@ -181,16 +237,17 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
         lo_addr = lo_addr_v4
     else:
         lo_addr = lo_addr_v6
-    routes_on_all_eos = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
-    for hostname, routes in routes_on_all_eos.items():
+    routes_on_all_nbrs = parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver)
+    for hostname, routes in routes_on_all_nbrs.items():
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         for prefix, received_community in routes.iteritems():
             if ipaddress.IPNetwork(prefix) != lo_addr:
                 logger.warn("route for {} is found on {}, which is not in loopback address".format(prefix, hostname))
                 return False
-            if received_community != community:
-                logger.warn("community for route {} is unexpected {}".format(prefix, received_community))
-                return False
+            if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                if received_community != community:
+                    logger.warn("community for route {} is unexpected {}".format(prefix, received_community))
+                    return False
     return True
 
 
@@ -236,7 +293,7 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
                         "Not all routes are announced to bgpmon")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
-                      "Failed to verify routes on eos in TSA")
+                      "Failed to verify routes on nbr in TSA")
     finally:
         # Recover to Normal state
         duthost.shell("TSB")
@@ -328,7 +385,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                           "Not all routes are announced to bgpmon")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
-                      "Failed to verify routes on eos in TSA")
+                      "Failed to verify routes on nbr in TSA")
     finally:
         """
         Test TSB after config save and config reload
@@ -374,7 +431,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                           "Not all routes are announced to bgpmon")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
-                      "Failed to verify routes on eos in TSA")
+                     "Failed to verify routes on nbr in TSA")
     finally:
         """
         Recover with TSB and verify route advertisement
