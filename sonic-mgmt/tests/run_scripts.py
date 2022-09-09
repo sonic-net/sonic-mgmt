@@ -197,6 +197,130 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,colle
 
     print("Total time : {} mins".format(minutes))
 
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,collect_logs=False,dut_address=None):
+    if drop_version is not None:
+        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
+    else:
+        filename = 'ongoing_result_{}.csv'.format(tstamp)
+    if log_dir is not None:
+        log_dir = '/data/tests/{}'.format(log_dir)
+    else:
+        log_dir = '/data/tests/run_logs'
+    current_result_file = open(filename, 'w')
+    report_file = open('full_report.txt', 'w')
+    tcs_file = open(script_file, 'r')
+    tcs = tcs_file.readlines()
+    total_passed = 0
+    total_failed = 0
+    total_skipped = 0
+    total_error = 0
+    final_total = 0
+    ssh_port = 22
+    dut_uname = 'cisco'
+    dut_passwd = 'cisco123'
+    if collect_logs and dut_address is not None:
+        cmd_list = list()
+        cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))
+        cmd_list.append('sudo rm /var/log/swss/*.gz\n')
+        cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}\n'.format(drop_version))
+        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
+        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+    delta1 = datetime.datetime.now()
+    tc_name = "bgp_fact"
+    cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+    os.system("bash -c '{}'".format(cmd))
+    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    if not int(passed):
+        print("Iteration1: Rerunning the script, making sure that DUT is up\n")
+        current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
+        current_result_file.flush()
+        time.sleep(60)
+        cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+        os.system("bash -c '{}'".format(cmd))
+        passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+        if not int(passed):
+            print("Iteration2: Rerunning the script, making sure that DUT is up\n")
+            current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
+            current_result_file.flush()
+            time.sleep(60)
+            cmd = "./run_tests.sh -n {} -d {} -O -u -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+            os.system("bash -c '{}'".format(cmd))
+        
+    total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
+    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
+    skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l", shell=True).strip()
+    errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
+    time.sleep(10)
+    final_total += int(total_tests)
+    total_passed += int(passed)
+    total_failed += int(failed)
+    total_skipped += int(skipped)
+    total_error += int(errored)
+
+    print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
+
+    if collect_logs and dut_address is not None:
+        cmd_list = list()
+        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+    if not int(passed):
+        current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
+        current_result_file.flush()
+        report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
+        report_file.flush()
+        sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+
+    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
+    current_result_file.flush()
+    for tc in tcs:
+        if '#' in tc:
+            continue
+        tc = tc.strip()
+        tc_name = tc.split('/')
+        tc_name = tc_name[len(tc_name)-1].split('.')[0]
+        if drop_version is not None:
+            tc_name = tc_name + "_" + drop_version
+
+        print("Executing: {}".format(tc))
+
+        if collect_logs and dut_address is not None:
+            cmd_list = list()
+            cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
+            cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
+            cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+            cmd_list.append('sudo rm /var/log/syslog.*\n')
+            cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
+            cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
+            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+        cmd = "./run_tests.sh -n {} -d {} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        os.system("bash -c '{}'".format(cmd))
+                
+        if collect_logs and dut_address is not None:
+            cmd_list = list()
+            cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+            cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
+            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+    
+    current_result_file.close()
+    report_file.close()
+
+    delta2 = datetime.datetime.now()
+    print(delta2)
+    time_delta = (delta2 - delta1)
+    print(time_delta)
+    total_seconds = time_delta.total_seconds()
+    minutes = total_seconds/60
+
+    print("Total time : {} mins".format(minutes))
+
 def parse_results():
     total_passed = 0
     total_failed = 0
@@ -261,7 +385,7 @@ def main():
         parse_results()
     else:
         if not collect_logs:
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')

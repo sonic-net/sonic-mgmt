@@ -180,7 +180,7 @@ def repo_update(data):
 
     ssh.close()
 
-def deploy_mg(data,base_topo_file):
+def deploy_mg(data,topo_type,base_topo_file):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -204,6 +204,18 @@ def deploy_mg(data,base_topo_file):
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
+
+    if topo_type in ['dualtor-56', 'dualtor-56-4']:
+        chan.send('echo "    docker-ptf: 8080">>/data/ansible/group_vars/all/mux_simulator_http_port_map.yml \n')
+        time.sleep(3)
+        resp = chan.recv(9999)
+        print(resp.decode("ascii"))
+
+    if topo_type == 'dualtor-56-4':
+        chan.send('cp /data/ansible/vars/topo_dualtor-56-4.yml /data/ansible/vars/topo_dualtor-56.yml \n')
+        time.sleep(3)
+        resp = chan.recv(9999)
+        print(resp.decode("ascii"))
 
     chan.send('python TestbedProcessing.py -i {} \n'.format(base_topo_file))
     time.sleep(3)
@@ -551,11 +563,6 @@ def add_vEOS_cfg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('unset HTTP_PROXY https_proxy http_proxy no_proxy NO_PROXY HTTPS_PROXY \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-
     chan.send('./testbed-cli.sh -t testbed.csv -m veos add-topo docker-ptf password.txt\n')
     chan.settimeout(180)
     buff = ''
@@ -649,38 +656,33 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
     resp = chan.recv(9999)
-    #print(resp.decode("ascii"))
 
-    chan.send('exit \n')
+    chan.send('exit\n')
+    time.sleep(10)
+
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
 
-    tcs_file = open("./../sonic-mgmt/tests/"+script_file, 'r')
-    tcs = tcs_file.readlines()
-    for tc in tcs:
-        if '#' in tc:
-            continue
-        tc = tc.strip()
-        tc_name = tc.split('/')
-        tc_name = tc_name[len(tc_name)-1].split('.')[0]
-
-
-    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    later = datetime.datetime.now() + datetime.timedelta(hours=2)
+    later = datetime.datetime.now() + datetime.timedelta(hours=6)
     while True:
-        chan.send('cat ~/golden-code/sonic-test/sonic-mgmt/tests/{} \n'.format(result_file))
+        chan.send('ps -ef | grep run_scripts.py\n')
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii"))
-        if 'Total' in resp.decode("ascii") or 'Exiting' in resp.decode("ascii"):
-            break
-        else:
+
+        if script_file in resp.decode("ascii"):
             if datetime.datetime.now() < later:
                 time.sleep(300)
             else:
-                print("Looks like test is taking longer than two hours. Check list of sanity scripts or increase time to wait")
+                print("Looks like test is taking longer than six hours. Check list of sanity scripts or increase time to wait")
                 break
+        else:
+            break
 
     ssh.close()
     delta2 = datetime.datetime.now()
@@ -691,10 +693,37 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     print("Total run time for sanity suite: {} mins".format(minutes))
     return minutes
 
+def parse_report(output):
+    report_file = open('full_report.txt', 'w')
+    out = output.split('\n')
+    total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
+    for line in out:
+        if 'total' not in line:
+            continue
+        print(line)
+        report_file.write(line + "\n")
+        report_file.flush()
+        tc = line.split(',')
+        total += int(tc[1].strip(' ').split(' ')[0])
+        passed += int(tc[2].strip(' ').split(' ')[0])
+        fail += int(tc[3].strip(' ').split(' ')[0])
+        skip += int(tc[4].strip(' ').split(' ')[0])
+        error += int(tc[5].strip(' ').split(' ')[0])
+        xfail += int(tc[6].strip(' ').split(' ')[0])
+    resp = "Total TCs: {}, {} Pass, {} Fail, {} Skipped, {} Error {} xFail\n".format(total,passed,fail,skip,error,xfail)
+    report_file.write("=================================================================\n")
+    print("=================================================================\n")
+    print(resp)
+    report_file.write(resp  + "\n")
+    report_file.flush()
+    report_file.close()
+    return resp
+
 def create_report_html(data,log_dir):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -703,6 +732,13 @@ def create_report_html(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
+        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{}\n'.format(log_dir))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    resp = parse_report(resp.decode("ascii"))
+    
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
     time.sleep(3)
     resp = chan.recv(9999)
@@ -797,6 +833,10 @@ def main():
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
         base_topo_file = 'testbed-mth64-t0-dualtor.yaml'
+    elif topo_type == 'dualtor-56-4':
+        os.system("cp sonic_dualtor_56/* .")
+        vEOS_count = 4
+        base_topo_file = 'testbed-mth64-t0-dualtor-4.yaml'
     elif topo_type == 't1-64-lag':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1-64-lag.yaml'
@@ -876,7 +916,7 @@ def main():
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
-    deploy_mg(data,base_topo_file)
+    deploy_mg(data,topo_type,base_topo_file)
 
     # Add vEOS config
     print("********** Add vEOS config ***********")
