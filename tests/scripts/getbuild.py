@@ -140,6 +140,7 @@ def main():
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
+        print('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(buildid_succ, buildid_partial))
         if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
             raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
         buildid = max(buildid_succ, buildid_partial)
