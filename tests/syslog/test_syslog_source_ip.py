@@ -409,8 +409,8 @@ class TestSSIP:
             tcpdump_interface = routed_interfaces[0]
         else:
             tcpdump_interface = vrf
-        tcpdump_cmd = "sudo timeout 30 tcpdump -i {interface} port {port} -w {dut_pcap_file}".format(
-            interface=tcpdump_interface, port=port if port else SYSLOG_DEFAULT_PORT,
+        tcpdump_cmd = "sudo timeout {tcpdump_capture_time} tcpdump -i {interface} port {port} -w {dut_pcap_file}".format(
+            tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface, port=port if port else SYSLOG_DEFAULT_PORT,
             dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
         tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd)
         return tcpdump_file

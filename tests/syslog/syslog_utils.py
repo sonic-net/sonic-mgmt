@@ -8,6 +8,9 @@ import os
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump_{vrf}.pcap"
 DOCKER_TMP_PATH = "/tmp/"
+TCPDUMP_CAPTURE_TIME = 30
+# TSHARK_START_TIME should be smaller than TCPDUMP_CAPTURE_TIME
+TSHARK_START_TIME = 5 if 5 < TCPDUMP_CAPTURE_TIME else TCPDUMP_CAPTURE_TIME*0.5
 
 
 def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
@@ -110,7 +113,7 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     dut.shell("sudo rm -f {}".format(pcap_file_full_path))
     tcpdump_task, tcpdump_result = dut.shell(tcpdump_cmd, module_async=True)
     # wait for starting tcpdump
-    time.sleep(5)
+    time.sleep(TSHARK_START_TIME)
 
     logging.debug("Generating log message from DUT")
     # Generate syslog msgs from the DUT
