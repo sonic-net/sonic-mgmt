@@ -307,11 +307,11 @@ class TestFaultHandling():
         # Flap > 6 seconds but < 90 seconds
         if isinstance(nbr["host"], EosHost):
             nbr["host"].shutdown(nbr_eth_port)
-            sleep(TestFaultHandling.MKA_TIMEOUT)
+            sleep((TestFaultHandling.MKA_TIMEOUT + TestFaultHandling.LACP_TIMEOUT) // 2)
             nbr["host"].no_shutdown(nbr_eth_port)
         else:
             nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
-                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+                nbr_eth_port, (TestFaultHandling.MKA_TIMEOUT + TestFaultHandling.LACP_TIMEOUT) // 2, nbr_eth_port))
 
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
@@ -414,25 +414,25 @@ class TestInteropProtocol():
         LLDP_TIMEOUT = LLDP_ADVERTISEMENT_INTERVAL * LLDP_HOLD_MULTIPLIER
 
         # select one macsec link
-        for ctrl_port, nbr in ctrl_links.items():
-            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
-                            lambda: nbr["name"] in get_lldp_list(duthost))
+        ctrl_port, nbr = ctrl_links.items()[0]
+        assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                        lambda: nbr["name"] in get_lldp_list(duthost))
 
-            disable_macsec_port(duthost, ctrl_port)
-            disable_macsec_port(nbr["host"], nbr["port"])
-            wait_until(20, 3, 0,
-                lambda: not duthost.iface_macsec_ok(ctrl_port) and
-                        not nbr["host"].iface_macsec_ok(nbr["port"]))
-            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
-                            lambda: nbr["name"] in get_lldp_list(duthost))
+        disable_macsec_port(duthost, ctrl_port)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        wait_until(20, 3, 0,
+            lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                    not nbr["host"].iface_macsec_ok(nbr["port"]))
+        assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                        lambda: nbr["name"] in get_lldp_list(duthost))
 
-            enable_macsec_port(duthost, ctrl_port, profile_name)
-            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-            wait_until(20, 3, 0,
-                lambda: duthost.iface_macsec_ok(ctrl_port) and
-                        nbr["host"].iface_macsec_ok(nbr["port"]))
-            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
-                            lambda: nbr["name"] in get_lldp_list(duthost))
+        enable_macsec_port(duthost, ctrl_port, profile_name)
+        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        wait_until(20, 3, 0,
+            lambda: duthost.iface_macsec_ok(ctrl_port) and
+                    nbr["host"].iface_macsec_ok(nbr["port"]))
+        assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
+                        lambda: nbr["name"] in get_lldp_list(duthost))
 
     @pytest.mark.disable_loganalyzer
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
@@ -451,34 +451,34 @@ class TestInteropProtocol():
             return fact["state"] == "Established"
 
         # Ensure the BGP sessions have been established
-        for ctrl_port in ctrl_links.keys():
-            assert wait_until(BGP_TIMEOUT, 5, 0,
-                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
+        ctrl_port = ctrl_links.keys()[0]
+        assert wait_until(BGP_TIMEOUT, 5, 0,
+                          check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec disabled
-        for ctrl_port, nbr in ctrl_links.items():
-            disable_macsec_port(duthost, ctrl_port)
-            disable_macsec_port(nbr["host"], nbr["port"])
-            wait_until(BGP_TIMEOUT, 3, 0,
-                lambda: not duthost.iface_macsec_ok(ctrl_port) and
-                        not nbr["host"].iface_macsec_ok(nbr["port"]))
-            # BGP session should keep established even after holdtime
-            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
-                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
+        ctrl_port, nbr = ctrl_links.items()[0]
+        disable_macsec_port(duthost, ctrl_port)
+        disable_macsec_port(nbr["host"], nbr["port"])
+        wait_until(BGP_TIMEOUT, 3, 0,
+            lambda: not duthost.iface_macsec_ok(ctrl_port) and
+                    not nbr["host"].iface_macsec_ok(nbr["port"]))
+        # BGP session should keep established even after holdtime
+        assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
+                          check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
-        for ctrl_port, nbr in ctrl_links.items():
-            enable_macsec_port(duthost, ctrl_port, profile_name)
-            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-            wait_until(BGP_TIMEOUT, 3, 0,
-                lambda: duthost.iface_macsec_ok(ctrl_port) and
-                        nbr["host"].iface_macsec_ok(nbr["port"]))
-            # Wait PortChannel up, which might flap if having one port member
-            wait_until(BGP_TIMEOUT, 5, 5, lambda: find_portchannel_from_member(
-                ctrl_port, get_portchannel(duthost))["status"] == "Up")
-            # BGP session should keep established even after holdtime
-            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
-                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
+        ctrl_port, nbr = ctrl_links.items()[0]
+        enable_macsec_port(duthost, ctrl_port, profile_name)
+        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        wait_until(BGP_TIMEOUT, 3, 0,
+            lambda: duthost.iface_macsec_ok(ctrl_port) and
+                    nbr["host"].iface_macsec_ok(nbr["port"]))
+        # Wait PortChannel up, which might flap if having one port member
+        wait_until(BGP_TIMEOUT, 5, 5, lambda: find_portchannel_from_member(
+            ctrl_port, get_portchannel(duthost))["status"] == "Up")
+        # BGP session should keep established even after holdtime
+        assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
+                          check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
     def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
         '''
@@ -487,20 +487,22 @@ class TestInteropProtocol():
         if duthost.is_multi_asic:
             pytest.skip("The test is for Single ASIC devices")
 
-        for ctrl_port, nbr in ctrl_links.items():
-            if isinstance(nbr["host"], EosHost):
-                result = nbr["host"].eos_command(
-                    commands=['show snmp community | include name'])
-                community = re.search(r'Community name: (\S+)',
-                                      result['stdout'][0]).groups()[0]
-            else:  # vsonic neighbour
-                community = creds['snmp_rocommunity']
+        ctrl_port, nbr = ctrl_links.items()[0]
+        if isinstance(nbr["host"], EosHost):
+            result = nbr["host"].eos_command(
+                commands=['show snmp community | include name'])
+            community = re.search(r'Community name: (\S+)',
+                                  result['stdout'][0]).groups()[0]
+        else:  # vsonic neighbour
+            community = creds['snmp_rocommunity']
 
-            up_link = upstream_links[ctrl_port]
-            sysDescr = ".1.3.6.1.2.1.1.1.0"
+        up_link = upstream_links[ctrl_port]
+        sysDescr = ".1.3.6.1.2.1.1.1.0"
+        def check_snmp():
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
                 community, up_link["local_ipv4_addr"], sysDescr)
-            assert not duthost.command(command)["failed"]
+            return not duthost.command(command)["failed"]
+        assert wait_until(20, 1, 1, check_snmp)
 
 
 class TestDeployment():
