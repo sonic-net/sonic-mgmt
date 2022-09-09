@@ -1,0 +1,59 @@
+- name: collect fanout port config
+  port_config_gen:
+    hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
+    hwsku_type: "{{ device_info[inventory_hostname]['HwSkuType'] | default('predefined') }}"
+    device_conn: "{{ device_conn[inventory_hostname] }}"
+  become: yes
+
+- name: build fanout startup config
+  template:
+    src: "sonic_deploy_202205.j2"
+    dest: "/tmp/base_config.json"
+
+- name: copy platform related startup config
+  copy:
+    src: "{{ fanout_platform }}.json"
+    dest: "/tmp/platform_config.json"
+
+- name: generate config_db.json
+  shell: sonic-cfggen -H -j /tmp/base_config.json -j /tmp/platform_config.json --print-data > /etc/sonic/config_db.json
+  become: yes
+
+- name: disable all copp rules
+  copy:
+    content: "{}"
+    dest: "/usr/share/sonic/templates/copp_cfg.j2"
+  become: yes
+
+- name: Reboot switch to load the config
+  shell: reboot
+  async: 300
+  poll: 0
+  become: yes
+
+- name: Wait for switch to come back
+  local_action: wait_for
+  args:
+    host: "{{ ansible_ssh_host }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH"
+    delay: 180
+    timeout: 600
+  changed_when: false
+
+- name: pause for 60s to wait for fanout switch to initialize
+  pause:
+    seconds: 60
+
+- name: Setup broadcom based fanouts
+  block:
+    - name: configure TPID of access ports
+      set_port_tpid:
+        fanout_port_vlans: "{{ device_port_vlans[inventory_hostname] }}"
+        fanout_port_config: "{{ fanout_port_config }}"
+
+    - name: reinit fp entries
+      shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
+      become: yes
+  when: "'broadcom' in fanout_sonic_version.asic_type"
