@@ -21,4 +21,3 @@
   include_tasks:
     sonic/fanout_sonic_202012.yml
   when: "'20201231' in fanout_sonic_version['build_version']"
-
