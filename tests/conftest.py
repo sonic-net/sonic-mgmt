@@ -1691,7 +1691,7 @@ def check_dut_health_status(duthosts, request):
             duts_data[duthost.hostname] = {}
 
             if "20191130" in duthost.os_version:
-                pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+                pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
             else:
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
@@ -1709,7 +1709,7 @@ def check_dut_health_status(duthosts, request):
             new_core_dumps[duthost.hostname] = []
 
             if "20191130" in duthost.os_version:
-                cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
+                cur_cores = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
             else:
                 cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["cur_core_dumps"] = cur_cores
