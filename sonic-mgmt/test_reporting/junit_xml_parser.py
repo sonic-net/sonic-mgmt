@@ -368,7 +368,7 @@ def _parse_test_summary(root):
 def _extract_test_summary(test_cases):
     test_result_summary = defaultdict(int)
     test_result_summary = {"tests": 0, "failures": 0, "skipped": 0, "errors": 0, "xfails": 0, "time": 0.0}
-    test_result_summary["failures"], 
+    case = None
     for _, cases in test_cases.items():
         for case in cases:
             # Error may occur along with other test results, to count error separately. 
