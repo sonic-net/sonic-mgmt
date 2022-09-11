@@ -297,6 +297,9 @@ class DHCPTest(DataplaneBaseTest):
             giaddr=ip_gateway,
             chaddr=my_chaddr,
         )
+        # The length of option82 is 41 bytes, and dhcp relay will strip option82,
+        # when the length of next option is bigger than 42 bytes,
+        # it could introduce the overwritten issue.
         pkt /= scapy.DHCP(
             options=[
                 ("message-type", "offer"),
@@ -304,7 +307,7 @@ class DHCPTest(DataplaneBaseTest):
                 ("lease_time", int(dhcp_lease)),
                 ("subnet_mask", netmask_client),
                 (82, self.option82),
-                ("vendor_class_id", "http://10.23.145.67:9876/abc/defghijk/lmnopqrst.bin".encode('utf-8')),
+                ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                 ("end"),
             ]
         )
@@ -356,7 +359,7 @@ class DHCPTest(DataplaneBaseTest):
                     ('server_id', self.server_ip),
                     ('lease_time', self.LEASE_TIME),
                     ('subnet_mask', self.client_subnet),
-                    ("vendor_class_id", "http://10.23.145.67:9876/abc/defghijk/lmnopqrst.bin".encode('utf-8')),
+                    ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                     ('end')])
 
         # If our bootp layer is too small, pad it
