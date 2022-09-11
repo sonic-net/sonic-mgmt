@@ -669,7 +669,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     time.sleep(3)
 
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    later = datetime.datetime.now() + datetime.timedelta(hours=6)
+    later = datetime.datetime.now() + datetime.timedelta(hours=20)
     while True:
         chan.send('ps -ef | grep run_scripts.py\n')
         time.sleep(3)
@@ -699,9 +699,18 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     print("Total run time for sanity suite: {} mins".format(minutes))
     return minutes
 
-def parse_report(output):
+def parse_report(data):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.txt','report.txt')
+    ftp_client.close() 
+    ssh.close()
+
+    read_report = open('report.txt', 'r')
     report_file = open('full_report.txt', 'w')
-    out = output.split('\n')
+    out = read_report.read().splitlines()
     total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
     for line in out:
         if 'total' not in line:
@@ -739,24 +748,18 @@ def create_report_html(data,log_dir):
     time.sleep(3)
 
     chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{}\n'.format(log_dir))
+        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-    resp = parse_report(resp.decode("ascii"))
     
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     ssh.close()
 
 def get_log_files(data,log_dir):
@@ -961,6 +964,7 @@ def main():
         run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
         create_report_html(data,log_dir)
+        parse_report(data)
         get_report_file(data)
         get_log_files(data,log_dir)
 
