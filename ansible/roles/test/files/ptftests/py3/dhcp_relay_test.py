@@ -359,7 +359,6 @@ class DHCPTest(DataplaneBaseTest):
                     ("vendor_class_id", "http://10.23.145.67:9876/abc/defghijk/lmnopqrst.bin".encode('utf-8')),
                     ('end')])
 
-        # TODO: Need to add this to the packet creation functions in PTF code first!
         # If our bootp layer is too small, pad it
         pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
         if pad_bytes > 0:
