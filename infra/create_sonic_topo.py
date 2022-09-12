@@ -689,7 +689,15 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
                 break
         else:
             break
-
+    
+    chan.send('cat /data/tests/{} \n'.format(result_file))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    if "Exiting" in resp.decode("ascii"):
+        run_status = False
+    else:
+        run_status = True
     ssh.close()
     delta2 = datetime.datetime.now()
     time_delta = (delta2 - delta1)
@@ -697,7 +705,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     minutes = total_seconds/60
 
     print("Total run time for sanity suite: {} mins".format(minutes))
-    return minutes
+    return run_status
 
 def parse_report(data):
     ssh = paramiko.SSHClient()
@@ -961,12 +969,17 @@ def main():
 
     if run_sanity:
         print("Running Sanity Scripts")
-        run_scripts(data,script_file,drop_version,log_dir,device_type)
+        run_result = run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
-        create_report_html(data,log_dir)
-        parse_report(data)
-        get_report_file(data)
-        get_log_files(data,log_dir)
+        if run_result:
+            create_report_html(data,log_dir)
+            parse_report(data)
+            get_report_file(data)
+            get_log_files(data,log_dir)
+        else:
+            report_file = open('full_report.txt', 'w')
+            report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+            print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
@@ -978,6 +991,8 @@ def main():
     print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
     if run_sanity:
         print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
+        if not run_result:
+            print("Sanity run unsuccesful !!!, Check log files for more details")
     print("******************************************************************************************************************************************************************************\n")
 
     for dut_name in get_dut_names(data):
