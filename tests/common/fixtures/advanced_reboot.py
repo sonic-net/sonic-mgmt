@@ -3,6 +3,7 @@ import ipaddress
 import itertools
 import json
 import logging
+import re
 import pytest
 import time
 import os
@@ -119,7 +120,10 @@ class AdvancedReboot:
             elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
             else:
-                self.rebootLimit = 30 # Default reboot limit for physical devices
+                if self.tbinfo["topo"]["name"] == "t0-64":
+                    self.rebootLimit = 32
+                else:
+                    self.rebootLimit = 30 # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
         '''
@@ -480,6 +484,22 @@ class AdvancedReboot:
         # Handle mellanox platform
         self.__handleMellanoxDut()
 
+    def print_test_logs_summary(self, log_dir):
+        """
+        This method  prints to log a summary of reboot results in case the test passed,
+        or all reboot logs in case the test failed
+        """
+        log_files = os.listdir(log_dir)
+        for log_file in log_files:
+            if log_file.endswith('reboot.log'):
+                with open(os.path.join(log_dir, log_file)) as reboot_log:
+                    reboot_text_log_file = reboot_log.read()
+                    reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file).group()
+                    if reboot_summary.find('Fails') == -1:  # if no fails detected- the test passed, print the summary only
+                        logger.info('\n'+reboot_summary)
+                    else:
+                        logger.info(reboot_text_log_file)
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -516,19 +536,20 @@ class AdvancedReboot:
                 logger.error("Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg))
                 test_results[test_case_name].append("Exception caught while running advanced-reboot test on ptf")
             finally:
-                # always capture the test logs
+                # capture the test logs in case of failure, and summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
-                log_files = os.listdir(log_dir)
-                for log_file in log_files:
-                    if log_file.endswith('reboot.log'):
-                        with open(os.path.join(log_dir, log_file)) as reboot_log:
-                            logger.info(reboot_log.read())
+                self.print_test_logs_summary(log_dir)
                 if self.advanceboot_loganalyzer:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                         reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
                         logger.error("Post reboot verification failed. List of failures: {}".format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
+                logger.info("Checking ACL manager status")
+                acl_proc_count = self.duthost.command('pgrep -f -c caclmgrd', module_ignore_errors=True)['stdout']
+                if int(acl_proc_count) != 1:
+                    test_results[test_case_name].append("Expected one ACL manager process running. "
+                                                        "Actual: {}".format(acl_proc_count))
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
@@ -537,6 +558,7 @@ class AdvancedReboot:
         pytest_assert(len(failed_list) == 0,\
             "Advanced-reboot failure. Failed test: {}, failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
+
 
     def runRebootTestcase(self, prebootList=None, inbootList=None,
         prebootFiles='peer_dev_info,neigh_port_info', preboot_setup=None, postboot_setup=None):
@@ -622,6 +644,7 @@ class AdvancedReboot:
             "allow_vlan_flooding" : self.allowVlanFlooding,
             "sniff_time_incr" : self.sniffTimeIncr,
             "setup_fdb_before_test" : True,
+            "verbose" : True,
             "vnet" : self.vnet,
             "vnet_pkts" : self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
