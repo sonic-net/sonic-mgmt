@@ -733,7 +733,7 @@ def parse_report(data):
         skip += int(tc[4].strip(' ').split(' ')[0])
         error += int(tc[5].strip(' ').split(' ')[0])
         xfail += int(tc[6].strip(' ').split(' ')[0])
-    resp = "Total TCs: {}, {} Pass, {} Fail, {} Skipped, {} Error {}, xFail\n".format(total,passed,fail,skip,error,xfail)
+    resp = "Total TCs: {}, {} Pass, {} Fail, {} Skipped, {} Error, {} xFail\n".format(total,passed,fail,skip,error,xfail)
     report_file.write("=================================================================\n")
     print("=================================================================\n")
     print(resp)
