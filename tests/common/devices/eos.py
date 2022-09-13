@@ -494,7 +494,8 @@ class EosHost(AnsibleHostBase):
             )
         return not self._has_cli_cmd_failed(out)
 
-    def _version(self):
+    @property
+    def version_info(self):
         """
         Get software image version of EOS fanout
 
