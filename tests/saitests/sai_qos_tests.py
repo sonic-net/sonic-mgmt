@@ -54,6 +54,7 @@ QUEUE_3 = 3
 QUEUE_4 = 4
 QUEUE_5 = 5
 QUEUE_6 = 6
+QUEUE_7 = 7
 PG_NUM  = 8
 QUEUE_NUM = 8
 
@@ -251,6 +252,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dual_tor_scenario = self.test_params.get('dual_tor_scenario')
+        dual_tor = self.test_params.get('dual_tor')
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -305,6 +308,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     result = self.dataplane.poll(device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
                         self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (dst_port_id, cnt, result.format()))
+
                     recv_pkt = scapy.Ether(result.packet)
                     cnt += 1
 
@@ -326,24 +330,46 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             port_results, queue_results = sai_thrift_read_port_counters(self.client, sai_dst_port_id)
 
             print >> sys.stderr, map(operator.sub, queue_results, queue_results_base)
+            # dual_tor_scenario: represents whether the device is deployed into a dual ToR scenario
+            # dual_tor: represents whether the source and destination ports are configured with additional lossless queues
             # According to SONiC configuration all dscp are classified to queue 1 except:
-            # dscp  8 -> queue 0
-            # dscp  5 -> queue 2
-            # dscp  3 -> queue 3
-            # dscp  4 -> queue 4
-            # dscp 46 -> queue 5
-            # dscp 48 -> queue 6
-            # So for the 64 pkts sent the mapping should be -> 58 queue 1,
-            # and 1 for queue0, queue2, queue3, queue4, queue5, and queue6
-            # Check results
+            #            Normal scenario   Dual ToR scenario
+            #            All ports         Normal ports    Ports with additional lossless queues
+            # dscp  8 -> queue 0           queue 0         queue 0
+            # dscp  5 -> queue 2           queue 1         queue 1
+            # dscp  3 -> queue 3           queue 3         queue 3
+            # dscp  4 -> queue 4           queue 4         queue 4
+            # dscp 46 -> queue 5           queue 5         queue 5
+            # dscp 48 -> queue 6           queue 7         queue 7
+            # dscp  2 -> queue 1           queue 1         queue 2
+            # dscp  6 -> queue 1           queue 1         queue 6
+            # rest 56 dscps -> queue 1
+            # So for the 64 pkts sent the mapping should be the following:
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57
+            # queue 2/6  1                 0               1
+            # queue 3/4  1                 1               1
+            # queue 5    1                 1               1
+            # queue 7    0                 1               1
             # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
-            assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
-            assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
+            if dual_tor or not dual_tor_scenario:
+                assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
+                assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
+            else:
+                assert(queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
+                assert(queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
+            if dual_tor_scenario:
+                if not dual_tor:
+                    assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
+                else:
+                    assert(queue_results[QUEUE_1] == 57 + queue_results_base[QUEUE_1])
+                assert(queue_results[QUEUE_7] == 1 + queue_results_base[QUEUE_7])
+            else:
+                assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
+                assert(queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
 
         finally:
             print >> sys.stderr, "END OF TEST"

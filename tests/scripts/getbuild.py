@@ -9,6 +9,10 @@ from urllib.request import urlopen, urlretrieve
 _start_time = None
 _last_time = None
 artifact_size = 0
+NOT_FOUND_BUILD_ID = -999
+MAX_DOWNLOAD_TIMES = 3
+
+
 def reporthook(count, block_size, total_size):
     global _start_time, _last_time, artifact_size
     cur_time = int(time.time())
@@ -90,13 +94,23 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
         filename = "{}.zip".format(platform)
 
     if url.startswith('http://') or url.startswith('https://'):
-        print('Downloading {} from build {}...'.format(filename, buildid))
         validate_url_or_abort(url)
-        try:
-            urlretrieve(url, filename, reporthook)
-        except Exception as e:
-            print("Download error", e)
-            sys.exit(1)
+        download_times = 0
+        while download_times < MAX_DOWNLOAD_TIMES:
+            try:
+                print('Downloading {} from build {}...'.format(filename, buildid))
+                download_times += 1
+                urlretrieve(url, filename, reporthook)
+                print('\nDownload finished!')
+                break
+            except Exception as e:
+                print("Download error", e)
+                if download_times < MAX_DOWNLOAD_TIMES:
+                    print('Download times: {}, sleep: {} seconds before retry.'.format(download_times, 30 * download_times))
+                    time.sleep(30 * download_times)
+                    continue
+                else:
+                    sys.exit(1)
 
 def find_latest_build_id(branch, success_flag = "succeeded"):
     """find latest successful build id for a branch"""
@@ -107,7 +121,12 @@ def find_latest_build_id(branch, success_flag = "succeeded"):
 
     j = json.loads(resp.read().decode('utf-8'))
 
-    latest_build_id = int(j['value'][0]['id'])
+    value = j.get('value', [])
+
+    if len(value) > 0:
+        latest_build_id = int(value[0]['id'])
+    else:
+        latest_build_id = NOT_FOUND_BUILD_ID
 
     return latest_build_id
 
@@ -132,7 +151,10 @@ def main():
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
-        buildid = max(buildid_succ,buildid_partial)
+        print('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(buildid_succ, buildid_partial))
+        if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
+            raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
+        buildid = max(buildid_succ, buildid_partial)
     else:
         buildid = int(args.buildid)
 

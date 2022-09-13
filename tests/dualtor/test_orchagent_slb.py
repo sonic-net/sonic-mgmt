@@ -246,7 +246,12 @@ def test_orchagent_slb(
         else:
             tunnel_innner_pkt = pkt[scapyall.IPv6].copy()
             tunnel_innner_pkt[scapyall.IPv6].hlim -= 1
-        tunnel_monitor = tunnel_traffic_monitor(duthost, existing=is_tunnel_traffic_existed, inner_packet=tunnel_innner_pkt)
+        tunnel_monitor = tunnel_traffic_monitor(
+            duthost,
+            existing=is_tunnel_traffic_existed,
+            inner_packet=tunnel_innner_pkt,
+            check_items=["ttl", "queue"]
+        )
         server_traffic_monitor = ServerTrafficMonitor(
             duthost, ptfhost, vmhost, tbinfo, connection["test_intf"],
             conn_graph_facts, exp_pkt, existing=is_server_traffic_existed

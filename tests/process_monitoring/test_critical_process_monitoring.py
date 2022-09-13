@@ -3,6 +3,7 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
 from collections import defaultdict
+import time
 import logging
 
 import pytest
@@ -153,7 +154,7 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
+    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -547,8 +548,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     skip_containers = []
     skip_containers.append("database")

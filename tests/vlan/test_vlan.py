@@ -20,7 +20,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -513,11 +513,6 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_li
     Send qinq packets w/ src and dst specified over tagged ports in vlan
     Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
     """
-
-    # Add more supported platforms to the list as they are tested
-    qinq_switching_supported_platforms = ['mellanox', 'barefoot']
-    if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
-        pytest.skip("Unsupported platform")
 
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
