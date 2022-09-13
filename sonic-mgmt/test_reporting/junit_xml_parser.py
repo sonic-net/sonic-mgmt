@@ -367,6 +367,8 @@ def _parse_test_summary(root):
 
 def _extract_test_summary(test_cases):
     test_result_summary = defaultdict(int)
+    test_result_summary = {"tests": 0, "failures": 0, "skipped": 0, "errors": 0, "xfails": 0, "time": 0.0}
+    case = None
     for _, cases in test_cases.items():
         for case in cases:
             # Error may occur along with other test results, to count error separately. 
@@ -387,6 +389,8 @@ def _extract_test_summary(test_cases):
     total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
     passed = int(test_result_summary["tests"]) - int(total)
     passed = max(0,passed)
+    if case is None:
+        return test_result_summary
     print("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error, {} xFail".format(case['file'],test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"],test_result_summary["xfails"]))
     return test_result_summary
     

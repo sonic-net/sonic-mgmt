@@ -669,7 +669,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     time.sleep(3)
 
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    later = datetime.datetime.now() + datetime.timedelta(hours=6)
+    later = datetime.datetime.now() + datetime.timedelta(hours=20)
     while True:
         chan.send('ps -ef | grep run_scripts.py\n')
         time.sleep(3)
@@ -689,7 +689,15 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
                 break
         else:
             break
-
+    
+    chan.send('cat /data/tests/{} \n'.format(result_file))
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+    if "Exiting" in resp.decode("ascii"):
+        run_status = False
+    else:
+        run_status = True
     ssh.close()
     delta2 = datetime.datetime.now()
     time_delta = (delta2 - delta1)
@@ -697,11 +705,20 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     minutes = total_seconds/60
 
     print("Total run time for sanity suite: {} mins".format(minutes))
-    return minutes
+    return run_status
 
-def parse_report(output):
+def parse_report(data):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ftp_client=ssh.open_sftp()
+    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.txt','report.txt')
+    ftp_client.close() 
+    ssh.close()
+
+    read_report = open('report.txt', 'r')
     report_file = open('full_report.txt', 'w')
-    out = output.split('\n')
+    out = read_report.read().splitlines()
     total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
     for line in out:
         if 'total' not in line:
@@ -739,24 +756,18 @@ def create_report_html(data,log_dir):
     time.sleep(3)
 
     chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{}\n'.format(log_dir))
+        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-    resp = parse_report(resp.decode("ascii"))
     
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
     time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
+
     ssh.close()
 
 def get_log_files(data,log_dir):
@@ -779,7 +790,7 @@ def get_log_files(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("tar -cvf sanity_logs.tar *.log \n")
+    chan.send("tar -cvf sanity_logs.tar * \n")
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
@@ -958,11 +969,19 @@ def main():
 
     if run_sanity:
         print("Running Sanity Scripts")
-        run_scripts(data,script_file,drop_version,log_dir,device_type)
+        run_result = run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
-        create_report_html(data,log_dir)
-        get_report_file(data)
-        get_log_files(data,log_dir)
+        if run_result:
+            create_report_html(data,log_dir)
+            parse_report(data)
+            get_report_file(data)
+            get_log_files(data,log_dir)
+        else:
+            report_file = open('full_report.txt', 'w')
+            report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+            report_file.flush()
+            report_file.close()
+            print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
@@ -974,6 +993,8 @@ def main():
     print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
     if run_sanity:
         print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
+        if not run_result:
+            print("Sanity run unsuccesful !!!, Check log files for more details")
     print("******************************************************************************************************************************************************************************\n")
 
     for dut_name in get_dut_names(data):
