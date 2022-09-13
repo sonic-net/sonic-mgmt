@@ -172,3 +172,6 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
+
+    def set_port_fec(self, interface_name, mode):
+        self.host.set_port_fec(interface_name, mode)

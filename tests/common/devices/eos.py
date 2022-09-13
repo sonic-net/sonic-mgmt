@@ -11,6 +11,11 @@ def _raise_err(msg):
         logger.error(msg)
         raise Exception(msg)
 
+FEC_MAP = {
+    'fc': 'fire-code',
+    'rs': 'reed-solomon'
+}
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -347,3 +352,23 @@ class EosHost(AnsibleHostBase):
         except Exception as e:
             logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
             return False
+
+    def _append_port_fec(self, interface_name, mode):
+        def _exec(cmd):
+            self.host.eos_command(commands=[
+                'conf',
+                'interface %s' % interface_name,
+                cmd
+            ])
+        
+        if mode:
+            _exec('error-correction encoding ' + FEC_MAP[mode])
+        else:
+            _exec('no error-correction encoding')
+
+    def set_port_fec(self, interface_name, mode):
+        #reset FEC
+        self._append_port_fec(interface_name, None)
+        
+        if mode:
+            self._append_port_fec(interface_name, mode)

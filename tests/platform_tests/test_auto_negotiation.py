@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import skip_release
+from tests.common.helpers.port_utils import is_sfp_speed_supported
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -195,27 +196,6 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 
 
-def is_sfp_speed_supported(duthost, if_name, port_speed):
-    pam4_supporting_sfps = [
-        'QSFP56',
-        'QSFP112',
-        'SFP-DD',
-        'OSFP',
-    ]
-    out = duthost.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(if_name))
-    sfp_type = re.search(r'\w?SFP[\d\w+]{0,3}', out["stdout_lines"][0]).group()
-    if not sfp_type:
-        return True
-    out = duthost.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(if_name))
-    n_lanes = len(out["stdout_lines"][0].split(','))
-    per_lane_speed = int(port_speed) // n_lanes
-    return per_lane_speed <= 25000 or sfp_type in pam4_supporting_sfps
-
-
-def skip_speed_if_unsupported(duthost, if_name, port_speed):
-    pytest_require(is_sfp_speed_supported(duthost, if_name, port_speed), 'Speed {} is not supported for given port/SFP'.format(port_speed))
-
-
 def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixture):
     """Test all candidate ports to advertised all supported speeds one by one and verify
        that the port operational status is up after auto negotiation
@@ -225,7 +205,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
     skip_if_no_multi_speed_adv_support(fanout, fanout_port)
 
     speed = enum_speed_per_dutport_fixture['speed']
-    skip_speed_if_unsupported(duthost, portname, speed)
+    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
     success = fanout.set_auto_negotiation_mode(fanout_port, True)
@@ -269,7 +249,8 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fi
         dut_advertised_speeds = ','.join(duthost.get_supported_speeds(portname))
 
     speed = enum_speed_per_dutport_fixture['speed']
-    skip_speed_if_unsupported(duthost, portname, speed)
+    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
+    
 
     duthost.shell('config interface autoneg {} enabled'.format(dut_port))
     duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, dut_advertised_speeds))
@@ -296,15 +277,6 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fi
     pytest_assert(fanout_actual_speed == speed, 'expected fanout speed: {}, but got {}'.format(speed, fanout_actual_speed))
 
 
-FEC_FOR_SPEED = {
-    25000: 'fc',
-    50000: 'fc',
-    100000: 'rs',
-    200000: 'rs',
-    400000: 'rs'
-}
-
-
 def test_force_speed(enum_speed_per_dutport_fixture):
     """Test all candidate ports to force to all supported speeds one by one and verify
        that the port operational status is up after auto negotiation
@@ -314,7 +286,15 @@ def test_force_speed(enum_speed_per_dutport_fixture):
 
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
     speed = enum_speed_per_dutport_fixture['speed']
-    skip_speed_if_unsupported(duthost, portname, speed)
+    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
+
+    FEC_FOR_SPEED = {
+        25000: 'fc',
+        50000: 'fc',
+        100000: 'rs',
+        200000: 'rs',
+        400000: 'rs'
+    }
 
     fec_mode = FEC_FOR_SPEED.get(int(speed))
 

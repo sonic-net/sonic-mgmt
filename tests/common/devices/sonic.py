@@ -1984,3 +1984,22 @@ Totals               6450                 6449
                     }
 
         return ip_ifaces
+    
+    def get_port_fec(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
+        return out["stdout_lines"][0]
+    
+    def set_port_fec(self, portname, state):
+        if not state:
+            state = 'none'
+        self.shell('sudo config interface fec {} {}'.format(portname, state))
+
+    def count_portlanes(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+        lanes = out["stdout_lines"][0].split(',')
+        return len(lanes)
+
+    def get_sfp_type(self, portname):
+        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+        sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
+        return sfp_type

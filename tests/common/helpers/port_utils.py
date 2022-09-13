@@ -125,3 +125,19 @@ class BfnCableSupportedSpeedsHelper(object):
     def get_cable_supported_speeds(cls, duthost, dut_port_name):
         
         return duthost.get_supported_speeds(dut_port_name)
+
+def is_sfp_speed_supported(duthost, if_name, port_speed):
+    pam4_supporting_sfps = [
+        'QSFP56',
+        'QSFP112',
+        'SFP-DD',
+        'OSFP',
+    ]
+    
+    sfp_type = duthost.get_sfp_type(if_name)
+    if not sfp_type:
+        return True
+    
+    n_lanes = duthost.count_portlanes(if_name)
+    per_lane_speed = int(port_speed) // n_lanes
+    return per_lane_speed <= 25000 or sfp_type in pam4_supporting_sfps
