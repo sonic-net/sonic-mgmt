@@ -139,7 +139,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000):
+    def poll(self, test_plan_id, interval=60, timeout=36000, expected_state=""):
 
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}" \
               .format(test_plan_id))
@@ -153,17 +153,15 @@ class TestPlanManager(object):
         start_time = time.time()
         http_exception_times = 0
         while (time.time() - start_time) < timeout:
-            raw_resp = {}
             try:
-                raw_resp = requests.get(poll_url, headers=headers, timeout=10)
-                resp = raw_resp.json()
+                resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
-                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, str(raw_resp),
+                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
                                                                                           str(exception)))
                 http_exception_times = http_exception_times + 1
                 if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
                     raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
-                                    .format(poll_url, str(raw_resp), str(exception)))
+                                    .format(poll_url, resp, str(exception)))
                 else:
                     time.sleep(interval)
                     continue
@@ -177,21 +175,25 @@ class TestPlanManager(object):
             status = resp_data.get("status", None)
             result = resp_data.get("result", None)
 
-            if status in ["FINISHED", "CANCELLED", "FAILED"]:
-                if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds" \
-                          .format(status, time.time() - start_time))
+            if status == expected_state or status in ["CANCELLED", "FAILED"]:
+                if status in ["FINISHED", "CANCELLED", "FAILED"]:
+                    if result == "SUCCESS":
+                        print("Test plan is successfully {}. Elapsed {:.0f} seconds" \
+                              .format(status, time.time() - start_time))
+                        return
+                    else:
+                        raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
+                                        .format(test_plan_id, status, result, time.time() - start_time))
+                elif status in ["PREPARE_TESTBED", "EXECUTING"]:
                     return
-                else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
-                                    .format(test_plan_id, status, result, time.time() - start_time))
+
             print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds" \
                   .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
             time.sleep(interval)
+
         else:
             raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled" \
                             .format(poll_url))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -259,7 +261,7 @@ if __name__ == "__main__":
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
 
-    for p in [parser_poll, parser_cancel]:
+    for p in [parser_cancel, parser_poll]:
         p.add_argument(
             "-i", "--test-plan-id",
             type=int,
@@ -268,6 +270,13 @@ if __name__ == "__main__":
             help="Test plan id."
         )
 
+    parser_poll.add_argument(
+        "-e", "--expected_state",
+        type=str,
+        dest="expected_state",
+        required=True,
+        help="Expected state."
+    )
     parser_poll.add_argument(
         "--interval",
         type=int,
@@ -344,10 +353,10 @@ if __name__ == "__main__":
                 scripts=get_test_scripts(args.test_set),
                 output=args.output
             )
-        elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
+        elif args.expected_state in ["PREPARE_TESTBED", "EXECUTING", "FINISHED"]:
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
         sys.exit(0)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
