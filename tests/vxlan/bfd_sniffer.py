@@ -1,5 +1,10 @@
 from scapy.all import *
 import sys, json
+try:
+    delete_member_a1 = sys.argv[1]
+    delete_member_a2 = sys.argv[2]
+except:
+    print("Test will proceed even if we do not pass argument")
 ifaces = get_if_list()
 def return_bfd_interfaces():
     bfd_interfaces = {}
@@ -26,5 +31,16 @@ for key,value in bfd_interfaces.items():
                 "ptf_intf" : value['iface']
             }
         )
+if delete_member_a1 is not None:
+    for i in range(len(ptf_config)):
+        if ptf_config[i]['local_addr'] == delete_member_a1:
+            del ptf_config[i]
+            break
+if delete_member_a2 is not None:
+    for i in range(len(ptf_config)):
+        if ptf_config[i]['local_addr'] == delete_member_a2:
+            del ptf_config[i]
+            break
+print(ptf_config)
 with open("/tmp/ptf_config.json", "w") as f:
     json.dump(ptf_config, f)

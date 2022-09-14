@@ -573,16 +573,18 @@ class Ecmp_Utils:
             ret_list.append(minigraph_facts["minigraph_ptf_indices"][iface])
         return ret_list
 
-    def ptf_config(self,duthost, ptfhost, tbinfo):
+    def ptf_config(self, duthost, ptfhost, tbinfo, delete_member_a1 = None, delete_member_a2 = None):
         ptfhost.command('supervisorctl stop bfd_responder')
         time.sleep(2)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for element in mg_facts['minigraph_lo_interfaces']:
             if element['prefixlen'] == 32:
                 loopback_addr = element['addr']
+            # elif element['prefixlen'] == 128:
+            #     loopback_addr = element['addr']
         ptf_indices = mg_facts['minigraph_ptf_indices'].values()
         ptfhost.copy(src="../tests/vxlan/bfd_sniffer.py", dest="/tmp/bfd_sniffer.py")
-        ptfhost.command("python /tmp/bfd_sniffer.py")
+        ptfhost.command("python /tmp/bfd_sniffer.py {} {}".format(delete_member_a1, delete_member_a2))
         ptfhost.copy(src=self.BFD_RESPONDER_SCRIPT_SRC_PATH, dest=self.BFD_RESPONDER_SCRIPT_DEST_PATH)
         extra_vars = {"bfd_responder_args" : "-c {}".format("/tmp/ptf_config.json")}
         ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
@@ -590,3 +592,5 @@ class Ecmp_Utils:
         ptfhost.command('supervisorctl reread')
         ptfhost.command('supervisorctl update')
         ptfhost.command('supervisorctl start bfd_responder')
+    
+        
