@@ -323,6 +323,7 @@ function run_individual_tests()
                 ret_code=$?
                 let RETRY_TIME-=1
             done
+        fi
 
         # If test passed, no need to keep its log.
         if [ ${ret_code} -eq 0 ]; then

@@ -1,6 +1,6 @@
 ---
 ansible_user: "{{ secret_group_vars['vm_host']['ansible_user'] }}"
-ansible_password: "{{ secret_group_vars['vm_host']['ansible_password'] }}"
+ansible_ssh_pass: "{{ secret_group_vars['vm_host']['ansible_password'] }}"
 ansible_become_password: "{{ secret_group_vars['vm_host']['ansible_sudo_pass'] }}"
 
 # Use the following username/password variables to login to vm hosts

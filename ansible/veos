@@ -2,37 +2,27 @@ all:
   children:
     vm_host:
       children:
-        str:
-          children:
-            vm_host_1:
-            vm_host_2:
-            vm_host_3:
-            vm_host_6:
-            vm_host_7:
-            vm_host_11:
-            vm_host_12:
-            vm_host_13:
-        str2:
-          children:
-            vm_host_16:
-            vm_host_18:
-            vm_host_20:
-            vm_host_21:
-            vm_host_24:
-            vm_host_25:
-            vm_host_26:
-            vm_host_27:
-            vm_host_28:
-            vm_host_29:
-        str3:
-          children:
-            vm_host_61:
-        strsvc:
-          children:
-            vm_svc_host_1:
-        bjw:
-          children:
-            vm_bjw_host_6:
+        vm_host_1:
+        vm_host_2:
+        vm_host_3:
+        vm_host_6:
+        vm_host_7:
+        vm_host_11:
+        vm_host_12:
+        vm_host_13:
+        vm_host_16:
+        vm_host_18:
+        vm_host_20:
+        vm_host_21:
+        vm_host_24:
+        vm_host_25:
+        vm_host_26:
+        vm_host_27:
+        vm_host_28:
+        vm_host_29:
+        vm_host_61:
+        vm_svc_host_1:
+        vm_bjw_host_6:
     eos:
       children:
         vms_1:
