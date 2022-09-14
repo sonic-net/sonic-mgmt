@@ -8,7 +8,6 @@ To save test time, the script randomly chooses 3 ports to do following test:
 """
 import logging
 import pytest
-import re
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
