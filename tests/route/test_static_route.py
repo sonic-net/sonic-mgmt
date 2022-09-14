@@ -166,10 +166,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save and reload if specified
         if config_reload_test:
             duthost.shell('config save -y')
-            if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
-                config_reload(duthost, wait=400)
-            else:
-                config_reload(duthost, wait=350)
+            config_reload(duthost, wait=350)
             #FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
@@ -198,6 +195,22 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
 def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+    unexpected_vlans = []
+    for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+        if len(vlan_data['members']) < 2:
+            unexpected_vlans.append(vlan)
+
+    # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+    expected_vlan_ifaces = []
+    for vlan in unexpected_vlans:
+        for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+            if vlan != mg_vl_iface['attachto']:
+                expected_vlan_ifaces.append(mg_vl_iface)
+    if expected_vlan_ifaces:
+        mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
     vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
     prefix_len = vlan_intf['prefixlen']
 
@@ -214,7 +227,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
         vlan = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]
         vlan_ports = vlan['members']
         vlan_id = vlan['vlanid']
-        vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports]
+        vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports if 'PortChannel' not in port]
         nexthop_devs = vlan_ptf_ports
         # backend topology use ethx.x(e.g. eth30.1000) during servers and T0 in ptf
         # in other topology use ethx(e.g. eth30)
