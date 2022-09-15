@@ -3,6 +3,7 @@ import ipaddress
 import itertools
 import json
 import logging
+import re
 import pytest
 import time
 import os
@@ -605,6 +606,7 @@ class AdvancedReboot:
             "dut_hostname" : self.rebootData['dut_hostname'],
             "reboot_limit_in_seconds" : self.rebootLimit,
             "reboot_type" : self.rebootType,
+            "other_vendor_flag" :  self.other_vendor_nos,
             "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
             "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
             "ports_file" : self.rebootData['ports_file'],
@@ -644,8 +646,11 @@ class AdvancedReboot:
 
         self.__updateAndRestartArpResponder(rebootOper)
 
-
-        logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
+        if rebootOper is None and self.other_vendor_nos is True:
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case:'
+            ' Reboot from other vendor nos'.format(self.request.node.name))
+        else:
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
             self.request.node.name, str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
