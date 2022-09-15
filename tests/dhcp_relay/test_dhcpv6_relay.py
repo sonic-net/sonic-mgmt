@@ -65,7 +65,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
-                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter':
+                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in ['LeafRouter', 'MgmtLeafRouter']:
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
