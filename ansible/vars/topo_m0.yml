@@ -94,16 +94,17 @@ configuration_properties:
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-  mx:
-    swrole: mx
-  leaf:
-    swrole: leaf
+  tor:
+    swrole: tor
+  mgmtleaf:
+    swrole: mgmtleaf
 
 configuration:
   ARISTA01MX:
     properties:
     - common
-    - mx
+    - tor
+    tornum: 1
     bgp:
       asn: 64001
       peers:
@@ -124,7 +125,8 @@ configuration:
   ARISTA02MX:
     properties:
     - common
-    - mx
+    - tor
+    tornum: 2
     bgp:
       asn: 64002
       peers:
@@ -145,7 +147,7 @@ configuration:
   ARISTA01M1:
     properties:
     - common
-    - leaf
+    - mgmtleaf
     bgp:
       asn: 65200
       peers:
@@ -168,7 +170,7 @@ configuration:
   ARISTA02M1:
     properties:
     - common
-    - leaf
+    - mgmtleaf
     bgp:
       asn: 65200
       peers:
@@ -191,7 +193,7 @@ configuration:
   ARISTA03M1:
     properties:
     - common
-    - leaf
+    - mgmtleaf
     bgp:
       asn: 65200
       peers:
@@ -214,7 +216,7 @@ configuration:
   ARISTA04M1:
     properties:
     - common
-    - leaf
+    - mgmtleaf
     bgp:
       asn: 65200
       peers:
