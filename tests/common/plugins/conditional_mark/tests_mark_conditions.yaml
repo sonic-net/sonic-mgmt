@@ -641,7 +641,7 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node"
+    reason: "Interfaces not present on supervisor node or not supported on Barefoot platform"
     conditions:
       - "is_supervisor or asic_type in ['barefoot']"
 
