@@ -174,7 +174,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                             continue
                         elif podset > first_third_podset_number and podset < second_third_podset_number and set_num != 1:
                             continue
-                if router_type == "spine":
+                if router_type == "spine" or router_type == "mgmtleaf":
                     # Skip podset 0 for T2
                     if podset == 0:
                         continue
@@ -228,7 +228,7 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                 aspath = None
                 if router_type == "core":
                     aspath = "{} {}".format(leaf_asn, core_ra_asn)
-                elif router_type == "spine":
+                elif router_type == "spine" or router_type == "mgmtleaf":
                     aspath = "{} {}".format(leaf_asn, tor_asn)
                 elif router_type == "leaf":
                     if topo == "t2":
@@ -325,6 +325,46 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
             for prefix in v["vips"]["ipv4"]["prefixes"]:
                 routes_vips.append((prefix, nhipv4, v["vips"]["ipv4"]["asn"]))
             change_routes(action, ptf_ip, port, routes_vips)
+
+
+def fib_m0(topo, ptf_ip, no_default_route=False, action="announce"):
+    common_config = topo['configuration_properties'].get('common', {})
+    podset_number = common_config.get("podset_number", PODSET_NUMBER)
+    tor_number = common_config.get("tor_number", TOR_NUMBER)
+    tor_subnet_number = common_config.get("tor_subnet_number", TOR_SUBNET_NUMBER)
+    max_tor_subnet_number = common_config.get("max_tor_subnet_number", MAX_TOR_SUBNET_NUMBER)
+    tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+    leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
+    tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+
+    vms = topo['topology']['VMs']
+    vms_config = topo['configuration']
+
+    for k, v in vms_config.items():
+        vm_offset = vms[k]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        router_type = None
+        if 'mgmtleaf' in v['properties']:
+            router_type = 'mgmtleaf'
+        elif 'tor' in v['properties']:
+            router_type = 'tor'
+        tornum = v.get('tornum', None)
+        tor_index = tornum - 1 if tornum is not None else None
+        if router_type:
+            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
+                                        None, leaf_asn_start, tor_asn_start,
+                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "m0",
+                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
+            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
+                                        None, leaf_asn_start, tor_asn_start,
+                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "m0",
+                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
 
 
 """
@@ -506,7 +546,7 @@ def main():
     topo_type = get_topo_type(topo_name)
 
     try:
-        if topo_type == "t0" or topo_type == "m0":
+        if topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         elif topo_type == "t1":
@@ -517,6 +557,9 @@ def main():
             module.exit_json(changed=True)
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action)
+            module.exit_json(changed=True)
+        elif topo_type == "m0":
+            fib_m0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
             module.exit_json(changed=True)
         else:
             module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
