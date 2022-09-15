@@ -204,8 +204,7 @@ class TestIPPacket(object):
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
         pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
-
-    @pytest.mark.xfail
+ 
     def test_forward_ip_packet_with_0xffff_chksum_tolerant(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
@@ -265,7 +264,6 @@ class TestIPPacket(object):
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
         pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
 
-    @pytest.mark.xfail
     def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
@@ -533,8 +531,8 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-
+        asic_type = duthost.facts['asic_type']
         pytest_assert(rx_ok >= self.PKT_NUM_MIN, "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN, "Dropped {} packets in rx, not in expected range".format(rx_err))
+        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN if asic_type not in ["marvell"] else True, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
