@@ -617,7 +617,7 @@
 
 - conf-name: vms12-9-t0-e1031
   group-name: vms12-9
-  topo: mgmttor
+  topo: t0-52
   ptf_image_name: docker-ptf
   ptf: vms12-9
   ptf_ip: 10.64.246.153/23
