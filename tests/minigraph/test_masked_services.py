@@ -1,6 +1,7 @@
 import logging
 import time
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 def is_service_loaded(duthost, service):
     output = duthost.shell("systemctl show -p LoadState --value {}.service".format(service))
@@ -43,8 +44,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
 
-    time.sleep(3) #give adequate time for service to become masked and inactive
-
+    wait_until(10, 3, 0, lambda: not is_service_loaded(duthost, test_service))
     logging.info("Check service status")
     assert is_service_loaded(duthost, test_service) == False
 
@@ -57,7 +57,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
         logging.info("Bring back service if not up")
         change_service_state(duthost, test_service, True)
         logging.info("Wait until service is unmasked and active")
-        time.sleep(3)
+        wait_until(10, 3, 0, lambda: is_service_loaded(duthost, test_service))
         duthost.shell("sudo config reload")
         pytest.fail("Test failed as load_minigraph was not successful")
 
