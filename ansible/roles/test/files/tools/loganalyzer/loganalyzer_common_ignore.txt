@@ -164,3 +164,8 @@ r, ".* ERR syncd#syncd: :- runRedisScript: Caught exception while running Redis 
 r, ".* ERR swss#orchagent: :- validateAclRuleMatch: Match SAI_ACL_ENTRY_ATTR_FIELD_IN_PORTS in rule .*"
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
+
+
+# For BJW-720DT
+r, ".* ERR swss#orchagent: :- meta_sai_on_fdb_event_single: failed to insert SAI_OBJECT_TYPE_FDB_ENTRY.*"
+r, ".* ERR swss#orchagent: :- meta_generic_validation_create: switch id.*doesn't exist yet.*"
