@@ -1,6 +1,7 @@
 import logging
 import pytest
 import time
+import re
 
 from tests.common.devices.cisco import CiscoHost
 from tests.common.devices.arista import AristaHost
@@ -81,7 +82,7 @@ def pytest_collection_modifyitems(session, config, items):
     not_support_fixtures = ['tag_test_report', 'duthosts', 'duthost', 'nbrhosts', 'creds', 'ptfhost',
                             'clear_neigh_entries', 'get_reboot_cause','reset_critical_services_list',
                             'verify_new_core_dumps', 'sanity_check', 'fanouthosts', 'conn_graph_facts',
-                            'collect_db_dump','loganalyzer', 'run_icmp_responder_session']
+                            'collect_db_dump','loganalyzer', 'run_icmp_responder_session', 'check_dut_health_status']
     if dut_vendor != 'sonic':
         for item in session.items:
             item.fixturenames = [fixtrue for fixtrue in item.fixturenames if fixtrue not in not_support_fixtures]
@@ -114,14 +115,12 @@ def aristahosts(request, ansible_adhoc, tbinfo):
     return duts
 
 @pytest.fixture(scope='session')
-def juniperhosts(request, ansible_adhoc, tbinfo, creds):
+def juniperhosts(request, ansible_adhoc, tbinfo):
     duts = []
     for host in tbinfo['duts']:
         data = get_host_data(request, host)
         if 'juniper' == data.get('image'):
-            duts.append(JuniperHost(host, data.get('ansible_host'),
-                                creds['junos_login'] if 'junos_login' in creds else None,
-                                creds['junos_password'] if 'junos_password' in creds else None))
+            duts.append(JuniperHost(ansible_adhoc, host, data.get('ansible_user'), data.get('ansible_password')))
     return duts
 
 @pytest.fixture(scope='session')
