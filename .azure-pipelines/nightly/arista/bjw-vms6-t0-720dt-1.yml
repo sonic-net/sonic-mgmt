@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - dev/zhijianli/bjw-720dt-nightly
+        - dev/zhijianli/bjw-720dt-nightly-dev
     always: true
 
 variables:
@@ -77,7 +77,8 @@ parameters:
               system_health/test_system_health.py \
               vxlan/test_vnet_vxlan.py \
               vxlan/test_vxlan_decap.py \
-              vxlan/test_vnet_route_leak.py"
+              vxlan/test_vnet_route_leak.py \
+              autorestart/test_container_autorestart.py"
     displayName: "Skip Scripts"
 
   - name: SKIP_TEST_RESULTS_UPLOADING
