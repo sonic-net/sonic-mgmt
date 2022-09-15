@@ -3,7 +3,6 @@ import ipaddress
 import itertools
 import json
 import logging
-import re
 import pytest
 import time
 import os
