@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOGIN_PARAMS_DICT = {
     "public": {"username": "admin",
-               "password": "YourPaSsWoRd"}
+               "password": "YourPaSsWoRd"},
+    "microsoft":{"username": "admin",
+               "password": "password"}
 }
 
 
@@ -55,5 +57,9 @@ def get_image_type(duthost):
     Returns: image type. Str. It should be the right key in DEFAULT_LOGIN_PARAMS_DICT.
 
     """
+    # If SONiC was built from internal image, there should be information that has the keyword 'sonic-dri' in motd
+    res = duthost.shell("cat /etc/motd | grep 'sonic-dri'", module_ignore_errors=True)["stdout"]
+    if res:
+        return "microsoft"
 
     return "public"
