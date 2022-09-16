@@ -449,7 +449,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                 # Retrieve lag_facts after no shutdown interface
                 duthost.no_shutdown(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
-                pytest_assert(wait_until(15, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                     "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
     finally:
         # Recover interfaces in case of failure
@@ -505,5 +505,5 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
             # 5 No shutdown this port to check if status is up
             duthost.no_shutdown(po_intf)
             # Sometimes, it has to wait seconds for booting up interface
-            pytest_assert(wait_until(15, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+            pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                 "{} member {}'s admin_status or oper_status in state_db is not up.".format(lag_name, po_intf))

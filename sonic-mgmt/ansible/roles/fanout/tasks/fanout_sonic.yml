@@ -21,3 +21,8 @@
   include_tasks:
     sonic/fanout_sonic_202012.yml
   when: "'20201231' in fanout_sonic_version['build_version']"
+
+- name: deploy SONiC fanout with image version 202205
+  include_tasks:
+    sonic/fanout_sonic_202205.yml
+  when: "'20220531' in fanout_sonic_version['build_version']"

@@ -152,7 +152,10 @@ def makeVMHostCreds(data, outfile):
     result = {
         "ansible_user": veos.get("vm_host_ansible").get("ansible_user"),
         "ansible_password": veos.get("vm_host_ansible").get("ansible_password"),
-        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass")
+        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass"),
+        "vm_host_user": veos.get("vm_host_ansible").get("ansible_user"),
+        "vm_host_password": veos.get("vm_host_ansible").get("ansible_password"),
+        "vm_host_become_password": veos.get("vm_host_ansible").get("ansible_become_pass")
     }
     with open(outfile, "w") as toWrite:
         toWrite.write("---\n")

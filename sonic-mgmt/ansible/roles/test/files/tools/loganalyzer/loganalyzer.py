@@ -194,7 +194,7 @@ class AnsibleLogAnalyzer:
         syslogger.info('\n')
         self.flush_rsyslogd()
 
-    def wait_for_marker(self, marker, timeout=60, polling_interval=10):
+    def wait_for_marker(self, marker, timeout=120, polling_interval=10):
         '''
         @summary: Wait the marker to appear in the /var/log/syslog file
         @param marker:         Marker to be placed into log files.

@@ -21,7 +21,7 @@ def get_markings_config_file(duthost):
     config_file = "/usr/share/sonic/device/{}/{}/{}.json".format(platform, hwsku, model)
     return config_file
 
-def get_ecn_markings_dut(duthost, key_list=['ecn_dequeue_marking', 'ecn_latency_marking', 'voq_allocation_mode']):
+def get_markings_dut(duthost, key_list=['ecn_dequeue_marking', 'ecn_latency_marking', 'voq_allocation_mode']):
     """
         Get the ecn marking values from the duthost.
     """
@@ -46,7 +46,7 @@ def get_ecn_markings_dut(duthost, key_list=['ecn_dequeue_marking', 'ecn_latency_
         original_values[key] = json_contents['devices'][i][key]
     return original_values
 
-def setup_ecn_markings_dut(duthost, localhost, **kwargs):
+def setup_markings_dut(duthost, localhost, **kwargs):
     """
         Setup dequeue or latency depending on arguments.
         Applicable to cisco-8000 Platforms only.
