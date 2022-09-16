@@ -277,11 +277,19 @@ test_multi_asic_t1_lag() {
 test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
-    bgp/test_bgp_fact.py"
+    bgp/test_bgp_fact.py \
+    snmp/test_snmp_default_route.py \
+    snmp/test_snmp_loopback.py \
+    snmp/test_snmp_pfc_counters.py \
+    snmp/test_snmp_queue.py \
+    tacacs/test_accounting.py \
+    tacacs/test_authorization.py \
+    tacacs/test_jit_user.py \
+    tacacs/test_ro_user.py \
+    tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -u
     popd
 }
 
@@ -334,7 +342,7 @@ popd
 
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
-# workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
+# workaround for issue https://github.com/sonic-net/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
 export GIT_USER_NAME=$GIT_USER_NAME
 export GIT_API_TOKEN=$GIT_API_TOKEN

@@ -20,7 +20,7 @@ short_description:   Find SONiC device port alias mapping if there is alias mapp
 Description:
         Minigraph file is using SONiC device alias to describe the interface name, it's vendor and and hardware platform dependent
         This module is used to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
-        The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
+        The definition of this mapping is specified in http://github.com/sonic-net/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
         When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with
@@ -245,10 +245,10 @@ def main():
         slotid = None
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
-        
+
         if 'slotid' in m_args and m_args['slotid'] != None:
            slotid = m_args['slotid']
-        # When this script is invoked on sonic-mgmt docker, num_asic 
+        # When this script is invoked on sonic-mgmt docker, num_asic
         # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
