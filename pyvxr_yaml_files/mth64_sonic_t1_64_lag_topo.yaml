@@ -1,7 +1,7 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 48
+    hours: 15
 
 devices:
   docker_ptf:
