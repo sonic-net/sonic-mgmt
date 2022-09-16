@@ -713,7 +713,7 @@ def parse_report(data):
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
     ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.txt','report.txt')
-    ftp_client.close() 
+    ftp_client.close()
     ssh.close()
 
     read_report = open('report.txt', 'r')
@@ -721,12 +721,14 @@ def parse_report(data):
     out = read_report.read().splitlines()
     total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
     for line in out:
-        if 'total' not in line:
+        if 'total' not in line.lower():
             continue
         print(line)
         report_file.write(line + "\n")
         report_file.flush()
         tc = line.split(',')
+        if 'total' not in tc[1].lower():
+            continue
         total += int(tc[1].strip(' ').split(' ')[0])
         passed += int(tc[2].strip(' ').split(' ')[0])
         fail += int(tc[3].strip(' ').split(' ')[0])

@@ -364,18 +364,20 @@ def _parse_test_summary(root):
 
     return test_result_summary
 
-
 def _extract_test_summary(test_cases):
     test_result_summary = defaultdict(int)
     test_result_summary = {"tests": 0, "failures": 0, "skipped": 0, "errors": 0, "xfails": 0, "time": 0.0}
+    res = {"tests": 0, "passed": 0, "failures": 0, "skipped": 0, "errors": 0, "xfails": 0, "time": 0.0}
+
     case = None
     for _, cases in test_cases.items():
         for case in cases:
-            # Error may occur along with other test results, to count error separately. 
+            # Error may occur along with other test results, to count error separately.
             # The result field is unique per test case, either error or failure.
             # xfails is the counter for all kinds of xfail results (include success/failure/error/skipped)
+            res = defaultdict(int)
+            res = {"tests": 0, "passed": 0, "failures": 0, "skipped": 0, "errors": 0, "xfails": 0, "time": 0.0}
             test_result_summary["tests"] += 1
-            #test_result_summary["failures"] += case["result"] == "failure" or case["result"] == "error"
             test_result_summary["failures"] += case["result"] == "failure"
             test_result_summary["skipped"] += case["result"] == "skipped"
             test_result_summary["errors"] += case["error"]
@@ -385,15 +387,33 @@ def _extract_test_summary(test_cases):
                                              case["result"] == "xfail_skipped" or \
                                              case["result"] == "xfail_success"
 
+            res["tests"] += 1
+            res["failures"] += case["result"] == "failure"
+            res["skipped"] += case["result"] == "skipped"
+            res["errors"] += case["error"]
+            res["time"] += float(case["time"])
+            res["xfails"] += case["result"] == "xfail_failure" or \
+                                             case["result"] == "xfail_error" or \
+                                             case["result"] == "xfail_skipped" or \
+                                             case["result"] == "xfail_success"
+
+            res_total = res["failures"] + res["skipped"] + res["errors"] + res["xfails"]
+            if not res_total:
+                res["passed"] += 1
+            res = {k: str(v) for k, v in res.items()}
+            print("{}:{}, {} total, {} Pass, {} Fail, {} Skip, {} Error, {} xFail".format(case['file'],case['name'],res["tests"],res["passed"],res["failures"],res["skipped"],res["errors"],res["xfails"]))
+
+
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
     total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
     passed = int(test_result_summary["tests"]) - int(total)
     passed = max(0,passed)
     if case is None:
         return test_result_summary
-    print("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error, {} xFail".format(case['file'],test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"],test_result_summary["xfails"]))
+    name = case['file']
+    #print("{},{},{},{},{},{},{},{}".format(name,test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"],test_result_summary["xfails"],test_result_summary["time"]))
     return test_result_summary
-    
+  
 def _parse_test_metadata(root):
     properties_element = root.find(PROPERTIES_TAG)
 
