@@ -94,8 +94,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0'] or \
-        (asic_type in ['broadcom'] and release in ['master', 'internal'])"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   xfail:
@@ -285,6 +284,18 @@ ip/test_ip_packet.py:
     reason: "Skipping ip packet test since can't provide enough interfaces"
     conditions:
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
+
+ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
+  skip:
+    reason: "Broadcom, Cisco and Marvell Asic will tolorate IP packets with 0xffff checksum"
+    conditions:
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell']"
+
+ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
+  skip:
+    reason: "Mellanox Asic will drop IP packets with 0xffff checksum"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 #######################################
 #####            ipfwd            #####
