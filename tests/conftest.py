@@ -1275,9 +1275,18 @@ def pytest_generate_tests(metafunc):
     if "enum_dut_portname_module_fixture" in metafunc.fixturenames or "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
         autoneg_tests_data = get_autoneg_tests_data()
         if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-            metafunc.parametrize("enum_dut_portname_module_fixture", autoneg_tests_data, scope="module", ids=lambda p: "{}|{}|{}".format(p['dutname'], p['port'], ','.join(p['speeds'])), indirect=True)
+            def format_id(param):
+                return "{}|{}|{}".format(param['dutname'], param['port'], ','.join(param['speeds']))
+            metafunc.parametrize("enum_dut_portname_module_fixture", autoneg_tests_data, scope="module", ids=format_id, indirect=True)
+        
         if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
-            metafunc.parametrize("enum_speed_per_dutport_fixture", parametrise_per_supported_port_speed(autoneg_tests_data), scope="module", ids=lambda p: "{}|{}|{}".format(p['dutname'], p['port'], p['speed']), indirect=True)
+            def format_id(param):
+                try:
+                    return "{}|{}|{}".format(param['dutname'], param['port'], param['speed'])
+                except:
+                    logger.warning('failed to get test id for param %s', param)
+
+            metafunc.parametrize("enum_speed_per_dutport_fixture", parametrise_per_supported_port_speed(autoneg_tests_data), scope="module", ids=format_id, indirect=True)
 
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
