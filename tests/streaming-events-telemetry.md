@@ -16,4 +16,11 @@ This test will simulate scenarios to get the event fired and verify the fired ev
 # Test - Events validation
 The following is done for every event declared in src/sonic-yang-models/yang-events
 
-1) Have a gNMI tool in host
+1) Build a gNMI client tool (Go is easier) as part of SONiC-gNMI.
+2) This tool can be copied into host.
+3) For each event</br>
+   * A function is written to simulate the event and as well revert the simulation.
+   * Run the receive client and pause a second to ensure the client has established subscriber connection.
+   * 
+* 
+   * 
