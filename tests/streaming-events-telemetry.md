@@ -11,7 +11,7 @@ Any testbed with couple of established BGP sessions.
 Require: Few established BGP sessions and all *expected* dockers running.
 
 # Test
-This test will simulate scenarios to get the event fired and verify the fired event. It would also simulate scenarios for event system modules down, and verify the behavior.
+This test will simulate scenarios to get the event fired and verify the fired event. It would also test cacheing, timeout, heartbeat & stats.
 
 # Test - Events validation
 The following is done for every event declared in src/sonic-yang-models/yang-events
