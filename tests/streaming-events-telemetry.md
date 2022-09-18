@@ -120,3 +120,19 @@ For each event</br>
 4) Pause an secind to ensure telemetry could receive all.
 5) Stop receiver via SIGHUP.
 6) Verify stats to have non-zero value for missed_by_slow_receiver
+
+  
+## events latency  - Experimental
+1) To get controlled atmosphere, stop all containers except eventd, database & telemetry and monit.
+2) Stop eventd & telemetry; clear stats for events; start both; Pause a second for stabilization.
+3) Run receiver with count as 5 events with no receive timeout.
+3) Publish 2 events.
+4) Send SIGSTOP to eventd process
+5) Publish 3 more events
+6) Pause a second
+7) Send SIGCONT to eventd process.
+8) Wait for revceiver to exit; To handle error case, set a max timeout of 1 second. 
+9) Expect receiver to receive all 5.
+10) Expect non zero value for latency_in_ms.
+  
+8) 
