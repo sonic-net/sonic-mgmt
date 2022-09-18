@@ -24,6 +24,8 @@ The following is done for every event declared in src/sonic-yang-models/yang-eve
    * receive timeout -- default: no timeout
    * Use cache -- default: false
    * heartbeat duration -- Default: no heartbeat
+   * Explicit pause between two receive calls; default = 0
+  
 3) Tool writes received event as list pf JSON entries.
    [ 
       { 
@@ -68,21 +70,27 @@ For each event</br>
    Use steps above to capture & analyze the event.
   
 ## Events storming.
-1) Stop all containers except eventd & database and monit to get the max CPU power
-2) Have a receiver running for all events with no count limit.
+1) Stop all containers except eventd, database & telemetry and monit to get the max CPU power
+2) Have a receiver running for all events with no count limit and no o/p file (as file write might throttle).
 3) Write a publish tool that can use 30 threads and all 30 publish to get the max rate of 100K events/second for 5 seconds.
 4) Pause for 3 seconds for async draining to complete.
 5) Stop the tool via SIGHUP
-6) Verify the count and validity of event.
+6) Verify the receiver tool's o/p on count.
+7) Check stats on  
+   * events-published
+   * verify the rest of the counter to be 0
   
 ## Events caching
 1) Create expected o/p file of events with N events (say N = 20) in the same format as our receiver tool.
-2) To get controlled atmosphere, stop all containers except eventd & database and monit 
+2) To get controlled atmosphere, stop all containers except eventd, database & telemetry and monit 
 3) Restart eventd to get clean state. Pause for a second for service stabilization.
 4) Call events-publisher tool or directly via events API to publish M events (M < N).
 5) Start the receiver tool with use-cache set to true.
 6) Publish the remainder of events (N-M)
 7) Verify the o/p file.
+8) Check stats on  
+   * events-published == N
+   * verify the rest of the counter to be 0                                                                                    
 
 ### Events caching overflow
 1) Repeat the above with variations as below.
@@ -92,8 +100,11 @@ For each event</br>
 2) Start the receiver tool with a timeout and no o/p file. The file writing could become a blocker, otherwise.
 4) Wait for tool to exit via receive timeout.
 5) If tool would not exit after N seconds (need to assess N), send SIGHUP to receiver.
-6) Check the receiver tool o/p to be M
-  
+6) Check the receiver tool o/p to be M'
+7) Check stats on  
+   * events-published == M+10
+   * missed_to_cache = 10
+   * verify the rest of the counter to be 0
                                                                                  
 ## Heartbeat
 1) Start receiver tool to with heartbeat duration set to 1 sec and set it to receive only heartbeat events into a o/p file
@@ -101,6 +112,11 @@ For each event</br>
 3) Send SIGHUP to stop the tool
 4) Expect N heartbeat events in o/p file.
   
-## Stats
-1) In each of the above test, add expected stats value 
-2) Clean 
+## Events dropped on slow receiver
+1) Start receiver with 60 seconds pause between to receices; use no cache and no o/p file either with no count set for receive. 
+2) To get controlled atmosphere, stop all containers except eventd, database & telemetry and monit.
+3) Stop eventd & telemetry; clear stats for events; start both; Pause a second for stabilization.
+3) Publish N messages where N > (TELEMETRY's max Q size * 2)
+4) Pause an secind to ensure telemetry could receive all.
+5) Stop receiver via SIGHUP.
+6) Verify stats to have non-zero value for missed_by_slow_receiver
