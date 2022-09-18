@@ -20,9 +20,10 @@ The following is done for every event declared in src/sonic-yang-models/yang-eve
 2) Let the tool take arguments as with default values for all.
    * list of keys of interest (key = <Yang nodule>:<Yang container>"); default: any/all
    * Count of events to receive. def: Receive until SIGHUP signal
-   * o/p file to receive the events; def: /tmp/event_receive.json
+   * o/p file to receive the events; def: No events written
    * receive timeout -- default: no timeout
    * Use cache -- default: false
+   * heartbeat duration -- Default: no heartbeat
 3) Tool writes received event as list pf JSON entries.
    [ 
       { 
@@ -32,7 +33,9 @@ The following is done for every event declared in src/sonic-yang-models/yang-eve
       },
       ...
   ]
-4) The tool exits upon any of the following:
+4) Tools spew total count of received events into STDOUT, during exit.
+ 
+5) The tool exits upon any of the following:
    * Failed to receive/subscribe.
    * Any other internal failure.
    * Received expected count of events
@@ -81,12 +84,23 @@ For each event</br>
 6) Publish the remainder of events (N-M)
 7) Verify the o/p file.
 
-                                                                                     
-                                                                                     
-                                                                                     
-                                                                                     
-                                                                                 
-4)
+### Events caching overflow
+1) Repeat the above with variations as below.
+   * Use a single event to publish repeatedly.
+   * Set M = <Max cache size> + 10.
+   * Add a pause of 10ms between two publish to *ensure* that indeed every event is received and any drop is done by eventd *only*.
+2) Start the receiver tool with a timeout and no o/p file. The file writing could become a blocker, otherwise.
+4) Wait for tool to exit via receive timeout.
+5) If tool would not exit after N seconds (need to assess N), send SIGHUP to receiver.
+6) Check the receiver tool o/p to be M
   
+                                                                                 
 ## Heartbeat
-vents stat
+1) Start receiver tool to with heartbeat duration set to 1 sec and set it to receive only heartbeat events into a o/p file
+2) Sleep for N+2 seconds
+3) Send SIGHUP to stop the tool
+4) Expect N heartbeat events in o/p file.
+  
+## Stats
+1) In each of the above test, add expected stats value 
+2) Clean 
