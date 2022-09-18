@@ -1,5 +1,5 @@
 # Overview
-The goal is to test the events system from publishing end point to external receiving endpopint that tests every supported event which includes validation against the schema.
+The goal is to test the events system from publishing end point to external receiving end point that tests every supported event which includes validation against the schema.
 
 # Scope
 This system is platform independent. This can be run on a fully configured & functioning SONiC system. As this involves BGP & Interface startup shutdown, require system with established BGP sessions.
@@ -38,7 +38,7 @@ To test end to end, we need a tool that receives via gNMI
 4) Tools spew total count of received events into STDOUT, during exit.
  
 5) The tool exits upon any of the following:
-   * Failed to receive/subscribe.
+   * Failed to receive/subscribe. This includes receive timeout.
    * Any other internal failure.
    * Received expected count of events
    * Received SIGHUP signal.
@@ -51,35 +51,36 @@ For each event</br>
    * A function is written to simulate the event and as well revert the simulation.
    * For certain events, might need to run some commands from connected switches -- e.g. BGP Notifications
    * For certain events, which may happen periodically, simulation may just simply pause for required time.
-   * Write the list of expected events in the same format as event-receiver tool's JSON list
-   * Run the receive client with expected keys & count and o/p file.
+   * Write the list of expected events in the same format as event-receiver tool's JSON list'
+   * Verify the content of each event in expected list against the schema in /usr/local/yang-events
+   * Run the receive tool with expected keys, receive-count and o/p file.
    * Pause a second to ensure the client has established subscriber connection.
    * Kick off simulation; Pause a second or more depending on how long the simulation take to result in event publish. 
    * Event publish API itself would take about 100ms to reliably reach the receiver.
-   * If receiver not done, stop the receiver via SIGHUP.
+   * Expect receiver tool to exit; If not, stop the receiver via SIGHUP.
    * Open the received o/p as JSON object, which should be a JSON list.
    * Compare the list against the expected.
   
 ## For kernel events that can *NOT* be simulated
    e.g. "kernel.*write failed" 
-1) Scan kernel code in open source for event strings validation
+1) Scan kernel code in open source for expected log strings.
     * List the versions of scanned kernels in the test code.
     * At run time verify current version against this list.
     * Fail if this version is not listed. Suggest steps to validate & fix by adding the version to the list.
   
-2) Using logger write logs as kernel would do and verify fired event
+2) Using logger to write logs as kernel would do and verify fired event
    Use steps above to capture & analyze the event.
   
 ## Events storming.
 1) Stop all containers except eventd, database & telemetry and monit to get the max CPU power
-2) Have a receiver running for all events with no count limit and no o/p file (as file write might throttle).
-3) Write a publish tool that can use 30 threads and all 30 publish to get the max rate of 100K events/second for 5 seconds.
+2) Have a receiver tool running for all events with no count limit and no o/p file (as file write might throttle).
+3) Write a publish tool that can use N threads and each M publish events to get the max rate of 100K events/second for 5 seconds. M & N needs to be assessed.
 4) Pause for 3 seconds for async draining to complete.
 5) Stop the tool via SIGHUP
 6) Verify the receiver tool's o/p on count.
 7) Check stats on  
    * events-published
-   * verify the rest of the counter to be 0
+   * verify the rest of the counters to be 0
   
 ## Events caching
 1) Create expected o/p file of events with N events (say N = 20) in the same format as our receiver tool.
@@ -88,7 +89,7 @@ For each event</br>
 4) Call events-publisher tool or directly via events API to publish M events (M < N).
 5) Start the receiver tool with use-cache set to true.
 6) Publish the remainder of events (N-M)
-7) Verify the o/p file.
+7) Verify the o/p file against expected.
 8) Check stats on  
    * events-published == N
    * verify the rest of the counter to be 0                                                                                    
@@ -98,7 +99,7 @@ For each event</br>
    * Use a single event to publish repeatedly.
    * Set M = <Max cache size> + 10.
    * Add a pause of 10ms between two publish to *ensure* that indeed every event is received and any drop is done by eventd *only*.
-2) Start the receiver tool with a timeout and no o/p file. The file writing could become a blocker, otherwise.
+2) Start the receiver tool with a receive-timeout and no o/p file. The file writing could become a blocker, otherwise.
 4) Wait for tool to exit via receive timeout.
 5) If tool would not exit after N seconds (need to assess N), send SIGHUP to receiver.
 6) Check the receiver tool o/p to be M'
@@ -118,7 +119,7 @@ For each event</br>
 2) To get controlled atmosphere, stop all containers except eventd, database & telemetry and monit.
 3) Stop eventd & telemetry; clear stats for events; start both; Pause a second for stabilization.
 3) Publish N messages where N > (TELEMETRY's max Q size * 2)
-4) Pause an secind to ensure telemetry could receive all.
+4) Pause an second to ensure telemetry could receive all.
 5) Stop receiver via SIGHUP.
 6) Verify stats to have non-zero value for missed_by_slow_receiver
 
@@ -136,4 +137,4 @@ For each event</br>
 9) Expect receiver to receive all 5.
 10) Expect non zero value for latency_in_ms.
   
-8) 
+8)
