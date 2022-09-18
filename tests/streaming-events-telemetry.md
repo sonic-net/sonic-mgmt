@@ -18,23 +18,23 @@ To test end to end, we need a tool that receives via gNMI
 
 1) Build a gNMI client tool (Go is easier) as part of SONiC-gNMI.
 2) Let the tool take arguments as with default values for all.
-   * list of keys of interest (key = <Yang nodule>:<Yang container>"); default: any/all
-   * Count of events to receive. def: Receive until SIGHUP signal
-   * o/p file to receive the events; def: No events written
+   * list of keys of interest (key = < Yang nodule >:< Yang container >"); default: any/all
+   * Count of events to receive. default: Receive until SIGHUP signal
+   * o/p file to receive the events; default: No events written
    * receive timeout -- default: no timeout
    * Use cache -- default: false
-   * heartbeat duration -- Default: no heartbeat
+   * heartbeat duration -- default: no heartbeat
    * Explicit pause between two receive calls; default = 0
   
 3) Tool writes received event as list pf JSON entries.
-   [ 
-      { 
-        "event_str": <...>,
-        "missed": <cnt>,
-        "timestamp": < timestamp>
-      },
-      ...
-  ]
+   [</br>
+      {</br>
+         "event_str": < .. .>,</br>
+         "missed": <cnt></br>
+         "timestamp": < timestamp ></br>
+      },</br>
+      ...</br>
+   ]</br>
 4) Tools spew total count of received events into STDOUT, during exit.
  
 5) The tool exits upon any of the following:
