@@ -13,8 +13,8 @@ Require: Few established BGP sessions and all *expected* dockers running.
 # Test
 This test will simulate scenarios to get the event fired and verify the fired event. It would also test cacheing, timeout, heartbeat & stats.
 
-# Test - Events validation
-The following is done for every event declared in src/sonic-yang-models/yang-events
+# Test - Event receiver tool
+To test end to end, we need a tool that receives via gNMI
 
 1) Build a gNMI client tool (Go is easier) as part of SONiC-gNMI.
 2) Let the tool take arguments as with default values for all.
@@ -45,6 +45,7 @@ The following is done for every event declared in src/sonic-yang-models/yang-eve
   
 5) This tool can be copied into host from telemetry docker.
 
+# Test cases
 ## For events that can be simulated
 For each event</br>
    * A function is written to simulate the event and as well revert the simulation.
