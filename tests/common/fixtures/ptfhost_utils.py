@@ -8,7 +8,6 @@ import requests
 
 from ipaddress import ip_interface
 from jinja2 import Template
-from natsort import natsorted
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -162,7 +161,7 @@ def copy_arp_responder_py(ptfhost):
 
 
 @pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
+def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -174,15 +173,18 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
         ptf_port_map = []
-        for i in range(len(portList)):
-            ptf_port_map.append("{}@{}\n".format(i, portList[i]))
+        for port in portList:
+            if "Ethernet-Rec" not in port or "Ethernet-IB" not in port:
+                index = mg_facts['minigraph_ptf_indices'][port]
+                ptf_port_map.append("{}@{}\n".format(index, port))
         file.writelines(ptf_port_map)
 
     ptfhost.copy(src=portMapFile, dest="/root/")
