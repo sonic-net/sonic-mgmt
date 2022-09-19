@@ -149,7 +149,8 @@ class QosParamMellanox(object):
         xoff['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         # One motivation of margin is to tolerance the deviation.
         # We need a larger margin on SPC2/3
-        xoff['pkts_num_margin'] = 3
+        xoff['pkts_num_margin'] = 4
+        xoff['cell_size'] = self.cell_size
         self.qos_params_mlnx[self.speed_cable_len]['xoff_1'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_2'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_3'].update(xoff)
@@ -160,6 +161,7 @@ class QosParamMellanox(object):
         xon['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc + self.extra_margin
         xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         xon['pkts_num_margin'] = 3
+        xon['cell_size'] = self.cell_size
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
         self.qos_params_mlnx['xon_3'].update(xon)
