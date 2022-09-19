@@ -87,6 +87,7 @@ wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=maste
 gzip -d sonic-vs.img.gz
 mkdir -p ~/sonic-vm/images
 cp sonic-vs.img ~/sonic-vm/images
+mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
 ```
 
