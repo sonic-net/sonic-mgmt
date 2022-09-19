@@ -6,14 +6,11 @@ and/or dataplane automatically set up.
 """
 
 import os
-import logging
-import unittest
 
 
 import ptf
 from ptf.base_tests import BaseTest
 from ptf import config
-import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 
 ################################################################

@@ -16,18 +16,10 @@
 Thrift SAI interface basic tests
 """
 
-import switch_sai_thrift
 from sai_base_test import *
 import time
 import sys
-import logging
 
-import unittest
-import random
-
-import sai_base_test
-
-from ptf import config
 from ptf.testutils import *
 from ptf.thriftutils import *
 
@@ -134,7 +126,7 @@ def sai_thrift_create_virtual_router(client, v4_enabled, v6_enabled):
     #v6 enabled
     vr_attribute2_value = sai_thrift_attribute_value_t(booldata=v6_enabled)
     vr_attribute2 = sai_thrift_attribute_t(id=SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,
-                                           value=vr_attribute1_value)
+                                           value=vr_attribute2_value)
     vr_attr_list = [vr_attribute1, vr_attribute2]
     vr_id = client.sai_thrift_create_virtual_router(thrift_attr_list=vr_attr_list)
     return vr_id
@@ -502,7 +494,7 @@ def sai_thrift_create_mirror_session(client, mirror_type, port,
 
         #vlan priority
         attribute5_value = sai_thrift_attribute_value_t(u16=vlan_priority)
-        attribute4 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_VLAN_PRI,
+        attribute5 = sai_thrift_attribute_t(id=SAI_MIRROR_SESSION_ATTR_VLAN_PRI,
                                             value=attribute5_value)
         mirror_attr_list.append(attribute5)
     elif mirror_type == SAI_MIRROR_TYPE_ENHANCED_REMOTE:
