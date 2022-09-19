@@ -3,7 +3,6 @@ Test the auto-restart feature of containers
 """
 import logging
 import re
-import time
 from collections import defaultdict
 
 import pytest
@@ -322,6 +321,14 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     Returns:
       True if post check succeeds; Otherwise False.
     """
+    # Check if all critical processes are running with timeout 100 sec, if not
+    # then this timeout will help to stabilize service state and to spot
+    # start-limit-hit if it was exceded.
+    wait_until(
+        100, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
     for feature_name in feature_autorestart_states.keys():
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
@@ -418,12 +425,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     if restore_disabled_state:
         logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
         duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
-
-    if container_name == "syncd":
-        # During syncd TC bgp service reach start-limit-hit, but at the time when it is
-        # checked in is_hiting_start_limit bgp service have another state.
-        # Wait 100 seconds to stabilize bgp state
-        time.sleep(100)
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
