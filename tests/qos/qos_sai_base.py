@@ -77,31 +77,33 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        pytest_assert(ptfhost.shell(
-                      argv = [
-                          "ptf",
-                          "--test-dir",
-                          "saitests",
-                          testCase,
-                          "--platform-dir",
-                          "ptftests",
-                          "--platform",
-                          "remote",
-                          "-t",
-                          ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
-                          "--disable-ipv6",
-                          "--disable-vxlan",
-                          "--disable-geneve",
-                          "--disable-erspan",
-                          "--disable-mpls",
-                          "--disable-nvgre",
-                          "--log-file",
-                          "/tmp/{0}.log".format(testCase),
-                          "--test-case-timeout",
-                          "600"
-                      ],
-                      chdir = "/root",
-                      )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
+        params = [
+                  "ptf",
+                  "--test-dir",
+                  "saitests",
+                  testCase,
+                  "--platform-dir",
+                  "ptftests",
+                  "--platform",
+                  "remote",
+                  "-t",
+                  ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                  "--disable-ipv6",
+                  "--disable-vxlan",
+                  "--disable-geneve",
+                  "--disable-erspan",
+                  "--disable-mpls",
+                  "--disable-nvgre",
+                  "--log-file",
+                  "/tmp/{0}.log".format(testCase),
+                  "--test-case-timeout",
+                  "600"
+              ]
+        result = ptfhost.shell(
+                      argv=params,
+                      chdir="/root",
+                      )
+        pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
 
 class QosSaiBase(QosBase):
