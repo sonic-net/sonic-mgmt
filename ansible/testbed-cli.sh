@@ -737,14 +737,14 @@ function deploy_topo_with_cache
   if [ "$remove_all_topologies" = true ]; then
       for topo in $setup_topologies
       do
-          ./testbed-cli.sh remove-topo $topo $passwd
+          remove_topo $topo $passwd
       done
   else
-      .testbed-cli.sh remove-topo $cache_topo $passwd
+      remove_topo $cache_topo $passwd
   fi
 
-  ./testbed-cli.sh add-topo $testbed_name $passwd
-  ./testbed-cli.sh deploy-mg $testbed_name $inventory $passwd
+  add_topo $testbed_name $passwd
+  deploy_minigraph $testbed_name $inventory $passwd
 
   echo "Done!"
 }
