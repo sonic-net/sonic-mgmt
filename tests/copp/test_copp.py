@@ -55,6 +55,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_vlanid"])
 _SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
 _SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
+_SUPPORTED_M0_TOPOS = ["m0"]
 _SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
 _SUPPORTED_T2_TOPOS = ["t2"]
 _TOR_ONLY_PROTOCOL = ["DHCP"]
@@ -224,7 +225,7 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
+    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS + _SUPPORTED_M0_TOPOS):
         pytest.skip("Topology not supported by COPP tests")
 
     try:
