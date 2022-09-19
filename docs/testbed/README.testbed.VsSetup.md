@@ -5,7 +5,7 @@ This document describes the steps to setup a virtual switch based testbed, deplo
 First, we need to prepare the host where we will be configuring the virtual testbed and running the tests.
 
 1. Install Ubuntu AMD64 on your host or VM
-    - To setup a T0 topology, the server needs to have at least 10GB of memory free
+    - To setup a T0 topology, the server needs to have at least 20GB of memory free
     - If the testbed host is a VM, then it must support nested virtualization
         - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
 2. Prepare your environment based on different Ubuntu version, make sure that python and pip are installed
