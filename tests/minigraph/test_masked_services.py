@@ -1,5 +1,4 @@
 import logging
-import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
