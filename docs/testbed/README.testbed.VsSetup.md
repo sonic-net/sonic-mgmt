@@ -123,7 +123,57 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 1. Modify `/data/sonic-mgmt/ansible/veos_vtb` to use the user name (e.g. `foo`) you want to use to login to the host machine (this can be your username on the host)
 
 ```
+     STR-ACS-VSERV-01:
+       ansible_host: 172.17.0.1
+       ansible_user: use_own_value
+       vm_host_user: foo
+```
+
+2. Modify `/data/sonic-mgmt/ansible/ansible.cfg` to uncomment the two lines:
+
+```
+become_user='root'
+become_ask_pass=False
+```
+
+3. Modify `/data/sonic-mgmt/ansible/group_vars/vm_host/creds.yml` to use the username (e.g. `foo`) and password (e.g. `foo123`) you want to use to login to the host machine (this can be your username and sudo password on the host)
+
+```
+vm_host_user: foo
+vm_host_password: foo123
+vm_host_become_password: foo123
+```
+- **Note**: If the above three modifcations are done correctly, use `git diff` command and it will show an output like given below:
+
+```
 foo@sonic:/data/sonic-mgmt/ansible$ git diff
+diff --git a/ansible/ansible.cfg b/ansible/ansible.cfg
+index bc48c9ba..023dfe46 100644
+--- a/ansible/ansible.cfg
++++ b/ansible/ansible.cfg
+@@ -169,8 +169,8 @@ fact_caching_timeout = 86400
+ [privilege_escalation]
+ #become=True
+ become_method='sudo'
+-#become_user='root'
+-#become_ask_pass=False
++become_user='root'
++become_ask_pass=False
+
+ [paramiko_connection]
+
+diff --git a/ansible/group_vars/vm_host/creds.yml b/ansible/group_vars/vm_host/creds.yml
+index 029ab9a6..e00d3852 100644
+--- a/ansible/group_vars/vm_host/creds.yml
++++ b/ansible/group_vars/vm_host/creds.yml
+@@ -1,4 +1,4 @@
+-vm_host_user: use_own_value
+-vm_host_password: use_own_value
+-vm_host_become_password: use_own_value
++vm_host_user: foo
++vm_host_password: foo123
++vm_host_become_password: foo123
+
 diff --git a/ansible/veos_vtb b/ansible/veos_vtb
 index 3e7b3c4e..edabfc40 100644
 --- a/ansible/veos_vtb
