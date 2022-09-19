@@ -221,9 +221,10 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
-        if "t0" not in tbinfo["topo"]["type"]:
+        topo_type = tbinfo["topo"]["type"]
+        if "t0" not in topo_type and "m0" not in topo_type:
             pytest.skip(
-                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(tbinfo["topo"]["type"])
+                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(topo_type)
             )
 
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
