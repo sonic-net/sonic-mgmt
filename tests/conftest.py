@@ -1226,6 +1226,10 @@ def pytest_generate_tests(metafunc):
         tbname, tbinfo = get_tbinfo(metafunc)
         duts_selected = [tbinfo["duts"][0]]
 
+    possible_asic_enums = ["enum_asic_index", "enum_frontend_asic_index", "enum_backend_asic_index", "enum_rand_one_asic_index", "enum_rand_one_frontend_asic_index"]
+    enums_asic_fixtures = set(metafunc.fixturenames).intersection(possible_asic_enums)
+    assert len(enums_asic_fixtures) < 2, "The number of asic_enum fixtures should be 1 or zero, the following fixtures conflict one with each other".format(enums_asic_fixtures)
+
     if "enum_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
