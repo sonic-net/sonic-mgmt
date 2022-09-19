@@ -78,9 +78,9 @@ class QosBase:
                 RunAnsibleModuleFail if ptf test fails
         """
         params = [
-                  "ptf",
+                  "/root/env-python3/bin/ptf",
                   "--test-dir",
-                  "saitests",
+                  "saitests/py3",
                   testCase,
                   "--platform-dir",
                   "ptftests",
@@ -104,7 +104,6 @@ class QosBase:
                       chdir="/root",
                       )
         pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(testCase))
-
 
 class QosSaiBase(QosBase):
     """
