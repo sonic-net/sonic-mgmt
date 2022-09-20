@@ -57,7 +57,8 @@ class TestPsuFans(PlatformApiTestBase):
             else:
                 if self.num_psus == 0:
                     pytest.skip("No psus found on device")
-
+                else:
+                    logging.info("Number of PSUs on device: {}".format(self.num_psus))
     #
     # Helper functions
     #
@@ -249,11 +250,16 @@ class TestPsuFans(PlatformApiTestBase):
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        total_psu_fans = 0
         psus_skipped = 0
 
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
             fans_skipped = 0
+            total_psu_fans += num_fans
+
+            if num_fans == 0:
+                continue
 
             for i in range(num_fans):
                 speed_target_val = 25
@@ -280,6 +286,9 @@ class TestPsuFans(PlatformApiTestBase):
 
         if psus_skipped == self.num_psus:
             pytest.skip("skipped as all PSU fans' speed is not controllable")
+
+        if total_psu_fans == 0:
+            pytest.skip("skipped as there are no PSU fans available")
 
         self.assert_expectations()
 
