@@ -1,6 +1,7 @@
 import pytest
 import logging
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import skip_release
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
