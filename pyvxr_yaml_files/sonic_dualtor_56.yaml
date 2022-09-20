@@ -8,7 +8,7 @@ devices:
   mux_sim:
     platform: linux
     vcpu: 2
-    image: /auto/vxr/vxr_images/onie-sonic/mux_sim_v3.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/mux_sim_v5.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@ubuntu:~#
@@ -44,12 +44,12 @@ devices:
     #linux_username: "admin"
     #linux_password: "YourPaSsWoRd"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/devpatha/sonic-cisco-8000-dualtor-msft-202012.bin
+    onie-install: /auto/vxr1/sonic-images/devpatha/1905/sonic-cisco-8000.bin
     linecard_types: [matilda64]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-1.43.0.3-buster-1.7.1-10811/npl
-           ConfigS1NpsuiteVer: 1.78.1
+           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.57.10.10/npl
+           ConfigS1NpsuiteVer: 1.105.0
 
   sonic_dut_1:
       <<: *dut
