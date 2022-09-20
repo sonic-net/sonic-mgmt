@@ -62,14 +62,19 @@ def save_fanout_port_state(portinfo):
         fanout_original_port_states[key] = (fanout, fanout_port, speed, auto_neg_mode, fec_mode)
 
 
+def skip_if_datafile_is_not_read(params):
+    pytest_require(params['dutname'] != 'unknown', 'required datafile is missing at metadata/autoneg-test-params.json. To create it run pretest before the tests: py.test test_pretest -k test_update_testbed_metadata')
+
 @pytest.fixture
 def enum_dut_portname_module_fixture(request):
+    skip_if_datafile_is_not_read(request.param)
     save_fanout_port_state(request.param)
     return request.param
 
 
 @pytest.fixture
 def enum_speed_per_dutport_fixture(request):
+    skip_if_datafile_is_not_read(request.param)
     save_fanout_port_state(request.param)
     return request.param
 

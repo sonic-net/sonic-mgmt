@@ -1284,10 +1284,7 @@ def pytest_generate_tests(metafunc):
         
         if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
             def format_id(param):
-                try:
-                    return "{}|{}|{}".format(param['dutname'], param['port'], param['speed'])
-                except:
-                    logger.warning('failed to get test id for param %s', param)
+                return "{}|{}|{}".format(param['dutname'], param['port'], param['speed'])
 
             metafunc.parametrize("enum_speed_per_dutport_fixture", parametrise_per_supported_port_speed(autoneg_tests_data), scope="module", ids=format_id, indirect=True)
 

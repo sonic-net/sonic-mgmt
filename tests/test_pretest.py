@@ -267,17 +267,20 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     try:
         for duthost in duthosts:
             all_ports = list_dut_fanout_connections(duthost, fanouthosts)
-
-            cadidate_test_ports[duthost.hostname] = {}
+            selected_ports = {}
             for dut_port, fanout, fanout_port in all_ports:
-                if len(cadidate_test_ports[duthost.hostname]) == max_interfaces_per_dut:
+                if len(selected_ports) == max_interfaces_per_dut:
                     break
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
                 if auto_neg_mode is not None:
                     speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
-                    cadidate_test_ports[duthost.hostname][dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port, 'common_port_speeds': speeds}
-
-        with open(filepath, 'w') as yf:
-            json.dump(cadidate_test_ports, yf, indent=4)
+                    selected_ports[dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port, 'common_port_speeds': speeds}
+            if len(selected_ports) > 0:
+                cadidate_test_ports[duthost.hostname] = selected_ports
+        if len(cadidate_test_ports) > 0:
+            with open(filepath, 'w') as yf:
+                json.dump(cadidate_test_ports, yf, indent=4)
+        else:
+            logger.warning('skipped to create autoneg test datafile because of no ports selected')    
     except Exception as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
