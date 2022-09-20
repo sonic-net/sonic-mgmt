@@ -39,7 +39,7 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     @param get_advanced_reboot: advanced reboot test fixture
     '''
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot',\
-        advanceboot_loganalyzer=advanceboot_loganalyzer, other_vendor_nos = False)
+        advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
 
 
