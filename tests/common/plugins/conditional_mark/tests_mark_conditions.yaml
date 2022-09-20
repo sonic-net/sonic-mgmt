@@ -142,7 +142,7 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #######################################
 #####           pfc               #####
 #######################################
-pfc/test_unknown_mac.py:
+arp/test_unknown_mac.py:
   skip:
     reason: In cisco-8000 platform, a packet with unknown MAC will be flooded, not dropped. This case will not pass in cisco-8000.
     conditions:
