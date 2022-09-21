@@ -796,7 +796,7 @@ vxlan/test_vxlan_ecmp.py:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_telemetry_output.py:
+telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
