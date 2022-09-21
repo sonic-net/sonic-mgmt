@@ -15,7 +15,8 @@ from ptf.testutils import (ptf_ports,
                            send_packet,
                            simple_tcp_packet,
                            simple_qinq_tcp_packet,
-                           simple_ip_packet)
+                           simple_ip_packet,
+                           simple_ipv4ip_packet)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -578,6 +579,112 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             print >> sys.stderr, "END OF TEST"
+
+
+# Tunnel DSCP to PG mapping test
+class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
+
+    def _build_testing_pkt(self, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, inner_dscp, outer_dscp, dst_ip, ecn=1):
+        pkt = simple_tcp_packet(
+                eth_dst=standby_tor_mac,
+                ip_src='1.1.1.1',
+                ip_dst=dst_ip,
+                ip_dscp=inner_dscp,
+                ip_ecn=ecn,
+                ip_ttl=64
+                )
+        
+        ipinip_packet = simple_ipv4ip_packet(
+                            eth_dst=active_tor_mac,
+                            eth_src=standby_tor_mac,
+                            ip_src=standby_tor_ip,
+                            ip_dst=active_tor_ip,
+                            ip_dscp=outer_dscp,
+                            ip_ecn=ecn,
+                            inner_frame=pkt[scapy.IP]
+                            )
+        return ipinip_packet
+
+    def runTest(self):
+        """
+        This test case is to tx some ip_in_ip packet from Mux tunnel, and check if the traffic is
+        mapped to expected PGs.
+        """
+        switch_init(self.client)
+
+        # Parse input parameters
+        active_tor_mac = self.test_params['active_tor_mac']
+        active_tor_ip = self.test_params['active_tor_ip']
+        standby_tor_mac = self.test_params['standby_tor_mac']
+        standby_tor_ip = self.test_params['standby_tor_ip']
+        src_port_id = self.test_params['src_port_id']
+        src_port_slice = self.test_params['src_port_slice']
+        dst_port_id = self.test_params['dst_port_id']
+        dst_port_ip = self.test_params['dst_port_ip']
+
+        dscp_to_tc_map = self.test_params['tunnel_qos_map']['dscp_to_tc_map']
+        tc_to_pg_map = self.test_params['tunnel_qos_map']['tc_to_priority_group_map']
+        asic_type = self.test_params['sonic_asic_type']
+        dscp_to_pg_map = {}
+        PKT_NUM = 100
+        # We noticed that a packet less than 256 bytes will occupy a 256-sized buffer
+        FACTOR = 256
+        # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
+        ERROR_TOLERANCE = {
+            0: 10,
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0,
+            6: 0,
+            7: 0
+        }
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
+        try:
+            # Disable tx on EGRESS port so that headroom buffer cannot be free
+            sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+            # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
+            # Hence we send some packet to fill the leak before testing
+            for dscp, _ in dscp_to_pg_map.items():
+                pkt = self._build_testing_pkt(
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=standby_tor_mac,
+                                            active_tor_ip=active_tor_ip,
+                                            standby_tor_ip=standby_tor_ip,
+                                            inner_dscp=dscp,
+                                            outer_dscp=0,
+                                            dst_ip=dst_port_ip
+                                        )
+                send_packet(self, src_port_id, pkt, 20)
+            time.sleep(10)
+
+            for dscp, pg in dscp_to_pg_map.items():
+                # Build and send packet to active tor.
+                # The inner DSCP is set to testing value, and the outer DSCP is set to 0 as it has no impact on remapping
+                pkt = self._build_testing_pkt(
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=standby_tor_mac,
+                                            active_tor_ip=active_tor_ip,
+                                            standby_tor_ip=standby_tor_ip,
+                                            inner_dscp=dscp,
+                                            outer_dscp=0,
+                                            dst_ip=dst_port_ip
+                                        )
+                pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_slice])
+                send_packet(self, src_port_id, pkt, PKT_NUM)
+                # validate pg counters increment by the correct pkt num
+                time.sleep(8)
+                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_slice])
+
+                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * FACTOR)
+                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * FACTOR)
+        finally:
+            # Enable tx on dest port
+            sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])       
+
 
 # DOT1P to pg mapping
 class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):

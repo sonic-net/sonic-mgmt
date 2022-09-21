@@ -161,7 +161,7 @@ def copy_arp_responder_py(ptfhost):
 
 
 @pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+def _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -189,7 +189,23 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
-    yield "/root/{}".format(portMapFile.split('/')[-1])
+    return "/root/{}".format(portMapFile.split('/')[-1])
+
+
+@pytest.fixture(scope='class')
+def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+    """
+    A class level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo)
+
+
+@pytest.fixture(scope='module')
+def ptf_portmap_file_module(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+    """
+    A module level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo)
 
 
 icmp_responder_session_started = False

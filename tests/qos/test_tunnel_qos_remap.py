@@ -1,14 +1,19 @@
 import logging
 import pytest
 import time
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_garp_service          # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, is_tunnel_qos_remap_enabled
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_icmp_responder, run_garp_service # lgtm[py/unused-import]
-import ptf.packet as scapy
-from ptf.mask import Mask
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
+from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd
 from ptf import testutils
-from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
+
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -30,37 +35,6 @@ def check_running_condition(tbinfo, duthost):
     
     # Check tunnel_qos_remap is enabled
     pytest_require(is_tunnel_qos_remap_enabled(duthost), "Only run when tunnel_qos_remap is enabled", True)
-
-
-def _build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, inner_dscp, outer_dscp, ecn=1):
-    pkt = simple_tcp_packet(
-                eth_dst=standby_tor_mac,
-                ip_src=src_ip,
-                ip_dst=dst_ip,
-                ip_dscp=inner_dscp,
-                ip_ecn=ecn,
-                ip_ttl=64
-            )
-    # The ttl of inner_frame is decreased by 1
-    pkt.ttl -= 1
-    ipinip_packet = simple_ipv4ip_packet(
-                eth_dst=active_tor_mac,
-                eth_src=standby_tor_mac,
-                ip_src=standby_tor_ip,
-                ip_dst=active_tor_ip,
-                ip_dscp=outer_dscp,
-                ip_ecn=ecn,
-                inner_frame=pkt[IP]
-            )
-    pkt.ttl += 1
-    exp_tunnel_pkt = Mask(ipinip_packet)
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
-
-    return pkt, exp_tunnel_pkt
 
 
 def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter):
@@ -93,7 +67,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
         dst_ports.extend(ports)
 
     for dscp_combination in DSCP_COMBINATIONS:
-        pkt, expected_pkt = _build_testing_packet(src_ip=DUMMY_IP,
+        pkt, expected_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                                   dst_ip=SERVER_IP,
                                                   active_tor_mac=active_tor_mac,
                                                   standby_tor_mac=dualtor_meta['standby_tor_mac'],
@@ -108,17 +82,6 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
         # Verify encaped packet
         testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
 
-def _check_queue_counter(duthost, intfs, queue, counter):
-    output = duthost.shell('show queue counters')['stdout_lines']
-
-    for intf in intfs:
-        for line in output:
-            fields = line.split()
-            if len(fields) == 6 and fields[0] == intf and fields[1] == 'UC{}'.format(queue):
-                if int(fields[2]) >= counter:
-                    return True
-    
-    return False
 
 def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter):
     """
@@ -153,7 +116,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
     PKT_NUM = 100
 
     for dscp, queue in TEST_DATA:
-        pkt, _ = _build_testing_packet(src_ip=DUMMY_IP,
+        pkt, _ = build_testing_packet(src_ip=DUMMY_IP,
                                         dst_ip=SERVER_IP,
                                         active_tor_mac=active_tor_mac,
                                         standby_tor_mac=dualtor_meta['standby_tor_mac'],
@@ -169,6 +132,38 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
         # Verify queue counters in all possible interfaces
         time.sleep(15)
 
-        pytest_assert(_check_queue_counter(upper_tor_host, tor_pc_intfs, queue, PKT_NUM),
+        pytest_assert(check_queue_counter(upper_tor_host, tor_pc_intfs, queue, PKT_NUM),
                          "The queue counter for DSCP {} Queue {} is not as expected".format(dscp, queue))
 
+
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module):
+    """
+    Test steps:
+    1. Toggle all ports to active on randomly selected ToR
+    2. Populate ARP table by GARP service
+    3. Disable Tx on target port
+    4. Send encapsulated packets from T1 to Active ToR
+    5. Verify the watermark increased as expected
+    """
+    toggle_mux_to_host(rand_selected_dut)
+    test_params = dict()
+    test_params.update({
+            "tunnel_qos_map": dut_config["tunnel_qos_map"],
+            "src_port_id": dut_config["lag_port_ptf_id"],
+            "src_port_slice": dut_config["lag_port_slice"],
+            "dst_port_id": dut_config["server_port_ptf_id"],
+            "dst_port_ip": dut_config["server_ip"],
+            "active_tor_mac": dut_config["selected_tor_mac"],
+            "active_tor_ip": dut_config["selected_tor_loopback"],
+            "standby_tor_mac": dut_config["unselected_tor_mac"],
+            "standby_tor_ip": dut_config["unselected_tor_loopback"],
+            "server": dut_config["selected_tor_mgmt"],
+            "port_map_file": dut_config["port_map_file"],
+            "sonic_asic_type": dut_config["asic_type"]
+        })
+    
+    run_ptf_test(
+        ptfhost,
+        test_case="sai_qos_tests.TunnelDscpToPgMapping",
+        test_params=test_params
+    )
