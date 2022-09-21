@@ -85,6 +85,7 @@ class KustoConnector(ReportDBConnector):
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
 
     METADATA_TABLE = "TestReportMetadata"
+    SWSSDATA_TABLE = "SwssInvocationReport"
     SUMMARY_TABLE = "TestReportSummary"
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
@@ -97,6 +98,7 @@ class KustoConnector(ReportDBConnector):
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
+        SWSSDATA_TABLE: DataFormat.MULTIJSON,
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
@@ -110,6 +112,7 @@ class KustoConnector(ReportDBConnector):
 
     TABLE_MAPPING_LOOKUP = {
         METADATA_TABLE: "FlatMetadataMappingV1",
+        SWSSDATA_TABLE: "SwssInvocationReportMapping",
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
@@ -181,6 +184,14 @@ class KustoConnector(ReportDBConnector):
         for result in ping_output:
             result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
+    
+    def upload_swss_report_file(self, file) -> None:
+        """Upload a report to the back-end data store.
+
+        Args:
+            file: json
+        """
+        self._upload_swss_log_file(file)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -212,7 +223,10 @@ class KustoConnector(ReportDBConnector):
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
-
+    
+    def _upload_swss_log_file(self, file):            
+        self._ingest_data_file(self.SWSSDATA_TABLE, file)
+    
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
             "id": report_guid,
@@ -260,3 +274,14 @@ class KustoConnector(ReportDBConnector):
             self._ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)
             if self._ingestion_client_backup:
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
+        
+    def _ingest_data_file(self, table, file):
+        props = IngestionProperties(
+            database=self.db_name,
+            table=table,
+            data_format=self.TABLE_FORMAT_LOOKUP[table],
+            ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table],
+            flush_immediately=True
+        )
+
+        stat = self._ingestion_client.ingest_from_file(file, ingestion_properties=props)
