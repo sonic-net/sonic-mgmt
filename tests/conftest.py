@@ -68,7 +68,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
-                  'tests.common.plugins.custom_skipif.CustomSkipIf',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
@@ -855,7 +854,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds):
     """
         Swap syncd on DUT host
 
@@ -866,7 +865,7 @@ def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
         Returns:
             None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
@@ -1537,7 +1536,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file):
     """
         Prepares DUT host test params
 
@@ -1550,7 +1549,7 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
         Returns:
             dut_test_params (dict): DUT host test params
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
