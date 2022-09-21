@@ -675,11 +675,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         for dst_idx in range(0, len(setup_info[dest_port_type]["dest_port"])):
 
             tx_port = setup_info[dest_port_type]["dest_port"][dst_idx]
-            if setup_info[dest_port_type]["dest_port_lag_name"][dst_idx] == "Not Applicable":
-                tx_port_list = [tx_port]
-            else:
-                mg_facts = remote_dut.get_extended_minigraph_facts(tbinfo)
-                tx_port_list = mg_facts["minigraph_portchannels"][setup_info[dest_port_type]["dest_port_lag_name"][dst_idx]]['members']
+
             logging.info("SUBTEST: Add a route to the mirror session destination IP on %s intf %s", remote_dut.hostname, tx_port)
             tx_ns = get_intf_namespace(setup_info, dest_port_type, tx_port)
             peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
@@ -713,11 +709,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         for dst_idx in range(0, len(setup_info[rev_port_type]["dest_port"])):
             try:
                 tx_port = setup_info[rev_port_type]["dest_port"][dst_idx]
-                if setup_info[rev_port_type]["dest_port_lag_name"][dst_idx] == "Not Applicable":
-                    tx_port_list = [tx_port]
-                else:
-                    mg_facts = everflow_dut.get_extended_minigraph_facts(tbinfo)
-                    tx_port_list = mg_facts["minigraph_portchannels"][setup_info[rev_port_type]["dest_port_lag_name"][dst_idx]]['members']
+
                 logging.info("SUBTEST: Add a route to the mirror session destination IP on %s intf %s", everflow_dut.hostname, tx_port)
                 tx_ns = get_intf_namespace(setup_info, rev_port_type, tx_port)
                 peer_ip = everflow_utils.get_neighbor_info(everflow_dut, tx_port, tbinfo)
