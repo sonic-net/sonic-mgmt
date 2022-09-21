@@ -17,7 +17,7 @@ acl/test_acl_outer_vlan.py:
 
 acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded:
   xfail:
-    # Skipping because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
+    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
     # BRCM CSP CS00012257197
     reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
     conditions:
@@ -25,7 +25,7 @@ acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded:
 
 acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded:
   xfail:
-    # Skipping because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
+    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
     # BRCM CSP CS00012257197
     reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
     conditions:
@@ -33,7 +33,7 @@ acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded:
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded:
   xfail:
-    # Skipping because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
+    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
     # BRCM CSP CS00012257197
     reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
     conditions:
@@ -41,7 +41,7 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded:
 
 acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded:
   xfail:
-    # Skipping because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
+    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
     # BRCM CSP CS00012257197
     reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
     conditions:
