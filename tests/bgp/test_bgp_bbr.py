@@ -48,6 +48,10 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
+    yield
+
+    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
@@ -91,8 +95,6 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo['topo']['type'] != 't1':
-        pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
@@ -111,9 +113,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    t2_neighbors = [neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')]
     tor1 = tor_neighbors[0]
-    other_vms = tor_neighbors[1:] + t2_neighbors
 
     neigh_peer_map = defaultdict(dict)
     for bgp_neigh in mg_facts['minigraph_bgp']:
@@ -129,7 +129,15 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         if tor1 == neigh['name']:
             tor1_namespace = neigh['namespace']
             break
-
+            
+    # Modifying other_vms for multi-asic, check bgps on asic of tor1_namespace
+    other_vms = []
+    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+        if neigh['name'] == tor1: 
+            continue
+        if neigh['namespace'] == tor1_namespace:
+            other_vms.append(neigh['name'])
+            
     # Announce route to one of the T0 VM
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
@@ -246,7 +254,11 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             if 'advertisedTo' not in dut_route:
                 logging.warn("DUT didn't advertise the route")
                 return False
-            advertised_to = set([bgp_neighbors[_]['name'] for _ in dut_route['advertisedTo']])
+            advertised_to = set()
+            for _ in dut_route['advertisedTo']:
+                # For multi-asic dut, dut_route included duthost which is not a BGP neighbor
+                if _ in bgp_neighbors.keys():
+                    advertised_to.add(bgp_neighbors[_]['name'])
             for vm in other_vms:
                 if vm not in advertised_to:
                     logging.warn("DUT didn't advertise route to neighbor %s" % vm)

@@ -1,6 +1,6 @@
 {
     "thermal_control_algorithm": {
-        "run_at_boot_up": "false",
+        "run_at_boot_up": "true",
         "fan_speed_when_suspend": "60"
     },
     "info_types": [
@@ -24,10 +24,6 @@
             ],
             "actions": [
                 {
-                    "type": "thermal_control.control",
-                    "status": "false"
-                },
-                {
                     "type": "fan.all.set_speed",
                     "speed": "100"
                 }
@@ -41,10 +37,6 @@
                 }
             ],
             "actions": [
-                {
-                    "type": "thermal_control.control",
-                    "status": "false"
-                },
                 {
                     "type": "fan.all.set_speed",
                     "speed": "100"

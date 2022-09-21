@@ -1,5 +1,5 @@
 ### This test implements several test cases from the test plan:
-### https://github.com/Azure/SONiC/wiki/QoS-configuration-in-Config-DB.-ECN-WRED-configuration-utility-test-plan
+### https://github.com/sonic-net/SONiC/wiki/QoS-configuration-in-Config-DB.-ECN-WRED-configuration-utility-test-plan
 ### It requires no external connections
 ###
 ### Usage example:

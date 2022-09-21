@@ -2,7 +2,7 @@
 Description:    This file contains the decapasulation test for SONIC, to test decapsulation of IPv4 with double and
                 triple encapsulated packets
 
-                Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode
@@ -423,10 +423,10 @@ class DecapPacketTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == 'multiple-fib':
                 active_dut_index = int(self.ptf_test_port_map[str(src_port)]['target_dut'])
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:

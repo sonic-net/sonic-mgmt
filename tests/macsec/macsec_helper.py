@@ -1,9 +1,9 @@
 from collections import defaultdict
 import struct
-import sys
 import binascii
 import time
 import re
+import ast
 
 import cryptography.exceptions
 import ptf
@@ -27,7 +27,11 @@ __all__ = [
     'get_appl_db',
     'get_macsec_attr',
     'get_mka_session',
-    'get_sci'
+    'get_macsec_sa_name',
+    'get_macsec_counters',
+    'get_sci',
+    'getns_prefix',
+    'get_ipnetns_prefix'
 ]
 
 
@@ -39,19 +43,12 @@ def check_wpa_supplicant_process(host, ctrl_port_name):
         host, ctrl_port_name)
 
 
-def get_sci(macaddress, port_identifer=1, order="network"):
-    assert order in ("host", "network")
+def get_sci(macaddress, port_identifer=1):
     system_identifier = macaddress.replace(":", "").replace("-", "")
     sci = "{}{}".format(
         system_identifier,
         str(port_identifer).zfill(4))
-    if order == "host":
-        return sci
-    sci = int(sci, 16)
-    if sys.byteorder == "little":
-        sci = struct.pack(">Q", sci)
-        sci = struct.unpack("<Q", sci)[0]
-    return str(sci)
+    return sci
 
 
 QUERY_MACSEC_PORT = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
@@ -73,6 +70,29 @@ def getns_prefix(host, intf):
         ns_prefix = "-n {}".format(ns)
 
     return ns_prefix
+
+def get_ipnetns_prefix(host, intf):
+    ns_prefix = " "
+    if host.is_multi_asic:
+        asic = host.get_port_asic_instance(intf)
+        ns = host.get_namespace_from_asic_id(asic.asic_index)
+        ns_prefix = "sudo ip netns exec {}".format(ns)
+
+    return ns_prefix
+
+def get_macsec_sa_name(sonic_asic, port_name, egress = True):
+    if egress:
+        table = 'MACSEC_EGRESS_SA_TABLE'
+    else:
+        table = 'MACSEC_INGRESS_SA_TABLE'
+
+    cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
+    names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
+    if names:
+        names.sort()
+        return ':'.join(names[0].split(':')[1:])
+    return None
+
 
 def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
@@ -276,7 +296,7 @@ def get_macsec_attr(host, port):
     macsec_sa = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci, an))
     sak = binascii.unhexlify(macsec_sa["sak"])
-    sci = int(get_sci(eth_src, order="host"), 16)
+    sci = int(get_sci(eth_src), 16)
     if xpn_en:
         ssci = struct.pack('!I', int(macsec_sa["ssci"]))
         salt = binascii.unhexlify(macsec_sa["salt"])
@@ -366,6 +386,20 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         if timeout <= 0:
             break
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
+
+
+def get_macsec_counters(sonic_asic, namespace, name):
+    lines = [
+        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter,SonicDBConfig',
+        'from sonic_py_common import multi_asic',
+        'SonicDBConfig.initializeGlobalConfig() if multi_asic.is_multi_asic() else {}',
+        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0, False, "{}"))'.format(namespace),
+        '_, values = counterTable.get(MacsecCounter(), "{}")'.format(name),
+        'print(dict(values))'
+        ]
+    cmd = "python -c '{}'".format(';'.join(lines))
+    output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
+    return {k:int(v) for k,v in ast.literal_eval(output).items()}
 
 
 __origin_dp_poll = testutils.dp_poll

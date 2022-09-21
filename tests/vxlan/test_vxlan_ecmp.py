@@ -2,7 +2,7 @@
 
 '''
     Script to automate the cases listed in VxLAN HLD document:
-    https://github.com/Azure/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
+    https://github.com/sonic-net/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
 
     To test functionality:
     ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py'
@@ -10,9 +10,9 @@
     To test ECMP with 2 paths per destination:
     ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py' -e '--nhs_per_destination=2'
 
-    To test ECMP+Scale:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py' \
-                    -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=128000'
+    To test ECMP+Scale(for all 4 types of encap):
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c  'vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint' \
+                    -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=32000' -e '--total_number_of_endpoints=1024'
 
     To keep the temporary config files created in the DUT:
     ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files -c 'vxlan/test_vxlan_ecmp.py'
@@ -22,7 +22,7 @@
         debug_enabled               : Enable debug mode, for debugging script. The temp files will not have timestamped names. Default: False
         dut_hostid                  : An integer in the range of 1 - 100 to be used as the host part of the IP address for DUT. Default: 1
         ecmp_nhs_per_destination    : Number of ECMP next-hops per destination.
-        total_number_of_endpoints : Number of Endpoints (a pool of this number of ip addresses will used for next-hops).
+        total_number_of_endpoints   : Number of Endpoints (a pool of this number of ip addresses will used for next-hops). Default:2
         total_number_of_nexthops    : Maximum number of all nexthops for every destination combined(per encap_type).
         vxlan_port                                : Global vxlan port (UDP port) to be used for the DUT. Default: 4789
 '''
@@ -367,6 +367,10 @@ def create_vnet_routes(duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1
             nhs_per_destination                    : Number of ECMP nexthops to use per destination.
             number_of_ecmp_nhs                     : Maximum number of all NextHops put together(for all destinations).
     '''
+    if number_of_available_nexthops < nhs_per_destination:
+        raise RuntimeError("The number of available nexthops ip addresses is not enough to cover even one destination." \
+                           "Pls rerun with total_number_of_endpoints({}) > ecmp_nhs_per_destination({})".format(number_of_available_nexthops, nhs_per_destination))
+
     available_nexthops = get_list_of_nexthops(number=number_of_available_nexthops, af=nh_af, prefix=nexthop_prefix)
 
     number_of_destinations = int(number_of_ecmp_nhs / nhs_per_destination)
@@ -478,7 +482,7 @@ def bgp_established(duthost, down_list=[]):
                 return False
 
     # Now wait for the routes to be updated.
-    time.sleep(10)
+    time.sleep(30)
     return True
 
 def get_downed_bgp_neighbors(shut_intf_list, minigraph_data):
@@ -524,9 +528,15 @@ def get_ethernet_ports(intf_list, minigraph_data):
 
     return ret_list
 
+
+@pytest.fixture(scope="module", params=SUPPORTED_ENCAP_TYPES)
+def encap_type(request):
+    yield request.param
+
+
 @pytest.fixture(scope="module")
 def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
-          tbinfo):
+          tbinfo, encap_type):
 
     global Constants
     # Should I keep the temporary files copied to DUT?
@@ -542,6 +552,8 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     Constants['DUT_HOSTID'] = request.config.option.dut_hostid
 
     logger.info("Constants to be used in the script:%s", Constants)
+
+    SUPPORTED_ENCAP_TYPES = [encap_type]
 
     data = {}
     data['ptfhost'] = ptfhost
@@ -643,7 +655,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     for tunnel in tunnel_names.values():
         data['duthost'].shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
-@pytest.mark.parametrize("encap_type", SUPPORTED_ENCAP_TYPES)
+
 class Test_VxLAN:
 
     def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4):
@@ -681,6 +693,14 @@ class Test_VxLAN:
                        },
                    qlen=1000,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(tcname, encap_type, datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
+
+
+@pytest.fixture
+def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*"])
+    return
 
 class Test_VxLAN_route_tests(Test_VxLAN):
     def test_vxlan_single_endpoint(self, setUp, encap_type):
@@ -1072,6 +1092,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         apply_config_in_swss(self.setup['duthost'], tc11_config, "vnet_route_tc11_"+encap_type)
         self.dump_self_info_and_run_ptf("tc11", encap_type, True, packet_count=1000)
 
+@pytest.mark.usefixtures("ignore_route_sync_errlogs")
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
     def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):

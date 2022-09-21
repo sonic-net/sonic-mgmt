@@ -7,6 +7,8 @@ from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type 
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
@@ -34,7 +36,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0') or is_asan:
-        memory_threshold = 80
+        memory_threshold = 90
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
     # The CPU usage of `sx_sdk` on mellanox is expected to be higher, and the actual CPU usage
@@ -47,6 +49,9 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Wait until all critical services is fully started
+    pytest_assert(wait_until(360, 20, 0, duthost.critical_services_fully_started),
+                             "All critical services must be fully started!{}".format(duthost.critical_services))
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     monit_results = duthost.monit_process(iterations=24)['monit_results']
 
@@ -205,7 +210,7 @@ def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter,
     if proc['cpu_percent'] >= cpu_threshold:
         logging.debug("process %s(%d) cpu usage exceeds %d%%.",
                       proc['name'], proc['pid'], cpu_threshold)
-        outstanding_procs[proc['pid']] = proc['name']
+        outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
 
 
