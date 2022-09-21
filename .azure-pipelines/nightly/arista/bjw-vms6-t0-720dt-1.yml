@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - dev/zhijianli/bjw-720dt-nightly-dev
+        - internal
     always: true
 
 variables:
@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_INTERNAL)
+    default: $(BJW_IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(BJW_SAITHRIFT_BRCM_INTERNAL)
+    default: $(BJW_SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
   - name: EXTRA_PARAMS
