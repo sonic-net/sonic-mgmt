@@ -1,13 +1,3 @@
-acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped
-acl/test_acl.py::TestIncrementalAcl::test_dest_ip_match_forwarded
-acl/test_acl.py::TestBasicAcl::test_egress_unmatched_forwarded
-acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded
-acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped
-acl/test_acl.py::TestIncrementalAcl::test_icmp_source_ip_match_forwarded
-acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped
-acl/test_acl.py::TestIncrementalAcl::test_ip_proto_match_forwarded
-acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped
-acl/test_acl.py::TestIncrementalAcl::test_l4_dport_match_forwarded
 arp/test_arpall.py::test_arp_no_reply_src_out_range
 arp/test_neighbor_mac_noptf.py::testNeighborMacNoPtf
 bgp/test_traffic_shift.py::test_TSA_B_C_with_no_neighbors

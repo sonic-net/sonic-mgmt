@@ -71,7 +71,7 @@ def _create_parser():
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
                       required=False,default="mth64")
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
-                      required=False,default='sanity_scripts.txt')
+                      required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
                       required=False,default='DT')
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
@@ -477,6 +477,16 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('t1-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
         ftp_client.put('t1-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
         ftp_client.put('topo_t1.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    ftp_client.close()
+
+def upload_sanity_file(data,script_file):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ftp_client=ssh.open_sftp()
+    #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
+    #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
+    ftp_client.put(script_file,'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(script_file))
     ftp_client.close()
 
 def get_report_file(data):
@@ -970,6 +980,8 @@ def main():
     delta3 = datetime.datetime.now()
 
     if run_sanity:
+        print("Upload Sanity Script file")
+        upload_sanity_file(data,script_file)
         print("Running Sanity Scripts")
         run_result = run_scripts(data,script_file,drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
