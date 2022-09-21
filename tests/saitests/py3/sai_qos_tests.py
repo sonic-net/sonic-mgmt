@@ -598,7 +598,7 @@ class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip), file=sys.stderr)
         vlan_id = int(self.test_params['vlan_id'])
 
-        exp_ip_id = 103
+        # exp_ip_id = 103 # not used
         exp_ttl = 63
 
         # According to SONiC configuration dot1ps are classified as follows:
