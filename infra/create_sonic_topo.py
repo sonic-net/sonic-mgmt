@@ -484,9 +484,7 @@ def upload_sanity_file(data,script_file):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    #ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
-    #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
-    ftp_client.put(script_file,'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(script_file))
+    ftp_client.put(script_file,'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(script_file.rsplit('/', 1)[-1]))
     ftp_client.close()
 
 def get_report_file(data):
@@ -982,8 +980,8 @@ def main():
     if run_sanity:
         print("Upload Sanity Script file")
         upload_sanity_file(data,script_file)
-        print("Running Sanity Scripts")
-        run_result = run_scripts(data,script_file,drop_version,log_dir,device_type)
+        print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
+        run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type)
         delta4 = datetime.datetime.now()
         if run_result:
             create_report_html(data,log_dir)
