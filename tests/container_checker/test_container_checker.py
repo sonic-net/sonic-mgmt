@@ -208,8 +208,8 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
 
     skip_containers = disabled_containers[:]
 
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
+    # Skip 'radv' container on devices whose role is not T0/M0.
+    if tbinfo["topo"]["type"] not in ["t0", "m0"]:
         skip_containers.append("radv")
 
     pytest_require(service_name not in skip_containers,
