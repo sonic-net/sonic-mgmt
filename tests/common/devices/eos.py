@@ -96,6 +96,10 @@ class EosHost(AnsibleHostBase):
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
 
+    def is_intf_status_down(self, interface_name):
+        show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
+        return 'down' in show_int_result['stdout_lines'][0]
+
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
