@@ -171,6 +171,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     verify_tor_states(
         expected_active_host=lower_tor_host,
         expected_standby_host=upper_tor_host,
+        expected_standby_health="unhealthy",
         cable_type=cable_type
     )
 
@@ -202,6 +203,7 @@ def test_active_tor_shutdown_bgp_sessions_downstream(
         verify_tor_states(
             expected_active_host=lower_tor_host,
             expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
             cable_type=cable_type
         )
 
