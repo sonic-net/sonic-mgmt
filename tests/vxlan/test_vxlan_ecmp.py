@@ -199,8 +199,9 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
         data['duthost'].shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
     time.sleep(1)
-    data['ptfhost'].command('supervisorctl stop bfd_responder')
-    data['ptfhost'].file(path=ecmp_utils.BFD_RESPONDER_SCRIPT_DEST_PATH, state="absent")
+    if request.config.option.bfd:
+        data['ptfhost'].command('supervisorctl stop bfd_responder')
+        data['ptfhost'].file(path=ecmp_utils.BFD_RESPONDER_SCRIPT_DEST_PATH, state="absent")
 
 class Test_VxLAN:
 
