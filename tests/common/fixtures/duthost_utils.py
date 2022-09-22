@@ -4,6 +4,7 @@ import itertools
 import collections
 import ipaddress
 import time
+import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
@@ -419,3 +420,65 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+def separated_dscp_to_tc_map_on_uplink(duthost):
+    """
+    A helper function to check if DSCP_TO_TC_MAP|AZURE_UPLINK is defined.
+    We may define separated DSCP_TO_TC_MAP maps for PCBB 
+    """
+    UPLINK_MAP_NAME = "AZURE_UPLINK"
+    cmd = "sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'"
+    try:
+        maps = json.loads(duthost.shell(cmd)['stdout'])
+        return UPLINK_MAP_NAME in maps.keys()
+    except:
+        return False
+
+
+def load_dscp_to_pg_map(duthost, port):
+    """
+    Helper function to calculate DSCP to PG map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])[dscp_to_tc_map_name]
+        # Load tc_to_pg_map
+        tc_to_pg_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_PRIORITY_GROUP_MAP'")['stdout'])[tc_to_pg_map_name]
+        # Calculate dscp to pg map
+        dscp_to_pg_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
+        return dscp_to_pg_map
+    except:
+        logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
+        return {}
+
+
+def load_dscp_to_queue_map(duthost, port):
+    """
+    Helper function to calculate DSCP to Queue map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])[dscp_to_tc_map_name]
+        # Load tc_to_queue_map
+        tc_to_queue_map = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])[tc_to_queue_map_name]
+        # Calculate dscp to queue map
+        dscp_to_queue_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
+        return dscp_to_queue_map
+    except:
+        logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
+        return {}
