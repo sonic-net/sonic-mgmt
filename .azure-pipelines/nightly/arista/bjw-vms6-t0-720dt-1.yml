@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202205
     always: true
 
 variables:
@@ -83,7 +83,7 @@ parameters:
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
-    default: true
+    default: false
     displayName: "Skip uploading test results to Kusto"
 
   - name: AGENT_POOL
