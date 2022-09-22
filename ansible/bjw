@@ -51,18 +51,22 @@ bjw_can_720dt_1:
       model: CCS-720DT-48S
       serial: WTW22180040
       base_mac: 2c:dd:e9:fc:df:08
-      syseeprom_info:                  
-        "0x21": "MSN2700"
-        "0x22": "MSN2700-CS2FO"
-        "0x23": "MT1234X56789"
-        "0x24": "24:8a:07:12:34:56"
-        "0x25": "12/07/2016"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_x86-r0"
-        "0x29": "2016.11-5.1.0008-9600"
-        "0x2A": "128"
-        "0x2B": "Mellanox"
-        "0xFE": "0xFBA1E964"
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S"
+        "0x22": "ASY062430103"
+        "0x23": "WTW22180040"
+        "0x24": "2c:dd:e9:fc:df:08"
+        "0x25": "2022/06/10 11:50:55"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
+        "0x2F": "WTW22180040"
+        "0xFE": 3735928559
 
 server:
   hosts:
