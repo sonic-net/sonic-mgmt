@@ -11,6 +11,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 import logging
 import random
+import json
 import ptf
 import ptf.packet as scapy
 import ptf.dataplane as dataplane
@@ -54,20 +55,12 @@ class BcastTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
         self.setUpVlan(self.test_params['vlan_info'])
-        if self.test_params['testbed_type'] == 't0':
-            self.src_ports = list(range(1, 25)) + list(range(28, 32))
-        if self.test_params['testbed_type'] == 't0-52':
-            self.src_ports = list(range(0, 52))
-        if self.test_params['testbed_type'] == 't0-56':
-            self.src_ports = list(range(0, 2)) + list(range(4, 6)) + list(range(8, 10)) + list(range(12, 18)) + list(range(20, 22)) + \
-                             list(range(24, 26)) + list(range(28, 30)) + list(range(32, 34)) + list(range(36, 38)) + list(range(40, 46)) + \
-                             list(range(48, 50)) + list(range(52, 54))
-        if self.test_params['testbed_type'] == 't0-64':
-            self.src_ports = list(range(0, 2)) + list(range(4, 18)) + list(range(20, 33)) + list(range(36, 43)) + list(range(48, 49)) + list(range(52, 59))
-        if self.test_params['testbed_type'] == 't0-116':
-            self.src_ports = list(range(24, 32))
-        if self.test_params['testbed_type'] == 't0-120':
-            self.src_ports = [48, 49, 54, 55, 60, 61, 66, 67]
+        ptf_test_port_map = self.test_params['ptf_test_port_map']
+        with open(ptf_test_port_map) as f:
+            self.ptf_test_port_map = json.load(f)
+        self.src_ports = self.ptf_test_port_map['ptf_src_ports']
+        self.dst_ports = self.ptf_test_port_map['ptf_dst_ports']
+        logging.info("src_ports: {}, dst_ports: {}".format(self.src_ports, self.dst_ports))
 
     #---------------------------------------------------------------------
 
@@ -92,13 +85,12 @@ class BcastTest(BaseTest):
         '''
         for vlan_pfx in self._vlan_dict:
             bcast_ip = str(ip_network(vlan_pfx).broadcast_address)
-            dst_port_list = self._vlan_dict[vlan_pfx]
-            self.check_ip_dir_bcast(bcast_ip, dst_port_list)
-            self.check_bootp_dir_bcast(bcast_ip, dst_port_list)
+            self.check_ip_dir_bcast(bcast_ip)
+            self.check_bootp_dir_bcast(bcast_ip)
 
     #---------------------------------------------------------------------
 
-    def check_ip_dir_bcast(self, dst_bcast_ip, dst_port_list):
+    def check_ip_dir_bcast(self, dst_bcast_ip):
         '''
         @summary: Check directed broadcast IP forwarding and receiving on all member ports.
         '''
@@ -121,22 +113,22 @@ class BcastTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        src_port = random.choice([port for port in self.src_ports if port not in dst_port_list])
+        src_port = random.choice([port for port in self.src_ports if port not in self.dst_ports])
         send_packet(self, src_port, pkt)
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
-        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_port_list)
+        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, self.dst_ports)
         '''
         Check if broadcast packet is received on all member ports of vlan
         '''
-        logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
+        logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(self.dst_ports)))
+        assert (pkt_count == len(self.dst_ports)), "received {} expected {}".format(pkt_count, len(self.dst_ports))
 
         return
 
     #---------------------------------------------------------------------
 
-    def check_bootp_dir_bcast(self, dst_bcast_ip, dst_port_list):
+    def check_bootp_dir_bcast(self, dst_bcast_ip):
         '''
         @summary: Check directed broadcast BOOTP packet forwarding and receiving on all member ports.
         '''
@@ -164,16 +156,16 @@ class BcastTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        src_port = random.choice([port for port in self.src_ports if port not in dst_port_list])
+        src_port = random.choice([port for port in self.src_ports if port not in self.dst_ports])
         send_packet(self, src_port, pkt)
         logging.info("Sending BOOTP packet from port " + str(src_port) + " to " + ip_dst)
 
-        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_port_list)
+        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, self.dst_ports)
         '''
         Check if broadcast BOOTP packet is received on all member ports of vlan
         '''
-        logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_port_list)))
-        assert (pkt_count == len(dst_port_list)), "received {} expected {}".format(pkt_count, len(dst_port_list))
+        logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(self.dst_ports)))
+        assert (pkt_count == len(self.dst_ports)), "received {} expected {}".format(pkt_count, len(self.dst_ports))
 
         return
 
