@@ -33,9 +33,9 @@ class QosSaiBaseMasic:
         """
         pytest_assert(ptfhost.shell(
                       argv = [
-                          "ptf",
+                          "/root/env-python3/bin/ptf",
                           "--test-dir",
-                          "saitests",
+                          "saitests/py3",
                           testCase,
                           "--platform-dir",
                           "ptftests",
