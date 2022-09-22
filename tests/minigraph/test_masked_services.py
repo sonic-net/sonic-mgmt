@@ -1,13 +1,13 @@
 import logging
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 def is_service_loaded(duthost, service):
     output = duthost.shell("systemctl show -p LoadState --value {}.service".format(service))
-    if output['rc'] != "0":
-        pytest.fail("Error showing load state of telemetry service")
+    if output["failed"]:
         return False
-    return output['stdout'] == "loaded"
+    return output["stdout"] == "loaded"
 
 def change_service_state(duthost, service, enable):
     outputs = []
@@ -24,7 +24,7 @@ def change_service_state(duthost, service, enable):
             duthost.shell("systemctl mask {}.service".format(service))
         ]
     for output in outputs:
-        if output['rc'] != 0:
+        if output["failed"]:
             pytest.fail("Error starting or stopping service")
             return
 
@@ -34,29 +34,27 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     test_service = "telemetry"
-
     logging.info("Bringing down telemetry service")
     service_status = duthost.critical_process_status("telemetry")
+    
     if not service_status:
         pytest.fail("Make sure telemetry is up and running before calling this test")
 
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
-
     wait_until(10, 3, 0, lambda: not is_service_loaded(duthost, test_service))
+
     logging.info("Check service status")
     assert is_service_loaded(duthost, test_service) == False
 
     logging.info("Starting load_minigraph")
     load_minigraph_ret = duthost.shell("config load_minigraph -y")
-    load_minigraph_error_code = load_minigraph_ret['rc']
-    result = load_minigraph_error_code == "0"
+    load_minigraph_error_code = load_minigraph_ret['failed']
 
-    if not result:  
-        logging.info("Bring back service if not up")
-        change_service_state(duthost, test_service, True)
-        logging.info("Wait until service is unmasked and active")
-        wait_until(10, 3, 0, lambda: is_service_loaded(duthost, test_service))
-        duthost.shell("sudo config reload")
-        pytest.fail("Test failed as load_minigraph was not successful")
+    logging.info("Bring back service if not up")
+    change_service_state(duthost, test_service, True)
+    logging.info("Wait until service is unmasked and active")
+    wait_until(10, 3, 0, lambda: is_service_loaded(duthost, test_service))
 
+    if load_minigraph_error_code:
+       pytest.fail("Test failed as load_minigraph was not successful")
