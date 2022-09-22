@@ -72,6 +72,16 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
+cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
+  skip:
+    reason: "caclmgrd may crash after loading scale ipv4 cacl rules."
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
+
+cacl/test_cacl_application.py::test_cacl_scale_rules_ipv6:
+  skip:
+    reason: "caclmgrd may crash after loading scale ipv6 cacl rules."
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
+
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
     reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
