@@ -78,7 +78,7 @@ topology:
         Vlan1000:
           id: 1000
           intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
-          prefix: 192.168.0.1/21
+          prefix: 192.168.0.1/24
           prefix_v6: fc02:1000::1/64
           tag: 1000
 
@@ -90,7 +90,7 @@ configuration_properties:
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16
-    tor_subnet_size: 128
+    tor_subnet_size: 64
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
