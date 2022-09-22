@@ -152,7 +152,8 @@ def test_pmon_syseepromd_stop_and_start_status(check_daemon_status, duthosts, ra
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
 
 
 def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -178,7 +179,8 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, ra
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
 
 
 def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -205,4 +207,5 @@ def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts, ra
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
