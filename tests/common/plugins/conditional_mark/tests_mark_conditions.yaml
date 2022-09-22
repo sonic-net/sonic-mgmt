@@ -476,3 +476,11 @@ vxlan/test_vxlan_ecmp.py:
     conditions:
       - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
 
+#######################################
+#####           telemetry         #####
+#######################################
+telemetry/test_telemetry.py:
+  skip:
+    reason: "Skip telemetry test for 201911 and older branches"
+    conditions:
+      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
