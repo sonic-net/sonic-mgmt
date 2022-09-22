@@ -38,9 +38,13 @@ def __recover_interfaces(dut, fanouthosts, result, wait_time):
 
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         if fanout and fanout_port:
+            fanout.shutdown(fanout_port)
             fanout.no_shutdown(fanout_port)
-        asic = dut.get_port_asic_instance(port)
-        dut.asic_instance(asic.asic_index).startup_interface(port)
+        if dut.facts["num_asic"] > 1:
+            asic = dut.get_port_asic_instance(port)
+            dut.asic_instance(asic.asic_index).startup_interface(port)
+        else:
+            dut.no_shutdown(port)
     wait(wait_time, msg="Wait {} seconds for interface(s) to restore.".format(wait_time))
     return action
 
@@ -52,58 +56,8 @@ def __recover_services(dut, result):
     return 'reboot' if 'database' in services else 'config_reload'
 
 
-def __recover_with_command(dut, cmd, wait_time):
-    dut.command(cmd)
-    wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
-
-
-def adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time):
-    outstanding_action = None
-    for result in check_results:
-        if result['failed']:
-            if result['check_item'] == 'interfaces':
-                action = __recover_interfaces(dut, fanouthosts, result, wait_time)
-            elif result['check_item'] == 'services':
-                action = __recover_services(dut, result)
-            elif result['check_item'] in [ 'processes', 'bgp', 'mux_simulator' ]:
-                action = 'config_reload'
-            else:
-                action = 'reboot'
-
-            # Any action can override no action or 'config_reload'.
-            # 'reboot' is last resort and cannot be overridden.
-            if action and (not outstanding_action or outstanding_action == 'config_reload'):
-                outstanding_action = action
-
-            logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
-
-    if outstanding_action:
-        if outstanding_action == "config_reload" and config_force_option_supported(dut):
-            outstanding_action = "config_reload_f"
-        method    = constants.RECOVER_METHODS[outstanding_action]
-        wait_time = method['recover_wait']
-        if method["reboot"]:
-            reboot_dut(dut, localhost, method["cmd"])
-        else:
-            __recover_with_command(dut, method['cmd'], wait_time)
-
-
-def recover(dut, localhost, fanouthosts, check_results, recover_method):
-    logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
-    if recover_method == "config_reload" and config_force_option_supported(dut):
-        recover_method = "config_reload_f"
-    method    = constants.RECOVER_METHODS[recover_method]
-    wait_time = method['recover_wait']
-    if method["adaptive"]:
-        adaptive_recover(dut, localhost, fanouthosts, check_results, wait_time)
-    elif method["reboot"]:
-        reboot_dut(dut, localhost, method["cmd"])
-    else:
-        __recover_with_command(dut, method['cmd'], wait_time)
-
-
 @reset_ansible_local_tmp
-def neighbor_vm_recover_bgpd(node=None, results=None):
+def __neighbor_vm_recover_bgpd(node=None, results=None):
     """Function for restoring BGP on neighbor VMs using the parallel_run tool.
 
     Args:
@@ -144,10 +98,63 @@ def neighbor_vm_recover_bgpd(node=None, results=None):
     results[nbr_host.hostname] = result
 
 
-def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
+def __recover_neighbor_bgp(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        results = parallel_run(neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+        results = parallel_run(__neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
         logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
+    return 'config_reload'  # May still need to do a config reload
+
+
+def __recover_with_command(dut, cmd, wait_time):
+    dut.command(cmd)
+    wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
+
+
+def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time):
+    outstanding_action = None
+    for result in check_results:
+        if result['failed']:
+            if result['check_item'] == 'interfaces':
+                action = __recover_interfaces(dut, fanouthosts, result, wait_time)
+            elif result['check_item'] == 'services':
+                action = __recover_services(dut, result)
+            elif result['check_item'] == 'bgp':
+                action = __recover_neighbor_bgp(dut, nbrhosts, tbinfo)
+            elif result['check_item'] in [ 'processes', 'mux_simulator' ]:
+                action = 'config_reload'
+            else:
+                action = 'reboot'
+
+            # Any action can override no action or 'config_reload'.
+            # 'reboot' is last resort and cannot be overridden.
+            if action and (not outstanding_action or outstanding_action == 'config_reload'):
+                outstanding_action = action
+
+            logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
+
+    if outstanding_action:
+        if outstanding_action == "config_reload" and config_force_option_supported(dut):
+            outstanding_action = "config_reload_f"
+        method    = constants.RECOVER_METHODS[outstanding_action]
+        wait_time = method['recover_wait']
+        if method["reboot"]:
+            reboot_dut(dut, localhost, method["cmd"])
+        else:
+            __recover_with_command(dut, method['cmd'], wait_time)
+
+
+def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
+    logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
+    if recover_method == "config_reload" and config_force_option_supported(dut):
+        recover_method = "config_reload_f"
+    method    = constants.RECOVER_METHODS[recover_method]
+    wait_time = method['recover_wait']
+    if method["adaptive"]:
+        adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
+    elif method["reboot"]:
+        reboot_dut(dut, localhost, method["cmd"])
+    else:
+        __recover_with_command(dut, method['cmd'], wait_time)
