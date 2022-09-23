@@ -126,6 +126,8 @@ test_t0() {
       pc/test_po_update.py \
       platform_tests/test_advanced_reboot.py::test_warm_reboot \
       platform_tests/test_cpu_memory_usage.py \
+      platform_tests/cli/test_sonic_installer.py \
+      platform_tests/cli/test_show.py \
       route/test_default_route.py \
       route/test_static_route.py \
       snmp/test_snmp_cpu.py \
