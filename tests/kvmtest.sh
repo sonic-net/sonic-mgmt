@@ -105,7 +105,6 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      platform_tests/cli/test_not_depends_on_database.py \
       arp/test_arp_dualtor.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
@@ -202,6 +201,7 @@ test_t0_sonic() {
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=t0-sonic
     tests="\
+      platform_tests/cli/test_not_depends_on_database.py \
       bgp/test_bgp_fact.py \
       macsec/test_macsec.py"
 
