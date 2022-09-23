@@ -707,18 +707,18 @@
 
 - conf-name: vms18-t0-7215-acs-1
   group-name: vms18-2
-  topo: t0-52
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: vms18-2
   ptf_ip: 10.64.246.143/23
   ptf_ipv6:
   server: server_18
-  vm_base: VM18024
+  vm_base: VM18096
   dut:
     - str2-7215-acs-1
   inv_name: str2
   auto_recover: 'True'
-  comment: stumkurv
+  comment: yaqiangzhu
 
 - conf-name: vms18-t0-7050qx-acs-02
   group-name: vms18-6
@@ -1595,7 +1595,7 @@
   
 - conf-name: bjw-vms6-t0-720dt-1
   group-name: bjw6-1
-  topo: t0-52
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: bjw6-1
   ptf_ip: 10.150.23.50/23

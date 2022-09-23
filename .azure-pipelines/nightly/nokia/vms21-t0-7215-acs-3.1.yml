@@ -51,4 +51,3 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
