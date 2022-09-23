@@ -51,6 +51,12 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_speaker.py:
+  skip:
+    reason: "M0 topo does not support test_bgp_speaker"
+    conditions:
+      - "topo_name in ['m0']"
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
@@ -165,6 +171,15 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
+#####         drop_packets         #####
+#######################################
+drop_packets:
+  skip:
+    reason: "M0 topo does not support drop_packets"
+    conditions:
+      - "topo_name in ['m0']"
+
+#######################################
 #####           dualtor           #####
 #######################################
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
@@ -216,7 +231,7 @@ everflow:
   skip:
     reason: "Skipping everflow tests. Unsupported topology."
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or topo_name in ['m0']"
 
 everflow/test_everflow_per_interface.py:
   skip:
@@ -277,6 +292,10 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+  skip:
+    reason: "M0 topo does not support TestShowPriorityGroup"
+    conditions:
+      - "topo_name in ['m0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -291,6 +310,21 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue:
+  skip:
+    reason: "M0 topo does not support TestShowQueue"
+    conditions:
+      - "topo_name in ['m0']"
+
+#######################################
+#####           mvrf              #####
+#######################################
+mvrf:
+  skip:
+    reason: "M0 topo does not support mvrf"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####            ip               #####
@@ -445,9 +479,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on dual tor testbed."
+    reason: "Pfcwd tests skipped on m0 or dual tor testbed."
     conditions:
-      - "'dualtor' in topo_name"
+      - "'dualtor' in topo_name or topo_name in ['m0']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -503,6 +537,12 @@ platform_tests/test_auto_negotiation.py:
 #######################################
 #####           qos               #####
 #######################################
+qos:
+  skip:
+    reason: "M0 topo does not support qos"
+    conditions:
+      - "topo_name in ['m0']"
+
 qos/test_buffer_traditional.py:
   skip:
     reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
@@ -631,6 +671,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/sonic-net/sonic-buildimage/issues/4930
 
+route/test_route_perf.py:
+  skip:
+    reason: "M0 topo does not support test_route_perf"
+    conditions:
+      - "topo_name in ['m0']"
+
 #######################################
 #####      show_techsupport       #####
 #######################################
@@ -657,6 +703,12 @@ snmp/test_snmp_lldp.py:
     conditions:
       - "is_supervisor"
 
+snmp/test_snmp_pfc_counters.py:
+  skip:
+    reason: "M0 topo does not support test_snmp_pfc_counters"
+    conditions:
+      - "topo_name in ['m0']"
+
 snmp/test_snmp_phy_entity.py::test_psu_info:
   skip:
     reason: "Not supported on non supervisor node."
@@ -668,6 +720,10 @@ snmp/test_snmp_queue.py:
     reason: "Interfaces not present on supervisor node"
     conditions:
       - "is_supervisor"
+  skip:
+    reason: "M0 topo does not support test_snmp_queue"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####            span             #####

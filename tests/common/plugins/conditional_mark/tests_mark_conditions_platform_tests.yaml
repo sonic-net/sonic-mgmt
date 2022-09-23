@@ -118,7 +118,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmw
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_component.py::TestComponentApi::test_get_description:
   skip:
@@ -130,7 +130,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_update
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_version:
   skip:
@@ -190,7 +190,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####   api/test_fan_drawer.py    #####
@@ -199,7 +199,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consum
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
   skip:
@@ -225,7 +225,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 
 #######################################
@@ -297,15 +297,21 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
-    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
+    reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'cisco-8000'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
+      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####    api/test_psu_fans.py     #####
@@ -425,7 +431,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -443,7 +449,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
@@ -552,6 +558,15 @@ platform_tests/api/test_watchdog.py:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
 
 #######################################
+#####           broadcom          #####
+#######################################
+platform_tests/broadcom:
+  skip:
+    reason: "Marvell devices does not support platform_tests/broadcom"
+    conditions:
+      - "asic_type in ['marvell']"
+
+#######################################
 #####  cli/test_show_platform.py  #####
 #######################################
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
@@ -588,6 +603,15 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
+
+#######################################
+#####           mellanox          #####
+#######################################
+platform_tests/mellanox:
+  skip:
+    reason: "Marvell devices does not support platform_tests/mellanox"
+    conditions:
+      - "asic_type in ['marvell']"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -629,17 +653,39 @@ platform_tests/test_reboot.py:
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4']"
 
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Skip test_fast_reboot for m0"
+    conditions:
+      - "topo_name in ['m0']"
+
 platform_tests/test_reboot.py::test_power_off_reboot:
   skip:
-    reason: "Skip power off reboot test for Wistron"
+    reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
+      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+platform_tests/test_reboot.py::test_soft_reboot:
+  skip:
+    reason: "Skip test_soft_reboot for m0"
+    conditions:
+      - "topo_name in ['m0']"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Skip test_warm_reboot for m0"
+    conditions:
+      - "topo_name in ['m0']"
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
     reason: "Skip watchdog reboot test for Wistron"
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
+  skip:
+    reason: "Skip watchdog reboot test for m0"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####   test_reload_config.py     #####
