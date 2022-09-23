@@ -98,9 +98,9 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   skip:
-    reason: "Unsupported platform API"
+    reason: "On Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API. Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
