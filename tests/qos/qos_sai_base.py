@@ -7,7 +7,6 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.barefoot_data import is_barefoot_device as isBarefootDevice
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,dualtor_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
@@ -22,7 +21,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "tf1", "tf2"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -78,33 +77,31 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        params = [
-                  "ptf",
-                  "--test-dir",
-                  "saitests",
-                  testCase,
-                  "--platform-dir",
-                  "ptftests",
-                  "--platform",
-                  "remote",
-                  "-t",
-                  ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
-                  "--disable-ipv6",
-                  "--disable-vxlan",
-                  "--disable-geneve",
-                  "--disable-erspan",
-                  "--disable-mpls",
-                  "--disable-nvgre",
-                  "--log-file",
-                  "/tmp/{0}.log".format(testCase),
-                  "--test-case-timeout",
-                  "600"
-              ]
-        result = ptfhost.shell(
-                      argv=params,
-                      chdir="/root",
-                      )
-        pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(testCase))
+        pytest_assert(ptfhost.shell(
+                      argv = [
+                          "ptf",
+                          "--test-dir",
+                          "saitests",
+                          testCase,
+                          "--platform-dir",
+                          "ptftests",
+                          "--platform",
+                          "remote",
+                          "-t",
+                          ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                          "--disable-ipv6",
+                          "--disable-vxlan",
+                          "--disable-geneve",
+                          "--disable-erspan",
+                          "--disable-mpls",
+                          "--disable-nvgre",
+                          "--log-file",
+                          "/tmp/{0}.log".format(testCase),
+                          "--test-case-timeout",
+                          "600"
+                      ],
+                      chdir = "/root",
+                      )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
 
 class QosSaiBase(QosBase):
@@ -893,22 +890,6 @@ class QosSaiBase(QosBase):
                                                        egressLossyProfile,
                                                        sharedHeadroomPoolSize,
                                                        dutConfig["dualTor"]
-            )
-            qosParams = qpm.run()
-        elif isBarefootDevice(duthost):
-            current_file_dir = os.path.dirname(os.path.realpath(__file__))
-            sub_folder_dir = os.path.join(current_file_dir, "files/barefoot/")
-            if sub_folder_dir not in sys.path:
-                sys.path.append(sub_folder_dir)
-            import qos_param_generator
-            qpm = qos_param_generator.QosParamBarefoot(qosConfigs['qos_params']['barefoot'][dutTopo], dutAsic,
-                                                       portSpeedCableLength,
-                                                       dutConfig,
-                                                       ingressLosslessProfile,
-                                                       ingressLossyProfile,
-                                                       egressLosslessProfile,
-                                                       egressLossyProfile,
-                                                       sharedHeadroomPoolSize
             )
             qosParams = qpm.run()
         else:

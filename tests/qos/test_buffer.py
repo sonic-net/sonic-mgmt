@@ -2424,7 +2424,6 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     if not is_mellanox_device(duthost):
         buffer_table_up[KEY_2_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
-
         if is_tunnel_qos_remap_enabled(duthost):
             buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
         else:
@@ -2609,7 +2608,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     """
     This function is Mellanox platform specific.
     It intends to calculate the headroom size based on the input port attributes(speed, cable_length, number of lanes..., etc)
-    This algorithm is the same as the implementation in https://github.com/sonic-net/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
+    This algorithm is the same as the implementation in https://github.com/Azure/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
     """
     global ASIC_TABLE_KEYS_LOADED
     global CELL_SIZE
