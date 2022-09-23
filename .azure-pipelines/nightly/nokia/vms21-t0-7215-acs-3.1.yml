@@ -40,52 +40,8 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "arp/test_arp_dualtor.py \
-              arp/test_wr_arp.py \
-              bgp/test_bgp_slb.py \
-              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_persistent_watermark_headroom \
-              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_persistent_watermark_shared \
-              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_watermark_headroom \
-              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup::test_show_priority_group_watermark_shared \
-              iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_counters_interface \
-              iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark_multicast \
-              iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark_unicast \
-              iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_multicast \
-              iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_unicast \
-              platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmware_version \
-              platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consumed_power \
-              platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_update_notification \
-              platform_tests/api/test_component.py::TestComponentApi::test_update_firmware \
-              platform_tests/api/test_psu.py::TestPsuApi::test_power \
-              platform_tests/api/test_psu.py::TestPsuApi::test_temperature \
-              platform_tests/api/test_psu.py::TestPsuApi::test_led \
-              platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led \
-              platform_tests/api/test_sfp.py::TestSfpApi::test_power_override \
-              platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel \
-              platform_tests/link_flap/test_cont_link_flap.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py \
-              platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot \
-              platform_tests/test_reboot.py::test_soft_reboot \
-              platform_tests/test_reboot.py::test_watchdog_reboot \
-              platform_tests/test_reboot.py::test_power_off_reboot \
-              pfc/test_unknown_mac.py \
-              route/test_route_perf.py \
-              snmp/test_snmp_queue.py \
-              snmp/test_snmp_pfc_counters.py \
-              system_health/test_system_health.py \
-              vxlan/test_vnet_vxlan.py \
-              vxlan/test_vxlan_decap.py \
-              vxlan/test_vnet_route_leak.py"
+    default: "platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Skip Scripts"
-
-
-  # Testbed specific, to skip and/or include directories
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox platform_tests/broadcom qos restapi snappi span sub_port_interfaces vlan vrf everflow"'
-    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
