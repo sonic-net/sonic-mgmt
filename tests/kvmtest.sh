@@ -105,6 +105,7 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
+      platform_tests/cli/test_not_depends_on_database.py \
       arp/test_arp_dualtor.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
@@ -126,8 +127,6 @@ test_t0() {
       pc/test_po_update.py \
       platform_tests/test_advanced_reboot.py::test_warm_reboot \
       platform_tests/test_cpu_memory_usage.py \
-      platform_tests/cli/test_sonic_installer.py \
-      platform_tests/cli/test_show.py \
       route/test_default_route.py \
       route/test_static_route.py \
       snmp/test_snmp_cpu.py \

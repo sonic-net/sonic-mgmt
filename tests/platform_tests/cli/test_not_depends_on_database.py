@@ -34,19 +34,24 @@ def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # start database docker after test
     duthost.command("sudo docker start database", module_ignore_errors=True)
-    time.sleep(DOCKER_WAIT_TIME)
+    assert wait_until(300, 20, 0, duthost.is_service_fully_started, "database"), "database service is not running"
 
     # reload config, because some critical process not work after database docker restart
     config_reload(duthost, config_source='config_db', safe_reload=True)
 
-def test_sonic_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
+def test_show_and_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
     """
     @summary: Test sonic-installer command can work when database docker not running
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
-    # shutdown database docker before test
+    # test show command
+    show_result = duthost.command("sudo show")
+    pytest_assert(show_result["stdout_lines"][0].startswith("Usage: show"),
+                  "show command failed, stdout: {}, stderr: {}".format(show_result["stdout_lines"], show_result["stderr_lines"]))
+
+    # test installer command
     sonic_installer_result = duthost.command("sudo sonic-installer list")
     pytest_assert(sonic_installer_result["stdout_lines"][0].startswith("Current:"),
                   "sonic-installer command failed, stdout: {}, stderr: {}".format(sonic_installer_result["stdout_lines"], sonic_installer_result["stderr_lines"]))
