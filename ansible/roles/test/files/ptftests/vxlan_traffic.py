@@ -84,6 +84,7 @@ class VXLAN(BaseTest):
         self.vxlan_port = self.test_params['vxlan_port']
         self.expect_encap_success = self.test_params['expect_encap_success']
         self.packet_count = self.test_params['packet_count']
+        self.downed_endpoints = self.test_params['downed_endpoints']
         # The ECMP check fails occasionally if there is not enough packets.
         # We should keep the packet count atleast MIN_PACKET_COUNT.
         if self.packet_count < MIN_PACKET_COUNT:
@@ -152,7 +153,7 @@ class VXLAN(BaseTest):
 
         return addrs
 
-    def verify_all_addresses_used_equally(self, nhs, returned_ip_addresses):
+    def verify_all_addresses_used_equally(self, nhs, returned_ip_addresses, downed_endpoints = []):
         '''
            Verify the ECMP functionality using 2 checks.
            Check 1 verifies every nexthop address has been used.
@@ -160,6 +161,10 @@ class VXLAN(BaseTest):
            Params: nhs: the nexthops that are configured.
                    returned_ip_addresses: The dict containing the nh addresses and corresponding packet counts.
         '''
+        if downed_endpoints:
+            for nh_address in returned_ip_addresses.keys():
+                if nh_address in downed_endpoints:
+                    raise RuntimeError("Packets are received with Downed Endpoint -", nh_address)
         # Check #1 : All addresses have been used.
         if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
             logger.info("    Each address has been used")
@@ -314,7 +319,7 @@ class VXLAN(BaseTest):
 
             # Verify ECMP:
             if check_ecmp:
-                self.verify_all_addresses_used_equally(nhs, returned_ip_addresses)
+                self.verify_all_addresses_used_equally(nhs, returned_ip_addresses, self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
             self.packets.append((ptf_port, str(pkt).encode("base64")))

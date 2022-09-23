@@ -205,7 +205,7 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
 
 class Test_VxLAN:
 
-    def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4, random_dport = True, random_sport = False, varying_src_ip = False, tolerance = None):
+    def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4, random_dport = True, random_sport = False, varying_src_ip = False, tolerance = None, downed_endpoints = []):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines everytime.
         '''
@@ -240,7 +240,8 @@ class Test_VxLAN:
                        "random_dport":random_dport,
                        "random_sport":random_sport,
                        "varying_src_ip":varying_src_ip,
-                       "tolerance": tolerance
+                       "tolerance": tolerance,
+                       "downed_endpoints": downed_endpoints
                        },
                    qlen=1000,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(tcname, encap_type, datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
@@ -471,11 +472,10 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         ecmp_utils.apply_config_in_swss(self.setup['duthost'], tc4_config, "vnet_route_tc4_"+encap_type)
         if request.config.option.bfd:
             ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'], delete_member_a2 = end_point_list[1])
-    
-        logger.info("Verify that the new config takes effect and run traffic.")
         
-        self.dump_self_info_and_run_ptf("tc4", encap_type, True)
-    
+        logger.info("Verify that the new config takes effect and run traffic.")
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True, downed_endpoints=[end_point_list[1]])
+        
     def test_vxlan_bfd_health_state_change_a1a2_down(self, setUp, encap_type, request):
         '''
             Set BFD state for a1' to Down and a2' to Down. Send multiple packets (varying tuple) to the route 1's prefix dst.
@@ -495,7 +495,6 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = end_point_list
-        backup_nhmap = dict((k,v) for k,v in self.setup[encap_type]['dest_to_nh_map'][vnet].items())
         
         logger.info("Create a new config and Copy to the DUT.")
         tc4_config = '[\n' + ecmp_utils.create_single_route(vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd = request.config.option.bfd) + '\n]'
@@ -506,12 +505,10 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest].remove(endpoint)
         if request.config.option.bfd:
             ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'], delete_member_a1 = end_point_list[0], delete_member_a2 = end_point_list[1])
-    
-        logger.info("Verify that the new config takes effect and run traffic.")
-    
-        self.dump_self_info_and_run_ptf("tc4", encap_type, True, packet_count=1000)
-        #Bring the backup up
-    
+        import pdb; pdb.set_trace();
+        logger.info("Verify that there is no traffic towards downed endpoints")
+        self.dump_self_info_and_run_ptf("tc4", encap_type, False)
+
     def test_vxlan_bfd_health_state_change_a2up_a1down(self, setUp, encap_type, request):
         '''
             Set BFD state for a2' to UP. Send packets to the route 1's prefix dst.
@@ -540,8 +537,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             ecmp_utils.ptf_config(self.setup['duthost'], self.setup['ptfhost'], self.setup['tbinfo'], delete_member_a1 = end_point_list[0])
     
         logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("tc4", encap_type, False)
-        self.dump_self_info_and_run_ptf("tc4", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True, downed_endpoints=[end_point_list[0]])
 
     def test_vxlan_bfd_health_state_change_a1a2_up(self, setUp, encap_type, request):
         '''

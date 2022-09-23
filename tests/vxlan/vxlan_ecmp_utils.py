@@ -268,7 +268,7 @@ class Ecmp_Utils:
             "NEIGH" : {
         ''' + ",\n".join(config_list) + '''\n}\n}'''
 
-        self.apply_config_in_dut(duthost, full_config, name="vnet_nbr_"+af)
+        #self.apply_config_in_dut(duthost, full_config, name="vnet_nbr_"+af)
 
         return return_dict
 
@@ -574,7 +574,10 @@ class Ecmp_Utils:
         return ret_list
 
     def ptf_config(self, duthost, ptfhost, tbinfo, delete_member_a1 = None, delete_member_a2 = None):
-        ptfhost.command('supervisorctl stop bfd_responder')
+        responder_output = ptfhost.command('supervisorctl stop bfd_responder')
+        responder_output = responder_output['stdout_lines'][0]
+        if responder_output not in ['bfd_responder: stopped','bfd_responder: ERROR (not running)']:
+            raise RuntimeError("Something is wrong with bfd_responder. Please check")
         time.sleep(2)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for element in mg_facts['minigraph_lo_interfaces']:
