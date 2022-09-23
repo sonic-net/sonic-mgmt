@@ -1995,14 +1995,6 @@ vms_18:
       ansible_host: 172.16.135.54
     VM18023:
       ansible_host: 172.16.135.55
-    VM18024:
-      ansible_host: 172.16.135.56
-    VM18025:
-      ansible_host: 172.16.135.57
-    VM18026:
-      ansible_host: 172.16.135.58
-    VM18027:
-      ansible_host: 172.16.135.59
     VM18028:
       ansible_host: 172.16.135.60
     VM18029:
@@ -2139,6 +2131,18 @@ vms_18:
       ansible_host: 172.16.135.126
     VM18095:
       ansible_host: 172.16.135.127
+    VM18096:
+      ansible_host: 172.16.135.128
+    VM18097:
+      ansible_host: 172.16.135.129
+    VM18098:
+      ansible_host: 172.16.135.130
+    VM18099:
+      ansible_host: 172.16.135.131
+    VM18100:
+      ansible_host: 172.16.135.132
+    VM18101:
+      ansible_host: 172.16.135.133
 vms_20:
   hosts:
     VM20000:
