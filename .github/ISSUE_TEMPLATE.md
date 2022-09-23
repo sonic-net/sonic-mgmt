@@ -10,7 +10,7 @@ information within 7 days, we cannot debug your issue and will close it. We
 will, however, reopen it if you later provide the information.
 
 For more information about reporting issues, see
-https://github.com/Azure/SONiC/wiki#report-issues
+https://github.com/sonic-net/SONiC/wiki#report-issues
 
 ---------------------------------------------------
 GENERAL SUPPORT INFORMATION

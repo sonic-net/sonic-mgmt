@@ -10,16 +10,20 @@ from tests.common.dualtor.tor_failure_utils import shutdown_tor_heartbeat       
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type 
+from tests.common.dualtor.dual_tor_common import CableType
+
 
 pytestmark = [
     pytest.mark.topology("dualtor")
 ]
 
 
+@pytest.mark.enable_active_active
 def test_active_tor_heartbeat_failure_upstream(
     toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    shutdown_tor_heartbeat):
+    shutdown_tor_heartbeat, cable_type
+):
     """
     Send upstream traffic and stop the LinkProber module on the active ToR.
     Confirm switchover and disruption lasts < 1 second.
@@ -28,16 +32,28 @@ def test_active_tor_heartbeat_failure_upstream(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: shutdown_tor_heartbeat(upper_tor_host)
     )
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host
-    )
+
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
+
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
 
 
+@pytest.mark.enable_active_active
 def test_active_tor_heartbeat_failure_downstream_active(
     toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    shutdown_tor_heartbeat):
+    shutdown_tor_heartbeat, cable_type
+):
     """
     Send downstream traffic from T1 to the active ToR and stop the LinkProber module on the active ToR.
     Confirm switchover and disruption lasts < 1 second.
@@ -46,10 +62,20 @@ def test_active_tor_heartbeat_failure_downstream_active(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         action=lambda: shutdown_tor_heartbeat(upper_tor_host)
     )
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host
-    )
+
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
+
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
 
 
 def test_active_tor_heartbeat_failure_downstream_standby(

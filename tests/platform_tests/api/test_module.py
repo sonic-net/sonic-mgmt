@@ -108,10 +108,10 @@ class TestModuleApi(PlatformApiTestBase):
             if self.expect(presence is not None, "Unable to retrieve module {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Module {} presence appears incorrect".format(i)):
                     name = module.get_name(platform_api_conn, i)
-                    if name in self.skip_mod_list:
-                        self.expect(presence is False, "Module {} is not present".format(i))
-                    else:
+                    if name not in self.skip_mod_list:
                         self.expect(presence is True, "Module {} is not present".format(i))
+                    else:
+                        logger.info("Skipping module {} since it is part of skip_mod_list".format(name))
         self.assert_expectations()
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
@@ -173,6 +173,11 @@ class TestModuleApi(PlatformApiTestBase):
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            # Need to skip FABRIC-CARDx as they do not have base_mac assigned
+            mod_name = module.get_name(platform_api_conn, i)
+            if "FABRIC-CARD" in mod_name:
+                logger.info("skipping get_base_mac for module {} which is a Fabric Card".format(mod_name))
                 continue
             base_mac = module.get_base_mac(platform_api_conn, i)
 	    if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):

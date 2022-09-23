@@ -24,6 +24,7 @@ from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
+from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      # lgtm[py/unused-import]
@@ -55,6 +56,7 @@ from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_a
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils # lgtm[py/unused-import]
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -66,7 +68,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.pdu_controller',
                   'tests.common.plugins.sanity_check',
                   'tests.common.plugins.custom_markers',
-                  'tests.common.plugins.custom_skipif.CustomSkipIf',
                   'tests.common.plugins.test_completeness',
                   'tests.common.plugins.log_section_start',
                   'tests.common.plugins.custom_fixtures',
@@ -155,6 +156,10 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
+    ############################
+    #   collect logs option    #
+    ############################
+    parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
 
     ############################
     #   macsec options         #
@@ -833,7 +838,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds):
     """
         Swap syncd on DUT host
 
@@ -844,7 +849,7 @@ def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
         Returns:
             None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
@@ -1220,6 +1225,10 @@ def pytest_generate_tests(metafunc):
         tbname, tbinfo = get_tbinfo(metafunc)
         duts_selected = [tbinfo["duts"][0]]
 
+    possible_asic_enums = ["enum_asic_index", "enum_frontend_asic_index", "enum_backend_asic_index", "enum_rand_one_asic_index", "enum_rand_one_frontend_asic_index"]
+    enums_asic_fixtures = set(metafunc.fixturenames).intersection(possible_asic_enums)
+    assert len(enums_asic_fixtures) < 2, "The number of asic_enum fixtures should be 1 or zero, the following fixtures conflict one with each other".format(enums_asic_fixtures)
+
     if "enum_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_asic_index"
         asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL)
@@ -1355,8 +1364,6 @@ def enum_rand_one_frontend_asic_index(request):
 def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):
     duthost = duthosts[rand_one_dut_hostname]
     dut_hostname = duthost.hostname
-    if duthost.facts["asic_type"] == "vs":
-        pytest.skip("Real console session is supported on physical testbed.")
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
@@ -1419,7 +1426,7 @@ def get_l2_info(dut):
 def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):
     """
     Configures L2 switch mode according to
-    https://github.com/Azure/SONiC/wiki/L2-Switch-mode
+    https://github.com/sonic-net/SONiC/wiki/L2-Switch-mode
 
     Currently not compatible with version 201811
 
@@ -1513,7 +1520,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file):
     """
         Prepares DUT host test params
 
@@ -1526,7 +1533,7 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
         Returns:
             dut_test_params (dict): DUT host test params
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
@@ -1602,8 +1609,8 @@ def collect_db_dump_on_duts(request, duthosts):
         for db_name in db_names:
             # Skip STATE_DB dump on release 201911.
             # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
-            # Please refer to issue: https://github.com/Azure/sonic-buildimage/issues/5587.
-            # The issue has been fixed in https://github.com/Azure/sonic-buildimage/pull/5646.
+            # Please refer to issue: https://github.com/sonic-net/sonic-buildimage/issues/5587.
+            # The issue has been fixed in https://github.com/sonic-net/sonic-buildimage/pull/5646.
             # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
             # to avoid raising exception when dumping the STATE_DB.
             if db_name == "STATE_DB" and duthosts[0].sonic_release in ['201911']:
@@ -1645,29 +1652,112 @@ def collect_db_dump(request, duthosts):
     a test case failed.
     """
     yield
-    collect_db_dump_on_duts(request, duthosts)
+    if request.config.getoption("--collect_db_data"):
+        collect_db_dump_on_duts(request, duthosts)
 
+def dut_reload(duts_data, node=None, results=None):
+    if node is None or results is None:
+        logger.error('Missing kwarg "node" or "results"')
+        return
+    logger.info("dut reload called on {}".format(node.hostname))
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"], indent=4),
+                 dest='/etc/sonic/config_db.json', verbose=False)
+    config_reload(node)
 
 @pytest.fixture(scope="module", autouse=True)
-def verify_new_core_dumps(duthost):
-    if "20191130" in duthost.os_version:
-        pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
-    else:
-        pre_existing_cores = duthost.shell('ls /var/core/')['stdout'].split()
+def check_dut_health_status(duthosts, request):
+    '''
+    Check if there are new core dump files and if the running config is modified after the test case running.
+    If so, we will reload the running config before test case running.
+    '''
+    check_flag = True
+    if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
+        check_flag = False
+    for m in request.node.iter_markers():
+        if m.name == "pretest" or m.name == "posttest":
+            check_flag = False
+
+    module_name = request.node.name
+
+    duts_data = {}
+
+    new_core_dumps = {}
+    core_dump_check_pass = True
+
+    inconsistent_config = {}
+    pre_only_config = {}
+    cur_only_config = {}
+    config_db_check_pass = True
+
+    if check_flag:
+        for duthost in duthosts:
+            duts_data[duthost.hostname] = {}
+
+            if "20191130" in duthost.os_version:
+                pre_existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+            else:
+                pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
+            duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
+
+            # get running config before running
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
     yield
-    if "20191130" in duthost.os_version:
-        cur_cores = duthost.shell('ls /var/core/ | grep -v python')['stdout'].split()
-    else:
-        cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
 
-    new_core_dumps = set(cur_cores) - set(pre_existing_cores)
-    # convert to list so print msg will not contain "set()"
-    new_core_dumps = list(new_core_dumps)
+    if check_flag:
+        for duthost in duthosts:
+            inconsistent_config[duthost.hostname] = {}
+            pre_only_config[duthost.hostname] = {}
+            cur_only_config[duthost.hostname] = {}
+            new_core_dumps[duthost.hostname] = []
 
-    if new_core_dumps:
-        pytest.fail("Core dumps found. Expected: %s Found: %s. Test failed. New core dumps: %s" % (len(pre_existing_cores),\
-            len(cur_cores), new_core_dumps))
+            if "20191130" in duthost.os_version:
+                cur_cores = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+            else:
+                cur_cores = duthost.shell('ls /var/core/')['stdout'].split()
+            duts_data[duthost.hostname]["cur_core_dumps"] = cur_cores
+
+            new_core_dumps[duthost.hostname] = list(
+                set(duts_data[duthost.hostname]["cur_core_dumps"]) - set(duts_data[duthost.hostname]["pre_core_dumps"]))
+
+            if new_core_dumps[duthost.hostname]:
+                core_dump_check_pass = False
+
+            # get running config after running
+            duts_data[duthost.hostname]["cur_running_config"] = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+
+            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
+            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
+
+            # Check if there are extra keys in pre running config
+            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys)
+            for key in pre_config_extra_keys:
+                pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
+
+            # Check if there are extra keys in cur running config
+            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys)
+            for key in cur_config_extra_keys:
+                cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
+
+            # Get common keys in pre running config and cur running config
+            common_config_keys = list(pre_running_config_keys & cur_running_config_keys)
+
+            # Check if the running config is modified after module running
+            for key in common_config_keys:
+                if duts_data[duthost.hostname]["pre_running_config"][key] != duts_data[duthost.hostname]["cur_running_config"][key]:
+                    inconsistent_config[duthost.hostname].update({key: {"pre_value": duts_data[duthost.hostname]["pre_running_config"][key], "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]}})
+
+            if pre_only_config[duthost.hostname] or cur_only_config[duthost.hostname] or inconsistent_config[duthost.hostname]:
+                config_db_check_pass = False
+
+        if not (core_dump_check_pass and config_db_check_pass):
+            check_result = {"core_dump_check": {"pass": core_dump_check_pass, "new_core_dumps": new_core_dumps},
+                            "config_db_check": {"pass": config_db_check_pass, "pre_only_config": pre_only_config, "cur_only_config": cur_only_config, "inconsistent_config": inconsistent_config}}
+            logger.warning("Check Dut health failed: Dut health check results {}, running module {}".format(json.dumps(check_result), module_name))
+            results = parallel_run(dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
+        else:
+            logger.info("Dut is healthy after the module {} running.".format(module_name))
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
