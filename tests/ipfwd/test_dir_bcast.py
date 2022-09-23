@@ -1,6 +1,4 @@
 import pytest
-import os
-import yaml
 import json
 import logging
 
@@ -8,7 +6,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.portstat_utilities import parse_column_positions
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # lgtm[py/unused-import]
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0')
