@@ -1595,7 +1595,7 @@
   
 - conf-name: bjw-vms6-t0-720dt-1
   group-name: bjw6-1
-  topo: t0-52
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: bjw6-1
   ptf_ip: 10.150.23.50/23
