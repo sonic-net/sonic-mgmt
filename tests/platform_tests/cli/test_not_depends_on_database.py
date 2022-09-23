@@ -7,7 +7,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release, wait_until
+from tests.common.utilities import skip_release
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.config_reload import config_reload
 
@@ -34,10 +34,11 @@ def stop_database_docker(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # start database docker after test
     duthost.command("sudo docker start database", module_ignore_errors=True)
-    assert wait_until(300, 20, 0, duthost.is_service_fully_started, "database"), "database service is not running"
+    time.sleep(DOCKER_WAIT_TIME)
 
     # reload config, because some critical process not work after database docker restart
-    config_reload(duthost, config_source='config_db', safe_reload=True)
+    config_reload(duthost)
+    wait_critical_processes(duthost)
 
 def test_installer_not_depends_on_database_docker(duthosts, enum_rand_one_per_hwsku_hostname, stop_database_docker):
     """
