@@ -523,13 +523,13 @@ class TestShowQueue():
             for intf in setup['default_interfaces']:
                 assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
 
-# Tests to be run in t0 topology
+# Tests to be run in t0/m0 topology
 
 class TestShowVlan():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, tbinfo):
-        if tbinfo['topo']['type'] != 't0':
+        if tbinfo['topo']['type'] not in ['t0', 'm0']:
             pytest.skip('Unsupported topology')
 
     @pytest.fixture()

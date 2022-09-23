@@ -179,6 +179,15 @@
       restart_pmon: no
     when: "'dualtor' in topo"
 
+  - name: gather hwsku for LeafRouter that supports dualtor deployment
+    set_fact:
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+  
+  - name: enable tunnel_qos_remap for T1 in dualtor deployment
+    set_fact:
+      enable_tunnel_qos_remap: true
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1)"
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -377,7 +386,7 @@
         pause:
           seconds: 60
     become: true
-    when: proxy_env is defined
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
@@ -486,6 +495,10 @@
         become: true
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
+        register: result
+        retries: 3
+        delay: 10
+        until: result is not failed
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
