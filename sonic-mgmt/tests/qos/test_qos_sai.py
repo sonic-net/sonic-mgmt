@@ -44,13 +44,13 @@ pytestmark = [
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exception(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
             ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignore_regex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignore_regex)
 
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
@@ -142,6 +142,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[xoffProfile].keys():
             testParams["packet_size"] = qosConfig[xoffProfile]["packet_size"]
 
+        if 'cell_size' in qosConfig[xoffProfile].keys():
+            testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
@@ -207,6 +210,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_private_headrooom": dutQosConfig["param"]["pkts_num_private_headrooom"]
         })
+        if "packet_size" in qosConfig[xonProfile].keys():
+            testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+        if 'cell_size' in qosConfig[xonProfile].keys():
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
 
         # Params required for generating a PFC Storm
         duthost = dutConfig["dutInstance"]
@@ -385,6 +392,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig[xonProfile].keys():
             testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
 
+        if 'cell_size' in qosConfig[xonProfile].keys():
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
@@ -520,7 +530,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiHeadroomPoolWatermark(
-        self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams,
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  ptfhost, dutTestParams,
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
         resetWatermark
     ):
@@ -529,7 +539,8 @@ class TestQosSai(QosSaiBase):
 
             Args:
                 duthosts (AnsibleHost): Dut hosts
-                rand_one_dut_hostname (AnsibleHost): select one of the duts in multi dut testbed
+                enum_rand_one_per_hwsku_frontend_hostname (AnsibleHost): select one of the frontend node
+                    in multi dut testbed
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -544,7 +555,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         cmd_output = duthost.shell("show headroom-pool watermark", module_ignore_errors=True)
         if cmd_output['rc'] != 0:
             pytest.skip("Headroom pool watermark is not supported")
@@ -989,6 +1000,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
+
+        if "packet_size" in qosConfig["wm_pg_headroom"].keys():
+            testParams["packet_size"] = qosConfig["wm_pg_headroom"]["packet_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",

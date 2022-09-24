@@ -142,7 +142,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     vlan_ports = []
     vlan_mac = None
 
-    if topo == "t0":
+    if topo in ["t0", "m0"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
@@ -160,13 +160,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     upstream_port_id_to_router_mac_map = {}
     downstream_port_id_to_router_mac_map = {}
 
-    # For T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
+    # For M0/T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
     # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
 
     for interface, neighbor in mg_facts["minigraph_neighbors"].items():
         port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]) or (topo == "m0" and "MX" in neighbor["name"]):
+        if (topo == "t1" and "T0" in neighbor["name"]) or (topo in ["t0", "m0"] and "Server" in neighbor["name"]):
             downstream_ports[neighbor['namespace']].append(interface)
             downstream_port_ids.append(port_id)
             downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
@@ -256,13 +256,13 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
 def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, ip_version):
     """Set up the ARP responder utility in the PTF container."""
     duthost = duthosts[rand_one_dut_hostname]
-    if setup["topo"] != "t0":
+    if setup["topo"] not in ["t0", "m0"]:
         def noop():
             pass
 
         yield noop
 
-        return  # Don't fall through to t0 case
+        return  # Don't fall through to t0/m0 case
 
     addr_list = [DOWNSTREAM_DST_IP[ip_version], DOWNSTREAM_IP_TO_ALLOW[ip_version], DOWNSTREAM_IP_TO_BLOCK[ip_version]]
 

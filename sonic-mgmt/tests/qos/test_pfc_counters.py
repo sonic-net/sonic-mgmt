@@ -90,7 +90,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
             if peerdev_ans.get_fanout_os() == "nxos":
                 peer_port_name = nxos_to_linux_intf(peer_port)
             else:
-                peer_port_name = eos_to_linux_intf(peer_port)
+                peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
 
             if is_pfc:
                 for priority in range(PRIO_COUNT):
@@ -134,7 +134,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                 if peerdev_ans.get_fanout_os() == "nxos":
                     peer_port_name = nxos_to_linux_intf(peer_port)
                 else:
-                    peer_port_name = eos_to_linux_intf(peer_port)
+                    peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
 
                 if fanout_hwsku == "MLNX-OS":
                     cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (onyx_pfc_container_name, PFC_GEN_FILE_ABSULOTE_PATH, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)

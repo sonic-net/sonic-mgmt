@@ -321,6 +321,14 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     Returns:
       True if post check succeeds; Otherwise False.
     """
+    # Check if all critical processes are running with timeout 100 sec, if not
+    # then this timeout will help to stabilize service state and to spot
+    # start-limit-hit if it was exceeded.
+    wait_until(
+        100, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
     for feature_name in feature_autorestart_states.keys():
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
