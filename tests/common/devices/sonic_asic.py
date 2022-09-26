@@ -382,7 +382,7 @@ class SonicAsic(object):
         cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
-        
+
     def run_vtysh(self, cmdstr):
         """
             Add -n option with ASIC instance on multi ASIC
