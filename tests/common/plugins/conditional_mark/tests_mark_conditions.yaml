@@ -291,7 +291,65 @@ qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo"
     conditions:
-      - "asic_type in ['barefoot'] and topo_type in ['t1']"
+      - "asic_type in ['barefoot'] and topo_name in ['t1']"
+
+qos/test_qos_sai.py::TestQosSai:
+  skip:
+    reason: "Unsupported testbed type."
+    conditions:
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
+  skip:
+    reason: "Dot1p-PG mapping is only supported on backend."
+    conditions:
+      - "'backend' not in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
+  skip:
+    reason: "Dot1p-queue mapping is only supported on backend."
+    conditions:
+      - "'backend' not in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
+  skip:
+    reason: "Dscp-queue mapping is not supported on backend."
+    conditions:
+      - "'backend' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
+  skip:
+    reason: "Dscp-PG mapping is not supported on backend."
+    conditions:
+      - "'backend' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
+  skip:
+    reason: "Skip DWRR weight change test on Mellanox platform."
+    conditions:
+      - "asic_type in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
+  xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+  skip:
+    reason: "Headroom pool size not supported."
+    conditions:
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32'] and asic_type not in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
+  xfail:
+    reason: "Headroom pool size not supported."
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s'] or hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
+  skip:
+    reason: "PG drop size test is not supported."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
