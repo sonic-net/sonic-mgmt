@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
+from tests.common import config_reload
 
 
 RX_DRP = "RX_DRP"
@@ -82,6 +83,59 @@ def fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, l
     if fanout:
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
+
+
+@pytest.fixture
+def configure_copp_drop_for_ttl_error(duthosts, rand_one_dut_hostname):
+    """
+    Fixture that allows to update copp configuration for dropping packets with TTL=0
+
+    Args:
+        duthosts: fixture to get DUT hosts defined in testbed
+        rand_one_dut_hostname: fixture to return the randomly selected duthost
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    copp_trap_group_json = "/tmp/copp_trap_group.json"
+    copp_trap_rule_json = "/tmp/copp_trap_rule.json"
+
+    cmd_copp_trap_group = '''
+cat << EOF >  %s
+{
+   "COPP_GROUP": {
+        "ttl_error": {
+            "queue": "4",
+            "trap_action": "drop"
+        }
+  }
+}
+EOF
+''' % (copp_trap_group_json)
+
+    cmd_copp_trap_rule = '''
+cat << EOF > %s
+{
+   "COPP_TRAP": {
+        "ttl_error": {
+            "trap_ids": "ttl_error",
+            "trap_group": "ttl_error",
+            "always_enabled": "true"
+        }
+    }
+}
+EOF
+''' % (copp_trap_rule_json)
+
+    duthost.shell(cmd_copp_trap_group)
+    duthost.command("sudo config load {} -y".format(copp_trap_group_json))
+
+    duthost.shell(cmd_copp_trap_rule)
+    duthost.command("sudo config load {} -y".format(copp_trap_rule_json))
+
+    yield
+
+    duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
+    config_reload(duthost)
+
 
 def is_mellanox_devices(hwsku):
     """
@@ -197,9 +251,19 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         for iface in interfaces["members"]:
             port_channel_members[iface] = port_channel
 
+    l2_port_channel_members = []
     for vlan_id in mg_facts["minigraph_vlans"]:
         for iface in mg_facts["minigraph_vlans"][vlan_id]["members"]:
-            vlan_members[iface] = vlan_id
+            # Add only physical interfaces to vlan_members dict(skip PortChannel interfaces)
+            if 'PortChannel' in iface:
+                physical_ifaces = mg_facts['minigraph_portchannels'][iface]["members"]
+                l2_port_channel_members.extend(physical_ifaces)
+            else:
+                vlan_members[iface] = vlan_id
+
+    # Remove physical interfaces related to L2 PortChannel from port_channel_members dict(case with t0-56-po2vlan topo)
+    for po_member in set(l2_port_channel_members):
+        port_channel_members.pop(po_member)
 
     rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
     # Compose list of sniff ports
@@ -800,7 +864,7 @@ def test_loopback_filter(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, p
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled):
+def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, ports_info, sai_acl_drop_adj_enabled, configure_copp_drop_for_ttl_error):
     """
     @summary: Create an IP packet with TTL=0.
     """
