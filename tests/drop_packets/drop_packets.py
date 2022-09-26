@@ -251,9 +251,19 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo):
         for iface in interfaces["members"]:
             port_channel_members[iface] = port_channel
 
+    l2_port_channel_members = []
     for vlan_id in mg_facts["minigraph_vlans"]:
         for iface in mg_facts["minigraph_vlans"][vlan_id]["members"]:
-            vlan_members[iface] = vlan_id
+            # Add only physical interfaces to vlan_members dict(skip PortChannel interfaces)
+            if 'PortChannel' in iface:
+                physical_ifaces = mg_facts['minigraph_portchannels'][iface]["members"]
+                l2_port_channel_members.extend(physical_ifaces)
+            else:
+                vlan_members[iface] = vlan_id
+
+    # Remove physical interfaces related to L2 PortChannel from port_channel_members dict(case with t0-56-po2vlan topo)
+    for po_member in set(l2_port_channel_members):
+        port_channel_members.pop(po_member)
 
     rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
     # Compose list of sniff ports
