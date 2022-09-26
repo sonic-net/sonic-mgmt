@@ -2500,14 +2500,6 @@ vms_21:
       ansible_host: 172.16.142.110
     VM21079:
       ansible_host: 172.16.142.111
-    VM21080:
-      ansible_host: 172.16.142.112
-    VM21081:
-      ansible_host: 172.16.142.113
-    VM21082:
-      ansible_host: 172.16.142.114
-    VM21083:
-      ansible_host: 172.16.142.115
     VM21084:
       ansible_host: 172.16.142.116
     VM21085:
@@ -2532,6 +2524,18 @@ vms_21:
       ansible_host: 172.16.142.126
     VM21095:
       ansible_host: 172.16.142.127
+    VM21096:
+      ansible_host: 172.16.142.128
+    VM21097:
+      ansible_host: 172.16.142.129
+    VM21098:
+      ansible_host: 172.16.142.130
+    VM21099:
+      ansible_host: 172.16.142.131
+    VM21100:
+      ansible_host: 172.16.142.132
+    VM21101:
+      ansible_host: 172.16.142.133
 
 vms_24:
   hosts:
