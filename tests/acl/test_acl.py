@@ -309,7 +309,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname):
+def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
@@ -323,8 +323,8 @@ def stage(request, duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
-        request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
-        "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
+        request.param == "ingress" or (duthost.facts["asic_type"] not in ("broadcom") and tbinfo["topo"]["name"] != "m0"),
+        "Egress ACLs are not currently supported on {}".format("\"broadcom\" ASICS" if duthost.facts["asic_type"] in ("broadcom") else "M0 topo")
     )
 
     return request.param
