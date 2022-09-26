@@ -98,7 +98,7 @@ def __neighbor_vm_recover_bgpd(node=None, results=None):
     results[nbr_host.hostname] = result
 
 
-def __recover_neighbor_bgp(duthost, nbrhosts, tbinfo):
+def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
@@ -122,7 +122,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
             elif result['check_item'] == 'services':
                 action = __recover_services(dut, result)
             elif result['check_item'] == 'bgp':
-                action = __recover_neighbor_bgp(dut, nbrhosts, tbinfo)
+                action = neighbor_vm_restore(dut, nbrhosts, tbinfo)
             elif result['check_item'] in [ 'processes', 'mux_simulator' ]:
                 action = 'config_reload'
             else:
