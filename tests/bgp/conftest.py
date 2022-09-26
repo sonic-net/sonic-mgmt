@@ -429,7 +429,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
-    elif tbinfo["topo"]["type"] == "t0":
+    elif tbinfo["topo"]["type"] in ["t0", "m0"]:
         setup_func = _setup_interfaces_t0
     elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
         setup_func = _setup_interfaces_t1_or_t2
