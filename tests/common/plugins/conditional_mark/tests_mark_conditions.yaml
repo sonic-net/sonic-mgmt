@@ -22,7 +22,7 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
     conditions:
-      - "(kernel_version <= '4.9.0') or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+      - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
 
 #######################################
 #####            bgp              #####
@@ -662,7 +662,7 @@ route/test_static_route.py:
   skip:
     reason: "Test not supported for 201911 images or older."
     conditions:
-      - "kernel_version <= '4.9.0'"
+      - "release in ['201811', '201911']"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/4930.
