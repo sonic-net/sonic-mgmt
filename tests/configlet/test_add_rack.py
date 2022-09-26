@@ -27,6 +27,21 @@ def check_image_version(duthost):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
+@pytest.fixture(scope="module", autouse=True)
+def bypass_duplicate_lanes_platform(duthost):
+    """Skips platform that has duplicate lanes in default config
+
+    Args:
+        duthost: DUT host object.
+
+    Returns:
+        None.
+    """
+    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' or \
+            duthost.facts['platform'] == 'x86_64-dellemc_s5232f_c3538-r0':
+        pytest.skip("Temporary skip platform with duplicate lanes...")
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
@@ -66,8 +81,6 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip('Generic patch updater does not support multiasic')
 
     log_info("sys.version={}".format(sys.version))
     do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'])
