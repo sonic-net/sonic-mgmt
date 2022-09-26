@@ -374,7 +374,7 @@ the remote host.
 
 - [get_ip_route_info](sonic_asic_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
 
-- [get_portchannel_and_members_in_ns](sonic_asic_methods/get_portchannel_and_members_in_ns.md) - Finds a portchannel present on ASIC interface's namspace and returns its name and members.
+- [get_portchannels_and_members_in_ns](sonic_asic_methods/get_portchannels_and_members_in_ns.md) - Finds a portchannel present on ASIC interface's namspace and returns its name and members.
 
 - [get_queue_oid](sonic_asic_methods/get_queue_oid.md) - Get the queue OID of given port and queue number.
 

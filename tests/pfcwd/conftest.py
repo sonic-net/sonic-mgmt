@@ -113,6 +113,21 @@ def setup_pfc_test(
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+            if len(vlan_data['members']) < 2:
+               unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
         # gather all vlan specific info
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']

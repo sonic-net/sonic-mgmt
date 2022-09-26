@@ -14,9 +14,23 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     # Copy VLAN information file to PTF-docker
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # Filter expected_vlans and minigraph_vlans to support t0-56-po2vlan topology
+    expected_vlans = []
+    minigraph_vlans = {}
+    for vlan in mg_facts['minigraph_vlan_interfaces']:
+        vlan_name = vlan['attachto']
+        if len(mg_facts['minigraph_vlans'][vlan_name]['members']) > 1:
+            expected_vlans.append(vlan)
+            vlan_members = []
+            for vl_m in mg_facts['minigraph_vlans'][vlan_name]['members']:
+                if 'PortChannel' not in vl_m:
+                    vlan_members.append(vl_m)
+            minigraph_vlans[vlan_name] = {'name': vlan_name, 'members': vlan_members}
+
     extra_vars = {
-        'minigraph_vlan_interfaces': mg_facts['minigraph_vlan_interfaces'],
-        'minigraph_vlans':           mg_facts['minigraph_vlans'],
+        'minigraph_vlan_interfaces': expected_vlans,
+        'minigraph_vlans':           minigraph_vlans,
         'minigraph_port_indices':    mg_facts['minigraph_ptf_indices'],
         'minigraph_portchannels':    mg_facts['minigraph_portchannels']
     }
