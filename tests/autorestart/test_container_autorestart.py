@@ -76,7 +76,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
-            # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
+            # Known issue, captured here: https://github.com/sonic-net/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
@@ -321,6 +321,14 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     Returns:
       True if post check succeeds; Otherwise False.
     """
+    # Check if all critical processes are running with timeout 100 sec, if not
+    # then this timeout will help to stabilize service state and to spot
+    # start-limit-hit if it was exceeded.
+    wait_until(
+        100, POST_CHECK_INTERVAL_SECS, 0,
+        check_all_critical_processes_status, duthost
+    )
+
     for feature_name in feature_autorestart_states.keys():
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:

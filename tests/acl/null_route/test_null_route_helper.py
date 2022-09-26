@@ -16,7 +16,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0"),
+    pytest.mark.topology("t0", "m0"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
@@ -57,13 +57,6 @@ TEST_DATA = [
     ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv4 with prefix len
     ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify double-unblock doesn't cause issue
 ]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def skip_on_dualtor_testbed(tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
-
 
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(rand_selected_dut):

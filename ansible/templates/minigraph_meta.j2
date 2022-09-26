@@ -41,6 +41,13 @@
             <a:Value>Gemini</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% if ('t1' in topo) and (enable_tunnel_qos_remap|default('false')|bool) %}
+          <a:DeviceProperty>
+            <a:Name>DownstreamRedundancyTypes</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if dhcp_servers %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
@@ -164,6 +171,11 @@
       <a:DeviceMetadata>
         <a:Name>{{ asic }}</a:Name>
         <a:Properties>
+          <a:DeviceProperty>
+            <a:Name>DeploymentId</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>1</a:Value>
+          </a:DeviceProperty>
           <a:DeviceProperty>
             <a:Name>SubRole</a:Name>
             <a:Reference i:nil="true"/>

@@ -54,14 +54,10 @@ VXLAN_L4_DST_PORT = "0x3412"
 VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
 NVGRE_GRE_KEY_OPTION = " --gre-key {}/{}".format(GRE_KEY, GRE_MASK)
 ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
-DEL_PBH_TABLE_CMD = "sudo config pbh table delete '{}'"
 ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
                         " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'ENABLED'"
-DEL_PBH_RULE_CMD = "sudo config pbh rule delete '{}' '{}'"
 ADD_PBH_HASH_CMD = "sudo config pbh hash add '{}' --hash-field-list '{}'"
-DEL_PBH_HASH_CMD = "sudo config pbh hash delete '{}'"
 ADD_PBH_HASH_FIELD_CMD = "sudo config pbh hash-field add '{}' --hash-field '{}' --sequence-id '{}'"
-DEL_PBH_HASH_FIELD_CMD = "sudo config pbh hash-field delete '{}'"
 
 PBH_HASH_FIELD_LIST = "inner_ip_proto," \
                       "inner_l4_dst_port,inner_l4_src_port," \
@@ -106,8 +102,9 @@ def config_facts(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname):
+def setup(duthosts, rand_one_dut_hostname, teardown):
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.back")
 
     vxlan_switch_config = [{
         "SWITCH_TABLE:switch": {
@@ -124,7 +121,7 @@ def setup(duthosts, rand_one_dut_hostname):
     time.sleep(3)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def teardown(duthosts, rand_one_dut_hostname):
     """
     Teardown fixture to clean up DUT to initial state
@@ -135,6 +132,7 @@ def teardown(duthosts, rand_one_dut_hostname):
     """
     yield
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("mv /etc/sonic/config_db.json.back /etc/sonic/config_db.json")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
@@ -263,15 +261,6 @@ def lag_ip_map(lag_port_map):
 
 
 @pytest.fixture(scope='module')
-def config_lag_ports(duthost, lag_port_map, lag_ip_map):
-    add_lag_config(duthost, lag_port_map, lag_ip_map)
-
-    yield
-
-    remove_lag_config(duthost, lag_port_map, lag_ip_map)
-
-
-@pytest.fixture(scope='module')
 def router_mac(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.facts['router_mac']
@@ -304,22 +293,34 @@ def inner_ipver(request):
     return request.param
 
 
-@pytest.fixture(scope="module")
-def remove_lag_acl_dependency(duthost):
-    duthost.command("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.back")
+def setup_lag_config(duthost, lag_port_map, lag_ip_map):
+    remove_lag_acl_dependency(duthost)
+    add_lag_config(duthost, lag_port_map, lag_ip_map)
 
+
+def remove_lag_acl_dependency(duthost):
     for acl_table in ACL_DEPENDENCY_TABLES:
         duthost.command("sudo config acl remove table {}".format(acl_table))
 
-    yield
 
-    duthost.shell("cat /etc/sonic/config_db.json.back | jq 'with_entries(select(.key==\"ACL_TABLE\"))' > /tmp/acl.json")
-    duthost.command("sudo config load -y /tmp/acl.json")
-    duthost.command("sudo config save -y")
-    duthost.command("rm -f /etc/sonic/config_db.json.back")
+def add_lag_config(duthost, lag_port_map, lag_ip_map):
+    logging.info('Add LAG configuration')
+    with allure.step('Add LAG configuration'):
+        for lag_port, port_name in lag_port_map.items():
+            duthost.shell('sudo config vlan member del {} {}'.format(T0_VLAN, port_name))
+            duthost.shell('sudo config portchannel add {} --fallback enable'.format(lag_port))
+            duthost.shell('sudo config portchannel member add {} {}'.format(lag_port, port_name))
+            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv4']))
+            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv6']))
 
 
-@pytest.fixture(scope="module")
+def config_pbh_lag(duthost, lag_port_map):
+    config_pbh_table_lag(duthost, lag_port_map)
+    config_hash_fields(duthost)
+    config_hash(duthost)
+    config_rules(duthost)
+
+
 def config_pbh_table_lag(duthost, lag_port_map):
     logging.info("Create PBH table: {}".format(TABLE_NAME))
     test_intfs_str = ",".join(lag_port_map.keys())
@@ -328,12 +329,14 @@ def config_pbh_table_lag(duthost, lag_port_map):
                                              test_intfs_str,
                                              TABLE_DESCRIPTION))
 
-    yield
 
-    duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
+def config_pbh(duthost, vlan_ptf_ports, tbinfo):
+    config_pbh_table(duthost, vlan_ptf_ports, tbinfo)
+    config_hash_fields(duthost)
+    config_hash(duthost)
+    config_rules(duthost)
 
 
-@pytest.fixture(scope="module")
 def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
     logging.info("Create PBH table: {}".format(TABLE_NAME))
     test_intfs_str = get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo)
@@ -341,10 +344,6 @@ def config_pbh_table(duthost, vlan_ptf_ports, tbinfo):
     duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
                                              test_intfs_str,
                                              TABLE_DESCRIPTION))
-
-    yield
-
-    duthost.command(DEL_PBH_TABLE_CMD.format(TABLE_NAME))
 
 
 def get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo):
@@ -357,17 +356,11 @@ def get_dut_test_intfs_str(duthost, vlan_ptf_ports, tbinfo):
     return ",".join(test_intfs)
 
 
-@pytest.fixture(scope="module")
 def config_hash_fields(duthost):
     logging.info("Create PBH hash-fields")
     for hash_field, hash_field_params_dict in HASH_FIELD_CONFIG.items():
         cmd = get_hash_field_add_cmd(hash_field, hash_field_params_dict)
         duthost.command(cmd)
-
-    yield
-
-    for hash_field in HASH_FIELD_CONFIG.keys():
-        duthost.command(DEL_PBH_HASH_FIELD_CMD.format(hash_field))
 
 
 def get_hash_field_add_cmd(hash_field_name, hash_field_params_dict):
@@ -379,27 +372,16 @@ def get_hash_field_add_cmd(hash_field_name, hash_field_params_dict):
     return cmd
 
 
-@pytest.fixture(scope="module")
 def config_hash(duthost):
     logging.info("Create PBH hash: {}".format(HASH_NAME))
     duthost.command(ADD_PBH_HASH_CMD.format(HASH_NAME, PBH_HASH_FIELD_LIST))
 
-    yield
 
-    duthost.command(DEL_PBH_HASH_CMD.format(HASH_NAME))
-
-
-@pytest.fixture(scope="module")
 def config_rules(duthost):
+    logging.info("Create PBH rules")
     for inner_ipver in IP_VERSIONS_LIST:
         config_ipv4_rules(duthost, inner_ipver)
         config_ipv6_rules(duthost, inner_ipver)
-
-    yield
-
-    for inner_ipver in IP_VERSIONS_LIST:
-        delete_ipv4_rules(duthost, inner_ipver)
-        delete_ipv6_rules(duthost, inner_ipver)
 
 
 def config_ipv4_rules(duthost, inner_ipver):
@@ -441,19 +423,6 @@ def config_nvgre_rule(duthost, ip_ver_option, ether_type, outer_ipver, inner_ipv
                             NVGRE_IP_PROTOCOL))
 
 
-def delete_ipv4_rules(duthost, inner_ipver):
-    delete_vxlan_nvgre_rules(duthost, "ipv4", inner_ipver)
-
-
-def delete_ipv6_rules(duthost, inner_ipver):
-    delete_vxlan_nvgre_rules(duthost, "ipv6", inner_ipver)
-
-
-def delete_vxlan_nvgre_rules(duthost, outer_ipver, inner_ipver):
-    duthost.command(DEL_PBH_RULE_CMD.format(TABLE_NAME, VXLAN_RULE_NAME.format(outer_ipver, inner_ipver)))
-    duthost.command(DEL_PBH_RULE_CMD.format(TABLE_NAME, NVGRE_RULE_NAME.format(outer_ipver, inner_ipver)))
-
-
 def get_src_dst_ip_range(ipver):
     if ipver == "ipv4":
         src_ip_range = SRC_IP_RANGE
@@ -482,28 +451,6 @@ def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, 
             assert current_count == exp_count,\
                 "PBH counters are different from expected for {}, outer ipver {}, inner ipver {}. Expected: {}, " \
                 "Current: {}".format(outer_encap_format, outer_ipver, inner_ipver, exp_count, current_count)
-
-
-def add_lag_config(duthost, lag_port_map, lag_ip_map):
-    logging.info('Add LAG configuration')
-    with allure.step('Add LAG configuration'):
-        for lag_port, port_name in lag_port_map.items():
-            duthost.shell('sudo config vlan member del {} {}'.format(T0_VLAN, port_name))
-            duthost.shell('sudo config portchannel add {} --fallback enable'.format(lag_port))
-            duthost.shell('sudo config portchannel member add {} {}'.format(lag_port, port_name))
-            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv4']))
-            duthost.shell('config interface ip add {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv6']))
-
-
-def remove_lag_config(duthost, lag_port_map, lag_ip_map):
-    logging.info('Remove LAG configuration')
-    with allure.step('Remove LAG configuration'):
-        for lag_port, port_name in lag_port_map.items():
-            duthost.shell('config interface ip remove {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv4']))
-            duthost.shell('config interface ip remove {} {}'.format(lag_port, lag_ip_map[lag_port]['ipv6']))
-            duthost.shell('sudo config portchannel member del {} {}'.format(lag_port, port_name))
-            duthost.shell('sudo config portchannel del {}'.format(lag_port))
-            duthost.shell('sudo config vlan member add {} {} --untagged'.format(T0_VLAN, port_name))
 
 
 @pytest.fixture(scope="function")

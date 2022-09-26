@@ -25,15 +25,28 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
+                    packet_size: 300
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
+                    packet_size: 300
+                xoff_3:
+                    dscp: 2
+                    ecn: 1
+                    pg: 2
+                    packet_size: 300
+                xoff_4:
+                    dscp: 6
+                    ecn: 1
+                    pg: 6
+                    packet_size: 300
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
                     pg: 3
                     pkts_num_leak_out: 0
+                    packet_size: 300
                 wm_q_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -42,9 +55,9 @@ qos_params:
                     pkts_num_fill_min: 0
                     packet_size: 300
                 hdrm_pool_size:
-                    dscps: [3, 4]
+                    dscps: [3, 4, 2, 6]
                     ecn: 1
-                    pgs: [3, 4]
+                    pgs: [3, 4, 2, 6]
                     pkts_num_trig_pfc: 0
                     pkts_num_leak_out: 0
                     pkts_num_fill_min: 0
@@ -54,11 +67,25 @@ qos_params:
                 ecn: 1
                 pg: 3
                 pkts_num_leak_out: 0
+                packet_size: 300
             xon_2:
                 dscp: 4
                 ecn: 1
                 pg: 4
                 pkts_num_leak_out: 0
+                packet_size: 300
+            xon_3:
+                dscp: 2
+                ecn: 1
+                pg: 2
+                pkts_num_leak_out: 0
+                packet_size: 300
+            xon_4:
+                dscp: 6
+                ecn: 1
+                pg: 6
+                pkts_num_leak_out: 0
+                packet_size: 300
             ecn_1:
                 dscp: 8
                 ecn: 0
@@ -807,9 +834,9 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 58276
-                    pkts_num_trig_ingr_drp: 58516
-                    pkts_num_margin: 4
+                    pkts_num_trig_pfc: 58576
+                    pkts_num_trig_ingr_drp: 58816
+                    pkts_num_margin: 50
                 xoff_2:
                     dscp: 4
                     ecn: 1
