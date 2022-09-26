@@ -143,6 +143,40 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 
     assert(wait_until(60, 15, 0, _check_routes))
 
+
+# output example of ip [-6] route show
+# ip route show 1.1.1.0/24
+# 1.1.1.0/24 proto 196 metric 20 
+#        nexthop via 192.168.0.2 dev Vlan1000 weight 1 
+#        nexthop via 192.168.0.3 dev Vlan1000 weight 1 
+#        nexthop via 192.168.0.4 dev Vlan1000 weight 1 
+# ip -6 route show 20c0:afa8::/64
+# 20c0:afa8::/64 proto bgp src fc00:1::32 metric 20 
+#        nexthop via fc00::22 dev PortChannel101 weight 1 
+#        nexthop via fc00::26 dev PortChannel102 weight 1 
+#        nexthop via fc00::2a dev PortChannel103 weight 1 
+#        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
+def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
+    if ipv6:
+        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+    else:
+        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+    output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
+
+    def _check_nh_in_output(nexthop):
+        for line in output:
+            if nexthop in line:
+                return True
+        return False
+
+    check_result = True
+    for nh in nexthop_addrs:
+        if not _check_nh_in_output(nh):
+            check_result = False
+
+    assert check_result, "config static route: {} nexthop {}\nreal:\n{}".format(prefix, ",".join(nexthop_addrs), output)
+
+
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp
     clear_arp_ndp(duthost, ipv6=ipv6)
@@ -154,6 +188,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
         time.sleep(5)
+
+        # check if the static route in kernel is what we expect
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
