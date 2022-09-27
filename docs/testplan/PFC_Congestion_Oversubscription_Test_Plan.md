@@ -48,7 +48,7 @@ These tests are targeted on fully functioning SONiC chassis system. Will cover f
 ### Keysight Testbed
 The tests can run on single line card or multi line card in a sonic chassis system. 
 
-![SONiC Chassis Topology ](SONiC_Chassis_Topology.png)
+![SONiC Chassis Topology ](Img/SONiC_Chassis_Topology.png)
 
 ## Topology
 ### SONiC DUT as T2 switch
@@ -81,7 +81,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC-Testcase1.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase1.png" width="500"  hspace="50"/>
 </p>
 
 
@@ -121,7 +121,7 @@ In this variant, the egress port packet forwarding engine, facing similar oversu
 The test bed setup consists of three IXIA ports and a SONiC router as the device under test (DUT). All IXIA ports should have the same line speed.  The three DUT ports will be chosen at random across all the available ports in the router in order to eventually cover combinations of ports within the same line card and across line cards (or ports within the same ASIC vs. different ASICs on a single-card, multi-ASIC design).
 
 <p float="left">
-  <img src="Img/PFC-Testcase2.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase2.png" width="500"  hspace="50"/>
 </p>
 
 
@@ -162,7 +162,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC-Testcase3.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase3.png" width="500"  hspace="50"/>
 </p>
 
 
@@ -202,7 +202,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC-Testcase4.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase4.png" width="500"  hspace="50"/>
 </p>
 
 
@@ -244,7 +244,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC-Testcase5.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase5.png" width="500"  hspace="50"/>
 </p>
 
 In addition, PFC watchdog must be disabled at the SONiC DUT. Otherwise, the DUT will trigger PFC watchdog to drop packets when it detects persistent PFC pause storms. The command to disable PFC watchdog is sudo pfcwd stop.
@@ -282,7 +282,7 @@ In this test case we will also assume that all the lossy and lossless traffic pr
 The test bed setup consists of three IXIA ports and a SONiC router as the device under test (DUT). All IXIA ports should have the same line speed.  The three DUT ports will be chosen at random across all the available ports in the router in order to eventually cover combinations of ports within the same line card and across line cards (or ports within the same ASIC vs. different ASICs on a single-card, multi-ASIC design).
 
 <p float="left">
-  <img src="Img/PFC-Testcase6.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase6.png" width="500"  hspace="50"/>
 </p>
 
 In addition, PFC watchdog must be enabled at the SONiC DUT (default mode of operation).
