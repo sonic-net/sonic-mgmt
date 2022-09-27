@@ -25,3 +25,9 @@ t1_run:
 collect:
 	echo "collect test result..."
 	cd infra; python3 ./pipeline_collect_result.py
+	pwd
+	cd infra; mkdir $(BUILD_ID)
+	cd infra; cp report.html $(BUILD_ID)/; cp test-results.xml.html $(BUILD_ID)/
+	cd infra; scp -r $(BUILD_ID) sonic-ci-1-lnx:/home/report_server_pv/
+	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:/home/report_server_pv/
+	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:/home/report_server_pv/
