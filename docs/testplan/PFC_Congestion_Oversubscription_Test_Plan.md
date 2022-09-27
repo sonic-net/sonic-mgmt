@@ -48,7 +48,7 @@ These tests are targeted on fully functioning SONiC chassis system. Will cover f
 ### Keysight Testbed
 The tests can run on single line card or multi line card in a sonic chassis system. 
 
-![SONiC Chassis Topology ]
+### SONiC Chassis Topology
 
 <p float="left">
   <img src="Img/SONiC_Chassis_Topology.png" width="500"  hspace="250"/>
@@ -57,7 +57,6 @@ The tests can run on single line card or multi line card in a sonic chassis syst
 ## Topology
 ### SONiC DUT as T2 switch
 
-![SONiC DUT as T2 switch]
 
 <p float="left">
   <img src="Img/T2_Topology.png" width="500"  hspace="250"/>
