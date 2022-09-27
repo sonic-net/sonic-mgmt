@@ -39,13 +39,13 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
-    bjw_can_720dt_1:
+    sonic_arista_720dt:
 
-bjw_can_720dt_1:
+sonic_arista_720dt:
   vars:
     hwsku: Arista-720DT-48S
     iface_speed: 1000
-  hosts:                              # The device's platform API haven't implemented yet, we will correct these items later
+  hosts:
     bjw-can-720dt-1:   
       ansible_host: 10.150.22.112
       model: CCS-720DT-48S
