@@ -137,4 +137,3 @@ For each event</br>
 9) Expect receiver to receive all 5.
 10) Expect non zero value for latency_in_ms.
   
-8)
