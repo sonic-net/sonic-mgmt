@@ -48,12 +48,21 @@ These tests are targeted on fully functioning SONiC chassis system. Will cover f
 ### Keysight Testbed
 The tests can run on single line card or multi line card in a sonic chassis system. 
 
-![SONiC Chassis Topology ](Img/SONiC_Chassis_Topology.png)
+![SONiC Chassis Topology ]
+
+<p float="left">
+  <img src="Img/SONiC_Chassis_Topology.png" width="500"  hspace="500"/>
+</p>
 
 ## Topology
 ### SONiC DUT as T2 switch
 
-![SONiC DUT as T2 switch](Img/T2-Topology.png)
+![SONiC DUT as T2 switch]
+
+<p float="left">
+  <img src="Img/T2-Topology.png" width="500"  hspace="500"/>
+</p>
+
 
 ## Setup configuration
 IBGP neighborship will be established between the fabric and each line card. 
@@ -81,7 +90,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC_Testcase1.png" width="500"  hspace="50"/>
+  <img src="Img/PFC_Testcase1.png" width="500"  hspace="500"/>
 </p>
 
 
