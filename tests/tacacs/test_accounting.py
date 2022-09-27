@@ -53,34 +53,44 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) == 0)
 
-def check_local_log_exist(rw_user_client, tacacs_creds, command):
-    username = tacacs_creds['tacacs_rw_user']
+def check_local_log_exist(duthost, tacacs_creds, command):
     """
         Find logs run by tacacs_rw_user from syslog:
             Find logs match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
-    sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},.*, command: .*{1},/P' /var/log/syslog".format(username, command)
-    exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
-    pytest_assert(exit_code == 0)
-    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info(stdout)
-    pytest_assert(len(stdout) > 0)
 
-def check_local_no_other_user_log(rw_user_client, tacacs_creds):
     username = tacacs_creds['tacacs_rw_user']
+    expected_log_pattern = "INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},".format(username, command)
+    sed_command = "sudo sed -nE '/{}/P' /var/log/syslog".format(expected_log_pattern)
+    output = duthost.shell(sed_command)
+    exit_code, stdout_lines = output['rc'], output['stdout_lines']
+
+    # exclude logs of the sed command produced by Ansible
+    stdout_lines = list(filter(lambda line: 'sudo sed' not in line, stdout_lines))
+    logger.info("Searched for accounting logs with the command: %s", sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+    logger.info("Found logs: %s", stdout_lines)
+
+    pytest_assert(exit_code == 0)
+    pytest_assert(stdout_lines, 'Failed to find an expected log message by pattern: ' + expected_log_pattern)
+
+def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
             Remove all tacacs_rw_user's log with /D command, which will match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user"
             Find all other user's log, which will match following format: "INFO audisp-tacplus: Accounting: user:"
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
+
+    username = tacacs_creds['tacacs_rw_user']
     sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P' /var/log/syslog".format(username)
-    exit_code, stdout, stderr = ssh_run_command(rw_user_client, sed_command)
+    output = duthost.shell(sed_command)
+    exit_code, stdout = output['rc'], output['stdout']
+
     pytest_assert(exit_code == 0)
-    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info(stdout)
-    pytest_assert(len(stdout) == 0)
+    logger.info("Searched for accounting logs with the command: %s", sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+    logger.info("Found logs: %s", stdout)
+    pytest_assert(len(stdout) == 0, "Expected to find no accounting logs but found" + stdout)
 
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
@@ -178,9 +188,10 @@ def test_accounting_local_only(ptfhost, duthosts, enum_rand_one_per_hwsku_hostna
     ssh_run_command(rw_user_client, "grep")
 
     # Verify syslog have user command record.
-    check_local_log_exist(rw_user_client, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep")
+
     # Verify syslog not have any command record which not run by user.
-    check_local_no_other_user_log(rw_user_client, tacacs_creds)
+    check_local_no_other_user_log(duthost, tacacs_creds)
 
 def test_accounting_tacacs_and_local(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -191,10 +202,10 @@ def test_accounting_tacacs_and_local(ptfhost, duthosts, enum_rand_one_per_hwsku_
 
     # Verify TACACS+ server and syslog have user command record.
     check_tacacs_server_log_exist(ptfhost, tacacs_creds, "grep")
-    check_local_log_exist(rw_user_client, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep")
     # Verify TACACS+ server and syslog not have any command record which not run by user.
     check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds)
-    check_local_no_other_user_log(rw_user_client, tacacs_creds)
+    check_local_no_other_user_log(duthost, tacacs_creds)
 
 def test_accounting_tacacs_and_local_all_tacacs_server_down(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -211,9 +222,9 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(ptfhost, duthosts, e
     ssh_run_command(rw_user_client, "grep")
 
     # Verify syslog have user command record.
-    check_local_log_exist(rw_user_client, tacacs_creds, "grep")
+    check_local_log_exist(duthost, tacacs_creds, "grep")
     # Verify syslog not have any command record which not run by user.
-    check_local_no_other_user_log(rw_user_client, tacacs_creds)
+    check_local_no_other_user_log(duthost, tacacs_creds)
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
