@@ -205,7 +205,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         n1.start_session()
 
         # sleep till new sessions are steady
-        time.sleep(30)
+        time.sleep(60)
 
         # ensure new sessions are ready
         # handle both multi-sic and single-asic
