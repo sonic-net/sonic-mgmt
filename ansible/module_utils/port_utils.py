@@ -229,8 +229,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 256, 8):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Arista-720DT-48S":
-            for i in range (1,53):
-                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+            for i in range(1, 53):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i - 1)
         else:
             for i in range(0, 128, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
