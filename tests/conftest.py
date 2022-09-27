@@ -1674,7 +1674,7 @@ def check_dut_health_status(duthosts, request):
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
-        if m.name == "pretest" or m.name == "posttest":
+        if m.name == "skip_check_dut_health":
             check_flag = False
 
     module_name = request.node.name
