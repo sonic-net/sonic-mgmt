@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
