@@ -9,12 +9,12 @@ bjw-pdu-22-51,12,bjw-e1031-can-2,PSU3
 bjw-pdu-22-50,12,bjw-e1031-can-2,PSU4
 bjw-pdu-22-51,13,bjw-can-720dt-2,PSU1
 bjw-pdu-22-50,13,bjw-can-720dt-2,PSU2
-bjw-pdu-22-51,15,bjw-can-720dt-1,PSU1
-bjw-pdu-22-50,15,bjw-can-720dt-1,PSU2
+bjw-pdu-22-51,9,bjw-can-720dt-1,PSU1
+bjw-pdu-22-50,9,bjw-can-720dt-1,PSU2
 bjw-pdu-22-51,17,bjw-can-serv-1,PSU1
 bjw-pdu-22-50,17,bjw-can-serv-1,PSU2
-bjw-pdu-22-51,22,bjw-can-serv-2,PSU1
-bjw-pdu-22-50,22,bjw-can-serv-2,PSU2
+bjw-pdu-22-51,21,bjw-can-serv-2,PSU1
+bjw-pdu-22-50,21,bjw-can-serv-2,PSU2
 bjw-pdu-22-51,25,bjw-can-serv-3,PSU1
 bjw-pdu-22-50,25,bjw-can-serv-3,PSU2
 bjw-pdu-22-51,18,bjw-can-serv-4,PSU1

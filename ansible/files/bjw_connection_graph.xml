@@ -202,12 +202,12 @@
       <PowerControlLinkInfo EndDevice="bjw-e1031-can-2" EndPort="PSU4" StartDevice="bjw-pdu-22-50" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="bjw-can-720dt-2" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="13"/>
       <PowerControlLinkInfo EndDevice="bjw-can-720dt-2" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="13"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-720dt-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="15"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-720dt-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="15"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-720dt-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="9"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-720dt-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="9"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="17"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="22"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="21"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="21"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-3" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="25"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-3" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="25"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-4" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="18"/>
