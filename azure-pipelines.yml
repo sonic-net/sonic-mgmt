@@ -63,7 +63,12 @@ stages:
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: true
     steps:
-    - script: echo ${{ variables.KVM_BUILD_ID }}
+    - script: |
+      set -ex
+      echo ${{ variables.KVM_BUILD_ID }}
+      echo ${{  variables.KVM_BUILD_ID  }}
+      echo ${{ variables.RUN_TESTBEDV2_TEST }}
+      echo ${{  variables.RUN_TESTBEDV2_TEST  }}
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
