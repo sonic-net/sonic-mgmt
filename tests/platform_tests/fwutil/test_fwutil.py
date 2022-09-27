@@ -5,6 +5,10 @@ import json
 
 from fwutil_common import call_fwutil, show_firmware, upload_platform, find_pattern
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 DEVICES_PATH="/usr/share/sonic/device"
 
 def test_fwutil_show(duthost):
