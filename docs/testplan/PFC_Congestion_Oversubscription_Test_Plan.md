@@ -1,6 +1,6 @@
-# PFC testing during congestion and over-subsription
+# PFC testing during congestion and oversubscription
 
-- [PFC testing during congestion and over-subsription](#pfc-testing-during-congestion-and-over-subsription)
+- [PFC testing during congestion and oversubscription](#pfc-testing-during-congestion-and-oversubscription)
   - [Overview](#overview)
     - [Scope](#scope)
     - [Keysight Testbed](#keysight-testbed)
