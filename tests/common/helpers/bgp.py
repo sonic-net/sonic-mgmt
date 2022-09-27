@@ -79,7 +79,7 @@ class BGPNeighbor(object):
             peer_asn=self.peer_asn,
             port=self.port
         )
-        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
+        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
             raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
 
         if self.is_multihop:
@@ -96,8 +96,9 @@ class BGPNeighbor(object):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
         if not self.is_passive:
-            self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
-            self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
+            for asichost in self.duthost.asics:
+                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
         self.ptfhost.exabgp(name=self.name, state="absent")
 
     def announce_route(self, route):
