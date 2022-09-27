@@ -57,6 +57,14 @@ stages:
         vmtype: ceos
         section: part-2
 
+  - job: print_test_only
+    displayName: "Print test only"
+    timeoutInMinutes: 540
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: true
+    steps:
+    - script: echo ${{ variables.KVM_BUILD_ID }}
+
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
     timeoutInMinutes: 540
