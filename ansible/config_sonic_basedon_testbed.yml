@@ -556,6 +556,13 @@
             copy:
               content: "{{ grpc_secrets | to_nice_json }}"
               dest: "{{ grpc_credential_file }}"
+            become: true
+
+          - name: restart the pmon service
+            service:
+              name: pmon
+              state: restarted
+            become: true
 
           when: stat_result.stat.exists
 
