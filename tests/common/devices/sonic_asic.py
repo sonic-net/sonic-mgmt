@@ -539,7 +539,7 @@ class SonicAsic(object):
         return False
     
     def write_to_config_db(self, dst_path):
-        cmd = 'sonic-cfggen {} -j {} -w'.format(self.cli_ns_option, dst_path)
+        cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
         return self.shell(cmd)
 
     def get_portchannel_and_members_in_ns(self, tbinfo):
