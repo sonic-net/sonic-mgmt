@@ -60,7 +60,7 @@ The tests can run on single line card or multi line card in a sonic chassis syst
 ![SONiC DUT as T2 switch]
 
 <p float="left">
-  <img src="Img/T2-Topology.png" width="500"  hspace="250"/>
+  <img src="Img/T2_Topology.png" width="500"  hspace="250"/>
 </p>
 
 
