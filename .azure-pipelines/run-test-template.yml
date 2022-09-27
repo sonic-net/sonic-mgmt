@@ -36,7 +36,8 @@ steps:
     project: build
     pipeline: 1
     artifact: sonic-buildimage.vs
-    runVersion: 'latestFromBranch'
+    runVersion: specific
+    runId: $(KVM_BUILD_ID)
     runBranch: 'refs/heads/master'
     allowPartiallySucceededBuilds: true
   displayName: "Download sonic kvm image"
