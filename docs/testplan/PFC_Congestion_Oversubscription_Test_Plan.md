@@ -51,7 +51,7 @@ The tests can run on single line card or multi line card in a sonic chassis syst
 ![SONiC Chassis Topology ]
 
 <p float="left">
-  <img src="Img/SONiC_Chassis_Topology.png" width="500"  hspace="500"/>
+  <img src="Img/SONiC_Chassis_Topology.png" width="500"  hspace="200"/>
 </p>
 
 ## Topology
@@ -60,7 +60,7 @@ The tests can run on single line card or multi line card in a sonic chassis syst
 ![SONiC DUT as T2 switch]
 
 <p float="left">
-  <img src="Img/T2-Topology.png" width="500"  hspace="500"/>
+  <img src="Img/T2-Topology.png" width="500"  hspace="200"/>
 </p>
 
 
@@ -90,7 +90,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 <p float="left">
-  <img src="Img/PFC_Testcase1.png" width="500"  hspace="500"/>
+  <img src="Img/PFC_Testcase1.png" width="500"  hspace="200"/>
 </p>
 
 
