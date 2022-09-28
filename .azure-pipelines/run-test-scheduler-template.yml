@@ -28,12 +28,12 @@ parameters:
 
 steps:
   - script: |
-      set -e
+      set -ex
 
       pip install PyYAML
 
       rm -f new_test_plan_id.txt
-      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} --test-set ${{ parameters.TEST_SET }} --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}"
+      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}"
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
       echo "Created test plan $TEST_PLAN_ID"
@@ -47,6 +47,7 @@ steps:
     displayName: Trigger test
 
   - script: |
+      set -ex
       echo "Polling Test plan"
       echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient(We will improve the indication in a short time)"
       echo "If the progress keeps as 0 for more than 1 hour, please cancel and retry this pipeline"
@@ -59,6 +60,7 @@ steps:
     timeoutInMinutes: 300
 
   - script: |
+      set -ex
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
       python ./.azure-pipelines/test_plan.py cancel -i $(TEST_PLAN_ID)
     condition: always()
