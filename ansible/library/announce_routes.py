@@ -144,9 +144,10 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
     return default_route_as_path
 
 
-def generate_route_and_asns(podset, downstream_number, max_downstream_subnet_number,
-                            downstream_subnet_size, downstream, subnet, curr_level_asn_start,
-                            downstream_asn_start):
+# Generate asn path and prefixs of route
+def generate_prefixs_and_asns(podset, downstream_number, max_downstream_subnet_number,
+                              downstream_subnet_size, downstream, subnet, curr_level_asn_start,
+                              downstream_asn_start):
     suffix = ((podset * downstream_number * max_downstream_subnet_number * downstream_subnet_size) +
               (downstream * max_downstream_subnet_number * downstream_subnet_size) +
               (subnet * downstream_subnet_size))
@@ -183,9 +184,9 @@ def generate_m0_upstream_routes(family, nexthop, nexthop_v6, podset_number, down
     for podset in range(1, podset_number):
         for downstream in range(0, downstream_number):
             for subnet in range(0, downstream_subnet_number):
-                prefix, prefix_v6, curr_level_asn, downstream_asn = generate_route_and_asns(podset, downstream_number, max_downstream_subnet_number,
-                                                                                            downstream_subnet_size, downstream, subnet,
-                                                                                            curr_level_asn_start, downstream_asn_start)
+                prefix, prefix_v6, curr_level_asn, downstream_asn = generate_prefixs_and_asns(podset, downstream_number, max_downstream_subnet_number,
+                                                                                              downstream_subnet_size, downstream, subnet,
+                                                                                              curr_level_asn_start, downstream_asn_start)
                 aspath = "{} {}".format(curr_level_asn, downstream_asn)
 
                 if family in ["v4", "both"]:
@@ -204,12 +205,13 @@ def generate_m0_downstream_routes(family, nexthop, nexthop_v6, downstream_index,
     # Skip non podset 0 for M0
     podset = 0
 
-    # Skip subnet 0 (vlan ip) for M0
+    # Skip subnet 0 (vlan ip) for MX
     for subnet in range(1, downstream_subnet_number):
-        prefix, prefix_v6, _, _ = generate_route_and_asns(podset, downstream_number,
-                                                          max_downstream_subnet_number, downstream_subnet_size,
-                                                          downstream_index, subnet, curr_level_asn_start,
-                                                          downstream_asn_start)
+        # Not need after asn path of MX
+        prefix, prefix_v6, _, _ = generate_prefixs_and_asns(podset, downstream_number,
+                                                            max_downstream_subnet_number, downstream_subnet_size,
+                                                            downstream_index, subnet, curr_level_asn_start,
+                                                            downstream_asn_start)
 
         if family in ["v4", "both"]:
             routes.append((prefix, nexthop, None))
@@ -456,8 +458,10 @@ def fib_m0(topo, ptf_ip, action="announce"):
         downstream_index = downstreamnum - 1 if downstreamnum is not None else None
 
         router_type = None
+        # Upstream
         if 'm1' in v['properties']:
             router_type = 'm1'
+        # Downstream
         elif 'mx' in v['properties']:
             router_type = 'mx'
         routes_v4 = generate_m0_routes("v4", nhipv4, nhipv6, downstream_index, podset_number,
