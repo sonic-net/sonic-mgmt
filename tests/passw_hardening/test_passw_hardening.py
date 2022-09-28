@@ -190,7 +190,12 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    # create user with weak passw when passw policies are disable (feature is disabled by default).
+    # create user with weak passw when passw policies are disable.
+    passw_hardening_ob_pre = passw_hardening_utils.PasswHardening(state='disabled')
+
+    # config one policy, check show CLI, test policy configured in switch
+    passw_hardening_utils.config_and_review_policies(duthost, passw_hardening_ob_pre, passw_hardening_utils.PAM_PASSWORD_CONF_DEFAULT_EXPECTED)
+
     simple_passw_0 = '12345678'
     chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_0, simple_passw_0)
 
