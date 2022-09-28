@@ -87,23 +87,23 @@ configuration_properties:
     dut_asn: 65100
     dut_type: MgmtToRRouter
     podset_number: 30
-    tor_number: 16
-    tor_subnet_number: 2
-    max_tor_subnet_number: 16
-    tor_subnet_size: 64
+    downstream_number: 16
+    downstream_subnet_number: 2
+    max_downstream_subnet_number: 16
+    downstream_subnet_size: 64
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-  tor:
-    swrole: tor
-  mgmtleaf:
-    swrole: mgmtleaf
+  mx:
+    swrole: mx
+  m1:
+    swrole: m1
 
 configuration:
   ARISTA01MX:
     properties:
     - common
-    - tor
+    - mx
     tornum: 1
     bgp:
       asn: 64001
@@ -125,7 +125,7 @@ configuration:
   ARISTA02MX:
     properties:
     - common
-    - tor
+    - mx
     tornum: 2
     bgp:
       asn: 64002
@@ -147,7 +147,7 @@ configuration:
   ARISTA01M1:
     properties:
     - common
-    - mgmtleaf
+    - m1
     bgp:
       asn: 65200
       peers:
@@ -170,7 +170,7 @@ configuration:
   ARISTA02M1:
     properties:
     - common
-    - mgmtleaf
+    - m1
     bgp:
       asn: 65200
       peers:
@@ -193,7 +193,7 @@ configuration:
   ARISTA03M1:
     properties:
     - common
-    - mgmtleaf
+    - m1
     bgp:
       asn: 65200
       peers:
@@ -216,7 +216,7 @@ configuration:
   ARISTA04M1:
     properties:
     - common
-    - mgmtleaf
+    - m1
     bgp:
       asn: 65200
       peers:

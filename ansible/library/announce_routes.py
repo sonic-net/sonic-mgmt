@@ -57,6 +57,12 @@ LEAF_ASN_START = 64600
 TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
+DOWNSTREAM_NUMBER = 16
+DOWNSTREAM_SUBNET_NUMBER = 2
+MAX_DOWNSTREAM_SUBNET_NUMBER = 16
+DOWNSTREAM_SUBNET_SIZE = 128
+CURR_LEVEL_ASN_START = 64600
+DOWNSTREAM_ASN_START = 65500
 
 
 def wait_for_http(host_ip, http_port, timeout=10):
@@ -136,6 +142,99 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
     elif uplink_router_type == "core":
         default_route_as_path = get_core_uplink_as_path()
     return default_route_as_path
+
+
+def generate_route_and_asns(podset, downstream_number, max_downstream_subnet_number,
+                            downstream_subnet_size, downstream, subnet, curr_level_asn_start,
+                            downstream_asn_start):
+    suffix = ((podset * downstream_number * max_downstream_subnet_number * downstream_subnet_size) +
+              (downstream * max_downstream_subnet_number * downstream_subnet_size) +
+              (subnet * downstream_subnet_size))
+    octet2 = (168 + int(suffix / (256 ** 2)))
+    octet1 = (192 + int(octet2 / 256))
+    octet2 = (octet2 % 256)
+    octet3 = (int(suffix / 256) % 256)
+    octet4 = (suffix % 256)
+    prefixlen_v4 = (32 - int(math.log(downstream_subnet_size, 2)))
+
+    prefix = "{}.{}.{}.{}/{}".format(octet1, octet2, octet3, octet4, prefixlen_v4)
+    prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octet1, octet2, octet3, octet4)
+
+    # Get asn of brother devices
+    curr_level_asn = curr_level_asn_start + podset
+    # Get asn of child devices
+    downstream_asn = downstream_asn_start + downstream
+
+    return prefix, prefix_v6, curr_level_asn, downstream_asn
+
+
+def generate_m0_upstream_routes(family, nexthop, nexthop_v6, podset_number, downstream_number,
+                                downstream_subnet_number, max_downstream_subnet_number,
+                                downstream_subnet_size, curr_level_asn_start, downstream_asn_start):
+    routes = []
+
+    # Generate default route
+    if family in ["v4", "both"]:
+        routes.append(("0.0.0.0/0", nexthop, None))
+    if family in ["v6", "both"]:
+        routes.append(("::/0", nexthop_v6, None))
+
+    # Skip podset 0 for M1
+    for podset in range(1, podset_number):
+        for downstream in range(0, downstream_number):
+            for subnet in range(0, downstream_subnet_number):
+                prefix, prefix_v6, curr_level_asn, downstream_asn = generate_route_and_asns(podset, downstream_number, max_downstream_subnet_number,
+                                                                                            downstream_subnet_size, downstream, subnet,
+                                                                                            curr_level_asn_start, downstream_asn_start)
+                aspath = "{} {}".format(curr_level_asn, downstream_asn)
+
+                if family in ["v4", "both"]:
+                    routes.append((prefix, nexthop, aspath))
+                if family in ["v6", "both"]:
+                    routes.append((prefix_v6, nexthop_v6, aspath))
+
+    return routes
+
+
+def generate_m0_downstream_routes(family, nexthop, nexthop_v6, downstream_index,
+                                  downstream_subnet_number, downstream_number,
+                                  max_downstream_subnet_number, downstream_subnet_size,
+                                  curr_level_asn_start, downstream_asn_start):
+    routes = []
+    # Skip non podset 0 for M0
+    podset = 0
+
+    # Skip subnet 0 (vlan ip) for M0
+    for subnet in range(1, downstream_subnet_number):
+        prefix, prefix_v6, _, _ = generate_route_and_asns(podset, downstream_number,
+                                                          max_downstream_subnet_number, downstream_subnet_size,
+                                                          downstream_index, subnet, curr_level_asn_start,
+                                                          downstream_asn_start)
+
+        if family in ["v4", "both"]:
+            routes.append((prefix, nexthop, None))
+        if family in ["v6", "both"]:
+            routes.append((prefix_v6, nexthop_v6, None))
+
+    return routes
+
+
+def generate_m0_routes(family, nexthop, nexthop_v6, downstream_index,
+                       podset_number, downstream_number, downstream_subnet_number,
+                       max_downstream_subnet_number, downstream_subnet_size,
+                       curr_level_asn_start, downstream_asn_start, router_type):
+    if router_type == "m1":
+        return generate_m0_upstream_routes(family, nexthop, nexthop_v6, podset_number,
+                                           downstream_number, downstream_subnet_number,
+                                           max_downstream_subnet_number, downstream_subnet_size,
+                                           curr_level_asn_start, downstream_asn_start)
+
+    if router_type == "mx":
+        return generate_m0_downstream_routes(family, nexthop, nexthop_v6, downstream_index,
+                                             downstream_subnet_number, downstream_number,
+                                             max_downstream_subnet_number, downstream_subnet_size,
+                                             curr_level_asn_start, downstream_asn_start)
+    return []
 
 
 def generate_routes(family, podset_number, tor_number, tor_subnet_number,
@@ -330,17 +429,20 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
             change_routes(action, ptf_ip, port, routes_vips)
 
 
-def fib_m0(topo, ptf_ip, no_default_route=False, action="announce"):
+def fib_m0(topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
-    tor_number = common_config.get("tor_number", TOR_NUMBER)
-    tor_subnet_number = common_config.get("tor_subnet_number", TOR_SUBNET_NUMBER)
-    max_tor_subnet_number = common_config.get("max_tor_subnet_number", MAX_TOR_SUBNET_NUMBER)
-    tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    downstream_number = common_config.get("downstream_number", DOWNSTREAM_NUMBER)
+    downstream_subnet_number = common_config.get("downstream_subnet_number", DOWNSTREAM_SUBNET_NUMBER)
+    max_downstream_subnet_number = common_config.get("max_downstream_subnet_number", MAX_DOWNSTREAM_SUBNET_NUMBER)
+    downstream_subnet_size = common_config.get("downstream_subnet_size", DOWNSTREAM_SUBNET_SIZE)
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
-    leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
-    tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
+    leaf_asn_start = common_config.get("leaf_asn_start", CURR_LEVEL_ASN_START)
+    tor_asn_start = common_config.get("tor_asn_start", DOWNSTREAM_ASN_START)
+
+    vms = topo['topology']['VMs']
+    vms_config = topo['configuration']
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
@@ -350,24 +452,24 @@ def fib_m0(topo, ptf_ip, no_default_route=False, action="announce"):
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
 
+        downstreamnum = v.get('tornum', None)
+        downstream_index = downstreamnum - 1 if downstreamnum is not None else None
+
         router_type = None
-        if 'mgmtleaf' in v['properties']:
-            router_type = 'mgmtleaf'
-        elif 'tor' in v['properties']:
-            router_type = 'tor'
-        tornum = v.get('tornum', None)
-        tor_index = tornum - 1 if tornum is not None else None
-        if router_type:
-            routes_v4 = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
-                                        None, leaf_asn_start, tor_asn_start,
-                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "m0",
-                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
-            routes_v6 = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
-                                        None, leaf_asn_start, tor_asn_start,
-                                        nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "m0",
-                                        router_type=router_type, tor_index=tor_index, no_default_route=no_default_route)
-            change_routes(action, ptf_ip, port, routes_v4)
-            change_routes(action, ptf_ip, port6, routes_v6)
+        if 'm1' in v['properties']:
+            router_type = 'm1'
+        elif 'mx' in v['properties']:
+            router_type = 'mx'
+        routes_v4 = generate_m0_routes("v4", nhipv4, nhipv6, downstream_index, podset_number,
+                                       downstream_number, downstream_subnet_number,
+                                       max_downstream_subnet_number, downstream_subnet_size,
+                                       leaf_asn_start, tor_asn_start, router_type)
+        routes_v6 = generate_m0_routes("v6", nhipv4, nhipv6, downstream_index, podset_number,
+                                       downstream_number, downstream_subnet_number,
+                                       max_downstream_subnet_number, downstream_subnet_size,
+                                       leaf_asn_start, tor_asn_start, router_type)
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
 
 
 """
@@ -562,7 +664,7 @@ def main():
             fib_t0_mclag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         elif topo_type == "m0":
-            fib_m0(topo, ptf_ip, no_default_route=is_storage_backend, action=action)
+            fib_m0(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         else:
             module.exit_json(msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
