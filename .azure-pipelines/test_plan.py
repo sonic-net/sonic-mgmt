@@ -48,7 +48,7 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
+    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
                output=None):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name, repo_name, pr_id, build_id))
@@ -83,7 +83,8 @@ class TestPlanManager(object):
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
-                "source_repo": repo_name
+                "source_repo": repo_name,
+                "kvm_build_id": kvm_build_id
             },
             "priority": 10,
             "requester": "pull request"
@@ -255,6 +256,16 @@ if __name__ == "__main__":
         required=False,
         help="Deploy minigraph extra params"
     )
+    parser_create.add_argument(
+        "--kvm-build-id",
+        type=str,
+        nargs='?',
+        const='',
+        dest="kvm_build_id",
+        default="",
+        required=False,
+        help="KVM build id."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -338,6 +349,7 @@ if __name__ == "__main__":
                 args.topology,
                 test_plan_name=test_plan_name,
                 deploy_mg_extra_params=args.deploy_mg_extra_params,
+                kvm_build_id=args.kvm_build_id,
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
