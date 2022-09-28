@@ -3,11 +3,11 @@ topology:
   VMs:
     ARISTA01T1:
       vlans:
-        - 28
+        - 0
       vm_offset: 0
     ARISTA02T1:
       vlans:
-        - 29
+        - 1
       vm_offset: 1
   DUT:
     loopback:
