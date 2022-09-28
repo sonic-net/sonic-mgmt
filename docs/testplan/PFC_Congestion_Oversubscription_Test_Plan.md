@@ -261,7 +261,7 @@ In addition, PFC watchdog must be disabled at the SONiC DUT. Otherwise, the DUT 
 In this experiment we will create a total of five traffic items:
   *	The background traffic will include two lossy traffic streams, each with randomly chosen priorities (0..2, 5..7), and each having a 25% bandwidth.
   *	The test data traffic will consist of two lossless traffic streams, with the SONiC default lossless priorities of 3 and 4, and each having a 25% bandwidth.
-PFC pause storm: Persistent PFC pause frames from the IXIA Rx port. The priority of PFC pause frames will be randomized to those of the test data traffic streams, or include all lossless priorities. The inter-frame transmission interval should be smaller than the per-frame pause duration.
+  * PFC pause storm: Persistent PFC pause frames from the IXIA Rx port. The priority of PFC pause frames will be randomized to those of the test data traffic streams, or include all lossless priorities. The inter-frame transmission interval should be smaller than the per-frame pause duration.
 The mapping of background and test data traffic streams to IXIA transmit ports can be randomized while keeping two streams per port; for example, one test port could send two lossless traffic streams and the second port two lossy streams, or each port could send two mixed streams, one lossless, one lossy.
  
 This experiment needs the following six steps:
