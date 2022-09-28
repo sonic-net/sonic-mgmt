@@ -1,4 +1,4 @@
-# get_portchannel_and_members_in_ns
+# get_portchannels_and_members_in_ns
 
 - [Overview](#overview)
 - [Examples](#examples)
@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Finds a portchannel present on ASIC interface's namspace and returns its name and members.
+Finds a portchannels present on ASIC interface's namspace and returns their names and members.
 
 ## Examples
 ```
@@ -15,7 +15,7 @@ def test_fun(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, tbinfo):
 
     sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
 
-    pc_on_asic = sonic_asic.get_portchannel_and_members_in_ns(tbinfo)
+    pc_on_asic_dict = sonic_asic.get_portchannels_and_members_in_ns(tbinfo)
 ```
 
 ## Arguments
@@ -24,9 +24,9 @@ def test_fun(duthosts, rand_one_dut_hostname, enum_frontend_asic_index, tbinfo):
     - Type: `Dictionary`
 
 ## Expected Output
-A tuple with the following ordered items:
+A dict with the following items:
 
-1. Name of portchannel found
-2. List of portchannel members
+1. Name of portchannel found as key
+2. List of portchannel members as value
 
-If no portchannels could be found, `None` is returned.
+If no portchannels could be found, `{}` is returned.

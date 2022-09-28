@@ -179,7 +179,7 @@ def test_active_tor_reboot_downstream(
     toggle_upper_tor_pdu()
     pytest_assert(
         wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
-        pytest.fail("Forwarding state check failed after reboot.")
+        "Forwarding state check failed after reboot."
     )
 
     # verify the upper ToR changes back to active after the upper comes back from reboot

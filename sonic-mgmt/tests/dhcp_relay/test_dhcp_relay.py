@@ -59,6 +59,9 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
     vlan_dict = mg_facts['minigraph_vlans']
     for vlan_iface_name, vlan_info_dict in vlan_dict.items():
+        # Filter(remove) PortChannel interfaces from VLAN members list
+        vlan_members = [port for port in vlan_info_dict['members'] if 'PortChannel' not in port]
+
         # Gather information about the downlink VLAN interface this relay agent is listening on
         downlink_vlan_iface = {}
         downlink_vlan_iface['name'] = vlan_iface_name
@@ -77,7 +80,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         # We choose the physical interface where our DHCP client resides to be index of first interface with alias (ignore PortChannel) in the VLAN
         client_iface = {}
-        for port in vlan_info_dict['members']:
+        for port in vlan_members:
             if port in mg_facts['minigraph_port_name_to_alias_map']:
                 break
         else:
@@ -109,7 +112,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                     uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
 
         other_client_ports_indices = []
-        for iface_name in vlan_info_dict['members'] :
+        for iface_name in vlan_members:
             if mg_facts['minigraph_ptf_indices'][iface_name] == client_iface['port_idx']:
                 pass
             else :

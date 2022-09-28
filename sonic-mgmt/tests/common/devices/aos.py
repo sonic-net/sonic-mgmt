@@ -2,18 +2,30 @@ import json
 import logging
 import os
 
+from tests.common.devices.base import AnsibleHostBase
+import re
 
-class AosHost():
+def _raise_err(msg):
+        raise Exception(msg)
+
+class AosHost(AnsibleHostBase):
     """
     @summary: Class for Accton switch
     For running ansible module on the Accton switch
     """
 
     def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.hostname = hostname
-        self.user = user
-        self.passwd = passwd
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+
+        self.admin_conn_props = {
+            'ansible_connection': 'network_cli',
+            'ansible_network_os':'aos',
+            'ansible_become_method': 'enable',
+            'ansible_user': user,
+            'ansible_password': passwd
+        }
 
     def _exec_jinja_template(self, task_name, jinja_template):
         inventory = 'lab'
@@ -97,3 +109,86 @@ class AosHost():
 
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
+
+    # delegate AOS related commands to Ansible
+    def __getattr__(self, module_name):
+        if not module_name.startswith('aos_'):
+            return None
+        self.host.options['variable_manager'].extra_vars.update(self.admin_conn_props)
+        return super(AosHost, self).__getattr__(module_name)
+
+    def _has_cli_cmd_failed(self, cmd_output_obj):
+        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
+
+    def cli_command(self, cmd):
+        return self.aos_command(commands=[cmd])['stdout'][0]
+
+    def get_auto_negotiation_mode(self, port):
+        return self.get_speed(port) == 'Auto'
+
+    def set_auto_negotiation_mode(self, port, enabled):
+        if self.get_auto_negotiation_mode(port) == enabled:
+            return True
+        if enabled:
+            out = self.aos_config(
+                lines=['negotiation'],
+                parents=['interface {}'.format(port)])
+        else:
+            out = self.aos_config(
+                lines=['no negotiation'],
+                parents=['interface {}'.format(port)])
+        return not self._has_cli_cmd_failed(out)
+    
+    def get_speed(self, port):
+        output = self.cli_command('show interfaces status {}'.format(port))
+
+        found_txt = extract_val('Speed-duplex', output)
+        if found_txt is None:
+            _raise_err('Not able to extract interface %s speed from output: %s' % (port, output))
+
+        return speed_gb_to_mb(found_txt)
+
+    def get_supported_speeds(self, port):
+        """Get supported speeds for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            list: A list of supported speed strings or None
+        """
+        output = self.cli_command('show interfaces status {}'.format(port))
+        found_txt = extract_val('Capabilities', output)
+
+        if found_txt is None:
+            _raise_err('Failed to find port speeds list in output: %s' % output)
+
+        speed_list = found_txt.split(',')
+        return list(map(speed_gb_to_mb, speed_list))
+
+    def set_speed(self, interface_name, speed):
+        
+        if not speed:
+            # other set_speed implementations advertise port speeds when speed=None
+            # but in AOS autoneg activation and speeds advertisement is done via a single CLI cmd
+            # so this branch left nop intentionally
+            return True
+        speed = speed_mb_to_gb(speed)
+        out = self.aos_config(
+                lines=['speed {}'.format(speed)],
+                parents='interface %s' % interface_name)
+        return not self._has_cli_cmd_failed(out)
+
+def speed_gb_to_mb(speed):
+    res = re.search(r'(\d+)(\w)', speed)
+    if not res:
+        return speed
+    speed = res.groups()[0]
+    return speed + '000'
+
+def speed_mb_to_gb(val):
+    return '{}Gfull'.format(int(val) // 1000)
+
+def extract_val(prop_name, output):
+    found_txt = re.search(r'{}\s+:\s+(.+)'.format(prop_name), output)
+    return found_txt.groups()[0] if found_txt else None

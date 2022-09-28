@@ -62,6 +62,9 @@ class BcastTest(BaseTest):
             self.src_ports = list(range(0, 2)) + list(range(4, 6)) + list(range(8, 10)) + list(range(12, 18)) + list(range(20, 22)) + \
                              list(range(24, 26)) + list(range(28, 30)) + list(range(32, 34)) + list(range(36, 38)) + list(range(40, 46)) + \
                              list(range(48, 50)) + list(range(52, 54))
+        if self.test_params['testbed_type'] == 't0-56-po2vlan':
+            self.src_ports = [8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54] + \
+                             [12, 13, 14, 15, 40, 41, 42, 43]
         if self.test_params['testbed_type'] == 't0-64':
             self.src_ports = list(range(0, 2)) + list(range(4, 18)) + list(range(20, 33)) + list(range(36, 43)) + list(range(48, 49)) + list(range(52, 59))
         if self.test_params['testbed_type'] == 't0-116':
