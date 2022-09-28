@@ -140,10 +140,10 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
 
-    # In dual-tor env, unicast upstream l3 packet destination mac should be vlan mac
+    # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
-    # And in dual-tor env, vlan mac is different with dut_mac mac. U0/L0 use same vlan mac for AR response
-    # in single tor env, vlan mac is same as dut_mac
+    # On dual-tor, vlan mac is different with dut_mac mac. U0/L0 use same vlan mac for AR response
+    # On single tor, vlan mac is same as dut_mac
     vlan_mac = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac']
     if not vlan_mac:
         raise ValueError("Topology has no mac from Vlan1000")
