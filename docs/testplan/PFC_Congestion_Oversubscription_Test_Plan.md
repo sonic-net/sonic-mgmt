@@ -215,7 +215,7 @@ The test bed setup consists of three IXIA ports and a SONiC router as the device
 
 
 #### Test steps
-  In this experiment we will create a total of eight streams, six lossy streams and two lossless streams:
+  In this experiment we will create a total of six streams, four lossy streams and two lossless streams:
   *	The background traffic will include four lossy traffic streams, with any priorities 0..2 and 5..6, each having 20% bandwidth for a total of 80% of the port line rate.
   *	The test data traffic will include two lossless traffic flows, with the SONiC default lossless priorities of 3 and 4.
   *	Each of lossless traffic flows will be shaped to have line rate of 20% and 10%, so that there are periods where both lossless flows contribute a bandwidth of 30% (which should cause over-subscription on the egress port).
