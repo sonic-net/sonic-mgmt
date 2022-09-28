@@ -55,8 +55,9 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
     duthost = duthosts[rand_one_dut_hostname]
     advancedReboot = get_advanced_reboot(rebootType='fast-reboot', other_vendor_nos = True,\
     advanceboot_loganalyzer=advanceboot_loganalyzer)
-    preboot_oper = flush_dbs(duthost)
-    advancedReboot.runRebootTestcase(preboot_setup = preboot_oper)
+    # Before rebooting, we will flush all unnecessary databases, to mimic reboot from other vendor.
+    flush_dbs(duthost)
+    advancedReboot.runRebootTestcase()
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
@@ -159,3 +160,4 @@ def flush_dbs(duthost):
                }
     for db in db_dic.keys():
         duthost.shell('redis-cli -n {} flushdb'.format(db))
+
