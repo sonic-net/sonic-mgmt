@@ -171,7 +171,7 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####         drop_packets         #####
+#####         drop_packets        #####
 #######################################
 drop_packets:
   skip:
