@@ -185,6 +185,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
         cmds = [
             "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel), # Update min_links
             "config portchannel member del {} {}".format(up_portchannel, pc_members[1]),         # Remove 1 portchannel member
+            "systemctl unmask teamd",                                                            # Unmask the service
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
@@ -203,6 +204,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
         cmds = [
             "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 2".format(up_portchannel), # Update min_links
             "config portchannel member add {} {}".format(up_portchannel, pc_members[1]),         # Add back portchannel member
+            "systemctl unmask teamd",                                                            # Unmask the service
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
