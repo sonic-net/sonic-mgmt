@@ -16,6 +16,10 @@ RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../s
 OS_ROOT_DIR = "/root"
 TESTS_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 ANSIBLE_ROOT = os.path.realpath(os.path.join(TESTS_ROOT, "../ansible"))
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+if sonic_mgmt_dir is not None:
+    TESTS_ROOT = os.path.join(sonic_mgmt_dir, "tests")
+    ANSIBLE_ROOT = os.path.join(sonic_mgmt_dir, "ansible")
 
 ARP_RESPONDER = os.path.join(TESTS_ROOT, "scripts/arp_responder.py")
 ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")

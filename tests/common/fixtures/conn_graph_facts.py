@@ -40,6 +40,10 @@ def get_graph_facts(duthost, localhost, hostnames):
 
     # yaml file contains mapping from inventory file name to its corresponding graph file
     inv_mapping_file = os.path.join(base_path, "../../../ansible/group_vars/all/inv_mapping.yml")
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    if sonic_mgmt_dir is not None:
+        lab_conn_graph_path = os.path.join(sonic_mgmt_dir, "ansible/files/")
+        inv_mapping_file = os.path.join(sonic_mgmt_dir, "ansible/group_vars/all/inv_mapping.yml")
     if os.path.exists(inv_mapping_file):
         with open(inv_mapping_file) as fd:
             inv_map = yaml.load(fd, Loader=yaml.FullLoader)

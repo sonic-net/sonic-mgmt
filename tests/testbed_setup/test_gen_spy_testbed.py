@@ -91,6 +91,9 @@ def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
     testbed_file = os.path.join(str(pytestconfig.rootdir),
                                 "../spytest/testbeds/spytest_testbed.yaml")
     testbed_file = os.path.normpath(testbed_file)
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    if sonic_mgmt_dir is not None:
+        testbed_file = os.path.join(sonic_mgmt_dir, "spytest/testbeds/spytest_testbed.yaml")
     logging.info("testbed save path: %s", testbed_file)
     if os.path.exists(testbed_file):
         logging.warn("testbed file(%s) exists, overwrite!", testbed_file)

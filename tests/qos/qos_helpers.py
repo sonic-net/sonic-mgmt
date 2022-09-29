@@ -8,6 +8,9 @@ import random
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
+sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+if sonic_mgmt_dir is not None:
+    PFC_GEN_LOCAL_PATH = os.path.join(sonic_mgmt_dir, "ansible/roles/test/files/helpers/pfc_gen.py")
 PFC_GEN_REMOTE_PATH = '~/pfc_gen.py'
 
 def atoi(text):

@@ -24,7 +24,11 @@ class TestbedInfo(object):
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
-    TOPOLOGY_FILEPATH = "../../ansible/vars/"
+    sonic_mgmt_dir = os.getenv("SONIC_MGMT")
+    append_path = '../../'
+    if sonic_mgmt_dir is not None:
+        append_path = sonic_mgmt_dir
+    TOPOLOGY_FILEPATH = os.path.join(append_path, "ansible/vars/")
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):

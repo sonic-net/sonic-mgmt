@@ -1,5 +1,5 @@
 #!/bin/bash
-
+SONIC_MGMT=${SONIC_MGMT:-/data/sonic-mgmt}
 function show_help_and_exit()
 {
     echo "Usage ${SCRIPT} [options]"
