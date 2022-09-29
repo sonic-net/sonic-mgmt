@@ -223,7 +223,7 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     uplink_port_id = setup_uplink
     yield uplink_port_id
 
-    cmd = "config mirror_session remove {}"
+    cmd = "config mirror_session remove {}".format(session_name)
     rand_selected_dut.shell(cmd=cmd)
 
 @pytest.mark.disable_loganalyzer
