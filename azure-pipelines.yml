@@ -59,7 +59,7 @@ stages:
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
-    timeoutInMinutes: 540
+    timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: true
     steps:
@@ -71,7 +71,7 @@ stages:
 
   - job: t0_2vlans_testbedv2
     displayName: "kvmtest-t0-2vlans by TestbedV2"
-    timeoutInMinutes: 540
+    timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: true
     steps:
@@ -132,7 +132,7 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    timeoutInMinutes: 540
+    timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: true
     steps:
