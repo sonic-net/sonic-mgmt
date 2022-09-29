@@ -24,6 +24,7 @@ from bgp_helpers import TEMPLATE_DIR
 from bgp_helpers import BGP_PLAIN_TEMPLATE
 from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
 from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from bgp_helpers import PREFIX_LISTS
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
@@ -562,3 +563,26 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     # Remove the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
+
+@pytest.fixture()
+def build_routes(tbinfo, ip_ver):
+    """
+    Add nexthops to routes that are used for test
+    Args:
+        tbinfo: DUT info
+
+    Returns: Routes for test
+    """
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
+    routes = []
+    for prefix in PREFIX_LISTS[ip_ver]:
+        route = {}
+        route['prefix'] = prefix
+        if ipaddress.ip_network(prefix).version == 4:
+            route['nexthop'] = nhipv4
+        else:
+            route['nexthop'] = nhipv6
+        routes.append(route)
+
+    yield routes
