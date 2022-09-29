@@ -1607,3 +1607,18 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing lab
+
+- conf-name: bjw-vms6-t1-lag-ec9516-1
+  group-name: bjw6-2
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw6-2
+  ptf_ip: 10.150.23.51/23
+  ptf_ipv6:
+  server: server_bjw_6
+  vm_base: VM56006
+  dut:
+    - bjw-can-ec9516-1
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: SAI Qualification

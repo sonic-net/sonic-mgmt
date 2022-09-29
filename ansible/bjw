@@ -16,6 +16,8 @@ all:
       hosts:
         bjw6-1:
           ansible_host: 10.150.23.50
+        bjw6-2:
+          ansible_host: 10.150.23.51
     pdu:
       hosts:
         bjw-pdu-22-50:
@@ -34,12 +36,16 @@ fanout:
     bjw-can-720dt-2:
       ansible_host: 10.150.22.113
       os: sonic
+    bjw-can-z9332f-1:
+      ansible_host: 10.150.22.108
+      os: sonic
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
     sonic_arista_720dt:
+    sonic_intel_ec9516:
 
 sonic_arista_720dt:
   vars:
@@ -67,6 +73,27 @@ sonic_arista_720dt:
         "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
         "0x2F": "WTW22180040"
         "0xFE": 3735928559
+
+sonic_intel_ec9516:
+  vars:
+    hwsku: newport
+    iface_speed: 400000
+  hosts:
+    bjw-can-ec9516-1:
+      ansible_host: 10.150.22.109
+      model: NP5ZZ8632007A
+      serial: 9516D2208035
+      base_mac: 98:19:2c:12:33:ed
+      syseeprom_info:
+        "0x21": "Newport"
+        "0x22": "NP5ZZ8632007A"
+        "0x23": "9516D2208035"
+        "0x24": "98:19:2C:12:33:ED"
+        "0x25": "03/04/2022 00:00:00"
+        "0x26": "1"
+        "0x2A": "260"
+        "0x2B": "Intel"
+        "0xFE": "0xA6E0E529"
 
 server:
   hosts:
