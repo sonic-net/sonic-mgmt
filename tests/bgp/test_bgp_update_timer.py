@@ -46,7 +46,8 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
     stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
-    duthost.shell("nohup {} {} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap))
+    start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
+    duthost.shell(start_pcap)
     try:
         yield
     finally:
