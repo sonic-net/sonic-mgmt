@@ -372,10 +372,10 @@ if __name__ == "__main__":
                 scripts=get_test_scripts(args.test_set),
                 output=args.output
             )
+        elif args.action == "poll":
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
-        elif args.expected_state in ["PREPARE_TESTBED", "EXECUTING", "FINISHED"]:
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
         sys.exit(0)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
