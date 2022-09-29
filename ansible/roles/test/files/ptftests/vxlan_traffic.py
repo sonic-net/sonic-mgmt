@@ -259,7 +259,6 @@ class VXLAN(BaseTest):
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "dst")
                     else:
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "dst")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "chksum")
