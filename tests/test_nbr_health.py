@@ -60,10 +60,16 @@ def check_sonic_facts(hostname, mgmt_addr, host):
 
 def check_eos_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
-    res = host.eos_command(commands=['show ip bgp sum'])
-    logger.info("bgp: {}".format(res))
-    if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
-        return "neighbor {} bgp not configured correctly".format(hostname)
+    for ip_type in ['ip', 'ipv6']:
+        res = host.eos_command(commands=['show {} bgp sum'.format(ip_type)])
+        logger.info("{} bgp: {}".format(ip_type, res))
+        if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
+            return "{} neighbor {} bgp not configured correctly".format(ip_type, hostname)
+
+        for peer_status in res['stdout_lines'][0][4::]:
+            logger.info("{} bgp peer: {}".format(ip_type, peer_status))
+            if 'Estab' not in peer_status:
+                return "{} neighbor {} bgp state is not establish".format(ip_type, hostname)
 
 def check_sonic_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
