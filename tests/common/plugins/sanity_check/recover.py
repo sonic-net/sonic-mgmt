@@ -26,7 +26,7 @@ def reboot_dut(dut, localhost, cmd):
     reboot(dut, localhost, reboot_type=reboot_type)
 
 
-def __recover_interfaces(dut, fanouthosts, result, wait_time):
+def _recover_interfaces(dut, fanouthosts, result, wait_time):
     action = None
     for port in result['down_ports']:
         logging.warning("Restoring port: {}".format(port))
@@ -49,7 +49,7 @@ def __recover_interfaces(dut, fanouthosts, result, wait_time):
     return action
 
 
-def __recover_services(dut, result):
+def _recover_services(dut, result):
     status   = result['services_status']
     services = [ x for x in status if not status[x] ]
     logging.warning("Service(s) down: {}".format(services))
@@ -57,7 +57,7 @@ def __recover_services(dut, result):
 
 
 @reset_ansible_local_tmp
-def __neighbor_vm_recover_bgpd(node=None, results=None):
+def _neighbor_vm_recover_bgpd(node=None, results=None):
     """Function for restoring BGP on neighbor VMs using the parallel_run tool.
 
     Args:
@@ -103,12 +103,12 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        results = parallel_run(__neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+        results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
         logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
     return 'config_reload'  # May still need to do a config reload
 
 
-def __recover_with_command(dut, cmd, wait_time):
+def _recover_with_command(dut, cmd, wait_time):
     dut.command(cmd)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
 
@@ -118,9 +118,9 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
     for result in check_results:
         if result['failed']:
             if result['check_item'] == 'interfaces':
-                action = __recover_interfaces(dut, fanouthosts, result, wait_time)
+                action = _recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
-                action = __recover_services(dut, result)
+                action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp':
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo)
             elif result['check_item'] in [ 'processes', 'mux_simulator' ]:
@@ -143,7 +143,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
         if method["reboot"]:
             reboot_dut(dut, localhost, method["cmd"])
         else:
-            __recover_with_command(dut, method['cmd'], wait_time)
+            _recover_with_command(dut, method['cmd'], wait_time)
 
 
 def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
@@ -157,4 +157,4 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
     elif method["reboot"]:
         reboot_dut(dut, localhost, method["cmd"])
     else:
-        __recover_with_command(dut, method['cmd'], wait_time)
+        _recover_with_command(dut, method['cmd'], wait_time)
