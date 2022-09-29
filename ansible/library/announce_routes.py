@@ -64,6 +64,21 @@ DOWNSTREAM_SUBNET_SIZE = 128
 CURR_LEVEL_ASN_START = 64600
 DOWNSTREAM_ASN_START = 65500
 
+# Describe number of COLOs
+COLO_NUMBER = 30
+# Describe number of M0 devices in 1 colo
+M0_NUMBER = 2
+# Describe number of subnet in a M0 device
+M0_SUBNET_NUMBER = 1
+# Describe number of members in a M0 subnet
+MAX_M0_SUBNET_NUMBER = 64
+# Describe number of MX device connected to M0 device
+MX_NUMBER = 2
+# Describe number of subnet in a MX device
+MX_SUBNET_NUMBER = 1
+# Describe number of subnet members
+MAX_MX_SUBNET_NUMBER = 64
+
 
 def wait_for_http(host_ip, http_port, timeout=10):
     """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
@@ -440,11 +455,8 @@ def fib_m0(topo, ptf_ip, action="announce"):
     downstream_subnet_size = common_config.get("downstream_subnet_size", DOWNSTREAM_SUBNET_SIZE)
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
-    leaf_asn_start = common_config.get("leaf_asn_start", CURR_LEVEL_ASN_START)
-    tor_asn_start = common_config.get("tor_asn_start", DOWNSTREAM_ASN_START)
-
-    vms = topo['topology']['VMs']
-    vms_config = topo['configuration']
+    leaf_asn_start = common_config.get("curr_level_asn_start", CURR_LEVEL_ASN_START)
+    tor_asn_start = common_config.get("downstream_asn_start", DOWNSTREAM_ASN_START)
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
