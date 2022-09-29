@@ -33,9 +33,9 @@ class QosSaiBaseMasic:
         """
         pytest_assert(ptfhost.shell(
                       argv = [
-                          "ptf",
+                          "/root/env-python3/bin/ptf",
                           "--test-dir",
-                          "saitests",
+                          "saitests/py3",
                           testCase,
                           "--platform-dir",
                           "ptftests",
@@ -340,10 +340,10 @@ class QosSaiBaseMasic:
 class TestQosSaiMasic(QosSaiBaseMasic):
 
     def test_qos_masic_dscp_queue_mapping(
-        self, duthosts, rand_one_dut_hostname, enum_backend_asic_index,
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_backend_asic_index,
         ptfhost, dut_test_params, swapSyncd, tbinfo
     ):
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         # Verify all external and internal BGP sessions are up
         config_facts = duthost.config_facts(

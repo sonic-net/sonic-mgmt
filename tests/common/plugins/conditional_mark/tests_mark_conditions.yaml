@@ -22,7 +22,7 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
     conditions:
-      - "(kernel_version <= '4.9.0') or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+      - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
 
 #######################################
 #####            bgp              #####
@@ -51,6 +51,12 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_speaker.py:
+  skip:
+    reason: "M0 topo does not support test_bgp_speaker"
+    conditions:
+      - "topo_name in ['m0']"
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
@@ -71,6 +77,16 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+
+cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
+  skip:
+    reason: "caclmgrd may crash after loading scale ipv4 cacl rules."
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
+
+cacl/test_cacl_application.py::test_cacl_scale_rules_ipv6:
+  skip:
+    reason: "caclmgrd may crash after loading scale ipv6 cacl rules."
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -155,6 +171,15 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
+#####         drop_packets        #####
+#######################################
+drop_packets:
+  skip:
+    reason: "M0 topo does not support drop_packets"
+    conditions:
+      - "topo_name in ['m0']"
+
+#######################################
 #####           dualtor           #####
 #######################################
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
@@ -206,7 +231,7 @@ everflow:
   skip:
     reason: "Skipping everflow tests. Unsupported topology."
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or topo_name in ['m0']"
 
 everflow/test_everflow_per_interface.py:
   skip:
@@ -267,6 +292,10 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+  skip:
+    reason: "M0 topo does not support TestShowPriorityGroup"
+    conditions:
+      - "topo_name in ['m0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -281,6 +310,21 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue:
+  skip:
+    reason: "M0 topo does not support TestShowQueue"
+    conditions:
+      - "topo_name in ['m0']"
+
+#######################################
+#####           mvrf              #####
+#######################################
+mvrf:
+  skip:
+    reason: "M0 topo does not support mvrf"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####            ip               #####
@@ -380,6 +424,16 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####       passw_hardening       #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  skip:
+    reason: "Password-hardening supported just in master version"
+    conditions:
+        - "release not in ['master']"
+        - https://github.com/sonic-net/sonic-mgmt/issues/6428
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -441,9 +495,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on dual tor testbed."
+    reason: "Pfcwd tests skipped on m0 or dual tor testbed."
     conditions:
-      - "'dualtor' in topo_name"
+      - "'dualtor' in topo_name or topo_name in ['m0']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -499,6 +553,12 @@ platform_tests/test_auto_negotiation.py:
 #######################################
 #####           qos               #####
 #######################################
+qos:
+  skip:
+    reason: "M0 topo does not support qos"
+    conditions:
+      - "topo_name in ['m0']"
+
 qos/test_buffer_traditional.py:
   skip:
     reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
@@ -530,7 +590,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] or asic_type in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -618,7 +678,7 @@ route/test_static_route.py:
   skip:
     reason: "Test not supported for 201911 images or older."
     conditions:
-      - "kernel_version <= '4.9.0'"
+      - "release in ['201811', '201911']"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/4930.
@@ -626,6 +686,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
   skip:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/sonic-net/sonic-buildimage/issues/4930
+
+route/test_route_perf.py:
+  skip:
+    reason: "M0 topo does not support test_route_perf"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####      show_techsupport       #####
@@ -653,6 +719,12 @@ snmp/test_snmp_lldp.py:
     conditions:
       - "is_supervisor"
 
+snmp/test_snmp_pfc_counters.py:
+  skip:
+    reason: "M0 topo does not support test_snmp_pfc_counters"
+    conditions:
+      - "topo_name in ['m0']"
+
 snmp/test_snmp_phy_entity.py::test_psu_info:
   skip:
     reason: "Not supported on non supervisor node."
@@ -664,6 +736,10 @@ snmp/test_snmp_queue.py:
     reason: "Interfaces not present on supervisor node"
     conditions:
       - "is_supervisor"
+  skip:
+    reason: "M0 topo does not support test_snmp_queue"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####            span             #####
@@ -798,3 +874,12 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
       - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+
+#######################################
+#####           telemetry         #####
+#######################################
+telemetry/test_telemetry.py:
+  skip:
+    reason: "Skip telemetry test for 201911 and older branches"
+    conditions:
+      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
