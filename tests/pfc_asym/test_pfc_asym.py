@@ -5,6 +5,10 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+@pytest.fixture(scope='module', autouse=True)
+def prepare_syncdrpc(swapSyncd):
+    pass
+
 def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):
     """
     @summary: Asymmetric PFC is disabled. Verify that DUT generates PFC frames only on lossless priorities when
