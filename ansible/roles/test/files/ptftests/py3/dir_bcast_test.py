@@ -54,28 +54,11 @@ class BcastTest(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
-        self.setUpVlan(self.test_params['vlan_info'])
         ptf_test_port_map = self.test_params['ptf_test_port_map']
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
         self.src_ports = self.ptf_test_port_map['ptf_src_ports']
-        self.dst_ports = self.ptf_test_port_map['ptf_dst_ports']
-        logging.info("src_ports: {}, dst_ports: {}".format(self.src_ports, self.dst_ports))
-
-    #---------------------------------------------------------------------
-
-    def setUpVlan(self, file_path):
-        '''
-        @summary: Populate the VLAN dictionary with IP/Prefix and member port list
-        '''
-        self._vlan_dict = {}
-        with open(file_path, 'r') as f:
-            for line in f.readlines():
-                entry = line.split(' ', 1)
-                prefix = ip_network(str(entry[0]))
-                if prefix.version != 4:
-                    continue
-                self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]
+        self._vlan_dict = self.ptf_test_port_map['vlan_ip_port_pair']
 
     #---------------------------------------------------------------------
 
@@ -83,14 +66,16 @@ class BcastTest(BaseTest):
         '''
         @summary: Loop through all the VLANs and send directed broadcast packets
         '''
-        for vlan_pfx in self._vlan_dict:
-            bcast_ip = str(ip_network(vlan_pfx).broadcast_address)
-            self.check_ip_dir_bcast(bcast_ip)
-            self.check_bootp_dir_bcast(bcast_ip)
+        for vlan_pfx, dst_ports in self._vlan_dict.items():
+            if ip_network(vlan_pfx).version == 4:
+                bcast_ip = str(ip_network(vlan_pfx).broadcast_address)
+                logging.info("bcast_ip: {}, vlan_pfx: {}, dst_ports: {}".format(bcast_ip, vlan_pfx, dst_ports))
+                self.check_ip_dir_bcast(bcast_ip, dst_ports)
+                self.check_bootp_dir_bcast(bcast_ip, dst_ports)
 
     #---------------------------------------------------------------------
 
-    def check_ip_dir_bcast(self, dst_bcast_ip):
+    def check_ip_dir_bcast(self, dst_bcast_ip, dst_ports):
         '''
         @summary: Check directed broadcast IP forwarding and receiving on all member ports.
         '''
@@ -113,22 +98,22 @@ class BcastTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        src_port = random.choice([port for port in self.src_ports if port not in self.dst_ports])
+        src_port = random.choice([port for port in self.src_ports if port not in dst_ports])
         send_packet(self, src_port, pkt)
         logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst)
 
-        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, self.dst_ports)
+        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_ports)
         '''
         Check if broadcast packet is received on all member ports of vlan
         '''
-        logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(self.dst_ports)))
-        assert (pkt_count == len(self.dst_ports)), "received {} expected {}".format(pkt_count, len(self.dst_ports))
+        logging.info("Received " + str(pkt_count) + " broadcast packets, expecting " + str(len(dst_ports)))
+        assert (pkt_count == len(dst_ports)), "received {} expected {}".format(pkt_count, len(dst_ports))
 
         return
 
     #---------------------------------------------------------------------
 
-    def check_bootp_dir_bcast(self, dst_bcast_ip):
+    def check_bootp_dir_bcast(self, dst_bcast_ip, dst_ports):
         '''
         @summary: Check directed broadcast BOOTP packet forwarding and receiving on all member ports.
         '''
@@ -156,16 +141,16 @@ class BcastTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
 
-        src_port = random.choice([port for port in self.src_ports if port not in self.dst_ports])
+        src_port = random.choice([port for port in self.src_ports if port not in dst_ports])
         send_packet(self, src_port, pkt)
         logging.info("Sending BOOTP packet from port " + str(src_port) + " to " + ip_dst)
 
-        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, self.dst_ports)
+        pkt_count = count_matched_packets_all_ports(self, masked_exp_pkt, dst_ports)
         '''
         Check if broadcast BOOTP packet is received on all member ports of vlan
         '''
-        logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(self.dst_ports)))
-        assert (pkt_count == len(self.dst_ports)), "received {} expected {}".format(pkt_count, len(self.dst_ports))
+        logging.info("Received " + str(pkt_count) + " broadcast BOOTP packets, expecting " + str(len(dst_ports)))
+        assert (pkt_count == len(dst_ports)), "received {} expected {}".format(pkt_count, len(dst_ports))
 
         return
 
