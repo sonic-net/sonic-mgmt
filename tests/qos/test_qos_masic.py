@@ -6,7 +6,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -15,7 +15,6 @@ pytestmark = [
 
 class QosSaiBaseMasic:
 
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
 
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
@@ -34,9 +33,9 @@ class QosSaiBaseMasic:
         """
         pytest_assert(ptfhost.shell(
                       argv = [
-                          "ptf",
+                          "/root/env-python3/bin/ptf",
                           "--test-dir",
-                          "saitests",
+                          "saitests/py3",
                           testCase,
                           "--platform-dir",
                           "ptftests",
@@ -259,12 +258,7 @@ class QosSaiBaseMasic:
            .
            .
         }
-        """
-        topo = tbinfo["topo"]["name"]
-        if topo not in self.SUPPORTED_T1_TOPOS:
-            pytest.skip("unsupported topology {}".format(topo))
-
-        pytest_require(duthost.is_multi_asic, "Not a multi asic platform")
+        """ 
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
@@ -346,16 +340,10 @@ class QosSaiBaseMasic:
 class TestQosSaiMasic(QosSaiBaseMasic):
 
     def test_qos_masic_dscp_queue_mapping(
-        self, duthosts, rand_one_dut_hostname, enum_backend_asic_index,
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_backend_asic_index,
         ptfhost, dut_test_params, swapSyncd, tbinfo
     ):
-        duthost = duthosts[rand_one_dut_hostname]
-
-        if not duthost.sonichost.is_multi_asic:
-            pytest.skip("Test applies only to multi ASIC platform")
-
-        if enum_backend_asic_index is None:
-            pytest.skip("Backend ASIC is None")
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         # Verify all external and internal BGP sessions are up
         config_facts = duthost.config_facts(

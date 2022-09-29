@@ -5,21 +5,32 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    support_testbed_types = frozenset(['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116'])
     testbed_type = tbinfo['topo']['name']
-    if testbed_type not in support_testbed_types:
-        pytest.skip("Not support given test bed type %s" % testbed_type)
 
     # Copy VLAN information file to PTF-docker
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # Filter expected_vlans and minigraph_vlans to support t0-56-po2vlan topology
+    expected_vlans = []
+    minigraph_vlans = {}
+    for vlan in mg_facts['minigraph_vlan_interfaces']:
+        vlan_name = vlan['attachto']
+        if len(mg_facts['minigraph_vlans'][vlan_name]['members']) > 1:
+            expected_vlans.append(vlan)
+            vlan_members = []
+            for vl_m in mg_facts['minigraph_vlans'][vlan_name]['members']:
+                if 'PortChannel' not in vl_m:
+                    vlan_members.append(vl_m)
+            minigraph_vlans[vlan_name] = {'name': vlan_name, 'members': vlan_members}
+
     extra_vars = {
-        'minigraph_vlan_interfaces': mg_facts['minigraph_vlan_interfaces'],
-        'minigraph_vlans':           mg_facts['minigraph_vlans'],
+        'minigraph_vlan_interfaces': expected_vlans,
+        'minigraph_vlans':           minigraph_vlans,
         'minigraph_port_indices':    mg_facts['minigraph_ptf_indices'],
         'minigraph_portchannels':    mg_facts['minigraph_portchannels']
     }

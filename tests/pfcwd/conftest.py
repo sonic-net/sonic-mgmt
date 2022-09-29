@@ -32,14 +32,6 @@ def pytest_addoption(parser):
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_pfcwd_test_dualtor(tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Pfcwd tests skipped on dual tor testbed")
-
-    yield
-
-
 @pytest.fixture(scope="module")
 def two_queues(request):
     """
@@ -121,6 +113,21 @@ def setup_pfc_test(
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+            if len(vlan_data['members']) < 2:
+               unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
         # gather all vlan specific info
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
@@ -165,6 +172,3 @@ def setup_pfc_test(
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
     yield setup_info
-
-    logger.info("--- Starting Pfcwd ---")
-    duthost.command("pfcwd start_default")

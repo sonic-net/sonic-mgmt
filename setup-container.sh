@@ -106,6 +106,7 @@ function show_help_and_exit() {
     echo "  -p <port>            publish container port to the host"
     echo "  -f                   automatically remove the container when it exits"
     echo "  -v                   explain what is being done"
+    echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
     echo
     echo "Examples:"
@@ -326,7 +327,7 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvh" opt; do
+while getopts "n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
@@ -349,6 +350,9 @@ while getopts "n:i:d:m:p:fvh" opt; do
         v )
             VERBOSE_LEVEL="${VERBOSE_MAX}"
             SILENT_HOOK=""
+            ;;
+        x )
+            set -x
             ;;
         h )
             show_help_and_exit "${EXIT_SUCCESS}"

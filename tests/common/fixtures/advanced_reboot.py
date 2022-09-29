@@ -6,6 +6,7 @@ import logging
 import pytest
 import time
 import os
+import traceback
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -41,7 +42,7 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and kwargs['rebootType'] in ['fast-reboot', 'warm-reboot', 'warm-reboot -f'], (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType'] or 'service-warm-restart' in kwargs['rebootType']) , (
             "Please set rebootType var."
         )
 
@@ -89,6 +90,10 @@ class AdvancedReboot:
 
         self.__buildTestbedData(tbinfo)
 
+        if self.rebootType == 'service-warm-restart':
+            assert hasattr(self, 'service_list')
+            self.service_data = {}
+
     def __extractTestParam(self):
         '''
         Extract test parameters from pytest request object. Note that all the parameters have default values.
@@ -105,6 +110,7 @@ class AdvancedReboot:
         self.replaceFastRebootScript = self.request.config.getoption("--replace_fast_reboot_script")
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
+        self.new_docker_image = self.request.config.getoption("--new_docker_image")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -325,6 +331,35 @@ class AdvancedReboot:
         logger.info('Remove downloaded tempfile')
         self.duthost.shell('rm -f {}'.format(tempfile))
 
+    def __handleDockerImage(self):
+        """Download and install docker image to DUT
+        """
+        if self.new_docker_image is None:
+            return
+
+        for service_name in self.service_list:
+            data = {}
+            docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''.format(service_name))['stdout']
+            cmd = 'docker images {} --format \{{\{{.ID\}}\}}'.format(docker_image_name)
+            data['image_id'] = self.duthost.shell(cmd)['stdout']
+            data['image_name'], data['image_tag'] = docker_image_name.split(':')
+
+            local_image_path = '/tmp/{}.gz'.format(data['image_name'])
+            logger.info('Downloading new docker image for {} to {}'.format(service_name, local_image_path))
+            output = self.localhost.shell('curl --silent --write-out "%{{http_code}}" {0}/{1}.gz --output {2}'.format(self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)['stdout']
+            if '404' not in output and os.path.exists(local_image_path):
+                temp_file = self.duthost.shell('mktemp')['stdout']
+                self.duthost.copy(src=local_image_path, dest=temp_file)
+                self.localhost.shell('rm -f /tmp/{}.gz'.format(data['image_name']))
+                data['image_path_on_dut'] = temp_file
+                logger.info('Successfully downloaded docker image, will perform in-service upgrade')
+            else:
+                data['image_path_on_dut'] = None
+                logger.info('Docker image not found, will perform in-service reboot')
+            self.service_data[service_name] = data
+
+        logger.info('service data = {}'.format(json.dumps(self.service_data, indent=2)))
+
     def __setupTestbed(self):
         '''
         Sets testbed up. It tranfers test data files, ARP responder, and runs script to update IPs and MAC addresses.
@@ -366,17 +401,22 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        if "warm" in self.rebootType:
+            # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
+            reboot_file_prefix = "warm-reboot"
+        else:
+            reboot_file_prefix = self.rebootType
         if rebootOper is None:
-            rebootLog = '/tmp/{0}.log'.format(self.rebootType)
-            rebootReport = '/tmp/{0}-report.json'.format(self.rebootType)
+            rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
+            rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
             capturePcap = '/tmp/capture.pcap'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
             swssRec = '/tmp/swss.rec'
         else:
-            rebootLog = '/tmp/{0}-{1}.log'.format(self.rebootType, rebootOper)
-            rebootReport = '/tmp/{0}-{1}-report.json'.format(self.rebootType, rebootOper)
+            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
             capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
@@ -432,7 +472,10 @@ class AdvancedReboot:
         self.__setupTestbed()
 
         # Download and install new sonic image
-        self.__handleRebootImage()
+        if self.rebootType != 'service-warm-restart':
+            self.__handleRebootImage()
+        else:
+            self.__handleDockerImage()
 
         # Handle mellanox platform
         self.__handleMellanoxDut()
@@ -441,14 +484,18 @@ class AdvancedReboot:
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
         result = True
-        failed_list = list()
+        test_results = dict()
         for rebootOper in self.rebootData['sadList']:
             count += 1
+            test_case_name = str(self.request.node.name) + str(rebootOper)
+            test_results[test_case_name] = list()
             try:
+                if self.preboot_setup:
+                    self.preboot_setup()
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
-                self.__setupRebootOper(rebootOper)
+                event_counters = self.__setupRebootOper(rebootOper)
                 thread = InterruptableThread(
                     target=self.__runPtfRunner,
                     kwargs={"rebootOper": rebootOper})
@@ -462,24 +509,32 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.postboot_setup:
+                    self.postboot_setup()
             except Exception:
-                logger.error("Exception caught while running advanced-reboot test on ptf")
-                failed_list.append(rebootOper)
+                traceback_msg = traceback.format_exc()
+                logger.error("Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg))
+                test_results[test_case_name].append("Exception caught while running advanced-reboot test on ptf")
             finally:
                 # always capture the test logs
                 log_dir = self.__fetchTestLogs(rebootOper)
+                if self.advanceboot_loganalyzer:
+                    verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
+                        reboot_oper=rebootOper, log_dir=log_dir)
+                    if verification_errors:
+                        logger.error("Post reboot verification failed. List of failures: {}".format('\n'.join(verification_errors)))
+                        test_results[test_case_name].extend(verification_errors)
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-                if self.advanceboot_loganalyzer:
-                    post_reboot_analysis(marker, reboot_oper=rebootOper, log_dir=log_dir)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
+            failed_list = [(testcase,failures) for testcase, failures in test_results.items() if len(failures) != 0]
         pytest_assert(len(failed_list) == 0,\
-            "Advanced-reboot failure. Failed test: {}, sub-cases: {}".format(self.request.node.name, failed_list))
+            "Advanced-reboot failure. Failed test: {}, failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
 
     def runRebootTestcase(self, prebootList=None, inbootList=None,
-        prebootFiles='peer_dev_info,neigh_port_info'):
+        prebootFiles='peer_dev_info,neigh_port_info', preboot_setup=None, postboot_setup=None):
         '''
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
@@ -487,10 +542,24 @@ class AdvancedReboot:
         @param inbootList: list of operation to run during reboot prcoess
         @param prebootFiles: preboot files
         '''
+        self.preboot_setup = preboot_setup
+        self.postboot_setup = postboot_setup
         self.imageInstall(prebootList, inbootList, prebootFiles)
         return self.runRebootTest()
 
     def __setupRebootOper(self, rebootOper):
+        down_ports = 0
+        if "dut_lag_member_down" in str(rebootOper) or "neigh_lag_member_down" in str(rebootOper)\
+            or "vlan_port_down" in  str(rebootOper) or "neigh_vlan_member_down" in str(rebootOper):
+            down_ports = int(str(rebootOper)[-1])
+
+        event_counters = {
+            "SAI_CREATE_SWITCH": 1,
+            "INIT_VIEW": 1,
+            "APPLY_VIEW": 1,
+            "LAG_READY": len(self.mgFacts["minigraph_portchannels"]),
+            "PORT_READY": len(self.mgFacts["minigraph_ports"]) - down_ports,
+        }
         testData = {
             'portchannel_interfaces': copy.deepcopy(self.mgFacts['minigraph_portchannels']),
             'vlan_interfaces': copy.deepcopy(self.mgFacts['minigraph_vlans']),
@@ -511,6 +580,7 @@ class AdvancedReboot:
 
         testDataFiles = [{'source': source, 'name': name} for name, source in testData.items()]
         self.__transferTestDataFiles(testDataFiles, self.ptfhost)
+        return event_counters
 
     def __verifyRebootOper(self, rebootOper):
         if isinstance(rebootOper, SadOperation):
@@ -553,7 +623,9 @@ class AdvancedReboot:
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files" : self.prebootFiles,
-            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword")
+            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword"),
+            "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
+            "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
         }
 
         if not isinstance(rebootOper, SadOperation):
@@ -606,6 +678,36 @@ class AdvancedReboot:
                 wait = self.readyTimeout
             )
 
+    def __restorePrevDockerImage(self):
+        """Restore previous docker image.
+        """
+        for service_name, data in self.service_data.items():
+            if data['image_path_on_dut'] is None:
+                self.duthost.shell('sudo config warm_restart disable {}'.format(service_name))
+                continue
+
+            #  We don't use sonic-installer rollback-docker CLI here because:
+            #  1. it does not remove the docker image which causes the running container still using the old image
+            #  2. it runs service restart for some containers which enlarge the test duration
+            self.duthost.shell('rm -f {}'.format(data['image_path_on_dut']))
+            logger.info('Restore docker image for {}'.format(service_name))
+            self.duthost.shell('service {} stop'.format(service_name))
+            self.duthost.shell('docker rm {}'.format(service_name))
+            image_ids = self.duthost.shell('docker images {} --format \{{\{{.ID\}}\}}'.format(data['image_name']))['stdout_lines']
+            for image_id in image_ids:
+                if image_id != data['image_id']:
+                    self.duthost.shell('docker rmi -f {}'.format(image_id))
+                    break
+
+            self.duthost.shell('docker tag {} {}:{}'.format(data['image_id'], data['image_name'], data['image_tag']))
+
+        rebootDut(
+            self.duthost,
+            self.localhost,
+            reboot_type='cold',
+            wait = 300
+        )
+
     def tearDown(self):
         '''
         Tears down test case. It also verifies that config_db.json exists.
@@ -625,10 +727,16 @@ class AdvancedReboot:
             self.__runScript([self.postRebootCheckScript], self.duthost)
 
         if not self.stayInTargetImage:
-            self.__restorePrevImage()
+            logger.info('Restoring previous image')
+            if self.rebootType != 'service-warm-restart':
+                self.__restorePrevImage()
+            else:
+                self.__restorePrevDockerImage()
+        else:
+            logger.info('Stay in new image')
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
     '''
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -637,7 +745,7 @@ def get_advanced_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, local
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):
