@@ -224,7 +224,7 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     cmd = "config mirror_session remove {}"
     rand_selected_dut.shell(cmd=cmd)
 
-
+@pytest.mark.disable_loganalyzer
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, ptfadapter, tbinfo, setup_mirror_session, toggle_all_simulator_ports_to_rand_unselected_tor, tunnel_traffic_monitor):
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
