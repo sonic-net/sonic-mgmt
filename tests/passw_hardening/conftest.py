@@ -17,12 +17,6 @@ def set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostn
 
     test_passw_hardening.config_and_review_policies(duthost, passw_hardening_ob_dis, test_passw_hardening.PAM_PASSWORD_CONF_DEFAULT_EXPECTED)
 
-@pytest.fixture(scope="module", autouse=True)
-def passw_version_required(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not "master" in duthost.os_version:
-        pytest.skip("Password-hardening supported just in master version")
-
 @pytest.fixture(scope="function")
 def clean_passw_policies(duthosts, enum_rand_one_per_hwsku_hostname):
     yield

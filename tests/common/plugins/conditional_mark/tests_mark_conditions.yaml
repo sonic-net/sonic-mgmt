@@ -418,6 +418,16 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####       passw_hardening       #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  skip:
+    reason: "Password-hardening supported just in master version"
+    conditions:
+        - "release not in ['master']"
+        - https://github.com/sonic-net/sonic-mgmt/issues/6428
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
