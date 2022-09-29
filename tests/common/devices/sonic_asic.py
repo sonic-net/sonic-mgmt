@@ -538,36 +538,35 @@ class SonicAsic(object):
             return True
         return False
 
-    def get_portchannel_and_members_in_ns(self, tbinfo):
+    def get_portchannels_and_members_in_ns(self, tbinfo):
         """
-        Get a portchannel and it's members in this namespace.
+        Get a portchannels and their members in this namespace.
 
         Args: tbinfo - testbed info
 
-        Returns: a tuple with (portchannel_name, port_channel_members)
+        Returns: a dict portchannels_data with (portchannel_name as key and port_channel_members as value)
 
         """
-        pc = None
-        pc_members = None
-
+        port_channels_data = {}
         mg_facts = self.sonichost.minigraph_facts(
             host = self.sonichost.hostname
         )['ansible_facts']
 
         if len(mg_facts['minigraph_portchannels'].keys()) == 0:
-            return None, None
+            return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            pc = mg_facts['minigraph_portchannels'].keys()[0]
-            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+            for pc in mg_facts['minigraph_portchannels'].keys():
+                pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                port_channels_data[pc] = pc_members
         else:
             for k, v in mg_facts['minigraph_portchannels'].iteritems():
                 if v.has_key('namespace') and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
-                    break
+                    port_channels_data[pc] = pc_members
 
-        return pc, pc_members
+        return port_channels_data
 
     def get_bgp_statistic(self, stat):
         """

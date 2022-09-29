@@ -173,20 +173,18 @@ class TestSfpApi(PlatformApiTestBase):
                 if compliance_code == "Passive Cable":
                    return False
             else:
-                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
-                if compliance_code == "40GBASE-CR4":
+                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
+                if "CR" in compliance_code:
                    return False
-                if compliance_code == "Extended":
-                    extended_code = spec_compliance_dict.get("Extended Specification Compliance")
-                    if "CR" in extended_code:
-                        return False
+                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
+                if "CR" in extended_code:
+                   return False
         return True
 
-    def is_xcvr_resettable(self, xcvr_info_dict):
+    def is_xcvr_resettable(self, request, xcvr_info_dict):
+        not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
-        if xcvr_type == "SFP":
-            return False
-        return True
+        return xcvr_type not in not_resettable_xcvr_type
 
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
@@ -488,7 +486,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_reset(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_reset(self, request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -499,7 +497,7 @@ class TestSfpApi(PlatformApiTestBase):
                continue
 
             ret = sfp.reset(platform_api_conn, i)
-            if self.is_xcvr_resettable(info_dict):
+            if self.is_xcvr_resettable(request, info_dict):
                self.expect(ret is True, "Failed to reset transceiver {}".format(i))
             else:
                self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))

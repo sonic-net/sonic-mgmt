@@ -143,6 +143,40 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 
     assert(wait_until(60, 15, 0, _check_routes))
 
+
+# output example of ip [-6] route show
+# ip route show 1.1.1.0/24
+# 1.1.1.0/24 proto 196 metric 20 
+#        nexthop via 192.168.0.2 dev Vlan1000 weight 1 
+#        nexthop via 192.168.0.3 dev Vlan1000 weight 1 
+#        nexthop via 192.168.0.4 dev Vlan1000 weight 1 
+# ip -6 route show 20c0:afa8::/64
+# 20c0:afa8::/64 proto bgp src fc00:1::32 metric 20 
+#        nexthop via fc00::22 dev PortChannel101 weight 1 
+#        nexthop via fc00::26 dev PortChannel102 weight 1 
+#        nexthop via fc00::2a dev PortChannel103 weight 1 
+#        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
+def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
+    if ipv6:
+        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+    else:
+        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+    output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
+
+    def _check_nh_in_output(nexthop):
+        for line in output:
+            if nexthop in line:
+                return True
+        return False
+
+    check_result = True
+    for nh in nexthop_addrs:
+        if not _check_nh_in_output(nh):
+            check_result = False
+
+    assert check_result, "config static route: {} nexthop {}\nreal:\n{}".format(prefix, ",".join(nexthop_addrs), output)
+
+
 def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=False, config_reload_test=False):
     # Clean up arp or ndp
     clear_arp_ndp(duthost, ipv6=ipv6)
@@ -154,6 +188,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
         time.sleep(5)
+
+        # check if the static route in kernel is what we expect
+        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
@@ -198,6 +235,22 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
 def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+    unexpected_vlans = []
+    for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+        if len(vlan_data['members']) < 2:
+            unexpected_vlans.append(vlan)
+
+    # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+    expected_vlan_ifaces = []
+    for vlan in unexpected_vlans:
+        for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+            if vlan != mg_vl_iface['attachto']:
+                expected_vlan_ifaces.append(mg_vl_iface)
+    if expected_vlan_ifaces:
+        mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
     vlan_intf = mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]
     prefix_len = vlan_intf['prefixlen']
 
@@ -214,7 +267,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
         vlan = mg_facts['minigraph_vlans'][mg_facts['minigraph_vlan_interfaces'][1 if ipv6 else 0]['attachto']]
         vlan_ports = vlan['members']
         vlan_id = vlan['vlanid']
-        vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports]
+        vlan_ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in vlan_ports if 'PortChannel' not in port]
         nexthop_devs = vlan_ptf_ports
         # backend topology use ethx.x(e.g. eth30.1000) during servers and T0 in ptf
         # in other topology use ethx(e.g. eth30)
