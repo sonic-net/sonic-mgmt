@@ -702,3 +702,12 @@ platform_tests/test_reload_config.py:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
+
+#######################################
+####  test_memory_exhaustion.py   #####
+#######################################
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: "Unsupported release 20191130"
+    conditions:
+      - "is_multi_asic==True and release in ['201911']"
