@@ -51,7 +51,7 @@ steps:
       echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
       echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID"
       # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
-      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 43200 --expected_state "PREPARE_TESTBED"
+      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 43200 --expected-state "PREPARE_TESTBED"
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Lock testbed
@@ -64,7 +64,7 @@ steps:
       echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
       echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID"
       # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
-      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 2400 --expected_state "EXECUTING"
+      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 2400 --expected-state "EXECUTING"
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Prepare testbed
@@ -75,7 +75,7 @@ steps:
       echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
       echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID"
       # When "EXECUTING" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
-      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 18000 --expected_state "FINISHED"
+      python ./.azure-pipelines/test_plan.py poll -i $(TEST_PLAN_ID) --timeout 18000 --expected-state "FINISHED"
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Run test
