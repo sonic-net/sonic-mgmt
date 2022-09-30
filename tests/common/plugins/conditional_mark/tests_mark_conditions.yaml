@@ -365,6 +365,7 @@ ipfwd/test_dir_bcast.py:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
       - "topo_type in ['dualtor']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/12167
 
 ipfwd/test_mtu.py:
   skip:
