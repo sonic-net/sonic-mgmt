@@ -429,6 +429,17 @@ class TestShowQueue():
     def setup_check_topo(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         skip_test_for_multi_asic(
             duthosts, enum_rand_one_per_hwsku_frontend_hostname)
+        
+    @pytest.fixture(scope="class", name="supported_queues", autouse=True)
+    def setup_queues(self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
+        """
+        Collects supported SAI queue types for 'show queue' command
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
+        redis_out = sonic_asic.run_redis_cmd(argv=["redis-dump", "-d", 1, "-y", "-k", "*ASIC_STATE:SAI_OBJECT_TYPE_QUEUE*"])
+        supported_queues = set(re.findall(r'SAI_QUEUE_TYPE_(\w*)', ''.join(redis_out)))
+        return supported_queues
 
     def test_show_queue_counters(self, setup, setup_config_mode):
         """
@@ -458,70 +469,44 @@ class TestShowQueue():
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
             assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
-
-    def test_show_queue_persistent_watermark_multicast(self, setup, setup_config_mode):
+            
+    @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
+    def test_show_queue_persistent_watermark(self, setup, setup_config_mode, queues, supported_queues):
         """
-        Checks whether 'show queue persistent-watermark multicast' lists
-        the interface names as per the configured naming mode
+        Checks whether 'show queue persistent-watermark [multicast|unicast|all]'
+        lists the interface names as per the configured naming mode
         """
+        if queues.upper() not in supported_queues:
+            pytest.skip("Unsupported queue type")
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_queue_wm_mcast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue persistent-watermark multicast'.format(ifmode))['stdout']
-        logger.info('show_queue_wm_mcast:\n{}'.format(show_queue_wm_mcast))
+        show_queue_pwm_cast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue persistent-watermark {}'.format(ifmode, queues))['stdout']
+        logger.info('show_queue_pwm_cast:\n{}'.format(show_queue_pwm_cast))
 
         if mode == 'alias':
             for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
+                assert re.search(r'{}'.format(alias), show_queue_pwm_cast) is not None
         elif mode == 'default':
             for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
+                assert re.search(r'{}'.format(intf), show_queue_pwm_cast) is not None
 
-    def test_show_queue_persistent_watermark_unicast(self, setup, setup_config_mode):
+    @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
+    def test_show_queue_watermark(self, setup, setup_config_mode, queues, supported_queues):
         """
-        Checks whether 'show queue persistent-watermark unicast' lists
-        the interface names as per the configured naming mode
+        Checks whether 'show queue watermark [multicast|unicast|all]'
+        lists the interface names as per the configured naming mode
         """
+        if queues.upper() not in supported_queues:
+            pytest.skip("Unsupported queue type")
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_queue_wm_ucast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue persistent-watermark unicast'.format(ifmode))['stdout']
-        logger.info('show_queue_wm_ucast:\n{}'.format(show_queue_wm_ucast))
+        show_queue_wm_cast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue watermark {}'.format(ifmode, queues))['stdout']
+        logger.info('show_queue_wm_cast:\n{}'.format(show_queue_wm_cast))
 
         if mode == 'alias':
             for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(alias), show_queue_wm_cast) is not None
         elif mode == 'default':
             for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
-
-    def test_show_queue_watermark_multicast(self, setup, setup_config_mode):
-        """
-        Checks whether 'show queue watermark multicast' lists the
-        interface names as per the configured naming mode
-        """
-        dutHostGuest, mode, ifmode = setup_config_mode
-        show_queue_wm_mcast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue watermark multicast'.format(ifmode))['stdout']
-        logger.info('show_queue_wm_mcast:\n{}'.format(show_queue_wm_mcast))
-
-        if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
-        elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
-
-    def test_show_queue_watermark_unicast(self, setup, setup_config_mode):
-        """
-        Checks whether 'show queue watermark unicast' lists the
-        interface names as per the configured naming mode
-        """
-        dutHostGuest, mode, ifmode = setup_config_mode
-        show_queue_wm_ucast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue watermark unicast'.format(ifmode))['stdout']
-        logger.info('show_queue_wm_ucast:\n{}'.format(show_queue_wm_ucast))
-
-        if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_ucast) is not None
-        elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
+                assert re.search(r'{}'.format(intf), show_queue_wm_cast) is not None
 
 # Tests to be run in t0/m0 topology
 
