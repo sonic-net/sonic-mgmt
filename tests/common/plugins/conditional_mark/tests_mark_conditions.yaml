@@ -328,7 +328,7 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_per_interface.py:
   skip:
-    reason: "Skip running on dualtor testbed/unsupported platforms or 
+    reason: "Skip running on dualtor testbed/unsupported platforms or
                   multi-asic due to https://github.com/sonic-net/sonic-buildimage/issues/11776"
     conditions_logical_operator: or
     conditions:
@@ -457,7 +457,12 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx']"
+      - "topo_type not in ['t0', 'm0', 'mx', 'dualtor']"
+  xfail:
+    reason: "Dualtor do not support now, need to fix in buildimage."
+    conditions:
+      - "topo_type in ['dualtor']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/12167
 
 ipfwd/test_mtu.py:
   skip:
