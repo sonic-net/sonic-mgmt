@@ -663,7 +663,7 @@ platform_tests/test_reboot.py::test_power_off_reboot:
   skip:
     reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
