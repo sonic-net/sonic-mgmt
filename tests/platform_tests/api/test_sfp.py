@@ -544,7 +544,7 @@ class TestSfpApi(PlatformApiTestBase):
 
             # Test all TX disable combinations for a four-channel transceiver (i.e., 0x0 through 0xF)
             # We iterate in reverse here so that we end with 0x0 (no channels disabled)
-            for expected_mask in range(0xF, 0x0, -1):
+            for expected_mask in range(0xF, -1, -1):
                 # Enable TX on all channels
                 ret = sfp.tx_disable_channel(platform_api_conn, i, 0xF, False)
                 self.expect(ret is True, "Failed to enable TX on all channels for transceiver {}".format(i))
