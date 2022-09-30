@@ -10,7 +10,7 @@ t0:
   - container_checker/test_container_checker.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
-  - dhcp_relay/test_dhcp_relay.py
+#  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
@@ -62,7 +62,7 @@ t0:
   - test_procdockerstatsd.py
 
 t0-2vlans:
-  - dhcp_relay/test_dhcp_relay.py
+#  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
 
 t0-sonic:
