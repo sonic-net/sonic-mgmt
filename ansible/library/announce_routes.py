@@ -206,8 +206,8 @@ def generate_routes(family, podset_number, tor_number, tor_subnet_number,
                     # Skip non podset 0 for T0
                     if podset != 0:
                         continue
-                    # Skip subnet 0 (vlan ip) for M0
-                    elif topo == "m0" and subnet == 0:
+                    # Skip subnet 0 (vlan ip)
+                    elif subnet == 0:
                         continue
                     elif tor != tor_index:
                         continue
