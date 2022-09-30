@@ -1052,6 +1052,18 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.178
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:39:F0 
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2601NALA"
+        "0x24": "CC:ED:4D:82:39:F0"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xE4DC0C41"
     str2-8800-lc2-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1062,6 +1074,18 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.179
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:38:60 
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2602N0GP"
+        "0x24": "CC:ED:4D:82:38:60"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x58BD87C5"
     str2-8800-lc3-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1072,7 +1096,18 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.180
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:86:C1:50 
-
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2601NARV"
+        "0x24": "CC:ED:4D:86:C1:50"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x5AFD7304"
 sonic_cisco_lc_400G:
   vars:
     switch_type: chassis-packet
@@ -1238,6 +1273,18 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOX2531P3F5
       base_mac: F8:7A:41:E4:1D:F8 
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1A4841"
+        "0x23": "FOC2516N6GB"
+        "0x24": "F8:7A:41:E4:1D:F8"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp-r1"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x87079ED0"
       skip_modules:
           'line-cards':
             - LINE-CARD0
