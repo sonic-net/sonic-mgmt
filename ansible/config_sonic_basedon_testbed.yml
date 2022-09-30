@@ -525,6 +525,53 @@
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
+      - block:
+        - name: set the default grpc credential file path
+          set_fact:
+            grpc_credential_file: /etc/sonic/grpc_secrets.json
+
+        - name: check if grpc credential file exists
+          stat:
+            path: "{{ grpc_credential_file }}"
+          register: stat_result
+
+        - block:
+          - name: collect initial grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse initial grpc credentials
+            set_fact:
+              grpc_secrets: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: use insecure grpc for testing
+            set_fact:
+              grpc_secrets: "{{ grpc_secrets | combine(new_item, recursive=true) }}"
+            vars:
+              new_item: "{ '{{ item.key }}': { 'config': 'insecure' } }"
+            with_dict: "{{ grpc_secrets }}"
+
+          - name: show new grpc setting
+            debug:
+              var: grpc_secrets
+
+          - name: save new grpc setting
+            copy:
+              content: "{{ grpc_secrets | to_nice_json }}"
+              dest: "{{ grpc_credential_file }}"
+            become: true
+
+          - name: restart the pmon service
+            service:
+              name: pmon
+              state: restarted
+            become: true
+
+          when: stat_result.stat.exists
+
+        when: "'dualtor-mixed' in topo"
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
