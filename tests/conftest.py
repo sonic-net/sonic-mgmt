@@ -87,6 +87,7 @@ def pytest_addoption(parser):
 
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
+    parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True, help="Swap syncd container with syncd-rpc container")
 
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
@@ -1674,7 +1675,7 @@ def check_dut_health_status(duthosts, request):
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
-        if m.name == "pretest" or m.name == "posttest":
+        if m.name == "skip_check_dut_health":
             check_flag = False
 
     module_name = request.node.name
