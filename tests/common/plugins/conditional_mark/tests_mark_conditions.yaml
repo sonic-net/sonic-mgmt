@@ -171,7 +171,7 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####         drop_packets         #####
+#####         drop_packets        #####
 #######################################
 drop_packets:
   skip:
@@ -416,6 +416,16 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
+
+#######################################
+#####       passw_hardening       #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  skip:
+    reason: "Password-hardening supported just in master version"
+    conditions:
+        - "release not in ['master']"
+        - https://github.com/sonic-net/sonic-mgmt/issues/6428
 
 #######################################
 #####           pc               #####
