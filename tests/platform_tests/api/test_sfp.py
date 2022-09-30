@@ -543,18 +543,18 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             if info_dict["type_abbrv_name"] == "QSFP-DD" or info_dict["type_abbrv_name"] == "OSFP-8X":
-                # Test all lanes for a eight-channel transceiver
-                all_lane_mask = 0xFF
+                # Test all channels for a eight-channel transceiver
+                all_channel_mask = 0xFF
                 expected_mask = 0x80
             else:
-                # Test all lanes for a four-channel transceiver
-                all_lane_mask = 0XF
+                # Test all channels for a four-channel transceiver
+                all_channel_mask = 0XF
                 expected_mask = 0x8
 
             # We iterate in reverse here so that we end with 0x0 (no channels disabled)
             while expected_mask >= 0:
                 # Enable TX on all channels
-                ret = sfp.tx_disable_channel(platform_api_conn, i, all_lane_mask, False)
+                ret = sfp.tx_disable_channel(platform_api_conn, i, all_channel_mask, False)
                 self.expect(ret is True, "Failed to enable TX on all channels for transceiver {}".format(i))
 
                 ret = sfp.tx_disable_channel(platform_api_conn, i, expected_mask, True)
