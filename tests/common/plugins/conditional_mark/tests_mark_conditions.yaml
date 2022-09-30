@@ -317,8 +317,6 @@ ipfwd/test_dir_bcast.py:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t0', 'm0', 'dualtor']"
-
-ipfwd/test_dir_bcast.py:
   xfail:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
