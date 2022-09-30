@@ -1572,14 +1572,14 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 4457
-                    pkts_num_trig_ingr_drp: 5140
+                    pkts_num_trig_pfc: 20034
+                    pkts_num_trig_ingr_drp: 20521
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 4457
-                    pkts_num_trig_ingr_drp: 5140
+                    pkts_num_trig_pfc: 20034
+                    pkts_num_trig_ingr_drp: 20521
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1
