@@ -1052,6 +1052,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.178
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:39:F0 
+      model: '8808'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1074,6 +1075,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.179
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:38:60 
+      model: '8808'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1096,6 +1098,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.180
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:86:C1:50 
+      model: '8808'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1298,6 +1301,20 @@ sonic_cisco_sup:
             - FABRIC-CARD7
           'supervisor':
             - SUPERVISOR1
+          'psus':
+            - psu2.0
+            - psu2.1
+            - psu2.2
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+      asics_present: [0,1,4,5,8,9,10,11,12,13]
 
 sonic_nokia_sup:
   vars:
