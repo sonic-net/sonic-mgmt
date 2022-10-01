@@ -522,8 +522,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
                     shell_user = creds.get('fanout_shell_user', admin_user)
                     shell_password = creds.get('fanout_shell_pass', admin_password)
                     if os_type == 'sonic':
-                        shell_user = creds['fanout_sonic_user']
-                        shell_password = creds['fanout_sonic_password']
+                        shell_user = creds.get('fanout_sonic_user', None)
+                        shell_password = creds.get('fanout_sonic_password', None)
 
                     fanout = FanoutHost(ansible_adhoc,
                                         os_type,
