@@ -507,13 +507,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
 #######################################
 #####         platform_tests      #####
 #######################################
-platform_tests/api/test_sfp.py::test_reset:
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "platform does not support sfp reset"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
-platform_tests/api/test_sfp.py::test_tx_disable_channel:
+platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "platform does not support"
     conditions:
