@@ -209,7 +209,7 @@ class EosHost(AnsibleHostBase):
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
-            raise Exception("Unable to execute template\n{}".format(res["stdout"]))
+            raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
     def get_route(self, prefix):
         cmd = 'show ip bgp' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show ipv6 bgp'
