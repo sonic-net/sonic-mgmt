@@ -2481,15 +2481,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
-            elif is_broadcom_device(duthost) and (asic_type in ['td2', 'td3'] or speed <= '10000'):
-                buffer_items_to_check = [(None, None, None)]
             else:
-                if key_name == KEY_2_LOSSLESS_QUEUE:
-                    buffer_items_to_check = [('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile))]
-                else:
-                    buffer_items_to_check.extend(
-                        [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
-                        ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
+                buffer_items_to_check = [(None, None, None)]
 
         for table, ids, expected_profile in buffer_items_to_check:
             logging.info("Checking buffer item {}:{}:{}".format(table, port, ids))
