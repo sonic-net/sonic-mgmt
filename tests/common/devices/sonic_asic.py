@@ -533,9 +533,17 @@ class SonicAsic(object):
 
     def portchannel_on_asic(self, portchannel):
         cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        # Need to compare every portchannel in pcs split by single quote, with the target portchannel
+        # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
+        # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
+        # By split() function we are converting 'pcs' to list, and can do one by one comparison
         pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if pcs is not None and portchannel in pcs:
-            return True
+        if pcs is not None:
+            pcs_list = pcs.split("'")
+            for pc in pcs_list:
+                if portchannel == pc:
+                    return True
+        return False
         return False
     
     def write_to_config_db(self, dst_path):
