@@ -97,7 +97,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
       - "asic_type in ['mellanox']"
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000"
     conditions:
-       - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   skip:
