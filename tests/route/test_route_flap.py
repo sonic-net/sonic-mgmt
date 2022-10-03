@@ -153,6 +153,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
             for vlan in vlan_cfgs[default_vlan_name].values():
                 if 'mac' in vlan and vlan['mac']:
                     vlan_mac = vlan['mac']
+                    break;
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
