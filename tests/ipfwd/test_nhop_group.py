@@ -41,7 +41,6 @@ class IPRoutes:
         Add IP route with ECMP paths
         """
         # add IP route, nhop to list
-        self.ip_nhops = []
         self.ip_nhops.append(self.IP_NHOP(ip_route, nhop_path_ips))
 
     def program_routes(self):
