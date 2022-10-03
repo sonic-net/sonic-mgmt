@@ -10,7 +10,7 @@ from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
-
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
