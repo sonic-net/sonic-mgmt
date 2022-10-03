@@ -544,7 +544,6 @@ class SonicAsic(object):
                 if portchannel == pc:
                     return True
         return False
-        return False
     
     def write_to_config_db(self, dst_path):
         cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
