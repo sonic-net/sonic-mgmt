@@ -260,13 +260,22 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+   #test_set_fans_speed requires get_speed_tolerance to be implemented 
+   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+   #using RPM rather than thermalctld checking tolerance on percentages
+   skip:
+     reason: "Unsupported platform API"
+     conditions:
+       - "asic_type in ['mellanox', 'cisco-8000']"
+
+#######################################
+##### api/test_module.py #####
+#######################################
+platform_tests/api/test_module.py::TestModuleApi::test_reboot:
+   skip:
+     reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
+     conditions:
+       - "asic_type in ['cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
