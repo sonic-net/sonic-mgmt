@@ -142,12 +142,17 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
 
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
-    # On dual-tor, vlan mac is different with dut_mac mac. U0/L0 use same vlan mac for AR response
-    # On single tor, vlan mac is same as dut_mac
-    vlan_mac = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac']
-    if not vlan_mac:
-        raise ValueError("Topology has no mac from Vlan1000")
+    # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
+    # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    vlan_mac = dut_mac
+    vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+    if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+        default_vlan_name = vlan_cfgs['default_vlan_config']
+        if default_vlan_name:
+            for vlan in vlan_cfgs[default_vlan_name].values():
+                if 'mac' in vlan and vlan['mac']:
+                    vlan_mac = vlan['mac']
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
