@@ -54,6 +54,9 @@ ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', '
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
 ABOOT_PLATFORM_KEY = 'aboot_platform'
+NVIDIA_BF_PLATFORM_KEY = 'bf_platform'
+
+PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
@@ -74,7 +77,7 @@ class SonicPortAliasMap():
                 tokens = line.split('=')
                 key = tokens[0].strip()
                 value = tokens[1].strip()
-                if key == ONIE_PLATFORM_KEY or key == ABOOT_PLATFORM_KEY:
+                if key in PLATFORM_KEYS: 
                     return value
         return None
 
