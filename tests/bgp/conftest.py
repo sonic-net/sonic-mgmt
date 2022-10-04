@@ -337,6 +337,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             ipv4_lag_interfaces = []
+            asic_idx = 0
             if mg_facts["minigraph_portchannel_interfaces"]:
                 for pt in mg_facts["minigraph_portchannel_interfaces"]:
                     if _is_ipv4_address(pt["addr"]):
@@ -344,7 +345,17 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         # Only use LAG with 1 member for bgpmon session between PTF,
                         # It's because exabgp on PTF is bind to single interface
                         if len(pt_members) == 1:
-                            ipv4_lag_interfaces.append(pt["attachto"])
+                            # If first time, we record the asic index
+                            if not ipv4_lag_interfaces:
+                                ipv4_lag_interfaces.append(pt["attachto"])
+                                asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
+                            # Not first time, only append the portchannel that belongs to the same asic in current list
+                            else:
+                                asic = duthost.get_asic_index_for_portchannel(pt["attachto"])
+                                if asic != asic_idx:
+                                    continue
+                                else:
+                                    ipv4_lag_interfaces.append(pt["attachto"])
                         used_subnets.add(ipaddress.ip_network(pt["subnet"]))
 
             vlan_sub_interfaces = []
