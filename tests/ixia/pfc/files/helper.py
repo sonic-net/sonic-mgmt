@@ -491,7 +491,7 @@ def __verify_results(rows,
                     ingress_pool_size = get_ingress_lossless_buffer_size(duthost)
                     max_pause_th_bytes = 5 * (2 ** 20)
                     pause_th_bytes = min(ingress_pool_size * (2 ** dynamic_th), max_pause_th_bytes)
-                    deviation = abs(tx_bytes_total - pause_th_bytes) / pause_th_bytes
+                    deviation = abs(tx_bytes_total - pause_th_bytes) / float(pause_th_bytes)
                     pytest_assert(deviation < tolerance,
                                   ('For flow name "{}", estimated queue occupancy {} bytes should be within {} of the pause threshold {},' + \
                                    'but deviation was {}, total frames tx was {}, and ingress pool size was {}').\
