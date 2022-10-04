@@ -54,9 +54,9 @@ ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', '
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
 ABOOT_PLATFORM_KEY = 'aboot_platform'
-BF_PLATFORM_KEY = 'bf_platform'
+NVIDIA_BF_PLATFORM_KEY = 'bf_platform'
 
-PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, BF_PLATFORM_KEY]
+PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
