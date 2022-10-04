@@ -121,6 +121,9 @@ def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_
     logger.info('Creating a guest user')
     duthost.user(name='guest', groups='sudo', state ='present', shell='/bin/bash')
     duthost.shell('echo guest:guest | sudo chpasswd')
+    # Add the guest user to the redis group such that it can execute show commands that need access to the redis database
+    # One such command is 'show acl table'
+    duthost.shell('sudo usermod -aG redis guest')
 
     logger.info('Configuring the interface naming mode as {} for the guest user'.format(mode))
     dutHostGuest = AnsibleHostBase(ansible_adhoc, duthost.hostname, become_user='guest')
