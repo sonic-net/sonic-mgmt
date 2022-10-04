@@ -152,7 +152,7 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
+def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
@@ -242,17 +242,16 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
         except ValueError:
             continue
 
-    # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
-    # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
+    # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=3)
         ptf_intf_ipv4_hosts = intf_ipv4_addr.hosts()
     else:
         ptf_intf_ipv4_addr = None
         ptf_intf_ipv4_hosts = None
 
     if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=3)
     else:
         ptf_intf_ipv6_addr = None
 

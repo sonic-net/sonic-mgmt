@@ -9,7 +9,9 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
                       in6_getnsma, inet_pton, inet_ntop, socket
 from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_utils import upper_tor_host
 
 pytestmark = [
     pytest.mark.topology('t0', 'dualtor')
@@ -135,6 +137,42 @@ def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
+    ptfadapter.dataplane.flush()
+    testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
+    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+
+@pytest.fixture
+def restore_mux_auto_config(duthosts):
+
+    yield
+
+    for duthost in duthosts:
+        duthost.shell("sudo config mux mode auto all")
+
+@pytest.mark.topology('dualtor')
+def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
+    ptfadapter, packets_for_test, run_garp_service, upper_tor_host, toggle_all_simulator_ports_to_upper_tor):
+    """
+    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN that is
+    routed via the IPinIP tunnel (i.e. that IP points to a standby neighbor)
+
+    DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
+    """
+    # This should never fail since we are only running on dual ToR platforms
+    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs, check dual ToR configuration')
+
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index  = ip_and_intf_info
+    ip_version, outgoing_packet, expected_packet = packets_for_test
+
+    if ip_version == 'v4':
+        pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
+        cmd = "show arp | grep '{}' | awk '{{ print $3 }}' | xargs -n1 sudo config mux mode standby".format(ptf_intf_ipv4_addr)
+    elif ip_version == 'v6':
+        pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+        cmd = "show ndp | grep '{}' | awk '{{ print $3 }}' | xargs -n1 sudo config mux mode standby".format(ptf_intf_ipv6_addr)
+
+    # Set the target IP link to standby
+    upper_tor_host.shell(cmd)
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
