@@ -8,7 +8,6 @@ Tests Password Hardening Feature:
 import logging
 import re
 import pytest
-import os
 import sys
 import datetime
 from tests.common.helpers.assertions import pytest_assert
