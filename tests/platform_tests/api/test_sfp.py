@@ -542,11 +542,19 @@ class TestSfpApi(PlatformApiTestBase):
                 logger.warning("test_tx_disable_channel: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
-            # Test all TX disable combinations for a four-channel transceiver (i.e., 0x0 through 0xF)
+            if info_dict["type_abbrv_name"] == "QSFP-DD" or info_dict["type_abbrv_name"] == "OSFP-8X":
+                # Test all channels for a eight-channel transceiver
+                all_channel_mask = 0xFF
+                expected_mask = 0x80
+            else:
+                # Test all channels for a four-channel transceiver
+                all_channel_mask = 0XF
+                expected_mask = 0x8
+
             # We iterate in reverse here so that we end with 0x0 (no channels disabled)
-            for expected_mask in range(0xF, -1, -1):
+            while expected_mask >= 0:
                 # Enable TX on all channels
-                ret = sfp.tx_disable_channel(platform_api_conn, i, 0xF, False)
+                ret = sfp.tx_disable_channel(platform_api_conn, i, all_channel_mask, False)
                 self.expect(ret is True, "Failed to enable TX on all channels for transceiver {}".format(i))
 
                 ret = sfp.tx_disable_channel(platform_api_conn, i, expected_mask, True)
@@ -555,6 +563,11 @@ class TestSfpApi(PlatformApiTestBase):
                 tx_disable_chan_mask = sfp.get_tx_disable_channel(platform_api_conn, i)
                 if self.expect(tx_disable_chan_mask is not None, "Unable to retrieve transceiver {} TX disabled channel data".format(i)):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
+
+                if expected_mask == 0:
+                    break
+                else:
+                    expected_mask = expected_mask >> 1
         self.assert_expectations()
 
     def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
