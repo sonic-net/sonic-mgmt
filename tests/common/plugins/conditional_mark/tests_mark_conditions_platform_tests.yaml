@@ -632,7 +632,7 @@ platform_tests/mellanox:
   skip:
     reason: "Marvell devices does not support platform_tests/mellanox"
     conditions:
-      - "'marvell' in asic_type"
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####    test_platform_info.py    #####
