@@ -73,16 +73,16 @@ DOWNSTREAM_IP_TO_BLOCK = {
 DOWNSTREAM_IP_PORT_MAP = {}
 
 UPSTREAM_DST_IP = {
-    "ipv4": "192.168.128.1",
-    "ipv6": "40c0:a800::2"
+    "ipv4": "194.50.16.1",
+    "ipv6": "20c1:d180::2"
 }
 UPSTREAM_IP_TO_ALLOW = {
-    "ipv4": "192.168.136.1",
-    "ipv6": "40c0:a800::4"
+    "ipv4": "193.191.32.1",
+    "ipv6": "20c1:cb50::4"
 }
 UPSTREAM_IP_TO_BLOCK = {
-    "ipv4": "192.168.144.1",
-    "ipv6": "40c0:a800::8"
+    "ipv4": "193.221.112.1",
+    "ipv6": "20c1:e2f0::8"
 }
 
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
@@ -121,6 +121,81 @@ def remove_dataacl_table(duthosts):
     # Recover DUT by reloading minigraph
     for duthost in duthosts:
         config_reload(duthost, config_source="minigraph")
+
+def get_t2_info(duthosts, tbinfo):
+    # Get the list of upstream/downstream ports
+    downstream_ports, upstream_ports, acl_table_ports_per_dut =  defaultdict(list),defaultdict(list),defaultdict(list)
+    upstream_port_id_to_router_mac_map, downstream_port_id_to_router_mac_map = {},{}
+    downstream_port_ids, upstream_port_ids = [],[]
+    port_channels = dict()
+
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        upstream_ports_per_dut, downstream_ports_per_dut, acl_table_ports =  defaultdict(list),defaultdict(list),defaultdict(list)
+
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
+            if namespace == '':
+                continue
+            asic_id = duthost.get_asic_id_from_namespace(namespace)
+            router_mac = duthost.asic_instance(asic_id).get_router_mac()
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo,namespace)
+            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if "T1" in neighbor["name"]:
+                    downstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = router_mac
+                elif "T3" in neighbor["name"]:
+                    upstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    upstream_port_ids.append(port_id)
+                    upstream_port_id_to_router_mac_map[port_id] = router_mac
+                mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+
+            port_channels[namespace] = mg_facts["minigraph_portchannels"]
+            backend_pc = list()
+            for k in port_channels[namespace]:
+                if duthost.is_backend_portchannel(k, mg_facts):
+                    backend_pc.append(k)
+            for pc in backend_pc:
+                port_channels[namespace].pop(pc)
+
+            upstream_rifs = upstream_ports_per_dut[namespace]
+            downstream_rifs = downstream_ports_per_dut[namespace]
+            for k, v in port_channels[namespace].iteritems():
+                acl_table_ports[namespace].append(k)
+                acl_table_ports[''].append(k)
+                upstream_rifs = list(set(upstream_rifs) - set(v['members']))
+                downstream_rifs = list(set(downstream_rifs) - set(v['members']))
+            if len(upstream_rifs):
+                for port in upstream_rifs:
+                    acl_table_ports[namespace].append(port)
+                    # This code is commented due to a bug which restricts rif interfaces to
+                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    #acl_table_ports[''].append(port)
+            else:
+                for port in downstream_rifs:
+                    acl_table_ports[namespace].append(port)
+                    # This code is commented due to a bug which restricts rif interfaces to
+                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    #acl_table_ports[''].append(port)
+
+        acl_table_ports_per_dut[duthost] = acl_table_ports
+        downstream_ports[duthost] = downstream_ports_per_dut
+        upstream_ports[duthost] = upstream_ports_per_dut
+
+    t2_information = {
+        "upstream_port_ids": upstream_port_ids,
+        "downstream_port_ids": downstream_port_ids,
+        "downstream_port_id_to_router_mac_map": downstream_port_id_to_router_mac_map,
+        "upstream_port_id_to_router_mac_map": upstream_port_id_to_router_mac_map,
+        "acl_table_ports": acl_table_ports_per_dut
+    }
+
+    return t2_information
+
+
 
 @pytest.fixture(scope="module")
 def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
@@ -164,16 +239,23 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
 
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T0" in neighbor["name"]) or (topo in ["t0", "m0"] and "Server" in neighbor["name"]):
-            downstream_ports[neighbor['namespace']].append(interface)
-            downstream_port_ids.append(port_id)
-            downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-        elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or (topo == "m0" and "M1" in neighbor["name"]):
-            upstream_ports[neighbor['namespace']].append(interface)
-            upstream_port_ids.append(port_id)
-            upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+    if topo == "t2":
+        t2_info = get_t2_info(duthosts,tbinfo)
+        downstream_port_ids = t2_info['downstream_port_ids']
+        upstream_port_ids = t2_info['upstream_port_ids']
+        downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
+        upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
+    else:
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            port_id = mg_facts["minigraph_ptf_indices"][interface]
+            if (topo == "t1" and "T0" in neighbor["name"]) or (topo in ["t0", "m0"] and "Server" in neighbor["name"]):
+                downstream_ports[neighbor['namespace']].append(interface)
+                downstream_port_ids.append(port_id)
+                downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+            elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or (topo == "m0" and "M1" in neighbor["name"]):
+                upstream_ports[neighbor['namespace']].append(interface)
+                upstream_port_ids.append(port_id)
+                upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -209,6 +291,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+    elif topo == "t2":
+        acl_table_ports = t2_info['acl_table_ports']
     else:
         for namespace, port in upstream_ports.iteritems():
             acl_table_ports[namespace] += port
@@ -333,17 +417,24 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
 
     return request.param
 
-def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
+def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
         if op == "add":
             logger.info("Creating ACL table: \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
+            if topo == "t2":
+                acl_table_ports = setup["acl_table_ports"]
+                acl_table_ports = acl_table_ports[duthost]
+                if not len(acl_table_ports[namespace]):
+                    continue
+            else:
+                acl_table_ports = setup["acl_table_ports"]
             sonic_host_or_asic_inst.command(
                 "config acl add table {} {} -s {} -p {}".format(
                     acl_table_config["table_name"],
                     acl_table_config["table_type"],
                     acl_table_config["table_stage"],
-                    ",".join(setup["acl_table_ports"][namespace]),
+                    ",".join(acl_table_ports[namespace]),
                 )
             )
         else:
@@ -351,7 +442,7 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version,tbinfo):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -366,6 +457,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
 
     """
     table_name = "DATA_{}_{}_TEST".format(stage.upper(), ip_version.upper())
+    topo = tbinfo["topo"]["type"]
 
     acl_table_config = {
         "table_name": table_name,
@@ -378,6 +470,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
     dut_to_analyzer_map = {}
 
     for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
         loganalyzer.load_common_config()
         dut_to_analyzer_map[duthost] = loganalyzer
@@ -387,11 +481,11 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
             raise err
 
     try:
@@ -400,7 +494,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
         for duthost, loganalyzer in dut_to_analyzer_map.items():
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
             with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
 
 class BaseAclTest(object):
     """Base class for testing ACL rules.
@@ -469,6 +563,8 @@ class BaseAclTest(object):
         """
         dut_to_analyzer_map = {}
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
             loganalyzer.load_common_config()
             dut_to_analyzer_map[duthost] = loganalyzer
@@ -494,6 +590,8 @@ class BaseAclTest(object):
             yield
         finally:
             for duthost, loganalyzer in dut_to_analyzer_map.items():
+                if duthost.is_supervisor_node():
+                    continue
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
                 with loganalyzer:
                     logger.info("Removing ACL rules")
@@ -519,6 +617,8 @@ class BaseAclTest(object):
         acl_facts = defaultdict(dict)
         table_name = acl_table["table_name"]
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             acl_facts[duthost]['before']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
         rule_list = []
@@ -531,9 +631,13 @@ class BaseAclTest(object):
         time.sleep(self.ACL_COUNTERS_UPDATE_INTERVAL_SECS)
 
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             acl_facts[duthost]['after']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             assert len(acl_facts[duthost]['before']) == len(acl_facts[duthost]['after'])
 
         for rule in rule_list:
@@ -544,6 +648,8 @@ class BaseAclTest(object):
                 BYTES_COUNT: 0
             }
             for duthost in duthosts:
+                if duthost.is_supervisor_node():
+                    continue
                 counters_before[PACKETS_COUNT] += acl_facts[duthost]['before'][rule][PACKETS_COUNT]
                 counters_before[BYTES_COUNT] += acl_facts[duthost]['before'][rule][BYTES_COUNT]
             logger.info("Counters for ACL rule \"{}\" before traffic:\n{}"
@@ -554,6 +660,8 @@ class BaseAclTest(object):
                 BYTES_COUNT: 0
             }
             for duthost in duthosts:
+                if duthost.is_supervisor_node():
+                    continue
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
 
