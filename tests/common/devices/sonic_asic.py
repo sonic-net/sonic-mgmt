@@ -16,7 +16,7 @@ class SonicAsic(object):
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
-    _MULTI_ASIC_SERVICE_NAME = "{}@{}.service"   # service name, asic_id
+    _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
 
     def __init__(self, sonichost, asic_index):
@@ -544,12 +544,13 @@ class SonicAsic(object):
                 if portchannel == pc:
                     return True
         return False
-    
+
     def write_to_config_db(self, dst_path):
         cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
         return self.shell(cmd)
 
-    def get_portchannels_and_members_in_ns(self, tbinfo):
+    def get_portchannel_and_members_in_ns(self, tbinfo):
+
         """
         Get a portchannels and their members in this namespace.
 
