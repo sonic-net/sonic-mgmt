@@ -4,7 +4,7 @@ import re
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
 from collections import deque
-from utilities import wait_until
+from .utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,7 @@ SONIC_SSH_PORT  = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
+REBOOT_TYPE_SAI_WARM = "sai-warm"
 REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
@@ -76,7 +77,15 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
-    }
+    },
+    REBOOT_TYPE_SAI_WARM: {
+        "command": "/usr/bin/sai_warmboot.sh",
+        "timeout": 300,
+        "wait": 90,
+        "warmboot_finalizer_timeout": 30,
+        "cause": "warm-reboot",
+        "test_reboot_cause_only": False
+    },
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
@@ -94,9 +103,27 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool):
+def reboot(duthost, localhost, reboot_type='cold', delay=10, \
+    timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
+    reboot_helper=None, reboot_kwargs=None):
+    """
+    reboots DUT
+    :param duthost: DUT host object
+    :param localhost:  local host object
+    :param reboot_type: reboot type (cold, fast, warm)
+    :param delay: delay between ssh availability checks
+    :param timeout: timeout for waiting ssh port state change
+    :param wait: time to wait for DUT to initialize
+    :param wait_for_ssh: Wait for SSH startup
+    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
+    :param reboot_helper: helper function to execute the power toggling
+    :param reboot_kwargs: arguments to pass to the reboot_helper
+    :return:
+    """
+
     # pool for executing tasks asynchronously
-    import pdb; pdb.set_trace()
+    pool = ThreadPool()
+    dut_ip = duthost.mgmt_ip
     hostname = duthost.hostname
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
@@ -126,31 +153,7 @@ def do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, r
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
-    return [reboot_res, dut_datetime]
 
-
-def reboot(duthost, localhost, reboot_type='cold', delay=10, \
-    timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
-    reboot_helper=None, reboot_kwargs=None):
-    """
-    reboots DUT
-    :param duthost: DUT host object
-    :param localhost:  local host object
-    :param reboot_type: reboot type (cold, fast, warm)
-    :param delay: delay between ssh availability checks
-    :param timeout: timeout for waiting ssh port state change
-    :param wait: time to wait for DUT to initialize
-    :param wait_for_ssh: Wait for SSH startup
-    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
-    :param reboot_helper: helper function to execute the power toggling
-    :param reboot_kwargs: arguments to pass to the reboot_helper
-    :return:
-    """
-    pool = ThreadPool()
-    reboot_res, dut_datetime = do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool)
-
-    hostname = duthost.hostname
-    dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
@@ -171,6 +174,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
+
     logger.info('waiting for ssh to startup on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
@@ -183,20 +187,18 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise Exception('DUT {} did not startup'.format(hostname))
 
     logger.info('ssh has started up on {}'.format(hostname))
-    #wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
-    #wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
     time.sleep(wait)
-    
+
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
         if not ret:
             raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
-    
+
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
