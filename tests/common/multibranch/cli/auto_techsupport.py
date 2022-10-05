@@ -42,7 +42,7 @@ class AutoTechSupportCliDefault:
         'max_techsupport_limit': '10', 'max_core_size': '5', 'since': '2 days ago'}
         """
         with allure.step('Parsing "show auto-techsupport global" output'):
-            regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(\d+)\s+(\d+)\s+(.*)'
+            regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(\d+|N\/A)\s+(\d+|N\/A)\s+(.*)'
             cmd_output = self.show_auto_techsupport_global()
             state, rate_limit_interval, max_techsupport_limit, max_core_size, avail_mem, min_avail_mem, since = \
                 re.search(regexp, cmd_output).groups()
@@ -85,7 +85,7 @@ class AutoTechSupportCliDefault:
         """
         with allure.step('Parsing "show auto-techsupport-feature" output'):
             result_dict = {}
-            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+\.\d|N/A)'
+            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+\.\d|N\/A)'
             cmd_output = self.show_auto_techsupport_feature()
 
             name_index = 0
