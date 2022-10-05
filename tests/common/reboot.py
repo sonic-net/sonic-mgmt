@@ -103,19 +103,8 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool):
+def do_reboot(duthost, reboot_type, reboot_helper, reboot_kwargs, pool):
     hostname = duthost.hostname
-    try:
-        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
-        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
-        if timeout == 0:
-            timeout = reboot_ctrl['timeout']
-        if wait == 0:
-            wait = reboot_ctrl['wait']
-        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
-            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
-    except KeyError:
-        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
     def execute_reboot_command():
         logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
@@ -155,7 +144,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     """
     # pool for executing tasks asynchronously
     pool = ThreadPool()
-    reboot_res, dut_datetime = do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool)
+    
+    try:
+        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
+        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
+        if timeout == 0:
+            timeout = reboot_ctrl['timeout']
+        if wait == 0:
+            wait = reboot_ctrl['wait']
+        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
+            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+    except KeyError:
+        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
+        
+    reboot_res, dut_datetime = do_reboot(duthost, reboot_type, reboot_helper, reboot_kwargs, pool)
 
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
