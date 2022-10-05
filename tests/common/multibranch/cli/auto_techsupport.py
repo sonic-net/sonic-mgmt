@@ -11,8 +11,7 @@ class AutoTechSupportCli(object):
         release = kwargs.get('release')
         duthost = kwargs.get('duthost')
         supported_cli_classes = {'default': AutoTechSupportCliDefault(duthost),
-                                 '202111': AutoTechSupportCli202111(duthost),
-                                 '202205': AutoTechSupportCli202205(duthost)}
+                                 '202111': AutoTechSupportCli202111(duthost)}
 
         cli_class = supported_cli_classes.get(release, supported_cli_classes['default'])
         cli_class_name = cli_class.__class__.__name__
@@ -214,8 +213,3 @@ class AutoTechSupportCli202111(AutoTechSupportCliDefault):
                 result_dict[dump[dump_name_index].strip()] = {'triggered_by': dump[triggered_by_index],
                                                               'core_dump': dump[core_dump_index]}
         return result_dict
-
-
-class AutoTechSupportCli202205(AutoTechSupportCli202111):
-    def __int__(self, *args, **kwargs):
-        pass
