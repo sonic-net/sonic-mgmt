@@ -65,7 +65,7 @@ def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
 @pytest.fixture
-def common_setup_teardown(dut_with_default_route, tbinfo):
+def common_setup_teardown(dut_with_default_route,  tbinfo):
     duthost = dut_with_default_route
     peer_addr = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
@@ -126,21 +126,18 @@ def build_syn_pkt(local_addr, peer_addr):
     return exp_packet
 
 
-def test_bgpmon(dut_with_default_route, localhost, common_setup_teardown, ptfadapter, ptfhost):
+def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index, common_setup_teardown, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
 
     duthost = dut_with_default_route
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     def bgpmon_peer_connected(duthost, bgpmon_peer):
         try:
-            bgp_summary_all_asics = duthost.run_vtysh('-c "show bgp summary json"', asic_index='all')
-            for a_bgp_summary in bgp_summary_all_asics:
-                bgp_summary = json.loads(a_bgp_summary['stdout'])
-                if bgp_summary['ipv4Unicast']['peers'][bgpmon_peer]["state"] == "Established":
-                    return True
-            return False
+            bgp_summary = json.loads(asichost.run_vtysh("-c 'show bgp summary json'")['stdout'])
+            return bgp_summary['ipv4Unicast']['peers'][bgpmon_peer]["state"] == "Established"
         except Exception as e:
             logger.info('Unable to get bgp status')
             return False
@@ -151,10 +148,9 @@ def test_bgpmon(dut_with_default_route, localhost, common_setup_teardown, ptfada
     ptfadapter.dataplane.flush()
     # Load bgp monitor config
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
-    duthost.run_sonic_cfggen("-j {} -w".format(BGPMON_CONFIG_FILE), asic_index='all')
+    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
     # Verify syn packet on ptf
     (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
-    #To establish the connection we set the PTF port that receive syn packet following properties
     # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) ,
     # add the neighbor entry and the default route for dut loopback
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
@@ -184,11 +180,12 @@ def test_bgpmon(dut_with_default_route, localhost, common_setup_teardown, ptfada
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
-def test_bgpmon_no_resolve_via_default(dut_with_default_route, common_setup_teardown, ptfadapter):
+def test_bgpmon_no_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index, common_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
     """
     duthost = dut_with_default_route
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     local_addr, peer_addr, peer_ports, asn = common_setup_teardown
     exp_packet = build_syn_pkt(local_addr, peer_addr)
     # Load bgp monitor config
@@ -198,8 +195,7 @@ def test_bgpmon_no_resolve_via_default(dut_with_default_route, common_setup_tear
         duthost.run_vtysh(" -c \"configure terminal\" -c \"no ip nht resolve-via-default\"", asic_index='all')
         # Flush dataplane
         ptfadapter.dataplane.flush()
-
-        duthost.run_sonic_cfggen("-j {} -w".format(BGPMON_CONFIG_FILE), asic_index='all')
+        asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
         # Verify no syn packet is received
         pytest_assert(0 == testutils.count_matched_packets_all_ports(test=ptfadapter, exp_packet=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT),

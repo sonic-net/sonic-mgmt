@@ -383,21 +383,6 @@ class SonicAsic(object):
 
         return self.sonichost.command(cmdstr)
 
-    def run_sonic_cfggen(self, cmdstr):
-        """
-            Add -n option with ASIC instance on multi ASIC
-
-            Args:
-                cmdstr
-            Returns:
-                Output from the ansible command module
-        """
-        if not self.sonichost.is_multi_asic:
-            return self.sonichost.command("sonic-cfggen {}".format(cmdstr))
-
-        cmdstr = "sonic-cfggen -n {} {}".format(self.namespace, cmdstr)
-        return self.sonichost.command(cmdstr)
-
     def run_vtysh(self, cmdstr):
         """
             Add -n option with ASIC instance on multi ASIC
