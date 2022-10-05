@@ -157,6 +157,15 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
     routed via the IPinIP tunnel (i.e. that IP points to a standby neighbor)
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
+
+    Test steps:
+    1. During setup, learn neighbor IPs on ToR interfaces using `run_garp_service` fixture
+    2. Pick a learned IP address as the target IP and generate an ARP request/neighbor solicitation for it
+    3. Set the interface this IP is learned on to standby. This will ensure the route for the IP points to the
+       IPinIP tunnel
+    4. Send the ARP request/NS packet to the ToR on some other active interface
+    5. Expect the ToR to still proxy ARP for the IP and send an ARP reply/neighbor advertisement back, even though
+       the route for the requested IP is pointing to the tunnel
     """
     # This should never fail since we are only running on dual ToR platforms
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs, check dual ToR configuration')
@@ -171,8 +180,9 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
         cmd = "show ndp | grep '{}' | awk '{{ print $3 }}' | xargs -n1 sudo config mux mode standby".format(ptf_intf_ipv6_addr)
 
-    # Set the target IP link to standby
+    # Find the interface on which the target IP is learned and set it to standby
     upper_tor_host.shell(cmd)
+
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
