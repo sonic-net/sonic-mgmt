@@ -103,7 +103,7 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def do_reboot(duthost, reboot_type, reboot_helper, reboot_kwargs, pool):
+def do_reboot(duthost, reboot_type, reboot_command, reboot_helper, reboot_kwargs, pool):
     hostname = duthost.hostname
 
     def execute_reboot_command():
@@ -157,7 +157,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
         
-    reboot_res, dut_datetime = do_reboot(duthost, reboot_type, reboot_helper, reboot_kwargs, pool)
+    reboot_res, dut_datetime = do_reboot(duthost, reboot_type, reboot_command, reboot_helper, reboot_kwargs, pool)
 
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
