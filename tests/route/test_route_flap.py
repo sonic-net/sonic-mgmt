@@ -149,7 +149,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     vlan_cfgs = {}
     try:
         vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-    except:
+    except KeyError:
         logger.info('missing vlan configurations in topology, will use dut_mac {} in testing'.format(dut_mac))
 
     if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
