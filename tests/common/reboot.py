@@ -104,8 +104,6 @@ def check_warmboot_finalizer_inactive(duthost):
     return 'inactive' == stdout.strip()
 
 def do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool):
-    # pool for executing tasks asynchronously
-    import pdb; pdb.set_trace()
     hostname = duthost.hostname
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
@@ -155,6 +153,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     :param reboot_kwargs: arguments to pass to the reboot_helper
     :return:
     """
+    # pool for executing tasks asynchronously
     pool = ThreadPool()
     reboot_res, dut_datetime = do_reboot(duthost, wait, timeout, warmboot_finalizer_timeout, reboot_type, reboot_helper, reboot_kwargs, pool)
 
@@ -192,8 +191,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise Exception('DUT {} did not startup'.format(hostname))
 
     logger.info('ssh has started up on {}'.format(hostname))
-    #wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
-    #wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
