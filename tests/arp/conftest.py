@@ -1,4 +1,7 @@
 import logging
+import ptf.testutils as testutils
+import ptf.mask as mask
+import ptf.packet as packet
 import pytest
 import time
 
@@ -10,6 +13,9 @@ from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.utilities import wait
+from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
+                      ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
+                      in6_getnsma, inet_pton, inet_ntop, socket
 
 
 CRM_POLLING_INTERVAL = 1
@@ -295,6 +301,73 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 
+    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in old_proxy_arp_vals.items():
         if 'enabled' not in proxy_arp_val:
-            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
+            # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
+            duthost.shell(proxy_arp_del_cmd.format(vid))
+
+def generate_link_local_addr(mac):
+    parts = mac.split(":")
+    parts.insert(3, "ff")
+    parts.insert(4, "fe")
+    parts[0] = "{:x}".format(int(parts[0], 16) ^ 2)
+
+    ipv6Parts = []
+    for i in range(0, len(parts), 2):
+        ipv6Parts.append("".join(parts[i:i+2]))
+    ipv6 = "fe80::{}".format(":".join(ipv6Parts))
+    return ipv6
+
+@pytest.fixture(params=['v4', 'v6'])
+def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
+    ip_version = request.param
+    src_addr_v4, _, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
+    ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
+    vlans = config_facts['VLAN']
+    topology = tbinfo['topo']['name']
+    dut_mac = ''
+    for vlan_details in vlans.values():
+        if 'dualtor' in topology:
+            dut_mac = vlan_details['mac'].lower()
+        else:
+            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+        break
+
+    if ip_version == 'v4':
+        tgt_addr = increment_ipv4_addr(src_addr_v4)
+        out_pkt = testutils.simple_arp_packet(
+                                eth_dst='ff:ff:ff:ff:ff:ff',
+                                eth_src=ptf_intf_mac,
+                                ip_snd=src_addr_v4,
+                                ip_tgt=tgt_addr,
+                                arp_op=1,
+                                hw_snd=ptf_intf_mac
+                            )
+        exp_pkt = testutils.simple_arp_packet(
+                                eth_dst=ptf_intf_mac,
+                                eth_src=dut_mac,
+                                ip_snd=tgt_addr,
+                                ip_tgt=src_addr_v4,
+                                arp_op=2,
+                                hw_snd=dut_mac,
+                                hw_tgt=ptf_intf_mac
+        )
+    elif ip_version == 'v6':
+        tgt_addr = increment_ipv6_addr(src_addr_v6)
+        ll_src_addr = generate_link_local_addr(ptf_intf_mac)
+        multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
+        multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
+        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac) 
+        out_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=ll_src_addr)
+        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr) 
+        out_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_intf_mac)
+
+        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac) 
+        exp_pkt /= IPv6(dst=ll_src_addr, src=generate_link_local_addr(dut_mac))
+        exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
+        exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
+        exp_pkt = mask.Mask(exp_pkt)
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'fl')
+
+    return ip_version, out_pkt, exp_pkt

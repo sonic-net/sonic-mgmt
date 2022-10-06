@@ -16,6 +16,15 @@ acl/test_acl_outer_vlan.py:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####            arp              #####
+#######################################
+arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
+  skip:
+    reason: "`accept_untracked_na` currently only available in 202012"
+    conditions:
+      - "release not in ['202012']"
+
+#######################################
 #####            bfd              #####
 #######################################
 bfd/test_bfd.py:

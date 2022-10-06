@@ -307,11 +307,13 @@ def run_garp_service(duthost, ptfhost, config_facts, tbinfo, change_mac_addresse
         if 'dualtor' not in tbinfo['topo']['name']:
             # For mocked dualtor testbed
             mux_cable_table = {}
-            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
                 server_ipv4 = str(server_ipv4_base_addr + i)
+                server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
                 mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
