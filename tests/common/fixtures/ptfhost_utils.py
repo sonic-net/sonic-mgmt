@@ -278,7 +278,8 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def run_garp_service(duthost, ptfhost, config_facts, tbinfo, change_mac_addresses, request):
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
         vlans = config_facts['VLAN']
