@@ -1,183 +1,157 @@
 '''This script is to test the EBGP Authentication feature of SONiC.
 '''
-# import json
 import logging
-# import time
-# import yaml
 
 import pytest
-# import requests
-from collections import defaultdict
-import ipaddr as ipaddress
 import time
 
-#from jinja2 import Template
 from natsort import natsorted
-# from tests.common.helpers.assertions import pytest_assert
-# from tests.common.helpers.constants import DEFAULT_NAMESPACE
-# from tests.common.helpers.parallel import reset_ansible_local_tmp
-# from tests.common.helpers.parallel import parallel_run
-#from bgp_helpers import get_routes_not_announced_to_bgpmon
-
-# pytestmark = [
-#     pytest.mark.topology('t1'),
-#     pytest.mark.device_type('vs')
-# ]
 
 logger = logging.getLogger(__name__)
+
 bgp_config_sleeptime = 60
-peer_group_v4 = "PEER_V4"
-peer_group_v6 = "PEER_V6"
-neigh_asn = "64001"
-neigh_ip_v4 = "10.0.0.33"
-neigh_ip_v6 = "FC00::42"
 bgp_pass = "sonic.123"
 mismatch_pass = "badpassword"
-dut_ip_v4 = "10.0.0.32"
-dut_ip_v6 = "fc00::41"
 
+#on current virtual testbed the sanity check is not working
 pytestmark = [pytest.mark.sanity_check(skip_sanity=True)]
 
-# @pytest.fixture(scope='module', autouse=True)
-# def prepare_pass_config_files(duthosts, rand_one_dut_hostname):
-#     duthost = duthosts[rand_one_dut_hostname]
-#     bgp_pass_config = Template(open("./bgp/templates/bgp_pass_config.json.j2").read())
-
-#     duthost.copy(content=bgp_pass_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
-#     duthost.copy(content=bgp_pass_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
-
-#     yield
-
-#     duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
-#     duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
-
-def test_bgp_peer_group_password(duthosts, rand_one_dut_hostname, enum_asic_index, nbrhosts, tbinfo):
-    duthost=duthosts[rand_one_dut_hostname]
+@pytest.fixture(scope='module')
+def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
+    duthost = duthosts[rand_one_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(dut_asn, peer_group_v4, bgp_pass, peer_group_v6, bgp_pass)
-    
-    #Verify BGP neighbors are established before starting test case
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
 
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        assert v['state'] == 'established'
-    
     tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
 
-    # mg_facts = nbrhosts[tor1]["host"].get_extended_minigraph_facts(tbinfo)
-    # logger.info(mg_facts)
-    # neigh_peer_map = defaultdict(dict)
-    # for bgp_neigh in mg_facts['minigraph_bgp']:
-    #     name = bgp_neigh['name']
-    #     peer_addr = bgp_neigh['peer_addr']
-    #     if ipaddress.IPAddress(peer_addr).version == 4:
-    #         neigh_peer_map[name].update({'peer_addr': peer_addr})
-    #     else:
-    #         neigh_peer_map[name].update({'peer_addr_v6': peer_addr})
-    # logger.info(neigh_peer_map)
-
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
-
-    if len(command_output["stdout_lines"]) != 0:
-        logger.error("Error configuring BGP password")
-        return False
-    
-    logger.info(duthost.shell('show run bgp'))
-
-    # nbrhosts[tor1].shell('show run bgp')
-
-    time.sleep(bgp_config_sleeptime)
-
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are not established
-        assert v['state'] != 'established'
+        if v['description'] == tor1:
+            if v['ip_version']  == 4:
+                neigh_ip_v4 = k
+                peer_group_v4 = v['peer group']
+            elif v['ip_version'] == 6:
+                neigh_ip_v6 = k
+                peer_group_v6 = v['peer group']
+            neigh_asn = v['remote AS']
 
-    #set password on neighbor
-    # tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    # tor1 = tor_neighbors[0]
-    # tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]
-    # logger.info(tor1_offset)
-    nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])
-    cmd = ["neighbor {} password 0 {}".format(peer_group_v4, bgp_pass), "neighbor {} password 0 {}".format(peer_group_v6, bgp_pass)]
-    logger.info(nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn))) #['stdout'][0]
-
-    time.sleep(bgp_config_sleeptime)
-
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp session to neighbors are established
-        assert v['state'] == 'established'
-
-
-    #mismatch peer group passwords
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(dut_asn, peer_group_v4, mismatch_pass, peer_group_v6, mismatch_pass)
-    
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
-
-    if len(command_output["stdout_lines"]) != 0:
-        logger.error("Error configuring BGP password")
-        return False
-    
-    logger.info(duthost.shell('show run bgp'))
-
-    time.sleep(bgp_config_sleeptime)
-
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp session to neighbor is not established
-        assert v['state'] != 'established'
-
-    #turn off peer group passwords on DUT
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(dut_asn, peer_group_v4, mismatch_pass, peer_group_v6, mismatch_pass)
-    
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
-
-    if len(command_output["stdout_lines"]) != 0:
-        logger.error("Error configuring BGP password")
-        return False
-    
-    logger.info(duthost.shell('show run bgp'))
-
-    #remove peer group passwords from neighbor
-    cmd = ["no neighbor {} password 0 {}".format(peer_group_v4, bgp_pass), "no neighbor {} password 0 {}".format(peer_group_v6, bgp_pass)]
-    nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn)) #['stdout'][0]
-
-    time.sleep(bgp_config_sleeptime)
-    
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        assert v['state'] == 'established'
-
-def test_bgp_neighbor_password(duthosts, rand_one_dut_hostname, enum_asic_index, nbrhosts, tbinfo):
-    duthost=duthosts[rand_one_dut_hostname]
-    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    tor1 = tor_neighbors[0]
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
 
     #verify sessions are established
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-
     logger.info(duthost.shell('show ip bgp summary'))
     logger.info(duthost.shell('show ipv6 bgp summary'))
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        assert v['state'] == 'established'
     
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(dut_asn, neigh_ip_v4, bgp_pass, neigh_ip_v6, bgp_pass)
+    assert bgp_facts['bgp_neighbors'][neigh_ip_v4]['state'] == 'established'
+    assert bgp_facts['bgp_neighbors'][neigh_ip_v6]['state'] == 'established'
+
+    setup_info = {
+        'duthost': duthost,
+        'neighhost': nbrhosts[tor1]["host"],
+        'tor1': tor1,
+        'dut_asn': dut_asn,
+        'neigh_asn': neigh_asn,
+        'dut_ip_v4': dut_ip_v4,
+        'dut_ip_v6': dut_ip_v6,
+        'neigh_ip_v4': neigh_ip_v4,
+        'neigh_ip_v6': neigh_ip_v6,
+        'peer_group_v4': peer_group_v4,
+        'peer_group_v6': peer_group_v6
+    }
+
+    logger.info("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)))
+    logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+    logger.info('Setup_info: {}'.format(setup_info))
+
+    yield setup_info
+
+    #remove all password combinations
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(dut_asn, peer_group_v4, bgp_pass, peer_group_v6, bgp_pass, peer_group_v4, mismatch_pass, peer_group_v6, mismatch_pass, neigh_ip_v4, bgp_pass, neigh_ip_v6, bgp_pass, neigh_ip_v4, mismatch_pass, neigh_ip_v6, mismatch_pass)
+    duthost.shell(cmd, module_ignore_errors=True)
+
+    cmd = ["no neighbor {} password 0 {}".format(peer_group_v4, bgp_pass), "no neighbor {} password 0 {}".format(peer_group_v6, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v4, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v6, bgp_pass), "no neighbor {} peer group {}".format(dut_ip_v4, peer_group_v4), "no neighbor {} peer group {}".format(dut_ip_v6, peer_group_v6)]
+    nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn)) #['stdout'][0]
+
+def test_bgp_peer_group_password(setup, enum_asic_index):
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'], bgp_pass, setup['peer_group_v6'], bgp_pass)
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
+
+    if len(command_output["stdout_lines"]) != 0:
+        logger.error("Error configuring BGP password")
+        return False
     
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info(setup['duthost'].shell('show run bgp'))
+
+    time.sleep(bgp_config_sleeptime)
+
+    logger.info(setup['duthost'].shell('show ip bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
+
+    #set password on neighbor
+    cmd = ["neighbor {} peer group {}".format(setup['dut_ip_v4'], setup['peer_group_v4']), "neighbor {} peer group {}".format(setup['dut_ip_v6'], setup['peer_group_v6']), "neighbor {} password 0 {}".format(setup['peer_group_v4'], bgp_pass), "neighbor {} password 0 {}".format(setup['peer_group_v6'], bgp_pass)]
+    logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn']))) #['stdout'][0]
+    logger.info(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
+
+    time.sleep(bgp_config_sleeptime)
+
+    logger.info(setup['duthost'].shell('show ip bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
+
+    #mismatch peer group passwords
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'], mismatch_pass, setup['peer_group_v6'], mismatch_pass)
+    
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
+
+    if len(command_output["stdout_lines"]) != 0:
+        logger.error("Error configuring BGP password")
+        return False
+    
+    logger.info(setup['duthost'].shell('show run bgp'))
+
+    time.sleep(bgp_config_sleeptime)
+
+    logger.info(setup['duthost'].shell('show ip bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
+
+    #turn off peer group passwords on DUT
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'], mismatch_pass, setup['peer_group_v6'], mismatch_pass)
+    
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
+
+    if len(command_output["stdout_lines"]) != 0:
+        logger.error("Error configuring BGP password")
+        return False
+    
+    logger.info(setup['duthost'].shell('show run bgp'))
+
+    #remove peer group passwords from neighbor
+    cmd = ["no neighbor {} password 0 {}".format(setup['peer_group_v4'], bgp_pass), "no neighbor {} password 0 {}".format(setup['peer_group_v6'], bgp_pass), "no neighbor {} peer group {}".format(setup['dut_ip_v4'], setup['peer_group_v4']), "no neighbor {} peer group {}".format(setup['dut_ip_v6'], setup['peer_group_v6'])]
+    logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+    logger.info(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
+
+    time.sleep(bgp_config_sleeptime)
+    
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
+
+def test_bgp_neighbor_password(setup, enum_asic_index):   
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['neigh_ip_v4'], bgp_pass, setup['neigh_ip_v6'], bgp_pass)
+    
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     if len(command_output["stdout_lines"]) != 0:
         logger.error("Error configuring BGP password")
@@ -186,31 +160,30 @@ def test_bgp_neighbor_password(duthosts, rand_one_dut_hostname, enum_asic_index,
     time.sleep(bgp_config_sleeptime)
 
     #verify sessions are not established
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
 
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        if(v['description'] == tor1):
-            assert v['state'] != 'established'
-        else:
-            assert v['state'] == 'established'
+    logger.info(setup['duthost'].shell('show ip bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     #configure password on neighbor
-    cmd = ["neighbor {} password 0 {}".format(dut_ip_v4, bgp_pass), "neighbor {} password 0 {}".format(dut_ip_v6, bgp_pass)]
-    nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn)) #['stdout'][0]
+    cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], bgp_pass), "neighbor {} password 0 {}".format(setup['dut_ip_v6'], bgp_pass)]
+    logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+    logger.info(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     time.sleep(bgp_config_sleeptime)
     
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        assert v['state'] == 'established'
- 
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(dut_asn, neigh_ip_v4, mismatch_pass, neigh_ip_v6, mismatch_pass)
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
+ 
+    #mismatch passwords
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], mismatch_pass)
+    
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     if len(command_output["stdout_lines"]) != 0:
         logger.error("Error configuring BGP password")
@@ -219,32 +192,29 @@ def test_bgp_neighbor_password(duthosts, rand_one_dut_hostname, enum_asic_index,
     time.sleep(bgp_config_sleeptime)
 
     #verify sessions are not established
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
 
-    logger.info(duthost.shell('show ip bgp summary'))
-    logger.info(duthost.shell('show ipv6 bgp summary'))
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        if(v['description'] == tor1):
-            assert v['state'] != 'established'
-        else:
-            assert v['state'] == 'established'
+    logger.info(setup['duthost'].shell('show ip bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     #remove password configs
-    cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(dut_asn, neigh_ip_v4, mismatch_pass, neigh_ip_v6, mismatch_pass)
+    cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], mismatch_pass)
     
-    command_output = duthost.shell(cmd, module_ignore_errors=True)
+    command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     if len(command_output["stdout_lines"]) != 0:
         logger.error("Error configuring BGP password")
         return False
 
-    cmd = ["no neighbor {} password 0 {}".format(dut_ip_v4, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v6, bgp_pass)]
-    nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn)) #['stdout'][0]
+    cmd = ["no neighbor {} password 0 {}".format(setup['dut_ip_v4'], bgp_pass), "no neighbor {} password 0 {}".format(setup['dut_ip_v6'], bgp_pass)]
+    logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
 
     time.sleep(bgp_config_sleeptime)
     
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        # Verify bgp sessions are established
-        assert v['state'] == 'established'
+    bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established'
+    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
