@@ -538,7 +538,7 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
     asichost = duthost.asic_instance_from_namespace(connection['namespace'])
-    asichost.run_sonic_cfggen("-j {} -w".format(BGPMON_CONFIG_FILE))
+    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
 
