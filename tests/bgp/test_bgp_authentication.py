@@ -69,7 +69,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
     cmd = 'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" -c "end"'.format(dut_asn, peer_group_v4, bgp_pass, peer_group_v6, bgp_pass, peer_group_v4, mismatch_pass, peer_group_v6, mismatch_pass, neigh_ip_v4, bgp_pass, neigh_ip_v6, bgp_pass, neigh_ip_v4, mismatch_pass, neigh_ip_v6, mismatch_pass)
     duthost.shell(cmd, module_ignore_errors=True)
 
-    cmd = ["no neighbor {} password 0 {}".format(peer_group_v4, bgp_pass), "no neighbor {} password 0 {}".format(peer_group_v6, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v4, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v6, bgp_pass), "no neighbor {} peer group {}".format(dut_ip_v4, peer_group_v4), "no neighbor {} peer group {}".format(dut_ip_v6, peer_group_v6)]
+    cmd = ["no neighbor {} password 0 {}".format(dut_ip_v4, bgp_pass), "no neighbor {} password 0 {}".format(dut_ip_v6, bgp_pass)]
     nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn)) #['stdout'][0]
 
 def test_bgp_peer_group_password(setup, enum_asic_index):
@@ -92,7 +92,7 @@ def test_bgp_peer_group_password(setup, enum_asic_index):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     #set password on neighbor
-    cmd = ["neighbor {} peer group {}".format(setup['dut_ip_v4'], setup['peer_group_v4']), "neighbor {} peer group {}".format(setup['dut_ip_v6'], setup['peer_group_v6']), "neighbor {} password 0 {}".format(setup['peer_group_v4'], bgp_pass), "neighbor {} password 0 {}".format(setup['peer_group_v6'], bgp_pass)]
+    cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], bgp_pass), "neighbor {} password 0 {}".format(setup['dut_ip_v6'], bgp_pass)]
     logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn']))) #['stdout'][0]
     logger.info(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
@@ -136,8 +136,8 @@ def test_bgp_peer_group_password(setup, enum_asic_index):
     
     logger.info(setup['duthost'].shell('show run bgp'))
 
-    #remove peer group passwords from neighbor
-    cmd = ["no neighbor {} password 0 {}".format(setup['peer_group_v4'], bgp_pass), "no neighbor {} password 0 {}".format(setup['peer_group_v6'], bgp_pass), "no neighbor {} peer group {}".format(setup['dut_ip_v4'], setup['peer_group_v4']), "no neighbor {} peer group {}".format(setup['dut_ip_v6'], setup['peer_group_v6'])]
+    #remove passwords from neighbor
+    cmd = ["no neighbor {} password 0 {}".format(setup['dut_ip_v4'], bgp_pass), "no neighbor {} password 0 {}".format(setup['dut_ip_v6'], bgp_pass)]
     logger.info(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
     logger.info(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
@@ -156,6 +156,8 @@ def test_bgp_neighbor_password(setup, enum_asic_index):
     if len(command_output["stdout_lines"]) != 0:
         logger.error("Error configuring BGP password")
         return False
+
+    logger.info(setup['duthost'].shell('show run bgp'))
     
     time.sleep(bgp_config_sleeptime)
 
