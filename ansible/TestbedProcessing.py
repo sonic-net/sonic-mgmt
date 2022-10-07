@@ -840,7 +840,7 @@ Creates host variable files for each device
 def makeHostVar(data):
     host_vars = data
     for key, value in host_vars.items():  # iterate through all devices in host_vars dictionary
-        with open(args.basedir + "host_vars/" + key.upper() + ".yml", "w") as toWrite:  # create (or overwrite) a file named <device>.yml
+        with open(args.basedir + "host_vars/" + key + ".yml", "w") as toWrite:  # create (or overwrite) a file named <device>.yml
             for attribute, attribute_data in value.items():  # for each element in device's dictionary
                 toWrite.write(str(attribute) + ": " + str(attribute_data) + "\n")  # write the attribute and the attribute value to <device>.yml
 
