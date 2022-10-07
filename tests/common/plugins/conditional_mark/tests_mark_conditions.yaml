@@ -57,6 +57,13 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "topo_name in ['m0']"
 
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+  skip:
+    reason: "Test is flaky and causing PR test to fail unnecessarily"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
