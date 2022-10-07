@@ -197,7 +197,7 @@ def test_bgp_neighbor_password(setup, enum_asic_index):
     bgp_facts = setup['duthost'].bgp_facts(instance_id=enum_asic_index)['ansible_facts']
 
     logger.info(setup['duthost'].shell('show ip bgp summary'))
-    logger.info(setup['duthost'].shell('show ipv6 bgp summary'))
+    logger.info(setup['duthost'].shell('show ipv6 bgp summary')) 
     
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
