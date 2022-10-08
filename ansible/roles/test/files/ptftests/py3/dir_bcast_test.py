@@ -56,7 +56,7 @@ class BcastTest(BaseTest):
         self.setUpVlan(self.test_params['vlan_info'])
         if self.test_params['testbed_type'] == 't0':
             self.src_ports = list(range(1, 25)) + list(range(28, 32))
-        if self.test_params['testbed_type'] == 't0-52':
+        if self.test_params['testbed_type'] in ['t0-52', 'm0']:
             self.src_ports = list(range(0, 52))
         if self.test_params['testbed_type'] == 't0-56':
             self.src_ports = list(range(0, 2)) + list(range(4, 6)) + list(range(8, 10)) + list(range(12, 18)) + list(range(20, 22)) + \
