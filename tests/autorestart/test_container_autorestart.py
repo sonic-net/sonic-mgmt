@@ -101,7 +101,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
     ignore_regex_dict = {
         'common' : [
             ".*ERR monit.*",
-            ".*ERR systemd.*Failed to start .* container*",
+            ".*ERR systemd.*Failed to start .* (C|c)ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
         ],
