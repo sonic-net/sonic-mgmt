@@ -133,6 +133,9 @@ def get_exabgp_port(duthost, tbinfo, dev_port):
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
 
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
 
 def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes):
@@ -145,20 +148,22 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
     # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
-    vlan_mac = dut_mac
-    vlan_cfgs = {}
-    try:
+    vlan_mac = ""
+    if is_dualtor(tbinfo):
+        # Just let it crash if missing vlan configs on dual-tor      
         vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-    except KeyError:
-        logger.info('missing vlan configurations in topology, will use dut_mac {} in testing'.format(dut_mac))
-
-    if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-        default_vlan_name = vlan_cfgs['default_vlan_config']
-        if default_vlan_name:
-            for vlan in vlan_cfgs[default_vlan_name].values():
-                if 'mac' in vlan and vlan['mac']:
-                    vlan_mac = vlan['mac']
-                    break;
+        
+        if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+            default_vlan_name = vlan_cfgs['default_vlan_config']
+            if default_vlan_name:
+                for vlan in vlan_cfgs[default_vlan_name].values():
+                    if 'mac' in vlan and vlan['mac']:
+                        vlan_mac = vlan['mac']
+                        break
+        if not vlan_mac:
+            raise Exception('dual-tor without vlan mac !!!')
+    else:
+       vlan_mac = dut_mac
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
