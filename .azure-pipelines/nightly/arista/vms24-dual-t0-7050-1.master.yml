@@ -63,3 +63,4 @@ stages:
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
