@@ -51,7 +51,7 @@ class TestDynamicInnerHashing():
                 balancing_test_times = 120
                 balancing_range = 0.3
             else:
-                balancing_test_times = 10
+                balancing_test_times = 20
                 balancing_range = 0.5
 
             ptf_params = {"fib_info": FIB_INFO_FILE_DST,
