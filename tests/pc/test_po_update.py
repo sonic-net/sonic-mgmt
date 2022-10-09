@@ -66,9 +66,16 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asichost.interface_facts()['ansible_facts']
 
-    portchannel, portchannel_members = asichost.get_portchannel_and_members_in_ns(tbinfo)
-    if portchannel is None:
-        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
+    port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
+    portchannel = None
+    portchannel_members = None
+    for portchannel in port_channels_data:
+        logging.info('Trying to get PortChannel: {} for test'.format(portchannel))
+        if int_facts['ansible_interface_facts'][portchannel].get('ipv4'):
+            portchannel_members = port_channels_data[portchannel]
+            break
+
+    pytest_assert(portchannel and portchannel_members, 'Can not get PortChannel interface for test')
 
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
@@ -86,9 +93,6 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     logging.info("portchannel_members=%s" % portchannel_members)
 
     try:
-        if len(portchannel_members) == 0:
-            pytest.skip("Skip test due to there is no portchannel member exists in current topology.")
-
         # Step 1: Remove portchannel members from portchannel
         for member in portchannel_members:
             asichost.config_portchannel_member(portchannel, member, "del")
@@ -152,9 +156,6 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
-    if len(dut_mg_facts["minigraph_portchannel_interfaces"]) < 2:
-        pytest.skip("Skip test due to there isn't enough port channel exists in current topology.")
 
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"]) for pc in
