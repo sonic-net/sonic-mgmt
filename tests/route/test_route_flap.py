@@ -160,8 +160,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     if 'mac' in vlan and vlan['mac']:
                         vlan_mac = vlan['mac']
                         break
-        if not vlan_mac:
-            raise Exception('dual-tor without vlan mac !!!')
+        pytest_assert(vlan_mac, 'dual-tor without vlan mac !!!')
     else:
        vlan_mac = dut_mac
 
