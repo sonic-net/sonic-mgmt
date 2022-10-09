@@ -435,6 +435,7 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 passw_hardening/test_passw_hardening.py:
   skip:
     reason: "Password-hardening supported just in master version"
+    conditions_logical_operator: or
     conditions:
         - "release not in ['master']"
         - https://github.com/sonic-net/sonic-mgmt/issues/6428
