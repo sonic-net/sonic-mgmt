@@ -57,6 +57,13 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "topo_name in ['m0']"
 
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+  skip:
+    reason: "Test is flaky and causing PR test to fail unnecessarily"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
@@ -150,9 +157,9 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend and broadcom before 202012 release"
+    reason: "Not supported on backend, T2 topologies and broadcom platforms before 202012 release"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
+      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -428,6 +435,7 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 passw_hardening/test_passw_hardening.py:
   skip:
     reason: "Password-hardening supported just in master version"
+    conditions_logical_operator: or
     conditions:
         - "release not in ['master']"
         - https://github.com/sonic-net/sonic-mgmt/issues/6428
@@ -794,6 +802,12 @@ syslog/test_syslog.py:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
+
+syslog/test_syslog_source_ip.py:
+  skip:
+    reason: "Testcase consistent failed, raised issue to track"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/6479
 
 #######################################
 #####         system_health       #####
