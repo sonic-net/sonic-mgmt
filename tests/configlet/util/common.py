@@ -7,6 +7,10 @@ import re
 import sys
 import time
 
+if sys.version_info.major > 2:
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+
 from helpers import *
 
 CONFIG_DB_FILE = "etc/sonic/config_db.json"
