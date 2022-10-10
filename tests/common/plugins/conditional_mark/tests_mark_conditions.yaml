@@ -265,6 +265,12 @@ fdb/test_fdb_mac_expire.py:
 #######################################
 #####   generic_config_updater    #####
 #######################################
+generic_config_updater/test_bgp_speaker.py:
+  skip:
+    reason: "M0 topo does not support test_bgp_speaker"
+    conditions:
+      - "topo_name in ['m0']"
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
