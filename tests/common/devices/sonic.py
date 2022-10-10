@@ -643,19 +643,19 @@ class SonicHost(AnsibleHostBase):
 
             service_result = service_results[service]
             # If container is not running, stdout_lines is empty
-            # in this situation, service container status should be false
+            # In this situation, service container status should be false
             if not service_result['stdout_lines']:
                 service_critical_process['status'] = False
             for line in service_result['stdout_lines']:
                 pname, status, _ = re.split('\s+', line, 2)
-                if status != 'RUNNING':
+                # Sometimes, stdout_lines may be error messages but not emtpy
+                # In this situation, service container status should be false
+                # We can check status is valid or not
+                if status not in ('RUNNING','EXITED','STOPPED'):
+                    service_critical_process['status'] = False
+                elif status != 'RUNNING':
                     if pname in service_group_process['groups'] or pname in service_group_process['processes']:
                         service_critical_process['exited_critical_process'].append(pname)
-                        service_critical_process['status'] = False
-                    # Sometimes, stdout_lines may be error messages but not emtpy
-                    # In this situation, service container status should be false
-                    # We can check status is valid or not
-                    if status not in ('EXITED'):
                         service_critical_process['status'] = False
                 else:
                     if pname in service_group_process['groups'] or pname in service_group_process['processes']:

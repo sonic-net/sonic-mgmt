@@ -81,11 +81,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
-            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_ATTR_BROADCAST_FLOOD_GROUP.*",
-            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_ATTR_UNKNOWN_MULTICAST_FLOOD_GROUP.*",
-            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_ATTR_UNKNOWN_UNICAST_FLOOD_GROUP.*",
-            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_PORT_ATTR_ISOLATION_GROUP.*",
-            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_PORT_ATTR_PORT_ID.*",
+            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
             ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed attribs dispatch.*",
             ".*ERR syncd[0-9]*#SDK.*Failed command read at communication channel: Connection reset by peer.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
@@ -101,7 +97,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
     ignore_regex_dict = {
         'common' : [
             ".*ERR monit.*",
-            ".*ERR systemd.*Failed to start .* (C|c)ontainer.*",
+            ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
         ],
