@@ -40,7 +40,8 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "platform_tests/link_flap/test_cont_link_flap.py"
+    default: "autorestart/test_container_autorestart.py \
+              platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Skip Scripts"
 
   - name: SKIP_TEST_RESULTS_UPLOADING
