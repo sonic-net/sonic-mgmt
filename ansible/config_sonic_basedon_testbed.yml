@@ -543,24 +543,28 @@
 
           - name: parse initial grpc credentials
             set_fact:
-              grpc_secrets: "{{ grpc_credential_content.content | b64decode | from_json }}"
+              grpc_secrets_before: "{{ grpc_credential_content.content | b64decode | from_json }}"
 
           - name: use insecure grpc for testing
+            shell: "sed -E -i 's/\"type\": \"secure\"/\"type\": \"insecure\"/' {{ grpc_credential_file }}"
+            become: true
+
+          - name: collect current grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse current grpc credentials
             set_fact:
-              grpc_secrets: "{{ grpc_secrets | combine(new_item, recursive=true) }}"
-            vars:
-              new_item: "{ '{{ item.key }}': { 'config': 'insecure' } }"
-            with_dict: "{{ grpc_secrets }}"
+              grpc_secrets_after: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: show original grpc setting
+            debug:
+              var: grpc_secrets_before
 
           - name: show new grpc setting
             debug:
-              var: grpc_secrets
-
-          - name: save new grpc setting
-            copy:
-              content: "{{ grpc_secrets | to_nice_json }}"
-              dest: "{{ grpc_credential_file }}"
-            become: true
+              var: grpc_secrets_after
 
           - name: restart the pmon service
             service:
