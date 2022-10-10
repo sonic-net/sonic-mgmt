@@ -115,7 +115,7 @@ class DHCPTest(DataplaneBaseTest):
         self.relay_linkaddr = '::'
 
         self.vlan_ip = self.test_params['vlan_ip']
-        
+
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
 
@@ -354,7 +354,7 @@ class DHCPTest(DataplaneBaseTest):
         # Form and send DHCPv6 RELAY-REPLY encapsulating REPLY packet
         reply_relay_reply_packet = self.create_dhcp_reply_relay_reply_packet()
         reply_relay_reply_packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
-        testutils.send_packet(self, self.server_port_indices[0], reply_relay_reply_packet, count=3)
+        testutils.send_packet(self, self.server_port_indices[0], reply_relay_reply_packet)
 
     # Verify that the DHCPv6 REPLY would be received by our simulated client
     def verify_relayed_reply(self):
