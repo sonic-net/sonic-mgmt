@@ -233,6 +233,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202106"])
 
+    if testbed_mode == 'dual_testbed':
+        pytest.skip("skip the link flap testcase on dual tor testbeds")
+
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
         for iface in dhcp_relay['uplink_interfaces']:
@@ -273,6 +276,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
     """
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202106"])
+
+    if testbed_mode == 'dual_testbed':
+        pytest.skip("skip the uplinks down testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
