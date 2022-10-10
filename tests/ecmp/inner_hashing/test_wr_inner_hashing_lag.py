@@ -13,6 +13,7 @@ from tests.ptf_runner import ptf_runner
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
     pytest.mark.asic('mellanox')
 ]
