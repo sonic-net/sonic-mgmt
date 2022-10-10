@@ -615,6 +615,12 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
+platform_tests/fwutil/test_fwutil.py:
+  skip:
+    reason: "There is a fixture issue to block this script, skip for now"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/6489
+
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
