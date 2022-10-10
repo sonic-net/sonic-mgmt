@@ -335,7 +335,13 @@ SKIP_MEMORY_PER_ASIC = {
         ],
         'unsupported' : [
         ]
-    }
+    },
+    'default' : {
+        'timeout' : [],
+        'timeout_basic' : [],
+        'slow_injection' : [],
+        'unsupported' : [],
+    },
 }
 
 
@@ -388,7 +394,7 @@ def get_skip_list_per_asic():
 
     asic = get_asic_name()
 
-    return SKIP_MEMORY_PER_ASIC[asic] if asic in SKIP_MEMORY_PER_ASIC else []
+    return SKIP_MEMORY_PER_ASIC[asic] if asic in SKIP_MEMORY_PER_ASIC else SKIP_MEMORY_PER_ASIC['default']
 
 
 class BcmMemory():
