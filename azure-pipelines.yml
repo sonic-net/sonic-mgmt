@@ -30,7 +30,7 @@ stages:
     displayName: "kvmtest-t0-part1"
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
@@ -46,7 +46,7 @@ stages:
     displayName: "kvmtest-t0-part2"
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
@@ -61,7 +61,7 @@ stages:
     displayName: "kvmtest-t0 by TestbedV2"
     timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
@@ -73,7 +73,7 @@ stages:
     displayName: "kvmtest-t0-2vlans by TestbedV2"
     timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
@@ -120,7 +120,7 @@ stages:
     displayName: "kvmtest-t1-lag classic"
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-template.yml
       parameters:
@@ -134,7 +134,7 @@ stages:
     displayName: "kvmtest-t1-lag by TestbedV2"
     timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
