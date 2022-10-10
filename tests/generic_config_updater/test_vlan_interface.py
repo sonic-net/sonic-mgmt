@@ -166,18 +166,45 @@ def reg_replace(str, reg, replace_str):
 
 
 def vlan_interface_tc1_xfail(duthost, vlan_info):
-    """ Test expect fail testcase
-
-    ("add", "Vlan1000", "587.168.0.1/21", "fc02:1000::1/64"), ADD Invalid IPv4 address
-    ("add", "Vlan1000", "192.168.0.1/21", "fc02:1000::xyz/64"), ADD Invalid IPv6 address
-    ("remove", "Vlan1000", "192.168.0.2/21", "fc02:1000::1/64"), REMOVE Unexist IPv4 address
-    ("remove", "Vlan1000", "192.168.0.1/21", "fc02:1000::2/64") REMOVE Unexist IPv6 address
     """
+    Get invalid IPv4/IPv6 address and unexist IPv4/IPv6 address by vlan_info and then add/remove them.
+
+    For example:
+    vlan_info = {
+                    "v4": {
+                        "name": "Vlan1000",
+                        "prefix": "192.168.0.1/24"
+                    },
+                    "v6": {
+                        "name": "Vlan1000",
+                        "prefix": "fc02:1000::1/64"
+                    }
+                }
+
+    then we can get:
+        invalid_ipv4_address = "587.168.0.1/24" (Replace "192" with "587" in "192.168.0.1/24")
+        invalid_ipv6_address = "fc02:1000::xyz/64" (Replace last "1" with "xyz" in "fc02:1000::1/64")
+        unexist_ipv4_address = "192.168.0.2/24" (Next ip address behind 192.168.0.1/24)
+        unexist_ipv6_address = "fc02:1000::2/64" (Next ip address behind fc02:1000::1/64)
+
+    and then construct xfail_input:
+        xfail_input = [
+            ("add", "Vlan1000", "587.168.0.1/24", "fc02:1000::1/64"), # Add invalid IPv4 address
+            ("add", "Vlan1000", "192.168.0.1/24", "fc02:1000::xyz/64"), # Add invalid IPv6 address
+            ("remove", "Vlan1000", "192.168.0.2/24", "fc02:1000::1/64"), # Remove unexist IPv4 address
+            ("remove", "Vlan1000", "192.168.0.1/24", "fc02:1000::2/64") # Remove unexist IPv6 address
+        ]
+    """
+    invalid_ipv4_address = reg_replace(vlan_info["v4"]["prefix"], r"^\d*", "587")
+    invalid_ipv6_address = reg_replace(vlan_info["v6"]["prefix"], r":\d*/", ":xyz/")
+    unexist_ipv4_address = ipaddr_plus(vlan_info["v4"]["prefix"])
+    unexist_ipv6_address = ipaddr_plus(vlan_info["v6"]["prefix"])
+
     xfail_input = [
-        ("add", vlan_info["v4"]["name"], reg_replace(vlan_info["v4"]["prefix"], r"^\d*", "587"), vlan_info["v6"]["prefix"]),
-        ("add", vlan_info["v4"]["name"], vlan_info["v4"]["prefix"], reg_replace(vlan_info["v6"]["prefix"], r":\d*/", ":xyz/")),
-        ("remove", vlan_info["v4"]["name"], ipaddr_plus(vlan_info["v4"]["prefix"]), vlan_info["v6"]["prefix"]),
-        ("remove", vlan_info["v4"]["name"], vlan_info["v4"]["prefix"], ipaddr_plus(vlan_info["v6"]["prefix"]))
+        ("add", vlan_info["v4"]["name"], invalid_ipv4_address, vlan_info["v6"]["prefix"]),
+        ("add", vlan_info["v4"]["name"], vlan_info["v4"]["prefix"], invalid_ipv6_address),
+        ("remove", vlan_info["v4"]["name"], unexist_ipv4_address, vlan_info["v6"]["prefix"]),
+        ("remove", vlan_info["v4"]["name"], vlan_info["v4"]["prefix"], unexist_ipv6_address)
     ]
     for op, name, ip, ipv6 in xfail_input:
         dummy_vlan_interface_v4 = name + "|" + ip

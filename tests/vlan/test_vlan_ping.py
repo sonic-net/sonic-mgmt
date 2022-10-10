@@ -3,7 +3,6 @@ import pytest
 import ipaddress
 import logging
 import ptf.testutils as testutils
-from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.plugins import ptfadapter
 
 logger = logging.getLogger(__name__)
@@ -53,16 +52,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     Teardown:   deletes ipv4 and ipv6 address on ptf hosts and removes routes to VM. Also removes residual static arp entries from tests
     """
     vm_host_info = {}
-
-    vm_name, vm_info = None, None
-    topo_name = tbinfo["topo"]["name"]
-    for nbr_name, nbr_info in nbrhosts.items():
-        if topo_name != "m0" or (topo_name == "m0" and "M1" in nbr_name):
-            vm_name = nbr_name
-            vm_info = nbr_info
-            break
-
-    py_assert(vm_name is not None, "Can't get neighbor vm")
+    vm_name, vm_info = random.choice(nbrhosts.items())
     vm_ip_with_prefix = (vm_info['conf']['interfaces']['Port-Channel1']['ipv4']).decode('utf-8')
     output = vm_info['host'].command("ip addr show dev po1")
     vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
@@ -111,16 +101,15 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     )
 
     # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
-    for index in range(len(rand_vlan_member_list)):
-        member = rand_vlan_member_list[index]
-        ip_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip][index]
+    for member in rand_vlan_member_list:
+        random_ip_in_vlan = random.choice([x for x in vlan_ip_network_v4 if x not in exclude_ip])
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
         ptfhost_info[member]["port_index"] = mg_facts['minigraph_ptf_indices'][member]
         ptfhost_info[member]["mac"] = (ptfhost.shell(
             "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
                 "port_index"]))['stdout']
-        ptfhost_info[member]["ipv4"] = str(ip_in_vlan)
+        ptfhost_info[member]["ipv4"] = str(random_ip_in_vlan)
         ptfhost_info[member]["ipv6"] = str(
             ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index"]])
 
