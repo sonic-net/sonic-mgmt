@@ -2,6 +2,7 @@ import threading
 import time
 import re
 import logging
+import sys
 from multiprocessing.pool import ThreadPool
 from collections import deque
 from .utilities import wait_until
