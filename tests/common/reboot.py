@@ -204,14 +204,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
     time.sleep(wait)
-    
+
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
         if not ret:
             raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
-    
+
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
