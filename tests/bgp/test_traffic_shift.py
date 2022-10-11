@@ -318,9 +318,10 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
+        # Wait until all routes are announced to neighbors
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
                       "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
                       "Not all ipv6 routes are announced to neighbors")
 
 
@@ -355,7 +356,8 @@ def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpm
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
+        # Wait until all routes are announced to neighbors
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
                       "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
                       "Not all ipv6 routes are announced to neighbors")
