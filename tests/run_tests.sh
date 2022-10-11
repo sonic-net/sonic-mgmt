@@ -130,7 +130,12 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
+    python_version="$(python -V 2>&1)"
+    if [[ $python_version =~ "Python 3" ]]; then
+        ignores=$(python -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
+    else
+        ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
+    fi
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
@@ -143,18 +148,34 @@ function setup_test_options()
     fi
     # Ignore the scripts specified in $SKIP_SCRIPTS
     if [[ x"${TEST_INPUT_ORDER}" == x"True" ]]; then
-        TEST_CASES=$(python -c "print '\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())])")
+        if [[ $python_version =~ "Python 3" ]]; then
+            TEST_CASES=$(python -c "print('\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())]))")
+        else
+            TEST_CASES=$(python -c "print '\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())])")
+        fi
     else
-        TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+        if [[ $python_version =~ "Python 3" ]]; then
+            TEST_CASES=$(python -c "print('\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split())))" | sort)
+        else
+            TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+        fi
     fi
 
     # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
     FINAL_CASES=""
-    includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
+    if [[ $python_version =~ "Python 3" ]]; then
+        includes=$(python -c "print('|'.join('''$INCLUDE_FOLDERS'''.split()))")
+    else
+        includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
+    fi
     for test_case in ${TEST_CASES}; do
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
-    TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+    if [[ $python_version =~ "Python 3" ]]; then
+        TEST_CASES=$(python -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
+    else
+        TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+    fi
 
     if [[ -z $TEST_CASES ]]; then
         echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
