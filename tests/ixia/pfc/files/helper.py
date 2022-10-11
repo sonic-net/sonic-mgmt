@@ -473,7 +473,10 @@ def __verify_results(rows,
         """ In-flight TX bytes of test flows should be held by switch buffer """
         tx_frames_total = sum(row['frames_tx'] for row in rows if test_flow_name in row['name'])
         tx_bytes_total = tx_frames_total * data_pkt_size
-        dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
+        if is_cisco_device(duthost):
+            dut_buffer_size = get_ingress_lossless_buffer_size(host_ans=duthost)
+        else:
+            dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
 
         pytest_assert(tx_bytes_total < dut_buffer_size,
                       'Total TX bytes {} should be smaller than DUT buffer size {}'.\
@@ -488,11 +491,10 @@ def __verify_results(rows,
                     data_pkt_cell_bytes = cell_buffs * CISCO_8000_CELL_SIZE
                     tx_frames_minus_oq = tx_frames_total - (CISCO_8000_OQ_BUFFS / cell_buffs)
                     tx_bytes_total = tx_frames_minus_oq * data_pkt_cell_bytes
-                    ingress_pool_size = get_ingress_lossless_buffer_size(duthost)
                     max_pause_th_bytes = 5 * (2 ** 20)
-                    pause_th_bytes = min(ingress_pool_size * (2 ** dynamic_th), max_pause_th_bytes)
+                    pause_th_bytes = min(dut_buffer_size * (2 ** dynamic_th), max_pause_th_bytes)
                     deviation = abs(tx_bytes_total - pause_th_bytes) / float(pause_th_bytes)
                     pytest_assert(deviation < tolerance,
                                   ('For flow name "{}", estimated queue occupancy {} bytes should be within {} of the pause threshold {},' + \
                                    'but deviation was {}, total frames tx was {}, and ingress pool size was {}').\
-                                  format(row['name'], tx_bytes_total, tolerance, pause_th_bytes, deviation, tx_frames_total, ingress_pool_size))
+                                  format(row['name'], tx_bytes_total, tolerance, pause_th_bytes, deviation, tx_frames_total, dut_buffer_size))
