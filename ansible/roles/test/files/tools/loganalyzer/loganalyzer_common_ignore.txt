@@ -157,5 +157,5 @@ r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_obj_unbind.*"
 r, ".* ERR syncd#syncd.*SAI_API_LAG:_brcm_sai_lag_acl_bind_update.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/12303
-r, ".* ERR python3: :- echo_receive: failing to read echo rc.*"
-r, ".* ERR python3: :- echo_receive: last:errno=.*"
+r, ".* ERR .*echo_receive: failing to read echo rc.*"
+r, ".* ERR .*echo_receive: last:errno=.*"
