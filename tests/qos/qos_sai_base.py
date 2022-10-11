@@ -8,9 +8,10 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/un
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,dualtor_ports
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import check_qos_db_fv_reference_with_table
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -733,6 +734,25 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
+        """ Stop mux container for dual ToR """
+        if 'dualtor' in tbinfo['topo']['name']:
+            file = "/usr/local/bin/write_standby.py"
+            backup_file = "/usr/local/bin/write_standby.py.bkup"
+            toggle_all_simulator_ports(LOWER_TOR)
+            check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+            validate_check_result(check_result, duthosts, get_mux_status)
+
+            try:
+                duthost.shell("ls %s" % file)
+                duthost.shell("sudo cp {} {}".format(file,backup_file))
+                duthost.shell("sudo rm {}".format(file))
+                duthost.shell("sudo touch {}".format(file))
+            except:
+                pytest.skip('file {} not found'.format(file))
+
+            duthost_upper.shell('sudo config feature state mux disabled')
+            duthost.shell('sudo config feature state mux disabled')
+
         services = [
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
@@ -747,23 +767,6 @@ class QosSaiBase(QosBase):
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="stop", **service)
-
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
-            file = "/usr/local/bin/write_standby.py"
-            backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR)
-
-            try:
-                duthost.shell("ls %s" % file)
-                duthost.shell("sudo cp {} {}".format(file,backup_file))
-                duthost.shell("sudo rm {}".format(file))
-                duthost.shell("sudo touch {}".format(file))
-            except:
-                pytest.skip('file {} not found'.format(file))
-
-            duthost_upper.shell('sudo config feature state mux disabled')
-            duthost.shell('sudo config feature state mux disabled')
 
         yield
 
