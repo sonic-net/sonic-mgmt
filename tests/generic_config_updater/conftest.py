@@ -13,14 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 # Module Fixture
-@pytest.fixture(scope="module", autouse=True)
-def bypass_duplicate_lanes_platform(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' or \
-            duthost.facts['platform'] == 'x86_64-dellemc_s5232f_c3538-r0':
-        pytest.skip("Temporary skip platform with duplicate lanes...")
-
-
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
     """
