@@ -306,7 +306,7 @@ function run_group_tests()
 function run_individual_tests()
 {
     EXIT_CODE=0
-
+    USE_PY3=0
     CACHE_CLEAR="--cache-clear"
 
     echo "=== Running tests individually ==="
@@ -322,8 +322,23 @@ function run_individual_tests()
         fi
 
         echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-        ret_code=$?
+        for i in `cat python3_test_files.txt`
+        do
+            if [[ ${test_script} =~ ${i} ]]; then
+                USE_PY3=1
+                break
+            fi
+        done
+        if [ ${USE_PY3} == 1 ]; then
+            echo Activate Python3 venv
+            source /var/shiyanwang/env-python3/bin/activate
+        fi
+            pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            ret_code=$?
+        if [ ${USE_PY3} == 1 ]; then
+            echo Deactivate Python3 venv
+            deactivate
+        fi
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
