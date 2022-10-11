@@ -5,6 +5,7 @@ import pytest
 import yaml
 import re
 
+
 import ptf.testutils as testutils
 
 from collections import defaultdict
@@ -43,7 +44,7 @@ def enable_counters(duthosts):
     cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
 
     """ Fixture which enables RIF and L2 counters """
-    for duthost in duthosts:
+    for duthost in duthosts.frontend_nodes:
         duthost.shell_cmds(cmds=cmd_list)
 
         namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
@@ -58,8 +59,9 @@ def enable_counters(duthosts):
             duthost.shell_cmds(cmds=ns_cmd_list)
 
     yield
-    for duthost in duthosts:
+    for duthost in duthosts.frontend_nodes:
         for namespace in namespace_list:
+            namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
             for port, status in previous_cnt_status[duthost][namespace].items():
                 if status == "disable":
                     logger.info("Restoring counter '{}' state to disable".format(port))
@@ -68,8 +70,8 @@ def enable_counters(duthosts):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def parse_combined_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def parse_combined_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Get info whether L2 and L3 drop counters are linked
     # Or ACL and L2 drop counters are linked
     global COMBINED_L2L3_DROP_COUNTER, COMBINED_ACL_DROP_COUNTER
@@ -95,7 +97,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
     # Clear SONiC counters
-    for duthost in duthosts:
+    for duthost in duthosts.frontend_nodes:
         duthost.command("sonic-clear counters")
 
         # Clear RIF counters per namespace.
@@ -112,19 +114,19 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
 
     if discard_group == "L2":
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
-        for duthost in duthosts:
+        for duthost in duthosts.frontend_nodes:
             ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
             verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"], GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
-            for duthost in duthosts:
+            for duthost in duthosts.frontend_nodes:
                 ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
             verify_drop_counters(duthosts, asic_index, tx_dut_ports[ports_info["dut_iface"]], GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
-            for duthost in duthosts:
+            for duthost in duthosts.frontend_nodes:
                 ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
@@ -132,7 +134,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
 
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
         acl_drops = 0
-        for duthost in duthosts:
+        for duthost in duthosts.frontend_nodes:
             acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][
                 drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
         if acl_drops != PKT_NUMBER:
@@ -141,11 +143,11 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
             )
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
-            for duthost in duthosts:
+            for duthost in duthosts.frontend_nodes:
                 ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
                 ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
-        for duthost in duthosts:
+        for duthost in duthosts.frontend_nodes:
             ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
             ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
     else:
@@ -161,7 +163,7 @@ def get_intf_mtu(duthost, intf, asic_index):
 
 
 @pytest.fixture
-def mtu_config(duthosts, rand_one_dut_hostname):
+def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
     class MTUConfig(object):
         iface = None
@@ -172,7 +174,7 @@ def mtu_config(duthosts, rand_one_dut_hostname):
 
         @classmethod
         def set_mtu(cls, mtu, iface, asic_index):
-            duthost = duthosts[rand_one_dut_hostname]
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
             namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
             if "PortChannel" in iface:
                 cls.key = "PORTCHANNEL"
@@ -206,7 +208,7 @@ def mtu_config(duthosts, rand_one_dut_hostname):
 
         @classmethod
         def restore_mtu(cls):
-            duthost = duthosts[rand_one_dut_hostname]
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
             namespace = duthost.get_namespace_from_asic_id(
                 cls.asic_index
             ) if duthost.is_multi_asic else ''
@@ -253,14 +255,14 @@ def do_test(duthosts):
     return do_counters_test
 
 
-def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthost, pkt_fields, ports_info):
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
         01:80:C2:00:00:05 - reserved for future standardization
         01:80:C2:00:00:08 - provider Bridge group address
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
 
@@ -284,8 +286,12 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, rand_one_dut_hostname
             tcp_dport=pkt_fields["tcp_dport"]
         )
 
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        group = "L2"
+        # DNX platform DROP counters are not there yet
+        if setup.get("platform_asic") == "broadcom-dnx":
+            group = "NO_DROPS"
 
+        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
     """
@@ -306,11 +312,11 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, p
     do_test("NO_DROPS", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_src_ip_link_local(do_test, ptfadapter, duthosts, rand_one_dut_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
+def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.facts["asic_type"]
     pytest_require("broadcom" not in asic_type, "BRCM does not drop SIP link local packets")
 
