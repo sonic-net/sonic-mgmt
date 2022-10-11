@@ -441,10 +441,72 @@ stages:
                     route/test_route_flap.py \
                     route/test_route_perf.py"
 
+                # Regularly skip tests
+                MONDAY_TEST_SCRIPTS=(\
+                  "crm/test_crm.py")
+
+                TUESDAY_TEST_SCRIPTS=(\
+                  "drop_packets/test_drop_counters.py")
+
+                WEDNSDAY_TEST_SCRIPTS=(\
+                  "drop_packets/test_configurable_drop_counters.py" \
+                  "everflow/test_everflow_ipv6.py" \
+                  "everflow/test_everflow_per_interface.py" \
+                  "fdb/test_fdb_mac_expire.py")
+
+                THURSDAY_TEST_SCRIPTS=(\
+                  "everflow/test_everflow_testbed.py")
+
+                FRIDAY_TEST_SCRIPTS=(\
+                  "ip/test_ip_packet.py" \
+                  "ipfwd/test_dip_sip.py" \
+                  "ipfwd/test_dir_bcast.py" \
+                  "log_fidelity/test_bgp_shutdown.py" \
+                  "radv/test_radv_restart.py" \
+                  "scp/test_scp_copy.py" \
+                  "snmp/test_snmp_fdb.py" \
+                  "snmp/test_snmp_v2mib.py" \
+                  "ssh/test_ssh_limit.py")
+
+                SUNDAY_TEST_SCRIPTS=(\
+                  "stress/test_stress_routes.py" \
+                  "testbed_setup/test_populate_fdb.py" \
+                  "vlan/test_autostate_disabled.py" \
+                  "vlan/test_host_vlan.py")
+
+                DATE_OUTPUT=$(date "+%a")
+                if [[ ${DATE_OUTPUT} == "Mon" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${MONDAY_TEST_SCRIPTS[@]}
+                fi
+                if [[ ${DATE_OUTPUT} == "Tue" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${TUESDAY_TEST_SCRIPTS[@]}
+                fi
+                if [[ ${DATE_OUTPUT} == "Wed" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${WEDNSDAY_TEST_SCRIPTS[@]}
+                fi
+                if [[ ${DATE_OUTPUT} == "Thu" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${THURSDAY_TEST_SCRIPTS[@]}
+                fi
+                if [[ ${DATE_OUTPUT} == "Fri" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${FRIDAY_TEST_SCRIPTS[@]}
+                fi
+                if [[ ${DATE_OUTPUT} == "Sun" ]]; then
+                  REGULARLY_RUN_TEST_SCRIPTS=${SUNDAY_TEST_SCRIPTS[@]}
+                fi
+
+                REGULARLY_TEST_SCRIPTS=(${MONDAY_TEST_SCRIPTS[@]} ${TUESDAY_TEST_SCRIPTS[@]} ${WEDNSDAY_TEST_SCRIPTS[@]} ${THURSDAY_TEST_SCRIPTS[@]} ${FRIDAY_TEST_SCRIPTS[@]} ${SUNDAY_TEST_SCRIPTS[@]})
+
+                for value in "${REGULARLY_RUN_TEST_SCRIPTS[@]}"
+                do
+                    REGULARLY_TEST_SCRIPTS=(${REGULARLY_TEST_SCRIPTS[@]/${value}})
+                done
+
+                REGULARLY_SKIP_TEST_SCRIPTS=${REGULARLY_TEST_SCRIPTS[@]}
+
                 # Run rest of the tests.
                 # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step_parse_testbed_info.yml
                 http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }} $github_updated_files $SKIP_COVERED_SCRIPTS $SKIP_STABLE_SCRIPTS" \
+                    -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }} $github_updated_files $SKIP_COVERED_SCRIPTS $SKIP_STABLE_SCRIPTS $REGULARLY_SKIP_TEST_SCRIPTS" \
                     -S "$SKIP_FOLDERS" \
                     -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
                     -m individual \
