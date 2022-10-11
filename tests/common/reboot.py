@@ -2,7 +2,7 @@ import threading
 import time
 import re
 import logging
-from multiprocessing.pool import ThreadPool, TimeoutError
+from multiprocessing.pool import ThreadPool
 from collections import deque
 from .utilities import wait_until
 
@@ -183,7 +183,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     :return:
     """
     pool = ThreadPool()
-    
+    hostname = duthost.hostname
     try:
         reboot_ctrl    = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
@@ -197,9 +197,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
     reboot_res, dut_datetime = do_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
-
-    hostname = duthost.hostname
-    dut_ip = duthost.mgmt_ip
     
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
     wait_for_startup(duthost, localhost, delay, timeout)
