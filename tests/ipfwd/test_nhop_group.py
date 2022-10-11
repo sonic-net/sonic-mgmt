@@ -496,6 +496,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
 
             # add IP route
+            nhop.ip_nhops = []
             nhop.add_ip_route(ip_prefix, ips)
 
             nhop.program_routes()
