@@ -125,7 +125,31 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "0x2B": "Mellanox"
             "0xFE": "0xFBA1E964"
     """
-    if 'syseeprom_info' in dut_vars:
+    if 'arista' in duthost.facts.get( 'platform', '' ).lower():
+       """
+       'show platform syseeprom' output is vendor specific and on Arista duts the
+       output is what is contained in our prefdl. Validate that the output contains
+       non empty data.
+       """
+       pytest_assert( len( syseeprom_output_lines ) > 0, "Cmd returns no output" )
+
+       # Validate each output line has a "Key Value" format
+       parsed_syseeprom = {}
+       for line in syseeprom_output_lines:
+          fields = line.split( ': ', 1 )
+          pytest_assert( len( fields ) == 2, "Expected format: 'Key: Value'" )
+
+          key = fields[ 0 ]
+          value = fields[ 1 ]
+          parsed_syseeprom[ key ] = value
+
+       # Validate that we have a min set of expected fields
+       exp_fields = [ "SID", "SKU", "SerialNumber"  ]
+       for exp_field in exp_fields:
+          pytest_assert( parsed_syseeprom.get( exp_field, None ) is not None,
+                         "Expected field {} not present.".format( exp_field ) )
+
+    elif 'syseeprom_info' in dut_vars:
         expected_syseeprom_info_dict = dut_vars['syseeprom_info']
 
         parsed_syseeprom = {}

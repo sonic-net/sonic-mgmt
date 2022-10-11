@@ -57,6 +57,13 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "topo_name in ['m0']"
 
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+  skip:
+    reason: "Test is flaky and causing PR test to fail unnecessarily"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
@@ -150,9 +157,9 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend and broadcom before 202012 release"
+    reason: "Not supported on backend, T2 topologies and broadcom platforms before 202012 release"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
+      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -171,7 +178,7 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####         drop_packets         #####
+#####         drop_packets        #####
 #######################################
 drop_packets:
   skip:
@@ -263,6 +270,12 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+generic_config_updater/test_bgp_speaker.py:
+  skip:
+    reason: "M0 topo does not support test_bgp_speaker"
+    conditions:
+      - "topo_name in ['m0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -360,7 +373,12 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0']"
+      - "topo_type not in ['t0', 'm0', 'dualtor']"
+  xfail:
+    reason: "Dualtor do not support now, need to fix in buildimage."
+    conditions:
+      - "topo_type in ['dualtor']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/12167
 
 ipfwd/test_mtu.py:
   skip:
@@ -426,6 +444,17 @@ pfc/test_unknown_mac.py:
     reason: In cisco-8000 platform, a packet with unknown MAC will be flooded, not dropped. This case will not pass in cisco-8000.
     conditions:
       - "asic_type in ['cisco-8000']"
+
+#######################################
+#####       passw_hardening       #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  skip:
+    reason: "Password-hardening supported just in master version"
+    conditions_logical_operator: or
+    conditions:
+        - "release not in ['master']"
+        - https://github.com/sonic-net/sonic-mgmt/issues/6428
 
 #######################################
 #####           pc               #####
@@ -502,13 +531,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
 #######################################
 #####         platform_tests      #####
 #######################################
-platform_tests/api/test_sfp.py::test_reset:
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "platform does not support sfp reset"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
-platform_tests/api/test_sfp.py::test_tx_disable_channel:
+platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "platform does not support"
     conditions:
@@ -783,6 +812,12 @@ syslog/test_syslog.py:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
+
+syslog/test_syslog_source_ip.py:
+  skip:
+    reason: "Testcase consistent failed, raised issue to track"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/6479
 
 #######################################
 #####         system_health       #####

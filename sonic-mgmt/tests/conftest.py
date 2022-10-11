@@ -87,6 +87,7 @@ def pytest_addoption(parser):
 
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str, help="PTF port index to DUT port alias map")
+    parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True, help="Swap syncd container with syncd-rpc container")
 
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str, help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
@@ -521,8 +522,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
                     shell_user = creds.get('fanout_shell_user', admin_user)
                     shell_password = creds.get('fanout_shell_pass', admin_password)
                     if os_type == 'sonic':
-                        shell_user = creds['fanout_sonic_user']
-                        shell_password = creds['fanout_sonic_password']
+                        shell_user = creds.get('fanout_sonic_user', None)
+                        shell_password = creds.get('fanout_sonic_password', None)
 
                     fanout = FanoutHost(ansible_adhoc,
                                         os_type,

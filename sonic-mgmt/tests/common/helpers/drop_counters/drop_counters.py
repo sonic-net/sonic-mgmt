@@ -90,7 +90,7 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
     """ Verify drop counter incremented on specific interface """
     def get_drops_across_all_duthosts():
         drop_list = [] 
-        for duthost in duthosts:
+        for duthost in duthosts.frontend_nodes:
             drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", "")))
         return drop_list
     check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()

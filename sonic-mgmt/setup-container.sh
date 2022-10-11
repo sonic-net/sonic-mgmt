@@ -241,6 +241,7 @@ WORKDIR ${HOME}
 # Setup python3 virtual env
 RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze)'; \
 fi

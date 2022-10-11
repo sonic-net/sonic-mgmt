@@ -4,7 +4,12 @@ import natsort
 import json
 import collections
 import logging
+import sys
 from ipaddress import ip_address, IPv4Address
+
+if sys.version_info.major > 2:
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
 
 from macsec_config_helper import enable_macsec_feature
 from macsec_config_helper import disable_macsec_feature

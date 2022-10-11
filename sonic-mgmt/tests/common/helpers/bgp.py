@@ -12,9 +12,10 @@ BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
 def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
     save_dest_path = kwargs.pop("save_dest_path", "/tmp/temp.j2")
     keep_dest_file = kwargs.pop("keep_dest_file", True)
+    namespace = kwargs.pop("namespace")
     config_template = jinja2.Template(open(template_file).read())
     duthost.copy(content=config_template.render(**kwargs), dest=save_dest_path)
-    duthost.shell("sonic-cfggen -j %s --write-to-db" % save_dest_path)
+    duthost.asic_instance_from_namespace(namespace).write_to_config_db(save_dest_path)
     if not keep_dest_file:
         duthost.file(path=save_dest_path, state="absent")
 
@@ -24,7 +25,7 @@ class BGPNeighbor(object):
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, neigh_type=None,
-                 is_multihop=False, is_passive=False):
+                 namespace=None, is_multihop=False, is_passive=False):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -35,6 +36,7 @@ class BGPNeighbor(object):
         self.peer_asn = dut_asn
         self.port = port
         self.type = neigh_type
+        self.namespace = namespace
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
 
@@ -46,6 +48,7 @@ class BGPNeighbor(object):
             _write_variable_from_j2_to_configdb(
                 self.duthost,
                 "bgp/templates/neighbor_metadata_template.j2",
+                namespace=self.namespace,
                 save_dest_path=NEIGHBOR_SAVE_DEST_TMPL % self.name,
                 neighbor_name=self.name,
                 neighbor_lo_addr=self.ip,
@@ -57,6 +60,7 @@ class BGPNeighbor(object):
             _write_variable_from_j2_to_configdb(
                 self.duthost,
                 "bgp/templates/bgp_template.j2",
+                namespace=self.namespace,
                 save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
                 db_table_name="BGP_NEIGHBOR",
                 peer_addr=self.ip,
@@ -75,7 +79,7 @@ class BGPNeighbor(object):
             peer_asn=self.peer_asn,
             port=self.port
         )
-        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port):
+        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
             raise RuntimeError("Failed to start BGP neighbor %s" % self.name)
 
         if self.is_multihop:
@@ -92,8 +96,9 @@ class BGPNeighbor(object):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
         if not self.is_passive:
-            self.duthost.shell("redis-cli -n 4 -c DEL 'BGP_NEIGHBOR|%s'" % self.ip)
-            self.duthost.shell("redis-cli -n 4 -c DEL 'DEVICE_NEIGHBOR_METADATA|%s'" % self.name)
+            for asichost in self.duthost.asics:
+                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
         self.ptfhost.exabgp(name=self.name, state="absent")
 
     def announce_route(self, route):
