@@ -13,9 +13,6 @@ bgp_config_sleeptime = 60
 bgp_pass = "sonic.123"
 mismatch_pass = "badpassword"
 
-#on current virtual testbed the sanity check is not working
-pytestmark = [pytest.mark.sanity_check(skip_sanity=True)]
-
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
