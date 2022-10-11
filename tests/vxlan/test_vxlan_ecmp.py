@@ -2,7 +2,7 @@
 
 '''
     Script to automate the cases listed in VxLAN HLD document:
-    https://github.com/Azure/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
+    https://github.com/sonic-net/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
 
     To test functionality:
     ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py'
@@ -694,6 +694,14 @@ class Test_VxLAN:
                    qlen=1000,
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(tcname, encap_type, datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
 
+
+@pytest.fixture
+def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*"])
+    return
+
 class Test_VxLAN_route_tests(Test_VxLAN):
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
@@ -1084,6 +1092,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         apply_config_in_swss(self.setup['duthost'], tc11_config, "vnet_route_tc11_"+encap_type)
         self.dump_self_info_and_run_ptf("tc11", encap_type, True, packet_count=1000)
 
+@pytest.mark.usefixtures("ignore_route_sync_errlogs")
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
     def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):

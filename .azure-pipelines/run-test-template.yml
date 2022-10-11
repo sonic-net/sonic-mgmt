@@ -36,7 +36,8 @@ steps:
     project: build
     pipeline: 1
     artifact: sonic-buildimage.vs
-    runVersion: 'latestFromBranch'
+    runVersion: specific
+    runId: $(KVM_BUILD_ID)
     runBranch: 'refs/heads/master'
     allowPartiallySucceededBuilds: true
   displayName: "Download sonic kvm image"
@@ -72,8 +73,6 @@ steps:
     GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
   timeoutInMinutes: 360
-  ${{ if eq(parameters.tbtype, 'multi-asic-t1-lag-pr') }}:
-    continueOnError: true
 
 - script: |
     # save dut state if test fails
