@@ -74,6 +74,20 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis::TestChassisApi:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -226,6 +240,18 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_presence:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led:
   skip:
@@ -237,6 +263,13 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -309,6 +342,18 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+platform_tests/api/test_psu.py::TestPsuApi::test_get_presence:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
@@ -321,6 +366,11 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
@@ -348,12 +398,23 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_serial:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Celestica known issue"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
   skip:
