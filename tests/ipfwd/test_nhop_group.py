@@ -481,6 +481,7 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
             ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
 
             # add IP route
+            nhop.ip_nhops = []
             nhop.add_ip_route(ip_prefix, ips)
 
             nhop.program_routes()
@@ -512,7 +513,7 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
-    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = { "th": "172.16.0.16" }
+    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = { "th": "172.16.0.16" , "tl7": "172.16.0.13"}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
