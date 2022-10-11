@@ -24,6 +24,7 @@ cavium_hwskus: [ "AS7512", "XP-SIM" ]
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista-7170-32CD-C32" ]
 
 marvell_hwskus: [ "et6448m" ]
+innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
 cisco_hwskus: ["Cisco-8102-C64"]
 cisco-8000_gb_hwskus: ["Cisco-8102-C64"]
