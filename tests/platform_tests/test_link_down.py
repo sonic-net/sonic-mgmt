@@ -9,7 +9,6 @@ import logging
 import time
 import pytest
 
-import tests.platform_tests.link_flap.link_flap_utils
 from multiprocessing.pool import ThreadPool
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
