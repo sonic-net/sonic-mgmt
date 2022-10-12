@@ -2143,6 +2143,18 @@ vms_18:
       ansible_host: 172.16.135.132
     VM18101:
       ansible_host: 172.16.135.133
+    VM18102:
+      ansible_host: 172.16.135.134
+    VM18103:
+      ansible_host: 172.16.135.135
+    VM18104:
+      ansible_host: 172.16.135.136
+    VM18105:
+      ansible_host: 172.16.135.137
+    VM18106:
+      ansible_host: 172.16.135.138
+    VM18107:
+      ansible_host: 172.16.135.139
 vms_20:
   hosts:
     VM20000:
