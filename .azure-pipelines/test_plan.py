@@ -48,8 +48,8 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
-               output=None):
+    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name, repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")

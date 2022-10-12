@@ -55,7 +55,7 @@ steps:
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Lock testbed
-    timeoutInMinutes: 720
+    timeoutInMinutes: 240
 
   - script: |
       echo "Prepare testbed"
