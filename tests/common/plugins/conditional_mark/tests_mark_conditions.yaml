@@ -331,15 +331,6 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
       - "topo_name in ['m0']"
 
 #######################################
-#####           mvrf              #####
-#######################################
-mvrf:
-  skip:
-    reason: "M0 topo does not support mvrf"
-    conditions:
-      - "topo_name in ['m0']"
-
-#######################################
 #####            ip               #####
 #######################################
 ip/test_ip_packet.py:
@@ -373,11 +364,11 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'dualtor']"
+      - "topo_type not in ['t0', 'm0']"
   xfail:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
-      - "topo_type in ['dualtor']"
+      - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-buildimage/issues/12167
 
 ipfwd/test_mtu.py:
@@ -415,6 +406,15 @@ mpls/test_mpls.py:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
     conditions:
       - "asic_type in ['barefoot']"
+
+#######################################
+#####           mvrf              #####
+#######################################
+mvrf:
+  skip:
+    reason: "M0 topo does not support mvrf"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####           nat               #####
