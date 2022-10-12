@@ -139,7 +139,7 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 600
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
