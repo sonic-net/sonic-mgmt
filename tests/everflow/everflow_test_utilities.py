@@ -44,18 +44,10 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 
-@pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
+
+def gen_t1t0_setup_information(duthosts, rand_one_dut_hostname, tbinfo):
     """
-    Gather all required test information.
-
-    Args:
-        duthost: DUT fixture
-        tbinfo: tbinfo fixture
-
-    Returns:
-        dict: Required test information
-
+    Generate setup information dictionary for T0 and T1 topologies.
     """
     duthost = duthosts[rand_one_dut_hostname]
     topo = tbinfo['topo']['name']
@@ -77,7 +69,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     tor_ports_namespace = set()
     # { set of namespace spine ports belongs }
     spine_ports_namespace = set()
-
 
     # Gather test facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -186,7 +177,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                             out_port_exclude_list.append(lag_member)
 
                 out_port_ptf_id_list.append(ptf_port_id)
-    
+
     setup_information = {
         "router_mac": duthost.facts["router_mac"],
         "test_mirror_v4": test_mirror_v4,
@@ -258,7 +249,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         tor_dest_ports_ptf_id = []
         tor_dest_lag_name = []
         get_port_info(tor_ports, tor_dest_ports, tor_dest_ports_ptf_id, tor_dest_lag_name)
-        
+
         # Upstream traffic (T0 -> T1)
         spine_dest_ports = []
         spine_dest_ports_ptf_id = []
@@ -290,19 +281,209 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                 }
             }
         )
+    return setup_information
+
+
+def find_host_role(duthosts, role, tbinfo, hwsku=None):
+    """Find linecard connecting to T3 or T1 VMS."""
+    logging.info("Find host with role: %s, hwsku: %s", role, hwsku)
+    role_set = False
+
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
+            if namespace == '':
+                continue
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+                if hwsku is None:
+                    if role in neighbor["name"]:
+                        role_host = duthost
+                        role_set = True
+                else:
+                    if role in neighbor["name"] and duthost.facts['hwsku'] == hwsku:
+                        role_host = duthost
+                        role_set = True
+    return role_host
+
+
+def gen_t2_setup_information(duthosts, tbinfo):
+    """
+    Generate setup information dictionary for T2 topologies.
+    """
+    setup_information = {}
+
+    def find_role_ports(duthost, role):
+        """
+        Grab ports and portchannels for the T1 facing or T3 facing linecards.
+        """
+        role_interfaces = []
+        role_portids = []
+        role_pc_names = []
+        for asic in duthost.asics:
+            mg_facts = asic.get_extended_minigraph_facts(tbinfo)
+            pc_members = []
+            for pc in mg_facts["minigraph_portchannels"]:
+                pc_members.extend(mg_facts["minigraph_portchannels"][pc]['members'])
+
+            # Find routed ports on asic and add to interface list.
+            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if role in neighbor["name"]:
+                    if interface not in pc_members:
+                        if len(role_interfaces) >= 4:
+                            continue
+                        role_interfaces.append(interface)
+                        role_portids.append(str(port_id))
+                        role_pc_names.append("Not Applicable")
+
+            # Find portchannels on asic and add to interface list.
+            for pc in mg_facts['minigraph_portchannels']:
+                pc_member = mg_facts["minigraph_portchannels"][pc]['members'][0]
+                if len(role_interfaces) >= 4:
+                    break
+                role_interfaces.append(pc_member)
+                role_pc_names.append(pc)
+                portids = str(mg_facts["minigraph_ptf_indices"][pc_member])
+                for pc_member in mg_facts["minigraph_portchannels"][pc]['members'][1:]:
+                    portids += ",%s" % str(mg_facts["minigraph_ptf_indices"][pc_member])
+                role_portids.append(portids)
+
+        return {'interfaces': role_interfaces,
+                'portids': role_portids,
+                'mgfacts': duthost.get_extended_minigraph_facts(tbinfo),
+                'pc_names': role_pc_names}
+
+    t3_duthost = find_host_role(duthosts, "T3", tbinfo)
+    t1_duthost = find_host_role(duthosts, "T1", tbinfo, hwsku=t3_duthost.facts['hwsku'])
+
+    t3_info = find_role_ports(t3_duthost, "T3")
+    t1_info = find_role_ports(t1_duthost, "T1")
+
+    mg_facts = t3_duthost.get_extended_minigraph_facts(tbinfo)
+    acl_capability_facts = t3_duthost.acl_capabilities_facts()["ansible_facts"]
+
+    acl_capabilities = acl_capability_facts["acl_capabilities"]
+
+    test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
+    test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+    test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["EGRESS"]["action_list"]
+    test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in acl_capabilities["INGRESS"]["action_list"]
+
+    setup_information.update(
+        {
+            "topo": "t2",
+            "ingress": {
+                "ingress": test_ingress_mirror_on_ingress_acl,
+                "egress": test_egress_mirror_on_ingress_acl
+            },
+            "egress": {
+                "ingress": test_ingress_mirror_on_egress_acl,
+                "egress": test_egress_mirror_on_egress_acl
+            },
+            "port_index_map": {
+                k: v
+                for k, v in mg_facts["minigraph_ptf_indices"].items()
+                if k in mg_facts["minigraph_ports"]
+            },
+            "port_index_namespace_map": {},
+            DOWN_STREAM: {},
+            UP_STREAM: {},
+        }
+    )
+
+    setup_information['port_index_namespace_map'].update({v: mg_facts["minigraph_neighbors"][k]['namespace']
+                                                          for k, v in mg_facts["minigraph_ptf_indices"].items()
+                                                          if k in mg_facts["minigraph_ports"]})
+    t1_mg_facts = t1_duthost.get_extended_minigraph_facts(tbinfo)
+    setup_information['port_index_namespace_map'].update({v: t1_mg_facts["minigraph_neighbors"][k]['namespace']
+                                                          for k, v in t1_mg_facts["minigraph_ptf_indices"].items()
+                                                          if k in t1_mg_facts["minigraph_ports"]})
+    setup_information['intf_to_namespace_map'] = {k: mg_facts["minigraph_neighbors"][k]['namespace']
+                                                  for k, v in mg_facts["minigraph_ptf_indices"].items()
+                                                  if k in mg_facts["minigraph_ports"]}
+    setup_information['intf_to_namespace_map'].update({k: t1_mg_facts["minigraph_neighbors"][k]['namespace']
+                                                       for k, v in t1_mg_facts["minigraph_ptf_indices"].items()
+                                                       if k in t1_mg_facts["minigraph_ports"]})
+
+    downstream_block = {
+        'everflow_dut': t3_duthost,
+        'remote_dut': t1_duthost,
+        "router_mac": t3_duthost.facts["router_mac"],
+        "src_port": t3_info['interfaces'][0],
+        "src_port_lag_name": t3_info['pc_names'][0],
+        "src_port_ptf_id": str(t3_info['mgfacts']["minigraph_ptf_indices"][t3_info['interfaces'][0]]),
+        "dest_port": t1_info['interfaces'],
+        "dest_port_ptf_id": t1_info['portids'],
+        "dest_port_lag_name": t1_info['pc_names'],
+    }
+    upstream_block = {
+        'everflow_dut': t1_duthost,
+        'remote_dut': t3_duthost,
+        "router_mac": t1_duthost.facts["router_mac"],
+        "src_port": t1_info['interfaces'][-1],
+        "src_port_lag_name": t1_info['pc_names'][-1],
+        "src_port_ptf_id": str(t1_info['mgfacts']["minigraph_ptf_indices"][t1_info['interfaces'][0]]),
+        "dest_port": list(reversed(t3_info['interfaces'])),
+        "dest_port_ptf_id": list(reversed(t3_info['portids'])),
+        "dest_port_lag_name": list(reversed(t3_info['pc_names'])),
+    }
+    setup_information[UP_STREAM].update(upstream_block)
+    setup_information[DOWN_STREAM].update(downstream_block)
+
+    return setup_information
+
+
+@pytest.fixture(scope="module")
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
+    """
+    Gather all required test information.
+
+    Args:
+        duthost: DUT fixture
+        tbinfo: tbinfo fixture
+
+    Returns:
+        dict: Required test information
+
+    """
+    topo = tbinfo['topo']['name']
+    if 't1' in topo or 't0' in topo:
+        setup_information = gen_t1t0_setup_information(duthosts, rand_one_dut_hostname, tbinfo)
+        duthost = duthosts[rand_one_dut_hostname]
+
+    if 't2' in topo:
+        setup_information = gen_t2_setup_information(duthosts, tbinfo)
 
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
-    duthost.command("sudo config bgp shutdown all")
+
+    if 't2' in topo:
+        for duthost in duthosts.frontend_nodes:
+            duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+            duthost.command("sudo config bgp shutdown all")
+    else:
+        duthost.command("sudo config bgp shutdown all")
+        duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+
     time.sleep(60)
-    duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
 
     yield setup_information
 
     # Enable BGP again
-    duthost.command("sudo config bgp startup all")
+    if 't2' in topo:
+        for duthost in duthosts.frontend_nodes:
+            duthost.command("sudo config bgp startup all")
+            duthost.command("rm -rf {}".format(DUT_RUN_DIR))
+    else:
+        duthost.command("sudo config bgp startup all")
+        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
     time.sleep(60)
-    duthost.command("rm -rf {}".format(DUT_RUN_DIR))
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -333,6 +514,7 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
     """
     duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"no ip route {} {}\"".format(prefix, nexthop), namespace))
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_arp_responder(duthost, ptfhost, setup_info):
@@ -376,7 +558,7 @@ def setup_arp_responder(duthost, ptfhost, setup_info):
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
-def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
+def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True, ipver=4):
     """
     Get the IP and MAC of the neighbor on the specified destination port.
 
@@ -391,7 +573,7 @@ def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
-        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == ipver:
             peer_ip = bgp_peer["addr"]
             break
 
@@ -408,6 +590,25 @@ def load_acl_rules_config(table_name, rules_file):
     return rules_config
 
 
+def get_intf_namespace(setup_info, dest_port_type, port):
+    """
+    Return the namespace of a port via the namespace table if present in the setup_info structure or via
+    the namespace key in the T0/T1 dictionary.
+    
+    Args:
+        setup_info: The setup_info fixture.
+        dest_port_type: UPSTREAM or DOWNSTREAM.
+        port: The name of the port to lookup (Ethernet8)
+    
+    Returns:
+        namespace as a string.
+    """
+    if 'intf_to_namespace_map' in setup_info:
+        return setup_info['intf_to_namespace_map'][port]
+    else:
+        return setup_info[dest_port_type]['namespace']
+
+
 class BaseEverflowTest(object):
     """
     Base class for setting up a set of Everflow tests.
@@ -422,7 +623,7 @@ class BaseEverflowTest(object):
         """
         if 'dualtor' in tbinfo['topo']['name']:
             pytest.skip("Dualtor testbed is not supported yet")
-        
+
         self.is_t0 = False
         if 't0' in tbinfo['topo']['name']:
             self.is_t0 = True
@@ -440,7 +641,7 @@ class BaseEverflowTest(object):
         return request.param
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
+    def setup_mirror_session(self, duthosts, rand_one_dut_hostname, config_method, setup_info):
         """
         Set up a mirror session for Everflow.
 
@@ -450,17 +651,24 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
+        if setup_info['topo'] == 't2':
+            duthost_list = [setup_info[DOWN_STREAM]['everflow_dut']]
+            if setup_info[UP_STREAM]['everflow_dut'] != setup_info[DOWN_STREAM]['everflow_dut']:
+                duthost_list.append(setup_info[UP_STREAM]['everflow_dut'])
+        else:
+            duthost_list = [duthosts[rand_one_dut_hostname]]
 
-        BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method)
+        for duthost in duthost_list:
+            session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method)
 
         yield session_info
 
-        BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
+        for duthost in duthost_list:
+            BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, duthosts, rand_one_dut_hostname, config_method):
+    def policer_mirror_session(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_method, setup_info):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -470,7 +678,15 @@ class BaseEverflowTest(object):
         Yields:
             dict: Information about the mirror session configuration.
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        vendor = duthost.facts["asic_type"]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        # relocated because of sonic-buildimage issue #11826, leaving skip logic in testcase causes
+        # this fixture to run causing crash.
+        for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
+            vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+            if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
+                pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms".format(vendor, asic))
         policer = "TEST_POLICER"
 
         # Create a policer that allows 100 packets/sec through
@@ -545,7 +761,12 @@ class BaseEverflowTest(object):
             setup_info: Fixture with info about the testbed setup
             setup_mirror_session: Fixtue with info about the mirror session
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if setup_info['topo'] == 't2':
+            duthost_list = [setup_info[DOWN_STREAM]['everflow_dut']]
+            if setup_info[UP_STREAM]['everflow_dut'] != setup_info[DOWN_STREAM]['everflow_dut']:
+                duthost_list.append(setup_info[UP_STREAM]['everflow_dut'])
+        else:
+            duthost_list = [duthosts[rand_one_dut_hostname]]
         if not setup_info[self.acl_stage()][self.mirror_type()]:
             pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
@@ -553,17 +774,22 @@ class BaseEverflowTest(object):
         table_name = "EVERFLOW" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESS"
 
         # NOTE: We currently assume that the ingress MIRROR tables already exist.
-        if self.acl_stage() == "egress":
-            self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method)
+        for duthost in duthost_list:
+            if self.acl_stage() == "egress":
+                inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
+                for inst in inst_list:
+                    self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method, bind_namespace=getattr(inst, 'namespace', None))
 
-        self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
+            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
 
         yield
 
-        BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
-
-        if self.acl_stage() == "egress":
-            self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method)
+        for duthost in duthost_list:
+            BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
+            if self.acl_stage() == "egress":
+                inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
+                for inst in inst_list:
+                    self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method, bind_namespace=getattr(inst, 'namespace', None))
 
     def apply_acl_table_config(self, duthost, table_name, table_type, config_method, bind_ports_list=None, bind_namespace=None):
         if config_method == CONFIG_MODE_CLI:
@@ -619,7 +845,6 @@ class BaseEverflowTest(object):
             pass
 
         duthost.command(command)
-        time.sleep(2)
 
     @staticmethod
     def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI):
@@ -660,48 +885,64 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True,
-                                      valid_across_namespace=True):
+                                      valid_across_namespace=True,
+                                      gre_pkt_src_mac=None,
+                                      gre_pkt_dst_mac=None,
+                                      egress_mirror_src_mac=None):
         if not src_port:
             src_port = self._get_random_src_port(setup)
 
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
 
+        if gre_pkt_src_mac is None:
+            gre_pkt_src_mac = setup['router_mac']
+        if egress_mirror_src_mac is None:
+            egress_mirror_src_mac = setup['router_mac']
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
         # namespace are different then traffic mirror will go across namespace via (backend asic)
         # else via same namespace(asic)
 
         src_port_namespace = self._get_port_namespace(setup, int(src_port))
-        dest_ports_namespace = self._get_port_namespace(setup,int (dest_ports[0]))
+        dest_ports_namespace = self._get_port_namespace(setup, int(dest_ports[0]))
 
-        src_port_set =  set()
+        src_port_set = set()
 
-        # Some of test scenario are not valid across namespaces so test will explicltly pass
-        # valid_across_namespace as False (default is True)
-        if valid_across_namespace == True or src_port_namespace == dest_ports_namespace:
+        if 't2' in setup['topo']:
+            # dest ports are on another card, so can't quite do this namespace logic like on T1.
             src_port_set.add(src_port)
+        else:
+            # Some of test scenario are not valid across namespaces so test will explicltly pass
+            # valid_across_namespace as False (default is True)
+            if valid_across_namespace is True or src_port_namespace == dest_ports_namespace:
+                src_port_set.add(src_port)
 
-        # To verify same namespace mirroring we will add destination port also to the Source Port Set
-        if src_port_namespace != dest_ports_namespace:
-            src_port_set.add(dest_ports[0])
+            # To verify same namespace mirroring we will add destination port also to the Source Port Set
+            if src_port_namespace != dest_ports_namespace:
+                src_port_set.add(dest_ports[0])
 
         expected_mirror_packet_with_ttl = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
-                                                                  setup,
-                                                                  duthost,
-                                                                  mirror_packet,
-                                                                  True)
+                                                                                      setup,
+                                                                                      duthost,
+                                                                                      mirror_packet,
+                                                                                      True,
+                                                                                      router_mac=gre_pkt_src_mac)
         expected_mirror_packet_without_ttl = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
-                                                                  setup,
-                                                                  duthost,
-                                                                  mirror_packet,
-                                                                  False)
-
+                                                                                         setup,
+                                                                                         duthost,
+                                                                                         mirror_packet,
+                                                                                         False,
+                                                                                         router_mac=gre_pkt_src_mac)
 
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
             expected_mirror_packet = expected_mirror_packet_with_ttl \
-                                     if self._get_port_namespace(setup, int(src_port)) == dest_ports_namespace else expected_mirror_packet_without_ttl
+                if self._get_port_namespace(setup, int(src_port)) == dest_ports_namespace else expected_mirror_packet_without_ttl
+
+            if 't2' in setup['topo']:
+                # T2 with recycle port means ttl will get changed depending on route through the chassis.
+                expected_mirror_packet = expected_mirror_packet_without_ttl
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet)
 
@@ -714,6 +955,9 @@ class BaseEverflowTest(object):
                 )
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
+                if gre_pkt_dst_mac is not None:
+                    pytest_assert(packet.Ether(received_packet)[packet.Ether].dst == gre_pkt_dst_mac,
+                                  "Mirror destination MAC does not match neighbor MAC")
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet))
                 logging.info("Received inner packet: %s", inner_packet.summary())
 
@@ -729,11 +973,13 @@ class BaseEverflowTest(object):
                 # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
                 # mask off the DMAC and IP Checksum to verify the packet contents.
                 if self.mirror_type() == "egress":
-                    mirror_packet[packet.IP].ttl -= 1
-                    mirror_packet[packet.Ether].src = setup["router_mac"]
-
-                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                    if packet.IPv6 in mirror_packet:
+                        mirror_packet[packet.IPv6].hlim -= 1
+                    else:
+                        mirror_packet[packet.IP].ttl -= 1
                     inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                    mirror_packet[packet.Ether].src = egress_mirror_src_mac
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
 
                 logging.info("Expected inner packet: %s", mirror_packet.summary())
                 pytest_assert(inner_packet.pkt_match(mirror_packet), "Mirror payload does not match received packet")
@@ -741,18 +987,20 @@ class BaseEverflowTest(object):
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
     @staticmethod
-    def get_expected_mirror_packet(mirror_session, setup, duthost, mirror_packet, check_ttl):
+    def get_expected_mirror_packet(mirror_session, setup, duthost, mirror_packet, check_ttl, router_mac=None):
         payload = mirror_packet.copy()
+        if router_mac is None:
+            router_mac = setup["router_mac"]
 
         # Add vendor specific padding to the packet
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000" , "innovium"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium", "broadcom"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
-            eth_src=setup["router_mac"],
+            eth_src=router_mac,
             ip_src=mirror_session["session_src_ip"],
             ip_dst=mirror_session["session_dst_ip"],
             ip_dscp=int(mirror_session["session_dscp"]),
@@ -769,7 +1017,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        if duthost.facts["asic_type"] in ["cisco-8000","innovium"]:
+        if duthost.facts["asic_type"] in ["cisco-8000", "innovium", "broadcom"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if not check_ttl:
             expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
@@ -803,7 +1051,6 @@ class BaseEverflowTest(object):
             session_gre = 0x22EB
         else:
             session_gre = 0x88BE
-
         session_prefix_lens = ["24", "32"]
         session_prefixes = []
         for prefix_len in session_prefix_lens:
@@ -819,15 +1066,14 @@ class BaseEverflowTest(object):
             "session_prefixes": session_prefixes
         }
 
-    def _get_port_namespace(self,setup, port):
+    def _get_port_namespace(self, setup, port):
         return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
         return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
 
-    def _get_monitor_port(self, setup, mirror_session, duthost):
+    def _get_monitor_port_string(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
-        logging.info("Running mirror session configuration:\n%s", mirror_output["stdout"])
 
         pytest_assert(mirror_session["session_name"] in mirror_output["stdout"],
                       "Test mirror session {} not found".format(mirror_session["session_name"]))
@@ -845,6 +1091,28 @@ class BaseEverflowTest(object):
         pytest_assert(0 < len(session))
 
         monitor_port = session[0]["Monitor Port"]
+        return monitor_port, mirror_output
+
+    def get_monitor_port_info(self, setup, mirror_session, duthost):
+        """
+        Get the current monitor port information from show mirror_session.
+
+        Args:
+            setup: Fixture with setup_info about the testbed setup
+            mirror_session: setup_mirror_session fixture with info about the mirror session configured.
+            duthost: DUT fixture to run show command on.
+
+        Returns:
+            dict with asic name as keys and monitor port as value.
+        """
+        monitor_port_str, mirror_out = self._get_monitor_port_string(setup, mirror_session, duthost)
+        if monitor_port_str.startswith("{"):
+            return json.loads(monitor_port_str.replace("'", "\""))
+        else:
+            return {'asic0': monitor_port_str}
+
+    def _get_monitor_port(self, setup, mirror_session, duthost):
+        monitor_port, mirror_output = self._get_monitor_port_string(setup, mirror_session, duthost)
 
         pytest_assert(monitor_port in setup["port_index_map"],
                       "Invalid monitor port:\n{}".format(mirror_output["stdout"]))
