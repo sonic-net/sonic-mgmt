@@ -1,7 +1,7 @@
 """
 On SONiC device reboot, tests the link down on fanout switches
 This test supports different platforms including:
-    1. chassis
+    1. chassis:       
     2. single-asic dut
     3. multi-asic dut
 """
@@ -11,11 +11,12 @@ import pytest
 import random
 
 import tests.platform_tests.link_flap.link_flap_utils
-
+from multiprocessing.pool import ThreadPool, TimeoutError
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ pytestmark = [
 ]
 
 MAX_TIME_TO_REBOOT = 120
-
+# SSH defines
+SONIC_SSH_PORT  = 22
+SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 def multi_duts_and_ports(duthosts):
     """
@@ -69,17 +72,15 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             # some ports on dut may not have link to fanout
             if fanout is None and fanout_port is None:
-                logger.info("Interface {} on duthost {} doesn't link to any fanout switch".format(fanout_port, fanout.hostname, port, duthost.hostname))
+                logger.info("Interface {} on duthost {} doesn't link to any fanout switch".format(port, duthost.hostname))
                 continue
-            logger.info("Interface {} on fanout {} map to interface {} on duthost {}".format(fanout_port, fanout.hostname, port, duthost.hostname))
+            logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}".format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
             if fanout in fanout_and_ports.keys():
                 fanout_and_ports[fanout].append(fanout_port)
             else:
                 fanout_and_ports[fanout] = [fanout_port]
     return fanout_and_ports
-
-def reboot_duthost(duthost):
-    duthost.command("reboot")
+    
 
 def is_link_down(fanout, port):
     """
@@ -88,22 +89,25 @@ def is_link_down(fanout, port):
     logger.info("Checking interface {} status on fanout host {}".format(port, fanout.hostname))
     return fanout.is_intf_status_down(port)
 
-def link_down_on_host(duthost, fanouts_and_ports):
-    for fanout in fanouts_and_ports.keys():
-        for fanout_port in fanouts_and_ports[fanout]:
+def link_down_on_host(duthost, localhost, fanouts_and_ports):
+    for fanout, ports in fanouts_and_ports.items():
+        for fanout_port in ports:
+            # Note that there is case that fanout host not working: svcstr-7260cx3-acs-2 (not working to be RMA'ed)
+            # In that case the following assert will be thrown too.
+
             # Check every interfaces are down on this host every 5 sec until device boots up
             pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, fanout_port),
-                    "Interface {} on {} is still up after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
+                         "Interface {} on {} is still up after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
         logger.info("All interfaces on {} are down".format(fanout.hostname))
     return True
 
-def links_down_on_all_LC(duthosts, fanouts_and_ports):
+def links_down_on_all_LC(duthosts, localhost, fanouts_and_ports):
     """
     Return:
         True: all links on all LCs are down
     """
     for LC in duthosts.frontend_nodes:
-        link_down_on_host(LC, fanouts_and_ports)
+        link_down_on_host(LC, localhost, fanouts_and_ports)
     logger.info("All interfaces on all linecards are down!")
     return True    
 
@@ -111,7 +115,27 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
 
-def test_link_down_on_sup_reboot(duthosts, enum_supervisor_dut_hostname, 
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh = True):
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
+    logger.info('waiting for ssh to drop on {}'.format(hostname))
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='absent',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=delay,
+                             timeout=timeout,
+                             module_ignore_errors=True)
+
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        if reboot_res.ready():
+            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
+        raise Exception('DUT {} did not shutdown'.format(hostname))
+
+    if not wait_for_ssh:
+        return
+
+def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                 conn_graph_facts, duts_running_config_facts, 
                                 fanouthosts, tbinfo, xcvr_skip_list):
     if len(duthosts.nodes) == 1:
@@ -123,44 +147,64 @@ def test_link_down_on_sup_reboot(duthosts, enum_supervisor_dut_hostname,
         pytest.skip("Skip for non-t2 supervisor card")
    
     # Before test, check all interfaces and services are up on all linecards
-    check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
+    #check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
     
     duts_and_ports = multi_duts_and_ports(duthosts)
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, duts_and_ports)
+    
     # Reboot RP should reboot both RP&LC, should detect all links on all linecards go down
     logger.info("Rebooting RP {} and checking all linecards' interfaces".format(sup.hostname))
 
-    reboot_duthost(sup)
+    hostname = sup.hostname
+    pool = ThreadPool()
+    
+    def execute_reboot_command():
+        return duthost.command("reboot")
+
+    dut_datetime = sup.get_now_time()
+    reboot_res = pool.apply_async(execute_reboot_command)
+    wait_for_shutdown(duthost, localhost, 0, MAX_TIME_TO_REBOOT, reboot_res, True)
+
     # RP doesn't have any interfaces, check all LCs' interfaces
-    links_down_on_all_LC(duthosts, fanouts_and_ports)
+    links_down_on_all_LC(duthosts, localhost, fanouts_and_ports)
 
-    # After test, ensure all interfaces and services are up on all linecards before jumping to next test
-    # Note that test might issue 'ERROR: AnsibleConnectionFailure: Host unreachable' 
-    # if dut hasn't booted up yet, but it's alright because there will be retry
-    check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
+    time.sleep(MAX_TIME_TO_REBOOT)
+
+    logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
+    dut_uptime = sup.get_up_time()
+    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
-def test_link_down_on_host_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
+def test_link_down_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, 
                                  duts_running_config_facts, conn_graph_facts, 
                                  fanouthosts, xcvr_skip_list, tbinfo):
-    
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
    
     # Before test, check all interfaces and services are up
     check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
-
+    
     dut_ports = single_dut_and_ports(duthost)
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
 
     # Reboot dut, we should detect this host's fanout switches have all links down
-    # Note that there is case if image has issue that cause 'monit status' to fail, reboot will hang
     logger.info("Rebooting duthost {} and checking its interfaces".format(duthost.hostname))
-    reboot_duthost(duthost)
 
-    link_down_on_host(duthost, fanouts_and_ports)
+    hostname = duthost.hostname
 
-    # After test, ensure all interfaces and services are up
-    # Note that test might issue 'ERROR: AnsibleConnectionFailure: Host unreachable' 
-    # if dut hasn't booted up yet, but it's alright because there will be retry
-    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
+    pool = ThreadPool()
+    def execute_reboot_command():
+        return duthost.command("reboot")
+    dut_datetime = duthost.get_now_time()
+    reboot_res = pool.apply_async(execute_reboot_command)
+    wait_for_shutdown(duthost, localhost, 0, MAX_TIME_TO_REBOOT, reboot_res, True)
 
+    link_down_on_host(duthost, localhost, fanouts_and_ports)
+
+    time.sleep(MAX_TIME_TO_REBOOT)
+
+    logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
+
+    dut_uptime = duthost.get_up_time()
+    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(duthost.hostname)
