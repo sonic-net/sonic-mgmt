@@ -39,6 +39,12 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "'t1' not in topo_type"
 
+bgp/test_bgp_gr_helper.py:
+  skip:
+    reason: "BGP Graceful restart not enabled on T2"
+    conditions:
+      - "'t2' in topo_name"
+
 bgp/test_bgp_multipath_relax.py:
   skip:
     reason: "Not supported topology backend."
@@ -69,6 +75,7 @@ bgp/test_bgpmon.py:
     reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
+
 
 #######################################
 #####            cacl             #####
