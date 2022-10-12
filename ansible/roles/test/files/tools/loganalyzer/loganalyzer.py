@@ -21,8 +21,9 @@ Usage:          Examples of how to use log analyzer
 
 # ---------------------------------------------------------------------
 # Global imports
-# ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
+from __future__ import print_function
 import sys
 import getopt
 import re
@@ -110,7 +111,7 @@ class AnsibleLogAnalyzer:
         if (not self.verbose):
             return
 
-        print(('[LogAnalyzer][diagnostic]:%s' % message))
+        print('[LogAnalyzer][diagnostic]:%s' % message)
     # ---------------------------------------------------------------------
 
     def create_start_marker(self):
@@ -220,27 +221,28 @@ class AnsibleLogAnalyzer:
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
         while wait_time <= timeout:
-            # look for marker in syslog file
-            if os.path.exists(syslog_file):
-                with open(syslog_file, 'r') as fp:
-                    # resume from last search position
-                    if last_check_pos:
-                        fp.seek(last_check_pos)
-                    # check if marker in the file
-                    for logs in fp:
-                        if marker in logs:
-                            return True
-                    # record last search position
-                    last_check_pos = fp.tell()
-
-            # logs might get rotated while waiting for marker
-            # look for marker in syslog.1 file
-            if os.path.exists(prev_syslog_file):
-                with open(prev_syslog_file, 'r') as pfp:
-                    # check if marker in the file
-                    for logs in pfp:
-                        if marker in logs:
-                            return True
+            with open(syslog_file, 'r') as fp:
+                dt = os.path.getctime(syslog_file)
+                if last_dt != dt:
+                    try:
+                        with open(prev_syslog_file, 'r') as pfp:
+                            pfp.seek(last_check_pos)
+                            for l in fp:
+                                if marker in l:
+                                    return True
+                    except FileNotFoundError:
+                        print("cannot find file {}".format(prev_syslog_file))
+                    last_check_pos = 0
+                    last_dt = dt
+                # resume from last search position
+                if last_check_pos:
+                    fp.seek(last_check_pos)
+                # check if marker in the file
+                for l in fp:
+                    if marker in l:
+                        return True
+                # record last search position
+                last_check_pos = fp.tell()
             time.sleep(polling_interval)
             wait_time += polling_interval
 
@@ -287,10 +289,8 @@ class AnsibleLogAnalyzer:
             # -- Replaces a digit number with the digit regular expression
             error_string = re.sub(r"\b\d+\b", "\\\\d+", error_string)
             # -- Replaces a hex number with the hex regular expression
-            error_string = re.sub(
-                r"0x[0-9a-fA-F]+", "0x[0-9a-fA-F]+", error_string)
-            self.print_diagnostic_message(
-                'Built error string: %s' % error_string)
+            error_string = re.sub(r"0x[0-9a-fA-F]+", "0x[0-9a-fA-F]+", error_string)
+            self.print_diagnostic_message('Built error string: %s' % error_string)
 
         # -- If given a list, concatenate into one regx --#
         else:
@@ -323,8 +323,7 @@ class AnsibleLogAnalyzer:
 
                 for index, row in enumerate(csvreader):
                     row = [item for item in row if item != ""]
-                    self.print_diagnostic_message(
-                        '[diagnostic]:processing row:%d' % index)
+                    self.print_diagnostic_message('[diagnostic]:processing row:%d' % index)
                     self.print_diagnostic_message('row:%s' % row)
                     try:
                         # -- Ignore Empty Lines
@@ -767,10 +766,8 @@ def main(argv):
     verbose = False
 
     try:
-        opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh",
-                                   ["action=", "run_id=", "start_marker=", "logs=",
-                                    "out_dir=", "match_files_in=", "ignore_files_in=",
-                                    "expect_files_in=", "verbose", "help"])
+        opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh", [
+                                   "action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
         print("Invalid option specified")
