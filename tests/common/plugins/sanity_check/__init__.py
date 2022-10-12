@@ -11,7 +11,6 @@ from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *
 from tests.common.plugins.sanity_check.recover import recover
-from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
@@ -110,6 +109,11 @@ def do_checks(request, check_items, *args, **kwargs):
 
 @pytest.fixture(scope="module", autouse=True)
 def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+    if request.config.option.skip_sanity:
+        logger.info("Skip sanity check according to command line argument")
+        yield
+        return
+
     logger.info("Prepare sanity check")
 
     skip_sanity = False
@@ -144,16 +148,15 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
         post_check = customized_sanity_check.kwargs.get("post_check", False)
 
-    if request.config.option.skip_sanity:
-        skip_sanity = True
     if skip_sanity:
-        logger.info("Skip sanity check according to command line argument or configuration of test script.")
+        logger.info("Skip sanity check according to configuration of test script.")
         yield
         return
 
     if request.config.option.allow_recover:
         allow_recover = True
 
+    # Command line specified recover method has higher priority
     if request.config.option.recover_method:
         recover_method = request.config.getoption("--recover_method")
 
@@ -223,29 +226,36 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"\
                     .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                dut_failed_results = defaultdict(list)
-                infra_recovery_actions= []
-                for failed_result in failed_results:
-                    if 'host' in failed_result:
-                        dut_failed_results[failed_result['host']].append(failed_result)
-                    if 'hosts' in failed_result:
-                        for hostname in failed_result['hosts']:
-                            dut_failed_results[hostname].append(failed_result)
-                    if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
-                        if 'action' in failed_result and failed_result['action'] is not None \
-                            and callable(failed_result['action']):
-                            infra_recovery_actions.append(failed_result['action'])
-                for dut_name, dut_results in dut_failed_results.items():
-                    # Attempt to restore DUT state
-                    recover(duthosts[dut_name], localhost, fanouthosts, dut_results, recover_method)
-                    # Attempt to restore neighbor VM state
-                    neighbor_vm_restore(duthosts[dut_name], nbrhosts, tbinfo)
-                for action in infra_recovery_actions:
-                    action()
+                try:
+                    dut_failed_results = defaultdict(list)
+                    infra_recovery_actions= []
+                    for failed_result in failed_results:
+                        if 'host' in failed_result:
+                            dut_failed_results[failed_result['host']].append(failed_result)
+                        if 'hosts' in failed_result:
+                            for hostname in failed_result['hosts']:
+                                dut_failed_results[hostname].append(failed_result)
+                        if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
+                            if 'action' in failed_result and failed_result['action'] is not None \
+                                and callable(failed_result['action']):
+                                infra_recovery_actions.append(failed_result['action'])
+                    for dut_name, dut_results in dut_failed_results.items():
+                        # Attempt to restore DUT state
+                        recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results, recover_method)
+                    for action in infra_recovery_actions:
+                        action()
 
-                if enable_macsec:
-                    start_macsec_service()
-                    startup_macsec()
+                    if enable_macsec:
+                        start_macsec_service()
+                        startup_macsec()
+                except Exception as e:
+                    request.config.cache.set("sanity_check_failed", True)
+                    logger.error("Recovery of sanity check failed with exception: ")
+                    pt_assert(
+                        False,
+                        "!!!!!!!!!!!!!!!! Recovery of sanity check failed !!!!!!!!!!!!!!!!"
+                        "Exception: {}".format(repr(e))
+                    )
 
                 logger.info("Run sanity check again after recovery")
                 new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)
