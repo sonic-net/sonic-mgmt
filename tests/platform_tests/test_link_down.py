@@ -6,12 +6,11 @@ This test supports different platforms including:
     3. multi-asic dut
 """
 import logging
-
+import time
 import pytest
-import random
 
 import tests.platform_tests.link_flap.link_flap_utils
-from multiprocessing.pool import ThreadPool, TimeoutError
+from multiprocessing.pool import ThreadPool
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
@@ -72,9 +71,11 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             # some ports on dut may not have link to fanout
             if fanout is None and fanout_port is None:
-                logger.info("Interface {} on duthost {} doesn't link to any fanout switch".format(port, duthost.hostname))
+                logger.info("Interface {} on duthost {} doesn't link to any fanout switch"
+                            .format(port, duthost.hostname))
                 continue
-            logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}".format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
+            logger.info("Interface {} on fanout {} ({}) map to interface {} on duthost {}"
+                        .format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
             if fanout in fanout_and_ports.keys():
                 fanout_and_ports[fanout].append(fanout_port)
             else:
@@ -141,27 +142,27 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
         
-    sup = duthosts[enum_supervisor_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     if 't2' not in tbinfo['topo']['name']:
         pytest.skip("Skip for non-t2 supervisor card")
    
     # Before test, check all interfaces and services are up on all linecards
-    #check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
+    check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
     
     duts_and_ports = multi_duts_and_ports(duthosts)
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, duts_and_ports)
     
     # Reboot RP should reboot both RP&LC, should detect all links on all linecards go down
-    logger.info("Rebooting RP {} and checking all linecards' interfaces".format(sup.hostname))
+    logger.info("Rebooting RP {} and checking all linecards' interfaces".format(duthost.hostname))
 
-    hostname = sup.hostname
+    hostname = duthost.hostname
     pool = ThreadPool()
     
     def execute_reboot_command():
         return duthost.command("reboot")
 
-    dut_datetime = sup.get_now_time()
+    dut_datetime = duthost.get_now_time()
     reboot_res = pool.apply_async(execute_reboot_command)
     wait_for_shutdown(duthost, localhost, 0, MAX_TIME_TO_REBOOT, reboot_res, True)
 
@@ -171,7 +172,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     time.sleep(MAX_TIME_TO_REBOOT)
 
     logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
-    dut_uptime = sup.get_up_time()
+    dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
