@@ -75,25 +75,29 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_model:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_serial:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_base_mac:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####   api/test_chassis_fans.py  #####
@@ -145,43 +149,50 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_presence:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_status:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####    api/test_component.py    #####
@@ -303,14 +314,15 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_presence:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
-
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 ##### api/test_fan_drawer_fans.py #####
@@ -356,37 +368,43 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_status:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_presence:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_direction:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_target_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 ##### api/test_module.py #####
@@ -422,7 +440,9 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or 'Celestica-DX010-C32' in hwsku"
+      - "asic_type in ['mellanox']"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
@@ -434,7 +454,9 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0'] or 'Celestica-DX010-C32' in hwsku"
+      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
  
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
@@ -446,7 +468,8 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_presence:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6512 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####    api/test_psu_fans.py     #####
@@ -473,7 +496,9 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
   skip:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or 'Celestica-DX010-C32' in hwsku"
+      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
   skip:
@@ -485,7 +510,8 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
   skip:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6518 and 'Celestica-DX010-C32' in hwsku"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 #######################################
 #####        api/test_sfp.py      #####
