@@ -48,8 +48,8 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
-               output=None):
+    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name, repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
@@ -140,7 +140,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_state=""):
+    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -190,7 +190,7 @@ class TestPlanManager(object):
                 else:
                     raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
                                     .format(test_plan_id, status, result, time.time() - start_time))
-            elif status == expected_state:
+            elif status in expected_states:
                 return
             else:
                 print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds" \
@@ -287,12 +287,12 @@ if __name__ == "__main__":
         )
 
     parser_poll.add_argument(
-        "-e", "--expected-state",
+        "-e", "--expected-states",
         type=str,
-        dest="expected_state",
+        dest="expected_states",
         required=False,
+        nargs='*',
         help="Expected state.",
-        choices = ["PREPARE_TESTBED", "EXECUTING", "FINISHED"],
         default="FINISHED"
     )
     parser_poll.add_argument(
@@ -373,7 +373,7 @@ if __name__ == "__main__":
                 output=args.output
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
