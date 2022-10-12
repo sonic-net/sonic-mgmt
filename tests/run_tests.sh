@@ -331,7 +331,7 @@ function run_individual_tests()
         done
         if [ ${USE_PY3} == 1 ]; then
             echo Activate Python3 venv
-            source /var/shiyanwang/env-python3/bin/activate
+            source /var/AzDevOps/env-python3/bin/activate
         fi
             pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
             ret_code=$?
