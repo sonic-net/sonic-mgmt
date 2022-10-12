@@ -163,7 +163,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
-        assert "*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)
+        assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or ("*:*" in output, "dhcp6relay socket is not properly binded")
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """ Test DHCPv6 Counter """
