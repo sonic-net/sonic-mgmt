@@ -134,7 +134,7 @@ r, ".* ERR swss#orchagent.*handleSaiSetStatus: Encountered failure in set operat
 r, ".* ERR swss#orchagent.*meta_generic_validation_get.*object key.*doesn't exist.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233556
-r, ".* ERR swss#orchagent.*removeLag.*Failed to remove ref count.*"
+r, ".* ERR swss.*#orchagent.*removeLag.*Failed to remove ref count.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233557
 r, ".* ERR swss#orchagent.*set status.*SAI_STATUS_.*"
