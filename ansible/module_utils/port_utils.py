@@ -227,7 +227,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku in ["Nokia-IXR7250E-36x400G", "Nokia-IXR7250E-36x100G"]:
+        elif hwsku == "Nokia-IXR7250E-36x400G" or hwsku == "Nokia-IXR7250E-36x100G":
             for i in range(0, 36):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == 'Nokia-IXR7250E-SUP-10':
@@ -243,7 +243,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Cisco-8102-C64":
             for i in range(0, 64):
-                port_alias_to_name_map["etp%d" % (i + 1)] = "Ethernet%d" % (i * 4)
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
         elif hwsku in ["8800-LC-48H-O", "88-LC0-36FH-MO"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i

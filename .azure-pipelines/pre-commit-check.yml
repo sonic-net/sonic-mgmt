@@ -1,0 +1,69 @@
+parameters:
+- name: github_conn
+  type: string
+  default: 'sonic-net'
+
+steps:
+- script: |
+    username=$(id -un)
+    sudo chown -R ${username}.${username} .
+  displayName: 'Cleanup'
+
+- checkout: self
+  clean: true
+  displayName: 'checkout sonic-mgmt repo'
+
+- script: |
+    sudo pip install pre-commit
+    pre-commit install-hooks
+  displayName: 'Prepare pre-commit check'
+
+- script: |
+    out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
+    RC=$?
+
+    echo "Pre-commit check results:"
+    echo "$out"
+
+    br='<br/>'
+    results=`echo "$out" |  while read line; do echo $line$br; done | tr -d '\n'`
+    echo "##vso[task.setvariable variable=results;]$results"
+
+    exit $RC
+  displayName: 'Run pre-commit check'
+
+- task: GitHubComment@0
+  inputs:
+    gitHubConnection: ${{ parameters.github_conn }}
+    repositoryName: $(Build.Repository.Name)
+    id:
+    comment: |
+      The [pre-commit](http://pre-commit.com/) check detected issues in the files touched by this pull request.
+      The detected issues may be old or new. For new issues, please try to fix them.
+
+      For old issues, it is not mandatory to fix them because they were not caused by this change. It is unfair to blame
+      author of this pull request. But if you can take extra effort to fix the old issues as well, that would be great!
+
+      Detailed pre-commit check results:
+      <samp>$(results)</samp>
+
+      To run the pre-commit checks locally, you can follow below steps:
+      1. Ensure that the `pre-commit` package is installed:
+      ```
+      sudo pip install pre-commit
+      ```
+      2. Go to repository root folder
+      3. Install the pre-commit hooks:
+      ```
+      pre-commit install
+      ```
+      4. Use pre-commit to check staged file:
+      ```
+      pre-commit
+      ```
+      5. Alternatively, you can check committed files using:
+      ```
+      pre-commit run --from-ref <commit_id> --to-ref <commit_id>
+      ```
+  condition: failed()
+  displayName: 'Post Github comment'
