@@ -143,7 +143,7 @@ def wait_for_startup(duthost, localhost, delay, timeout):
 
     logger.info('ssh has started up on {}'.format(hostname))
 
-def do_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
+def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
     # pool for executing tasks asynchronously
     hostname = duthost.hostname
 
@@ -197,7 +197,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
-    reboot_res, dut_datetime = do_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
     
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
     wait_for_startup(duthost, localhost, delay, timeout)
