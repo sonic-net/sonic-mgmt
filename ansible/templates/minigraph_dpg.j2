@@ -210,7 +210,7 @@
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
-{% if switch_type != 'dpu' %}
+{% if switch_type is not defined or switch_type != 'dpu' %}
 {% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <InAcl>NTP_ACL</InAcl>
