@@ -4,19 +4,14 @@ import pytest
 from files.helper import run_pfc_test
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
-from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 def test_pfc_pause_single_lossless_prio(ixia_api,
                                         ixia_testbed_config,
@@ -75,6 +70,7 @@ def test_pfc_pause_single_lossless_prio(ixia_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+
 def test_pfc_pause_multi_lossless_prio(ixia_api,
                                        ixia_testbed_config,
                                        conn_graph_facts,
@@ -127,6 +123,7 @@ def test_pfc_pause_multi_lossless_prio(ixia_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
+
 
 def test_pfc_pause_threshold(ixia_api,
                              ixia_testbed_config,
@@ -185,6 +182,7 @@ def test_pfc_pause_threshold(ixia_api,
                          test_traffic_pause=True,
                          dynamic_th=dynamic_th,
                          on_exit=on_exit)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
@@ -256,6 +254,7 @@ def test_pfc_pause_single_lossless_prio_reboot(ixia_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
