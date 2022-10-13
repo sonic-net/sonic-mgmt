@@ -96,12 +96,20 @@
     delegate_to: localhost
   when: exabgp_action == 'start'
 
+- name: Check if ptf is accessible
+  wait_for:
+    host: "{{ ptf_host_ip }}"
+    port: 22
+    timeout: 3
+  register: ptf_accessible
+  ignore_errors: true
+  delegate_to: localhost
+
 - block:
   - name: Stop exabgp processes for IPv4 on PTF
     exabgp:
       name: "{{ vm_item.key }}"
       state: "stopped"
-    ignore_unreachable: yes
     loop: "{{ topology['VMs']|dict2items }}"
     loop_control:
       loop_var: vm_item
@@ -111,9 +119,8 @@
     exabgp:
       name: "{{ vm_item.key }}-v6"
       state: "stopped"
-    ignore_unreachable: yes
     loop: "{{ topology['VMs']|dict2items }}"
     loop_control:
       loop_var: vm_item
     delegate_to: "{{ ptf_host }}"
-  when: exabgp_action == 'stop'
+  when: exabgp_action == 'stop' and ptf_accessible is defined and not ptf_accessible.failed
