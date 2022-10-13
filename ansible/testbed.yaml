@@ -541,14 +541,14 @@
   comment: Jenkins
 
 - conf-name: vms12-3-t0-e1031
-  group-name: v12-31
+  group-name: vms11-7
   topo: t0-52
   ptf_image_name: docker-ptf
-  ptf: v12-31
+  ptf: vms11-7
   ptf_ip: 10.64.246.42/23
   ptf_ipv6:
-  server: server_12
-  vm_base: VM12064
+  server: server_11
+  vm_base: VM11096
   dut:
     - str-e1031-acs-1
   inv_name: str
