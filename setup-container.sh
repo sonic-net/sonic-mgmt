@@ -195,9 +195,10 @@ fi
 
 # User configuration
 RUN if getent passwd {{ USER_NAME }}; \
-then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
-else useradd -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }}; \
+#then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
+then userdel {{ USER_NAME }}; \
 fi
+RUN useradd -o -l -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }};
 
 # Docker configuration
 RUN if getent group {{ DGROUP_NAME }}; \
@@ -388,9 +389,14 @@ if ! which j2 &> /dev/null; then
     exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
 fi
 
+date > ytt.log.1
 pull_sonic_mgmt_docker_image
+date > ytt.log.2
 setup_local_image
+date > ytt.log.3
 start_local_container
+date > ytt.log.4
 show_local_container_login
+date > ytt.log.5
 
 exit_success "sonic-mgmt configuration is done!"
