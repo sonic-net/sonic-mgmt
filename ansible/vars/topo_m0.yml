@@ -86,14 +86,17 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: MgmtToRRouter
-    podset_number: 30
-    downstream_number: 16
-    downstream_subnet_number: 2
-    max_downstream_subnet_number: 16
-    downstream_subnet_size: 64
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
+    colo_number: 30
+    m0_number: 16
+    m0_asn_start: 65500
+    m0_subnet_number: 1
+    m0_subnet_size: 64
+    mx_subnet_size: 32
+    mx_subnet_number: 1
+    mx_asn_start: 64200
   mx:
     swrole: mx
   m1:
@@ -104,7 +107,7 @@ configuration:
     properties:
     - common
     - mx
-    tornum: 1
+    mx_index: 0
     bgp:
       asn: 64001
       peers:
@@ -126,7 +129,7 @@ configuration:
     properties:
     - common
     - mx
-    tornum: 2
+    mx_index: 1
     bgp:
       asn: 64002
       peers:
