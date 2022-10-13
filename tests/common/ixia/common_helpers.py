@@ -15,7 +15,8 @@ import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 
-def increment_ip_address(ip, incr=1) :
+
+def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
 
@@ -64,13 +65,14 @@ def get_vlan_subnet(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print 'There should be only one Vlan at the DUT'
+        print('There should be only one Vlan at the DUT')
         return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
     prefix_len = mg_vlan_intfs[0]['prefixlen']
     gw_addr = ansible_stdout_to_str(mg_vlan_intfs[0]['addr'])
     return gw_addr + '/' + str(prefix_len)
+
 
 def get_lossless_buffer_size(host_ans, is_ingress):
     """
@@ -99,6 +101,7 @@ def get_lossless_buffer_size(host_ans, is_ingress):
     pool = buffer_pools[profile_name]
     return int(pool['size'])
 
+
 def get_egress_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch
@@ -111,6 +114,7 @@ def get_egress_lossless_buffer_size(host_ans):
     """
     return get_lossless_buffer_size(host_ans, False)
 
+
 def get_ingress_lossless_buffer_size(host_ans):
     """
     Get ingress lossless buffer size of a switch
@@ -122,6 +126,7 @@ def get_ingress_lossless_buffer_size(host_ans):
         total switch buffer size in byte (int)
     """
     return get_lossless_buffer_size(host_ans, True)
+
 
 def get_addrs_in_subnet(subnet, number_of_ip):
     """
@@ -144,6 +149,7 @@ def get_addrs_in_subnet(subnet, number_of_ip):
         del ip_addrs[-1]
 
     return ip_addrs[:number_of_ip]
+
 
 def get_peer_ixia_chassis(conn_data, dut_hostname):
     """
@@ -217,6 +223,7 @@ def get_peer_ixia_chassis(conn_data, dut_hostname):
         return peer_devices[0]
     else:
         return None
+
 
 def get_peer_port(conn_data, dut_hostname, dut_intf):
     """
@@ -372,6 +379,7 @@ def pfc_class_enable_vector(prio_list):
 
     return "{:x}".format(vector)
 
+
 def get_wred_profiles(host_ans):
     """
     Get all the WRED/ECN profiles of a SONiC switch
@@ -408,6 +416,7 @@ def get_wred_profiles(host_ans):
         return config_facts['WRED_PROFILE']
     else:
         return None
+
 
 def config_wred(host_ans, kmin, kmax, pmax, profile=None):
     """
@@ -463,6 +472,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
 
     return True
 
+
 def enable_ecn(host_ans, prio):
     """
     Enable ECN marking on a priority
@@ -476,6 +486,7 @@ def enable_ecn(host_ans, prio):
     """
     host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
 
+
 def disable_ecn(host_ans, prio):
     """
     Disable ECN marking on a priority
@@ -488,6 +499,7 @@ def disable_ecn(host_ans, prio):
         N/A
     """
     host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
+
 
 def find_buffer_profile(host_ans, profile_start):
     """
@@ -509,6 +521,7 @@ def find_buffer_profile(host_ans, profile_start):
             return profile
     return None
 
+
 def get_buffer_alpha(host_ans, profile):
     """
     Get buffer dynamic threshold (a.k.a., alpha)
@@ -524,6 +537,7 @@ def get_buffer_alpha(host_ans, profile):
                                          source="running")['ansible_facts']
     return int(config_facts['BUFFER_PROFILE'][profile]['dynamic_th'])
 
+
 def config_buffer_alpha(host_ans, profile, alpha_log2):
     """
     Configure buffer threshold (a.k.a., alpha)
@@ -537,6 +551,7 @@ def config_buffer_alpha(host_ans, profile, alpha_log2):
         N/A
     """
     host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
+
 
 def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     """
@@ -575,6 +590,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
 
     return True
 
+
 def get_pfcwd_config_attr(host_ans, config_scope, attr):
     """
     Get PFC watchdog configuration attribute
@@ -603,6 +619,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
 
     return None
 
+
 def get_pfcwd_poll_interval(host_ans):
     """
     Get PFC watchdog polling interval
@@ -621,6 +638,7 @@ def get_pfcwd_poll_interval(host_ans):
         return int(val)
 
     return None
+
 
 def get_pfcwd_detect_time(host_ans, intf):
     """
@@ -642,6 +660,7 @@ def get_pfcwd_detect_time(host_ans, intf):
 
     return None
 
+
 def get_pfcwd_restore_time(host_ans, intf):
     """
     Get PFC watchdog restoration time of a given interface
@@ -662,6 +681,7 @@ def get_pfcwd_restore_time(host_ans, intf):
 
     return None
 
+
 def start_pfcwd(duthost):
     """
     Start PFC watchdog with default setting
@@ -674,6 +694,7 @@ def start_pfcwd(duthost):
     """
     duthost.shell('sudo pfcwd start_default')
 
+
 def stop_pfcwd(duthost):
     """
     Stop PFC watchdog
@@ -685,6 +706,7 @@ def stop_pfcwd(duthost):
         N/A
     """
     duthost.shell('sudo pfcwd stop')
+
 
 def disable_packet_aging(duthost):
     """
@@ -701,6 +723,7 @@ def disable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
 
 def enable_packet_aging(duthost):
     """
