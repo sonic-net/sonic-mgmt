@@ -750,7 +750,7 @@
   auto_recover: 'True'
   comment: topo_with_12_vms
 
-- conf-name: vms18-m0-pikez-acs-01
+- conf-name: testbed-str2-pikez-acs-1
   group-name: vms18-8
   topo: m0
   ptf_image_name: docker-ptf
