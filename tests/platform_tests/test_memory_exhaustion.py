@@ -46,10 +46,14 @@ class TestMemoryExhaustion:
         hostname = duthost.hostname
         dut_datetime = duthost.get_now_time()
 
-        # Use `tail /dev/zero` to run out of memory completely. Since this command will cause the
-        # DUT reboot, we need to run it in the background (using &) to avoid pytest getting stuck.
-        # We also need to add `nohup` to protect it.
-        cmd = 'nohup tail /dev/zero &'
+        # Our shell command is designed as 'nohup bash -c "sleep 5 && tail /dev/zero" &' because of:
+        #  * `tail /dev/zero` is used to run out of memory completely.
+        #  * Since `tail /dev/zero` will cause the DUT reboot, we need to run it in the background
+        #    (using &) to avoid pytest getting stuck. `nohup` is also necessary to protect the
+        #    background process.
+        #  * Some DUTs with few free memory may reboot before ansible receive the result of shell
+        #    command, so we add `sleep 5` to ensure ansible receive the result first.
+        cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
         res = duthost.shell(cmd)
         if not res.is_successful:
             pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))

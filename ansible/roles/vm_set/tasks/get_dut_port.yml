@@ -23,6 +23,12 @@
   when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == 'simx'
   become: yes
 
+- name: Get front panel and mgmt port for 8000e-sonic device
+  cisco_8000e_port:
+    vmname: "{{ dut_name }}"
+  when: external_port is not defined and hostvars[dut_name].type is defined and hostvars[dut_name]['type'] == '8000e'
+  become: yes
+
 - set_fact:
     duts_fp_ports: "{{ duts_fp_ports|default({}) | combine( { dut_name: dut_fp_ports } ) }}"
     duts_mgmt_port: "{{ duts_mgmt_port|default([]) + [ dut_mgmt_port ] }}"

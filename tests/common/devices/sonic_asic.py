@@ -422,6 +422,22 @@ class SonicAsic(object):
 
         return result["stdout_lines"]
 
+    def run_ip_neigh_cmd(self, cmdstr):
+        """
+            Add -n option with ASIC instance on multi ASIC
+
+            Args:
+                cmdstr
+            Returns:
+                Output from the ansible command module
+        """
+        if not self.sonichost.is_multi_asic:
+            return self.sonichost.command("sudo ip neigh {}".format(cmdstr))
+
+        cmdstr = "sudo ip -n asic{} neigh {}".format(self.asic_index, cmdstr)
+        return self.sonichost.command(cmdstr)
+    
+
     def port_exists(self, port):
         """
         Check if a given port exists in ASIC instance
@@ -516,42 +532,52 @@ class SonicAsic(object):
         return False
 
     def portchannel_on_asic(self, portchannel):
-        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        # Need to compare every portchannel in pcs split by single quote, with the target portchannel
+        # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
+        # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
+        # By split() function we are converting 'pcs' to list, and can do one by one comparison
         pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if pcs is not None and portchannel in pcs:
-            return True
+        if pcs is not None:
+            pcs_list = pcs.split("'")
+            for pc in pcs_list:
+                if portchannel == pc:
+                    return True
         return False
+    
+    def write_to_config_db(self, dst_path):
+        cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
+        return self.shell(cmd)
 
-    def get_portchannel_and_members_in_ns(self, tbinfo):
+    def get_portchannels_and_members_in_ns(self, tbinfo):
         """
-        Get a portchannel and it's members in this namespace.
+        Get a portchannels and their members in this namespace.
 
         Args: tbinfo - testbed info
 
-        Returns: a tuple with (portchannel_name, port_channel_members)
+        Returns: a dict portchannels_data with (portchannel_name as key and port_channel_members as value)
 
         """
-        pc = None
-        pc_members = None
-
+        port_channels_data = {}
         mg_facts = self.sonichost.minigraph_facts(
             host = self.sonichost.hostname
         )['ansible_facts']
 
         if len(mg_facts['minigraph_portchannels'].keys()) == 0:
-            return None, None
+            return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            pc = mg_facts['minigraph_portchannels'].keys()[0]
-            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+            for pc in mg_facts['minigraph_portchannels'].keys():
+                pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                port_channels_data[pc] = pc_members
         else:
             for k, v in mg_facts['minigraph_portchannels'].iteritems():
                 if v.has_key('namespace') and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
-                    break
+                    port_channels_data[pc] = pc_members
 
-        return pc, pc_members
+        return port_channels_data
 
     def get_bgp_statistic(self, stat):
         """
@@ -571,11 +597,11 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
-
+    
     def get_router_mac(self):
         return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
                .decode("utf-8").lower())
- 
+
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
         if af == 'ipv4':
@@ -595,6 +621,9 @@ class SonicAsic(object):
         for af in af_list:
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
+                # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
+                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                    continue
                 return False
         return True
 
@@ -618,3 +647,21 @@ class SonicAsic(object):
 
         return False
                      
+    def count_crm_resources(self, resource_type, route_tag, count_type):
+        mapping = self.sonichost.get_crm_resources(self.namespace)
+        return mapping.get(resource_type).get(route_tag, {}).get(count_type)
+
+    def count_routes(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return int(self.shell(
+            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            module_ignore_errors=True, verbose=True)['stdout'])
+
+    def get_route_key(self, ROUTE_TABLE_NAME):
+        ns_prefix = ""
+        if self.sonichost.is_multi_asic:
+            ns_prefix = '-n' + str(self.namespace)
+        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            verbose=False)['stdout_lines']
