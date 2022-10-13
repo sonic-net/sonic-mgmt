@@ -1786,6 +1786,7 @@ def core_dump_and_config_check(duthosts, request):
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
 
+
 @pytest.fixture(scope="function")
 def on_exit():
     '''
@@ -1795,14 +1796,18 @@ def on_exit():
     class OnExit():
         def __init__(self):
             self.cbs = []
+
         def register(self, fn):
             self.cbs.append(fn)
+
         def cleanup(self):
             while len(self.cbs) != 0:
                 self.cbs.pop()()
+
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
