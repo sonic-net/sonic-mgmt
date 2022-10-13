@@ -1520,6 +1520,7 @@ sonic_dell_z9332f:
 sonic_appliance:
   vars:
     iface_speed: 100000
+    switch_type: dpu
   hosts:
     str2-bluefield-01:
       ansible_host: 10.64.247.32
