@@ -283,6 +283,7 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, nbrhosts, tbi
                       "Not all ipv6 routes are announced to neighbors")
 
 
+@pytest.mark.disable_loganalyzer
 def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown, traffic_shift_community):
     """
     Test TSA after config save and config reload
@@ -324,6 +325,7 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
                       "Not all ipv6 routes are announced to neighbors")
 
 
+@pytest.mark.disable_loganalyzer
 def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown,
                                                 traffic_shift_community):
     """
