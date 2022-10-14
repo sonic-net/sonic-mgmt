@@ -25,6 +25,13 @@ stages:
   - group: GIT_SECRETS
 
   jobs:
+  - job: pre_commit
+    displayName: "pre-commit-check"
+    timeoutInMinutes: 10
+    continueOnError: true
+    steps:
+    - template: .azure-pipelines/pre-commit-check.yml
+
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
@@ -132,7 +139,7 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 600
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
