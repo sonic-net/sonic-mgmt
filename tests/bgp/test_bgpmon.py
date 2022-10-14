@@ -62,7 +62,7 @@ def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             pytest.skip("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
         return dut_to_T3
     else:
-        duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        return duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
 @pytest.fixture
 def common_setup_teardown(dut_with_default_route,  tbinfo):
