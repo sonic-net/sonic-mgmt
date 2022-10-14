@@ -133,7 +133,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     logger.info("Rebooting RP {} and checking all linecards' interfaces".format(duthost.hostname))
 
     hostname = duthost.hostname
-    reboot(duthost, localhost, wait_for_ssh=False)
+    dut_datetime = reboot(duthost, localhost, wait_for_ssh=False)
 
     # RP doesn't have any interfaces, check all LCs' interfaces
     links_down_on_all_LC(duthosts, localhost, fanouts_and_ports)
@@ -162,7 +162,7 @@ def test_link_down_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_f
 
     hostname = duthost.hostname
 
-    reboot(duthost, localhost, wait_for_ssh=False)
+    dut_datetime = reboot(duthost, localhost, wait_for_ssh=False)
 
     link_down_on_host(duthost, localhost, fanouts_and_ports)
 
