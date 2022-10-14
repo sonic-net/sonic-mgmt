@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0"
+  - cron: "10 4 * * 0"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t1-2700-2
+    default: vms1-t1-2700
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -35,7 +35,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-I "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
 stages:
