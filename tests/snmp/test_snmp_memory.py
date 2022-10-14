@@ -79,6 +79,8 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
                                     community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
         facts = collect_memory(duthost)
+        # net-snmp calculate cached memory as cached + sreclaimable
+        facts['Cached'] = int(facts['Cached']) + int(facts['SReclaimable'])
         # Verify correct behaviour of sysTotalMemory
         pytest_assert(not abs(snmp_facts['ansible_sysTotalMemory'] - int(facts['MemTotal'])),
                       "Unexpected res sysTotalMemory {} v.s. {}".format(snmp_facts['ansible_sysTotalMemory'], facts['MemTotal']))
