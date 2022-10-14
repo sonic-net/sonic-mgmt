@@ -1,0 +1,348 @@
+##############################################################
+#####  This file is dedicated for 202205 branch issues   #####
+#####  sonic-mgmt issue should be filed and linked here  #####
+##############################################################
+
+arp/test_wr_arp.py::TestWrArp::testWrArp:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[fast:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[warm:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_active[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_standby[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_link_failure.py::test_standby_tor_downlink_down_downstream_standby[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor_io/test_tor_bgp_failure.py::test_active_tor_shutdown_bgp_sessions_upstream[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor/test_orchagent_slb.py::test_orchagent_slb[ipv4-active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv4]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv6]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+ipfwd/test_dir_bcast.py::test_dir_bcast:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+pc/test_lag_member.py::test_lag_member_traffic:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+platform_tests/api/test_component.py::TestComponentApi::test_get_name:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+platform_tests/test_service_warm_restart.py::test_service_warm_restart:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testParameter:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_tunnel_qos_remap.py::test_bounced_back_traffic_in_expected_queue[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+qos/test_tunnel_qos_remap.py::test_encap_dscp_rewrite[active-standby]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+route/test_route_flap.py::test_route_flap:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+route/test_static_route.py::test_static_route_ecmp:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[techsupport]:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_interval:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+snmp/test_snmp_memory.py::test_snmp_memory:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+snmp/test_snmp_phy_entity.py::test_fan_info:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+stress/test_stress_routes.py::test_announce_withdraw_route:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
+tacacs/test_accounting.py::test_accounting_tacacs_and_local:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
