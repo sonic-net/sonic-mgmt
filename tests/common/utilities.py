@@ -595,9 +595,9 @@ def setup_ferret(duthost, ptfhost, tbinfo):
     ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
     result = duthost.shell(
         cmd='''ip route show type unicast |
-        sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
+        sed -e '/proto 186\\|proto zebra\\|proto bgp/!d' -e '/default/d' -ne '/0\\//p' |
         head -n 1 |
-        sed -ne 's/0\/.*$/1/p'
+        sed -ne 's/0\\/.*$/1/p'
         '''
     )
     dip = result['stdout']
@@ -638,7 +638,7 @@ def safe_filename(filename, replacement_char='_'):
     Returns:
         str: New filename with illegal characters replaced.
     """
-    illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
+    illegal_chars_pattern = re.compile("[#%&{}\\<>\\*\\?/ \\$!'\":@\\+`|=]")
     return re.sub(illegal_chars_pattern, replacement_char, filename)
 
 

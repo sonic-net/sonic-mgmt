@@ -29,7 +29,7 @@ def parse_interfaces(output_lines, pc_ports_map):
     output_lines = output_lines[3:]
 
     for item in output_lines:
-        match = re.search("(Ethernet\d+|PortChannel\d+)", item)
+        match = re.search("(Ethernet\\d+|PortChannel\\d+)", item)
         if match:
             route_targets.append(match.group(0))
 
