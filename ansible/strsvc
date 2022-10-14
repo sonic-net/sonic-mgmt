@@ -145,3 +145,5 @@ server:
   hosts:
     svcstr-server-1:
       ansible_host: 10.206.144.7
+    svcstr-server-2:
+      ansible_host: 10.206.144.18
