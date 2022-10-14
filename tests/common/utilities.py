@@ -28,6 +28,7 @@ from tests.common.cache import FactsCache
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
+
 def check_skip_release(duthost, release_list):
     """
     @summary: check if need skip current test if any given release keywords are in os_version, match sonic_release.
@@ -46,6 +47,7 @@ def check_skip_release(duthost, release_list):
 
     return (False, '')
 
+
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -57,6 +59,7 @@ def skip_release(duthost, release_list):
     if skip:
         pytest.skip(reason)
 
+
 def skip_release_for_platform(duthost, release_list, platform_list):
     """
     @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
@@ -65,12 +68,13 @@ def skip_release_for_platform(duthost, release_list, platform_list):
     @param platform_list: A list of incompatible platforms
     """
     if any(release in duthost.os_version for release in release_list) and \
-		any(platform in duthost.facts['platform'] for platform in platform_list):
+            any(platform in duthost.facts['platform'] for platform in platform_list):
         pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
             duthost.os_version,
             duthost.facts['platform'],
-			", ".join(release_list),
-			", ".join(platform_list)))
+            ", ".join(release_list),
+            ", ".join(platform_list)))
+
 
 def wait(seconds, msg=""):
     """
@@ -95,7 +99,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         exception, log the error and keep waiting and polling.
     """
     logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
-        (condition.__name__, timeout, interval, delay))
+                 (condition.__name__, timeout, interval, delay))
 
     if delay > 0:
         logger.debug("Delay for %s seconds first" % delay)
@@ -131,7 +135,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
-def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30):
+def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
     """
     @summary: Wait until tcp connection is ready or timeout
     @param client: The tcp client host instance
@@ -145,7 +149,8 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (str(server_hostname), listening_port, timeout_s))
+        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (
+        str(server_hostname), listening_port, timeout_s))
         return False
     return True
 
@@ -365,7 +370,7 @@ def get_test_server_host(inv_files, server):
         logger.error("Unable to find group {} in {}".format(server, str(inv_files)))
         return None
     for host in group.get_hosts():
-        if not re.match(r'VM\d+', host.name):   # This must be the test server host
+        if not re.match(r'VM\d+', host.name):  # This must be the test server host
             return host
     return None
 
@@ -539,7 +544,8 @@ def check_qos_db_fv_reference_with_table(duthost):
     """
     release_list = ["201811", "201911", "202012", "202106"]
     if any(release == duthost.sonic_release for release in release_list):
-        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
+        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(
+            duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
 
