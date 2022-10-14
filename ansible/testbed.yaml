@@ -540,7 +540,7 @@
   auto_recover: 'True'
   comment: Jenkins
 
-- conf-name: vms12-3-t0-e1031
+- conf-name: testbed-str-e1031-acs-1
   group-name: vms11-7
   topo: t0-52
   ptf_image_name: docker-ptf
