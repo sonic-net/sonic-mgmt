@@ -50,11 +50,11 @@ def verify_traffic_shift(host, outputs, match_result):
 
 def get_traffic_shift_state(host):
     outputs = host.shell('TSC')['stdout_lines']
-    if verify_traffic_shift(host, outputs, TS_NORMAL) is not "ERROR":
+    if verify_traffic_shift(host, outputs, TS_NORMAL) != "ERROR":
         return TS_NORMAL
-    if verify_traffic_shift(host, outputs, TS_MAINTENANCE) is not "ERROR":
+    if verify_traffic_shift(host, outputs, TS_MAINTENANCE) != "ERROR":
         return TS_MAINTENANCE
-    if verify_traffic_shift(host, outputs, TS_INCONSISTENT) is not "ERROR":
+    if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
     pytest.fail("TSC return unexpected state {}".format("ERROR"))
 
@@ -103,8 +103,8 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
                                                                                              BGP_COMMUNITY_HEADING)
             # For compatibility on EOS of old version
             cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6,
-                                                                                                        BGP_ENTRY_HEADING,
-                                                                                                        BGP_COMMUNITY_HEADING)
+                                                                                                BGP_ENTRY_HEADING,
+                                                                                                BGP_COMMUNITY_HEADING)
         res = host.eos_command(commands=[cmd], module_ignore_errors=True)
         if res['failed'] and cmd_backup != "":
             res = host.eos_command(commands=[cmd_backup], module_ignore_errors=True)
@@ -296,7 +296,7 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
         # Issue TSA on DUT
         duthost.shell("TSA")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, check_intf_up_ports=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
@@ -314,15 +314,18 @@ def test_TSA_TSB_with_config_reload(duthost, ptfhost, nbrhosts, bgpmon_setup_tea
         # Recover to Normal state
         duthost.shell("TSB")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, check_intf_up_ports=True)
 
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                      "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                      "Not all ipv6 routes are announced to neighbors")
+        # Wait until all routes are announced to neighbors
+        pytest_assert(wait_until(300, 3, 0, 
+                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                                "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, 
+                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                                "Not all ipv6 routes are announced to neighbors")
 
 
 @pytest.mark.disable_loganalyzer
@@ -357,7 +360,10 @@ def test_load_minigraph_with_traffic_shift_away(duthost, ptfhost, nbrhosts, bgpm
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                      "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                      "Not all ipv6 routes are announced to neighbors")
+        # Wait until all routes are announced to neighbors
+        pytest_assert(wait_until(300, 3, 0, 
+                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                                "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, 
+                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                                "Not all ipv6 routes are announced to neighbors")
