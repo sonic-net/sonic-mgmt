@@ -62,10 +62,10 @@ def skip_release(duthost, release_list):
 
 def skip_release_for_platform(duthost, release_list, platform_list):
     """
-    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
-    @param duthost: The DUT
-    @param release_list: A list of incompatible releases
-    @param platform_list: A list of incompatible platforms
+    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are
+              in platform
+    @param duthost: The DUT @param release_list: A list of incompatible releases @param platform_list: A
+                    list of incompatible platforms
     """
     if any(release in duthost.os_version for release in release_list) and \
             any(platform in duthost.facts['platform'] for platform in platform_list):
@@ -98,7 +98,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     @return: If the condition function returns True before timeout, return True. If the condition function raises an
         exception, log the error and keep waiting and polling.
     """
-    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
                  (condition.__name__, timeout, interval, delay))
 
     if delay > 0:
@@ -150,7 +150,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           module_ignore_errors=True)
     if 'exception' in res:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (
-        str(server_hostname), listening_port, timeout_s))
+            str(server_hostname), listening_port, timeout_s))
         return False
     return True
 
