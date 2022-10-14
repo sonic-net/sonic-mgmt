@@ -672,7 +672,7 @@ def get_image_type(duthost):
     Args:
         duthost: AnsibleHost instance for DUT
 
-    Returns: image type. Str. It should be the right key in DEFAULT_SSH_CONNECT_PARAMS in tests.common.constants.py
+    Returns: image type. Str. It should be the right key in DEFAULT_SSH_CONNECT_PARAMS in tests/common/constants.py
 
     """
 
