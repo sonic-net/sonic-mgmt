@@ -104,7 +104,7 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh):
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
@@ -121,8 +121,6 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_s
             logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
-    if not wait_for_ssh:
-        return
 
 def wait_for_startup(duthost, localhost, delay, timeout):
     # TODO: add serial output during reboot for better debuggability
@@ -200,6 +198,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
     
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
+    # if wait_for_ssh flag is False, do not wait for dut to boot up
+    if not wait_for_ssh:
+        return
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
