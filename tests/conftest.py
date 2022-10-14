@@ -1823,4 +1823,3 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
 # HACK: testutils.verify_packets_any to workaround code bug
 # TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
-# dummy comment to trigger pre-commit
