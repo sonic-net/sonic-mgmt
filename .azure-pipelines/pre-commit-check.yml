@@ -23,21 +23,19 @@ steps:
 - script: |
     set -x
 
+    # Run pre-commit check and capture the output
     out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
     RC=$?
 
-    echo "Pre-commit check results:"
-    echo "$out"
+    # Truncate the output if it has more than 20 lines
+    if [[ `echo "$out" | wc -l > 20` ]]; then
+      out=`echo "$out" | head -n 20`
+      out=`echo "$out\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"`
+      out=`printf "$out`
+    fi
 
     br='<br/>'
     results=`echo "$out" |  while read line; do echo $line$br; done | tr -d '\n'`
-
-    # Truncate the output if it has more than 20 lines
-    if [[ `echo "$results" | wc -l > 20` ]]; then
-      results=`echo "$results" | head -n 20`
-      results=`echo "$results\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"`
-      results=`printf "$results`
-    fi
 
     echo "##vso[task.setvariable variable=results;]$results"
 
