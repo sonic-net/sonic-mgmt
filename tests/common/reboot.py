@@ -197,7 +197,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
 
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
     
-    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh)
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
