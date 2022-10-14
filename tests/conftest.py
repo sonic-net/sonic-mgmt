@@ -1786,6 +1786,29 @@ def core_dump_and_config_check(duthosts, request):
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
 
+
+@pytest.fixture(scope="function")
+def on_exit():
+    '''
+    Utility to register callbacks for cleanup. Runs callbacks despite assertion
+    failures. Callbacks are executed in reverse order of registration.
+    '''
+    class OnExit():
+        def __init__(self):
+            self.cbs = []
+
+        def register(self, fn):
+            self.cbs.append(fn)
+
+        def cleanup(self):
+            while len(self.cbs) != 0:
+                self.cbs.pop()()
+
+    on_exit = OnExit()
+    yield on_exit
+    on_exit.cleanup()
+
+
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
     Check that a packet is received on _any_ of the specified ports belonging to
