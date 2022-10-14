@@ -28,10 +28,10 @@ steps:
     RC=$?
 
     # Truncate the output if it has more than 20 lines
-    if [[ `echo "$out" | wc -l > 20` ]]; then
+    if [[ `echo "$out" | wc -l` -gt 20 ]]; then
       out=`echo "$out" | head -n 20`
-      out=`echo "$out\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"`
-      out=`printf "$out`
+      out="$out\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"
+      out=`printf "$out"`
     fi
 
     br='<br/>'
