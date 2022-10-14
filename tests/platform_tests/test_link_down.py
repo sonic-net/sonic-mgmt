@@ -9,12 +9,13 @@ import logging
 import time
 import pytest
 
+import tests.platform_tests.link_flap.link_flap_utils
 from multiprocessing.pool import ThreadPool
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-
+from tests.common.reboot import *
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,6 @@ pytestmark = [
 ]
 
 MAX_TIME_TO_REBOOT = 120
-# SSH defines
-SONIC_SSH_PORT  = 22
-SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 def multi_duts_and_ports(duthosts):
     """
@@ -70,11 +68,9 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             # some ports on dut may not have link to fanout
             if fanout is None and fanout_port is None:
-                logger.info("Interface {} on duthost {} doesn't link to any fanout switch"
-                            .format(port, duthost.hostname))
+                logger.info("Interface {} on duthost {} doesn't link to any fanout switch".format(port, duthost.hostname))
                 continue
-            logger.info("Interface {} on fanout {} ({}) map to interface {} on duthost {}"
-                        .format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
+            logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}".format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
             if fanout in fanout_and_ports.keys():
                 fanout_and_ports[fanout].append(fanout_port)
             else:
@@ -115,25 +111,6 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
 
-def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res, wait_for_ssh = True):
-    hostname = duthost.hostname
-    dut_ip = duthost.mgmt_ip
-    logger.info('waiting for ssh to drop on {}'.format(hostname))
-    res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
-                             state='absent',
-                             search_regex=SONIC_SSH_REGEX,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        if reboot_res.ready():
-            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
-        raise Exception('DUT {} did not shutdown'.format(hostname))
-
-    if not wait_for_ssh:
-        return
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                 conn_graph_facts, duts_running_config_facts, 
@@ -156,14 +133,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     logger.info("Rebooting RP {} and checking all linecards' interfaces".format(duthost.hostname))
 
     hostname = duthost.hostname
-    pool = ThreadPool()
-    
-    def execute_reboot_command():
-        return duthost.command("reboot")
-
-    dut_datetime = duthost.get_now_time()
-    reboot_res = pool.apply_async(execute_reboot_command)
-    wait_for_shutdown(duthost, localhost, 0, MAX_TIME_TO_REBOOT, reboot_res, True)
+    reboot(duthost, localhost, wait_for_ssh=False)
 
     # RP doesn't have any interfaces, check all LCs' interfaces
     links_down_on_all_LC(duthosts, localhost, fanouts_and_ports)
@@ -192,12 +162,7 @@ def test_link_down_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_f
 
     hostname = duthost.hostname
 
-    pool = ThreadPool()
-    def execute_reboot_command():
-        return duthost.command("reboot")
-    dut_datetime = duthost.get_now_time()
-    reboot_res = pool.apply_async(execute_reboot_command)
-    wait_for_shutdown(duthost, localhost, 0, MAX_TIME_TO_REBOOT, reboot_res, True)
+    reboot(duthost, localhost, wait_for_ssh=False)
 
     link_down_on_host(duthost, localhost, fanouts_and_ports)
 
