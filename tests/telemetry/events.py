@@ -1,0 +1,94 @@
+import logging
+import pytest
+import json
+import os
+import sys
+
+from pkg_resources import parse_version
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+EVENTS_TESTS_PATH = "./telemetry/events"
+sys.path.append(EVENTS_TESTS_PATH)
+
+logger = logging.getLogger(__name__)
+
+BASE_DIR    = "logs/telemetry"
+DATA_DIR    = os.path.join(BASE_DIR, "files")
+
+CMD_PREFIX_FMT = "{} -client_types=gnmi -a {}:50051 -t EVENTS -logtostderr -insecure -v 7 -streaming_type ON_CHANGE -qt s -q all"
+CMD_PREFIX = ""
+
+GNMI_CLI_BIN = None
+
+
+def run_cmd(localhost, params={}, op_file="", filter_event="", event_cnt=0, timeout=0):
+    cmd = CMD_PREFIX
+    for i in params:
+        cmd += "[{}]".format(i)
+
+    if (op_file != ""):
+        cmd += " -output_file={}".format(op_file)
+
+    if (filter_event != ""):
+        cmd += " -expected_event={}".format(filter_event)
+
+    if (event_cnt > 0):
+        cmd += " -expected_count={}".format(event_cnt)
+
+    if (timeout > 0):
+        cmd += " -streaming_timeout={}".format(timeout)
+
+    ret = localhost.shell(cmd)
+    assert ret["rc"] == 0, "Failed to run cmd {}".format(cmd)
+
+
+
+def do_init(duthost):
+    global CMD_PREFIX, GNMI_CLI_BIN
+
+    for i in [ BASE_DIR, DATA_DIR ]:
+        os.mkdir(i)
+
+    duthost.shell("docker cp telemetry:/usr/sbin/gnmi_cli /tmp")
+    ret = duthost.fetch(src="/tmp/gnmi_cli", dest=DATA_DIR)
+    GNMI_CLI_BIN = ret.get("dest", None)
+    assert GNMI_CLI_BIN != None, "Failing to get gnmi_cli"
+
+    os.system("chmod +x {}".format(GNMI_CLI_BIN))
+    logger.info("GNMI_CLI_BIN={}".format(GNMI_CLI_BIN))
+    CMD_PREFIX = CMD_PREFIX_FMT.format(GNMI_CLI_BIN, duthost.mgmt_ip)
+
+
+def check_heartbeat(duthost, localhost):
+    op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
+    run_cmd(localhost, [ "heartbeat=2"], op_file=op_file,
+            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=10)
+    d = {}
+    with open(op_file, "r") as s:
+        d = json.load(s)
+    logger.info("events received: ({})".format(json.dumps(d, indent=4)))
+    assert len(d) > 0, "Failed to check heartbeat"
+
+
+def do_test_events(duthost, localhost):
+    """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
+    """
+    logger.info('Start events testing')
+
+    # skip_201911_and_older(duthost)
+    do_init(duthost)
+
+    check_heartbeat(duthost, localhost)
+
+    # Load all events test code and run
+    for file in os.listdir(EVENTS_TESTS_PATH):
+        if file.endswith(".py"):
+            module = __import__(file[:len(file)-3])
+            module.test_event(duthost, localhost, run_cmd, DATA_DIR)
+            logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
+

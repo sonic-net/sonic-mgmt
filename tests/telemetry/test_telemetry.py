@@ -7,6 +7,7 @@ import pytest
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
+from events import do_test_events
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -269,3 +270,7 @@ def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, loc
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+
+def test_events(duthosts, rand_one_dut_hostname, localhost):
+    do_test_events(duthosts[rand_one_dut_hostname], localhost)
+
