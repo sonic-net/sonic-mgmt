@@ -155,10 +155,10 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
-def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, 
+def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
                                  duts_running_config_facts, conn_graph_facts, 
                                  fanouthosts, xcvr_skip_list, tbinfo):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
     hostname = duthost.hostname
 
     # Before test, check all interfaces and services are up
