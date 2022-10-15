@@ -92,9 +92,9 @@ class EosHost(AnsibleHostBase):
         return self.no_shutdown(intf_str)
 
     def check_intf_link_state(self, interface_name):
-        show_int_result = self.eos_command(
-            commands=['show interface %s' % interface_name])
-        return 'Up' in show_int_result['stdout_lines'][0] or 'up' in show_int_result['stdout_lines'][0]
+        show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
+        logging.info("Checking interface state: {}".format(show_int_result['stdout_lines'][0][0]))
+        return 'up' in show_int_result['stdout_lines'][0][0].lower()
 
     def is_intf_status_down(self, interface_name):
         return not self.check_intf_link_state(interface_name)
