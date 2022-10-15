@@ -152,3 +152,10 @@ r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for
 
 # https://msazure.visualstudio.com/One/_workitems/edit/16110065
 r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/15012104
+# TO BE REMOVED
+r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_table_group_bind_point_detach.*"
+r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_obj_unbind.*"
+r, ".* ERR syncd#syncd.*SAI_API_LAG:_brcm_sai_lag_acl_bind_update.*"
+
