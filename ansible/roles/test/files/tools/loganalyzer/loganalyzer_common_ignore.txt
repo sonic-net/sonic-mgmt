@@ -149,3 +149,9 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/15012104
+# TO BE REMOVED
+r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_table_group_bind_point_detach.*"
+r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_obj_unbind.*"
+r, ".* ERR syncd#syncd.*SAI_API_LAG:_brcm_sai_lag_acl_bind_update.*"
