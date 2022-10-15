@@ -280,7 +280,7 @@ if __name__ == "__main__":
     for p in [parser_cancel, parser_poll]:
         p.add_argument(
             "-i", "--test-plan-id",
-            type=int,
+            type=str,
             dest="test_plan_id",
             required=True,
             help="Test plan id."
@@ -317,6 +317,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     args = parser.parse_args()
+
+    if "test_plan_id" in args:
+        # vso may add unexpected "'" as trailing symbol
+        # https://github.com/microsoft/azure-pipelines-tasks/issues/10331
+        args.test_plan_id = args.test_plan_id.replace("'", "")
+
     print("Test plan utils parameters: {}".format(args))
     auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
     required_env = ["TESTBED_TOOLS_URL"]
