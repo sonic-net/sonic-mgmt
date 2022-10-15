@@ -139,13 +139,13 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, duts_and_ports)
 
     # Also make sure fanout hosts' links are up
-    links_down_on_all_LC(duthosts, localhost, fanouts_and_ports, up=False)
+    link_status_on_all_LC(duthosts, localhost, fanouts_and_ports)
     
     # Reboot RP should reboot both RP&LC, should detect all links on all linecards go down
     dut_datetime = reboot(duthost, localhost, wait_for_ssh=False)
 
     # RP doesn't have any interfaces, check all LCs' interfaces
-    links_down_on_all_LC(duthosts, localhost, fanouts_and_ports, up=False)
+    link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up=False)
 
     time.sleep(MAX_TIME_TO_REBOOT)
 
