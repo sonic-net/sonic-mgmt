@@ -149,7 +149,7 @@ class TestPlanManager(object):
                                                                 |-- FINISHED
         '''
 
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}" \
+        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
         print("Max polling time: {} seconds".format(timeout))
@@ -185,21 +185,21 @@ class TestPlanManager(object):
 
             if status in ["FINISHED", "CANCELLED", "FAILED"]:
                 if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds" \
+                    print("Test plan is successfully {}. Elapsed {:.0f} seconds"
                           .format(status, time.time() - start_time))
                     return
                 else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
                                     .format(test_plan_id, status, result, time.time() - start_time))
             elif status in expected_states:
                 return
             else:
-                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds" \
+                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
                       .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled" \
+            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
                             .format(poll_url))
 
 
@@ -360,12 +360,12 @@ if __name__ == "__main__":
 
             test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                repo=repo,
-                reason=reason,
-                pr_id=pr_id,
-                build_id=build_id,
-                job_name=job_name
-            ).replace(' ', '_')
+                    repo=repo,
+                    reason=reason,
+                    pr_id=pr_id,
+                    build_id=build_id,
+                    job_name=job_name
+                ).replace(' ', '_')
             if args.test_set is None or args.test_set == "":
                 # Use topology as default test set if not passed
                 args.test_set = args.topology
