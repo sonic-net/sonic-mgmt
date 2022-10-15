@@ -38,7 +38,7 @@ steps:
 
       echo "Created test plan $TEST_PLAN_ID"
       echo "Check https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID for test plan status"
-      echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID'"
+      echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
       TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
