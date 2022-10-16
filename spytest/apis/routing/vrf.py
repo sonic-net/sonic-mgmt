@@ -227,7 +227,9 @@ def config_vrf(dut, **kwargs):
 
 def bind_vrf_interface(dut, **kwargs):
     """
-    #Sonic cmd: Config interface <bind |unbind> <interface-name> <vrf-name>
+    #Sonic cmd: 
+    # config interface bind <interface-name> <vrf-name>
+    # config interface unbind <interface-name>
     eg: bind_vrf_interface(dut = dut1, vrf_name = 'Vrf-test', intf_name ='Ethernet8', config = 'no')
     """
     st.log('API to bind interface to VRF')
@@ -268,9 +270,9 @@ def bind_vrf_interface(dut, **kwargs):
         else:
             for vrf,intf in zip(vrf_name,intf_name):
                 if not st.is_feature_supported("vrf-needed-for-unbind", dut):
-                    my_cmd += 'sudo config interface vrf unbind {}\n'.format(intf)
+                    st.log("Unbind operation is not supported in this build")
                 else:
-                    my_cmd += 'sudo config interface vrf unbind {} {}\n'.format(intf, vrf)
+                    my_cmd += 'sudo config interface vrf unbind {}\n'.format(intf)
                 if 'Loopback' in intf:
                     if not st.is_feature_supported("config-loopback-add-command", dut):
                         st.log("Community build doesn't need Loopback interface un-configuration")
