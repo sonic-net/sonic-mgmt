@@ -652,7 +652,9 @@ class SonicHost(AnsibleHostBase):
                 # In this situation, service container status should be false
                 # We can check status is valid or not
                 if status not in ('RUNNING','EXITED','STOPPED'):
-                    service_critical_process['status'] = False
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['exited_critical_process'].append(pname)
+                        service_critical_process['status'] = False
                 elif status != 'RUNNING':
                     if pname in service_group_process['groups'] or pname in service_group_process['processes']:
                         service_critical_process['exited_critical_process'].append(pname)
