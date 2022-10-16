@@ -14,11 +14,15 @@ steps:
   displayName: 'checkout sonic-mgmt repo'
 
 - script: |
+    set -ex
+
     sudo pip install pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
 
 - script: |
+    set -ex
+
     out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
     RC=$?
 
@@ -48,20 +52,23 @@ steps:
       <samp>$(results)</samp>
 
       To run the pre-commit checks locally, you can follow below steps:
-      1. Ensure that the `pre-commit` package is installed:
+      1. Ensure that default python is python3. In sonic-mgmt docker container, default python is python2. You can run
+         the check by activating the python3 virtual environment in sonic-mgmt docker container or outside of sonic-mgmt
+         docker container.
+      2. Ensure that the `pre-commit` package is installed:
       ```
       sudo pip install pre-commit
       ```
-      2. Go to repository root folder
-      3. Install the pre-commit hooks:
+      3. Go to repository root folder
+      4. Install the pre-commit hooks:
       ```
       pre-commit install
       ```
-      4. Use pre-commit to check staged file:
+      5. Use pre-commit to check staged file:
       ```
       pre-commit
       ```
-      5. Alternatively, you can check committed files using:
+      6. Alternatively, you can check committed files using:
       ```
       pre-commit run --from-ref <commit_id> --to-ref <commit_id>
       ```
