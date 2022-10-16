@@ -155,3 +155,7 @@ r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for
 r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_table_group_bind_point_detach.*"
 r, ".* ERR syncd#syncd.*SAI_API_ACL:_brcm_sai_acl_obj_unbind.*"
 r, ".* ERR syncd#syncd.*SAI_API_LAG:_brcm_sai_lag_acl_bind_update.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/12303
+r, ".* ERR .*echo_receive: failing to read echo rc.*"
+r, ".* ERR .*echo_receive: last:errno=.*"
