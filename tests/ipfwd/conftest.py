@@ -104,6 +104,8 @@ def arptable_on_switch(dut, asic_host, mg_facts):
             if dut.is_backend_portchannel(intf['attachto'], mg_facts):
 	        continue 
             peer_addr = intf['peer_addr']
+            #In case of directly connected neighbors, ping will populate neighbor's IP to arp table.
+            dut.shell("ping -c 1 {}".format(peer_addr), module_ignore_errors=True)
             if ip_address(peer_addr).version == 4 and peer_addr not in switch_arptable['arptable']['v4']:
                 all_rebuilt = False
                 break
