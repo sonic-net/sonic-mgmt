@@ -30,19 +30,19 @@ pytestmark = [
 
 MAX_TIME_TO_REBOOT = 120
 
+
 def multi_duts_and_ports(duthosts):
     """
-
     For multi-host
     Returns:
             dict of {{duthost1, [ports]}, {duthost2, [ports]}, ...}
-
     """
     duts_and_ports = {}
     for duthost in duthosts.frontend_nodes:
         ports = duthost.ports_list()
         duts_and_ports[duthost] = ports
     return duts_and_ports
+
 
 def single_dut_and_ports(duthost):
     """
@@ -55,6 +55,7 @@ def single_dut_and_ports(duthost):
     duts_and_ports[duthost] = ports
     return duts_and_ports
 
+
 def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
     """
     Use cases:
@@ -66,7 +67,8 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
     Returns:
             dict of {[fanout1, [fanout_ports]], [fanout2, [fanout_ports]] ...}
             example:
-            {{ os: 'eos', hostname: 'str2-z9332f-02', device_type: 'FanoutLeaf' }: ['Ethernet160', 'Ethernet168', 'Ethernet200', 'Ethernet192']}
+            {{ os: 'eos', hostname: 'str2-z9332f-02', device_type: 'FanoutLeaf' }: 
+            ['Ethernet160', 'Ethernet168', 'Ethernet200', 'Ethernet192']}
     """
     fanout_and_ports = {}
     for duthost in duts_and_ports.keys():
@@ -85,6 +87,7 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
                 fanout_and_ports[fanout] = [fanout_port]
     return fanout_and_ports
     
+
 def is_link_down(fanout, port):
     """
         Either oper/admin status is down meaning link is down
@@ -92,9 +95,11 @@ def is_link_down(fanout, port):
     logger.info("Checking interface {} down status on fanout host {}".format(port, fanout.hostname))
     return fanout.is_intf_status_down(port)
 
+
 def is_link_up(fanout, port):
     logger.info("Checking interface {} up status on fanout host {}".format(port, fanout.hostname))
     return not fanout.is_intf_status_down(port)
+
 
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
     for fanout, ports in fanouts_and_ports.items():
@@ -113,6 +118,7 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
         logger.info("All interfaces on {} are {}".format(fanout.hostname, "up" if up else "down"))
     return True
 
+
 def link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up = True):
     """
     Return:
@@ -123,9 +129,11 @@ def link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up = True):
     logger.info("All interfaces on all linecards are down!")
     return True    
 
+
 def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list):
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
+
 
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
