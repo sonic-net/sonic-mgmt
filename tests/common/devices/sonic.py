@@ -594,9 +594,8 @@ class SonicHost(AnsibleHostBase):
         output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
-        return self.get_service_status_and_critical_process(
+        return self.parse_service_status_and_critical_process(
             service_result=output,
-            service_critical_process=result,
             critical_group_list=critical_group_list,
             critical_process_list=critical_process_list
         )
@@ -634,25 +633,25 @@ class SonicHost(AnsibleHostBase):
                 all_critical_process[service] = service_critical_process
                 continue
 
-            service_group_process = group_process_results[service]
-
-            service_result = service_results[service]
-
-            all_critical_process[service] = self.get_service_status_and_critical_process(
-                service_result=service_result,
-                service_critical_process=service_critical_process,
-                critical_group_list=service_group_process['groups'],
-                critical_process_list=service_group_process['processes']
+            all_critical_process[service] = self.parse_service_status_and_critical_process(
+                service_result=service_results[service],
+                critical_group_list=group_process_results[service]['groups'],
+                critical_process_list=group_process_results[service]['processes']
             )
 
         return all_critical_process
 
-    def get_service_status_and_critical_process(self, service_result, service_critical_process, critical_group_list,
+    def parse_service_status_and_critical_process(self, service_result, critical_group_list,
                                      critical_process_list):
         """
         Parse the result of command "docker exec <container_name> supervisorctl status"
         and get service container status and critical processes
         """
+        service_critical_process = {
+            'status': True,
+            'exited_critical_process': [],
+            'running_critical_process': []
+        }
         # If container is not running, stdout_lines is empty
         # In this situation, service container status should be false
         if not service_result['stdout_lines']:
