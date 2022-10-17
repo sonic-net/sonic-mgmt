@@ -2,7 +2,7 @@
 Description:    This file contains the decapasulation test for SONIC, to test decapsulation of IPv4 with double and
                 triple encapsulated packets
 
-                Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode
@@ -323,7 +323,6 @@ class DecapPacketTest(BaseTest):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
         inner_pkt_type = 'ipv4' if ipaddress.ip_address(unicode(dst_ip)).version == 4 else 'ipv6'
 

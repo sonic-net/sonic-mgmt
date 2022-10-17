@@ -642,9 +642,20 @@ class SonicHost(AnsibleHostBase):
             service_group_process = group_process_results[service]
 
             service_result = service_results[service]
+            # If container is not running, stdout_lines is empty
+            # In this situation, service container status should be false
+            if not service_result['stdout_lines']:
+                service_critical_process['status'] = False
             for line in service_result['stdout_lines']:
                 pname, status, _ = re.split('\s+', line, 2)
-                if status != 'RUNNING':
+                # Sometimes, stdout_lines may be error messages but not emtpy
+                # In this situation, service container status should be false
+                # We can check status is valid or not
+                if status not in ('RUNNING','EXITED','STOPPED'):
+                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
+                        service_critical_process['exited_critical_process'].append(pname)
+                        service_critical_process['status'] = False
+                elif status != 'RUNNING':
                     if pname in service_group_process['groups'] or pname in service_group_process['processes']:
                         service_critical_process['exited_critical_process'].append(pname)
                         service_critical_process['status'] = False
@@ -1984,6 +1995,30 @@ Totals               6450                 6449
                     }
 
         return ip_ifaces
+
+    def show_syslog(self):
+        """
+        Show syslog config
+
+        Args:
+            dut (SonicHost): The target device
+        Return: Syslog config like below
+            [{
+                "server": "2.2.2.2",
+                "source": "1.1.1.1",
+                "port": "514",
+                "vrf": "default",
+              },
+              {
+                "server": "3.3.3.3",
+                "source": "4.4.4.4",
+                "port": "514",
+                "vrf": "mgmt",
+              },
+              ...
+            ]
+        """
+        return self.show_and_parse('show syslog')
 
     def remove_acl_table(self, acl_table):
         """
