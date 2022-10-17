@@ -210,6 +210,7 @@
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
+{% if switch_type is not defined or switch_type != 'dpu' %}
 {% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <InAcl>NTP_ACL</InAcl>
@@ -259,6 +260,7 @@
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
 {% endif %}
 {% endif %}
       </AclInterfaces>
@@ -334,4 +336,3 @@
 {% endif %}
 {% include 'minigraph_dpg_asic.j2' %}
   </DpgDec>
-
