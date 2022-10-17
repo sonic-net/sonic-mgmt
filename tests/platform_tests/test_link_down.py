@@ -101,25 +101,26 @@ def is_link_up(fanout, port):
     return not fanout.is_intf_status_down(port)
 
 
-def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
+def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
     for fanout, ports in fanouts_and_ports.items():
-        for fanout_port in ports:
+        hostname = fanout.hostname
+        for port in ports:
             # Note that there is case that fanout host not working: svcstr-7260cx3-acs-2 (not working to be RMA'ed)
             # In that case the following assert will be thrown too.
             if up:
                 # Make sure interfaces are up on fanout hosts
-                pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, fanout_port),
-                              "Interface {} on {} is still down after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
+                pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, port),
+                             "Interface {} on {} is still down after {}sec".format(port, hostname, MAX_TIME_TO_REBOOT))
             else:
                 # Check every interfaces are down on this host every 5 sec until device boots up
-                pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, fanout_port),
-                             "Interface {} on {} is still up after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
+                pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, port),
+                             "Interface {} on {} is still up after {}sec".format(port, hostname, MAX_TIME_TO_REBOOT))
                              
         logger.info("All interfaces on {} are {}".format(fanout.hostname, "up" if up else "down"))
     return True
 
 
-def link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up = True):
+def link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up=True):
     """
     Return:
         True: all links on all LCs are down
@@ -135,10 +136,9 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
 
 
-
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
-                                conn_graph_facts, duts_running_config_facts, 
-                                fanouthosts, tbinfo, xcvr_skip_list):
+                                 conn_graph_facts, duts_running_config_facts, 
+                                 fanouthosts, tbinfo, xcvr_skip_list):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
 
@@ -167,12 +167,13 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), 
+                 "Device {} did not reboot".format(hostname)
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
-                                 duts_running_config_facts, conn_graph_facts, 
-                                 fanouthosts, xcvr_skip_list, tbinfo):
+                                    duts_running_config_facts, conn_graph_facts, 
+                                    fanouthosts, xcvr_skip_list, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
     hostname = duthost.hostname
 
@@ -197,4 +198,5 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), 
+                 "Device {} did not reboot".format(hostname)
