@@ -1,9 +1,14 @@
 """
 On SONiC device reboot, tests the link down on fanout switches
 This test supports different platforms including:
-    1. chassis:       
+    1. chassis     
     2. single-asic dut
     3. multi-asic dut
+    Note that for now we only run this on t2(chassis), which need more time to boot back up, thus have more buffer to check for links
+    e.g. for single-asic dut, device boot up takes ~40sec, check for all links takes ~73sec, which means some latter links that are checked 
+    may already booted up.
+    Even though for current test result, it's still fine on single-asic dut, because when device went back up, links are still delayed to went up :)
+    
 """
 import logging
 import time
@@ -21,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t2'),
 ]
 
 MAX_TIME_TO_REBOOT = 120
