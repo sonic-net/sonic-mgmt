@@ -142,9 +142,6 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
 
-    if 't2' not in tbinfo['topo']['name']:
-        pytest.skip("Skip for non-t2 supervisor card")
-
     duthost = duthosts[enum_supervisor_dut_hostname]
     hostname = duthost.hostname
     # Before test, check all interfaces and services are up on all linecards
