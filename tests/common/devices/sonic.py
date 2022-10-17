@@ -659,13 +659,16 @@ class SonicHost(AnsibleHostBase):
             service_critical_process['status'] = False
         for line in service_result['stdout_lines']:
             pname, status, _ = re.split('\\s+', line, 2)
+            # 1. Check status is valid
             # Sometimes, stdout_lines may be error messages but not emtpy
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
             if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL'):
                 service_critical_process['status'] = False
+            # 2. Check status is not running
             elif status != 'RUNNING':
+                # 3. Check process is critical
                 if pname in critical_group_list or pname in critical_process_list:
                     service_critical_process['exited_critical_process'].append(pname)
                     service_critical_process['status'] = False
