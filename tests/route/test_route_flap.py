@@ -94,11 +94,13 @@ def check_route(duthost, route, dev_port, operation):
         pytest_assert(dev_port in result, "Route {} was not announced {}".format(route, result))
 
 
-def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, src_ip, dst_ip):
-    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_data="")
+def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
+    # use ptf sender interface mac for easy identify testing packets
+    src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
+    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, eth_src = src_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_code=0)
 
     ext_pkt = pkt.copy()
-    ext_pkt['Ether'].src = dst_mac
+    ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
@@ -131,13 +133,36 @@ def get_exabgp_port(duthost, tbinfo, dev_port):
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
 
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
 
 def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
+
+    # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
+    # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
+    # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
+    # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    vlan_mac = ""
+    if is_dualtor(tbinfo):
+        # Just let it crash if missing vlan configs on dual-tor      
+        vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+        
+        if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+            default_vlan_name = vlan_cfgs['default_vlan_config']
+            if default_vlan_name:
+                for vlan in vlan_cfgs[default_vlan_name].values():
+                    if 'mac' in vlan and vlan['mac']:
+                        vlan_mac = vlan['mac']
+                        break
+        pytest_assert(vlan_mac, 'dual-tor without vlan mac !!!')
+    else:
+       vlan_mac = dut_mac
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
@@ -182,21 +207,21 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
             aspath = dst_prefix_list[route_index].aspath
 
             #test link status
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, WITHDRAW)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             route_index += 1
 
