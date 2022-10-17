@@ -7280,4 +7280,3 @@ sensors_checks:
     psu_skips: {}
 
     sensor_skip_per_version: {}
-
