@@ -20,9 +20,12 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -190,8 +193,30 @@ def test_standby_tor_downstream_bgp_recovered(
     params = get_testbed_params()
     check_tunnel_balance(**params)
 
+def route_matches_expected_state(duthost, route_ip, expect_route):
+    get_route_cmd = "ip route | grep {}".format(route_ip)
+    rc = int(duthost.shell(get_route_cmd, module_ignore_errors=True)['rc'])
+    return rc == 0 if expect_route else 1
 
-def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, get_testbed_params, tbinfo):
+
+@pytest.fixture
+def remove_peer_loopback_route(rand_unselected_dut, shutdown_bgp_sessions):
+    """
+    Remove routes to peer ToR loopback IP by shutting down BGP sessions on the peer
+    """
+
+    def _remove_peer_loopback_route():
+        shutdown_bgp_sessions(rand_unselected_dut)
+        # We need to maintain the expected active/standby state for the test
+        rand_unselected_dut.shell("config mux mode active all")
+
+    yield _remove_peer_loopback_route
+
+    # The `shutdown_bgp_sessions` fixture already restores BGP sessions during teardown so we 
+    # don't need to do it here
+    rand_unselected_dut.shell("config mux mode auto all")
+
+def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, rand_unselected_dut, get_testbed_params, tbinfo, remove_peer_loopback_route):
     """
     Verify traffic is equally distributed via loopback route
     """
@@ -199,12 +224,24 @@ def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, get_te
     params = get_testbed_params()
     active_tor_loopback0 = params['active_tor_ip']
 
-    # Remove loopback routes and verify traffic is equally distributed
-    remove_static_routes(rand_selected_dut, active_tor_loopback0)
+    remove_peer_loopback_route()
+    pt_assert(
+        wait_until(
+            10, 1, 0,
+            lambda: route_matches_expected_state(rand_selected_dut, active_tor_loopback0, expect_route=False)),
+        "Unexpected route {} found on {}".format(active_tor_loopback0, rand_selected_dut)
+    )
+    # Verify traffic is equally distributed
     check_tunnel_balance(**params)
 
     # Readd loopback routes and verify traffic is equally distributed
-    add_nexthop_routes(rand_selected_dut, active_tor_loopback0)
+    rand_unselected_dut.shell("config bgp start all")
+    pt_assert(
+        wait_until(
+            10, 1, 0,
+            lambda: route_matches_expected_state(rand_selected_dut, active_tor_loopback0, expect_route=True)),
+        "Expected route {} not found on {}".format(active_tor_loopback0, rand_selected_dut)
+    )
     check_tunnel_balance(**params)
 
 
