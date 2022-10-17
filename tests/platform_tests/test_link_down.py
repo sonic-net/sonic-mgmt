@@ -164,8 +164,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), 
-                 "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
@@ -195,5 +194,4 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), 
-                 "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
