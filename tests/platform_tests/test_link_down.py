@@ -4,10 +4,12 @@ This test supports different platforms including:
     1. chassis     
     2. single-asic dut
     3. multi-asic dut
-    Note that for now we only run this on t2(chassis), which need more time to boot back up, thus have more buffer to check for links
-    e.g. for single-asic dut, device boot up takes ~40sec, check for all links takes ~73sec, which means some latter links that are checked 
-    may already booted up.
-    Even though for current test result, it's still fine on single-asic dut, because when device went back up, links are still delayed to went up :)
+    Note that for now we only run this on t2(chassis), which need more time to boot back up, 
+    thus have more buffer to check for links
+    e.g. for single-asic dut, device boot up takes ~40sec, check for all links takes ~73sec, 
+    which means some latter links that are checked may already booted up.
+    Even though for current test result, it's still fine on single-asic dut, 
+    because when device went back up, links are still delayed to went up :)
     
 """
 import logging
@@ -30,9 +32,11 @@ MAX_TIME_TO_REBOOT = 120
 
 def multi_duts_and_ports(duthosts):
     """
+
     For multi-host
     Returns:
             dict of {{duthost1, [ports]}, {duthost2, [ports]}, ...}
+
     """
     duts_and_ports = {}
     for duthost in duthosts.frontend_nodes:
@@ -70,16 +74,17 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             # some ports on dut may not have link to fanout
             if fanout is None and fanout_port is None:
-                logger.info("Interface {} on duthost {} doesn't link to any fanout switch".format(port, duthost.hostname))
+                logger.info("Interface {} on duthost {} doesn't link to any fanout switch"
+                            .format(port, duthost.hostname))
                 continue
-            logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}".format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
+            logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}"
+                        .format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
             if fanout in fanout_and_ports.keys():
                 fanout_and_ports[fanout].append(fanout_port)
             else:
                 fanout_and_ports[fanout] = [fanout_port]
     return fanout_and_ports
     
-
 def is_link_down(fanout, port):
     """
         Either oper/admin status is down meaning link is down
@@ -87,11 +92,9 @@ def is_link_down(fanout, port):
     logger.info("Checking interface {} down status on fanout host {}".format(port, fanout.hostname))
     return fanout.is_intf_status_down(port)
 
-
 def is_link_up(fanout, port):
     logger.info("Checking interface {} up status on fanout host {}".format(port, fanout.hostname))
     return not fanout.is_intf_status_down(port)
-
 
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
     for fanout, ports in fanouts_and_ports.items():
@@ -101,7 +104,7 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
             if up:
                 # Make sure interfaces are up on fanout hosts
                 pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, fanout_port),
-                             "Interface {} on {} is still down after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
+                              "Interface {} on {} is still down after {}sec".format(fanout_port, fanout.hostname, MAX_TIME_TO_REBOOT))
             else:
                 # Check every interfaces are down on this host every 5 sec until device boots up
                 pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, fanout_port),
