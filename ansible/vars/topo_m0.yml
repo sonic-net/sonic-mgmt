@@ -91,12 +91,12 @@ configuration_properties:
     nhipv6: FC0A::FF
     colo_number: 30
     m0_number: 16
-    m0_asn_start: 65500
+    m0_asn_start: 64600
     m0_subnet_number: 1
     m0_subnet_size: 64
-    mx_subnet_size: 32
+    mx_subnet_size: 64
     mx_subnet_number: 1
-    mx_asn_start: 64200
+    mx_asn_start: 68000
   mx:
     swrole: mx
   m1:
