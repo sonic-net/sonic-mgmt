@@ -14,13 +14,11 @@ import logging
 import time
 import pytest
 
-import tests.platform_tests.link_flap.link_flap_utils
-from multiprocessing.pool import ThreadPool
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.reboot import *
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +87,12 @@ def is_link_down(fanout, port):
     logger.info("Checking interface {} down status on fanout host {}".format(port, fanout.hostname))
     return fanout.is_intf_status_down(port)
 
+
 def is_link_up(fanout, port):
     logger.info("Checking interface {} up status on fanout host {}".format(port, fanout.hostname))
     return not fanout.is_intf_status_down(port)
-    
+
+
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up = True):
     for fanout, ports in fanouts_and_ports.items():
         for fanout_port in ports:
