@@ -285,7 +285,7 @@ function run_group_tests()
 function run_individual_tests()
 {
     EXIT_CODE=0
-    USE_PY3=0
+
     CACHE_CLEAR="--cache-clear"
 
     echo "=== Running tests individually ==="
@@ -301,20 +301,19 @@ function run_individual_tests()
         fi
 
         echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        USE_PY3=0
         for i in `cat python3_test_files.txt`
         do
-            if [[ ${test_script} =~ ${i} ]]; then
-                USE_PY3=1
-                break
-            fi
+            USE_PY3=`expr match ${test_script} ${i}`
+            [[ ${USE_PY3} != 0 ]] && break
         done
-        if [ ${USE_PY3} == 1 ]; then
+        if [ ${USE_PY3} != 0 ]; then
             echo Activate Python3 venv
             source /var/AzDevOps/env-python3/bin/activate
         fi
             pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
             ret_code=$?
-        if [ ${USE_PY3} == 1 ]; then
+        if [ ${USE_PY3} != 0 ]; then
             echo Deactivate Python3 venv
             deactivate
         fi
