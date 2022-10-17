@@ -174,15 +174,6 @@ def generate_prefixs(subnet_size, ip_base, offset):
     return prefix, prefix_v6
 
 
-def get_octets(ip_base):
-    splits = str(ip_base).split(".")
-    octet1_base = int(splits[0])
-    octet2_base = int(splits[1])
-    octet3_base = int(splits[2])
-    octet4_base = int(splits[3])
-    return octet1_base, octet2_base, octet3_base, octet4_base
-
-
 def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_number,
                                 m0_subnet_number, m0_asn_start, mx_number, mx_subnet_number,
                                 ip_base, m0_subnet_size, mx_subnet_size, mx_asn_start):
@@ -209,6 +200,7 @@ def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_num
 
             # Number of subnet members of M0 in current colo that has been caculated
             m0_subnet_member_offset = m0_index * m0_subnet_member_count
+            curr_m0_asn = m0_asn_start + m0_index
             for m0_subnet in range(0, m0_subnet_number):
                 # Number of subnet members of subnet in current M0 that has been caculated
                 subnet_member_offset = m0_subnet * m0_subnet_size
@@ -216,7 +208,6 @@ def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_num
 
                 prefix, prefix_v6 = generate_prefixs(m0_subnet_size, ip_base, offset)
 
-                curr_m0_asn = m0_asn_start + colo * colo_number + m0_index
                 aspath = "{}".format(curr_m0_asn)
                 if family in ["v4", "both"]:
                     routes.append((prefix, nexthop, aspath))
