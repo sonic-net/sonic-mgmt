@@ -369,5 +369,4 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.IPv6, 'fl')
-
     return ip_version, out_pkt, exp_pkt
