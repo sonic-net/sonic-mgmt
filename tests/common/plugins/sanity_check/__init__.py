@@ -238,9 +238,6 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                     for action in infra_recovery_actions:
                         action()
 
-                    if enable_macsec:
-                        start_macsec_service()
-                        startup_macsec()
                 except Exception as e:
                     request.config.cache.set("sanity_check_failed", True)
                     logger.error("Recovery of sanity check failed with exception: ")
