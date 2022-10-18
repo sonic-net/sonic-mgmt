@@ -82,7 +82,7 @@ class TestControlPlane():
         _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         up_link = upstream_links[port_name]
-        output = duthost.command("ping {} -w {} -q -i 0.1".format(up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
+        output = duthost.command("{} ping {} -w {} -q -i 0.1".format(get_ipnetns_prefix(duthost, port_name), up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         assert last_dut_egress_sa_table != new_dut_egress_sa_table
@@ -94,7 +94,7 @@ class TestDataPlane():
     BATCH_COUNT = 10
 
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, ptfadapter):
-        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 10)
+        ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
 
         down_link = downstream_links.values()[0]
         dut_macaddress = duthost.get_dut_iface_mac(ctrl_links.keys()[0])
@@ -138,7 +138,7 @@ class TestDataPlane():
                 testutils.send_packet(
                     ptfadapter, down_link["ptf_port_id"], pkt, TestDataPlane.BATCH_COUNT)
                 result = check_macsec_pkt(test=ptfadapter,
-                                          ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=3)
+                                          ptf_port_id=up_link["ptf_port_id"],  exp_pkt=exp_pkt, timeout=30)
                 if result is None:
                     return
                 fail_message += result
@@ -147,7 +147,7 @@ class TestDataPlane():
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
         for up_port, up_link in upstream_links.items():
             ret = duthost.command(
-                "ping -c {} {}".format(4, up_link['local_ipv4_addr']))
+                "{} ping -c {} {}".format(get_ipnetns_prefix(duthost, up_port), 4, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers):
@@ -220,17 +220,18 @@ class TestDataPlane():
             assert up_port in ctrl_links
 
             asic = duthost.get_port_asic_instance(up_port)
+            ns = duthost.get_namespace_from_asic_id(asic.asic_index) if duthost.is_multi_asic else ''
             egress_sa_name = get_macsec_sa_name(asic, up_port, True)
             ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
             if not egress_sa_name or not ingress_sa_name:
                 continue
 
-            egress_start_counters += Counter(get_macsec_counters(asic, egress_sa_name))
-            ingress_start_counters += Counter(get_macsec_counters(asic, ingress_sa_name))
+            egress_start_counters += Counter(get_macsec_counters(asic, ns, egress_sa_name))
+            ingress_start_counters += Counter(get_macsec_counters(asic, ns, ingress_sa_name))
 
         # Launch traffic
         ret = duthost.command(
-            "ping -c {} -s {} {}".format(PKT_NUM, PKT_OCTET, nbr_ip_addr))
+            "{} ping -c {} -s {} {}".format(get_ipnetns_prefix(duthost, port_name), PKT_NUM, PKT_OCTET, nbr_ip_addr))
         assert not ret['failed']
         sleep(10) # wait 10s for polling counters
 
@@ -239,13 +240,14 @@ class TestDataPlane():
         ingress_end_counters = Counter()
         for up_port in up_ports:
             asic = duthost.get_port_asic_instance(up_port)
+            ns = duthost.get_namespace_from_asic_id(asic.asic_index) if duthost.is_multi_asic else ''
             egress_sa_name = get_macsec_sa_name(asic, up_port, True)
             ingress_sa_name = get_macsec_sa_name(asic, up_port, False)
             if not egress_sa_name or not ingress_sa_name:
                 continue
 
-            egress_end_counters += Counter(get_macsec_counters(asic, egress_sa_name))
-            ingress_end_counters += Counter(get_macsec_counters(asic, ingress_sa_name))
+            egress_end_counters += Counter(get_macsec_counters(asic, ns, egress_sa_name))
+            ingress_end_counters += Counter(get_macsec_counters(asic, ns, ingress_sa_name))
 
         i = 'SAI_MACSEC_SA_ATTR_CURRENT_XPN'
         assert egress_end_counters[i] - egress_start_counters[i] >= PKT_NUM
@@ -272,6 +274,7 @@ class TestFaultHandling():
     MKA_TIMEOUT = 6
     LACP_TIMEOUT = 90
 
+    @pytest.mark.disable_loganalyzer
     def test_link_flap(self, duthost, ctrl_links):
         # Only pick one link for link flap test
         assert ctrl_links
@@ -280,7 +283,6 @@ class TestFaultHandling():
             nbr["host"], nbr["port"])
         _, _, _, dut_egress_sa_table_orig, dut_ingress_sa_table_orig = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
-
 
         # Flap < 6 seconds
         # Not working on eos neighbour
@@ -340,6 +342,7 @@ class TestFaultHandling():
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
             port_name, get_portchannel(duthost))["status"] == "Up")
 
+    @pytest.mark.disable_loganalyzer
     def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, request):
@@ -350,6 +353,11 @@ class TestFaultHandling():
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+ 
+        # Wait till macsec session has gone down.
+        wait_until(20, 3, 0,
+            lambda: not duthost.iface_macsec_ok(port_name) and
+                    not nbr["host"].iface_macsec_ok(nbr["port"]))
 
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
@@ -377,25 +385,27 @@ class TestInteropProtocol():
     Macsec interop with other protocols
     '''
 
-    def test_port_channel(self, duthost, ctrl_links):
+    @pytest.mark.disable_loganalyzer
+    def test_port_channel(self, duthost, profile_name, ctrl_links):
         '''Verify lacp
         '''
         ctrl_port, _ = ctrl_links.items()[0]
         pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
         assert pc["status"] == "Up"
 
+        disable_macsec_port(duthost, ctrl_port)
         # Remove ethernet interface <ctrl_port> from PortChannel interface <pc>
-        duthost.command("sudo config portchannel member del {} {}".format(
-            pc["name"], ctrl_port))
-        assert wait_until(20, 1, 0, lambda: get_portchannel(
+        duthost.command("sudo config portchannel {} member del {} {}".format(getns_prefix(duthost, ctrl_port), pc["name"], ctrl_port))
+        assert wait_until(90, 1, 0, lambda: get_portchannel(
             duthost)[pc["name"]]["status"] == "Dw")
 
+        enable_macsec_port(duthost, ctrl_port, profile_name)
         # Add ethernet interface <ctrl_port> back to PortChannel interface <pc>
-        duthost.command("sudo config portchannel member add {} {}".format(
-            pc["name"], ctrl_port))
-        assert wait_until(20, 1, 0, lambda: find_portchannel_from_member(
+        duthost.command("sudo config portchannel {} member add {} {}".format(getns_prefix(duthost, ctrl_port), pc["name"], ctrl_port))
+        assert wait_until(90, 1, 0, lambda: find_portchannel_from_member(
             ctrl_port, get_portchannel(duthost))["status"] == "Up")
 
+    @pytest.mark.disable_loganalyzer
     def test_lldp(self, duthost, ctrl_links, profile_name):
         '''Verify lldp
         '''
@@ -421,9 +431,10 @@ class TestInteropProtocol():
             wait_until(20, 3, 0,
                 lambda: duthost.iface_macsec_ok(ctrl_port) and
                         nbr["host"].iface_macsec_ok(nbr["port"]))
-            assert wait_until(1, 1, LLDP_TIMEOUT,
+            assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
+    @pytest.mark.disable_loganalyzer
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name):
         '''Verify BGP neighbourship
         '''
@@ -431,43 +442,43 @@ class TestInteropProtocol():
             "BGP_NEIGHBOR"].values()[0]
         BGP_KEEPALIVE = int(bgp_config["keepalive"])
         BGP_HOLDTIME = int(bgp_config["holdtime"])
+        BGP_TIMEOUT = 90
 
-        def check_bgp_established(up_link):
-            command = "sonic-db-cli STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(
-                up_link["local_ipv4_addr"])
+        def check_bgp_established(ctrl_port, up_link):
+            command = "sonic-db-cli {} STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'".format(getns_prefix(duthost, ctrl_port), up_link["local_ipv4_addr"])
             fact = sonic_db_cli(duthost, command)
             logger.info("bgp state {}".format(fact))
             return fact["state"] == "Established"
 
         # Ensure the BGP sessions have been established
         for ctrl_port in ctrl_links.keys():
-            assert wait_until(30, 5, 0,
-                              check_bgp_established, upstream_links[ctrl_port])
+            assert wait_until(BGP_TIMEOUT, 5, 0,
+                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec disabled
         for ctrl_port, nbr in ctrl_links.items():
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
-            wait_until(20, 3, 0,
+            wait_until(BGP_TIMEOUT, 3, 0,
                 lambda: not duthost.iface_macsec_ok(ctrl_port) and
                         not nbr["host"].iface_macsec_ok(nbr["port"]))
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
-                              check_bgp_established, upstream_links[ctrl_port])
+            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in ctrl_links.items():
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
-            wait_until(20, 3, 0,
+            wait_until(BGP_TIMEOUT, 3, 0,
                 lambda: duthost.iface_macsec_ok(ctrl_port) and
                         nbr["host"].iface_macsec_ok(nbr["port"]))
             # Wait PortChannel up, which might flap if having one port member
-            wait_until(20, 5, 5, lambda: find_portchannel_from_member(
+            wait_until(BGP_TIMEOUT, 5, 5, lambda: find_portchannel_from_member(
                 ctrl_port, get_portchannel(duthost))["status"] == "Up")
             # BGP session should keep established even after holdtime
-            assert wait_until(BGP_HOLDTIME * 2, BGP_KEEPALIVE, BGP_HOLDTIME,
-                              check_bgp_established, upstream_links[ctrl_port])
+            assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
+                              check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
     def test_snmp(self, duthost, ctrl_links, upstream_links, creds):
         '''
@@ -493,6 +504,7 @@ class TestInteropProtocol():
 
 
 class TestDeployment():
+    @pytest.mark.disable_loganalyzer
     def test_config_reload(self, duthost, ctrl_links, policy, cipher_suite, send_sci):
         # Save the original config file
         duthost.shell("cp /etc/sonic/config_db.json config_db.json")

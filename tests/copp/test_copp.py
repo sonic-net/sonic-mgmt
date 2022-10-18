@@ -40,7 +40,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2")
+    pytest.mark.topology("t0", "t1", "t2", "m0")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -275,7 +275,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
                testname="copp_tests.{}Test".format((protocol+"TopoT1")
-                         if protocol in _TOR_ONLY_PROTOCOL and dut_type != "ToRRouter" else protocol),
+                         if protocol in _TOR_ONLY_PROTOCOL and dut_type not in ["ToRRouter", "MgmtToRRouter"] else protocol),
                platform="nn",
                qlen=100000,
                params=params,

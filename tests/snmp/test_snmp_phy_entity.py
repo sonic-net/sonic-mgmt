@@ -137,7 +137,7 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-# The sort factor values are got from https://github.com/Azure/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
+# The sort factor values are got from https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
 XCVR_SENSOR_PATTERN = {
     'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
     'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
@@ -277,15 +277,14 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
-        if parent_name == CHASSIS_KEY:
+        if 'PSU' in parent_name:
+            continue
+        elif parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
             parent_entity_info = redis_hgetall(duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
-            if 'PSU' in parent_name:
-                parent_oid = MODULE_TYPE_PSU + parent_position * MODULE_INDEX_MULTIPLE
-            else:
-                parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
+            parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
         expect_oid = parent_oid + DEVICE_TYPE_FAN + position * DEVICE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, 'Cannot find fan {} in physical entity mib'.format(name)
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
@@ -754,7 +753,8 @@ def redis_hgetall(duthost, db_id, key):
     content = output['stdout'].strip()
     if not content:
         return {}
-
+    # fix to make literal_eval() work with nested dictionaries
+    content = content.replace("'{", '"{').replace("}'", '}"')
     return ast.literal_eval(content)
 
 
