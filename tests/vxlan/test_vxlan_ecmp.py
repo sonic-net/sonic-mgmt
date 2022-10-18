@@ -36,11 +36,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from vxlan_ecmp_utils import Ecmp_Utils
-ecmp_utils = Ecmp_Utils()
-logger = logging.getLogger(__name__)
 import json
 import traceback
 
+logger = logging.getLogger(__name__)
+ecmp_utils = Ecmp_Utils()
 
 # This is the list of encapsulations that will be tested in this script.
 # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
@@ -49,6 +49,9 @@ SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
+
+
+
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
