@@ -107,7 +107,6 @@ configuration:
     properties:
     - common
     - mx
-    mx_index: 0
     bgp:
       asn: 64001
       peers:
@@ -129,7 +128,6 @@ configuration:
     properties:
     - common
     - mx
-    mx_index: 1
     bgp:
       asn: 64002
       peers:

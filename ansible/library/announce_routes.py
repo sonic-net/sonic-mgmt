@@ -65,22 +65,28 @@ TOR_ASN_START = 65500
 IPV4_BASE_PORT = 5000
 IPV6_BASE_PORT = 6000
 
-# Describe number of COLOs
+# Describe default number of COLOs
 COLO_NUMBER = 30
-# Describe number of M0 devices in 1 colo
+# Describe default number of M0 devices in 1 colo
 M0_NUMBER = 16
-# Describe number of subnet in a M0 device
+# Describe default number of subnet in a M0 device
 M0_SUBNET_NUMBER = 2
-# Describe number of members in a M0 subnet
+# Describe default number of members in a M0 subnet
 M0_SUBNET_SIZE = 32
-# Describe number of MX device connected to M0 device
+# Describe default number of MX device connected to M0 device
 MX_NUMBER = 2
-# Describe number of subnet in a MX device
+# Describe default number of subnet in a MX device
 MX_SUBNET_NUMBER = 2
-# Describe number of subnet members
+# Describe default number of subnet members
 MX_SUBNET_SIZE = 64
+# Describe default start asn of MXs
 MX_ASN_START = 68000
-M0_ASN_START = 65500
+# Describe default start asn of M0s
+M0_ASN_START = 64600
+# Describe default IPv6 subnet prefix length of MX
+MX_SUBNET_PREFIX_LEN_V6 = 64
+# Describe default IPv6 subnet prefix length of M0
+M0_SUBNET_PREFIX_LEN_V6 = 64
 
 
 def wait_for_http(host_ip, http_port, timeout=10):
@@ -163,27 +169,20 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
 
 
 # Generate prefixs of route
-def generate_prefixs(subnet_size, ip_base, offset):
+def generate_prefix(subnet_size, ip_base, offset):
     next_ip = get_new_ip(ip_base, offset)
-    prefixlen_v4 = (32 - int(math.log(subnet_size, 2)))
+    prefixlen = (ip_base.max_prefixlen - int(math.log(subnet_size, 2)))
+    prefix = "{}/{}".format(next_ip, prefixlen)
 
-    prefix = "{}/{}".format(next_ip, prefixlen_v4)
-    octets = [int(octet_str) for octet_str in str(next_ip).split(".")]
-    prefix_v6 = "20%02X:%02X%02X:0:%02X::/64" % (octets[0], octets[1], octets[2], octets[3])
-
-    return prefix, prefix_v6
+    return prefix
 
 
-def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_number,
-                                m0_subnet_number, m0_asn_start, mx_number, mx_subnet_number,
-                                ip_base, m0_subnet_size, mx_subnet_size, mx_asn_start):
+def generate_m0_upstream_routes(nexthop, colo_number, m0_number, m0_subnet_number, m0_asn_start, mx_number,
+                                mx_subnet_number, ip_base, m0_subnet_size, mx_subnet_size, mx_asn_start):
     routes = []
 
     # Generate default route
-    if family in ["v4", "both"]:
-        routes.append(("0.0.0.0/0", nexthop, None))
-    if family in ["v6", "both"]:
-        routes.append(("::/0", nexthop_v6, None))
+    routes.append(("0.0.0.0/0" if ip_base.version == 4 else "::/0", nexthop, None))
 
     # Number of direct subnet members connected to a M0 device
     m0_direct_subnet_member_count = m0_subnet_number * m0_subnet_size
@@ -195,28 +194,26 @@ def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_num
         # Number of subnet members of colo that has been calculated
         colo_subnet_member_offset = colo * m0_number * m0_subnet_member_count
         for m0_index in range(0, m0_number):
+            # Skip M0 direct routes
             if colo == 0 and m0_index == 0:
                 continue
 
             # Number of subnet members of M0 in current colo that has been caculated
             m0_subnet_member_offset = m0_index * m0_subnet_member_count
             curr_m0_asn = m0_asn_start + m0_index
+            prefix = None
             for m0_subnet in range(0, m0_subnet_number):
                 # Number of subnet members of subnet in current M0 that has been caculated
                 subnet_member_offset = m0_subnet * m0_subnet_size
                 offset = colo_subnet_member_offset + m0_subnet_member_offset + subnet_member_offset
 
-                prefix, prefix_v6 = generate_prefixs(m0_subnet_size, ip_base, offset)
+                prefix = generate_prefix(m0_subnet_size, ip_base, offset)
 
                 aspath = "{}".format(curr_m0_asn)
-                if family in ["v4", "both"]:
-                    routes.append((prefix, nexthop, aspath))
-                if family in ["v6", "both"]:
-                    routes.append((prefix_v6, nexthop_v6, aspath))
+                routes.append((prefix, nexthop, aspath))
 
             # Start ip of MX subnets
-            ip_base_mx = get_next_ip_by_net(prefix)
-
+            ip_base_mx = ip_base if prefix is None else get_next_ip_by_net(prefix)
             # Number of subnet members connected to a MX device
             mx_subnet_member_count = mx_subnet_number * mx_subnet_size
             for mx in range(mx_number):
@@ -227,20 +224,17 @@ def generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_num
                     subnet_member_offset = mx_subnet * mx_subnet_size
                     offset = mx_subnet_member_offset + subnet_member_offset
 
-                    prefix, prefix_v6 = generate_prefixs(mx_subnet_size, ip_base_mx, offset)
+                    prefix = generate_prefix(mx_subnet_size, ip_base_mx, offset)
                     curr_mx_asn = mx_asn_start + mx
                     aspath = "{} {}".format(curr_m0_asn, curr_mx_asn)
 
-                    if family in ["v4", "both"]:
-                        routes.append((prefix, nexthop, aspath))
-                    if family in ["v6", "both"]:
-                        routes.append((prefix_v6, nexthop_v6, aspath))
+                    routes.append((prefix, nexthop, aspath))
 
     return routes
 
 
-def generate_m0_downstream_routes(family, nexthop, nexthop_v6, mx_subnet_number, mx_subnet_size,
-                                  m0_subnet_number, m0_subnet_size, ip_base, mx_index):
+def generate_m0_downstream_routes(nexthop, mx_subnet_number, mx_subnet_size, m0_subnet_number, m0_subnet_size, ip_base,
+                                  mx_index):
     routes = []
 
     # Number of direct subnet members connected to a M0 device
@@ -254,29 +248,22 @@ def generate_m0_downstream_routes(family, nexthop, nexthop_v6, mx_subnet_number,
         # Number of subnet members of subnet in current MX that has been caculated
         subnet_member_offset = subnet * mx_subnet_size
         offset = m0_direct_subnet_member_count + mx_subnet_member_offset + subnet_member_offset
-        prefix, prefix_v6 = generate_prefixs(mx_subnet_size, ip_base, offset)
-
-        if family in ["v4", "both"]:
-            routes.append((prefix, nexthop, None))
-        if family in ["v6", "both"]:
-            routes.append((prefix_v6, nexthop_v6, None))
+        prefix = generate_prefix(mx_subnet_size, ip_base, offset)
+        routes.append((prefix, nexthop, None))
 
     return routes
 
 
-def generate_m0_routes(family, nexthop, nexthop_v6, colo_number, m0_number, m0_subnet_number,
-                       m0_asn_start, router_type, m0_subnet_size, mx_number, mx_subnet_number,
-                       ip_base, mx_subnet_size, mx_asn_start, mx_index):
+def generate_m0_routes(nexthop, colo_number, m0_number, m0_subnet_number, m0_asn_start, router_type, m0_subnet_size,
+                       mx_number, mx_subnet_number, ip_base, mx_subnet_size, mx_asn_start, mx_index):
     if router_type == "m1":
-        return generate_m0_upstream_routes(family, nexthop, nexthop_v6, colo_number, m0_number,
-                                           m0_subnet_number, m0_asn_start, mx_number,
-                                           mx_subnet_number, ip_base, m0_subnet_size,
-                                           mx_subnet_size, mx_asn_start)
+        return generate_m0_upstream_routes(nexthop, colo_number, m0_number, m0_subnet_number, m0_asn_start, mx_number,
+                                           mx_subnet_number, ip_base, m0_subnet_size, mx_subnet_size, mx_asn_start)
 
     if router_type == "mx":
-        return generate_m0_downstream_routes(family, nexthop, nexthop_v6, mx_subnet_number,
-                                             mx_subnet_size, m0_subnet_number, m0_subnet_size,
-                                             ip_base, mx_index)
+        return generate_m0_downstream_routes(nexthop, mx_subnet_number, mx_subnet_size, m0_subnet_number,
+                                             m0_subnet_size, ip_base, mx_index)
+
     return []
 
 
@@ -484,7 +471,9 @@ def get_next_ip_by_net(net_str):
     """
     Get the nearest next non-overlapping ip address based on the net_str
     Sample input:
-    "192.168.0.1/24"
+    str, "192.168.0.1/24"
+    Sample output:
+    <class 'ipaddress.ip_address'>, 192.168.3.0/32
     """
     net = ipaddress.ip_network(UNICODE_TYPE(net_str), strict=False)
     net_size = int(net.broadcast_address) + 1 - int(net.network_address)
@@ -492,15 +481,18 @@ def get_next_ip_by_net(net_str):
     return next_net
 
 
-def get_next_net_of_nets(nets):
+def get_next_ip_of_nets(nets):
     """
     Get the nearest next non-overlapping ip address based on the network list
     Sample input:
     [
         "192.168.0.1/24",
         "192.168.0.1/25",
-        "192.168.0.128/25"
+        "192.168.0.128/25",
+        "192.168.2.1/24",
     ]
+    Sample output:
+    <class 'ipaddress.ip_address'>, 192.168.3.0/32
     """
     max_next_ip = None
     for vlan in nets:
@@ -513,16 +505,19 @@ def get_next_net_of_nets(nets):
 
 
 """
-For M0, we have 2 sets of routes that we are going to advertise
+For M0, we have 2 sets of routes that we are going to advertised
     - 1st set routes are advertised by the upstream VMs (M1 devices)
     - 2nd set routes are advertised by the downstream VMs (MX devices)
 
-The total number of routes are controlled by the colo_number, m0_number, mx_subnet_number, m0_subnet_number and number of MX devices from the topology file.
+The total number of routes are controlled by the colo_number, m0_number, mx_subnet_number, m0_subnet_number and number
+of MX devices from the topology file.
 We would have the following distribution:
 - M1 Routes:
    - 1 default route, prefix: 0.0.0.0/0
-   - Subnet routes of M0 devices connected to M1 devices other than DUT, count: (colo_number*m0_number-1)*m0_subnet_number
-   - Subnet routes of MX devices connected to M0 devices connected M1 devices, count: (colo_number*m0_number-1)*mx_number*mx_subnet_number
+   - Subnet routes of M0 devices connected to M1 devices other than DUT,
+     count: (colo_number * m0_number - 1) * m0_subnet_number
+   - Subnet routes of MX devices connected to M0 devices connected M1 devices,
+     count: (colo_number * m0_number - 1) * mx_number * mx_subnet_number
 - MX Routes:
    - Subunet routes of MX, count: mx_subnet_number
 """
@@ -540,6 +535,8 @@ def fib_m0(topo, ptf_ip, action="announce"):
     mx_subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
     mx_asn_start = common_config.get("mx_asn_start", MX_ASN_START)
+    m0_subnet_prefix_len_v6 = common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6)
+    mx_subnet_prefix_len_v6 = common_config.get("mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6)
 
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
@@ -553,15 +550,17 @@ def fib_m0(topo, ptf_ip, action="announce"):
     for _, vlans in vlan_configs.items():
         for _, config in vlans.items():
             vlan_prefixs.append(config["prefix"])
-    ip_base = get_next_net_of_nets(vlan_prefixs)
+
+    ip_base = get_next_ip_of_nets(vlan_prefixs)
+    ip_base_v6 = ipaddress.IPv6Address(UNICODE_TYPE("20c0:a800::0"))
 
     m1_routes_v4 = None
     m1_routes_v6 = None
+    mx_index = -1
     for k, v in vms_config.items():
         vm_offset = vms[k]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset
-        mx_index = v.get("mx_index", None)
 
         router_type = None
         # Upstream
@@ -570,19 +569,22 @@ def fib_m0(topo, ptf_ip, action="announce"):
         # Downstream
         elif "mx" in v["properties"]:
             router_type = "mx"
+            mx_index += 1
 
+        # Routes announced by different M1s are the same, can reuse generated routes
         if router_type == "m1" and m1_routes_v4 is not None:
             routes_v4 = m1_routes_v4
             routes_v6 = m1_routes_v6
         else:
-            routes_v4 = generate_m0_routes("v4", nhipv4, nhipv6, colo_number, m0_number,
-                                           m0_subnet_number, m0_asn_start, router_type,
-                                           m0_subnet_size, mx_number, mx_subnet_number, ip_base,
-                                           mx_subnet_size, mx_asn_start, mx_index)
-            routes_v6 = generate_m0_routes("v6", nhipv4, nhipv6, colo_number, m0_number,
-                                           m0_subnet_number, m0_asn_start, router_type,
-                                           m0_subnet_size, mx_number, mx_subnet_number, ip_base,
-                                           mx_subnet_size, mx_asn_start, mx_index)
+            m0_subnet_size_v6 = 2 ** (128 - m0_subnet_prefix_len_v6)
+            mx_subnet_size_v6 = 2 ** (128 - mx_subnet_prefix_len_v6)
+            routes_v4 = generate_m0_routes(nhipv4, colo_number, m0_number, m0_subnet_number, m0_asn_start, router_type,
+                                           m0_subnet_size, mx_number, mx_subnet_number, ip_base, mx_subnet_size,
+                                           mx_asn_start, mx_index)
+            routes_v6 = generate_m0_routes(nhipv6, colo_number, m0_number, m0_subnet_number, m0_asn_start, router_type,
+                                           m0_subnet_size_v6, mx_number, mx_subnet_number, ip_base_v6,
+                                           mx_subnet_size_v6, mx_asn_start, mx_index)
+
             if router_type == "m1":
                 m1_routes_v4 = routes_v4
                 m1_routes_v6 = routes_v6
