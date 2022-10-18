@@ -154,7 +154,7 @@ function setup_test_options()
     for test_case in ${TEST_CASES}; do
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
-    TEST_CASES=$(python -c("print '\n'.join('''${FINAL_CASES}'''.split()))")
+    TEST_CASES=$(python -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
 
     if [[ -z $TEST_CASES ]]; then
         echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
