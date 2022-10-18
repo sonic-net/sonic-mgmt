@@ -56,14 +56,6 @@ parameters:
           - vms3-t0-s6100
           - vms3-t1-7280
           - vms3-t1-dx010-1
-      server_6:
-        vm_type: ceos
-        testbeds:
-          - vms6-1
-          - vms6-t0-7060
-          - vms6-t0-7648
-          - vms6-t0-z91
-          - vms6-t1-7060
       server_7:
         vm_type: ceos
         testbeds:
@@ -83,18 +75,6 @@ parameters:
           - vms11-t0-on-4
           - vms11-t0-s6000
           - vms11-t0-s6000-6
-      server_12:
-        vm_type: ceos
-        testbeds:
-          - vms12-3-t0-e1031
-          - vms12-9-t0-e1031
-          - vms12-t0-1
-          - vms12-t0-2
-          - vms12-t0-3800
-          - vms12-t0-s5232-1
-          - vms12-t0-s6000
-          - vms12-t0-s6000-1
-          - vms12-t1-lag-1
       server_13:
         vm_type: ceos
         testbeds:

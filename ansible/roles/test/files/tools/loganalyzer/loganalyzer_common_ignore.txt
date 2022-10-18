@@ -156,6 +156,10 @@ r, ".* ERR core_uploader.py.*core uploader failed.*Failed during upload.*"
 # https://dev.azure.com/msazure/One/_workitems/edit/14482841
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
 
+# https://github.com/sonic-net/sonic-sairedis/issues/1131
+r, ".* ERR swss#orchagent: :- meta_sai_on_fdb_event_single: failed to insert SAI_OBJECT_TYPE_FDB_ENTRY.*"
+r, ".* ERR swss#orchagent: :- meta_generic_validation_create: switch id.*doesn't exist yet.*"
+
 # Temporary ignore until the fix is in image
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_stats.*"
 r, ".* ERR syncd#syncd: :- collectPortCounters: Failed to get stats of port.*"

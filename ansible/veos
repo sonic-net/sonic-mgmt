@@ -1995,14 +1995,6 @@ vms_18:
       ansible_host: 172.16.135.54
     VM18023:
       ansible_host: 172.16.135.55
-    VM18024:
-      ansible_host: 172.16.135.56
-    VM18025:
-      ansible_host: 172.16.135.57
-    VM18026:
-      ansible_host: 172.16.135.58
-    VM18027:
-      ansible_host: 172.16.135.59
     VM18028:
       ansible_host: 172.16.135.60
     VM18029:
@@ -2139,6 +2131,30 @@ vms_18:
       ansible_host: 172.16.135.126
     VM18095:
       ansible_host: 172.16.135.127
+    VM18096:
+      ansible_host: 172.16.135.128
+    VM18097:
+      ansible_host: 172.16.135.129
+    VM18098:
+      ansible_host: 172.16.135.130
+    VM18099:
+      ansible_host: 172.16.135.131
+    VM18100:
+      ansible_host: 172.16.135.132
+    VM18101:
+      ansible_host: 172.16.135.133
+    VM18102:
+      ansible_host: 172.16.135.134
+    VM18103:
+      ansible_host: 172.16.135.135
+    VM18104:
+      ansible_host: 172.16.135.136
+    VM18105:
+      ansible_host: 172.16.135.137
+    VM18106:
+      ansible_host: 172.16.135.138
+    VM18107:
+      ansible_host: 172.16.135.139
 vms_20:
   hosts:
     VM20000:
@@ -2496,14 +2512,6 @@ vms_21:
       ansible_host: 172.16.142.110
     VM21079:
       ansible_host: 172.16.142.111
-    VM21080:
-      ansible_host: 172.16.142.112
-    VM21081:
-      ansible_host: 172.16.142.113
-    VM21082:
-      ansible_host: 172.16.142.114
-    VM21083:
-      ansible_host: 172.16.142.115
     VM21084:
       ansible_host: 172.16.142.116
     VM21085:
@@ -2528,6 +2536,18 @@ vms_21:
       ansible_host: 172.16.142.126
     VM21095:
       ansible_host: 172.16.142.127
+    VM21096:
+      ansible_host: 172.16.142.128
+    VM21097:
+      ansible_host: 172.16.142.129
+    VM21098:
+      ansible_host: 172.16.142.130
+    VM21099:
+      ansible_host: 172.16.142.131
+    VM21100:
+      ansible_host: 172.16.142.132
+    VM21101:
+      ansible_host: 172.16.142.133
 
 vms_24:
   hosts:
@@ -3904,6 +3924,58 @@ vms_bjw_6:
       ansible_host: 172.16.190.34
     VM56003:
       ansible_host: 172.16.190.35
+    VM56004:
+      ansible_host: 172.16.190.36
+    VM56005:
+      ansible_host: 172.16.190.37
+    VM56006:
+      ansible_host: 172.16.190.38
+    VM56007:
+      ansible_host: 172.16.190.39
+    VM56008:
+      ansible_host: 172.16.190.40
+    VM56009:
+      ansible_host: 172.16.190.41
+    VM56010:
+      ansible_host: 172.16.190.42
+    VM56011:
+      ansible_host: 172.16.190.43
+    VM56012:
+      ansible_host: 172.16.190.44
+    VM56013:
+      ansible_host: 172.16.190.45
+    VM56014:
+      ansible_host: 172.16.190.46
+    VM56015:
+      ansible_host: 172.16.190.47
+    VM56016:
+      ansible_host: 172.16.190.48
+    VM56017:
+      ansible_host: 172.16.190.49
+    VM56018:
+      ansible_host: 172.16.190.50
+    VM56019:
+      ansible_host: 172.16.190.51
+    VM56020:
+      ansible_host: 172.16.190.52
+    VM56021:
+      ansible_host: 172.16.190.53
+    VM56022:
+      ansible_host: 172.16.190.54
+    VM56023:
+      ansible_host: 172.16.190.55
+    VM56024:
+      ansible_host: 172.16.190.56
+    VM56025:
+      ansible_host: 172.16.190.57
+    VM56026:
+      ansible_host: 172.16.190.58
+    VM56027:
+      ansible_host: 172.16.190.59
+    VM56028:
+      ansible_host: 172.16.190.60
+    VM56029:
+      ansible_host: 172.16.190.61
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

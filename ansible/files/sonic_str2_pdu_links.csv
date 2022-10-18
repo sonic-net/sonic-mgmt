@@ -90,7 +90,6 @@ pdu-117,39,str2-7215-acs-2,PSU1
 pdu-118,39,str2-7215-acs-2,PSU2
 pdu-114,35,str2-7215-acs-3,PSU1
 pdu-113,35,str2-7215-acs-3,PSU2
-pdu-113,25,str2-7215-acs-3,PSU3
 pdu-114,36,str2-7215-acs-4,PSU1
 pdu-113,36,str2-7215-acs-4,PSU2
 pdu-117,36,str2-7260cx3-02,PSU1
@@ -199,3 +198,7 @@ pdu-109,28,str2-7260cx3-d10-u19,PSU1
 pdu-110,28,str2-7260cx3-d10-u19,PSU2
 pdu-109,27,str2-7260cx3-d10-u21,PSU1
 pdu-110,27,str2-7260cx3-d10-u21,PSU2
+pdu-84,3,str2-pikez-acs-1,PSU1
+pdu-85,3,str2-pikez-acs-1,PSU2
+pdu-84,4,str2-7215-acs-5,PSU1
+pdu-85,4,str2-7215-acs-5,PSU2

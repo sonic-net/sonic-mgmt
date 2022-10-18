@@ -20,6 +20,7 @@ parameters:
       - nightly
       - nightly2
       - nightly-svc
+      - nightly-bjw
 
   # ============ Upgrade parameters ============
   - name: IMAGE_URL
@@ -482,7 +483,7 @@ stages:
                 python3 collect_azp_results.py $(Build.BuildId)
 
                 report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
-                if [[ -z ${{ parameters.IMAGE_URL }} ]]; then
+                if [[ -z "${{ parameters.IMAGE_URL }}" ]]; then
                   python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} $report_upload_files SonicTestData
                 else
                   python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} $report_upload_files SonicTestData

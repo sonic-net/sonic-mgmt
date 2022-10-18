@@ -22,6 +22,8 @@ all:
           ansible_host: 10.64.246.158
         vms18-7:
           ansible_host: 10.64.246.159
+        vms18-8:
+          ansible_host: 10.64.246.160
         vms20-6:
           ansible_host: 10.64.246.120
         vms20-8:
@@ -246,6 +248,9 @@ fanout:
     str2-7215-acs-4:
       ansible_host: 10.3.147.48
       os: sonic
+    str2-7215-acs-5:
+      ansible_host: 10.64.246.36
+      os: sonic
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
     str2-7260-26:
@@ -337,6 +342,7 @@ sonic:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
     sonic_appliance:
+    sonic_arista_720dt:
 
 sonic_mlnx:
   vars:
@@ -1052,6 +1058,19 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.178
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:39:F0 
+      model: '8808'
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2601NALA"
+        "0x24": "CC:ED:4D:82:39:F0"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xE4DC0C41"
     str2-8800-lc2-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1062,6 +1081,19 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.179
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:82:38:60 
+      model: '8808'
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2602N0GP"
+        "0x24": "CC:ED:4D:82:38:60"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x58BD87C5"
     str2-8800-lc3-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1072,7 +1104,19 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.180
       serial: FOX2531P3F5
       base_mac: CC:ED:4D:86:C1:50 
-
+      model: '8808'
+      syseeprom_info:
+        "0x21": "8800-LC-48H"
+        "0x22": "1A5235"
+        "0x23": "FOC2601NARV"
+        "0x24": "CC:ED:4D:86:C1:50"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x5AFD7304"
 sonic_cisco_lc_400G:
   vars:
     switch_type: chassis-packet
@@ -1238,6 +1282,18 @@ sonic_cisco_sup:
       asic_name: Q200
       serial: FOX2531P3F5
       base_mac: F8:7A:41:E4:1D:F8 
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1A4841"
+        "0x23": "FOC2516N6GB"
+        "0x24": "F8:7A:41:E4:1D:F8"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp-r1"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x87079ED0"
       skip_modules:
           'line-cards':
             - LINE-CARD0
@@ -1251,6 +1307,20 @@ sonic_cisco_sup:
             - FABRIC-CARD7
           'supervisor':
             - SUPERVISOR1
+          'psus':
+            - psu2.0
+            - psu2.1
+            - psu2.2
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+      asics_present: [0,1,4,5,8,9,10,11,12,13]
 
 sonic_nokia_sup:
   vars:
@@ -1452,11 +1522,46 @@ sonic_appliance:
     iface_speed: 100000
   hosts:
     str2-bluefield-01:
+      ansible_host: 10.64.247.32
+      hwsku: Nvidia-MBF2H536C
+    str2-bluefield-bmc-01:
+      ansible_host: 10.64.247.33
+    str2-bluefield-host-01:
       ansible_host: 10.64.246.248
-      hwsku: Nvidia-MBF2H536C
     str2-bluefield-02:
-      ansible_host: 10.64.246.249
+      ansible_host: 10.64.247.34
       hwsku: Nvidia-MBF2H536C
+    str2-bluefield-bmc-02:
+      ansible_host: 10.64.247.35
+    str2-bluefield-host-02:
+      ansible_host: 10.64.246.249
+
+sonic_arista_720dt:
+  vars:
+    hwsku: Arista-720DT-48S
+    iface_speed: 1000
+  hosts:
+    str2-pikez-acs-1:
+      ansible_host: 10.64.246.35
+      model: CCS-720DT-48S
+      serial: WTW21470009
+      base_mac: 2c:dd:e9:ff:c5:3e
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S"
+        "0x22": "ASY062430102"
+        "0x23": "WTW21470009"
+        "0x24": "2c:dd:e9:ff:c5:3e"
+        "0x25": "2022/03/15 06:39:11"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-26164164"
+        "0x2F": "WTW21470009"
+        "0xFE": 3735928559
 
 server:
   hosts:
