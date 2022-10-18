@@ -6,16 +6,11 @@ import json
 import argparse
 import os.path
 from fcntl import ioctl
-from pprint import pprint
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-import ptf.packet as scapy
 import scapy.all as scapy2
 scapy2.conf.use_pcap=True
-import scapy.arch.pcapdnet
 from  scapy.contrib.bfd import BFD
-def hexdump(data):
-    print (" ".join("%02x" % ord(d) for d in data))
 
 def get_if(iff, cmd):
     s = socket.socket()
@@ -99,7 +94,7 @@ class BFDResponder(object):
         session = self.sessions[ip_dst]
         session["other_disc"] = bfd_remote_disc
         bfd_pkt_init = self.craft_bfd_packet( session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2L )
-        print "sending INIT", bfd_pkt_init
+        print("sending INIT", bfd_pkt_init)
         interface.send(bfd_pkt_init)
         bfd_pkt_init.payload.payload.payload.load.sta =3L
         session["pkt"] = bfd_pkt_init
@@ -107,7 +102,7 @@ class BFDResponder(object):
 
     def extract_bfd_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
-        ether = Ether(data)
+        ether = scapy2.Ether(data)
         mac_src= ether.src
         mac_dst = ether.dst
         ip_src = ether.payload.src
@@ -118,7 +113,7 @@ class BFDResponder(object):
         return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):
-        ethpart = Ether(data)
+        ethpart = scapy2.Ether(data)
         bfdpart = BFD(ethpart.payload.payload.payload.load)
         bfdpart.my_discriminator = session["my_disc"]
         bfdpart.your_discriminator = bfd_remote_disc
@@ -142,14 +137,13 @@ def main():
     args = parse_args()
 
     if not os.path.exists(args.conf):
-        print "Can't find file %s" % args.conf
+        print("Can't find file %s" % args.conf)
         return
 
     with open(args.conf) as fp:
         data = json.load(fp)
 
     # generate ip_sets. every ip address will have it's own uniq mac address
-    counter = 0
     sessions = {}
     local_disc_base = 0xcdba0000
     local_src_port = 14000
