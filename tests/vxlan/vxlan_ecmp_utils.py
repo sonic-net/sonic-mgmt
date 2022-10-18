@@ -574,7 +574,7 @@ class Ecmp_Utils:
         return ret_list
 
     def ptf_config(self, duthost, ptfhost, tbinfo, delete_member_a1 = None, delete_member_a2 = None):
-        responder_output = ptfhost.command('supervisorctl stop bfd_responder')
+        responder_output = ptfhost.command('supervisorctl stop bfd_responder', module_ignore_errors=True)
         responder_output = responder_output['stdout_lines'][0]
         if responder_output not in ['bfd_responder: stopped','bfd_responder: ERROR (not running)']:
             raise RuntimeError("Something is wrong with bfd_responder. Please check")

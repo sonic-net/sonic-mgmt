@@ -1,5 +1,10 @@
+"""
+This bfd sniffer captures bfd packets on all PTF interfaces and
+creates a json file for bfd_responder to use
+"""
 from scapy.all import *
-import sys, json
+import sys 
+import json 
 try:
     delete_member_a1 = sys.argv[1]
     delete_member_a2 = sys.argv[2]
@@ -7,6 +12,7 @@ except:
     print("Test will proceed even if we do not pass argument")
 ifaces = get_if_list()
 def return_bfd_interfaces():
+    # Captures 5 BFD packets on every ptf port & returns a dictionary with interfaces & source address
     bfd_interfaces = {}
     for iface in ifaces:
         if iface.startswith("eth"):

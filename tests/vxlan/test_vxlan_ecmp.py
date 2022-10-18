@@ -32,7 +32,6 @@ import time
 import logging
 from datetime import datetime
 import pytest
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
@@ -72,8 +71,6 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type == "cisco-8000":
-        ECMP_TOLERANCE = 0.01
-    else:
         ECMP_TOLERANCE = 0.01
 
     # Should I keep the temporary files copied to DUT?
