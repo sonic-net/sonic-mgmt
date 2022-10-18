@@ -549,7 +549,7 @@ class SonicAsic(object):
         cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
         return self.shell(cmd)
 
-    def get_portchannel_and_members_in_ns(self, tbinfo):
+    def get_portchannels_and_members_in_ns(self, tbinfo):
 
         """
         Get a portchannels and their members in this namespace.
