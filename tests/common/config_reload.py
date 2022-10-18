@@ -64,7 +64,7 @@ def config_force_option_supported(duthost):
 
 @ignore_loganalyzer
 def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
-                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False):
+                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False, disable_arp_cache=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
@@ -80,9 +80,12 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             ' or '.join(['"{}"'.format(src) for src in config_sources])
         ))
 
-    cmd = 'config reload -y &>/dev/null'
+    cmd = 'config reload -y'
     if config_force_option_supported(duthost):
-        cmd = 'config reload -y -f &>/dev/null'
+        cmd += ' -f'
+    if disable_arp_cache: 
+        cmd += ' -d'
+    cmd += ' &>/dev/null'
 
     logger.info('reloading {}'.format(config_source))
 
