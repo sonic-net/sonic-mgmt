@@ -595,5 +595,4 @@ class Ecmp_Utils:
         ptfhost.command('supervisorctl reread')
         ptfhost.command('supervisorctl update')
         ptfhost.command('supervisorctl start bfd_responder')
-    
         
