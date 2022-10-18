@@ -39,9 +39,6 @@ from vxlan_ecmp_utils import Ecmp_Utils
 ecmp_utils = Ecmp_Utils()
 logger = logging.getLogger(__name__)
 import json
-from ptf.mask import Mask
-import ptf.packet as scapy
-from scapy.all import *
 import traceback
 
 
