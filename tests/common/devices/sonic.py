@@ -572,11 +572,11 @@ class SonicHost(AnsibleHostBase):
 
         @param service: Name of the SONiC service
         """
-        result = {'status': True}
-        result['exited_critical_process'] = []
-        result['running_critical_process'] = []
-        critical_group_list = []
-        critical_process_list = []
+        result = {
+            'status': True,
+            'exited_critical_process': [],
+            'running_critical_process': []
+        }
 
         # return false if the service is not started
         service_status = self.is_service_fully_started(service)
@@ -594,17 +594,11 @@ class SonicHost(AnsibleHostBase):
         output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
-        for l in output['stdout_lines']:
-            (pname, status, info) = re.split("\s+", l, 2)
-            if status != "RUNNING":
-                if pname in critical_group_list or pname in critical_process_list:
-                    result['exited_critical_process'].append(pname)
-                    result['status'] = False
-            else:
-                if pname in critical_group_list or pname in critical_process_list:
-                    result['running_critical_process'].append(pname)
-
-        return result
+        return self.parse_service_status_and_critical_process(
+            service_result=output,
+            critical_group_list=critical_group_list,
+            critical_process_list=critical_process_list
+        )
 
     def all_critical_process_status(self):
         """
@@ -639,34 +633,50 @@ class SonicHost(AnsibleHostBase):
                 all_critical_process[service] = service_critical_process
                 continue
 
-            service_group_process = group_process_results[service]
-
-            service_result = service_results[service]
-            # If container is not running, stdout_lines is empty
-            # In this situation, service container status should be false
-            if not service_result['stdout_lines']:
-                service_critical_process['status'] = False
-            for line in service_result['stdout_lines']:
-                pname, status, _ = re.split('\s+', line, 2)
-                # Sometimes, stdout_lines may be error messages but not emtpy
-                # In this situation, service container status should be false
-                # We can check status is valid or not
-                if status not in ('RUNNING','EXITED','STOPPED'):
-                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
-                        service_critical_process['exited_critical_process'].append(pname)
-                        service_critical_process['status'] = False
-                elif status != 'RUNNING':
-                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
-                        service_critical_process['exited_critical_process'].append(pname)
-                        service_critical_process['status'] = False
-                else:
-                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
-                        service_critical_process['running_critical_process'].append(pname)
-            all_critical_process[service] = service_critical_process
+            all_critical_process[service] = self.parse_service_status_and_critical_process(
+                service_result=service_results[service],
+                critical_group_list=group_process_results[service]['groups'],
+                critical_process_list=group_process_results[service]['processes']
+            )
 
         return all_critical_process
 
-    
+    def parse_service_status_and_critical_process(self, service_result, critical_group_list,
+                                     critical_process_list):
+        """
+        Parse the result of command "docker exec <container_name> supervisorctl status"
+        and get service container status and critical processes
+        """
+        service_critical_process = {
+            'status': True,
+            'exited_critical_process': [],
+            'running_critical_process': []
+        }
+        # If container is not running, stdout_lines is empty
+        # In this situation, service container status should be false
+        if not service_result['stdout_lines']:
+            service_critical_process['status'] = False
+        for line in service_result['stdout_lines']:
+            pname, status, _ = re.split('\\s+', line, 2)
+            # 1. Check status is valid
+            # Sometimes, stdout_lines may be error messages but not emtpy
+            # In this situation, service container status should be false
+            # We can check status is valid or not
+            # You can just add valid status str in this tuple if meet later
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL'):
+                service_critical_process['status'] = False
+            # 2. Check status is not running
+            elif status != 'RUNNING':
+                # 3. Check process is critical
+                if pname in critical_group_list or pname in critical_process_list:
+                    service_critical_process['exited_critical_process'].append(pname)
+                    service_critical_process['status'] = False
+            else:
+                if pname in critical_group_list or pname in critical_process_list:
+                    service_critical_process['running_critical_process'].append(pname)
+
+        return service_critical_process
+
     def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
