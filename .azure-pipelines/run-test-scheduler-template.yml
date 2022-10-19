@@ -91,6 +91,7 @@ steps:
       echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID"
       # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --timeout 43200 --expected-states FINISHED CANCELLED FAILED
+    condition: always()
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: KVM dump
