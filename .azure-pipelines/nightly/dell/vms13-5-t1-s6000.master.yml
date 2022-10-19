@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_PUBIC)
+    default: $(IMAGE_BRCM_PUBLIC)
     displayName: "Image URL"
 
   # Test Parameters
