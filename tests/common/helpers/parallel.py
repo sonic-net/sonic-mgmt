@@ -141,10 +141,12 @@ def parallel_run(
             kwargs['node'] = node
             # If sanity check is timeout and killed, we still have some information in results.
             # Sanity check function name looks like _check_bgp_on_dut.
-            check_item_name = target.__name__.split('_')[2]
-            if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
-                check_result = {"failed": False, "check_item": check_item_name, "host": node.hostname}
-                results[node.hostname] = check_result
+            items = target.__name__.split('_')
+            if len(items) > 2:
+                check_item_name = items[2]
+                if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
+                    check_result = {"failed": False, "check_item": check_item_name, "host": node.hostname}
+                    results[node.hostname] = check_result
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
             worker = SonicProcess(
