@@ -1,6 +1,4 @@
 import logging
-import os
-import sys
 import time
 import re
 import json
@@ -14,13 +12,12 @@ from tests.common.barefoot_data import is_barefoot_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -61,8 +58,11 @@ SMALL_PACKET_PERCENTAGE = None
 KEY_2_LOSSLESS_QUEUE = "2_lossless_queues"
 KEY_4_LOSSLESS_QUEUE = "4_lossless_queues"
 
+
 def detect_buffer_model(duthost):
-    """Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the module is initialized
+    """
+    Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the
+    module is initialized
 
     Args:
         duthost: The DUT host object
@@ -73,7 +73,9 @@ def detect_buffer_model(duthost):
 
 
 def detect_ingress_pool_number(duthost):
-    """Detect the number of ingress buffer pools and store it for further use. Called only once when the module is initialized
+    """
+    Detect the number of ingress buffer pools and store it for further use. Called only once when the module is
+    initialized
 
     Args:
         duthost: The DUT host object
@@ -93,7 +95,8 @@ def detect_shared_headroom_pool_mode(duthost):
     global DEFAULT_SHARED_HEADROOM_POOL_SIZE
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
-    over_subscribe_ratio = duthost.shell('redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
+    over_subscribe_ratio = duthost.shell(
+        'redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     if over_subscribe_ratio and over_subscribe_ratio != '0':
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_OVER_SUBSCRIBE_RATIO = int(over_subscribe_ratio)
@@ -132,7 +135,8 @@ def get_asic_table_data_from_db(duthost):
 
     # Get MAC_PHY_DELAY from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'mac_phy_delay'
-    mac_phy_delay = float(duthost.shell('redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
+    mac_phy_delay = float(duthost.shell(
+        'redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
 
     return cell_size, pipeline_latency, mac_phy_delay
 
