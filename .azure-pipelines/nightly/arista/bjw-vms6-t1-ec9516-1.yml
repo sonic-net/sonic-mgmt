@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BFN_ABOOT_INTERNAL)
+    default: $(BJW_IMAGE_BFN_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BFN_INTERNAL)
+    default: $(BJW_SAITHRIFT_BFN_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: EXTRA_PARAMS
