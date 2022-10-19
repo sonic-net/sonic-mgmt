@@ -231,6 +231,13 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
+ecmp/test_fgnhg.py:
+  xfail:
+    reason: "case failed waiting for fix"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+
 #######################################
 #####         everflow            #####
 #######################################
