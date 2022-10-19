@@ -101,10 +101,89 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
             with open(path_name) as f:
                 expected_runs.extend(json.load(f))
         kusto_db.upload_expected_runs(expected_runs)
+    elif args.category == 'case_invoc':
+        for path_name in args.path_list:
+            ingest_coverage_data(path_name)
 
     else:
         print('Unknown category "{}"'.format(args.category))
         sys.exit(1)
+
+
+def ingest_coverage_data(file_name):
+    processed_data = convert_into_kusto_schema(file_name)
+    ingest_data(processed_data)
+
+
+def ingest_data(data):
+    kusto_db = KustoConnector("SaiTestData")
+    kusto_db.upload_case_invoc_report_file(data)
+
+
+def convert_into_kusto_schema(file_name):
+    with open(file_name, "r") as f:
+        data = json.load(f)
+
+        final_data = []
+        # sai_version = os.getenv("SAI_BRANCH")
+
+        for key in data:
+            obj = SAIHeader_KUSTO_Object(
+                # upload_time=str(datetime.utcnow()),
+                file_name=key["file_name"],
+                case_name=key["case_name"],
+                class_name=key["class_name"],
+                case_invoc=key["case_invoc"],
+                sai_header=key["sai_header"],
+                saiintf_id=key["saiintf_id"],
+                saiintf_method_table=key["saiintf_method_table"],
+                sai_api=key["sai_api"],
+                saiintf_alias=key["saiintf_alias"],
+                test_set=key["test_set"],
+                test_platform=key["test_platform"],
+                platform_purpose_attr=key["platform_purpose_attr"],
+                sai_obj_attr_key=key["sai_obj_attr_key"],
+                sai_obj_attr_value=key["sai_obj_attr_value"],
+            )
+            final_data.append(obj.__dict__)
+
+    return final_data
+
+
+class SAIHeader_KUSTO_Object:
+    def __init__(
+        self,
+        # upload_time,
+        file_name,
+        case_name,
+        class_name,
+        case_invoc,
+        sai_header,
+        saiintf_id,
+        saiintf_method_table,
+        sai_api,
+        saiintf_alias,
+        test_platform,
+        platform_purpose_attr,
+        sai_obj_attr_key,
+        sai_obj_attr_value,
+        test_set,
+    ):
+        # self.upload_time = upload_time
+        self.file_name = file_name
+        self.case_name = case_name
+        self.class_name = class_name
+        self.case_invoc = case_invoc
+        self.sai_header = sai_header
+        self.saiintf_id = saiintf_id
+        self.saiintf_method_table = saiintf_method_table
+        self.sai_api = sai_api
+        self.saiintf_alias = saiintf_alias
+        self.test_platform = test_platform
+        self.platform_purpose_attr = platform_purpose_attr
+        self.sai_obj_attr_key = sai_obj_attr_key
+        self.sai_obj_attr_value = sai_obj_attr_value
+        self.test_set = test_set
 
 
 if __name__ == "__main__":

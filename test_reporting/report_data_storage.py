@@ -97,6 +97,7 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
+    CASE_INVOC_TABLE = "CaseInvocationReportV2"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -109,7 +110,8 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
-        PIPELINE_TABLE: DataFormat.JSON
+        PIPELINE_TABLE: DataFormat.JSON,
+        CASE_INVOC_TABLE: DataFormat.JSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -123,7 +125,8 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
-        PIPELINE_TABLE: "FlatPipelineMappingV1"
+        PIPELINE_TABLE: "FlatPipelineMappingV1",
+        CASE_INVOC_TABLE: "CaseInvocationReportMappingV2",
     }
 
     def __init__(self, db_name: str):
@@ -223,6 +226,13 @@ class KustoConnector(ReportDBConnector):
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
+    
+    def upload_case_invoc_report_file(self, file) -> None:
+        """Upload a report to the back-end data store.
+        Args:
+            file: json
+        """
+        self._upload_case_invoc_report_file(file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {
@@ -284,6 +294,9 @@ class KustoConnector(ReportDBConnector):
         print("Upload test case")
         self._ingest_data(self.TEST_CASE_TABLE, test_cases)
 
+    def _upload_case_invoc_report_file(self, file):          
+        self._ingest_data_file(self.CASE_INVOC_TABLE, file)
+
     def _ingest_data(self, table, data):
         props = IngestionProperties(
             database=self.db_name,
@@ -303,3 +316,14 @@ class KustoConnector(ReportDBConnector):
             if self._ingestion_client_backup:
                 print("Ingest to backup cluster...")
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
+
+    def _ingest_data_file(self, table, file):
+        props = IngestionProperties(
+            database=self.db_name,
+            table=table,
+            data_format=self.TABLE_FORMAT_LOOKUP[table],
+            ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table],
+            flush_immediately=True
+        )
+
+        stat = self._ingestion_client.ingest_from_file(file, ingestion_properties=props)
