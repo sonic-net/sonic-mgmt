@@ -85,7 +85,8 @@ class TestPlanManager(object):
                 "pull_request_id": pr_id,
                 "build_id": build_id,
                 "source_repo": repo_name,
-                "kvm_build_id": kvm_build_id
+                "kvm_build_id": kvm_build_id,
+                "dump_kvm_if_fail": True,
             },
             "priority": 10,
             "requester": "pull request"
