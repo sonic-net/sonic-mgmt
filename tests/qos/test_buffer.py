@@ -2853,7 +2853,6 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         return result
 
     duthost = duthosts[rand_one_dut_hostname]
-    asic_type = duthost.get_asic_name()
 
     # Skip the legacy branches
     skip_release(duthost, ["201811", "201911"])
