@@ -91,7 +91,17 @@ def parallel_run(
                 )
             )
             for p in running_processes:
-                results[p.name] = [{'failed': True}]
+                # For sanity check, we init results before running check,
+                # if process is killed and hostname is in results' keys,
+                # set its failed to True, otherwise, just return a dict {'failed': True}.
+                # The name of worker is constructed as {function name}--{node}
+                # node looks like <EosHost VM0100> or <MultiAsicSonicHost sonic>
+                # split worker name to get hostname here.
+                node_name = p.name.split('--')[1].split()[1][:-1]
+                if node_name not in results:
+                    results[node_name] = {'failed': True}
+                else:
+                    results[node_name]['failed'] = True
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
@@ -129,6 +139,12 @@ def parallel_run(
         while len(nodes) and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
             kwargs['node'] = node
+            # If sanity check is timeout and killed, we still have some information in results.
+            # Sanity check function name looks like _check_bgp_on_dut.
+            check_item_name = target.__name__.split('_')[2]
+            if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
+                check_result = {"failed": False, "check_item": check_item_name, "host": node.hostname}
+                results[node.hostname] = check_result
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
             worker = SonicProcess(
@@ -173,7 +189,11 @@ def parallel_run(
                 worker.name
             ))
             worker.terminate()
-            results[worker.name] = [{'failed': True}]
+            node_name = worker.name.split('--')[1].split()[1][:-1]
+            if node_name not in results:
+                results[node_name] = {'failed': True}
+            else:
+                results[node_name]['failed'] = True
 
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
