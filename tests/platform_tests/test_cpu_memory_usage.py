@@ -43,6 +43,8 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     # is correlated with the number of ports. So we ignore the check of CPU for sx_sdk
     if duthost.facts["asic_type"] == 'mellanox':
         high_cpu_consume_procs['sx_sdk'] = 90
+    num_cpu = int(duthost.command('nproc --all')['stdout_lines'][0])
+    cpu_threshold = cpu_threshold * num_cpu
     return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
