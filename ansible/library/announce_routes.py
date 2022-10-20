@@ -72,7 +72,7 @@ M0_NUMBER = 16
 # Describe default number of subnet in a M0 device
 M0_SUBNET_NUMBER = 2
 # Describe default number of members in a M0 subnet
-M0_SUBNET_SIZE = 32
+M0_SUBNET_SIZE = 64
 # Describe default number of MX device connected to M0 device
 MX_NUMBER = 2
 # Describe default number of subnet in a MX device
