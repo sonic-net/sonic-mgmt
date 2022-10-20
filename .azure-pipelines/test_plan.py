@@ -193,6 +193,9 @@ class TestPlanManager(object):
                     raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
                                     .format(test_plan_id, status, result, time.time() - start_time))
             elif status in expected_states:
+                if status == "KVMDUMP":
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
+                                    .format(test_plan_id, status, result, time.time() - start_time))
                 return
             else:
                 print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
