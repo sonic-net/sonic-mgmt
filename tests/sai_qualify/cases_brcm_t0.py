@@ -84,5 +84,15 @@ TEST_CASE = [
         "sai_route_test.RouteLPMRouteRifv6Test",
         "sai_route_test.SviMacFloodingTest",
         "sai_route_test.SviMacFloodingv6Test",
-        "sai_route_test.SviDirectBroadcastTest"
+        "sai_route_test.SviDirectBroadcastTest",
+        "sai_ecmp_test.EcmpHashFieldSportTestV4",
+        "sai_ecmp_test.EcmpHashFieldSportTestV6",
+        "sai_ecmp_test.EcmpHashFieldDportTestV4",
+        "sai_ecmp_test.EcmpHashFieldDportTestV6",
+        "sai_ecmp_test.EcmpHashFieldSIPTestV4",
+        "sai_ecmp_test.EcmpHashFieldSIPTestV6",
+        "sai_ecmp_test.EcmpHashFieldProtoTestV4",
+        "sai_ecmp_test.EcmpHashFieldProtoTestV6",
+        "sai_ecmp_test.IngressNoDiffTestV4",
+        "sai_ecmp_test.RemoveLagEcmpTestV4",
         ]
