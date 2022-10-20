@@ -105,8 +105,8 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
     for fanout, ports in fanouts_and_ports.items():
         hostname = fanout.hostname
         for port in ports:
-            # Note that there is case that fanout host not working: svcstr-7260cx3-acs-2 (not working to be RMA'ed)
-            # In that case the following assert will be thrown too.
+            # Assumption here is all fanouts are healthy.
+            # If fanout is not healthy, or links not in expected state, following errors will be thrown
             if up:
                 # Make sure interfaces are up on fanout hosts
                 pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, port),
