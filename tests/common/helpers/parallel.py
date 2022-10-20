@@ -91,17 +91,6 @@ def parallel_run(
                 )
             )
             for p in running_processes:
-                # For sanity check, we init results before running check,
-                # if process is killed and hostname is in results' keys,
-                # set its failed to True, otherwise, just return a dict {'failed': True}.
-                # The name of worker is constructed as {function name}--{node}
-                # node looks like <EosHost VM0100> or <MultiAsicSonicHost sonic>
-                # split worker name to get hostname here.
-                node_name = p.name.split('--')[1].split()[1][:-1]
-                if node_name not in results:
-                    results[node_name] = {'failed': True}
-                else:
-                    results[node_name]['failed'] = True
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
@@ -114,6 +103,34 @@ def parallel_run(
                         """Processes running target "{}" could not be terminated.
                         Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
+                finally:
+                    # If sanity check is timeout and killed, we still want to put some information in results.
+                    # process name looks like _check_bgp_on_dut--<MultiAsicSonicHost sonic>
+                    # parse it to get sanity check item and hostname
+                    # For other processes, just return a dict {'failed': True}.
+                    # node looks like <EosHost VM0100> or <MultiAsicSonicHost sonic>
+                    node = p.name.split('--')[1]
+                    node_items = node.split()
+                    if len(node_items) > 1:
+                        node_name = node_items[1][:-1]
+                    else:
+                        node_name = node_items[0]
+                    function_name = p.name.split('--')[0]
+                    # sanity check funtions:
+                    # _check_interfaces_on_dut;_check_bgp_on_dut;_check_dbmemory_on_dut;_check_monit_on_dut;_check_processes_on_dut
+                    # parse function name to check item
+                    function_items = function_name.split('_')
+                    if len(function_items) > 2:
+                        check_item_name = function_items[2]
+                        if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
+                            check_result = {"failed": True, "check_item": check_item_name, "host": node_name}
+                            results[node_name] = check_result
+
+                    logger.info("after killing this process 11, results:{}".format(results))
+                    if node_name not in results:
+                        results[node_name] = {'failed': True}
+                    logger.info("after killing this process 22, results:{}".format(results))
+
 
     workers = []
     results = Manager().dict()
@@ -139,14 +156,6 @@ def parallel_run(
         while len(nodes) and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
             kwargs['node'] = node
-            # If sanity check is timeout and killed, we still have some information in results.
-            # Sanity check function name looks like _check_bgp_on_dut.
-            items = target.__name__.split('_')
-            if len(items) > 2:
-                check_item_name = items[2]
-                if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
-                    check_result = {"failed": False, "check_item": check_item_name, "host": node.hostname}
-                    results[node.hostname] = check_result
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
             worker = SonicProcess(
@@ -191,11 +200,25 @@ def parallel_run(
                 worker.name
             ))
             worker.terminate()
-            node_name = worker.name.split('--')[1].split()[1][:-1]
+            node = worker.name.split('--')[1]
+            node_items = node.split()
+            if len(node_items) > 1:
+                node_name = node_items[1][:-1]
+            else:
+                node_name = node_items[0]
+            function_name = worker.name.split('--')[0]
+            # sanity check funtions:
+            # _check_interfaces_on_dut;_check_bgp_on_dut;_check_dbmemory_on_dut;_check_monit_on_dut;_check_processes_on_dut
+            # parse function name to check item
+            function_items = function_name.split('_')
+            if len(function_items) > 2:
+                check_item_name = function_items[2]
+                if check_item_name in ['interfaces', 'bgp', 'processes', 'monit', 'dbmemory']:
+                    check_result = {"failed": True, "check_item": check_item_name, "host": node_name}
+                    results[node_name] = check_result
+
             if node_name not in results:
                 results[node_name] = {'failed': True}
-            else:
-                results[node_name]['failed'] = True
 
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
