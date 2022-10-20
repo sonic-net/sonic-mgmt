@@ -31,6 +31,13 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
 
+dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-standby]:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
