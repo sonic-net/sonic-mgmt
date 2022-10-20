@@ -80,6 +80,13 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
     image_name = image_url.split("/")[-1]
     image_path = "/tmp/" + image_name
     duthost.command("curl -o {} {}".format(image_path, image_url))
+    out = duthost.command("md5sum {}".format(image_path))
+    md5sum = out['stdout'].split()
+
+    duthost.command("chmod +x /tmp/anpscripts/preload_firmware")
+    logger.info("execute preload_firmware {} {} {}".format(image_name, image_url, md5sum[0]))
+    duthost.command("/usr/bin/sudo /tmp/anpscripts/preload_firmware {} {} {}".format(image_name, image_url, md5sum[0]))
+
     out = duthost.command("sonic_installer binary_version {}".format(image_path))
 
     logger.info("Step 3 Install image")
