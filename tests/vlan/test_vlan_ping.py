@@ -111,9 +111,10 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     )
 
     # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
-    for index in range(len(rand_vlan_member_list)):
-        member = rand_vlan_member_list[index]
-        ip_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip][index]
+    ips_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip]
+    for member in rand_vlan_member_list:
+        # Get first and last ip in vlan for two vlan members
+        ip_in_vlan = ips_in_vlan[0 if len(ptfhost_info.keys()) == 0 else -1]
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
         ptfhost_info[member]["port_index"] = mg_facts['minigraph_ptf_indices'][member]
