@@ -23,7 +23,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor            # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.helpers.assertions import pytest_require
-from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv4_address, wait_until
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
@@ -163,6 +163,12 @@ def test_decap_standby_tor(
         verify_downstream_packet_to_server(ptfadapter, exp_ptf_port_index, exp_pkt)
 
 
+def _wait_all_bgp_sessions_up(duthost):
+    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        pytest.fail("BGP sessions didn't fully recover")
+
 @pytest.fixture
 def setup_uplink(rand_selected_dut, tbinfo):
     """
@@ -184,12 +190,12 @@ def setup_uplink(rand_selected_dut, tbinfo):
     if len(pc_members) > 1:
         cmds = [
             "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel), # Update min_links
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[1]),         # Remove 1 portchannel member
+            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),         # Remove 1 portchannel member
             "systemctl unmask teamd",                                                            # Unmask the service
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
-        time.sleep(300)
+        _wait_all_bgp_sessions_up(rand_selected_dut)
     up_member = pc_members[0]
     
     yield mg_facts['minigraph_ptf_indices'][up_member]
@@ -208,7 +214,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
-        time.sleep(300)
+        _wait_all_bgp_sessions_up(rand_selected_dut)
 
 
 @pytest.fixture
