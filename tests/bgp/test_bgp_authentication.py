@@ -9,6 +9,10 @@ from natsort import natsorted
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('t1')
+]
+
 bgp_config_sleeptime = 60
 bgp_pass = "sonic.123"
 mismatch_pass = "badpassword"
