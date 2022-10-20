@@ -166,6 +166,10 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
+    # After test, make sure all interfaces and services are up.
+    # This check is needed if chassis checked for RP then directly go to check for LCs, 
+    # w/o this check links may still be down even with time.sleep(MAX_TIME_TO_REBOOT)
+    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
                                     duts_running_config_facts, conn_graph_facts, 
@@ -195,3 +199,6 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+
+    # After test, make sure all interfaces and services are up.
+    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
