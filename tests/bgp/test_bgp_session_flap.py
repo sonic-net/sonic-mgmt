@@ -4,31 +4,45 @@ the CPU.
 import logging
 
 import pytest
-# import time
+import time
 from tests.common.utilities import InterruptableThread
-# import threading
-from tests.common.utilities import join_all
+# from tests.common.utilities import join_all
+import textfsm
+import traceback
 
 from natsort import natsorted
 
 logger = logging.getLogger(__name__)
-# flap_threads = []
-# flap_handle = dict()
 max_wait = 0
+wait_time = 2
+stop_threads = False
+proc_textfsm = "./bgp/templates/show_proc_cpu.template"
+bgp_sum_textfsm = "./bgp/templates/bgp_summary.template"
 
 # on current virtual testbed the sanity check is not working
 pytestmark = [pytest.mark.sanity_check(skip_sanity=True)]
 
 
 def get_cpu_stats(dut):
-    cmd = 'vtysh -c "show processes cpu | head -n 20" '\
-        '-c "show processes memory | head -n 20" '\
-        '-c "show processes summary | grep -v \'0.0  0.0\'" '\
-        '-c "show processes cpu | grep bgp" '\
-        '-c "show processes memory | grep bgp" '\
-        '-c "show ip bgp summary | grep memory" '\
-        '-c "show ipv6 bgp summary | grep memory"'
-    logger.info(dut.shell(cmd, module_ignore_errors=True))
+    # cmd = 'vtysh -c "show processes cpu" '\
+    #     '-c "show processes memory" '\
+    #     '-c "show processes summary" '\
+    #     '-c "show ip bgp summary" '\
+    #     '-c "show ipv6 bgp summary"'
+    # logger.info(dut.shell(cmd, module_ignore_errors=True))
+    proc_cpu = dut.shell("show processes cpu | head -n 20", module_ignore_errors=True)['stdout']
+    proc_mem = dut.shell("show processes memory | head -n 20", module_ignore_errors=True)['stdout']
+    proc_sum = dut.shell("show processes summary | grep -v '0.0 0.0'", module_ignore_errors=True)['stdout']
+    bgp_cpu = dut.shell("show processes cpu | grep bgp", module_ignore_errors=True)['stdout']
+    bgp_v4_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
+    bgp_v6_sum = dut.shell("show ipv6 bgp summary | grep memory", module_ignore_errors=True)['stdout']
+    logger.info("CPU: {} Memory: {} Summary: {} BGP Memory: {} BGP IPv4: {} IPv6: {}"
+                .format(proc_cpu, proc_mem, proc_sum, bgp_cpu, bgp_v4_sum, bgp_v6_sum))
+    with open(proc_textfsm) as template:
+        fsm = textfsm.TextFSM(template)
+        result = fsm.ParseText(proc_cpu)
+    logger.info(fsm.header)
+    logger.info(result)
 
 
 @pytest.fixture(scope='module')
@@ -83,24 +97,43 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
     return setup_info
 
 
-def flap_neighbor_session():
-    logger.info("in thread")
+def flap_neighbor_session(neigh, asn):
+    while(True):
+        # cmd = ["shutdown"]
+        # neigh.eos_config(lines=cmd, parents="router bgp {}".format(asn))
+        # neigh.eos_command(commands=["enable", "config", "router bgp {}".format(asn), "shutdown"],
+        #     answer="", prompt="\[confirm\]")
+        # neigh.eos_config(lines=["no shutdown"], parents="router bgp {}".format(asn))
+        neigh.kill_bgpd()
+        neigh.start_bgpd()
+        if stop_threads:
+            break
 
 
-def test_bgp_session_flaps(setup):
+def test_bgp_single_session_flaps(setup):
     flap_threads = []
-    # flap_handle = dict()
 
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=())
+        args=(setup['neighhost'], setup['neigh_asn']))
     thread.daemon = True
     thread.start()
     flap_threads.append(thread)
 
-    get_cpu_stats(setup['duthost'])
+    for i in range(10):
+        get_cpu_stats(setup['duthost'])
+        time.sleep(wait_time)
 
-    logger.info("Wait for all the threads to start and stop ...")
-    join_all(flap_threads, max_wait)
+    logger.info("Wait for all the threads to stop ...")
+    global stop_threads
+    stop_threads = True
+    for thread in flap_threads:
+        thread_exception = thread.join(timeout=0.1,
+                                       suppress_exception=True)
+        if thread_exception:
+            logger.debug("Exception in thread %r:", thread)
+            logger.debug(
+                "".join(traceback.format_exception(*thread_exception))
+            )
+    # join_all(flap_threads, max_wait)
     flap_threads = []
-    # flap_handle = dict()

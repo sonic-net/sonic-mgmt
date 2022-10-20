@@ -1,0 +1,5 @@
+Value average (\d+\.\d+, \d+\.\d+, \d+\.\d+)
+Value cpu (\d+\.\d+ us)
+
+Start
+ ^.*(load average: ){average}.*(%Cpu(s): ){cpu} -> Record
