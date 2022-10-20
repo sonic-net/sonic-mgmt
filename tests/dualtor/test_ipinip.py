@@ -235,7 +235,7 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, p
     """
     pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
     # Since we have only 1 uplink, the source port is also the dest port
-    src_port_id = dst_port_id = setup_mirror_session
+    src_port_id = setup_mirror_session
     _, server_ip = rand_selected_interface
     # Construct the packet to server
     pkt_to_server = testutils.simple_tcp_packet(
