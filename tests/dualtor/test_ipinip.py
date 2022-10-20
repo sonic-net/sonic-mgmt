@@ -163,11 +163,16 @@ def test_decap_standby_tor(
         verify_downstream_packet_to_server(ptfadapter, exp_ptf_port_index, exp_pkt)
 
 
-def _wait_all_bgp_sessions_up(duthost):
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
-        pytest.fail("BGP sessions didn't fully recover")
+def _wait_portchannel_up(duthost, portchannel):
+    def _check_lag_status():
+        cmd = "show interface portchannel | grep {}".format(portchannel)
+        return '(Up)' in duthost.shell(cmd)['stdout']
+
+    if not wait_until(300, 10, 30, _check_lag_status):
+        pytest.fail("PortChannel didn't startup")
+    # Wait another 60 seconds for routes announcement
+    time.sleep(60)
+
 
 @pytest.fixture
 def setup_uplink(rand_selected_dut, tbinfo):
@@ -195,7 +200,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
-        _wait_all_bgp_sessions_up(rand_selected_dut)
+        _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
     
     yield mg_facts['minigraph_ptf_indices'][up_member]
@@ -214,7 +219,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
             "systemctl restart teamd"                                                            # Resart teamd
         ]
         rand_selected_dut.shell_cmds(cmds=cmds)
-        _wait_all_bgp_sessions_up(rand_selected_dut)
+        _wait_portchannel_up(rand_selected_dut, up_portchannel)
 
 
 @pytest.fixture
@@ -231,6 +236,7 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
 
     cmd = "config mirror_session remove {}".format(session_name)
     rand_selected_dut.shell(cmd=cmd)
+
 
 @pytest.mark.disable_loganalyzer
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, ptfadapter, tbinfo, setup_mirror_session, toggle_all_simulator_ports_to_rand_unselected_tor, tunnel_traffic_monitor):
