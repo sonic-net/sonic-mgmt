@@ -146,6 +146,13 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     5. Verify the watermark increased as expected
     """
     toggle_mux_to_host(rand_selected_dut)
+    asic = rand_selected_dut.get_asic_name()
+    # TODO: Get the cell size for other ASIC
+    if asic == 'th2':
+        cell_size = 208
+    else: 
+        cell_size = 256
+
     test_params = dict()
     test_params.update({
             "tunnel_qos_map": dut_config["tunnel_qos_map"],
@@ -159,7 +166,8 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "standby_tor_ip": dut_config["unselected_tor_loopback"],
             "server": dut_config["selected_tor_mgmt"],
             "port_map_file": dut_config["port_map_file"],
-            "sonic_asic_type": dut_config["asic_type"]
+            "sonic_asic_type": dut_config["asic_type"],
+            "cell_size": cell_size
         })
     
     run_ptf_test(
@@ -167,4 +175,3 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
         test_case="sai_qos_tests.TunnelDscpToPgMapping",
         test_params=test_params
     )
-    

@@ -625,10 +625,9 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dscp_to_tc_map = self.test_params['tunnel_qos_map']['dscp_to_tc_map']
         tc_to_pg_map = self.test_params['tunnel_qos_map']['tc_to_priority_group_map']
         asic_type = self.test_params['sonic_asic_type']
+        cell_size = self.test_params['cell_size']
         dscp_to_pg_map = {}
         PKT_NUM = 100
-        # We noticed that a packet less than 256 bytes will occupy a 256-sized buffer
-        FACTOR = 256
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
         ERROR_TOLERANCE = {
             0: 10,
@@ -679,8 +678,8 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_slice])
 
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * FACTOR)
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * FACTOR)
+                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
+                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
         finally:
             # Enable tx on dest port
             sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])       
