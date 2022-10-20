@@ -157,7 +157,6 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     test_params.update({
             "tunnel_qos_map": dut_config["tunnel_qos_map"],
             "src_port_id": dut_config["lag_port_ptf_id"],
-            "src_port_slice": dut_config["lag_port_slice"],
             "dst_port_id": dut_config["server_port_ptf_id"],
             "dst_port_ip": dut_config["server_ip"],
             "active_tor_mac": dut_config["selected_tor_mac"],

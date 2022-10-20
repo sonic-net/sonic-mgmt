@@ -618,7 +618,6 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         standby_tor_mac = self.test_params['standby_tor_mac']
         standby_tor_ip = self.test_params['standby_tor_ip']
         src_port_id = self.test_params['src_port_id']
-        src_port_slice = self.test_params['src_port_slice']
         dst_port_id = self.test_params['dst_port_id']
         dst_port_ip = self.test_params['dst_port_ip']
 
@@ -639,6 +638,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
             6: 0,
             7: 0
         }
+
         for dscp, tc in dscp_to_tc_map.items():
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         try:
@@ -672,11 +672,11 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                             outer_dscp=0,
                                             dst_ip=dst_port_ip
                                         )
-                pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_slice])
+                pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
-                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_slice])
+                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
 
                 assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
                 assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)

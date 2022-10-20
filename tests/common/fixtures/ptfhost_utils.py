@@ -160,8 +160,7 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
-@pytest.fixture(scope='class')
-def _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+def _ptf_portmap_file(duthost, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -173,7 +172,6 @@ def _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfho
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
     portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -197,15 +195,16 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     """
     A class level fixture that calls _ptf_portmap_file
     """
-    yield _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    yield _ptf_portmap_file(duthost, ptfhost, tbinfo)
 
 
 @pytest.fixture(scope='module')
-def ptf_portmap_file_module(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
     """
     A module level fixture that calls _ptf_portmap_file
     """
-    yield _ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo)
+    yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
 icmp_responder_session_started = False
