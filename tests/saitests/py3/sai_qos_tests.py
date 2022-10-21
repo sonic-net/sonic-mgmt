@@ -742,12 +742,10 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
         finally:
             # Enable tx on dest port
-            sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])       
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
 
 
 # DOT1P to pg mapping
-
-
 class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
