@@ -49,7 +49,7 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None):
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None, **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -87,6 +87,7 @@ class TestPlanManager(object):
                 "source_repo": repo_name,
                 "kvm_build_id": kvm_build_id,
                 "dump_kvm_if_fail": True,
+                "mgmt_branch": kwargs["mgmt_branch"],
             },
             "priority": 10,
             "requester": "pull request"
@@ -279,6 +280,15 @@ if __name__ == "__main__":
         required=False,
         help="KVM build id."
     )
+    parser_create.add_argument(
+        "--mgmt-branch",
+        type=str,
+        dest="mgmt_branch",
+        default="master",
+        required=False,
+        help="Branch of sonic-mgmt repo to run the test"
+    )
+
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -382,7 +392,8 @@ if __name__ == "__main__":
                 max_worker=args.max_worker,
                 pr_id=pr_id,
                 scripts=get_test_scripts(args.test_set),
-                output=args.output
+                output=args.output,
+                mgmt_branch=args.mgmt_branch,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
