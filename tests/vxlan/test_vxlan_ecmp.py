@@ -33,6 +33,7 @@ import logging
 from datetime import datetime
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory 
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from vxlan_ecmp_utils import Ecmp_Utils
