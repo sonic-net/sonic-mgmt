@@ -12,7 +12,9 @@ import ptf.mask as mask
 import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
+import pytest
 
+from tests.common.utilities import wait_until
 from macsec_common_helper import convert_on_off_to_boolean
 from macsec_platform_helper import sonic_db_cli
 
@@ -150,6 +152,20 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
             assert sa["sak"] == ingress_sas[an]["sak"]
             assert sa["auth_key"] == ingress_sas[an]["auth_key"]
             assert sa["next_pn"] >= ingress_sas[an]["lowest_acceptable_pn"]
+
+
+def test_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
+    for port_name, nbr in ctrl_links.items():
+        if isinstance(nbr["host"], EosHost):
+            continue
+        check_appl_db(duthost, port_name, nbr["host"],
+                        nbr["port"], policy, cipher_suite, send_sci)
+    return True
+
+
+@pytest.fixture(scope="module")
+def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
+    assert wait_until(300, 6, 12, test_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
 
 
 def get_mka_session(host):
