@@ -170,9 +170,9 @@ def get_uplink_router_as_path(uplink_router_type, spine_asn):
 
 # Generate prefixs of route
 def generate_prefix(subnet_size, ip_base, offset):
-    next_ip = get_new_ip(ip_base, offset)
+    ip = get_new_ip(ip_base, offset)
     prefixlen = (ip_base.max_prefixlen - int(math.log(subnet_size, 2)))
-    prefix = "{}/{}".format(next_ip, prefixlen)
+    prefix = "{}/{}".format(ip, prefixlen)
 
     return prefix
 
@@ -481,9 +481,9 @@ def get_next_ip_by_net(net_str):
     return next_net
 
 
-def get_next_ip_of_nets(nets):
+def get_next_ip(skip_nets):
     """
-    Get the nearest next non-overlapping ip address based on the network list
+    Get minimum ip addresss which is bigger than any ip address in skip_nets.
     Sample input:
     [
         "192.168.0.1/24",
@@ -495,7 +495,7 @@ def get_next_ip_of_nets(nets):
     <class 'ipaddress.ip_address'>, 192.168.3.0/32
     """
     max_next_ip = None
-    for vlan in nets:
+    for vlan in skip_nets:
         next_ip = get_next_ip_by_net(vlan)
         if max_next_ip is None:
             max_next_ip = next_ip
@@ -551,7 +551,7 @@ def fib_m0(topo, ptf_ip, action="announce"):
         for _, config in vlans.items():
             vlan_prefixs.append(config["prefix"])
 
-    ip_base = get_next_ip_of_nets(vlan_prefixs)
+    ip_base = get_next_ip(vlan_prefixs)
     ip_base_v6 = ipaddress.IPv6Address(UNICODE_TYPE("20c0:a800::0"))
 
     m1_routes_v4 = None
