@@ -101,7 +101,7 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      arp/test_arp_dualtor.py \
+      arp/test_arp_extended.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
       bgp/test_bgp_fact.py \
