@@ -6,7 +6,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, show_muxcable_status
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, show_muxcable_status  # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import run_garp_service, change_mac_addresses, run_icmp_responder
 from tests.common.utilities import wait_until
 
