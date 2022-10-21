@@ -9,7 +9,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -19,7 +19,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms29-t2-7250-1
+    default: vms29-t2-7250-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -28,6 +28,12 @@ parameters:
     type: string
     default: ""
     displayName: "Image URL"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "qos"'
+    displayName: "Testbed specific"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
