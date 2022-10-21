@@ -29,7 +29,6 @@ class TestDeployment():
         # Save the current config file
         duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/config_db.json")
         config_reload(duthost)
-        assert wait_until(300, 6, 12, test_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
+        assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
         # Recover the original config file
         duthost.shell("sudo cp config_db.json /etc/sonic/config_db.json")
-
