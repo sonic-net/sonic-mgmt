@@ -1745,7 +1745,7 @@ def core_dump_and_config_check(duthosts, request):
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
 
             # Get common keys in pre running config and cur running config
-            EXCLUDE_CONFIG_KEYS = set(["FLEX_COUNTER_TABLE"])
+            EXCLUDE_CONFIG_KEYS = set([])
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
 
             # Check if the running config is modified after module running
