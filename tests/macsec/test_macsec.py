@@ -2,10 +2,11 @@ from time import sleep
 import pytest
 import logging
 import re
+from os import path
 import scapy.all as scapy
 import ptf.testutils as testutils
-from collections import Counter
 
+from collections import Counter
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common import config_reload
@@ -89,6 +90,44 @@ class TestControlPlane():
         assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
         assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
 
+    def test_rekey_by_pn(self, duthost, ctrl_links, cipher_suite):
+        assert len(ctrl_links) > 0
+        # Only pick one link to test
+        port_name, nbr = ctrl_links.items()[0]
+        is_xpn = "xpn" in cipher_suite.lower()
+        pn_exhaustion = 0xC0000000
+        xpn_exhaustion = 0xC000000000000000
+        change_script = "/tmp/change_appl_db.py"
+        duthost.copy(src = path.join(path.dirname(__file__), "change_appl_db.py"), dest=change_script)
+
+        _, egress_sc_table, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+
+        key = ":".join((port_name, get_sci(duthost.get_dut_iface_mac(port_name)), egress_sc_table["encoding_an"]))
+        duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, pn_exhaustion - 100))
+        duthost.command("python -c \"import scapy.all as scapy; pkt=scapy.Ether(); scapy.sendp(pkt, count={}, iface='{}')\"".format(200, port_name))
+        sleep(12)
+
+        _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+
+        if not is_xpn:
+            assert last_dut_egress_sa_table.keys() != new_dut_egress_sa_table.keys()
+            assert last_dut_ingress_sa_table.keys() != new_dut_ingress_sa_table.keys()
+            return
+        else:
+            assert last_dut_egress_sa_table.keys() == new_dut_egress_sa_table.keys()
+            assert last_dut_ingress_sa_table.keys() == new_dut_ingress_sa_table.keys()
+
+        duthost.command("python {} -t 'MACSEC_EGRESS_SA_TABLE' -k '{}' -p 'next_pn' '{}'".format(change_script, key, xpn_exhaustion - 100))
+        duthost.command("python -c \"import scapy.all as scapy; pkt=scapy.Ether(); scapy.sendp(pkt, count={}, iface='{}')\"".format(200, port_name))
+        sleep(12)
+
+        _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
+            duthost, port_name, nbr["host"], nbr["port"])
+        assert last_dut_egress_sa_table.keys() != new_dut_egress_sa_table.keys()
+        assert last_dut_ingress_sa_table.keys() != new_dut_ingress_sa_table.keys()
+
 
 class TestDataPlane():
     BATCH_COUNT = 10
@@ -146,11 +185,12 @@ class TestDataPlane():
 
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links):
         for up_port, up_link in upstream_links.items():
+            mtu = get_mtu(duthost, up_port)
             ret = duthost.command(
-                "{} ping -c {} {}".format(get_ipnetns_prefix(duthost, up_port), 4, up_link['local_ipv4_addr']))
+                "{} ping -c {} -s {} -M want {}".format(get_ipnetns_prefix(duthost, up_port), 4, mtu, up_link['local_ipv4_addr']))
             assert not ret['failed']
 
-    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, nbr_device_numbers):
+    def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links):
         portchannels = get_portchannel(duthost).values()
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]

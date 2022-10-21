@@ -15,7 +15,8 @@ __all__ = [
     'get_lldp_list',
     'get_platform',
     'global_cmd',
-    'sonic_db_cli'
+    'sonic_db_cli',
+    'get_mtu'
 ]
 
 
@@ -153,3 +154,18 @@ def get_lldp_list(host):
         lldp = items[1]
         lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
     return lldp_list
+
+
+def get_mtu(host, port):
+    '''
+        Here is an output example of `show interfaces status Ethernet112`
+        Interface        Lanes    Speed    MTU    FEC           Alias    Vlan    Oper    Admin    Type    Asym PFC
+        -----------  -----------  -------  -----  -----  --------------  ------  ------  -------  ------  ----------
+        Ethernet112  93,94,95,96      40G   9100    N/A  fortyGigE0/112  routed      up       up     N/A         N/A
+    '''
+    lines = host.command("show interfaces status {}".format(port))["stdout_lines"]
+    assert len(lines) == 3
+    title = lines[0].split()
+    for i in range(0, len(title)):
+        if title[i] == "MTU":
+            return int(lines[2].split()[i])
