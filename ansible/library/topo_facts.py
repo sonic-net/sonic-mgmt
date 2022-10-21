@@ -209,6 +209,7 @@ class ParseTestbedTopoinfo():
         else:
             asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
         vm_topo_config = dict()
+        vm_topo_config['topo_type'] = None
         asic_topo_config = dict()
         po_map = [None] * 16   # maximum 16 port channel interfaces
 
@@ -230,6 +231,9 @@ class ParseTestbedTopoinfo():
         if 'dut_num' in topo_definition['topology']:
             dut_num = topo_definition['topology']['dut_num']
         vm_topo_config['dut_num'] = dut_num
+        
+        if topo_definition['topology'].has_key('topo_type'):
+            vm_topo_config['topo_type'] = topo_definition['topology']['topo_type']
 
         if 'VMs' in topo_definition['topology']:
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']

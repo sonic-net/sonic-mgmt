@@ -32,6 +32,7 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - wan-pub
       children:
         server_1:
     lab:
