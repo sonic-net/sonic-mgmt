@@ -38,7 +38,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_201911)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
 stages:
