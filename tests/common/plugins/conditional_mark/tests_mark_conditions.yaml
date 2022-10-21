@@ -73,6 +73,11 @@ bgp/test_bgpmon.py:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Caclmgrd change to allow mgmt traffic by default requires test case update"
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/12464
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
