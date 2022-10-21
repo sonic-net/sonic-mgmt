@@ -12,9 +12,8 @@ import ptf.mask as mask
 import ptf.packet as packet
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
-import pytest
 
-from tests.common.utilities import wait_until
+from tests.common.devices.eos import EosHost
 from macsec_common_helper import convert_on_off_to_boolean
 from macsec_platform_helper import sonic_db_cli
 
@@ -33,7 +32,7 @@ __all__ = [
     'get_macsec_counters',
     'get_sci',
     'getns_prefix',
-    'get_ipnetns_prefix'
+    'get_ipnetns_prefix',
 ]
 
 
@@ -119,7 +118,7 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
 
 
-def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
+def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
     # Check MACsec port table
     dut_port_table, dut_egress_sc_table, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
         duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name)
@@ -143,8 +142,6 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
     # CHeck MACsec SA Table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
-    assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
-    assert len(nbr_ingress_sa_table) >= len(dut_egress_sa_table)
     for egress_sas, ingress_sas in \
             ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
         for an, sa in egress_sas.items():
@@ -154,18 +151,13 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
             assert sa["next_pn"] >= ingress_sas[an]["lowest_acceptable_pn"]
 
 
-def test_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
+def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     for port_name, nbr in ctrl_links.items():
         if isinstance(nbr["host"], EosHost):
             continue
-        check_appl_db(duthost, port_name, nbr["host"],
+        __check_appl_db(duthost, port_name, nbr["host"],
                         nbr["port"], policy, cipher_suite, send_sci)
     return True
-
-
-@pytest.fixture(scope="module")
-def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
-    assert wait_until(300, 6, 12, test_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
 
 
 def get_mka_session(host):
@@ -421,4 +413,3 @@ def get_macsec_counters(sonic_asic, namespace, name):
 __origin_dp_poll = testutils.dp_poll
 __macsec_infos = defaultdict(lambda: None)
 testutils.dp_poll = macsec_dp_poll
-

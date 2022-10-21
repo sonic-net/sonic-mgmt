@@ -33,7 +33,7 @@ class TestControlPlane():
         assert wait_until(300, 1, 1, _test_wpa_supplicant_processes)
 
     def test_appl_db(self, duthost, ctrl_links, policy, cipher_suite, send_sci, wait_mka_establish):
-        assert wait_until(300, 6, 12, test_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
+        assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
 
     def test_mka_session(self, duthost, ctrl_links, policy, cipher_suite, send_sci, wait_mka_establish):
         def _test_mka_session():
