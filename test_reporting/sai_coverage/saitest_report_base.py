@@ -8,13 +8,11 @@ SAI_API_PREFIX = "sai_thrift"
 RUNTEST_PREFIX = "runTest"
 IGNORE_FILE_LIST = ["sai_adapter.py", "sai_base_test.py", "sai_utils.py", "__init__.py"]
 SKIP_METHODS = ["runTest", "setUp", "tearDown"]
-COMPRESSED_JSON_FILE = "compressed.json"
-FLATTEN_JSON_FILE = "flatten.json"
+# COMPRESSED_JSON_FILE = "compressed.json"
+# FLATTEN_JSON_FILE = "flatten.json"
 
 SAI_HEADER_FILE = "saiintf_target.json"
-SAI_COVERAGE_DIRPATH = "files/test/ptf"
-SAI_COVERAGE_DIRPATH = "files/test/sai_test"
-# SAI_COVERAGE_DIRPATH = "files/simple_test"
+SAI_ADAPTER_DIRPATH = "sai_adapter.json"
 IGNORE_HEADER_FILE_LIST = ["sai.h", "saiobject.h", "saistatus.h", "saitypes.h"]
 SAI_INTF_TARGET_FILENAME = "saiintf_target.json"
 

@@ -326,4 +326,4 @@ class KustoConnector(ReportDBConnector):
             flush_immediately=True
         )
 
-        stat = self._ingestion_client.ingest_from_file(file, ingestion_properties=props)
+        stat = self._ingestion_client.ingest_from_file(str(file), ingestion_properties=props)

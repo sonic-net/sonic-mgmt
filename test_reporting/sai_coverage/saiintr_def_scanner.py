@@ -1,6 +1,21 @@
+import argparse
 import ast
 import json
 import os
+
+
+def get_parser(description=None):
+    parser = argparse.ArgumentParser(
+            description=description,
+            formatter_class=argparse.RawTextHelpFormatter,
+            epilog="""
+            Examples:
+            python3 saiintr_def_scanner.py src/sonic_sairedis/sai/sai_adapter
+            """,
+        )
+    parser.add_argument("path_list", metavar="path", nargs="+", type=str, help="list of file/directory to scan.")
+    args = parser.parse_args()
+    return args
 
 
 def seach_defalt_parms(root_path, save_path):
@@ -26,6 +41,7 @@ def seach_defalt_parms(root_path, save_path):
 
 
 if __name__ == "__main__":
-    root_path = "Path/to/Your/SAI_API/Definition"
-    save_path = "sai_adaptor.json"
-    seach_defalt_parms(root_path, save_path)  # Static Scanning
+    parser = get_parser("Static Scanning SAI Definition")
+    save_path = "sai_adapter.json"
+    for root_path in parser.path_list:
+        seach_defalt_parms(root_path, save_path)  # Static Scanning
