@@ -63,20 +63,9 @@ class SAICoverageScanner(object):
         method_intf_dict = dict()
 
         for n in node.body:
+            if self.is_skipped(n):
+                return method_intf_dict
             if isinstance(n, ast.FunctionDef):
-                if n.name == "setUp":
-                    for cell in ast.walk(n):
-                        if isinstance(cell, ast.FunctionDef):
-                            # skip the skipped class
-                            if (len(cell.body) > 0 and
-                                isinstance(cell.body[-1], ast.Expr) and 
-                                isinstance(cell.body[-1].value, ast.Call) and 
-                                len(cell.body[-1].value.keywords) > 0 and
-                                isinstance(cell.body[-1].value.keywords[0].value, ast.Constant) and 
-                                isinstance(cell.body[-1].value.keywords[0].value.value, ast.Str) and 
-                                "SKIP" in cell.body[-1].value.keywords[0].value.value):
-                                print(cell.body[-1].value.keywords[0].value.value)
-                                return method_intf_dict
                 if n.name not in method_intf_dict:  # Setup, TearDown, etc
                     method_intf_dict[n.name] = dict()
                 self.visit_FunctionDef(n, method_intf_dict)
@@ -138,6 +127,21 @@ class SAICoverageScanner(object):
                         method_intf_dict[node.name][child.func.attr].append({keyword.arg: v})
 
                     print()
+
+    def is_skipped(self, node):
+        if isinstance(node, ast.FunctionDef) and node.name == "setUp":
+            for cell in ast.walk(node):
+                if (isinstance(cell, ast.FunctionDef) and
+                    len(cell.body) > 0 and
+                    isinstance(cell.body[-1], ast.Expr) and 
+                    isinstance(cell.body[-1].value, ast.Call) and 
+                    len(cell.body[-1].value.keywords) > 0 and
+                    isinstance(cell.body[-1].value.keywords[0].value, ast.Constant) and 
+                    isinstance(cell.body[-1].value.keywords[0].value.value, str) and 
+                    "SKIP" in cell.body[-1].value.keywords[0].value.value):
+                    print(cell.body[-1].value.keywords[0].value.value)
+                    return True
+        return False
 
     def get_attr_and_values_arg(self, arg):
         if isinstance(arg, ast.Name):
@@ -287,7 +291,5 @@ class SAICoverageScanner(object):
 
 if __name__ == '__main__':
     parser = get_parser()
-    # for (case_path, save_compress_path, save_flatten_path) in zip(parser.path_list, parser.save_compress_path_list, parser.save_flatten_path_list):
-    # case_path, save_compress_path, save_flatten_path = parser.path, parser.save_compress_path, parser.save_flatten_path
     scanner = SAICoverageScanner(parser)
     scanner.parse()
