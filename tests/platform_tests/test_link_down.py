@@ -171,6 +171,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     # w/o this check links may still be down even with time.sleep(MAX_TIME_TO_REBOOT)
     check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
 
+
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
                                     duts_running_config_facts, conn_graph_facts, 
                                     fanouthosts, xcvr_skip_list, tbinfo):
