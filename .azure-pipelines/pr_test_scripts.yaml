@@ -1,5 +1,5 @@
 t0:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_fact.py
@@ -70,7 +70,7 @@ t0-sonic:
   - macsec/test_macsec.py
 
 dualtor:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
 
 t1-lag:
   - bgp/test_bgp_allow_list.py
