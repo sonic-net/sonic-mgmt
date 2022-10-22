@@ -553,3 +553,7 @@ def update_rule(duthost, outer_ipver, inner_ipver):
 
         update_rule_del(swapped_outer_ipver, swapped_inner_ipver, prot)
         update_rule_set(swapped_outer_ipver, swapped_inner_ipver, swapped_update_set_dict)
+
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
