@@ -644,7 +644,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def ssh_tunnel_to_syncd_rpc(
         self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-        swapQosSyncd, tbinfo, lower_tor_host
+        swapSyncd, tbinfo, lower_tor_host
     ):
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = lower_tor_host
@@ -659,14 +659,14 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def updateIptables(
-        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, swapQosSyncd, tbinfo, lower_tor_host
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, swapSyncd, tbinfo, lower_tor_host
     ):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                swapQosSyncd (Fixture): swapQosSyncd fixture is required to run prior to updating iptables
+                swapSyncd (Fixture): swapSyncd fixture is required to run prior to updating iptables
 
             Returns:
                 None
@@ -692,7 +692,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-        swapQosSyncd, enable_container_autorestart, disable_container_autorestart,
+        swapSyncd, enable_container_autorestart, disable_container_autorestart,
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports
     ):
         """
@@ -700,7 +700,7 @@ class QosSaiBase(QosBase):
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                swapQosSyncd (Fxiture): swapQosSyncd fixture is required to run prior to stopping services
+                swapSyncd (Fxiture): swapSyncd fixture is required to run prior to stopping services
 
             Returns:
                 None

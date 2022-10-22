@@ -850,37 +850,6 @@ def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, cred
         Returns:
             None
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    swapSyncd = request.config.getoption("--qos_swap_syncd")
-    public_docker_reg = request.config.getoption("--public_docker_registry")
-    try:
-        if swapSyncd:
-            if public_docker_reg:
-                new_creds = copy.deepcopy(creds)
-                new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
-                new_creds['docker_registry_username'] = ''
-                new_creds['docker_registry_password'] = ''
-            else:
-                new_creds = creds
-            docker.swap_syncd(duthost, new_creds)
-
-        yield
-    finally:
-        if swapSyncd:
-            docker.restore_default_syncd(duthost, new_creds)
-
-@pytest.fixture(scope='module')
-def swapQosSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds, tbinfo, lower_tor_host):
-    """
-        Swap syncd on DUT host
-
-        Args:
-            request (Fixture): pytest request object
-            duthost (AnsibleHost): Device Under Test (DUT)
-
-        Returns:
-            None
-    """
     if 'dualtor' in tbinfo['topo']['name']:
         duthost = lower_tor_host
     else:
