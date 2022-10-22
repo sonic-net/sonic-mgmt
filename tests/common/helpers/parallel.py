@@ -91,7 +91,7 @@ def parallel_run(
                 )
             )
             for p in running_processes:
-                results[p.name] = [{'failed': True}]
+                results[p.name] = {'failed': True}
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
@@ -104,6 +104,7 @@ def parallel_run(
                         """Processes running target "{}" could not be terminated.
                         Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
+
 
     workers = []
     results = Manager().dict()
@@ -173,7 +174,7 @@ def parallel_run(
                 worker.name
             ))
             worker.terminate()
-            results[worker.name] = [{'failed': True}]
+            results[worker.name] = {'failed': True}
 
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
