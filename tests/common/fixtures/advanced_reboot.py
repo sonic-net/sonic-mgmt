@@ -168,7 +168,17 @@ class AdvancedReboot:
         self.vlanMaxCnt = len(self.mgFacts['minigraph_vlans'].values()[0]['members']) - 1
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
+        config_facts = self.duthost.get_running_config_facts()
+        vlan_table = config_facts['VLAN']
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = vlan_table[vlan_name]['mac']
+        self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
+        if 'dualtor' in tbinfo['topo']['name']:
+            self.rebootData['lo_prefix'] = "10.1.0.33/32"
+        else:
+            self.rebootData['lo_prefix'] = "10.1.0.32/32"
+
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
             if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
@@ -609,6 +619,8 @@ class AdvancedReboot:
             "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
             "ports_file" : self.rebootData['ports_file'],
             "dut_mac" : self.rebootData['dut_mac'],
+            "vlan_mac" : self.rebootData['vlan_mac'],
+            "lo_prefix" : self.rebootData['lo_prefix'],
             "default_ip_range" : self.rebootData['default_ip_range'],
             "vlan_ip_range" : self.rebootData['vlan_ip_range'],
             "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
