@@ -196,7 +196,14 @@ def check_bgp(duthosts):
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime, 1)
+        if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
+            # If max_timeout is higher than 600, it will exceed parallel_run's timeout
+            # the check will be killed by parallel_run, we can't get expected results.
+            # 500 seconds is about 8 mins, bgp has enough to get up
+            max_timeout = 500
+        else:
+            max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
