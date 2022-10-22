@@ -839,7 +839,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds):
+def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds, tbinfo, lower_tor_host):
     """
         Swap syncd on DUT host
 
