@@ -151,7 +151,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
-            pytest_assert(wait_until(3, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
+            pytest_assert(wait_until(10, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
                     "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
 
             server_traffic_monitor = ServerTrafficMonitor(
