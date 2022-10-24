@@ -462,6 +462,18 @@ def get_port_name_list(hwsku):
     port_name_list_sorted = natsorted(port_name_list)
     return port_name_list_sorted
 
+
+def get_port_alias_list(hwsku):
+    # Create a map of SONiC port alias to physical port index
+    # Start by creating a list of all port alias
+    port_alias_to_name_map, _, _ = get_port_alias_to_name_map(hwsku)
+    port_alias_list = port_alias_to_name_map.keys()
+    # Sort the list in natural order, because SONiC port alias, when
+    # sorted in natural sort order, match the phyical port index order
+    port_alias_list_sorted = natsorted(port_alias_list)
+    return port_alias_list_sorted
+
+
 def build_results(lab_graph, hostnames, ignore_error=False):
     """
     Refactor code for building json results.
@@ -497,6 +509,7 @@ def build_results(lab_graph, hostnames, ignore_error=False):
                 device_vlan_map_list[hostname] = {}
 
                 port_name_list_sorted = get_port_name_list(dev['HwSku'])
+                port_alias_list_sorted = get_port_alias_list(dev['HwSku'])
                 logging.debug("For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
                 for a_host_vlan in host_vlan["VlanList"]:
                     # Get the corresponding port for this vlan from the port vlan list for this hostname
@@ -505,12 +518,14 @@ def build_results(lab_graph, hostnames, ignore_error=False):
                         if a_host_vlan in port_vlans[a_port]['vlanlist']:
                             if a_port in port_name_list_sorted:
                                 port_index = port_name_list_sorted.index(a_port)
-                                device_vlan_map_list[hostname][port_index] = a_host_vlan
-                                found_port_for_vlan = True
-                                break
+                            elif a_port in port_alias_list_sorted:
+                                port_index = port_alias_list_sorted.index(a_port)
                             elif not ignore_error:
                                 msg = "Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname)
                                 return (False, msg)
+                            device_vlan_map_list[hostname][port_index] = a_host_vlan
+                            found_port_for_vlan = True
+                            break
                     if not found_port_for_vlan and not ignore_error:
                         msg = "Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname)
                         return (False, msg)
