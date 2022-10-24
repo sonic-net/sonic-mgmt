@@ -1,15 +1,18 @@
 import pytest
 from tests.common.utilities import wait_until
 
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_check_snmp_ready(duthosts):
     for duthost in duthosts:
         assert wait_until(300, 20, 0, duthost.is_service_fully_started, "snmp"), "SNMP service is not running"
 
+
 @pytest.fixture(scope="module", autouse=True)
 def enable_queue_counterpoll_type(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command('counterpoll queue enable')
+
 
 def pytest_addoption(parser):
     """
