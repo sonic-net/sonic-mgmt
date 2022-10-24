@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 import time
+import math
 from collections import namedtuple
 import pytest
 import ptf.testutils as testutils
@@ -31,6 +32,22 @@ EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
 WITHDRAW = 'withdraw'
 ANNOUNCE = 'announce'
+# Refer to announce_routes.py, which is called in add-topo period
+TOR_SUBNET_SIZE = 128
+M0_SUBNET_SIZE = 64
+
+
+def get_prefix_len_by_net_size(net_size):
+    return 32 - int(math.log(net_size, 2))
+
+
+def get_route_prefix_len(tbinfo, common_config):
+    if tbinfo["topo"]["name"] == "m0":
+        m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
+        return get_prefix_len_by_net_size(m0_subnet_size)
+    else:
+        tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+        return get_prefix_len_by_net_size(tor_subnet_size)
 
 
 @pytest.fixture(scope="module")
@@ -74,7 +91,7 @@ def get_ptf_recv_ports(duthost, tbinfo):
 
 
 def get_ptf_send_ports(duthost, tbinfo, dev_port):
-    if tbinfo['topo']['name'] in ['t0', 't1-lag']:
+    if tbinfo['topo']['name'] in ['t0', 't1-lag', 'm0']:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         member_port = mg_facts['minigraph_portchannels'][dev_port]['members']
         send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
@@ -168,8 +185,9 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     routes = namedtuple('routes', ['route', 'aspath'])
     iproute_info = get_ip_route_info(duthost)
     dst_prefix_list = []
+    route_prefix_len = get_route_prefix_len(tbinfo, common_config)
     for route_prefix in iproute_info:
-        if "/25" in route_prefix:
+        if "/{}".format(route_prefix_len) in route_prefix:
             # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
             multipath = iproute_info[route_prefix][0].get('multipath', False)
             if multipath:
@@ -191,7 +209,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
 
     exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
     logger.info("exabgp_port = %d" % exabgp_port)
-    ping_ip = route_to_ping.strip('/25')
+    ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
