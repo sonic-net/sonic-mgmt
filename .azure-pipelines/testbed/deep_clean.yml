@@ -36,6 +36,7 @@ parameters:
     default:
       server_1:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms1-8
           - vms1-t0-2700-1
@@ -44,6 +45,7 @@ parameters:
           - vms1-t1-lag-3132
       server_2:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms2-2-t0-2700
           - vms2-4-t0-2700
@@ -51,6 +53,7 @@ parameters:
           - vms2-t1-7260-7
       server_3:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms3-4
           - vms3-t0-s6100
@@ -58,6 +61,7 @@ parameters:
           - vms3-t1-dx010-1
       server_7:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms7-t0-4600c-2
           - vms7-t0-7260-1
@@ -69,6 +73,7 @@ parameters:
           - vms7-t1-s6100
       server_11:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms11-2-t0
           - vms11-3-t1
@@ -78,6 +83,7 @@ parameters:
           - testbed-str-e1031-acs-1
       server_13:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms13-4-t0
           - vms13-5-t1-lag
@@ -85,6 +91,7 @@ parameters:
           - vms13-t1-n3164-2
       server_18:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms18-t0-7050qx-acs-02
           - vms18-t0-7215-acs-1
@@ -93,6 +100,7 @@ parameters:
           - testbed-str2-pikez-acs-1
       server_20:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms20-t0-7050cx3-1
           - vms20-t0-7050cx3-2
@@ -106,6 +114,7 @@ parameters:
           - vms20-t1-dx010-6
       server_21:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms21-dual-t0-7050-3
           - vms21-dual-t0-7260
@@ -118,6 +127,7 @@ parameters:
           - vms21-t1-z9332f-01
       server_24:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms24-dual-t0-7050-1
           - vms24-dual-t0-7050-2
@@ -129,10 +139,12 @@ parameters:
           - vms24-t1-n3164-acs-1
       server_26:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms26-t2-7800-1
       server_28:
         vm_type: ceos
+        pool: nightly
         testbeds:
           - vms28-dual-t0-7260
           - vms28-dual-t0-8102
@@ -140,11 +152,19 @@ parameters:
           - vms28-t0-4600c-04
           - vms28-t0-7280-3
           - vms28-t1-8102-02
+      server_svc_1:
+        vm_type: ceos
+        pool: nightly-svc
+        testbeds:
+          - vmsvc1-dual-t0-7050-1
+          - vmsvc1-dual-t0-7050-2
+          - vmsvc1-t1-n3164-acs-1
+          - vmsvc1-t1-n3164-acs-2
 
 jobs:
 - ${{ each SERVER in parameters.SERVER_TESTBED_INFO }}:
   - job: Deep_Clean_${{ SERVER.key }}
-    pool: nightly
+    pool: ${{ SERVER.value.pool }}
     timeoutInMinutes: 300
     variables:
       - group: TBSHARE_SECRETS
