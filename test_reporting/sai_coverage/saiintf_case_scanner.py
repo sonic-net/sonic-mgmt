@@ -77,70 +77,54 @@ class SAICoverageScanner(object):
         for child in ast.walk(node):
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
                 if "test" in child.func.id.lower() or SAI_API_PREFIX in child.func.id and "t" not in child.func.id.split("_"):
-
                     if child.func.id not in method_intf_dict[node.name]:
                         method_intf_dict[node.name][child.func.id] = list()
-                    print(node.name, child.func.id)
+                    print('Scanning', node.name, child.func.id, '...')
 
                     if len(child.args) > 1:
                         for idx, arg in enumerate(child.args):
                             if idx == 0: continue
-
                             v = self.get_attr_and_values_arg(arg)
                             if v is None:continue
-
                             attr_name = seach_defalt_parms(child.func.id, idx)
-                            print('name =', attr_name, ', value =', v)
                             method_intf_dict[node.name][child.func.id].append({attr_name: v})
 
                     for keyword in child.keywords:
                         v = self.get_attr_and_values_keywordval(keyword.value)
                         if v is None: continue
-
-                        print('name =', keyword.arg, ', value =', v)
                         method_intf_dict[node.name][child.func.id].append({keyword.arg: v})
-
                     print()
 
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
                 if "test" in child.func.attr.lower() or SAI_API_PREFIX in child.func.attr and "t" not in child.func.attr.split("_"):
                     if child.func.attr not in method_intf_dict[node.name]:
                         method_intf_dict[node.name][child.func.attr] = list()
-                    print(node.name, child.func.attr)
+                    print('Scanning', node.name, child.func.attr, '...')
 
                     if len(child.args) > 1:
                         for idx, arg in enumerate(child.args):
                             if idx == 0: continue
-
                             v = self.get_attr_and_values_arg(arg)
                             if v is None:continue
-
                             attr_name = seach_defalt_parms(child.func.attr, idx)
-                            print('name =', attr_name, ', value =', v)
                             method_intf_dict[node.name][child.func.attr].append({attr_name: v})
 
                     for keyword in child.keywords:
                         v = self.get_attr_and_values_keywordval(keyword.value)
                         if v is None: continue
-
-                        print('name =', keyword.arg, ', value =', v)
                         method_intf_dict[node.name][child.func.attr].append({keyword.arg: v})
-
                     print()
 
     def is_skipped(self, node):
         if isinstance(node, ast.FunctionDef) and node.name == "setUp":
             for cell in ast.walk(node):
-                if (isinstance(cell, ast.FunctionDef) and
-                    len(cell.body) > 0 and
-                    isinstance(cell.body[-1], ast.Expr) and 
-                    isinstance(cell.body[-1].value, ast.Call) and 
-                    len(cell.body[-1].value.keywords) > 0 and
-                    isinstance(cell.body[-1].value.keywords[0].value, ast.Constant) and 
-                    isinstance(cell.body[-1].value.keywords[0].value.value, str) and 
-                    "SKIP" in cell.body[-1].value.keywords[0].value.value):
-                    print(cell.body[-1].value.keywords[0].value.value)
-                    return True
+                if isinstance(cell, ast.FunctionDef) and len(cell.body):
+                    for body in cell.body:
+                        if isinstance(body, ast.Expr) and isinstance(body.value, ast.Call):
+                            for keyword in body.value.keywords:
+                                if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str) and "SKIP" in keyword.value.value:
+                                    print(keyword.value.value)
+                                    return True
         return False
 
     def get_attr_and_values_arg(self, arg):
