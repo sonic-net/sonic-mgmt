@@ -389,14 +389,9 @@ if ! which j2 &> /dev/null; then
     exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
 fi
 
-date > ytt.log.1
 pull_sonic_mgmt_docker_image
-date > ytt.log.2
 setup_local_image
-date > ytt.log.3
 start_local_container
-date > ytt.log.4
 show_local_container_login
-date > ytt.log.5
 
 exit_success "sonic-mgmt configuration is done!"
