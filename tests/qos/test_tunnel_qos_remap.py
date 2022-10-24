@@ -86,8 +86,8 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
     active_tor_mac = lower_tor_host.facts['router_mac']
     
     t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)
-    # Always select the first port in first LAG as src_port
-    src_port = list(t1_ports.values())[0][0]
+    # Always select the last port in the last LAG as src_port
+    src_port = list(t1_ports.values())[-1][-1]
     dst_ports = []
     for ports in t1_ports.values():
         dst_ports.extend(ports)
@@ -142,8 +142,8 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
     dualtor_meta = dualtor_info(ptfhost, upper_tor_host, lower_tor_host, tbinfo)
     active_tor_mac = lower_tor_host.facts['router_mac']
     t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)
-    # Always select the first port in first LAG as src_port
-    src_port = list(t1_ports.values())[0][0]
+    # Always select the last port in the last LAG as src_port
+    src_port = list(t1_ports.values())[-1][-1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     portchannel_info = mg_facts['minigraph_portchannels']
     tor_pc_intfs = list()
