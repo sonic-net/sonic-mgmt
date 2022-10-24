@@ -169,7 +169,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
     if not wait_for_ssh:
-        return dut_datetime
+        return
 
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
