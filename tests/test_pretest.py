@@ -284,5 +284,4 @@ def test_generate_running_golden_config(duthosts):
     Generate running golden config after pre test.
     """
     for duthost in duthosts:
-        json_data = json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-        duthost.copy(content=json.dumps(json_data, indent=4), dest="/etc/sonic/running_golden_config.json")
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
