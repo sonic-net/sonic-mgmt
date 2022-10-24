@@ -10,7 +10,7 @@ from .utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # SSH defines
-SONIC_SSH_PORT  = 22
+SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
@@ -20,7 +20,7 @@ REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
-REBOOT_TYPE_UNKNOWN  = "Unknown"
+REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 
 # Event to signal DUT activeness
@@ -97,12 +97,14 @@ REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 MAX_RETRIES = 3
 RETRY_BACKOFF_TIME = 15
 
+
 def check_warmboot_finalizer_inactive(duthost):
     """
     Check if warmboot finalizer service is exited
     """
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
+
 
 def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
     hostname = duthost.hostname
@@ -140,6 +142,7 @@ def wait_for_startup(duthost, localhost, delay, timeout):
         raise Exception('DUT {} did not startup'.format(hostname))
 
     logger.info('ssh has started up on {}'.format(hostname))
+
 
 def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
     # pool for executing tasks asynchronously
