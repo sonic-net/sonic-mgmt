@@ -206,13 +206,8 @@ def get_t1_active_ptf_ports(dut, tbinfo):
             ptf_portchannel_intfs[k] = []
             for member in v['members']:
                 ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
-    
-    # Sort the output by LAG name
-    sorted_ptf_portchannel_intfs = {}
-    for k in sorted(ptf_portchannel_intfs.keys()):
-        sorted_ptf_portchannel_intfs[k] = ptf_portchannel_intfs[k]
 
-    return sorted_ptf_portchannel_intfs
+    return ptf_portchannel_intfs
 
 def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     """
