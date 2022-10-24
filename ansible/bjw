@@ -18,6 +18,10 @@ all:
           ansible_host: 10.150.23.50
         bjw6-2:
           ansible_host: 10.150.23.51
+        bjw6-3:
+          ansible_host: 10.150.23.52
+        bjw6-4:
+          ansible_host: 10.150.23.53
     pdu:
       hosts:
         bjw-pdu-22-50:
@@ -39,13 +43,21 @@ fanout:
     bjw-can-z9332f-1:
       ansible_host: 10.150.22.108
       os: sonic
+    bjw-slx-can-2:
+      ansible_host: 10.150.22.105
+      os: sonic
+    bjw-can-slx-5:
+      ansible_host: 10.150.22.100
+      os: sonic
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
     sonic_arista_720dt:
+    sonic_celestica_dx010:
     sonic_intel_ec9516:
+    sonic_mlnx_sn2700:
 
 sonic_arista_720dt:
   vars:
@@ -74,6 +86,34 @@ sonic_arista_720dt:
         "0x2F": "WTW22180040"
         "0xFE": 3735928559
 
+sonic_celestica_dx010:
+  vars:
+    hwsku: Celestica-DX010-C32
+    iface_speed: 100000
+  hosts:
+    bjw-slx-can-1:
+      ansible_host: 10.150.22.104
+      model: R0872-F0020-01
+      serial: DX010B2F019723BY200001
+      base_mac: 00:E0:EC:E7:68:5C
+      syseeprom_info:
+        "0x21": "DX010"
+        "0x22": "R0872-F0020-01"
+        "0x23": "DX010B2F019723BY200001"
+        "0x24": "00:E0:EC:E7:68:5C"
+        "0x25": "08/30/2019 22:41:11"
+        "0x26": "1"
+        "0x27": "Seastone"
+        "0x28": "RANGELEY"
+        "0x29": "2014.08"
+        "0x2A": "131"
+        "0x2B": "CELESTICA"
+        "0x2C": "THA"
+        "0x2D": "Celestica"
+        "0x2E": "1.1.1"
+        "0x2F": "LB"
+        "0xFE": "0xD8A8FAEE"
+
 sonic_intel_ec9516:
   vars:
     hwsku: newport
@@ -94,6 +134,29 @@ sonic_intel_ec9516:
         "0x2A": "260"
         "0x2B": "Intel"
         "0xFE": "0xA6E0E529"
+
+sonic_mlnx_sn2700:
+  vars:
+    hwsku: Mellanox-SN2700
+    iface_speed: 100000
+  hosts:
+    bjw-can-2700-1:
+      ansible_host: 10.150.22.101
+      model: MSN2700-CS2FOS
+      serial: MT1849X08805
+      base_mac: 98:03:9B:F5:FF:80
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FOS"
+        "0x23": "MT1849X08805"
+        "0x24": "98:03:9B:F5:FF:80"
+        "0x25": "12/10/2018 21:55:04"
+        "0x26": "16"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2018.05-5.2.0004-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0x1619F9E1"
 
 server:
   hosts:

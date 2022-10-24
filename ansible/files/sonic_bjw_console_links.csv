@@ -1,4 +1,8 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy
+bjw-e1031-can-1,1,bjw-can-2700-1,ssh,admin
+bjw-e1031-can-1,2,bjw-can-slx-5,ssh,admin
+bjw-e1031-can-1,3,bjw-slx-can-1,ssh,admin
+bjw-e1031-can-1,4,bjw-slx-can-2,ssh,admin
 bjw-e1031-can-1,7,bjw-can-7260-root-1,ssh,admin
 bjw-e1031-can-1,8,bjw-can-7060-fanout-1,ssh,admin
 bjw-e1031-can-1,9,bjw-can-z9332f-1,ssh,admin

@@ -5,6 +5,8 @@
       <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-48S" Type="FanoutLeaf"/>
+      <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
+      <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-serv-1" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-2" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-3" HwSku="TestServ" Type="Server"/>
@@ -13,6 +15,8 @@
       <Device Hostname="bjw-can-serv-6" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-48S" Type="DevSonic"/>
       <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Type="DevSonic"/>
+      <Device Hostname="bjw-can-2700-1" HwSku="Mellanox-SN2700" Type="DevSonic"/>
+      <Device Hostname="bjw-slx-can-1" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-720dt-2" EndPort="Ethernet0" StartDevice="bjw-can-720dt-1" StartPort="Ethernet0"/>
@@ -99,9 +103,75 @@
       <DeviceInterfaceLink BandWidth="400000" EndDevice="bjw-can-z9332f-1" EndPort="Ethernet232" StartDevice="bjw-can-ec9516-1" StartPort="Ethernet232"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="bjw-can-z9332f-1" EndPort="Ethernet240" StartDevice="bjw-can-ec9516-1" StartPort="Ethernet240"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="bjw-can-z9332f-1" EndPort="Ethernet248" StartDevice="bjw-can-ec9516-1" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp1" StartDevice="bjw-slx-can-1" StartPort="etp1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp2" StartDevice="bjw-slx-can-1" StartPort="etp2"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp3" StartDevice="bjw-slx-can-1" StartPort="etp3"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp4" StartDevice="bjw-slx-can-1" StartPort="etp4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp5" StartDevice="bjw-slx-can-1" StartPort="etp5"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp6" StartDevice="bjw-slx-can-1" StartPort="etp6"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp7" StartDevice="bjw-slx-can-1" StartPort="etp7"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp8" StartDevice="bjw-slx-can-1" StartPort="etp8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp9" StartDevice="bjw-slx-can-1" StartPort="etp9"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp10" StartDevice="bjw-slx-can-1" StartPort="etp10"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp11" StartDevice="bjw-slx-can-1" StartPort="etp11"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp12" StartDevice="bjw-slx-can-1" StartPort="etp12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp13" StartDevice="bjw-slx-can-1" StartPort="etp13"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp14" StartDevice="bjw-slx-can-1" StartPort="etp14"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp15" StartDevice="bjw-slx-can-1" StartPort="etp15"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp16" StartDevice="bjw-slx-can-1" StartPort="etp16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp17" StartDevice="bjw-slx-can-1" StartPort="etp17"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp18" StartDevice="bjw-slx-can-1" StartPort="etp18"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp19" StartDevice="bjw-slx-can-1" StartPort="etp19"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp20" StartDevice="bjw-slx-can-1" StartPort="etp20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp21" StartDevice="bjw-slx-can-1" StartPort="etp21"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp22" StartDevice="bjw-slx-can-1" StartPort="etp22"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp23" StartDevice="bjw-slx-can-1" StartPort="etp23"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp24" StartDevice="bjw-slx-can-1" StartPort="etp24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp25" StartDevice="bjw-slx-can-1" StartPort="etp25"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp26" StartDevice="bjw-slx-can-1" StartPort="etp26"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp27" StartDevice="bjw-slx-can-1" StartPort="etp27"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp28" StartDevice="bjw-slx-can-1" StartPort="etp28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp29" StartDevice="bjw-slx-can-1" StartPort="etp29"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp30" StartDevice="bjw-slx-can-1" StartPort="etp30"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp31" StartDevice="bjw-slx-can-1" StartPort="etp31"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet2/1" StartDevice="bjw-slx-can-1" StartPort="etp32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp1" StartDevice="bjw-can-2700-1" StartPort="etp1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp2" StartDevice="bjw-can-2700-1" StartPort="etp2"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp3" StartDevice="bjw-can-2700-1" StartPort="etp3"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp4" StartDevice="bjw-can-2700-1" StartPort="etp4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp5" StartDevice="bjw-can-2700-1" StartPort="etp5"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp6" StartDevice="bjw-can-2700-1" StartPort="etp6"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp7" StartDevice="bjw-can-2700-1" StartPort="etp7"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp8" StartDevice="bjw-can-2700-1" StartPort="etp8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp9" StartDevice="bjw-can-2700-1" StartPort="etp9"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp10" StartDevice="bjw-can-2700-1" StartPort="etp10"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp11" StartDevice="bjw-can-2700-1" StartPort="etp11"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp12" StartDevice="bjw-can-2700-1" StartPort="etp12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp13" StartDevice="bjw-can-2700-1" StartPort="etp13"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp14" StartDevice="bjw-can-2700-1" StartPort="etp14"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp15" StartDevice="bjw-can-2700-1" StartPort="etp15"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp16" StartDevice="bjw-can-2700-1" StartPort="etp16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp17" StartDevice="bjw-can-2700-1" StartPort="etp17"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp18" StartDevice="bjw-can-2700-1" StartPort="etp18"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp19" StartDevice="bjw-can-2700-1" StartPort="etp19"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp20" StartDevice="bjw-can-2700-1" StartPort="etp20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp21" StartDevice="bjw-can-2700-1" StartPort="etp21"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp22" StartDevice="bjw-can-2700-1" StartPort="etp22"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp23" StartDevice="bjw-can-2700-1" StartPort="etp23"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp24" StartDevice="bjw-can-2700-1" StartPort="etp24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp25" StartDevice="bjw-can-2700-1" StartPort="etp25"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp26" StartDevice="bjw-can-2700-1" StartPort="etp26"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp27" StartDevice="bjw-can-2700-1" StartPort="etp27"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp28" StartDevice="bjw-can-2700-1" StartPort="etp28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp29" StartDevice="bjw-can-2700-1" StartPort="etp29"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp30" StartDevice="bjw-can-2700-1" StartPort="etp30"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp31" StartDevice="bjw-can-2700-1" StartPort="etp31"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet3/1" StartDevice="bjw-can-2700-1" StartPort="etp32"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet32/1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet4/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-720dt-2" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-z9332f-1" EndPort="Ethernet256" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet66"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp32" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet6/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-5" EndPort="etp32" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-2" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-3" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet8/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-4" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet9/1"/>
@@ -114,9 +184,11 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.20/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="bjw-can-7260-root-1">
-      <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids="249-252"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids="249-252,316,348"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="201-248"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet66" vlanids="253-284"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="285-315"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="317-347"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet8/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids=""/>
@@ -131,7 +203,9 @@
       <InterfaceVlan mode="Access" portname="Ethernet1/2" vlanids="250"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/3" vlanids="251"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/4" vlanids="252"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252"/>
+      <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="316"/>
+      <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="348"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252,316,348"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-z9332f-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.108/23"/>
@@ -225,6 +299,80 @@
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="248"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="201-248"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="bjw-slx-can-2">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.105/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="bjw-slx-can-2">
+      <InterfaceVlan mode="Access" portname="etp1" vlanids="285"/>
+      <InterfaceVlan mode="Access" portname="etp2" vlanids="286"/>
+      <InterfaceVlan mode="Access" portname="etp3" vlanids="287"/>
+      <InterfaceVlan mode="Access" portname="etp4" vlanids="288"/>
+      <InterfaceVlan mode="Access" portname="etp5" vlanids="289"/>
+      <InterfaceVlan mode="Access" portname="etp6" vlanids="290"/>
+      <InterfaceVlan mode="Access" portname="etp7" vlanids="291"/>
+      <InterfaceVlan mode="Access" portname="etp8" vlanids="292"/>
+      <InterfaceVlan mode="Access" portname="etp9" vlanids="293"/>
+      <InterfaceVlan mode="Access" portname="etp10" vlanids="294"/>
+      <InterfaceVlan mode="Access" portname="etp11" vlanids="295"/>
+      <InterfaceVlan mode="Access" portname="etp12" vlanids="296"/>
+      <InterfaceVlan mode="Access" portname="etp13" vlanids="297"/>
+      <InterfaceVlan mode="Access" portname="etp14" vlanids="298"/>
+      <InterfaceVlan mode="Access" portname="etp15" vlanids="299"/>
+      <InterfaceVlan mode="Access" portname="etp16" vlanids="300"/>
+      <InterfaceVlan mode="Access" portname="etp17" vlanids="301"/>
+      <InterfaceVlan mode="Access" portname="etp18" vlanids="302"/>
+      <InterfaceVlan mode="Access" portname="etp19" vlanids="303"/>
+      <InterfaceVlan mode="Access" portname="etp20" vlanids="304"/>
+      <InterfaceVlan mode="Access" portname="etp21" vlanids="305"/>
+      <InterfaceVlan mode="Access" portname="etp22" vlanids="306"/>
+      <InterfaceVlan mode="Access" portname="etp23" vlanids="307"/>
+      <InterfaceVlan mode="Access" portname="etp24" vlanids="308"/>
+      <InterfaceVlan mode="Access" portname="etp25" vlanids="309"/>
+      <InterfaceVlan mode="Access" portname="etp26" vlanids="310"/>
+      <InterfaceVlan mode="Access" portname="etp27" vlanids="311"/>
+      <InterfaceVlan mode="Access" portname="etp28" vlanids="312"/>
+      <InterfaceVlan mode="Access" portname="etp29" vlanids="313"/>
+      <InterfaceVlan mode="Access" portname="etp30" vlanids="314"/>
+      <InterfaceVlan mode="Access" portname="etp31" vlanids="315"/>
+      <InterfaceVlan mode="Trunk" portname="etp32" vlanids="285-315"/>
+    </DevicesL2Info>
+    <DevicesL3Info Hostname="bjw-can-slx-5">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.100/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="bjw-can-slx-5">
+      <InterfaceVlan mode="Access" portname="etp1" vlanids="317"/>
+      <InterfaceVlan mode="Access" portname="etp2" vlanids="318"/>
+      <InterfaceVlan mode="Access" portname="etp3" vlanids="319"/>
+      <InterfaceVlan mode="Access" portname="etp4" vlanids="320"/>
+      <InterfaceVlan mode="Access" portname="etp5" vlanids="321"/>
+      <InterfaceVlan mode="Access" portname="etp6" vlanids="322"/>
+      <InterfaceVlan mode="Access" portname="etp7" vlanids="323"/>
+      <InterfaceVlan mode="Access" portname="etp8" vlanids="324"/>
+      <InterfaceVlan mode="Access" portname="etp9" vlanids="325"/>
+      <InterfaceVlan mode="Access" portname="etp10" vlanids="326"/>
+      <InterfaceVlan mode="Access" portname="etp11" vlanids="327"/>
+      <InterfaceVlan mode="Access" portname="etp12" vlanids="328"/>
+      <InterfaceVlan mode="Access" portname="etp13" vlanids="329"/>
+      <InterfaceVlan mode="Access" portname="etp14" vlanids="330"/>
+      <InterfaceVlan mode="Access" portname="etp15" vlanids="331"/>
+      <InterfaceVlan mode="Access" portname="etp16" vlanids="332"/>
+      <InterfaceVlan mode="Access" portname="etp17" vlanids="333"/>
+      <InterfaceVlan mode="Access" portname="etp18" vlanids="334"/>
+      <InterfaceVlan mode="Access" portname="etp19" vlanids="335"/>
+      <InterfaceVlan mode="Access" portname="etp20" vlanids="336"/>
+      <InterfaceVlan mode="Access" portname="etp21" vlanids="337"/>
+      <InterfaceVlan mode="Access" portname="etp22" vlanids="338"/>
+      <InterfaceVlan mode="Access" portname="etp23" vlanids="339"/>
+      <InterfaceVlan mode="Access" portname="etp24" vlanids="340"/>
+      <InterfaceVlan mode="Access" portname="etp25" vlanids="341"/>
+      <InterfaceVlan mode="Access" portname="etp26" vlanids="342"/>
+      <InterfaceVlan mode="Access" portname="etp27" vlanids="343"/>
+      <InterfaceVlan mode="Access" portname="etp28" vlanids="344"/>
+      <InterfaceVlan mode="Access" portname="etp29" vlanids="345"/>
+      <InterfaceVlan mode="Access" portname="etp30" vlanids="346"/>
+      <InterfaceVlan mode="Access" portname="etp31" vlanids="347"/>
+      <InterfaceVlan mode="Trunk" portname="etp32" vlanids="317-347"/>
+    </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-serv-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.222/23"/>
     </DevicesL3Info>
@@ -249,6 +397,12 @@
     <DevicesL3Info Hostname="bjw-can-ec9516-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.109/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-2700-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.101/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-slx-can-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.104/23"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
@@ -256,6 +410,10 @@
       <DeviceConsoleInfo Hostname="bjw-e1031-can-2" HwSku="Celestica-E1031-E48C48" ManagementIp="10.150.22.11" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-2700-1" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="1"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-slx-5" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="2"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-1" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="3"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-2" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="4"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7260-root-1" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="7"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7060-fanout-1" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="8"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-z9332f-1" Proxy="admin" StartDevice="bjw-e1031-can-1" StartPort="9"/>
@@ -287,6 +445,14 @@
       <PowerControlLinkInfo EndDevice="bjw-can-ec9516-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="20"/>
       <PowerControlLinkInfo EndDevice="bjw-can-z9332f-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="35"/>
       <PowerControlLinkInfo EndDevice="bjw-can-z9332f-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="35"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-2700-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-2700-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="41"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="41"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-2" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="39"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-2" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="39"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-slx-5" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="11"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-slx-5" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU2" StartDevice="bjw-pdu-22-50" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU1" StartDevice="bjw-pdu-22-51" StartPort="21"/>

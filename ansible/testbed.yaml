@@ -1637,3 +1637,33 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: SAI Qualification
+
+- conf-name: testbed-bjw-can-2700-1
+  group-name: bjw6-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: bjw6-3
+  ptf_ip: 10.150.23.52/23
+  ptf_ipv6:
+  server: server_bjw_6
+  vm_base: VM56030
+  dut:
+    - bjw-can-2700-1
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw-slx-can-1
+  group-name: bjw6-4
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: bjw6-4
+  ptf_ip: 10.150.23.53/23
+  ptf_ipv6:
+  server: server_bjw_6
+  vm_base: VM56034
+  dut:
+    - bjw-slx-can-1
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
