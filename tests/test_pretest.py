@@ -253,6 +253,14 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     dut = duthosts[enum_dut_hostname]
     dut.command('pfcwd stop')
 
+
+def test_generate_running_golden_config(duthosts):
+    """
+    Generate running golden config after pre test.
+    """
+    for duthost in duthosts:
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+
 """
     Separator for internal pretests.
     Please add public pretest above this comment and keep internal
