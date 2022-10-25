@@ -278,3 +278,10 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
             json.dump(cadidate_test_ports, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
+
+def test_generate_running_golden_config(duthosts):
+    """
+    Generate running golden config after pre test.
+    """
+    for duthost in duthosts:
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")

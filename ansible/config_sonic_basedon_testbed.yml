@@ -581,6 +581,11 @@
         shell: config save -y
         when: save is defined and save|bool == true
 
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
+
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
