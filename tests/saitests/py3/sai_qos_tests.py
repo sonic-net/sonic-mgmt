@@ -681,8 +681,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = self.test_params['dst_port_id']
         dst_port_ip = self.test_params['dst_port_ip']
 
-        dscp_to_tc_map = self.test_params['tunnel_qos_map']['dscp_to_tc_map']
-        tc_to_pg_map = self.test_params['tunnel_qos_map']['tc_to_priority_group_map']
+        dscp_to_pg_map = self.test_params['inner_dscp_to_pg_map']
         asic_type = self.test_params['sonic_asic_type']
         cell_size = self.test_params['cell_size']
         dscp_to_pg_map = {}
@@ -699,8 +698,6 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
             7: 0
         }
 
-        for dscp, tc in dscp_to_tc_map.items():
-            dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         try:
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])

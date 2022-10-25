@@ -58,25 +58,38 @@ def check_queue_counter(duthost, intfs, queue, counter):
     return False
 
 
+def counter_poll_config(duthost, type, interval_ms):
+    """
+    A helper function to config the interval of counterpoll
+    """
+    cmd = 'counterpoll {} interval {}'.format(type, interval_ms)
+    duthost.shell(cmd)
+
+
 def load_tunnel_qos_map():
     """
-    Read DSCP_TO_TC_MAP and TC_TO_PRIORITY_GROUP_MAP from file
-    return a dict
+    Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
+    return a dict 
     """
     TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
-    MAP_NAME = "AZURE_TUNNEL"
+    TUNNEL_MAP_NAME = "AZURE_TUNNEL"
+    MAP_NAME = "AZURE"
     ret = {}
     with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
         maps = json.load(f)
-        
-    ret['dscp_to_tc_map'] = {}
+    # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
+    ret['inner_dscp_to_pg_map'] = {}
+    for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+        ret['inner_dscp_to_pg_map'][int(k)] = int(maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
+    # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
+    ret['inner_dscp_to_outer_dscp_map'] = {}
     for k, v in maps['DSCP_TO_TC_MAP'][MAP_NAME].items():
-        ret['dscp_to_tc_map'][int(k)] = int(v)
-        
-    ret['tc_to_priority_group_map'] = {}
-    for k, v in maps['TC_TO_PRIORITY_GROUP_MAP'][MAP_NAME].items():
-        ret["tc_to_priority_group_map"][int(k)] = int(v)
-        
+        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(map['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
+    # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
+    ret['inner_dscp_to_queue_map'] = {}
+    for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+        ret['inner_dscp_to_queue_map'][int(k)] = int(map['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+
     return ret
 
 
@@ -115,6 +128,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     unselected_tor_mac = rand_unselected_dut.facts['router_mac']
     unselected_tor_loopback = get_iface_ip(unselected_dut_mg_facts, 'Loopback0')
 
+    tunnel_qos_map = load_tunnel_qos_map()
     return {
         "asic_type": asic_type,
         "lag_port_name": lag_port_name,
@@ -129,7 +143,8 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
         "unselected_tor_mgmt": unselected_tor_mgmt,
         "unselected_tor_mac": unselected_tor_mac,
         "unselected_tor_loopback": unselected_tor_loopback,
-        "tunnel_qos_map": load_tunnel_qos_map(),
+        "dscp_to_tc_map": tunnel_qos_map['dscp_to_tc_map'],
+        "tc_to_priority_group_map": tunnel_qos_map['tc_to_priority_group_map'],
         "port_map_file": ptf_portmap_file_module
     }
 
