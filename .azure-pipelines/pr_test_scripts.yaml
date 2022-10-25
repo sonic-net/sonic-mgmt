@@ -1,5 +1,5 @@
 t0:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_fact.py
@@ -10,7 +10,7 @@ t0:
   - container_checker/test_container_checker.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
-#  - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
@@ -62,7 +62,7 @@ t0:
   - test_procdockerstatsd.py
 
 t0-2vlans:
-#  - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
 
 t0-sonic:
@@ -70,7 +70,7 @@ t0-sonic:
   - macsec/test_macsec.py
 
 dualtor:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
 
 t1-lag:
   - bgp/test_bgp_allow_list.py
