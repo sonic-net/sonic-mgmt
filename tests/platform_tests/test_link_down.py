@@ -20,7 +20,7 @@ from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.reboot import reboot
+from tests.common.reboot import *
 
 logger = logging.getLogger(__name__)
 
@@ -164,10 +164,9 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
     time.sleep(MAX_TIME_TO_REBOOT)
 
-    logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime_before.strftime("%s")) != float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s")), "Device {} did not reboot".format(hostname)
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
@@ -196,8 +195,6 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
 
     time.sleep(MAX_TIME_TO_REBOOT)
 
-    logger.info('reboot finished on {}, reboot started on {}'.format(hostname, dut_datetime))
-
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime_before.strftime("%s")) != float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s")), "Device {} did not reboot".format(hostname)
