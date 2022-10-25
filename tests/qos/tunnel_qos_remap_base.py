@@ -255,7 +255,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
                       argv = [
                           "ptf",
                           "--test-dir",
-                          "saitests",
+                          "saitests/py3",
                           test_case,
                           "--platform-dir",
                           "ptftests",
