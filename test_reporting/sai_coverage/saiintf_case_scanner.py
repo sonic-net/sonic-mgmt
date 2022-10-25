@@ -8,9 +8,9 @@ from saitest_report_base import *
 
 def get_parser(description=None):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--path", "-p", type=str, help="file/directory to scan.")
-    parser.add_argument("--save_compress_path", "-cp", type=str, help="file/directory to save compressed results.")
-    parser.add_argument("--save_flatten_path", "-fp", type=str, help="file/directory to save flatten results.")
+    parser.add_argument("--path", "-p", type=str, default="files/sai_test", help="file/directory to scan.")
+    parser.add_argument("--save_compress_path", "-cp", type=str, default="compressed_test.json", help="file/directory to save compressed results.")
+    parser.add_argument("--save_flatten_path", "-fp", type=str, default="test.json", help="file/directory to save flatten results.")
     args = parser.parse_args()
     return args
 
@@ -30,50 +30,48 @@ class SAICoverageScanner(object):
         self.save_compress_path = parser.save_compress_path
         self.save_flatten_path = parser.save_flatten_path
         self.header_path = SAI_HEADER_FILE
+        self.final_coverage = list()
 
     def parse(self):
-        # {file name : class_case_dict}
-        file_class_dict = dict()
-
+        '''
+        structure:
+        {file name : class_case_dict}
+        '''
         for (root, _, filenames) in os.walk(self.case_path):
             for filename in filenames:
                 if filename.endswith(".py") and filename not in IGNORE_FILE_LIST and "helper" not in filename.lower():
                     with open(root + "/" + filename, "r") as f:
                         code = f.read()
                         f_ast = ast.parse(code)
-                        file_class_dict[filename] = self.visit_AST(f_ast)
+                        self.visit_AST(f_ast, filename)
 
-        with open(self.save_compress_path, 'w+') as f:
-            json.dump(file_class_dict, f, indent=4, cls=SAIJsonEncoder)
 
-        self.compose_coverage_report(file_class_dict)
-
-    def visit_AST(self, raw_ast):
-        # {class name : {method name : [SAI apis]}}
-        class_case_dict = dict()
-
+    def visit_AST(self, raw_ast, filename):
+        '''
+        structure:
+        {class name : {method name : [SAI apis]}}
+        '''
         for node in raw_ast.body:
             if isinstance(node, ast.ClassDef):
-                class_case_dict[node.name] = self.visit_ClassDef(node)
+                self.visit_ClassDef(node, filename)
 
-        return class_case_dict
 
-    def visit_ClassDef(self, node):
-        # {method name : [SAI apis]}
+    def visit_ClassDef(self, node, filename):
+        '''
+        structure:
+        {method name : [SAI apis]}
+        '''
         method_intf_dict = dict()
-
         for n in node.body:
             if self.is_skipped(n):
-                return method_intf_dict
+                return 
             if isinstance(n, ast.FunctionDef):
                 if n.name not in method_intf_dict:  # Setup, TearDown, etc
                     method_intf_dict[n.name] = dict()
-                self.visit_FunctionDef(n, method_intf_dict)
+                self.visit_FunctionDef(n, method_intf_dict, filename, node.name)
 
-        return method_intf_dict
 
-    def visit_FunctionDef(self, node, method_intf_dict):
-
+    def visit_FunctionDef(self, node, method_intf_dict, filename, node_name):
         for child in ast.walk(node):
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
                 if "test" in child.func.id.lower() or SAI_API_PREFIX in child.func.id and "t" not in child.func.id.split("_"):
@@ -85,7 +83,7 @@ class SAICoverageScanner(object):
                         for idx, arg in enumerate(child.args):
                             if idx == 0: continue
                             v = self.get_attr_and_values_arg(arg)
-                            if v is None:continue
+                            if v is None: continue
                             attr_name = seach_defalt_parms(child.func.id, idx)
                             method_intf_dict[node.name][child.func.id].append({attr_name: v})
 
@@ -93,7 +91,6 @@ class SAICoverageScanner(object):
                         v = self.get_attr_and_values_keywordval(keyword.value)
                         if v is None: continue
                         method_intf_dict[node.name][child.func.id].append({keyword.arg: v})
-                    print()
 
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
                 if "test" in child.func.attr.lower() or SAI_API_PREFIX in child.func.attr and "t" not in child.func.attr.split("_"):
@@ -105,7 +102,7 @@ class SAICoverageScanner(object):
                         for idx, arg in enumerate(child.args):
                             if idx == 0: continue
                             v = self.get_attr_and_values_arg(arg)
-                            if v is None:continue
+                            if v is None: continue
                             attr_name = seach_defalt_parms(child.func.attr, idx)
                             method_intf_dict[node.name][child.func.attr].append({attr_name: v})
 
@@ -113,7 +110,9 @@ class SAICoverageScanner(object):
                         v = self.get_attr_and_values_keywordval(keyword.value)
                         if v is None: continue
                         method_intf_dict[node.name][child.func.attr].append({keyword.arg: v})
-                    print()
+
+        self.generate_flatten_report(method_intf_dict, filename, node_name)
+
 
     def is_skipped(self, node):
         if isinstance(node, ast.FunctionDef) and node.name == "setUp":
@@ -126,6 +125,7 @@ class SAICoverageScanner(object):
                                     print(keyword.value.value)
                                     return True
         return False
+
 
     def get_attr_and_values_arg(self, arg):
         if isinstance(arg, ast.Name):
@@ -198,55 +198,54 @@ class SAICoverageScanner(object):
             print()
         return v
 
+
     def parse_header(self, header_path):
         data = dict()
         with open(header_path, 'r') as f:
             data = json.load(f)
         return data
 
-    def compose_coverage_report(self, file_class_dict):
-        header_data = self.parse_header(self.header_path)
-        final_coverage = list()
 
+    def generate_flatten_report(self, method_case_dict, file_name, class_name):
         covered_methods = set()
+        header_data = self.parse_header(self.header_path)
 
-        for (file_name, class_case_dict) in file_class_dict.items():
-            for (class_name, method_case_dict) in class_case_dict.items():
-                for (method_name, sai_apis) in method_case_dict.items():
-                    for (attr_name, attr_values) in sai_apis.items():
-                        for i, sai_intf in enumerate(attr_values):
-                            if "sai_thrift_" not in attr_name:
-                                continue
-                            # remove sai_thrift_xxxxx and change to sai_xxxxx_fn for header key
-                            header_key = "sai_" + attr_name.split("sai_thrift_")[1] + "_fn"
-                            covered_methods.add(header_key)
-                            # need saiintf_target file to have sai header info
-                            if header_key in header_data:
-                                test_set = "t0" if 'sai_test' in self.case_path else "ptf"
-                                test_invocation = TestInvocation(
-                                    file_name=file_name,
-                                    case_name=method_name,
-                                    class_name=class_name,
-                                    case_invoc=attr_name,
-                                    sai_header=file_name,
-                                    saiintf_id=header_data[header_key]["intf_groupname"],
-                                    saiintf_method_table=header_data[header_key]["intf_groupalias"],
-                                    saiintf_name=header_data[header_key]["intf_name"],
-                                    saiintf_alias=header_data[header_key]["intf_alias"],
-                                    test_set=test_set,
-                                    test_platform="vms3-t1-dx010-1",
-                                    platform_purpose_attr="",
-                                    attr_name=next(iter(sai_intf)),
-                                    attr_value=sai_intf[next(iter(sai_intf))]
-                                )
+        for (method_name, sai_apis) in method_case_dict.items():
+            for (attr_name, attr_values) in sai_apis.items():
+                for sai_intf in attr_values:
+                    if "sai_thrift_" not in attr_name:
+                        continue
+                    # remove sai_thrift_xxxxx and change to sai_xxxxx_fn for header key
+                    header_key = "sai_" + attr_name.split("sai_thrift_")[1] + "_fn"
+                    covered_methods.add(header_key)
+                    # need saiintf_target file to have sai header info
+                    if header_key in header_data:
+                        test_set = "t0" if 'sai_test' in self.case_path else "ptf"
+                        test_invocation = TestInvocation(
+                            file_name=file_name,
+                            class_name=class_name,
+                            case_name=method_name,
+                            case_invoc=attr_name,
+                            sai_header=file_name,
+                            saiintf_id=header_data[header_key]["intf_groupname"],
+                            saiintf_method_table=header_data[header_key]["intf_groupalias"],
+                            saiintf_name=header_data[header_key]["intf_name"],
+                            saiintf_alias=header_data[header_key]["intf_alias"],
+                            test_set=test_set,
+                            test_platform="vms3-t1-dx010-1",
+                            platform_purpose_attr="",
+                            attr_name=next(iter(sai_intf)),
+                            attr_value=sai_intf[next(iter(sai_intf))]
+                        )
 
-                                final_coverage.append(test_invocation.__dict__)
+                        self.final_coverage.append(test_invocation.__dict__)
 
-        final_coverage = self.fill_uncovered_api(covered_methods, header_data, final_coverage)
+        # self.fill_uncovered_api(covered_methods, header_data)
         with open(self.save_flatten_path, 'w+') as f:
-            json.dump(final_coverage, f, indent=4)
+            json.dump(self.final_coverage, f, indent=4)
 
-    def fill_uncovered_api(self, covered_methods, header_data, final_coverage):
+
+    def fill_uncovered_api(self, covered_methods, header_data):
         uncovered_methods = set(header_data.keys()) - covered_methods
 
         for uncovered_key in uncovered_methods:
@@ -268,9 +267,7 @@ class SAICoverageScanner(object):
                 attr_value=""
             )
 
-            final_coverage.append(test_invocation.__dict__)
-
-        return final_coverage
+            self.final_coverage.append(test_invocation.__dict__)
 
 
 if __name__ == '__main__':
