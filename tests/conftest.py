@@ -1701,9 +1701,10 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
-            logger.info("Collecting running config before test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["pre_running_config"] = \
-                json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
+                duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
     yield
 
