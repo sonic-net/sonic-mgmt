@@ -196,12 +196,14 @@ def check_bgp(duthosts):
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
         networking_uptime = dut.get_networking_uptime().seconds
-        # FIXME:
-        # The extra delay is added because we were seeing connectivity issues on SN4600 testbed
-        # Packets are dropped on fanout for unclear reason. The issues usually happens after config reload or portchannel is reconfigured, 
-        # and it will last around 7 minutes.
-        # This patch is to workaround bgp neigh down issue at pre_test
-        timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480, 1)
+        if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
+            # If max_timeout is higher than 600, it will exceed parallel_run's timeout
+            # the check will be killed by parallel_run, we can't get expected results.
+            # 500 seconds is about 8 mins, bgp has enough to get up
+            max_timeout = 500
+        else:
+            max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):

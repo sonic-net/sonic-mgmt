@@ -855,7 +855,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds):
+def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds, tbinfo, lower_tor_host):
     """
         Swap syncd on DUT host
 
@@ -866,7 +866,10 @@ def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, cred
         Returns:
             None
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
@@ -1537,7 +1540,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file):
+def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
     """
         Prepares DUT host test params
 
@@ -1550,7 +1553,10 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         Returns:
             dut_test_params (dict): DUT host test params
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
@@ -1717,9 +1723,10 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
-            logger.info("Collecting running config before test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["pre_running_config"] = \
-                json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
+                duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
     yield
 
@@ -1761,7 +1768,7 @@ def core_dump_and_config_check(duthosts, request):
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
 
             # Get common keys in pre running config and cur running config
-            EXCLUDE_CONFIG_KEYS = set(["FLEX_COUNTER_TABLE"])
+            EXCLUDE_CONFIG_KEYS = set([])
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
 
             # Check if the running config is modified after module running

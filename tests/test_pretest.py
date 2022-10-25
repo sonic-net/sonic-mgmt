@@ -359,3 +359,11 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
     if buf_temp_changed:
         logging.info("Executing load minigraph ...")
         config_reload(duthost, config_source='minigraph')
+
+
+def test_generate_running_golden_config(duthosts):
+    """
+    Generate running golden config after pre test.
+    """
+    for duthost in duthosts:
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
