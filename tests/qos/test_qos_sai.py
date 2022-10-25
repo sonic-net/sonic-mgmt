@@ -156,8 +156,8 @@ class TestQosSai(QosSaiBase):
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
-            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen
             Only for MLNX Platforms
 
             Args:
@@ -734,7 +734,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile ,duthost, localhost
+        ingressLossyProfile, duthost, localhost
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -746,7 +746,7 @@ class TestQosSai(QosSaiBase):
                     and test ports
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 ingressLossyProfile (Fxiture): Map of ingress lossy buffer profile attributes
-                duthost : DUT host params 
+                duthost : DUT host params
                 localhost : local host params
             Returns:
                 None
@@ -759,9 +759,9 @@ class TestQosSai(QosSaiBase):
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
 
-        if "lossy_queue_voq_2" in LossyVoq :
+        if "lossy_queue_voq_2" in LossyVoq:
             original_voq_markings = get_markings_dut(duthost)
-            setup_markings_dut(duthost, localhost, voq_allocation_mode = "default")
+            setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
         try:
             testParams = dict()
@@ -778,7 +778,6 @@ class TestQosSai(QosSaiBase):
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
             })
 
-
             if "packet_size" in qosConfig[LossyVoq].keys():
                 testParams["packet_size"] = qosConfig[LossyVoq]["packet_size"]
                 testParams["cell_size"] = qosConfig[LossyVoq]["cell_size"]
@@ -792,7 +791,7 @@ class TestQosSai(QosSaiBase):
             )
 
         finally:
-            if "lossy_queue_voq_2" in LossyVoq :
+            if "lossy_queue_voq_2" in LossyVoq:
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(

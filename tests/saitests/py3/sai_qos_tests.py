@@ -2409,6 +2409,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
+
 class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
@@ -2416,7 +2417,8 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
-        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
         sonic_version = self.test_params['sonic_version']
         router_mac = self.test_params['router_mac']
         dst_port_id = int(self.test_params['dst_port_id'])
@@ -2447,26 +2449,26 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # crafting 2 udp packets with different udp_dport in order for traffic to go through different flows
         pkt = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_mac,
-                               ip_src=src_port_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2048,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=((dscp << 2) | ecn),
+                                udp_sport=1024,
+                                udp_dport=2048,
+                                ip_ecn=ecn,
+                                ip_ttl=ttl)
 
         pkt2 = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_mac,
-                               ip_src=src_port_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2049,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                 eth_dst=pkt_dst_mac,
+                                 eth_src=src_port_mac,
+                                 ip_src=src_port_ip,
+                                 ip_dst=dst_port_ip,
+                                 ip_tos=((dscp << 2) | ecn),
+                                 udp_sport=1024,
+                                 udp_dport=2049,
+                                 ip_ecn=ecn,
+                                 ip_ttl=ttl)
         print >> sys.stderr, "dst_port_id: %d, src_port_id: %d " % (dst_port_id, src_port_id)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
@@ -2491,7 +2493,8 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             if asic_type == 'cisco-8000':
-                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']),
+                       asic_type))
                 # send packets short of triggering egress drop on flow1 and flow2
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
                 send_packet(self, src_port_id, pkt2, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
@@ -2531,6 +2534,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
 
 # pg shared pool applied to both lossy and lossless traffic
 
