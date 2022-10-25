@@ -453,12 +453,12 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo:
-        setup_information = gen_t1t0_setup_information(duthosts, rand_one_dut_hostname, tbinfo)
-        duthost = duthosts[rand_one_dut_hostname]
 
     if 't2' in topo:
         setup_information = gen_t2_setup_information(duthosts, tbinfo)
+    else:
+        setup_information = gen_t1t0_setup_information(duthosts, rand_one_dut_hostname, tbinfo)
+        duthost = duthosts[rand_one_dut_hostname]
 
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
