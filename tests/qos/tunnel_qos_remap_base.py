@@ -64,6 +64,9 @@ def counter_poll_config(duthost, type, interval_ms):
     """
     cmd = 'counterpoll {} interval {}'.format(type, interval_ms)
     duthost.shell(cmd)
+    # Sleep for 10 seconds (default interval) for the new interval to be applied
+    if interval_ms < 10000:
+        time.sleep(10)
 
 
 def load_tunnel_qos_map():
@@ -84,11 +87,11 @@ def load_tunnel_qos_map():
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
     for k, v in maps['DSCP_TO_TC_MAP'][MAP_NAME].items():
-        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(map['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
+        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
     for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
-        ret['inner_dscp_to_queue_map'][int(k)] = int(map['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+        ret['inner_dscp_to_queue_map'][int(k)] = int(maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
 
     return ret
 

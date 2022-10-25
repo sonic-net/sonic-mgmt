@@ -153,8 +153,8 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     3. Send the generated packets via portchannels
     4. Verify the packets are decapped, and outgoing from the expected queue 
     """
-    dualtor_meta = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
-    t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)
+    dualtor_meta = dualtor_info(ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
+    t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
     # Always select the last port in the last LAG as src_port
     src_port = _last_port_in_last_lag(t1_ports)
     active_tor_mac = rand_selected_dut.facts['router_mac']
@@ -166,7 +166,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
         # Walk through all DSCP values
         for inner_dscp in range(0, 64):
             outer_dscp = tunnel_qos_map['inner_dscp_to_outer_dscp_map'][inner_dscp]
-            _, tunnel_packet = build_testing_packet(src_ip=DUMMY_IP,
+            _, exp_packet = build_testing_packet(src_ip=DUMMY_IP,
                                                     dst_ip=dualtor_meta['target_server_ip'],
                                                     active_tor_mac=active_tor_mac,
                                                     standby_tor_mac=dualtor_meta['standby_tor_mac'],
@@ -175,6 +175,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
                                                     inner_dscp=inner_dscp,
                                                     outer_dscp=outer_dscp,
                                                     ecn=1)
+            tunnel_packet = exp_packet.exp_pkt
             # Clear queuecounters before sending traffic
             rand_selected_dut.shell('sonic-clear queuecounters')
             time.sleep(1)
@@ -183,7 +184,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
             # Wait 2 seconds for queue counter to be refreshed
             time.sleep(2)
             # Verify counter at expected queue at the server facing port
-            pytest_assert(check_queue_counter(rand_selected_dut, dualtor_meta['selected_port'], tunnel_qos_map['inner_dscp_to_queue_map'][inner_dscp], PKT_NUM),
+            pytest_assert(check_queue_counter(rand_selected_dut, [dualtor_meta['selected_port']], tunnel_qos_map['inner_dscp_to_queue_map'][inner_dscp], PKT_NUM),
                          "The queue counter for DSCP {} Queue {} is not as expected".format(inner_dscp, tunnel_qos_map['inner_dscp_to_queue_map'][inner_dscp])) 
 
     finally:
