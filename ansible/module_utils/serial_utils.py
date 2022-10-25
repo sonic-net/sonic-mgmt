@@ -6,26 +6,33 @@ from ansible.module_utils.debug_utils import config_module_logging
 
 config_module_logging('serial_utils')
 
+
 def encode(arg):
     if (sys.version_info.major == 3 and sys.version_info.minor >= 5):
         return arg.encode("ascii")
     else:
         return arg
 
+
 class EMatchNotFound(Exception):
     pass
+
 
 class ELoginPromptNotFound(Exception):
     pass
 
+
 class EWrongDefaultPassword(Exception):
     pass
+
 
 class ENotInConfigMode(Exception):
     pass
 
+
 class EPasswordSetFailed(Exception):
     pass
+
 
 class SerialSession(object):
     def __init__(self, port):
@@ -68,6 +75,7 @@ class SerialSession(object):
         time.sleep(10)
         return
 
+
 class CiscoSerial(SerialSession):
     def __init__(self, port):
         super(CiscoSerial, self).__init__(port)
@@ -90,7 +98,7 @@ class CiscoSerial(SerialSession):
             self.pair(password, [r'Enter secret again:'])
             self.pair(password, None)
         except EMatchNotFound:
-            logging.debug('The original password "%s" is not working' % self.password)
+            logging.debug('The original password is not working')
             raise EWrongDefaultPassword
         return
 
@@ -99,6 +107,7 @@ class CiscoSerial(SerialSession):
         self.pair(user, [r'Password'])
         self.pair(password, None)
         return
+
 
 class JuniperSerial(SerialSession):
     def __init__(self, port):
@@ -120,8 +129,8 @@ class JuniperSerial(SerialSession):
             # Input the password only if the prompt is 'Password:'
             if index == 1:
                 self.pair(password, [r'#\s*$'])
-        except EMatchNotFound as e:
-            logging.debug('The original password "%s" is not working' % password)
+        except EMatchNotFound:
+            logging.debug('The original password is not working')
             raise EWrongDefaultPassword
         return
 
@@ -132,7 +141,7 @@ class JuniperSerial(SerialSession):
             self.pair(password, [r'#\s*$'])
             self.pair('commit', [r'#\s*$'])
         except EMatchNotFound:
-            logging.debug('Setting password "%s" failed' % password)
+            logging.debug('Setting password failed')
             raise EPasswordSetFailed
         return
 
@@ -144,6 +153,7 @@ class JuniperSerial(SerialSession):
         time.sleep(10)
         super().logout()
         return
+
 
 def core(module, session, name):
     prompt_code = name + '_code'
