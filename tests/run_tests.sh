@@ -300,8 +300,8 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
         USE_PY3=0
+        COMMON_OPTS=${PYTEST_COMMON_OPTS}
         for i in `cat python3_test_files.txt`
         do
             USE_PY3=`expr match ${test_script} ${i}`
@@ -310,8 +310,10 @@ function run_individual_tests()
         if [ ${USE_PY3} != 0 ]; then
             echo Activate Python3 venv
             source /var/AzDevOps/env-python3/bin/activate
+            COMMON_OPTS="${PYTEST_COMMON_OPTS} -c pytest_py3.ini"
         fi
-            pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            echo Running: pytest ${test_script} ${COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            pytest ${test_script} ${COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
             ret_code=$?
         if [ ${USE_PY3} != 0 ]; then
             echo Deactivate Python3 venv
