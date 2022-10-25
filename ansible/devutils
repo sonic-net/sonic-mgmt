@@ -348,6 +348,8 @@ def main():
                         type=str, required=False, default='lab')
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
+    parser.add_argument('--log-level', help='Log level', type=str, required=False, default='close',
+                        choices=['debug', 'info', 'warning', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
                         type=str, required=False, default='admin')
     parser.add_argument(
