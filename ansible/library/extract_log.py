@@ -92,9 +92,9 @@ def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
     file = None
     if 'gz' in path:
-        file = gzip.open(path, mode='rt')
+        file = gzip.open(path, mode='rt', errors='ignore')
     else:
-        file = open(path)
+        file = open(path, errors='ignore')
     result = None
     with file:
         # This might be a gunzip file or logrotate issue, there has
@@ -226,7 +226,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
     do_copy = False
     line_processed = 0
     line_copied = 0
-    with open(target_filename, 'w') as fp:
+    with open(target_filename, 'w', errors='ignore') as fp:
         for filename in reversed(filenames):
             path = os.path.join(directory, filename)
             dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
@@ -234,9 +234,9 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
-                file = gzip.open(path, mode='rt')
+                file = gzip.open(path, mode='rt', errors='ignore')
             else:
-                file = open(path)
+                file = open(path, errors='ignore')
 
             with file:
                 for line in file:
