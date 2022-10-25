@@ -152,7 +152,7 @@ def check_interface_status(duthost):
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["202106"])
+    skip_release(duthost, ["201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
@@ -165,7 +165,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["202106"])
+    skip_release(duthost, ["201911", "202106"])
     
     messages = ["Unknown", "Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release", "Decline", "Reconfigure", "Information-Request", "Relay-Forward", "Relay-Reply", "Malformed"]
 
@@ -201,7 +201,7 @@ def test_dhcp_relay_default(tbinfo, ptfhost, duthosts, rand_one_dut_hostname, du
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     testing_mode, duthost, testbed_mode = testing_config
-    skip_release(duthost, ["202106"])
+    skip_release(duthost, ["201811", "201911", "202106"]) #TO-DO: delete skip release on 201811 and 201911
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
@@ -231,7 +231,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
        then test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost, testbed_mode = testing_config
-    skip_release(duthost, ["202106"])
+    skip_release(duthost, ["201811", "201911", "202106"])
 
     if testbed_mode == 'dual_testbed':
         pytest.skip("skip the link flap testcase on dual tor testbeds")
@@ -276,7 +276,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
        relays packets properly.
     """
     testing_mode, duthost, testbed_mode = testing_config
-    skip_release(duthost, ["202106"])
+    skip_release(duthost, ["201811", "201911", "202106"])
 
     if testbed_mode == 'dual_testbed':
         pytest.skip("skip the uplinks down testcase on dual tor testbeds")
