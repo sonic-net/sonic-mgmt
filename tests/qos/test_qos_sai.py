@@ -155,8 +155,8 @@ class TestQosSai(QosSaiBase):
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
-            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen
             Only for MLNX Platforms
 
             Args:
@@ -399,14 +399,15 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
 
-    @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2", "lossless_voq_3", "lossless_voq_4"])
+    @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
+                             "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
         self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
             Args:
-                LosslessVoqProfile (pytest parameter): LosslessVoq Profile 
+                LosslessVoqProfile (pytest parameter): LosslessVoq Profile
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -430,7 +431,7 @@ class TestQosSai(QosSaiBase):
         testParams.update({
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
-            "pg": qosConfig[LosslessVoqProfile]["pg"], 
+            "pg": qosConfig[LosslessVoqProfile]["pg"],
             "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
             "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
             "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
@@ -441,7 +442,6 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
         })
-
 
         if "pkts_num_margin" in qosConfig[LosslessVoqProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[LosslessVoqProfile]["pkts_num_margin"]

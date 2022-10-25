@@ -985,6 +985,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
+
 class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
@@ -995,7 +996,8 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
-        pg = int(self.test_params['pg']) + 2 # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -1021,49 +1023,49 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
         pkt = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_1_mac,
-                               ip_src=src_port_1_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2048,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_1_mac,
+                                ip_src=src_port_1_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=((dscp << 2) | ecn),
+                                udp_sport=1024,
+                                udp_dport=2048,
+                                ip_ecn=ecn,
+                                ip_ttl=ttl)
 
         pkt3 = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_2_mac,
-                               ip_src=src_port_2_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2050,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                 eth_dst=pkt_dst_mac,
+                                 eth_src=src_port_2_mac,
+                                 ip_src=src_port_2_ip,
+                                 ip_dst=dst_port_ip,
+                                 ip_tos=((dscp << 2) | ecn),
+                                 udp_sport=1024,
+                                 udp_dport=2050,
+                                 ip_ecn=ecn,
+                                 ip_ttl=ttl)
 
         if num_of_flows == "multiple":
             pkt2 = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_1_mac,
-                               ip_src=src_port_1_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2049,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                     eth_dst=pkt_dst_mac,
+                                     eth_src=src_port_1_mac,
+                                     ip_src=src_port_1_ip,
+                                     ip_dst=dst_port_ip,
+                                     ip_tos=((dscp << 2) | ecn),
+                                     udp_sport=1024,
+                                     udp_dport=2049,
+                                     ip_ecn=ecn,
+                                     ip_ttl=ttl)
 
             pkt4 = simple_udp_packet(pktlen=packet_length,
-                               eth_dst=pkt_dst_mac,
-                               eth_src=src_port_2_mac,
-                               ip_src=src_port_2_ip,
-                               ip_dst=dst_port_ip,
-                               ip_tos=((dscp << 2) | ecn),
-                               udp_sport = 1024,
-                               udp_dport = 2051,
-                               ip_ecn=ecn,
-                               ip_ttl=ttl)
+                                     eth_dst=pkt_dst_mac,
+                                     eth_src=src_port_2_mac,
+                                     ip_src=src_port_2_ip,
+                                     ip_dst=dst_port_ip,
+                                     ip_tos=((dscp << 2) | ecn),
+                                     udp_sport=1024,
+                                     udp_dport=2051,
+                                     ip_ecn=ecn,
+                                     ip_ttl=ttl)
 
         print >> sys.stderr, "test dst_port_id: {}, src_port_1_id: {}".format(
             dst_port_id, src_port_1_id
