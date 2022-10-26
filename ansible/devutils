@@ -373,7 +373,7 @@ def main():
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
     parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)', 
-                        type=str, required=False, default='close',
+                        type=str, required=False, default='warn',
                         choices=['debug', 'info', 'warn', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
                         type=str, required=False, default='admin')
