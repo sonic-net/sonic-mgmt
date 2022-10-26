@@ -183,10 +183,21 @@ Verify that the cEOS neighbors were created properly:
    ```
 
 
-### Cisco(Cisco neighbor supports in different topology)
+### Cisco
+Now we need to spin up some VMs on the host to act as neighboring devices to our virtual SONiC switch.
+
+1. Start the VMs:
+   ```
+   ./testbed-cli.sh -m veos_vtb -k vcisco -t vtestbed.yaml start-topo-vms vms-kvm-wan-pub password.txt
+   ```
+
+   Verify that the vcisco neighbors were created properly:
+   Because cisco devices can't run ansible module smoothly, we can manually ssh to these VMs to verify whether devices startup normally.
+
+2. Deploy topology
    ```
    cd /data/sonic-mgmt/ansible
-   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k cisco add-topo vms-kvm-wan-xdut password.txt
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vcisco add-topo vms-kvm-wan-pub password.txt
    ```
 
 ## Deploy configuration on the devices
@@ -195,10 +206,6 @@ Once the topology has been created, we need to give the devices an initial confi
 1. Deploy configuration:
    ```
    ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-wan-pub veos_vtb password.txt
-   ```
-   For Cisco neighbor topology, use this CLI:
-   ```
-   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-wan-xdut veos_vtb password.txt
    ```
 
 Verify the DUT is created successfully. In your host run
@@ -271,13 +278,13 @@ Now that the testbed has been fully setup and configured, let's run a simple tes
 If neighbor devices are EOS
 
    ```
-   ./run_tests.sh -n vms-kvm-wan-pub -d vlab-01 -c lldp/test_lldp.py -f vtestbed.yaml -i ../ansible/veos_vtb
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=eos --disable_loganalyzer --skip_sanity" 
    ```
 
 If neighbor devices are Cisco
 
    ```
-   ./run_tests.sh -n vms-kvm-wan-xdut -d vlab-01 -c lldp/test_lldp.py -f vtestbed.yaml -i ../ansible/veos_vtb -e "--neighbor_type=cisco"
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=vcisco --disable_loganalyzer --skip_sanity" 
    ```
 You should see tests run and pass. You're now set up and ready to use the KVM testbed!
 
@@ -288,8 +295,4 @@ Then run command:
    For cEOS neighbor:
    ```
    ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos remove-topo vms-kvm-wan-pub password.txt
-   ```
-   For Cisco neighbor:
-   ```
-   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k cisco remove-topo vms-kvm-wan-xdut password.txt
    ```
