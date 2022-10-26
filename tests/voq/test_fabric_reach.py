@@ -90,7 +90,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
             # build reference data for sup: supReferenceData
             fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
-            supReferenceData[fabricAsic].update({referenceRemotePort : lkData})
+            supReferenceData[fabricAsic].update({referenceRemotePort: lkData})
         # the module number increased by 2 for each asic.
         localModule += 2
 
