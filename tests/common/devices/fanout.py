@@ -172,3 +172,6 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
+
+    def is_intf_status_down(self, interface_name):
+        return self.host.is_intf_status_down(interface_name)
