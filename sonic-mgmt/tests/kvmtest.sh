@@ -105,7 +105,7 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      arp/test_arp_dualtor.py \
+      arp/test_arp_extended.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
       bgp/test_bgp_fact.py \
@@ -295,7 +295,7 @@ test_multi_asic_t1_lag_pr() {
 
 test_dualtor(){
     tgname=dualtor
-    tests="arp/test_arp_dualtor.py"
+    tests="arp/test_arp_extended.py"
 #    dualtor/test_ipinip.py \
 #    dualtor/test_orch_stress.py \
 #    dualtor/test_orchagent_active_tor_downstream.py \

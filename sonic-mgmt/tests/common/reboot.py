@@ -2,14 +2,15 @@ import threading
 import time
 import re
 import logging
-from multiprocessing.pool import ThreadPool, TimeoutError
+import sys
+from multiprocessing.pool import ThreadPool
 from collections import deque
 from .utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 # SSH defines
-SONIC_SSH_PORT  = 22
+SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
@@ -19,7 +20,7 @@ REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
-REBOOT_TYPE_UNKNOWN  = "Unknown"
+REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 
 # Event to signal DUT activeness
@@ -96,6 +97,7 @@ REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 MAX_RETRIES = 3
 RETRY_BACKOFF_TIME = 15
 
+
 def check_warmboot_finalizer_inactive(duthost):
     """
     Check if warmboot finalizer service is exited
@@ -103,39 +105,48 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def reboot(duthost, localhost, reboot_type='cold', delay=10, \
-    timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
-    reboot_helper=None, reboot_kwargs=None):
-    """
-    reboots DUT
-    :param duthost: DUT host object
-    :param localhost:  local host object
-    :param reboot_type: reboot type (cold, fast, warm)
-    :param delay: delay between ssh availability checks
-    :param timeout: timeout for waiting ssh port state change
-    :param wait: time to wait for DUT to initialize
-    :param wait_for_ssh: Wait for SSH startup
-    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
-    :param reboot_helper: helper function to execute the power toggling
-    :param reboot_kwargs: arguments to pass to the reboot_helper
-    :return:
-    """
 
-    # pool for executing tasks asynchronously
-    pool = ThreadPool()
-    dut_ip = duthost.mgmt_ip
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
     hostname = duthost.hostname
-    try:
-        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
-        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
-        if timeout == 0:
-            timeout = reboot_ctrl['timeout']
-        if wait == 0:
-            wait = reboot_ctrl['wait']
-        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
-            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
-    except KeyError:
-        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
+    dut_ip = duthost.mgmt_ip
+    logger.info('waiting for ssh to drop on {}'.format(hostname))
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='absent',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=delay,
+                             timeout=timeout,
+                             module_ignore_errors=True)
+
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        if reboot_res.ready():
+            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
+        raise Exception('DUT {} did not shutdown'.format(hostname))
+
+
+def wait_for_startup(duthost, localhost, delay, timeout):
+    # TODO: add serial output during reboot for better debuggability
+    #       This feature requires serial information to be present in
+    #       testbed information
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
+    logger.info('waiting for ssh to startup on {}'.format(hostname))
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='started',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=delay,
+                             timeout=timeout,
+                             module_ignore_errors=True)
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        raise Exception('DUT {} did not startup'.format(hostname))
+
+    logger.info('ssh has started up on {}'.format(hostname))
+
+
+def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
+    # pool for executing tasks asynchronously
+    hostname = duthost.hostname
 
     def execute_reboot_command():
         logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
@@ -153,40 +164,47 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
+    return [reboot_res, dut_datetime]
 
-    logger.info('waiting for ssh to drop on {}'.format(hostname))
-    res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
-                             state='absent',
-                             search_regex=SONIC_SSH_REGEX,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
 
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        if reboot_res.ready():
-            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
-        raise Exception('DUT {} did not shutdown'.format(hostname))
+def reboot(duthost, localhost, reboot_type='cold', delay=10,
+           timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
+           reboot_helper=None, reboot_kwargs=None):
+    """
+    reboots DUT
+    :param duthost: DUT host object
+    :param localhost:  local host object
+    :param reboot_type: reboot type (cold, fast, warm)
+    :param delay: delay between ssh availability checks
+    :param timeout: timeout for waiting ssh port state change
+    :param wait: time to wait for DUT to initialize
+    :param wait_for_ssh: Wait for SSH startup
+    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
+    :param reboot_helper: helper function to execute the power toggling
+    :param reboot_kwargs: arguments to pass to the reboot_helper
+    :return:
+    """
+    pool = ThreadPool()
+    hostname = duthost.hostname
+    try:
+        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
+        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
+        if timeout == 0:
+            timeout = reboot_ctrl['timeout']
+        if wait == 0:
+            wait = reboot_ctrl['wait']
+        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
+            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+    except KeyError:
+        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
+    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+    
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
-
-    # TODO: add serial output during reboot for better debuggability
-    #       This feature requires serial information to be present in
-    #       testbed information
-
-    logger.info('waiting for ssh to startup on {}'.format(hostname))
-    res = localhost.wait_for(host=dut_ip,
-                             port=SONIC_SSH_PORT,
-                             state='started',
-                             search_regex=SONIC_SSH_REGEX,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not startup'.format(hostname))
-
-    logger.info('ssh has started up on {}'.format(hostname))
+    wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 

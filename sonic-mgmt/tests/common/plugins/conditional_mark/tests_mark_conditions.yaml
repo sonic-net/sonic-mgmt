@@ -16,6 +16,15 @@ acl/test_acl_outer_vlan.py:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####            arp              #####
+#######################################
+arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
+  skip:
+    reason: "`accept_untracked_na` currently only available in 202012"
+    conditions:
+      - "release not in ['202012']"
+
+#######################################
 #####            bfd              #####
 #######################################
 bfd/test_bfd.py:
@@ -70,9 +79,20 @@ bgp/test_bgpmon.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_gr_helper.py:
+  skip:
+    reason: 'bgp graceful restarted is not a supported feature for T2'
+    conditions:
+      - "'t2' in topo_name"
+
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Caclmgrd change to allow mgmt traffic by default requires test case update"
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/12464
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -231,6 +251,13 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
 
+ecmp/test_fgnhg.py:
+  xfail:
+    reason: "case failed waiting for fix"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+
 #######################################
 #####         everflow            #####
 #######################################
@@ -331,15 +358,6 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
       - "topo_name in ['m0']"
 
 #######################################
-#####           mvrf              #####
-#######################################
-mvrf:
-  skip:
-    reason: "M0 topo does not support mvrf"
-    conditions:
-      - "topo_name in ['m0']"
-
-#######################################
 #####            ip               #####
 #######################################
 ip/test_ip_packet.py:
@@ -373,11 +391,11 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'dualtor']"
+      - "topo_type not in ['t0', 'm0']"
   xfail:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
-      - "topo_type in ['dualtor']"
+      - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-buildimage/issues/12167
 
 ipfwd/test_mtu.py:
@@ -415,6 +433,15 @@ mpls/test_mpls.py:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
     conditions:
       - "asic_type in ['barefoot']"
+
+#######################################
+#####           mvrf              #####
+#######################################
+mvrf:
+  skip:
+    reason: "M0 topo does not support mvrf"
+    conditions:
+      - "topo_name in ['m0']"
 
 #######################################
 #####           nat               #####
@@ -916,6 +943,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
     conditions:
       - asic_type=="cisco-8000" 
+
+vxlan/test_vnet_vxlan.py:
+  skip:
+    reason: "enable tests only for: mellanox, barefoot"
+    conditions:
+      - "asic_type not in ['mellanox', 'barefoot']"
+
 #######################################
 #####           telemetry         #####
 #######################################

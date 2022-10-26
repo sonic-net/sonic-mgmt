@@ -25,7 +25,10 @@ from ansible.plugins.callback.default import CallbackModule as Default
 
 # simple workaroud for using yaml callback plugin
 from ansible.utils.unsafe_proxy import AnsibleUnsafeText
-represent_unicode = yaml.representer.SafeRepresenter.represent_unicode
+if sys.version_info.major > 2:
+    represent_unicode = yaml.representer.SafeRepresenter.represent_str
+else:
+    represent_unicode = yaml.representer.SafeRepresenter.represent_unicode
 from ansible.parsing.yaml.dumper import AnsibleDumper
 AnsibleDumper.add_representer(
     AnsibleUnsafeText,

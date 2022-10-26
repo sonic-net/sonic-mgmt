@@ -10,12 +10,6 @@ repos:
     -   id: check-added-large-files
     -   id: check-ast
 
--   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v1.6.0
-    hooks:
-    -   id: autopep8
-        args: ["--max-line-length=120", "--in-place"]
-
 -   repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:

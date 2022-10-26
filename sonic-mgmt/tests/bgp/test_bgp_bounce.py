@@ -38,6 +38,9 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     vm_name = random.choice([vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')])
     vm_host = nbrhosts[vm_name]['host']
 
+    # Start all bgp sessions
+    duthost.shell('config bgp startup all')
+
     # Apply bgp plain config
     apply_bgp_config(duthost, bgp_plain_config)
 

@@ -544,12 +544,13 @@ class SonicAsic(object):
                 if portchannel == pc:
                     return True
         return False
-    
+
     def write_to_config_db(self, dst_path):
         cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
         return self.shell(cmd)
 
     def get_portchannels_and_members_in_ns(self, tbinfo):
+
         """
         Get a portchannels and their members in this namespace.
 
@@ -654,7 +655,7 @@ class SonicAsic(object):
     def count_routes(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
+            ns_prefix = '-n ' + str(self.namespace)
         return int(self.shell(
             'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
@@ -662,6 +663,6 @@ class SonicAsic(object):
     def get_route_key(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
+            ns_prefix = '-n ' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             verbose=False)['stdout_lines']

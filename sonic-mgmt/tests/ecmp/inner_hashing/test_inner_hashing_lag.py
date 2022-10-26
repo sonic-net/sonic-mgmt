@@ -31,7 +31,8 @@ class TestDynamicInnerHashingLag():
             config_pbh_lag(duthost, lag_port_map)
 
     def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups):
+                           vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups,
+                           get_function_completeness_level):
         logging.info("Executing dynamic inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
@@ -42,8 +43,14 @@ class TestDynamicInnerHashingLag():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            balancing_test_times = 120
-            balancing_range = 0.3
+            normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+            
+            if normalize_level == 'thorough':
+                balancing_test_times = 120
+                balancing_range = 0.3
+            else:
+                balancing_test_times = 20
+                balancing_range = 0.5
 
             ptf_runner(ptfhost,
                        "ptftests",

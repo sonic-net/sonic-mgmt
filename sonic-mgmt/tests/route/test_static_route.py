@@ -176,9 +176,15 @@ def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     assert check_result, "config static route: {} nexthop {}\nreal:\n{}".format(prefix, ",".join(nexthop_addrs), output)
 
 
-def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=False, config_reload_test=False):
+def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=False, config_reload_test=False):
+    is_dual_tor = False
+    if 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None:
+        is_dual_tor = True
+
     # Clean up arp or ndp
     clear_arp_ndp(duthost, ipv6=ipv6)
+    if is_dual_tor:
+        clear_arp_ndp(unselected_duthost, ipv6=ipv6)
 
     # Add ipaddresses in ptf
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=ipv6)
@@ -186,6 +192,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
     try:
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
+        if is_dual_tor:
+            unselected_duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(prefix, ",".join(nexthop_addrs)))
+        
         time.sleep(5)
 
         # check if the static route in kernel is what we expect
@@ -201,6 +210,7 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
 
         # Config save and reload if specified
         if config_reload_test:
+            # config reload on active tor
             duthost.shell('config save -y')
             if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
                 config_reload(duthost, wait=400)
@@ -216,7 +226,9 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
     finally:
         # Remove static route
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
-
+        if is_dual_tor:
+            unselected_duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
+        
         # Delete ipaddresses in ptf
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
 
@@ -227,10 +239,13 @@ def run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_
         # Config save if the saved config_db was updated
         if config_reload_test:
             duthost.shell('config save -y')
+            if is_dual_tor:
+                unselected_duthost.shell('config save -y')
 
         # Clean up arp or ndp
         clear_arp_ndp(duthost, ipv6=ipv6)
-
+        if is_dual_tor:
+            clear_arp_ndp(unselected_duthost, ipv6=ipv6)
 
 def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -280,31 +295,35 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     return prefix_len, [nexthop_addrs[_] for _ in indices], [nexthop_devs[_] for _ in indices], [nexthop_interfaces[_] for _ in indices]
 
 
-def test_static_route(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
+def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
-    run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported)
 
 
 @pytest.mark.disable_loganalyzer
-def test_static_route_ecmp(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
+def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
-    run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, config_reload_test=True)
 
 
-def test_static_route_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
+def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
-    run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2000:1::/64",
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=True)
 
 
 @pytest.mark.disable_loganalyzer
-def test_static_route_ecmp_ipv6(rand_selected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
+def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported):
     duthost = rand_selected_dut
+    unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)
-    run_static_route_test(duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2000:2::/64",
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported, ipv6=True, config_reload_test=True)

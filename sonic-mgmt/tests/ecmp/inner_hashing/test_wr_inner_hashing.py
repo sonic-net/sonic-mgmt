@@ -27,7 +27,8 @@ class TestWRDynamicInnerHashing():
             config_pbh(duthost, vlan_ptf_ports, tbinfo)
 
     def test_inner_hashing(self, duthost, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, localhost, lag_mem_ptf_ports_groups):
+                           vlan_ptf_ports, symmetric_hashing, localhost, lag_mem_ptf_ports_groups,
+                           get_function_completeness_level):
         logging.info("Executing warm boot dynamic inner hash test for outer {} and inner {} with symmetric_hashing"
                      " set to {}".format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest and warm-reboot in parallel'):
@@ -42,8 +43,14 @@ class TestWRDynamicInnerHashing():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            balancing_test_times = 200
-            balancing_range = 0.3
+            normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+            
+            if normalize_level == 'thorough':
+                balancing_test_times = 200
+                balancing_range = 0.3
+            else:
+                balancing_test_times = 100
+                balancing_range = 0.3
 
             reboot_thr = threading.Thread(target=reboot, args=(duthost, localhost, 'warm', 10, 0, 0, True, True,))
             reboot_thr.start()

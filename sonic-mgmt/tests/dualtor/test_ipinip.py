@@ -10,6 +10,7 @@ import pytest
 import random
 import time
 import contextlib
+import scapy
 
 from ptf import mask
 from ptf import testutils
@@ -21,7 +22,8 @@ from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor            # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
-from tests.common.utilities import is_ipv4_address
+from tests.common.helpers.assertions import pytest_require
+from tests.common.utilities import is_ipv4_address, wait_until
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
@@ -32,6 +34,7 @@ pytestmark = [
     pytest.mark.topology("t0")
 ]
 
+logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_common_setup_teardown(
@@ -158,3 +161,103 @@ def test_decap_standby_tor(
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
         time.sleep(2)
         verify_downstream_packet_to_server(ptfadapter, exp_ptf_port_index, exp_pkt)
+
+
+def _wait_portchannel_up(duthost, portchannel):
+    def _check_lag_status():
+        cmd = "show interface portchannel | grep {}".format(portchannel)
+        return '(Up)' in duthost.shell(cmd)['stdout']
+
+    if not wait_until(300, 10, 30, _check_lag_status):
+        pytest.fail("PortChannel didn't startup")
+    # Wait another 60 seconds for routes announcement
+    time.sleep(60)
+
+
+@pytest.fixture
+def setup_uplink(rand_selected_dut, tbinfo):
+    """
+    Function level fixture.
+    1. Only keep 1 uplink up. Shutdown others to force the bounced back traffic is egressed from monitor port of mirror session
+    2. If there are more than 1 member in the LAG, update the LAG to have only one member
+    """
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    portchannels = mg_facts['minigraph_portchannels'].keys()
+    up_portchannel = random.choice(portchannels)
+    logger.info("Select uplink {} for testing".format(up_portchannel))
+    # Shutdown other uplinks except for the selected one
+    for pc in portchannels:
+        if  pc != up_portchannel:
+            cmd = "config interface shutdown {}".format(pc)
+            rand_selected_dut.shell(cmd)
+    # Update the LAG if it has more than one member
+    pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
+    if len(pc_members) > 1:
+        cmds = [
+            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel), # Update min_links
+            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),         # Remove 1 portchannel member
+            "systemctl unmask teamd",                                                            # Unmask the service
+            "systemctl restart teamd"                                                            # Resart teamd
+        ]
+        rand_selected_dut.shell_cmds(cmds=cmds)
+        _wait_portchannel_up(rand_selected_dut, up_portchannel)
+    up_member = pc_members[0]
+    
+    yield mg_facts['minigraph_ptf_indices'][up_member]
+
+    # Startup the uplinks that were shutdown
+    for pc in portchannels:
+        if  pc != up_portchannel:
+            cmd = "config interface startup {}".format(pc)
+            rand_selected_dut.shell(cmd)
+    # Restore the LAG
+    if len(pc_members) > 1:
+        cmds = [
+            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 2".format(up_portchannel), # Update min_links
+            "config portchannel member add {} {}".format(up_portchannel, pc_members[1]),         # Add back portchannel member
+            "systemctl unmask teamd",                                                            # Unmask the service
+            "systemctl restart teamd"                                                            # Resart teamd
+        ]
+        rand_selected_dut.shell_cmds(cmds=cmds)
+        _wait_portchannel_up(rand_selected_dut, up_portchannel)
+
+
+@pytest.fixture
+def setup_mirror_session(rand_selected_dut, setup_uplink):
+    """
+    A function level fixture to add/remove a dummy mirror session.
+    The mirror session is to trigger the issue. No packet is mirrored actually.
+    """
+    session_name = "dummy_session"
+    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 1234 0".format(session_name)
+    rand_selected_dut.shell(cmd=cmd)
+    uplink_port_id = setup_uplink
+    yield uplink_port_id
+
+    cmd = "config mirror_session remove {}".format(session_name)
+    rand_selected_dut.shell(cmd=cmd)
+
+
+@pytest.mark.disable_loganalyzer
+def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, ptfadapter, tbinfo, setup_mirror_session, toggle_all_simulator_ports_to_rand_unselected_tor, tunnel_traffic_monitor):
+    """
+    A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
+    The issue can happen if the bounced back packets egressed from the monitor port of mirror session
+    Find more details in CSP CS00012263713. 
+    """
+    pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
+    # Since we have only 1 uplink, the source port is also the dest port
+    src_port_id = setup_mirror_session
+    _, server_ip = rand_selected_interface
+    # Construct the packet to server
+    pkt_to_server = testutils.simple_tcp_packet(
+        eth_dst=rand_selected_dut.facts["router_mac"],
+        ip_src="1.1.1.1",
+        ip_dst=server_ip['server_ipv4'].split('/')[0]
+    )
+    logging.info("Sending packet from ptf t1 interface {}".format(src_port_id))
+    inner_packet = pkt_to_server[scapy.all.IP].copy()
+    inner_packet[IP].ttl -= 1
+    with tunnel_traffic_monitor(rand_selected_dut, inner_packet=inner_packet, check_items=()):
+        testutils.send(ptfadapter, src_port_id, pkt_to_server)
+       

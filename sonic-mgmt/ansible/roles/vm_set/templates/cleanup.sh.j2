@@ -17,6 +17,16 @@ rm -f {{ root_path }}/disks/*
 # remove all ovs bridges
 test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | xargs -I % ovs-vsctl del-br %
 
+# stop exabgp process before stopping ptf container
+test -z "$(docker ps | grep ptf | awk '{print $NF}')"
+ptf_container_name=$(docker ps | grep ptf | awk '{print $NF}')
+for ptf in  $ptf_container_name;
+do
+  test -z "$(docker exec $ptf supervisorctl status | grep exabgp | awk '{print $1}')"
+  exabgp_process_name="$(docker exec $ptf supervisorctl status | grep exabgp | awk '{print $1}')"
+  docker exec $ptf supervisorctl stop $exabgp_process_name
+done
+
 # stop all running docker containers
 test -z "$(docker ps -q)" || docker stop $(docker ps -q)
 

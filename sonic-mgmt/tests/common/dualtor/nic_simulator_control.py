@@ -93,10 +93,6 @@ def nic_simulator_channel(nic_simulator_info):
         # temporarily disable HTTP proxies
         with utilities.update_environ("http_proxy", "https_proxy"):
             _channel = grpc.insecure_channel(server_url)
-            try:
-                grpc.channel_ready_future(_channel).result(timeout=2)
-            except grpc.FutureTimeoutError as e:
-                raise RuntimeError("Failed to establish connection to nic_simulator %s, error(%r)" % (server_url, e))
             channel.append(_channel)
             return _channel
 
@@ -139,7 +135,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
     def _get_mux_status(ports=None):
         if ports is None:
             ports = active_active_ports.keys()
-        elif isinstance(ports, collections.Iterable):
+        elif isinstance(ports, list) or isinstance(ports, tuple):
             ports = list(ports)
         else:
             ports = [str(ports)]

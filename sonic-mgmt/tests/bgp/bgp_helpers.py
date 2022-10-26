@@ -86,13 +86,18 @@ def parse_exabgp_dump(host):
         routes.add(line)
     return routes
 
-def parse_rib(host, ip_ver):
+def parse_rib(host, ip_ver, asic_namespace=None):
     """
     Parse output of 'show bgp ipv4/6' and parse into a dict for checking routes
     """
     routes = {}
 
-    for namespace in host.get_frontend_asic_namespace_list():
+    if asic_namespace:
+        asic_list = [asic_namespace]
+    else:
+        asic_list = host.get_frontend_asic_namespace_list()
+
+    for namespace in asic_list:
         bgp_cmd = "vtysh -c \"show bgp ipv%d json\"" % ip_ver
         cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
 
@@ -110,7 +115,7 @@ def parse_rib(host, ip_ver):
 
     return routes
 
-def get_routes_not_announced_to_bgpmon(duthost, ptfhost):
+def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
     """
     Get the routes that are not announced to bgpmon by checking dump of bgpmon on PTF.
     """
@@ -119,8 +124,8 @@ def get_routes_not_announced_to_bgpmon(duthost, ptfhost):
     pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost))
     time.sleep(20)  # Wait until all routes announced to bgpmon
     bgpmon_routes = parse_exabgp_dump(ptfhost)
-    rib_v4 = parse_rib(duthost, 4)
-    rib_v6 = parse_rib(duthost, 6)
+    rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
+    rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
     routes_dut = dict(rib_v4.items() + rib_v6.items())
     return [route for route in routes_dut.keys() if route not in bgpmon_routes]
 
