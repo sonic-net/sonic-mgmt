@@ -41,21 +41,21 @@ class SAICoverageScanner(object):
                     with open(root + "/" + filename, "r") as f:
                         code = f.read()
                         f_ast = ast.parse(code)
-                        self.visit_AST(f_ast, filename)
+                        self.visit_ast(f_ast, filename)
                         self.final_coverage = []
 
 
-    def visit_AST(self, raw_ast, filename):
+    def visit_ast(self, raw_ast, filename):
         '''
         structure:
         {class name : {method name : [SAI apis]}}
         '''
         for node in raw_ast.body:
             if isinstance(node, ast.ClassDef):
-                self.visit_ClassDef(node, filename)
+                self.visit_class_name(node, filename)
 
 
-    def visit_ClassDef(self, node, filename):
+    def visit_class_name(self, node, filename):
         '''
         structure:
         {method name : [SAI apis]}
@@ -67,10 +67,10 @@ class SAICoverageScanner(object):
             if isinstance(n, ast.FunctionDef):
                 if n.name not in method_intf_dict:  # Setup, TearDown, etc
                     method_intf_dict[n.name] = dict()
-                self.visit_FunctionDef(n, method_intf_dict, filename, node.name)
+                self.visit_method_name(n, method_intf_dict, filename, node.name)
 
 
-    def visit_FunctionDef(self, node, method_intf_dict, filename, node_name):
+    def visit_method_name(self, node, method_intf_dict, filename, node_name):
         for child in ast.walk(node):
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
                 if "test" in child.func.id.lower() or SAI_API_PREFIX in child.func.id and "t" not in child.func.id.split("_"):
@@ -127,16 +127,23 @@ class SAICoverageScanner(object):
 
 
     def get_attr_and_values_arg(self, arg):
-        if isinstance(arg, ast.Name):
-            v = arg.id
-        elif isinstance(arg, ast.Constant):
-            v = str(arg.value).lower()
-        elif isinstance(arg, ast.Attribute):
+        states = {
+            ast.Name: arg.id if hasattr(arg, 'id') else None,
+            ast.Constant: str(arg.value).lower() if hasattr(arg, 'value') else None,
+            ast.Dict: "dict type with { : }",
+            ast.Attribute: "case1",
+            ast.Subscript: "case2",
+            ast.List: "case3",
+            ast.Call: "case4",
+        }
+
+        v = states.get(type(arg))
+        if v == "case1":
             if isinstance(arg.value, ast.Attribute) or isinstance(arg.value, ast.Subscript):
                 v = "values"
             else:
                 v = arg.value.id + '.' + arg.attr
-        elif isinstance(arg, ast.Subscript):
+        elif v == "case2":
             if isinstance(arg.slice, ast.Constant):
                 subscrpt = str(arg.slice.value)
                 v = arg.value.value.id + '.' + arg.value.attr + '[' + subscrpt + ']'
@@ -145,7 +152,7 @@ class SAICoverageScanner(object):
                 v = arg.value.value.id + '.' + arg.value.attr + '[' + subscrpt + ']'
             elif isinstance(arg.value, ast.Attribute) or isinstance(arg.value, ast.Subscript) or isinstance(arg.value, ast.Name):
                 v = "values"
-        elif isinstance(arg, ast.List):
+        elif v == "case3":
             for elt in arg.elts:
                 if isinstance(elt, ast.Name):
                     v =  '[' + elt.id + ']'
@@ -157,25 +164,34 @@ class SAICoverageScanner(object):
                             v =  '[' + e.id + ']'
                         elif isinstance(e, ast.Attribute):
                             v = "values"
-        elif isinstance(arg, ast.Dict):
-            v = "dict type with { : }"
-        elif isinstance(arg, ast.Call):  # embedded method invocation
+        elif v == "case4":
             return None
         else:
             print()
         return v
 
+
     def get_attr_and_values_keywordval(self, keyword_value):
-        if isinstance(keyword_value, ast.Name):
-            v = keyword_value.id
-        elif isinstance(keyword_value, ast.Constant):
-            v = str(keyword_value.value).lower()
-        elif isinstance(keyword_value, ast.Attribute):
+        states = {
+            ast.Name: keyword_value.id if hasattr(keyword_value, 'id') else None,
+            ast.Constant: str(keyword_value.value).lower() if hasattr(keyword_value, 'value') else None,
+            ast.BinOp: "values",
+            ast.UnaryOp: "values",
+            ast.Dict: "dict type with { : }",
+            ast.Attribute: "case1",
+            ast.Subscript: "case2",
+            ast.List: "case3",
+            ast.Call: "case4",
+            ast.IfExp: "case4",
+        }
+
+        v = states.get(type(keyword_value))
+        if v == "case1":
             if isinstance(keyword_value.value, ast.Attribute) or isinstance(keyword_value.value, ast.Subscript):
                 v = "values"
             else:
                 v = keyword_value.value.id + '.' + keyword_value.attr
-        elif isinstance(keyword_value, ast.Subscript):
+        elif v == "case2":
             if isinstance(keyword_value.slice, ast.Constant):
                 subscrpt = str(keyword_value.slice.value)
                 v = keyword_value.value.value.id + '.' + keyword_value.value.attr + '[' + subscrpt + ']'
@@ -184,14 +200,12 @@ class SAICoverageScanner(object):
                 v = keyword_value.value.value.id + '.' + keyword_value.value.attr + '[' + subscrpt + ']'
             elif isinstance(keyword_value.value, ast.Attribute) or isinstance(keyword_value.value, ast.Subscript) or isinstance(keyword_value.value, ast.Name):
                 v = "values"
-        elif isinstance(keyword_value, ast.List):
+        elif v == "case3":
             if isinstance(keyword_value.elts[0], ast.Name):
                 v =  '[' + keyword_value.elts[0].id + ']'
             elif isinstance(keyword_value.elts[0], ast.Attribute):
                 v = "values"
-        elif isinstance(keyword_value, ast.BinOp) or isinstance(keyword_value, ast.UnaryOp):
-            v = "values"
-        elif isinstance(keyword_value, ast.Call) or isinstance(keyword_value, ast.IfExp):  # embedded method invocation or if expression
+        elif v == "case4":
             return None
         else:
             print()
