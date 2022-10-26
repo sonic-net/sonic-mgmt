@@ -272,7 +272,7 @@ If neighbor devices are EOS
 If neighbor devices are Cisco
 
    ```
-   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=vcisco --disable_loganalyzer --skip_sanity" 
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=cisco --disable_loganalyzer --skip_sanity" 
    ```
 You should see tests run and pass. You're now set up and ready to use the KVM testbed!
 
