@@ -2103,3 +2103,7 @@ Totals               6450                 6449
         commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
         json_info = json.loads(commond_output["stdout"])
         return json_info
+
+    def is_intf_status_down(self, interface_name):
+        show_int_result = self.command("show interface status {}".format(interface_name))
+        return 'down' in show_int_result['stdout_lines'][2].lower()
