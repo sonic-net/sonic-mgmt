@@ -46,6 +46,16 @@ def pytest_configure(config):
     config.pluginmanager.register(LogSectionStartPlugin(logging_plugin), "LogSectionStart")
     logging.LogRecord = _LogRecord
 
+    if sys.version_info.major > 2:
+        old_factory = logging.getLogRecordFactory()
+
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            record.funcNamewithModule = "%s.%s" % (record.module, record.funcName)
+            return record
+
+        logging.setLogRecordFactory(record_factory)
+
     postimport.register_hook(_pytest_import_callback)
     # simply replace the fixture decorator in the imported `pytest` with the mocked one
     _pytest_import_callback(pytest)
