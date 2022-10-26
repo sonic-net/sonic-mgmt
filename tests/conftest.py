@@ -23,6 +23,7 @@ from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
+from tests.common.dualtor.dual_tor_utils import lower_tor_host
 from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # lgtm[py/unused-import]
@@ -801,7 +802,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
+def swapSyncd(request, duthosts, rand_one_dut_hostname, creds, tbinfo, lower_tor_host):
     """
         Swap syncd on DUT host
 
@@ -812,7 +813,10 @@ def swapSyncd(request, duthosts, rand_one_dut_hostname, creds):
         Returns:
             None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[rand_one_dut_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     try:
         if swapSyncd:
@@ -1452,7 +1456,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
     """
         Prepares DUT host test params
 
@@ -1465,7 +1469,10 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file):
         Returns:
             dut_test_params (dict): DUT host test params
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[rand_one_dut_hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 

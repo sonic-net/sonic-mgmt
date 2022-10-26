@@ -94,9 +94,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
     conditions:
       - "release in ['202012']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp:
-  xfail:
+vxlan/test_vxlan_ecmp.py:
+  skip:
     reason: "test issue or image issue, to be RCA'ed"
     conditions:
       - "release in ['202012']"
       - "'4600' in platform"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6616
