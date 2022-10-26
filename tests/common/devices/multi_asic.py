@@ -721,4 +721,13 @@ class MultiAsicSonicHost(object):
             if not self.asic_instance(0).is_default_route_removed_from_app_db():
                 return False
         return True
-
+        
+    def ports_list(self):
+        """
+        This function works for both multi/single-asic dut
+        Return:
+                list of ports on this dut
+        """
+        mg_facts = self.sonichost.minigraph_facts(host = self.sonichost.hostname)
+        return  mg_facts['ansible_facts']['minigraph_ports'].keys()
+       
