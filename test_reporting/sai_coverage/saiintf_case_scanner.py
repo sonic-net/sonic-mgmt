@@ -9,8 +9,7 @@ from saitest_report_base import *
 def get_parser(description=None):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--path", "-p", type=str, default="files/sai_test", help="file/directory to scan.")
-    parser.add_argument("--save_compress_path", "-cp", type=str, default="compressed_test.json", help="file/directory to save compressed results.")
-    parser.add_argument("--save_flatten_path", "-fp", type=str, default="test.json", help="file/directory to save flatten results.")
+    parser.add_argument("--save_path", "-sp", type=str, default="result", help="file/directory to save compressed results.")
     args = parser.parse_args()
     return args
 
@@ -27,8 +26,7 @@ class SAICoverageScanner(object):
 
     def __init__(self, parser):
         self.case_path = parser.path
-        self.save_compress_path = parser.save_compress_path
-        self.save_flatten_path = parser.save_flatten_path
+        self.save_path = parser.save_path
         self.header_path = SAI_HEADER_FILE
         self.final_coverage = list()
 
@@ -44,6 +42,7 @@ class SAICoverageScanner(object):
                         code = f.read()
                         f_ast = ast.parse(code)
                         self.visit_AST(f_ast, filename)
+                        self.final_coverage = []
 
 
     def visit_AST(self, raw_ast, filename):
@@ -241,7 +240,10 @@ class SAICoverageScanner(object):
                         self.final_coverage.append(test_invocation.__dict__)
 
         # self.fill_uncovered_api(covered_methods, header_data)
-        with open(self.save_flatten_path, 'w+') as f:
+        if len(self.final_coverage) == 0:
+            return
+        os.makedirs(self.save_path, exist_ok=True)
+        with open(os.path.join(self.save_path, file_name[:-2]+'json'), 'w+') as f:
             json.dump(self.final_coverage, f, indent=4)
 
 
