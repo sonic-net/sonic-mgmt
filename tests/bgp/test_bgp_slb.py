@@ -76,7 +76,7 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
         neighbor.start_session()
         if not wait_until(40, 5, 10, verify_bgp_session, duthost, neighbor):
             pytest.fail("dynamic BGP session is not established")
-        reboot(duthost, localhost, reboot_type=reboot_type)
+        reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True)
         if not wait_until(40, 5, 10, verify_bgp_session, duthost, neighbor):
             pytest.fail("dynamic BGP session is not established after %s" % reboot_type)
     finally:
