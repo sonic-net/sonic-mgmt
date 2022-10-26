@@ -10,11 +10,8 @@ junos_default_password:  ""
 junos_login: "root"
 junos_password: ""
 
-cisco_default_login: "root"
-cisco_default_password: ""
-cisco_login: "root"
-cisco_password: ""
-
+cisco_login: "admin"
+cisco_password: "password"
 
 sonic_login: "admin"
 sonic_default_passwords:

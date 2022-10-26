@@ -65,6 +65,26 @@
 
   when: (vm_type | lower) == "vsonic"
 
+- block:
+
+    - name: Check cisco image
+      stat: path={{ root_path }}/images/{{ cisco_image_filename }}
+      register: img_stat
+
+    - name: Fail if there are no cisco image and skip image downloading is active
+      fail: msg="Please put {{ cisco_image_filename }} to {{ root_path }}/images"
+      when: not img_stat.stat.exists and skip_image_downloading
+
+    - name: Download cisco image
+      get_url: url="{{ vm_images_url }}/{{ cisco_image_filename }}?{{ vciscoimage_saskey }}" dest="{{ root_path }}/images/{{ cisco_image_filename }}"
+      environment: "{{ proxy_env | default({}) }}"
+      when: not img_stat.stat.exists and not skip_image_downloading
+
+    - set_fact:
+        src_image_name: "{{ cisco_image_filename }}"
+
+  when: (vm_type | lower) == "vcisco"
+
 - name: Create VMs network
   become: yes
   vm_topology:
