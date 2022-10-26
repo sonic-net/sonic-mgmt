@@ -4,7 +4,6 @@ import time
 import pytest
 
 import ptf.testutils as testutils
-import ptf.packet
 import everflow_test_utilities as everflow_utils
 
 from everflow_test_utilities import BaseEverflowTest
@@ -26,32 +25,16 @@ EVERFLOW_SESSION_NAME = "everflow_session_per_interface"
 
 logger = logging.getLogger(__file__)
 
-
-@pytest.fixture(scope="module")
-def duts_to_test(duthosts, rand_one_dut_hostname, tbinfo):
-    if "t2" in tbinfo['topo']['name']:
-        t3_duthost = everflow_utils.find_host_role(duthosts, "T3", tbinfo)
-        t1_duthost = everflow_utils.find_host_role(duthosts, "T1", tbinfo, hwsku=t3_duthost.facts['hwsku'])
-        return {'everflow_dut': t1_duthost, 'mirror_dut': t3_duthost}
-    else:
-        duthost = duthosts[rand_one_dut_hostname]
-        return {'everflow_dut': duthost, 'mirror_dut': duthost}
-
-
 @pytest.fixture(scope="module", autouse=True)
-def skip_if_not_supported(tbinfo, duts_to_test, ip_ver):
-    rand_selected_dut = duts_to_test['everflow_dut']
+def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
 
     asic_type = rand_selected_dut.facts["asic_type"]
-    asic_subtype = rand_selected_dut.facts.get("platform_asic", "")
-    unsupported_platforms = ["mellanox", "marvell", "cisco-8000", "broadcom"]
+    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
-    is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'
-    # Skip ipv6 test on broadcom dnx
-    is_dnx_ipv4 = asic_subtype == 'broadcom-dnx' and ip_ver == 'ipv4'
-    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4 or is_dnx_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
+    is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'	
+    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 def build_candidate_ports(duthost, tbinfo):
     """
@@ -61,8 +44,6 @@ def build_candidate_ports(duthost, tbinfo):
     unselected_ports = {}
     if tbinfo['topo']['type'] == 't0':
         candidate_neigh_name = 'Server'
-    elif tbinfo['topo']['type'] == 't2':
-        candidate_neigh_name = 'T1'
     else:
         candidate_neigh_name = 'T0'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -89,20 +70,18 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
 
 
 @pytest.fixture(scope='module')
-def apply_mirror_session(duts_to_test, tbinfo):
-
-    rand_selected_dut = duts_to_test['everflow_dut']
+def apply_mirror_session(rand_selected_dut):
     mirror_session_info = BaseEverflowTest.mirror_session_info(EVERFLOW_SESSION_NAME, rand_selected_dut.facts["asic_type"])
     logger.info("Applying mirror session to DUT")
     BaseEverflowTest.apply_mirror_config(rand_selected_dut, mirror_session_info)
     time.sleep(10)
+    single_asic_cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
     if rand_selected_dut.is_multi_asic:
         for front_ns in rand_selected_dut.get_frontend_asic_namespace_list():
-            cmd = "sonic-db-cli -n {} STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"".format(front_ns, EVERFLOW_SESSION_NAME)
+            cmd = "{} -n {}".format(single_asic_cmd, front_ns)
             monitor_port = rand_selected_dut.shell(cmd=cmd)['stdout']
             pytest_assert(monitor_port != "", "Failed to retrieve monitor_port on multi-asic dut's frontend namespace: {}".format(front_ns))
     else:
-        single_asic_cmd = 'sonic-db-cli STATE_DB hget \"MIRROR_SESSION_TABLE|{}\" \"monitor_port\"'.format(EVERFLOW_SESSION_NAME)
         monitor_port = rand_selected_dut.shell(cmd=single_asic_cmd)['stdout']
         pytest_assert(monitor_port != "", "Failed to retrieve monitor_port")
 
@@ -115,14 +94,11 @@ def apply_mirror_session(duts_to_test, tbinfo):
 def ip_ver(request):
     return request.param
 
-
 @pytest.fixture(scope='module')
-def apply_acl_rule(duts_to_test, tbinfo, apply_mirror_session, ip_ver):
+def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     """
     Apply ACL rule for matching input_ports
     """
-
-    rand_selected_dut = duts_to_test['everflow_dut']
     # Check existence of EVERFLOW
     table_name = EVERFLOW_TABLE_NAME[ip_ver]
     output = rand_selected_dut.shell('show acl table {}'.format(table_name))['stdout_lines']
@@ -150,22 +126,21 @@ def apply_acl_rule(duts_to_test, tbinfo, apply_mirror_session, ip_ver):
         "mirror_session_info": mirror_session_info,
         "monitor_port": {monitor_port: mg_facts["minigraph_ptf_indices"][monitor_port]}
     }
-
+    
     yield ret
 
     logger.info("Removing acl rule config from DUT")
     BaseEverflowTest.remove_acl_rule_config(rand_selected_dut, table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, gre_pkt_src_mac):
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac):
     packet = testutils.simple_tcp_packet(
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
             eth_dst=router_mac
         )
     setup = {}
     setup["router_mac"] = router_mac
-    exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup, duthost, packet, False,
-                                                             router_mac=gre_pkt_src_mac)
+    exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup, duthost, packet, False)
     return packet, exp_packet
 
 
@@ -177,8 +152,6 @@ def get_uplink_ports(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if 't0' == tbinfo['topo']['type']:
         neigh_name = 'T1'
-    elif 't2' == tbinfo['topo']['type']:
-        neigh_name = 'T3'
     else:
         neigh_name = 'T2'
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
@@ -192,45 +165,26 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=packet, port_id=tx_port)
     if exp_recv:
-        testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=2)
+        testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
     else:
-        try:
-            _, received_packet = testutils.verify_packet_any_port(ptfadapter, pkt=expected_packet, ports=rx_ports, timeout=5)
-        except AssertionError:
-            pass
-        else:
-            if "LLDP" in ptf.packet.Ether(received_packet).summary():
-                logging.info("LLDP packet received, not mirror test packet.")
-            else:
-                raise AssertionError("Received packet that we expected not to receive on device %d, "
-                                     "port %r.\n%s" % (0, _, ptf.packet.Ether(received_packet).summary()))
+        testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, duts_to_test, apply_acl_rule, tbinfo):
+def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, tbinfo):
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
-
-    rand_selected_dut = duts_to_test['everflow_dut']
     everflow_config = apply_acl_rule
-
-    if tbinfo['topo']['type'] == "t2":
-        upstream_dut = duts_to_test['mirror_dut']
-        uplink_ports = get_uplink_ports(upstream_dut, tbinfo)
-        gre_pkt_src_mac = upstream_dut.facts["router_mac"]
-    else:
-        uplink_ports = get_uplink_ports(rand_selected_dut, tbinfo)
-        gre_pkt_src_mac = rand_selected_dut.facts["router_mac"]
-
-    packet, exp_packet = generate_testing_packet(ptfadapter, rand_selected_dut, everflow_config['mirror_session_info'], rand_selected_dut.facts["router_mac"], gre_pkt_src_mac)
-
+    packet, exp_packet = generate_testing_packet(ptfadapter, rand_selected_dut, everflow_config['mirror_session_info'], rand_selected_dut.facts["router_mac"])
+    uplink_ports = get_uplink_ports(rand_selected_dut, tbinfo)
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
     for port, ptf_idx in everflow_config['candidate_ports'].items():
         logger.info("Verifying packet ingress from {} is mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, True)
-
+    
     # Verify that packet ingressed from unselected ports are not mirrored
     for port, ptf_idx in everflow_config['unselected_ports'].items():
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
+   
    
