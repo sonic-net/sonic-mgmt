@@ -594,11 +594,11 @@ def creds_on_dut(duthost):
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     exclude_regex_patterns = [
-        'topo_.*\.yml',
-        'breakout_speed\.yml',
-        'lag_fanout_ports_test_vars\.yml',
-        'qos\.yml',
-        'mux_simulator_http_port_map\.yml'
+        r'topo_.*\.yml',
+        r'breakout_speed\.yml',
+        r'lag_fanout_ports_test_vars\.yml',
+        r'qos\.yml',
+        r'mux_simulator_http_port_map\.yml'
         ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
@@ -839,7 +839,7 @@ def enable_container_autorestart():
     return enable_container_autorestart
 
 @pytest.fixture(scope='module')
-def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds):
+def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, creds, tbinfo, lower_tor_host):
     """
         Swap syncd on DUT host
 
@@ -850,7 +850,10 @@ def swapSyncd(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, cred
         Returns:
             None
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     swapSyncd = request.config.getoption("--qos_swap_syncd")
     public_docker_reg = request.config.getoption("--public_docker_registry")
     try:
@@ -1521,7 +1524,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file):
+def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
     """
         Prepares DUT host test params
 
@@ -1534,7 +1537,10 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         Returns:
             dut_test_params (dict): DUT host test params
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if 'dualtor' in tbinfo['topo']['name']:
+        duthost = lower_tor_host
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
@@ -1701,9 +1707,10 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
-            logger.info("Collecting running config before test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["pre_running_config"] = \
-                json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
+                duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
     yield
 
@@ -1745,12 +1752,25 @@ def core_dump_and_config_check(duthosts, request):
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
 
             # Get common keys in pre running config and cur running config
-            EXCLUDE_CONFIG_KEYS = set(["FLEX_COUNTER_TABLE"])
+            EXCLUDE_CONFIG_KEYS = set([])
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
 
             # Check if the running config is modified after module running
             for key in common_config_keys:
-                if duts_data[duthost.hostname]["pre_running_config"][key] != \
+                #TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                if key == "FLEX_COUNTER_TABLE":
+                    for sub_key,sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
+                        if duts_data[duthost.hostname]["pre_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"] != \
+                                duts_data[duthost.hostname]["cur_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"]:
+                            inconsistent_config[duthost.hostname].update(
+                                {
+                                    key: {
+                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
+                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                    }
+                                }
+                            )
+                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
                     duts_data[duthost.hostname]["cur_running_config"][key]:
                     inconsistent_config[duthost.hostname].update(
                         {
