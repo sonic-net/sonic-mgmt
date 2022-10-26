@@ -246,6 +246,15 @@ stages:
                     --vault-password-file password.txt \
                     -e pause_time=${{ parameters.PAUSE_TIME }} -vv
 
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BRANCH_NAME=$(echo $SONIC_VERSION | grep branch: | cut -d "'" -f2)
+                if [[ "$DISABLE_FIPS" != 'no' ]] && [[ "$ENABLE_FIPS" == 'yes' || "$BRANCH_NAME" == "internal" || "$BRANCH_NAME" == "master" ]]; then
+                    for dut in $DUT_LIST; do
+                        ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo sonic-installer set-fips"
+                        ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo shutdown -r now"
+                    done
+                fi
+
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
