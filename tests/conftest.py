@@ -1757,7 +1757,20 @@ def core_dump_and_config_check(duthosts, request):
 
             # Check if the running config is modified after module running
             for key in common_config_keys:
-                if duts_data[duthost.hostname]["pre_running_config"][key] != \
+                #TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                if key == "FLEX_COUNTER_TABLE":
+                    for sub_key,sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
+                        if duts_data[duthost.hostname]["pre_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"] != \
+                                duts_data[duthost.hostname]["cur_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"]:
+                            inconsistent_config[duthost.hostname].update(
+                                {
+                                    key: {
+                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
+                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                    }
+                                }
+                            )
+                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
                     duts_data[duthost.hostname]["cur_running_config"][key]:
                     inconsistent_config[duthost.hostname].update(
                         {
