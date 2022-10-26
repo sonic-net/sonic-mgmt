@@ -91,8 +91,8 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
             fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
             supReferenceData[fabricAsic].update({referenceRemotePort : lkData})
-       # the module number increased by 2 for each asic.
-       localModule += 2
+        # the module number increased by 2 for each asic.
+        localModule += 2
 
 # This test checks the output of the "show fabric reachability -n asic<n>"
 # command. It is only called one time and it iterates over all of the
