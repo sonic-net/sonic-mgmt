@@ -594,11 +594,11 @@ def creds_on_dut(duthost):
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     exclude_regex_patterns = [
-        'topo_.*\.yml',
-        'breakout_speed\.yml',
-        'lag_fanout_ports_test_vars\.yml',
-        'qos\.yml',
-        'mux_simulator_http_port_map\.yml'
+        r'topo_.*\.yml',
+        r'breakout_speed\.yml',
+        r'lag_fanout_ports_test_vars\.yml',
+        r'qos\.yml',
+        r'mux_simulator_http_port_map\.yml'
         ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
