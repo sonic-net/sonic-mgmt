@@ -5,17 +5,17 @@ t0:
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
   - bgp/test_bgp_speaker.py
-  - bgp/test_bgpmon.py
   - bgp/test_bgp_update_timer.py
-  - container_checker/test_container_checker.py
+  - bgp/test_bgpmon.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
+  - container_checker/test_container_checker.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - generic_config_updater/test_aaa.py
-  - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
+  - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
   - generic_config_updater/test_eth_interface.py
@@ -103,12 +103,8 @@ multi-asic-t1-lag:
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
-  - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-
-multi-asic-t1-lag-pr:
-  - bgp/test_bgp_fact.py
 
 t2:
   - test_vs_chassis_setup.py
