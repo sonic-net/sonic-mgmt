@@ -77,7 +77,7 @@ def test_voq_fabric_link_status(duthosts):
                 pytest_assert(status.lower() == 'up',
                               "link {}. is expected to be up.".format(lk))
 
-                #update link information on suppervisor
+                # Update link information on suppervisor
                 lkData = {'peer slot': slot, 'peer lk': lk, 'peer asic': asic}
                 fabricLk = referenceData[asic][lk]['peer lk']
                 fabricSlot = referenceData[asic][lk]['peer slot']
