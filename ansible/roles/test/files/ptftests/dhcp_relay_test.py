@@ -11,6 +11,7 @@ from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import scapy.all as scapy2
 from threading import Thread
+import binascii
 
 
 # Helper function to increment an IP address
