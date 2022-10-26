@@ -38,7 +38,7 @@ class snmpPduController(PduControllerBase):
             cmdgen.MibVariable(pSYSDESCR)
             )
         if errorIndication:
-            logging.info("Failed to get pdu controller type, exception: " + str(errorIndication))
+            logging.error("Failed to get pdu controller type, exception: " + str(errorIndication))
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
@@ -158,7 +158,7 @@ class snmpPduController(PduControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         if not self.pduType:
-            logging.info('PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logging.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
 
         cmdGen = cmdgen.CommandGenerator()
