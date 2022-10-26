@@ -24,11 +24,11 @@ all:
           ansible_host: 10.150.23.53
     pdu:
       hosts:
-        bjw-pdu-22-50:
-          ansible_host: 10.150.22.50
+        bjw-pdu-126-134:
+          ansible_host: 10.150.126.134
           protocol: snmp
-        bjw-pdu-22-51:
-          ansible_host: 10.150.22.51
+        bjw-pdu-126-135:
+          ansible_host: 10.150.126.135
           protocol: snmp
 
 fanout:

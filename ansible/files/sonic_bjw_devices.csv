@@ -15,7 +15,7 @@ bjw-can-720dt-1,10.150.22.112/23,Arista-720DT-48S,DevSonic,
 bjw-can-ec9516-1,10.150.22.109/23,newport,DevSonic,
 bjw-can-2700-1,10.150.22.101/23,Mellanox-SN2700,DevSonic,
 bjw-slx-can-1,10.150.22.104/23,Celestica-DX010-C32,DevSonic,
-bjw-pdu-22-50,10.150.22.50,Vertiv,Pdu,snmp
-bjw-pdu-22-51,10.150.22.51,Vertiv,Pdu,snmp
+bjw-pdu-126-134,10.150.126.134,Vertiv,Pdu,snmp
+bjw-pdu-126-135,10.150.126.135,Vertiv,Pdu,snmp
 bjw-e1031-can-1,10.150.22.10,Celestica-E1031-E48C48,ConsoleServer,ssh
 bjw-e1031-can-2,10.150.22.11,Celestica-E1031-E48C48,ConsoleServer,ssh
