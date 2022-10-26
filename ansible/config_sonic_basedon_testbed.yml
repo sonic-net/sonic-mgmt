@@ -179,6 +179,15 @@
       restart_pmon: no
     when: "'dualtor' in topo"
 
+  - name: gather hwsku for LeafRouter that supports dualtor deployment
+    set_fact:
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+  
+  - name: enable tunnel_qos_remap for T1 in dualtor deployment
+    set_fact:
+      enable_tunnel_qos_remap: true
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1)"
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -377,7 +386,7 @@
         pause:
           seconds: 60
     become: true
-    when: proxy_env is defined
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
@@ -516,10 +525,66 @@
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
+      - block:
+        - name: set the default grpc credential file path
+          set_fact:
+            grpc_credential_file: /etc/sonic/grpc_secrets.json
+
+        - name: check if grpc credential file exists
+          stat:
+            path: "{{ grpc_credential_file }}"
+          register: stat_result
+
+        - block:
+          - name: collect initial grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse initial grpc credentials
+            set_fact:
+              grpc_secrets_before: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: use insecure grpc for testing
+            shell: "sed -E -i 's/\"type\": \"secure\"/\"type\": \"insecure\"/' {{ grpc_credential_file }}"
+            become: true
+
+          - name: collect current grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse current grpc credentials
+            set_fact:
+              grpc_secrets_after: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: show original grpc setting
+            debug:
+              var: grpc_secrets_before
+
+          - name: show new grpc setting
+            debug:
+              var: grpc_secrets_after
+
+          - name: restart the pmon service
+            service:
+              name: pmon
+              state: restarted
+            become: true
+
+          when: stat_result.stat.exists
+
+        when: "'dualtor-mixed' in topo"
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
         when: save is defined and save|bool == true
+
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
 
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py

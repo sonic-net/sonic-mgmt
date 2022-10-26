@@ -189,7 +189,9 @@ class TrafficPorts(object):
         """
         temp_ports = dict()
         vlan_details = self.vlan_info.values()[0]
-        vlan_members = vlan_details['members']
+        # Filter(remove) PortChannel interfaces from VLAN members list
+        vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
+
         vlan_type = vlan_details.get('type')
         vlan_id = vlan_details['vlanid']
         rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]

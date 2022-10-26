@@ -532,42 +532,53 @@ class SonicAsic(object):
         return False
 
     def portchannel_on_asic(self, portchannel):
-        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        # Need to compare every portchannel in pcs split by single quote, with the target portchannel
+        # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
+        # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
+        # By split() function we are converting 'pcs' to list, and can do one by one comparison
         pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if pcs is not None and portchannel in pcs:
-            return True
+        if pcs is not None:
+            pcs_list = pcs.split("'")
+            for pc in pcs_list:
+                if portchannel == pc:
+                    return True
         return False
 
-    def get_portchannel_and_members_in_ns(self, tbinfo):
+    def write_to_config_db(self, dst_path):
+        cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
+        return self.shell(cmd)
+
+    def get_portchannels_and_members_in_ns(self, tbinfo):
+
         """
-        Get a portchannel and it's members in this namespace.
+        Get a portchannels and their members in this namespace.
 
         Args: tbinfo - testbed info
 
-        Returns: a tuple with (portchannel_name, port_channel_members)
+        Returns: a dict portchannels_data with (portchannel_name as key and port_channel_members as value)
 
         """
-        pc = None
-        pc_members = None
-
+        port_channels_data = {}
         mg_facts = self.sonichost.minigraph_facts(
             host = self.sonichost.hostname
         )['ansible_facts']
 
         if len(mg_facts['minigraph_portchannels'].keys()) == 0:
-            return None, None
+            return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            pc = mg_facts['minigraph_portchannels'].keys()[0]
-            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+            for pc in mg_facts['minigraph_portchannels'].keys():
+                pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                port_channels_data[pc] = pc_members
         else:
             for k, v in mg_facts['minigraph_portchannels'].iteritems():
                 if v.has_key('namespace') and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
-                    break
+                    port_channels_data[pc] = pc_members
 
-        return pc, pc_members
+        return port_channels_data
 
     def get_bgp_statistic(self, stat):
         """
@@ -644,7 +655,7 @@ class SonicAsic(object):
     def count_routes(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
+            ns_prefix = '-n ' + str(self.namespace)
         return int(self.shell(
             'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
@@ -652,6 +663,6 @@ class SonicAsic(object):
     def get_route_key(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
+            ns_prefix = '-n ' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
             verbose=False)['stdout_lines']
