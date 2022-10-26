@@ -55,9 +55,11 @@ def restore_rate_limit(rand_selected_dut):
     yield
 
     for item in container_data:
-        rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(item['service'], item['burst'], item['interval']))
+        rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(
+            item['service'], item['burst'], item['interval']))
 
-    rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(host_data[0]['burst'], host_data[0]['interval']))
+    rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(
+        host_data[0]['burst'], host_data[0]['interval']))
     rand_selected_dut.command('config save -y')
 
 
@@ -113,35 +115,46 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
             verify_config_rate_limit_fail(rand_selected_dut, service_name)
             continue
 
-        support_syslog_rate_limit = config_db.hget_key_value('FEATURE|{}'.format(service_name), 'support_syslog_rate_limit')
+        support_syslog_rate_limit = config_db.hget_key_value('FEATURE|{}'.format(service_name),
+                                                             'support_syslog_rate_limit')
         if support_syslog_rate_limit.lower() != 'true':
             logger.info('Container {} does not support syslog rate limit configuration'.format(service_name))
             verify_config_rate_limit_fail(rand_selected_dut, service_name)
             continue
 
-        rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
+        rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(
+            service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
-        pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL), 'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL, rate_limit_data[0]['interval']))
-        pytest_assert(rate_limit_data[0]['burst'] == str(RATE_LIMIT_BURST), 'Expect rate limit burst {}, actual {}'.format(RATE_LIMIT_BURST, rate_limit_data[0]['burst']))
+        pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL),
+                      'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL,
+                                                                        rate_limit_data[0]['interval']))
+        pytest_assert(rate_limit_data[0]['burst'] == str(RATE_LIMIT_BURST),
+                      'Expect rate limit burst {}, actual {}'.format(RATE_LIMIT_BURST, rate_limit_data[0]['burst']))
 
-        rand_selected_dut.command('docker cp {} {}:{}'.format(REMOTE_LOG_GENERATOR_FILE, service_name, DOCKER_LOG_GENERATOR_FILE))
+        rand_selected_dut.command(
+            'docker cp {} {}:{}'.format(REMOTE_LOG_GENERATOR_FILE, service_name, DOCKER_LOG_GENERATOR_FILE))
         verify_rate_limit_with_log_generator(rand_selected_dut,
-                                            service_name,
-                                            'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name, RATE_LIMIT_INTERVAL, RATE_LIMIT_BURST),
-                                            [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format(service_name + '#')],
-                                            RATE_LIMIT_BURST + 1)
+                                             service_name,
+                                             'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name,
+                                                                                                RATE_LIMIT_INTERVAL,
+                                                                                                RATE_LIMIT_BURST),
+                                             [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
+                                              LOG_EXPECT_LAST_MESSAGE.format(service_name + '#')],
+                                             RATE_LIMIT_BURST + 1)
 
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
-        pytest_assert(rate_limit_data[0]['interval'] == '0', 'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
-        pytest_assert(rate_limit_data[0]['burst'] == '0', 'Expect rate limit burst {}, actual {}'.format(0, rate_limit_data[0]['burst']))
+        pytest_assert(rate_limit_data[0]['interval'] == '0',
+                      'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
+        pytest_assert(rate_limit_data[0]['burst'] == '0',
+                      'Expect rate limit burst {}, actual {}'.format(0, rate_limit_data[0]['burst']))
 
         verify_rate_limit_with_log_generator(rand_selected_dut,
-                                            service_name,
-                                            'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name, 0, 0),
-                                            [LOG_EXPECT_LAST_MESSAGE.format(service_name + '#')],
-                                            LOG_MESSAGE_GENERATE_COUNT)
-        break # we only randomly test 1 container to reduce test time
+                                             service_name,
+                                             'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name, 0, 0),
+                                             [LOG_EXPECT_LAST_MESSAGE.format(service_name + '#')],
+                                             LOG_MESSAGE_GENERATE_COUNT)
+        break  # we only randomly test 1 container to reduce test time
 
 
 def verify_host_rate_limit(rand_selected_dut):
@@ -159,27 +172,33 @@ def verify_host_rate_limit(rand_selected_dut):
     logger.info('Start syslog rate limit test for host')
     rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
     rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
-    pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL), 'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL, rate_limit_data[0]['interval']))
-    pytest_assert(rate_limit_data[0]['burst'] == str(RATE_LIMIT_BURST), 'Expect rate limit burst {}, actual {}'.format(RATE_LIMIT_BURST, rate_limit_data[0]['burst']))
+    pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL),
+                  'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL,
+                                                                    rate_limit_data[0]['interval']))
+    pytest_assert(rate_limit_data[0]['burst'] == str(RATE_LIMIT_BURST),
+                  'Expect rate limit burst {}, actual {}'.format(RATE_LIMIT_BURST, rate_limit_data[0]['burst']))
 
     verify_rate_limit_with_log_generator(rand_selected_dut,
-                                        'host',
-                                        'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL, RATE_LIMIT_BURST),
-                                        [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format('')],
-                                        RATE_LIMIT_BURST + 1,
-                                        is_host=True)
+                                         'host',
+                                         'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
+                                                                                              RATE_LIMIT_BURST),
+                                         [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format('')],
+                                         RATE_LIMIT_BURST + 1,
+                                         is_host=True)
 
     rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(0, 0))
     rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
-    pytest_assert(rate_limit_data[0]['interval'] == '0', 'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
-    pytest_assert(rate_limit_data[0]['burst'] == '0', 'Expect rate limit burst {}, actual {}'.format(0, rate_limit_data[0]['burst']))
+    pytest_assert(rate_limit_data[0]['interval'] == '0',
+                  'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
+    pytest_assert(rate_limit_data[0]['burst'] == '0',
+                  'Expect rate limit burst {}, actual {}'.format(0, rate_limit_data[0]['burst']))
 
     verify_rate_limit_with_log_generator(rand_selected_dut,
-                                        'host',
-                                        'syslog_rate_limit_host_interval_{}_burst_{}'.format(0, 0),
-                                        [LOG_EXPECT_LAST_MESSAGE.format('')],
-                                        LOG_MESSAGE_GENERATE_COUNT,
-                                        is_host=True)
+                                         'host',
+                                         'syslog_rate_limit_host_interval_{}_burst_{}'.format(0, 0),
+                                         [LOG_EXPECT_LAST_MESSAGE.format('')],
+                                         LOG_MESSAGE_GENERATE_COUNT,
+                                         is_host=True)
 
 
 def verify_config_rate_limit_fail(duthost, service_name):
@@ -189,11 +208,14 @@ def verify_config_rate_limit_fail(duthost, service_name):
         duthost (object): DUT object
         service_name (str): Service name
     """
-    output = duthost.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL), module_ignore_errors=True)['stderr']
+    cmd = 'config syslog rate-limit-container {} -b {} -i {}'.format(
+        service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL)
+    output = duthost.command(cmd, module_ignore_errors=True)['stderr']
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
-def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches, is_host=False):
+def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
+                                         is_host=False):
     """Generator syslog with a script and verify that syslog rate limit reached
 
     Args:
