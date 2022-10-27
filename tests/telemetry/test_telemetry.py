@@ -99,11 +99,11 @@ def gnxi_path(ptfhost):
     return gnxipath
 
 @pytest.fixture(scope="module", autouse=True)
-def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
+def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
     """If telemetry docker is available in image then return true
     """
     docker_out_list = []
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
     matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
@@ -111,11 +111,11 @@ def verify_telemetry_dockerimage(duthosts, rand_one_dut_hostname):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
 @pytest.fixture(scope="module")
-def setup_streaming_telemetry(duthosts, rand_one_dut_hostname, localhost,  ptfhost, gnxi_path):
+def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localhost,  ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     default_client_auth = setup_telemetry_forpyclient(duthost)
 
     # Wait until telemetry was restarted
@@ -140,10 +140,10 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 # Test functions
-def test_config_db_parameters(duthosts, rand_one_dut_hostname):
+def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
@@ -166,10 +166,10 @@ def test_config_db_parameters(duthosts, rand_one_dut_hostname):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
-def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
+def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verify telemetry should be enabled by default
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"', module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
@@ -182,11 +182,12 @@ def test_telemetry_enabledbydefault(duthosts, rand_one_dut_hostname):
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
 
-def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
+def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
@@ -198,10 +199,10 @@ def test_telemetry_ouput(duthosts, rand_one_dut_hostname, ptfhost, setup_streami
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """ Test osbuild/version query.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
@@ -210,14 +211,14 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost, localhost, gn
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
+def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
               updated correctly.
     """
     logger.info("start test the dataset 'system uptime'")
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
     cmd = 'python '+ gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
@@ -255,12 +256,14 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_pat
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
-def test_virtualdb_table_streaming(duthosts, rand_one_dut_hostname, ptfhost, localhost, gnxi_path):
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count = 3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
