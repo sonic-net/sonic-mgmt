@@ -487,3 +487,71 @@ Assume a t1-lag topology testbed uses KVM based SONiC DUT is defined as below in
 After the above example testbed is deployed, internal of the t1-lag topology looks like below:
 
 ![](./img/testbed-t1-lag-vssetup.png)
+
+
+
+Testbed had evolved to support multiple devices/multiple protocols verification. Please refer to [Multiple VS Devices Setup](./README.testbed.WANSetup.md) for more details of setting up a testbed uses KVM based SONiC DUT.
+
+Assume a wan-pub topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-pub
+  group-name: vms6-1
+  topo: wan-pub
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  comment: Example testbed
+```
+
+After wan-pub testbed is deployed, internal of the wan-pub topology looks like below:
+
+![](./img/testbed-wan-pub-vssetup.png)
+
+Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-xlink
+  group-name: vms6-1
+  topo: wan-xlink
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  comment: Example testbed
+```
+
+After wan-xlink testbed is deployed, internal of the wan-xlink topology looks like below:
+
+![](./img/testbed-wan-xlink-vssetup.png)
+
+Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-xdut
+  group-name: vms6-1
+  topo: wan-xdut
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+    - vlab-02
+  comment: Example testbed
+```
+
+After wan-xdut testbed is deployed, internal of the wan-xdut topology looks like below:
+
+![](./img/testbed-wan-xdut-xlink-vssetup.png)

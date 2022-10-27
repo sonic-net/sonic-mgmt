@@ -4,6 +4,7 @@
 - Setup
   - [Physical Switch Testbed Setup](README.testbed.Setup.md)
   - [Virtual Switch Testbed Setup](README.testbed.VsSetup.md)
+  - [Virtual Switch Multiple Devices Testbed Setup](README.testbed.WANSetup.md)
   - [Setup sonic-mgmt Docker](README.testbed.Docker.md)
   - [cEOS](README.testbed.cEOS.md)
   - [Routing](README.testbed.Routing.md)
