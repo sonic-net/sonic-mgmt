@@ -1,7 +1,7 @@
 # ptf --test-dir ptftests vxlan_traffic.VXLAN --platform-dir ptftests --qlen=1000 --platform remote \
-#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True;packet_count=10; \
-#        vxlan_port=4789;topo_file="/tmp/vxlan_topo_file.json";config_file="/tmp/vxlan-config-TC1-v6_in_v4.json";t0_ports=[u"Ethernet42"]' --relax --debug info \
-#        --log-file /tmp/vxlan-tests.TC1.v6_in_v4.log
+#    -t 't2_ports=[16, 17, 0, 1, 4, 5, 21, 20];dut_mac=u"64:3a:ea:c1:73:f8";expect_encap_success=True;packet_count=10;downed_endpoints=["100.0.1.10"] \
+#        vxlan_port=4789;topo_file="/tmp/vxlan_topo_file.json";config_file="/tmp/vxlan-config-TC1-v6_in_v4.json";t0_ports=[u"Ethernet42"];random_src_ip=False;random_dport=True;random_dport=False'
+#        --relax --debug info --log-file /tmp/vxlan-tests.TC1.v6_in_v4.log
 
 # The test checks vxlan encapsulation:
 # The test runs three tests for each vlan on the DUT:
@@ -24,9 +24,8 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
-import ipaddress
 import logging
-from ipaddress import ip_address
+from ipaddress import ip_address, IPv4Address, IPv6Address
 import random
 
 VARS = {}
@@ -76,7 +75,7 @@ class VXLAN(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
         self.test_params = test_params_get()
-        self.varying_src_ip = self.test_params['varying_src_ip']
+        self.random_src_ip = self.test_params['random_src_ip']
         self.random_dport = self.test_params['random_dport']
         self.random_sport = self.test_params['random_sport']
         self.tolerance = self.test_params['tolerance']
@@ -114,9 +113,9 @@ class VXLAN(BaseTest):
     def fill_loopback_ip(self):
         loop_config_data = self.topo_data['minigraph_facts']['minigraph_lo_interfaces']
         for entry in loop_config_data:
-            if isinstance(ipaddress.ip_address(entry['addr']), ipaddress.IPv4Address):
+            if isinstance(ip_address(entry['addr']), IPv4Address):
                 self.loopback_ipv4 = entry['addr']
-            if isinstance(ipaddress.ip_address(entry['addr']), ipaddress.IPv6Address):
+            if isinstance(ip_address(entry['addr']), IPv6Address):
                 self.loopback_ipv6 = entry['addr']
 
     def runTest(self):
@@ -132,7 +131,11 @@ class VXLAN(BaseTest):
             vni  = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination,nh in self.config_data['dest_to_nh_map'][vnet].iteritems():
-                    self.test_encap(ptf_port, vni, addr, destination, nh, test_ecn=TEST_ECN, random_dport = self.random_dport, random_sport = self.random_sport, varying_src_ip = self.varying_src_ip)
+                    self.test_encap(ptf_port, vni, addr, destination, nh,
+                                    test_ecn=TEST_ECN,
+                                    random_dport = self.random_dport,
+				    random_sport = self.random_sport,
+				    random_src_ip = self.random_src_ip)
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -153,7 +156,7 @@ class VXLAN(BaseTest):
 
         return addrs
 
-    def verify_all_addresses_used_equally(self, nhs, returned_ip_addresses, downed_endpoints = []):
+    def verify_all_addresses_used_equally(self, nhs, returned_ip_addresses, packet_count, downed_endpoints=[]):
         '''
            Verify the ECMP functionality using 2 checks.
            Check 1 verifies every nexthop address has been used.
@@ -161,28 +164,34 @@ class VXLAN(BaseTest):
            Params: nhs: the nexthops that are configured.
                    returned_ip_addresses: The dict containing the nh addresses and corresponding packet counts.
         '''
+
         if downed_endpoints:
-            for nh_address in returned_ip_addresses.keys():
-                if nh_address in downed_endpoints:
-                    raise RuntimeError("Packets are received with Downed Endpoint -", nh_address)
-        # Check #1 : All addresses have been used.
+           for down_endpoint in downed_endpoints:
+               if down_endpoint in nhs:
+                   nhs.remove(down_endpoint)
+               if down_endpoint in returned_ip_addresses:
+                   raise RuntimeError("We received traffic with a downed endpoint({}), unexpected.".format(down_endpoint))
+
+        # Check #1 : All addresses have been used, except the downed ones.
         if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
-            logger.info("    Each address has been used")
-            logger.info("Packets sent:{} distribution:".format(self.packet_count))
+            logger.info("    Each valid endpoint address has been used")
+            logger.info("Packets sent:{} distribution:".format(packet_count))
             for nh_address in returned_ip_addresses.keys():
                 logger.info("      {} : {}".format(nh_address, returned_ip_addresses[nh_address]))
             # Check #2 : The packets are almost equally distributed.
-            # Every next-hop should have received within 1% of the packets that we sent per nexthop(which is self.packet_count).
+            # Every next-hop should have received within {tolerance}% of the packets that we sent per nexthop(which is packet_count).
             # This check is valid only if there are large enough number of packets(300). Any lower number will need higher tolerance(more than 2%).
-            if self.packet_count > MINIMUM_PACKETS_FOR_ECMP_VALIDATION:
+            if packet_count > MINIMUM_PACKETS_FOR_ECMP_VALIDATION:
                 for nh_address in returned_ip_addresses.keys():
-                    if (1.0-self.tolerance) * self.packet_count <= returned_ip_addresses[nh_address] <= (1.0+self.tolerance) * self.packet_count:
+                    if (1.0-self.tolerance) * packet_count <= returned_ip_addresses[nh_address] <= (1.0+self.tolerance) * packet_count:
                         pass
                     else:
                         raise RuntimeError("ECMP nexthop address: {} received too less or too many of the "
-                            "packets expected. Expected:{}, received on that address:{}".format(nh_address, self.packet_count, returned_ip_addresses[nh_address]))
+                            "packets expected. Expected:{}, received on that address:{}".format(nh_address, packet_count, returned_ip_addresses[nh_address]))
+        else:
+            raise RuntimeError("Not all addresses were used. Here are the unused ones - ", set(nhs) - set(returned_ip_addresses.keys()))
 
-    def test_encap(self, ptf_port, vni, ptf_addr, destination, nhs, test_ecn=False, vlan=0, random_dport = True, random_sport = False, varying_src_ip = False):
+    def test_encap(self, ptf_port, vni, ptf_addr, destination, nhs, test_ecn=False, vlan=0, random_dport=True, random_sport=False, random_src_ip=False):
         rv = True
         try:
             pkt_len = self.DEFAULT_PKT_LEN
@@ -202,10 +211,20 @@ class VXLAN(BaseTest):
             # ECMP support, assume it is a string of comma seperated list of addresses.
             returned_ip_addresses = {}
             check_ecmp = False
-            for host_address in nhs:
+            working_nhs = list(set(nhs) - set(self.downed_endpoints))
+            expect_success = self.expect_encap_success
+            test_nhs = working_nhs
+            packet_count = self.packet_count
+            if not working_nhs:
+                # Since there is no NH that is up for this destination, we can't expect success here.
+                expect_success = False
+                test_nhs = nhs
+                # Also reduce the packet count, since this script has to wait 1 second per packet(1000 packets is 20 minutes).
+                packet_count = 4
+            for host_address in test_nhs:
                 check_ecmp = True
                 # This will ensure that every nh is used atleast once.
-                for i in range(self.packet_count):
+                for i in range(packet_count):
                     if random_sport:
                         tcp_sport = get_incremental_value('tcp_sport')
                     else:
@@ -215,9 +234,9 @@ class VXLAN(BaseTest):
                     else:
                         tcp_dport = VARS['tcp_dport']
                     valid_combination = True
-                    if isinstance(ip_address(destination), ipaddress.IPv4Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv4Address):
-                        if varying_src_ip:
-                            ptf_addr = get_ip_address("v4",hostid = 3,netid = 170)
+                    if isinstance(ip_address(destination), IPv4Address) and isinstance(ip_address(ptf_addr), IPv4Address):
+                        if random_src_ip:
+                            ptf_addr = get_ip_address("v4", hostid=3,netid=170)
                         pkt_opts = {
                             "pktlen": pkt_len,
                             "eth_dst": self.dut_mac,
@@ -233,9 +252,9 @@ class VXLAN(BaseTest):
                         pkt_opts['ip_ttl'] = 63
                         pkt_opts['eth_src'] = self.dut_mac
                         exp_pkt = simple_tcp_packet(**pkt_opts)
-                    elif isinstance(ip_address(destination), ipaddress.IPv6Address) and isinstance(ip_address(ptf_addr), ipaddress.IPv6Address):
-                        if varying_src_ip:
-                            ptf_addr = get_ip_address("v6",hostid = 4, netid = 170)
+                    elif isinstance(ip_address(destination), IPv6Address) and isinstance(ip_address(ptf_addr), IPv6Address):
+                        if random_src_ip:
+                            ptf_addr = get_ip_address("v6", hostid=4, netid=170)
                         pkt_opts = {
                             "pktlen":pkt_len,
                             "eth_dst":self.dut_mac,
@@ -254,7 +273,7 @@ class VXLAN(BaseTest):
                         valid_combination = False
                     udp_sport = 1234 # Use entropy_hash(pkt), it will be ignored in the test later.
                     udp_dport = self.vxlan_port
-                    if isinstance(ip_address(host_address), ipaddress.IPv4Address):
+                    if isinstance(ip_address(host_address), IPv4Address):
                         encap_pkt = simple_vxlan_packet(
                             eth_src=self.dut_mac,
                             eth_dst=self.random_mac,
@@ -269,7 +288,7 @@ class VXLAN(BaseTest):
                             inner_frame=exp_pkt,
                             **options)
                         encap_pkt[scapy.IP].flags = 0x2
-                    elif isinstance(ip_address(host_address), ipaddress.IPv6Address):
+                    elif isinstance(ip_address(host_address), IPv6Address):
                         encap_pkt = simple_vxlanv6_packet(
                             eth_src=self.dut_mac,
                             eth_dst=self.random_mac,
@@ -286,23 +305,28 @@ class VXLAN(BaseTest):
                     masked_exp_pkt = Mask(encap_pkt)
                     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-                    if isinstance(ip_address(host_address), ipaddress.IPv4Address):
+                    if isinstance(ip_address(host_address), IPv4Address):
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "dst")
                     else:
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "dst")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
                     masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "chksum")
 
                     logger.info("Sending packet from port " + str(ptf_port) + " to " + destination)
 
-                    if self.expect_encap_success:
-                        _, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.t2_ports)
+                    if expect_success:
+                        try:
+                            _, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.t2_ports)
+                        except:
+                            raise RuntimeError("Verify_packet_any_port failed. Args:ports:{} sent:{}\n, expected:{}\n, encap_pkt:{}\n".format(self.t2_ports, repr(pkt), repr(exp_pkt), repr(encap_pkt)))
+
                         scapy_pkt  = scapy.Ether(received_pkt)
                         # Store every destination that was received.
-                        if isinstance(ip_address(host_address), ipaddress.IPv6Address):
+                        if isinstance(ip_address(host_address), IPv6Address):
                             dest_ip = scapy_pkt['IPv6'].dst
                         else:
                             dest_ip = scapy_pkt['IP'].dst
@@ -314,11 +338,14 @@ class VXLAN(BaseTest):
                     else:
                         check_ecmp = False
                         logger.info("Verifying no packet")
-                        verify_no_packet_any(self, masked_exp_pkt, self.t2_ports)
+                        try:
+                            verify_no_packet_any(self, masked_exp_pkt, self.t2_ports)
+                        except:
+                            raise RuntimeError("Verify_no_packet failed. Args:ports:{} sent:{}\n, expected:{}\n, encap_pkt:{}\n".format(self.t2_ports, repr(pkt), repr(exp_pkt), repr(encap_pkt)))
 
             # Verify ECMP:
             if check_ecmp:
-                self.verify_all_addresses_used_equally(nhs, returned_ip_addresses, self.downed_endpoints)
+                self.verify_all_addresses_used_equally(nhs, returned_ip_addresses, packet_count, self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
             self.packets.append((ptf_port, str(pkt).encode("base64")))

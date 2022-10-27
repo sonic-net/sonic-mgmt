@@ -182,6 +182,14 @@ def pytest_addoption(parser):
         help="ECMP: Number of tunnel nexthops to be tested. (number of nhs_per_destination X number_of_destinations)"
     )
 
+    vxlan_group.addoption(
+        "--include_crm",
+        action="store",
+        default=False,
+        type=bool,
+        help="Enable CRM tests."
+    )
+
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
     """

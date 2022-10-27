@@ -1,6 +1,10 @@
 import ipaddress
 from sys import getsizeof
-import json, re, time
+import json
+import re
+import time
+import logging
+Logger = logging.getLogger(__name__)
 
 class Ecmp_Utils:
     Address_Count = 0
@@ -23,8 +27,6 @@ class Ecmp_Utils:
     NUMBER_OF_AVAILABLE_NEXTHOPS = 4000
     NUMBER_OF_ECMP_NHS = 128000
 
-    BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
-    BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
     # This is the list of encapsulations that will be tested in this script.
     # v6_in_v4 means: V6 payload is encapsulated inside v4 outer layer.
     # This list is used in many locations in the script.
@@ -60,51 +62,6 @@ class Ecmp_Utils:
         self.apply_config_in_dut(duthost, config, name="vxlan_tunnel_"+ af)
         return tunnel_name
 
-    def init_ptf_bfd(self, ptfhost):
-        ptfhost.shell("bfdd-beacon")
-
-
-    def stop_ptf_bfd(self , ptfhost):
-        ptfhost.shell("bfdd-control stop")
-
-    def create_bfd_sessions_multihop(self , ptfhost, duthost, loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs):
-        # Create a tempfile for BFD sessions
-        bfd_file_dir = duthost.shell('mktemp')['stdout']
-        ptf_file_dir = ptfhost.shell('mktemp')['stdout']
-        bfd_config = []
-        ptf_config = []
-        for neighbor_addr in neighbor_addrs:
-            bfd_config.append({
-                "BFD_SESSION_TABLE:default:default:{}".format(neighbor_addr): {
-                    "local_addr": loopback_addr,
-                    "multihop" : "true"
-                },
-                "OP": "SET"
-            })
-            ptf_config.append(
-                {
-                    "neighbor_addr": loopback_addr,
-                    "local_addr" : neighbor_addr,
-                    "multihop" : "true",
-                    "ptf_intf" : "eth{}".format(ptf_intf)
-                }
-            )
-
-        # Copy json file to DUT
-        duthost.copy(content=json.dumps(bfd_config, indent=4), dest=bfd_file_dir, verbose=False)
-
-        # Apply BFD sessions with swssconfig
-        result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(bfd_file_dir),
-                            module_ignore_errors=True)
-        if result['rc'] != 0:
-            pytest.fail('Failed to apply BFD session configuration file: {}'.format(result['stderr']))
-
-    def update_bfd_session_state(self, ptfhost, neighbor_addr, local_addr, state):
-        ptfhost.shell("bfdd-control session local {} remote {} state {}".format(neighbor_addr, local_addr, state))
-
-    def update_bfd_state(self, ptfhost, neighbor_addr, local_addr, state):
-        ptfhost.shell("bfdd-control session local {} remote {} {}".format(neighbor_addr, local_addr, state))
-        
     def apply_config_in_dut(self, duthost, config, name="vxlan"):
         '''
             The given json(config) will be copied to the DUT and loaded up.
@@ -268,8 +225,7 @@ class Ecmp_Utils:
             "NEIGH" : {
         ''' + ",\n".join(config_list) + '''\n}\n}'''
 
-        #self.apply_config_in_dut(duthost, full_config, name="vnet_nbr_"+af)
-
+        self.apply_config_in_dut(duthost, full_config, name="vnet_nbr_"+af)
         return return_dict
 
     def create_vnets(self, duthost, tunnel_name, vnet_count=1, scope=None, vni_base=10000, vnet_name_prefix="Vnet"):
@@ -325,7 +281,6 @@ class Ecmp_Utils:
                 '''"PORTCHANNEL_INTERFACE": {\n''' + ",\n".join(po_config_list) + '''}''')
 
         full_config = '''{\n''' + ",\n".join(full_config_list) + '''}'''
-        self.apply_config_in_dut(duthost, full_config, "vnet_intf")
         return ret_list
 
     def configure_vxlan_switch(self, duthost, vxlan_port=4789, dutmac=None):
@@ -354,6 +309,7 @@ class Ecmp_Utils:
 
         duthost.copy(content=config, dest="/tmp/{}".format(filename))
         duthost.shell('docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(filename))
+        Logger.info("Wait for {} seconds for the config to take effect.".format(0.0005*getsizeof(config) + 1))
         time.sleep(int(0.0005*getsizeof(config)) + 1)
         if not self.Constants['KEEP_TEMP_FILES']:
             duthost.shell("rm /tmp/{}".format(filename))
@@ -364,7 +320,7 @@ class Ecmp_Utils:
             nexthop_list.append(self.get_ip_address(af=af, netid=prefix, hostid=10))
         return nexthop_list
 
-    def create_vnet_routes(self, duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000, dest_net_prefix=150, nexthop_prefix=100, bfd = None):
+    def create_vnet_routes(self, duthost, vnet_list, dest_af, nh_af, nhs_per_destination=1, number_of_available_nexthops=100, number_of_ecmp_nhs=1000, dest_net_prefix=150, nexthop_prefix=100, bfd=False):
         '''
             This configures the VNET_TUNNEL_ROUTES structure. It precalculates the required number of
             destinations based on the given "number_of_ecmp_nhs" and the "nhs_per_destination".
@@ -417,7 +373,12 @@ class Ecmp_Utils:
         else:
             raise RuntimeError("Invalid format for encap_type:{}".format(encap_type))
 
-    def create_single_route(self, vnet, dest, mask, nhs, op, bfd = None):
+    def create_and_apply_config(self, duthost, vnet, dest, mask, nhs, op, bfd=False):
+        config = self.create_single_route(vnet, dest, mask, nhs, op, bfd=bfd)
+        json_config = '[\n' + config + '\n]'
+        self.apply_config_in_swss(duthost, json_config, op + "_vnet_route")
+
+    def create_single_route(self, vnet, dest, mask, nhs, op, bfd=False):
         '''
             Create a single route entry for vnet, for the given dest, through the endpoints:nhs, op:SET/DEL
         '''
@@ -452,7 +413,7 @@ class Ecmp_Utils:
             # :0: gets removed in the IPv6 addresses. Adding a to octets, to avoid it.
             return "fddd:a{}:a{}::a{}:{}".format(first_octet, second_octet, third_octet, hostid)
 
-    def set_routes_in_dut(self, duthost, dest_to_nh_map, dest_af, op, bfd = None):
+    def set_routes_in_dut(self, duthost, dest_to_nh_map, dest_af, op, bfd=False):
         config_list = []
         for vnet in dest_to_nh_map.keys():
             for dest in dest_to_nh_map[vnet].keys():
@@ -485,7 +446,7 @@ class Ecmp_Utils:
             if v['state'] == 'established':
                 if k in down_list:
                     # The neighbor is supposed to be down, and is actually up.
-                    logger.info("Neighbor %s is established, but should be down.", k)
+                    Logger.info("Neighbor %s is established, but should be down.", k)
                     return False
                 else:
                     # The neighbor is supposed to be up, and is actually up.
@@ -496,7 +457,7 @@ class Ecmp_Utils:
                     continue
                 else:
                     # The neighbor is supposed to be up, but is actually down.
-                    logger.info("Neighbor %s is not yet established, has state: %s", k, v['state'])
+                    Logger.info("Neighbor %s is not yet established, has state: %s", k, v['state'])
                     return False
 
         # Now wait for the routes to be updated.
@@ -573,26 +534,40 @@ class Ecmp_Utils:
             ret_list.append(minigraph_facts["minigraph_ptf_indices"][iface])
         return ret_list
 
-    def ptf_config(self, duthost, ptfhost, tbinfo, delete_member_a1 = None, delete_member_a2 = None):
-        responder_output = ptfhost.command('supervisorctl stop bfd_responder', module_ignore_errors=True)
-        responder_output = responder_output['stdout_lines'][0]
-        if responder_output not in ['bfd_responder: stopped','bfd_responder: ERROR (not running)']:
-            raise RuntimeError("Something is wrong with bfd_responder. Please check")
-        time.sleep(2)
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for element in mg_facts['minigraph_lo_interfaces']:
-            if element['prefixlen'] == 32:
-                loopback_addr = element['addr']
-            # elif element['prefixlen'] == 128:
-            #     loopback_addr = element['addr']
-        ptf_indices = mg_facts['minigraph_ptf_indices'].values()
-        ptfhost.copy(src="../tests/vxlan/bfd_sniffer.py", dest="/tmp/bfd_sniffer.py")
-        ptfhost.command("python /tmp/bfd_sniffer.py {} {}".format(delete_member_a1, delete_member_a2))
-        ptfhost.copy(src=self.BFD_RESPONDER_SCRIPT_SRC_PATH, dest=self.BFD_RESPONDER_SCRIPT_DEST_PATH)
-        extra_vars = {"bfd_responder_args" : "-c {}".format("/tmp/ptf_config.json")}
+    def start_bfd_responder(self, ptfhost, t2_ports, dut_mac, dut_loop_ips, monitor_file):
+        ptfhost.copy(dest=monitor_file, content="\n\n\n")
+
+        extra_vars = {"bfd_responder_args" : 'dut_mac=u"{}";dut_loop_ips={};monitor_file="{}"'.format(dut_mac, str(dut_loop_ips).replace('\'','"'), monitor_file)}
+        try:
+            ptfhost.command('supervisorctl stop bfd_responder')
+        except:
+            pass
+
         ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
-        ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
+        supervisor_conf_content = '''
+[program:bfd_responder]
+command=ptf --test-dir /root/ptftests bfd_responder.BFD_Responder --platform-dir /root/ptftests  --relax  --platform remote -t 'dut_mac=u"{}";dut_loop_ips={};monitor_file="{}"'
+process_name=bfd_responder
+stdout_logfile=/tmp/bfd_responder.out.log
+stderr_logfile=/tmp/bfd_responder.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1
+'''.format(dut_mac, str(dut_loop_ips).replace('\'','"'), monitor_file)
+        ptfhost.copy(content=supervisor_conf_content, dest='/etc/supervisor/conf.d/bfd_responder.conf')
+
         ptfhost.command('supervisorctl reread')
         ptfhost.command('supervisorctl update')
         ptfhost.command('supervisorctl start bfd_responder')
-        
+
+    def stop_bfd_responder(self, ptfhost):
+        try:
+            ptfhost.command('supervisorctl stop bfd_responder')
+        except:
+            pass
+        ptfhost.command('supervisorctl remove bfd_responder')
+
+    def update_monitor_file(self, ptfhost, monitor_file, intf_list, ip_address_list):
+        ptfhost.copy(dest=monitor_file, content="{}\n{}\n".format(",".join(map(str,intf_list)), ",".join(ip_address_list)))
