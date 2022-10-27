@@ -1,6 +1,8 @@
 import logging
 import pytest
 import time
+from ptf.mask import Mask
+import ptf.packet as scapy
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -9,10 +11,13 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service          # lgtm
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
 from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config
+from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm
 from ptf import testutils
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
+from tests.common.helpers.pfc_storm import PFCStorm
 
 
 pytestmark = [
@@ -24,6 +29,8 @@ logger = logging.getLogger(__name__)
 SERVER_IP = "192.168.0.2"
 DUMMY_IP = "1.1.1.1"
 DUMMY_MAC = "aa:aa:aa:aa:aa:aa"
+
+PFC_PKT_COUNT = 5000000 # Cost 16 seconds
 
 @pytest.fixture(scope='module', autouse=True)
 def check_running_condition(tbinfo, duthost):
@@ -180,7 +187,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
             rand_selected_dut.shell('sonic-clear queuecounters')
             time.sleep(1)
             # Send tunnel packets
-            testutils.send_packet(ptfadapter, src_port, tunnel_packet, PKT_NUM)
+            testutils.send(ptfadapter, src_port, tunnel_packet, PKT_NUM)
             # Wait 2 seconds for queue counter to be refreshed
             time.sleep(2)
             # Verify counter at expected queue at the server facing port
@@ -189,6 +196,116 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
 
     finally:
         counter_poll_config(rand_selected_dut, 'queue', 10000)
+
+
+def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+    """
+    The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
+    Test steps:
+    1. Toggle mux ports to rand_unselected_dut, so all mux ports are standby on the selected ToR
+    2. Generate packets with different DSCPs, ingress to standby ToR. The traffic will be bounced back to T1
+    3. Generate PFC pause on fanout switch (T1 ports)
+    4. Verify lossless traffic are paused
+    """
+    TEST_DATA = {
+        # Inner DSCP, Outer DSCP, Priority
+        (3, 2, 2),
+        (4, 6, 6)
+    }
+    dualtor_meta = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
+    # Always select the last port in the last LAG as src_port
+    src_port = _last_port_in_last_lag(t1_ports)
+    # The encapsulated packets can egress from any uplink port
+    dst_ports = []
+    for ports in t1_ports.values():
+        dst_ports.extend(ports)
+    active_tor_mac = rand_unselected_dut.facts['router_mac']
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    for inner_dscp, outer_dscp, prio in TEST_DATA:
+        pkt, exp_pkt = build_testing_packet(src_ip=DUMMY_IP,
+                                            dst_ip=SERVER_IP,
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                            active_tor_ip=dualtor_meta['active_tor_ip'],
+                                            standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                            inner_dscp=inner_dscp,
+                                            outer_dscp=outer_dscp,
+                                            ecn=1)
+        # Ingress packet from uplink port
+        testutils.send(ptfadapter, src_port, pkt, 1)
+        # Get the actual egress port
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+        actual_port = dst_ports[result[0]]
+        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, actual_port)
+        storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
+                                    pfc_queue_idx=prio,
+                                    pfc_frames_number=PFC_PKT_COUNT,
+                                    peer_info=peer_info)
+        try:
+            # Start PFC storm from leaf fanout switch
+            start_pfc_storm(storm_handler, peer_info, prio)
+            # Send testing packet again
+            testutils.send_packet(ptfadapter, src_port, pkt, 1)
+            # The packet should be paused
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
+        finally:
+            stop_pfc_storm(storm_handler)
+
+
+def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+    """
+    The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
+    Test steps:
+    1. Toggle mux ports to rand_selected_dut, so all mux ports are standby on the unselected ToR
+    2. Generate IPinIP packets with different DSCP combinations, ingress to active ToR.
+    3. Generate PFC pause on fanout switch (Server facing ports)
+    4. Verify lossless traffic are paused
+    """
+    TEST_DATA = {
+        # Inner DSCP, Outer DSCP, Priority
+        (3, 2, 3),
+        (4, 6, 4)
+    }
+    dualtor_meta = dualtor_info(ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
+    t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
+    # Always select the last port in the last LAG as src_port
+    src_port = _last_port_in_last_lag(t1_ports)
+    active_tor_mac = rand_selected_dut.facts['router_mac']
+    mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+    for inner_dscp, outer_dscp, prio in TEST_DATA:
+        pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
+                                            dst_ip=dualtor_meta['target_server_ip'],
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                            active_tor_ip=dualtor_meta['active_tor_ip'],
+                                            standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                            inner_dscp=inner_dscp,
+                                            outer_dscp=outer_dscp,
+                                            ecn=1)
+        # Ingress packet from uplink port
+        testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
+        pkt.ttl -= 2 # TTL is decreased by 1 at tunnel forward and decap,
+        exp_pkt = Mask(pkt)
+        exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        # Verify packet is decapsulated and egress to server
+        testutils.verify_packet(ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
+        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, dualtor_meta['target_server_port'])
+        storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
+                                    pfc_queue_idx=prio,
+                                    pfc_frames_number=PFC_PKT_COUNT,
+                                    peer_info=peer_info)
+        try:
+            # Start PFC storm from leaf fanout switch
+            start_pfc_storm(storm_handler, peer_info, prio)
+            # Send testing packet again
+            testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
+            # The packet should be paused
+            testutils.verify_no_packet(ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
+        finally:
+            stop_pfc_storm(storm_handler)
 
 
 def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module):

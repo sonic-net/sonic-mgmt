@@ -264,6 +264,40 @@ def toggle_mux_to_host(duthost):
     pytest_assert(TIMEOUT > 0, "Failed to toggle muxcable to {}".format(duthost.hostname))
 
 
+def leaf_fanout_peer_info(duthost, conn_graph_facts, mg_facts, port_idx):
+    dut_intf_paused = ""
+    for port, indice in mg_facts['minigraph_ptf_indices'].items():
+        if indice == port_idx:
+            dut_intf_paused = port
+            break
+    pytest_assert(dut_intf_paused, "Failed to find port for idx {}".format(port_idx))
+
+    peer_device = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerdevice']
+    peer_port = conn_graph_facts['device_conn'][duthost.hostname][dut_intf_paused]['peerport']
+    peer_info = {
+                    'peerdevice': peer_device,
+                    'pfc_fanout_interface': peer_port
+                }
+    return peer_info
+
+
+def start_pfc_storm(storm_handler, peer_info, prio):
+    """
+    Start sending PFC pause frames from fanout switch
+    """
+    storm_handler.deploy_pfc_gen()
+    storm_handler.start_storm()
+    # Wait for PFC pause frame generation
+    time.sleep(2)
+
+
+def stop_pfc_storm(storm_handler):
+    """
+    Stop sending PFC pause frames from fanout switch
+    """
+    storm_handler.stop_storm()
+
+
 def run_ptf_test(ptfhost, test_case='', test_params={}):
     """
     A helper function to run test script on ptf host
