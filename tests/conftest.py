@@ -1754,7 +1754,7 @@ def __dut_reload(duts_data, node=None, results=None):
                 outfile.write(json.dumps(duts_data[node.hostname]['pre_running_config'][asic_ns], indent=4))
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
 
-    config_reload(node)
+    config_reload(node, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
