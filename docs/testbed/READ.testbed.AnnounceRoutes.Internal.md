@@ -16,6 +16,7 @@ Get the configuration of all neighbor VMs, and use different rules to generate r
 |t2|core|leaf|
 |t0-mclag|leaf|N/A|
 |m0|m1|mx|
+|mx|m0|N/A|
 
 ## M0
 

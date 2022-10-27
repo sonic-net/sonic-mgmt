@@ -188,9 +188,9 @@ The MX type topology is to simulate a SONiC DUT running as a BMC Management ToR 
 
 ![](./img/testbed-mx.png)
 
-* The DUT has 49 ports.
+* The DUT has 48 ports.
 * Requires 2 VMs.
-* The first 47 ports are connected to PTF docker simulating servers.
+* The first 46 ports are connected to PTF docker simulating servers.
 * The last 2 ports are connected to 2 VMs simulating upstream M0 neighbors. No port-channel is configured for the links between DUT and M0 neighbors.
 
 ### PTF type topology
