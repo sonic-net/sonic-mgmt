@@ -1,8 +1,8 @@
 <domain type='kvm'>
-  <name>{{ dut_name }}</name>
-  <memory unit='MB'>24576</memory>
-  <currentMemory unit='MB'>24576</currentMemory>
-  <vcpu placement='static'>8</vcpu>
+  <name>{{ vm_name }}</name>
+  <memory unit='MB'>16384</memory>
+  <currentMemory unit='MB'>16384</currentMemory>
+  <vcpu placement='static'>4</vcpu>
   <resource>
     <partition>/machine</partition>
   </resource>
@@ -30,16 +30,50 @@
       <source file='{{ disk_image }}'/>
       <target dev='vda' bus='virtio'/>
     </disk>
-    <controller type='usb' index='0'>
-      <alias name='usb0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
-    </controller>
-    {% for i in range(0, 11) %}
+
+    <!-- HostInterfaceSection (order: mgmt/ha/development) -->
+
+    <!-- Host Interface 1 -->
+    <interface type='bridge'>
+      <source bridge='{{ mgmt_bridge }}'/>
+      <target dev='{{ mgmt_tap }}'/>
+      <model type='virtio'/>
+      <driver name='qemu'>
+      </driver>
+    </interface>
+
+    <!-- Host Interface 2 -->
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='intfLx-{{ vm_name }}-2'/>
+    </interface>
+
+    <!-- Host Interface 3 -->
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='intfLx-{{ vm_name }}-3'/>
+    </interface>
+
+    <!-- DataInterfaceSection (order: GIGE0, GIGE1 .. etc) -->
+
+    <!-- Skip below interface GIGE0, to be compliant with sonic and arista which start index is 1 -->
     <interface type='ethernet'>
       <model type='e1000'/>
-      <target dev='{{dut_name}}-{{i}}'/>
+      <target dev='intfXr-{{ vm_name }}-1'/>
     </interface>
-    {% endfor %}
+
+{% for fp_num in range(0, max_fp_num) %}
+    <interface type='bridge'>
+      <model type='e1000'/>
+      <source bridge='br-{{ vm_name }}-{{ fp_num }}'/>
+      <target dev='{{ vm_name }}-t{{ fp_num }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+{% endfor %}
+    <interface type='ethernet'>
+      <model type='e1000'/>
+      <target dev='{{ backplane_tap }}'/>
+    </interface>
     <serial type='tcp'>
       <source mode='bind' host='127.0.0.1' service='{{ serial_port }}'/>
       <protocol type='telnet'/>

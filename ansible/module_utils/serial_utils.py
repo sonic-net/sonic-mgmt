@@ -12,20 +12,26 @@ def encode(arg):
     else:
         return arg
 
+
 class EMatchNotFound(Exception):
     pass
+
 
 class ELoginPromptNotFound(Exception):
     pass
 
+
 class EWrongDefaultPassword(Exception):
     pass
+
 
 class ENotInConfigMode(Exception):
     pass
 
+
 class EPasswordSetFailed(Exception):
     pass
+
 
 class SerialSession(object):
     def __init__(self, port):
@@ -74,6 +80,7 @@ class CiscoSerial(SerialSession):
 
     def set_account(self, user, password):
         try:
+            time.sleep(60*10)
             logging.debug('## Waiting system start up')
             self.pair('\r\n', [r'Press RETURN to get started.', r'Enter root-system username:'], 1200)
 
@@ -89,7 +96,7 @@ class CiscoSerial(SerialSession):
             self.pair(password, [r'Enter secret again:'])
             self.pair(password, None)
         except EMatchNotFound:
-            logging.debug('The original password "%s" is not working' % self.password)
+            logging.debug('The original password is not working')
             raise EWrongDefaultPassword
         return
 
@@ -119,8 +126,8 @@ class JuniperSerial(SerialSession):
             # Input the password only if the prompt is 'Password:'
             if index == 1:
                 self.pair(password, [r'#\s*$'])
-        except EMatchNotFound as e:
-            logging.debug('The original password "%s" is not working' % password)
+        except EMatchNotFound:
+            logging.debug('The original password is not working')
             raise EWrongDefaultPassword
         return
 
@@ -131,7 +138,7 @@ class JuniperSerial(SerialSession):
             self.pair(password, [r'#\s*$'])
             self.pair('commit', [r'#\s*$'])
         except EMatchNotFound:
-            logging.debug('Setting password "%s" failed' % password)
+            logging.debug('Setting password failed')
             raise EPasswordSetFailed
         return
 
@@ -144,28 +151,6 @@ class JuniperSerial(SerialSession):
         super().logout()
         return
 
-class AristaSerial(SerialSession):
-    def __init__(self, port):
-        super(AristaSerial, self).__init__(port)
-
-    def login(self, user, password):
-        try:
-            logging.debug('## Getting the login prompt')
-            self.pair('\r', [r'login:'], 240)
-        except EMatchNotFound:
-            logging.debug('No login prompt is found')
-            raise ELoginPromptNotFound
-
-        logging.debug('## Getting the password prompt')
-        index_password = self.pair(user, [r'assword:', r'>'], 20)
-        if index_password == 0:
-            try:
-                logging.debug('## Inputing password')
-                self.pair(password, [r'>'], 10)
-            except EMatchNotFound:
-                logging.debug('The original password "%s" is not working' % password)
-                raise EWrongDefaultPassword
-        return
 
 def core(module, session, name):
     prompt_code = name + '_code'

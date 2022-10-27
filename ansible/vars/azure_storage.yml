@@ -3,3 +3,4 @@ vmimage_saskey: "{{ secret_vars['azure_storage']['vmimage_saskey'] }}"
 cdimage_saskey: "{{ secret_vars['azure_storage']['cdimage_saskey'] }}"
 ceosimage_saskey: "{{ secret_vars['azure_storage']['ceosimage_saskey'] }}"
 k8s_vmimage_saskey: use_own_value
+vciscoimage_saskey: use_own_value

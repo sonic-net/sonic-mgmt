@@ -610,11 +610,11 @@ def creds_on_dut(duthost):
     groups.append("fanout")
     logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
     exclude_regex_patterns = [
-        'topo_.*\.yml',
-        'breakout_speed\.yml',
-        'lag_fanout_ports_test_vars\.yml',
-        'qos\.yml',
-        'mux_simulator_http_port_map\.yml'
+        r'topo_.*\.yml',
+        r'breakout_speed\.yml',
+        r'lag_fanout_ports_test_vars\.yml',
+        r'qos\.yml',
+        r'mux_simulator_http_port_map\.yml'
         ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
@@ -1773,7 +1773,20 @@ def core_dump_and_config_check(duthosts, request):
 
             # Check if the running config is modified after module running
             for key in common_config_keys:
-                if duts_data[duthost.hostname]["pre_running_config"][key] != \
+                #TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                if key == "FLEX_COUNTER_TABLE":
+                    for sub_key,sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
+                        if duts_data[duthost.hostname]["pre_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"] != \
+                                duts_data[duthost.hostname]["cur_running_config"][key][sub_key]["FLEX_COUNTER_STATUS"]:
+                            inconsistent_config[duthost.hostname].update(
+                                {
+                                    key: {
+                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
+                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                    }
+                                }
+                            )
+                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
                     duts_data[duthost.hostname]["cur_running_config"][key]:
                     inconsistent_config[duthost.hostname].update(
                         {
