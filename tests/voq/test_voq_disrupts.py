@@ -155,7 +155,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
 
 
 @pytest.mark.skip(reason="Not yet implemented - reboot of supervisor does not reset line cards.")
-def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
+def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after supervisor reset, all cards should reboot and interfaces/neighbors should be in sync across
     the system.
@@ -172,14 +172,12 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Coldboot on node: %s", duthosts.supervisor_nodes[0].hostname)
     logger.info("-" * 80)
 
-    reboot(duthosts.supervisor_nodes[0], localhost, wait=600)
-    assert wait_until(300, 20, duthosts.supervisor_nodes[0].critical_services_fully_started), "Not all critical services are fully started"
     reboot(duthosts.supervisor_nodes[0], localhost, wait=240)
     assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started), "Not all critical services are fully started"
 
@@ -190,10 +188,10 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
 
-def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
+def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after all cards are explicitly reset, interfaces/neighbors should be in sync across the system.
 
@@ -216,7 +214,7 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Coldboot on all nodes")
@@ -225,8 +223,10 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     t0 = time.time()
 
     parallel_run(reboot_node, [localhost], {}, duthosts.nodes, timeout=1000)
+
     for node in duthosts.nodes:
         assert wait_until(300, 20, 2, node.critical_services_fully_started), "Not all critical services are fully started"
+
     poll_bgp_restored(duthosts)
 
     t1 = time.time()
@@ -241,10 +241,10 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
 
-def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
+def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after a config reload on a linecard, interfaces/neighbors should be in sync across the system.
 
@@ -259,7 +259,7 @@ def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Config reload on node: %s", duthosts.frontend_nodes[0].hostname)
@@ -272,4 +272,4 @@ def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("Postcheck")
     logger.info("-" * 80)
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
