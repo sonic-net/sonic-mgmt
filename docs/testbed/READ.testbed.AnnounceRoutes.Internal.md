@@ -9,6 +9,8 @@ In this method, we generate routes for different topos by configuration defined 
 
 Get the configuration of all neighbor VMs, and use different rules to generate routes according to the router type of the neighbor. Then send post requests to the exabgp processes running in the PTF container to announce routes to DUT.
 
+It should be noted that, in general, the IPv6 prefix length should be less than 64.
+
 |topo type|upstream router type|downstream router type|
 |:----:|:----:|:----:|
 |t0|leaf|N/A|
