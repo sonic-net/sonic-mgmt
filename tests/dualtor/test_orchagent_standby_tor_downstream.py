@@ -4,10 +4,10 @@ import time
 import logging
 import ipaddress
 import contextlib
-import time
 
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
+from tests.common.dualtor.dual_tor_mock import set_mux_state, is_t0_mocked_dualtor, is_mocked_dualtor
 from tests.common.dualtor.dual_tor_utils import dualtor_info
 from tests.common.dualtor.dual_tor_utils import check_tunnel_balance
 from tests.common.dualtor.dual_tor_utils import flush_neighbor
@@ -15,16 +15,16 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
-from tests.common.fixtures.ptfhost_utils import run_garp_service
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder  # noqa: F401 # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor  # noqa: F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
-from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa: F401
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions  # noqa: F401
 from tests.common.utilities import wait_until
 
 
@@ -193,6 +193,7 @@ def test_standby_tor_downstream_bgp_recovered(
     params = get_testbed_params()
     check_tunnel_balance(**params)
 
+
 def route_matches_expected_state(duthost, route_ip, expect_route):
     get_route_cmd = "ip route | grep -w {}".format(route_ip)
     rc = int(duthost.shell(get_route_cmd, module_ignore_errors=True)['rc'])
@@ -200,7 +201,7 @@ def route_matches_expected_state(duthost, route_ip, expect_route):
 
 
 @pytest.fixture
-def remove_peer_loopback_route(rand_unselected_dut, shutdown_bgp_sessions):
+def remove_peer_loopback_route(rand_unselected_dut, shutdown_bgp_sessions):  # noqa: F811
     """
     Remove routes to peer ToR loopback IP by shutting down BGP sessions on the peer
     """
@@ -212,11 +213,15 @@ def remove_peer_loopback_route(rand_unselected_dut, shutdown_bgp_sessions):
 
     yield _remove_peer_loopback_route
 
-    # The `shutdown_bgp_sessions` fixture already restores BGP sessions during teardown so we 
+    # The `shutdown_bgp_sessions` fixture already restores BGP sessions during teardown so we
     # don't need to do it here
     rand_unselected_dut.shell("config mux mode auto all")
 
-def test_standby_tor_downstream_loopback_route_readded(rand_selected_dut, rand_unselected_dut, get_testbed_params, tbinfo, remove_peer_loopback_route):
+
+def test_standby_tor_downstream_loopback_route_readded(
+    rand_selected_dut, rand_unselected_dut, get_testbed_params,
+    tbinfo, remove_peer_loopback_route
+):
     """
     Verify traffic is equally distributed via loopback route
     """
@@ -249,7 +254,7 @@ def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
     require_mocked_dualtor, set_crm_polling_interval,
-    tunnel_traffic_monitor, vmhost, get_testbed_params,
+    tunnel_traffic_monitor, vmhost, get_testbed_params,  # noqa: F811
     ip_version
 ):
     """
@@ -305,8 +310,8 @@ def test_standby_tor_remove_neighbor_downstream_standby(
 def test_downstream_standby_mux_toggle_active(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    require_mocked_dualtor, tunnel_traffic_monitor,
-    vmhost, toggle_all_simulator_ports, tor_mux_intfs,
+    require_mocked_dualtor, tunnel_traffic_monitor,  # noqa: F811
+    vmhost, toggle_all_simulator_ports, tor_mux_intfs,  # noqa: F811
     ip_version, get_testbed_params
 ):
     # set rand_selected_dut as standby and rand_unselected_dut to active tor
