@@ -532,6 +532,7 @@ def fib_m0(topo, ptf_ip, action="announce"):
     mx_subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
     mx_asn_start = common_config.get("mx_asn_start", MX_ASN_START)
+    # In general, IPv5 prefix length should be less then 64
     m0_subnet_prefix_len_v6 = common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6)
     mx_subnet_prefix_len_v6 = common_config.get("mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6)
 
@@ -694,6 +695,8 @@ def fib_mx(topo, ptf_ip, action="announce"):
     mx_subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     mx_subnet_number = common_config.get("mx_subnet_number", MX_SUBNET_NUMBER)
     mx_asn_start = common_config.get("mx_asn_start", MX_ASN_START)
+
+    # In general, IPv5 prefix length should be less then 64
     m0_subnet_prefix_len_v6 = common_config.get("m0_subnet_prefix_len_v6", M0_SUBNET_PREFIX_LEN_V6)
     mx_subnet_prefix_len_v6 = common_config.get("mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6)
     mx_number = common_config.get("mx_number", MX_NUMBER)
