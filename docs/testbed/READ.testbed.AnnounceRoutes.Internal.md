@@ -52,3 +52,36 @@ We would have the following distribution:
 - Routes announced by per MX routes, total number: 1 + mx_subnet_number
    - 1 loopback route.
    - Subunet routes of MX, count: mx_subnet_number.
+
+## MX
+
+### Design
+
+For MX, we have 1 set of routes that we are going to advertise:
+- Routes are advertised by the upstream VMs (M0 devices).
+
+The picture below shows how the routes is announces to DUT. The green arrow indicates direct subnet routes of M0 connected to DUT. The blue arrows indicate downstream routes of M0 connected to DUT. The origin arrows indicate upstream routes of M0 connected to DUT. The gray arrow indicates all routes that M0 announced to DUT. The yellow line indicates subnets that directly connected to DUT, which need to be skipped when generating routes.
+![](./img/announce_routes_mx.png)
+
+### Details
+
+Some definitions:
+|definition|description|
+|:----|:----|
+|colo|cluster of M0 devices|
+|colo_number|number of COLOs|
+|m0_number|number of subnet in a M0|
+|m0_subnet_number|number of members in a M0 subnet|
+|mx_number|number of MXs connected to a M0|
+|mx_subnet_number|number of subnets in a MX|
+
+The total number of routes are controlled by the colo_number, m0_number, mx_subnet_number, m0_subnet_number and mx_number.
+Routes announced by M0 can be broken down to 5 sets:
+   - 1 default route, prefix: 0.0.0.0/0.
+   - 1 loopback route.
+   - Direct subnet routes of M0 connected to DUT, 
+     count: m0_subnet_number
+   - Subnet routes of MX connected to M0 connected to DUT, 
+     count: (mx_number - 1) * mx_subnet_number.
+   - Upstream routes of M0 connected to DUT,
+     count: (colo_number * m0_number - 1) * (mx_number * mx_subnet_number + m0_subnet_number).
