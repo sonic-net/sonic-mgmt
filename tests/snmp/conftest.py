@@ -9,9 +9,9 @@ def setup_check_snmp_ready(duthosts):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def enable_queue_counterpoll_type(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.command('counterpoll queue enable')
+def enable_queue_counterpoll_type(duthosts):
+    for duthost in duthosts:
+        duthost.command('counterpoll queue enable')
 
 
 def pytest_addoption(parser):
