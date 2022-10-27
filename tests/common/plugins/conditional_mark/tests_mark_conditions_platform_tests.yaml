@@ -460,6 +460,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
       - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
+    conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
  
