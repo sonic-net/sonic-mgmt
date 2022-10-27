@@ -365,6 +365,7 @@ class DualTorIO:
         self.sender_thr = InterruptableThread(target=sender)
         self.sniff_thr = InterruptableThread(target=sniffer)
         self.sniffer_started = threading.Event()
+        self.stop_sniffer = threading.Event()
         self.sniff_thr.set_error_handler(lambda *args, **kargs: self.sniffer_started.set())
         self.sender_thr.set_error_handler(lambda *args, **kargs: self.io_ready_event.set())
         self.sniff_thr.start()
@@ -417,6 +418,7 @@ class DualTorIO:
         logger.info("Stop the sniffer thread gracefully: sending SIGINT to ptf process")
         self.ptfhost.command("pkill -SIGINT -f {}".format(self.ptf_sniffer),\
             module_ignore_errors=True)
+        self.stop_sniffer.set()
 
 
     def get_server_address(self, packet):
@@ -454,23 +456,34 @@ class DualTorIO:
             ptf_bp_mac = output['stdout']
             sniff_filter = '({}) and (not ether dst {})'.format(sniff_filter, ptf_bp_mac)
 
+        capture_pcap = '/tmp/capture.pcap'
+        capture_log = '/tmp/capture.log'
         scapy_sniffer = InterruptableThread(
             target=self.scapy_sniff,
             kwargs={
+                'capture_pcap': capture_pcap,
+                'capture_log': capture_log,
                 'sniff_timeout': wait,
                 'sniff_filter': sniff_filter
             }
         )
+
         scapy_sniffer.start()
         time.sleep(10)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
         scapy_sniffer.join()
+
         logger.info("Sniffer finished running after {}".\
             format(str(datetime.datetime.now() - sniffer_start)))
+        logger.info('Fetching pcap file from ptf')
+        self.ptfhost.fetch(src=capture_pcap, dest='/tmp/', flat=True, fail_on_missing=False)
+        self.all_packets = scapyall.rdpcap(capture_pcap)
+        logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
+
         self.sniffer_started.clear()
 
 
-    def scapy_sniff(self, sniff_timeout=180, sniff_filter=''):
+    def scapy_sniff(self, capture_pcap, capture_log, sniff_timeout=180, sniff_filter=''):
         """
         @summary: PTF runner -  runs a sniffer in PTF container.
         Running sniffer in sonic-mgmt container has missing SOCKET problem
@@ -483,18 +496,28 @@ class DualTorIO:
             sniff_timeout (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
-        capture_pcap = '/tmp/capture.pcap'
-        capture_log = '/tmp/capture.log'
+
+        def is_sniffer_running():
+            return bool(
+                self.ptfhost.command(
+                    '/usr/bin/pgrep -f "python %s"' % self.ptf_sniffer
+                )["stdout"]
+            )
+
         self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
-        self.ptfhost.command(
-            'python {} -f "{}" -p {} -l {} -t {}'.format(
+        self.ptfhost.shell(
+            'nohup python {} -f "{}" -p {} -l {} -t {} &'.format(
                 self.ptf_sniffer, sniff_filter, capture_pcap, capture_log, sniff_timeout
             )
         )
-        logger.info('Fetching pcap file from ptf')
-        self.ptfhost.fetch(src=capture_pcap, dest='/tmp/', flat=True, fail_on_missing=False)
-        self.all_packets = scapyall.rdpcap(capture_pcap)
-        logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
+
+        check_time, check_interval = 0, 2
+        while not self.stop_sniffer.is_set():
+            # only check sniffer running after sniff_timeout
+            if check_time >= sniff_timeout and not is_sniffer_running():
+                break
+            time.sleep(check_interval)
+            check_time += check_interval
 
 
     def get_test_results(self):
