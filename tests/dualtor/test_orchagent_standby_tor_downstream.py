@@ -194,7 +194,7 @@ def test_standby_tor_downstream_bgp_recovered(
     check_tunnel_balance(**params)
 
 def route_matches_expected_state(duthost, route_ip, expect_route):
-    get_route_cmd = "ip route | grep {}".format(route_ip)
+    get_route_cmd = "ip route | grep -w {}".format(route_ip)
     rc = int(duthost.shell(get_route_cmd, module_ignore_errors=True)['rc'])
     return rc == 0 if expect_route else 1
 
