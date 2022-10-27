@@ -55,7 +55,7 @@ parameters:
   - name: SKIP_SCRIPTS
     type: string
     default: "memory_checker/test_memory_checker.py \
-              arp/test_arp_dualtor.py \
+              arp/test_arp_extended.py \
               arp/test_wr_arp.py \
               iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup
               platform_tests/api/test_psu.py::TestPsuApi::test_power \
