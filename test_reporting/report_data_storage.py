@@ -194,12 +194,12 @@ class KustoConnector(ReportDBConnector):
             result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
 
-    def upload_swss_report_file(self, file) -> None:
+    def upload_swss_report_file(self, swss_file) -> None:
         """Upload a report to the back-end data store.
         Args:
             file: json
         """
-        self._upload_swss_log_file(file)
+        self._upload_swss_log_file(swss_file)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -232,8 +232,8 @@ class KustoConnector(ReportDBConnector):
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
 
-    def _upload_swss_log_file(self, file):
-        self._ingest_data_file(self.SWSSDATA_TABLE, file)
+    def _upload_swss_log_file(self, swss_file):
+        self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {
@@ -315,7 +315,7 @@ class KustoConnector(ReportDBConnector):
                 print("Ingest to backup cluster...")
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
 
-    def _ingest_data_file(self, table, file):
+    def _ingest_data_file(self, table, data_file):
         props = IngestionProperties(
             database=self.db_name,
             table=table,
@@ -324,4 +324,4 @@ class KustoConnector(ReportDBConnector):
             flush_immediately=True
         )
 
-        self._ingestion_client.ingest_from_file(file, ingestion_properties=props)
+        self._ingestion_client.ingest_from_file(data_file, ingestion_properties=props)
