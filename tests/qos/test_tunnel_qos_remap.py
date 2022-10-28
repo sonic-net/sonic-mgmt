@@ -222,6 +222,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
         dst_ports.extend(ports)
     active_tor_mac = rand_unselected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    ptfadapter.dataplane.flush()
     for inner_dscp, outer_dscp, prio in TEST_DATA:
         pkt, exp_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                             dst_ip=SERVER_IP,
@@ -273,6 +274,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
     src_port = _last_port_in_last_lag(t1_ports)
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+    ptfadapter.dataplane.flush()
     for inner_dscp, outer_dscp, prio in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                             dst_ip=dualtor_meta['target_server_ip'],
@@ -326,6 +328,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     else: 
         cell_size = 256
 
+    tunnel_qos_map = load_tunnel_qos_map()
     test_params = dict()
     test_params.update({
             "src_port_id": dut_config["lag_port_ptf_id"],
@@ -336,7 +339,8 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "standby_tor_mac": dut_config["unselected_tor_mac"],
             "standby_tor_ip": dut_config["unselected_tor_loopback"],
             "server": dut_config["selected_tor_mgmt"],
-            "inner_dscp_to_pg_map": dut_config["inner_dscp_to_pg_map"],
+            "inner_dscp_to_pg_map": tunnel_qos_map["inner_dscp_to_pg_map"],
+            "port_map_file": dut_config["port_map_file"],
             "sonic_asic_type": dut_config["asic_type"],
             "cell_size": cell_size
         })

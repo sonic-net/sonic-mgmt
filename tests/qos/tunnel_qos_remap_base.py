@@ -132,7 +132,6 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     unselected_tor_mac = rand_unselected_dut.facts['router_mac']
     unselected_tor_loopback = get_iface_ip(unselected_dut_mg_facts, 'Loopback0')
 
-    tunnel_qos_map = load_tunnel_qos_map()
     return {
         "asic_type": asic_type,
         "lag_port_name": lag_port_name,
@@ -147,7 +146,6 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
         "unselected_tor_mgmt": unselected_tor_mgmt,
         "unselected_tor_mac": unselected_tor_mac,
         "unselected_tor_loopback": unselected_tor_loopback,
-        "tc_to_priority_group_map": tunnel_qos_map['inner_dscp_to_pg_map'],
         "port_map_file": ptf_portmap_file_module
     }
 
