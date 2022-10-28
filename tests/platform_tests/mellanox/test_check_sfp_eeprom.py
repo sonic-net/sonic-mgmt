@@ -1,8 +1,5 @@
-import logging
 import pytest
-import re
 import allure
-import random
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from util import parse_sfp_eeprom_infos, check_sfp_eeprom_info, is_support_dom
@@ -47,7 +44,8 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
     """This test case is to check result of  transceiver eeprom with option -d is correct or not for every interface .
     It will do below checks for every available interface
         1. Check if all expected keys exist in the the result
-        2. When cable support dom, check the corresponding keys related to monitor exist, and the the corresponding value has correct format
+        2. When cable support dom, check the corresponding keys related to monitor exist,
+           and the the corresponding value has correct format
     """
     duthost = duthosts[rand_one_dut_hostname]
 

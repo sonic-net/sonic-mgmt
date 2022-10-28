@@ -1,11 +1,11 @@
 import re
 import logging
 
-pattern_top_layer_key_value = "^(?P<key>Ethernet\d+):(?P<value>.*)"
+pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
 pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
 pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/]+):(?P<value>.*)"
 
-pattern_digit_unit = "^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>dBm|mA|C|c|Volts)"
+pattern_digit_unit = r"^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>dBm|mA|C|c|Volts)"
 
 
 def parse_one_sfp_eeprom_info(sfp_eeprom_info):
@@ -17,7 +17,8 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
         Application Advertisement: N/A
         Connector: No separable connector
         Encoding: 64B/66B
-        Extended Identifier: Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h, CDR present in TX, CDR present in RX
+        Extended Identifier: Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h,
+                             CDR present in TX, CDR present in RX
         Extended RateSelect Compliance: Unknown
         Identifier: QSFP28 or later
         Length Cable Assembly(m): 3.0
@@ -79,7 +80,8 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
         'Application Advertisement': 'N/A',
         'Connector': 'No separable connector',
         'Encoding': '64B/66B',
-        'Extended Identifier': 'Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h, CDR present in TX, CDR present in RX',
+        'Extended Identifier': 'Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h,
+                               CDR present in TX, CDR present in RX',
         'Extended RateSelect Compliance': 'Unknown',
         'Identifier': 'QSFP28 or later',
         'Length Cable Assembly(m)': '3.0',
@@ -184,7 +186,8 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
     This method is check sfp info is correct or not.
     1. Check if all expected keys exist in the sfp_eeprom_info
     2. Check if Check Vendor name is Mellnaox and Vendor OUI is 00-02-c9
-    3. When cable support dom, check the corresponding keys related to monitor exist, and the the corresponding value has correct format
+    3. When cable support dom, check the corresponding keys related to monitor exist,
+       and the the corresponding value has correct format
     """
     logging.info("Check all expected keys exist in sfp info")
     expected_keys = set(["Application Advertisement", "Connector", "Encoding", "Extended Identifier",
@@ -198,7 +201,8 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
             # There is a bug:https://github.com/sonic-net/sonic-buildimage/issues/12357
             # So for SFP/SFP+/SFP28, we need do special handle
             expected_keys = set(["Connector", "EncodingCodes", "ExtIdentOfTypeOfTransceiver",
-                                 "NominalSignallingRate(UnitsOf100Mbd)", "RateIdentifier", "ReceivedPowerMeasurementType",
+                                 "NominalSignallingRate(UnitsOf100Mbd)", "RateIdentifier",
+                                 "ReceivedPowerMeasurementType",
                                  "VendorDataCode(YYYY-MM-DD Lot)", "TypeOfTransceiver", "TransceiverCodes",
                                  "VendorName", "VendorOUI", "VendorPN", "VendorRev", "VendorSN"])
             is_support_dom = False
@@ -224,10 +228,10 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
     assert is_length_key_exist, "Key related to Length doesn't exist in {} ".format(sfp_eeprom_info)
 
     if is_support_dom:
-        pattern_power = "^(?P<digit>-[0-9\.]+|[0-9.]+|-inf)(?P<unit>dBm$)"
-        pattern_bias = "^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>mA$)"
-        pattern_temp = "^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>[Cc]$)"
-        pattern_vcc = "^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>Volts$)"
+        pattern_power = r"^(?P<digit>-[0-9\.]+|[0-9.]+|-inf)(?P<unit>dBm$)"
+        pattern_bias = r"^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>mA$)"
+        pattern_temp = r"^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>[Cc]$)"
+        pattern_vcc = r"^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>Volts$)"
 
         expected_channel_threshold_values_keys_and_value_pattern = {"RxPowerHighAlarm": pattern_power,
                                                                     "RxPowerHighWarning": pattern_power,
