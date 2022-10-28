@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Runs commands on the remote host. 
+Runs commands on the remote host.
 
 Similar to [command](command.md) except that it runs commands through a shell `/bin/sh`.
 

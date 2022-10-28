@@ -59,7 +59,7 @@ Verify mirror session programming when neighbor MAC changes.
 ## Test Case #4: Mirror destination resolution change.
 
 ### Test Objective
-Verify that mirror session programming is updated when mirror destination resolution changes. 
+Verify that mirror session programming is updated when mirror destination resolution changes.
 
 ### Test Steps
 * Select one linecard for injecting packets.
