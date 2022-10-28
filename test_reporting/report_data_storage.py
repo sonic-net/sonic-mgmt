@@ -234,12 +234,10 @@ class KustoConnector(ReportDBConnector):
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
-<<<<<<< HEAD
     
     def _upload_swss_log_file(self, file):            
         self._ingest_data_file(self.SWSSDATA_TABLE, file)
     
-=======
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {
@@ -260,7 +258,6 @@ class KustoConnector(ReportDBConnector):
         print("Upload pipeline result")
         self._ingest_data(self.PIPELINE_TABLE, pipeline_data)
 
->>>>>>> 65662455... Enhance test report to include pipeline results (#5992)
     def _upload_metadata(self, report_json, external_tracking_id, report_guid):
         metadata = {
             "id": report_guid,

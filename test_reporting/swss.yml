@@ -17,6 +17,6 @@ swss_device_log_items:
   -
     log_path: /data/sonic-mgmt/test_reporting/
     os_version: '20181130.101'
-    deployment_type:  AzureAll
-    deployment_subtype: Compute
-    device: iad20-0101-0903-16t0
+    deployment_type:  "example_deployment_type"
+    deployment_subtype: "example_deployment_subtype"
+    device: "example_device_name"
