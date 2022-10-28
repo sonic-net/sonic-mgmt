@@ -3,6 +3,7 @@ import ipaddress
 import pytest
 import logging
 import json
+import yaml
 import time
 import ptf.packet as scapy
 from ptf.mask import Mask
@@ -146,10 +147,59 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
         "unselected_tor_mgmt": unselected_tor_mgmt,
         "unselected_tor_mac": unselected_tor_mac,
         "unselected_tor_loopback": unselected_tor_loopback,
-        "dscp_to_tc_map": tunnel_qos_map['dscp_to_tc_map'],
-        "tc_to_priority_group_map": tunnel_qos_map['tc_to_priority_group_map'],
+        "tc_to_priority_group_map": tunnel_qos_map['inner_dscp_to_pg_map'],
         "port_map_file": ptf_portmap_file_module
     }
+
+
+def _lossless_profile_name(dut, port_name, pgs='2-4'):
+    """
+    Read lossless PG name for given port
+    """
+    cmd = "sonic-db-cli APPL_DB hget \'BUFFER_PG_TABLE:{}:{}\' \'profile\'".format(port_name, pgs)
+    profile_name = dut.shell(cmd)['stdout']
+    pytest_assert(profile_name != "")
+    # The output can be pg_lossless_100000_300m_profile or [BUFFER_PROFILE_TABLE:pg_lossless_100000_300m_profile]
+    profile_name = profile_name.split(':')[-1].rstrip(']')
+    return profile_name
+
+
+@pytest.fixture(scope='module')
+def qos_config(rand_selected_dut, tbinfo, dut_config):
+    duthost = rand_selected_dut
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+
+    qos_configs = {}
+    with open(r"qos/files/qos.yml") as file:
+        qos_configs = yaml.load(file, Loader=yaml.FullLoader)
+    
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vendor = duthost.facts["asic_type"]
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    dut_asic = None
+    for asic in SUPPORTED_ASIC_LIST:
+        vendor_asic = "{0}_{1}_hwskus".format(vendor, asic)
+        if vendor_asic in hostvars.keys() and mg_facts["minigraph_hwsku"] in hostvars[vendor_asic]:
+            dut_asic = asic
+            break
+
+    pytest_assert(dut_asic, "Cannot identify DUT ASIC type")
+
+    dut_topo = "topo-"
+    topo = tbinfo["topo"]["name"]
+    if dut_topo + topo in qos_configs['qos_params'].get(dut_asic, {}):
+        dut_topo = dut_topo + topo
+    else:
+        # Default topo is any
+        dut_topo = dut_topo + "any"
+    
+    # Get profile name for src port
+    lag_port_name = dut_config["lag_port_name"]
+    profile_name = _lossless_profile_name(duthost, lag_port_name, '2-4')
+    profile_name = profile_name.lstrip('pg_lossless_').rstrip('_profile')
+
+    return qos_configs['qos_params'][dut_asic][dut_topo][profile_name]
+
 
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
     dut_asic = duthost.asic_instance()

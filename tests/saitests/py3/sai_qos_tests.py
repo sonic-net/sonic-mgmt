@@ -3362,3 +3362,130 @@ class PacketTransmit(sai_base_test.ThriftInterfaceDataPlane):
             packet_count, src_port_id
         ), file=sys.stderr)
         send_packet(self, src_port_id, pkt, packet_count)
+
+
+# PFC test on tunnel traffic (dualtor specific test case)
+class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
+
+    def _build_testing_ipinip_pkt(self, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, inner_dscp, outer_dscp, dst_ip, ecn=1, packet_size=64):
+        pkt = simple_tcp_packet(
+                pktlen=packet_size,
+                eth_dst=standby_tor_mac,
+                ip_src='1.1.1.1',
+                ip_dst=dst_ip,
+                ip_dscp=inner_dscp,
+                ip_ecn=ecn,
+                ip_ttl=64
+                )
+        # The pktlen is ignored if inner_frame is not None
+        ipinip_packet = simple_ipv4ip_packet(
+                            eth_dst=active_tor_mac,
+                            eth_src=standby_tor_mac,
+                            ip_src=standby_tor_ip,
+                            ip_dst=active_tor_ip,
+                            ip_dscp=outer_dscp,
+                            ip_ecn=ecn,
+                            inner_frame=pkt[scapy.IP]
+                            )
+        return ipinip_packet
+
+    def _build_testing_pkt(self, active_tor_mac, dscp, dst_ip, ecn=1, packet_size=64):
+        pkt = simple_tcp_packet(
+                pktlen=packet_size,
+                eth_dst=active_tor_mac,
+                ip_src='1.1.1.1',
+                ip_dst=dst_ip,
+                ip_dscp=dscp,
+                ip_ecn=ecn,
+                ip_ttl=64
+                )
+        return pkt
+
+    def runTest(self):
+        """
+        This test case is to verify PFC for tunnel traffic.
+        Traffic is ingressed from IPinIP tunnel(LAG port), and then being decaped at active tor, and then egress to server.
+        Tx is disabled on the egress port to trigger PFC pause.
+        """
+        switch_init(self.client)
+
+        # Parse input parameters
+        active_tor_mac = self.test_params['active_tor_mac']
+        active_tor_ip = self.test_params['active_tor_ip']
+        standby_tor_mac = self.test_params['standby_tor_mac']
+        standby_tor_ip = self.test_params['standby_tor_ip']
+        src_port_id = self.test_params['src_port_id']
+        dst_port_id = self.test_params['dst_port_id']
+        dst_port_ip = self.test_params['dst_port_ip']
+
+        inner_dscp = int(self.test_params['dscp'])
+        tunnel_traffic_test = False
+        if 'outer_dscp' in self.test_params:
+            outer_dscp = int(self.test_params['outer_dscp'])
+            tunnel_traffic_test = True
+        ecn = int(self.test_params['ecn'])
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
+
+        asic_type = self.test_params['sonic_asic_type']
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_size = int(self.test_params['packet_size'])
+        else:
+            packet_size = 64
+        if 'pkts_num_margin' in list(self.test_params.keys()):
+            pkts_num_margin = int(self.test_params['pkts_num_margin'])
+        else:
+            pkts_num_margin = 2
+
+        try:
+            # Disable tx on EGRESS port so that headroom buffer cannot be free
+            sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+            # Make a snapshot of transmitted packets
+            tx_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # Make a snapshot of received packets
+            rx_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            if tunnel_traffic_test:
+                # Build IPinIP packet for testing
+                pkt = self._build_testing_ipinip_pkt(active_tor_mac=active_tor_mac,
+                                                    standby_tor_mac=standby_tor_mac,
+                                                    active_tor_ip=active_tor_ip,
+                                                    standby_tor_ip=standby_tor_ip,
+                                                    inner_dscp=inner_dscp,
+                                                    outer_dscp=outer_dscp,
+                                                    dst_ip=dst_port_ip,
+                                                    ecn=ecn,
+                                                    packet_size=packet_size
+                                                    )
+            else:
+                # Build regular packet
+                pkt = self._build_testing_pkt(active_tor_mac=active_tor_mac,
+                                            dscp=inner_dscp,
+                                            dst_ip=dst_port_ip,
+                                            ecn=ecn,
+                                            packet_size=packet_size)
+            
+            # Send packets short of triggering pfc
+            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+            time.sleep(8)
+            # Read TX_OK again to calculate leaked packet number
+            tx_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
+            # Send packets to compensate the leaked packets
+            send_packet(self, src_port_id, pkt, leaked_packet_number)
+            time.sleep(8)
+            # Read rx counter again. No PFC pause frame should be triggered
+            rx_counters, _ = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            # Verify no pfc
+            assert(rx_counters[pg] == rx_counters_base[pg])
+            rx_counters_base = rx_counters
+            # Send some packets to trigger PFC
+            send_packet(self, src_port_id, pkt, 1 + 2 * pkts_num_margin)
+            time.sleep(8)
+            rx_counters, _ = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            # Verify PFC pause frame is generated on expected PG
+            assert(rx_counters[pg] > rx_counters_base[pg])
+        finally:
+            # Enable tx on dest port
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
+

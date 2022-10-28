@@ -13,7 +13,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
-from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config
+from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config
 from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm
 from ptf import testutils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
@@ -308,6 +308,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
             stop_pfc_storm(storm_handler)
 
 
+@pytest.mark.disable_loganalyzer
 def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module):
     """
     Test steps:
@@ -327,7 +328,6 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
     test_params = dict()
     test_params.update({
-            "tunnel_qos_map": dut_config["tunnel_qos_map"],
             "src_port_id": dut_config["lag_port_ptf_id"],
             "dst_port_id": dut_config["server_port_ptf_id"],
             "dst_port_ip": dut_config["server_ip"],
@@ -344,5 +344,42 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     run_ptf_test(
         ptfhost,
         test_case="sai_qos_tests.TunnelDscpToPgMapping",
+        test_params=test_params
+    )
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("xoff_profile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
+def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
+    """
+    The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
+    Test steps
+    1. Toggle all ports to active on randomly selected ports
+    2. Populate ARP table by GARP service
+    3. Disable Tx on egress port
+    4. Verify bounced back traffic (tunnel traffic, IPinIP) can trigger PFC at expected queue
+    5. Verify regular traffic can trigger PFC at expected queue
+    """
+    toggle_mux_to_host(rand_selected_dut)
+
+    test_params = dict()
+    test_params.update({
+            "src_port_id": dut_config["lag_port_ptf_id"],
+            "dst_port_id": dut_config["server_port_ptf_id"],
+            "dst_port_ip": dut_config["server_ip"],
+            "active_tor_mac": dut_config["selected_tor_mac"],
+            "active_tor_ip": dut_config["selected_tor_loopback"],
+            "standby_tor_mac": dut_config["unselected_tor_mac"],
+            "standby_tor_ip": dut_config["unselected_tor_loopback"],
+            "server": dut_config["selected_tor_mgmt"],
+            "port_map_file": dut_config["port_map_file"],
+            "sonic_asic_type": dut_config["asic_type"],
+        })
+    # Update qos config into test_params
+    test_params.update(qos_config[xoff_profile])
+    # Run test on ptfhost
+    run_ptf_test(
+        ptfhost,
+        test_case="sai_qos_tests.PCBBPFCTest",
         test_params=test_params
     )
