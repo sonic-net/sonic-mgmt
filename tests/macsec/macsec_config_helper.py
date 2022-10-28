@@ -1,9 +1,11 @@
+import logging
 import time
-from tests.common.utilities import wait_until
-from tests.common.devices.eos import EosHost
-from macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
-from macsec_helper import get_mka_session, getns_prefix
+from concurrent.futures import wait, ALL_COMPLETED
 
+from macsec_helper import get_mka_session, getns_prefix, macsec_thread_pool
+from macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
+from tests.common.devices.eos import EosHost
+from tests.common.utilities import wait_until
 
 __all__ = [
     'enable_macsec_feature',
@@ -16,6 +18,8 @@ __all__ = [
     'disable_macsec_port'
 ]
 
+
+logger = logging.getLogger(__name__)
 
 def set_macsec_profile(host, port, profile_name, priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period = 0):
     if isinstance(host, EosHost):
@@ -83,7 +87,7 @@ def enable_macsec_port(host, port, profile_name):
             lines=['mac security profile {}'.format(profile_name)],
             parents=['interface {}'.format(port)])
         return
-    
+
     pc = find_portchannel_from_member(port, get_portchannel(host))
     if pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
@@ -95,10 +99,10 @@ def enable_macsec_port(host, port, profile_name):
     if pc:
         time.sleep(2)
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
-    
+
     # wait after macsec enable 
     time.sleep(2)
-        
+
 def disable_macsec_port(host, port):
     if isinstance(host, EosHost):
         host.eos_config(
@@ -110,7 +114,7 @@ def disable_macsec_port(host, port):
     if pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
         time.sleep(2)
-        
+
     cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
     host.command(cmd)
 
@@ -150,18 +154,27 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     if duthost.facts["asic_type"] == "vs":
         devices.add(duthost)
-    for dut_port, nbr in ctrl_links.items():
-        disable_macsec_port(duthost, dut_port)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        devices.add(nbr["host"])
 
+    logger.info("Cleanup macsec configuration step1: disable macsec port")
+    tasks = []
+    for dut_port, nbr in ctrl_links.items():
+        tasks.append(macsec_thread_pool.submit(disable_macsec_port, duthost, dut_port))
+        tasks.append(macsec_thread_pool.submit(disable_macsec_port, nbr["host"], nbr["port"]))
+        devices.add(nbr["host"])
+    wait(tasks, timeout=300, return_when=ALL_COMPLETED)
+
+    logger.info("Cleanup macsec configuration step2: delete macsec profile")
+    tasks = []
     # Delete the macsec profile once after it is removed from all interfaces. if we pass port as None, 
     # the profile is removed from the DB in all namespaces.
-    delete_macsec_profile(duthost, None, profile_name)
+    tasks.append(macsec_thread_pool.submit(delete_macsec_profile, duthost, None, profile_name))
 
     # Delete the macsec profile in neighbors
     for d in devices:
-       delete_macsec_profile(d, None, profile_name) 
+        tasks.append(macsec_thread_pool.submit(delete_macsec_profile, d, None, profile_name))
+    wait(tasks, timeout=300, return_when=ALL_COMPLETED)
+
+    logger.info("Cleanup macsec configuration finished")
 
     # Waiting for all mka session were cleared in all devices
     for d in devices:
@@ -172,23 +185,37 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period):
+    logger.info("Setup macsec configuration step1: set macsec profile")
+    # 1. Set macsec profile
     i = 0
+    tasks = []
     for dut_port, nbr in ctrl_links.items():
-        set_macsec_profile(duthost, dut_port, profile_name, default_priority,
-                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
-        enable_macsec_port(duthost, dut_port, profile_name)
+        tasks.append(macsec_thread_pool.submit(set_macsec_profile, duthost, dut_port, profile_name, default_priority,
+                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
         if i % 2 == 0:
             priority = default_priority - 1
         else:
             priority = default_priority + 1
-        set_macsec_profile(nbr["host"], nbr["port"], profile_name, priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period)
-        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        tasks.append(macsec_thread_pool.submit(set_macsec_profile, nbr["host"], nbr["port"], profile_name, priority,
+                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
+        i += 1
+    wait(tasks, timeout=180, return_when=ALL_COMPLETED)
+
+    logger.info("Setup macsec configuration step2: enable macsec profile")
+    # 2. Enable macsec profile
+    tasks = []
+    for dut_port, nbr in ctrl_links.items():
+        tasks.append(macsec_thread_pool.submit(enable_macsec_port, duthost, dut_port, profile_name))
+        tasks.append(macsec_thread_pool.submit(enable_macsec_port, nbr["host"], nbr["port"], profile_name))
+    wait(tasks, timeout=180, return_when=ALL_COMPLETED)
+
+    # 3. Wait for interface's macsec ready
+    for dut_port, nbr in ctrl_links.items():
         wait_until(20, 3, 0,
                    lambda: duthost.iface_macsec_ok(dut_port) and
                            nbr["host"].iface_macsec_ok(nbr["port"]))
-        i += 1
 
     # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
+    logger.info("Setup macsec configuration finished")
