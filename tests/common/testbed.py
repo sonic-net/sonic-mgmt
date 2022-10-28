@@ -260,7 +260,7 @@ class TestbedInfo(object):
 
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|appliance)')
+        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mx|appliance)')
         match = pattern.match(topo_name)
         if match == None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))

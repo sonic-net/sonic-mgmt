@@ -191,6 +191,8 @@
 {% set dev_type = 'MgmtLeafRouter' %}
 {% elif 'MX' in dev %}
 {% set dev_type = 'BmcMgmtToRRouter' %}
+{% elif 'M0' in dev %}
+{% set dev_type = 'MgmtToRRouter' %}
 {% else %}
 {% set dev_type = 'Unknown' %}
 {% endif %}
