@@ -526,16 +526,16 @@ class DualTorIO:
         """
 
         def get_ptf_sniffer_status():
-            try:
-                # the output should be like
-                # $ supervisorctl status dual_tor_sniffer
-                # dual_tor_sniffer                 EXITED    Oct 29 01:11 PM
-                stdout_text = self.ptfhost.command(
-                    "supervisorctl status dual_tor_sniffer",
-                )["stdout"]
-                return stdout_text.split()[1]
-            except Exception:
+            # the output should be like
+            # $ supervisorctl status dual_tor_sniffer
+            # dual_tor_sniffer                 EXITED    Oct 29 01:11 PM
+            stdout_text = self.ptfhost.command(
+                "supervisorctl status dual_tor_sniffer", module_ignore_errors=True
+            )["stdout"]
+            if "no such process" in stdout_text:
                 return None
+            else:
+                return stdout_text.split()[1]
 
         def is_ptf_sniffer_running():
             status = get_ptf_sniffer_status()
@@ -543,7 +543,7 @@ class DualTorIO:
 
         def is_ptf_sniffer_stopped():
             status = get_ptf_sniffer_status()
-            return ((status is None) and ("EXITED" in status or "STOPPED" in status))
+            return ((status is None) or ("EXITED" in status or "STOPPED" in status))
 
         self.setup_ptf_sniffer(capture_pcap, capture_log, sniff_timeout, sniff_filter)
         self.start_ptf_sniffer()
