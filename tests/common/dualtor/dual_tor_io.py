@@ -17,6 +17,7 @@ from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.utilities import InterruptableThread
+from tests.common.utilities import wait_until
 from natsort import natsorted
 from collections import defaultdict
 
@@ -523,6 +524,27 @@ class DualTorIO:
             sniff_timeout (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
+
+        def get_ptf_sniffer_status():
+            try:
+                # the output should be like
+                # $ supervisorctl status dual_tor_sniffer
+                # dual_tor_sniffer                 EXITED    Oct 29 01:11 PM
+                stdout_text = self.ptfhost.command(
+                    "supervisorctl status dual_tor_sniffer",
+                )["stdout"]
+                return stdout_text.split()[1]
+            except Exception:
+                return None
+
+        def is_ptf_sniffer_running():
+            status = get_ptf_sniffer_status()
+            return ((status is not None) and ("RUNNING" in status))
+
+        def is_ptf_sniffer_stopped():
+            status = get_ptf_sniffer_status()
+            return ((status is None) and ("EXITED" in status or "STOPPED" in status))
+
         self.setup_ptf_sniffer(capture_pcap, capture_log, sniff_timeout, sniff_filter)
         self.start_ptf_sniffer()
 
@@ -533,6 +555,13 @@ class DualTorIO:
                 break
             time.sleep(check_interval)
             check_time += check_interval
+
+        if is_ptf_sniffer_running():
+            self.stop_sniffer_early()
+
+        # The pcap write might take some time, add some waiting here.
+        if not wait_until(30, 5, 0, is_ptf_sniffer_stopped):
+            logging.warn("Could not stop the ptf sniffer, the pcap file fetched might be compromised.")
 
     def get_test_results(self):
         return self.test_results
