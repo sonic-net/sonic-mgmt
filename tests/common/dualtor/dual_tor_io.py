@@ -6,7 +6,10 @@ import random
 import struct
 import ipaddress
 import logging
+import jinja2
 import json
+import os
+
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from operator import itemgetter
@@ -24,6 +27,10 @@ VLAN_INDEX = 0
 VLAN_HOSTS = 100
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 LAG_BASE_MAC_PATTERN = '5c010203{:04}'
+TEMPLATES_DIR = "templates/"
+SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
+DUAL_TOR_SNIFFER_CONF_TEMPL = "dual_tor_sniffer.conf.j2"
+DUAL_TOR_SNIFFER_CONF = "dual_tor_sniffer.conf"
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +117,25 @@ class DualTorIO:
             self.packets_per_server = self.packets_to_send // len(self.test_interfaces)
 
         self.all_packets = []
+
+    def setup_ptf_sniffer(self, capture_pcap, capture_log, sniff_timeout=180, sniff_filter=''):
+        """Setup ptf sniffer supervisor config."""
+        ptf_sniffer_args = '-f "%s" -p %s -l %s -t %s' % (sniff_filter, capture_pcap, capture_log, sniff_timeout)
+        templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, DUAL_TOR_SNIFFER_CONF_TEMPL)).read())
+        self.ptfhost.copy(
+            content=templ.render(ptf_sniffer=self.ptf_sniffer, ptf_sniffer_args=ptf_sniffer_args),
+            dest=os.path.join(SUPERVISOR_CONFIG_DIR, DUAL_TOR_SNIFFER_CONF)
+        )
+        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
+        self.ptfhost.shell("supervisorctl update")
+
+    def start_ptf_sniffer(self):
+        """Start the ptf sniffer."""
+        self.ptfhost.shell("supervisorctl start dual_tor_sniffer")
+
+    def stop_ptf_sniffer(self):
+        """Stop the ptf sniffer."""
+        self.ptfhost.shell("supervisorctl stop dual_tor_sniffer", module_ignore_errors=True)
 
     def _generate_vlan_servers(self):
         """
@@ -412,12 +438,9 @@ class DualTorIO:
 
 
     def stop_sniffer_early(self):
-        # Try to stop sniffer earlier by sending SIGINT signal to the sniffer process
-        # Python installs a small number of signal handlers by default.
-        # SIGINT is translated into a KeyboardInterrupt exception.
+        """Stop the ptf sniffer process and signal the sniffer thread to exit."""
         logger.info("Stop the sniffer thread gracefully: sending SIGINT to ptf process")
-        self.ptfhost.command("pkill -SIGINT -f {}".format(self.ptf_sniffer),\
-            module_ignore_errors=True)
+        self.stop_ptf_sniffer()
         self.stop_sniffer.set()
 
 
@@ -468,6 +491,10 @@ class DualTorIO:
             }
         )
 
+        # ensure the ptf sniffer is stopped at best effort
+        scapy_sniffer.set_error_handler(self.stop_ptf_sniffer)
+        scapy_sniffer.set_error_handler(self.stop_ptf_sniffer)
+
         scapy_sniffer.start()
         time.sleep(10)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
@@ -496,29 +523,16 @@ class DualTorIO:
             sniff_timeout (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that Scapy will use to collect only relevant packets
         """
-
-        def is_sniffer_running():
-            return bool(
-                self.ptfhost.command(
-                    '/usr/bin/pgrep -f "python %s"' % self.ptf_sniffer
-                )["stdout"]
-            )
-
-        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
-        self.ptfhost.shell(
-            'nohup python {} -f "{}" -p {} -l {} -t {} &'.format(
-                self.ptf_sniffer, sniff_filter, capture_pcap, capture_log, sniff_timeout
-            )
-        )
+        self.setup_ptf_sniffer(capture_pcap, capture_log, sniff_timeout, sniff_filter)
+        self.start_ptf_sniffer()
 
         check_time, check_interval = 0, 2
         while not self.stop_sniffer.is_set():
-            # only check sniffer running after sniff_timeout
-            if check_time >= sniff_timeout and not is_sniffer_running():
+            if check_time > sniff_timeout:
+                # no early sniffer stop
                 break
             time.sleep(check_interval)
             check_time += check_interval
-
 
     def get_test_results(self):
         return self.test_results
