@@ -441,9 +441,16 @@ def __deploy_saiserver(duthost, creds, request):
     docker_saiserver_name = "docker-saiserver{}-{}".format(
         get_sai_thrift_version(request), vendor_id)
     docker_saiserver_image = docker_saiserver_name
+    registry = load_docker_registry_info(duthost, creds)
     # Skip download step if image has existed
-    if __is_image_exists(duthost, docker_saiserver_image):
+    if __is_image_exists(duthost, creds, docker_saiserver_image):
         logger.info("The image {} has existed".format(docker_saiserver_image))
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_saiserver_name),
+            "{}/{}".format(registry.host, docker_saiserver_image),
+            duthost.os_version
+        )
         return
 
     # Force image download to go through mgmt network
@@ -456,7 +463,7 @@ def __deploy_saiserver(duthost, creds, request):
     duthost.command("sysctl -w net.core.wmem_max=609430500")
 
     logger.info("Loading docker image: {} ...".format(docker_saiserver_image))
-    registry = load_docker_registry_info(duthost, creds)
+
     download_image(
         duthost, registry, docker_saiserver_image, duthost.os_version)
 
@@ -757,7 +764,7 @@ def __is_container_exists(duthost, container_name):
     return False
 
 
-def __is_image_exists(duthost, docker_image_name):
+def __is_image_exists(duthost, creds, docker_image_name):
     """
         Checks if required docker images exist
 
@@ -766,15 +773,17 @@ def __is_image_exists(duthost, docker_image_name):
             service_name: the required service's name.
     """
     try:
+        registry = load_docker_registry_info(duthost, creds)
+        docker_full_name = "{}/{}".format(registry.host, docker_image_name)
         result = duthost.shell(
             "docker images | grep {}".format(
-                docker_image_name))
+                docker_full_name))
         return bool(
-            docker_image_name in result["stdout_lines"][0].strip())
+            docker_full_name in result["stdout_lines"][0].strip())
     except Exception:
         logger.info(
             "Cannot find required docker images '{}'.".format(
-                docker_image_name))
+                docker_full_name))
     return False
 
 
