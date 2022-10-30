@@ -1,0 +1,27 @@
+[Unit]
+Description=saiserver service
+Requires=database.service
+After=database.service
+
+
+
+Requires=updategraph.service
+After=updategraph.service
+After=interfaces-config.service
+BindsTo=sonic.target
+After=sonic.target
+Before=ntp-config.service
+
+[Service]
+User=root
+Environment=sonic_asic_platform=mellanox
+ExecStartPre=/usr/local/bin/saiserver.sh start
+ExecStart=/usr/local/bin/saiserver.sh wait
+ExecStop=/usr/local/bin/saiserver.sh stop
+
+TimeoutStartSec=480
+
+
+[Install]
+WantedBy=sonic.target
+admin@str-msn4600c-acs-02:~$
