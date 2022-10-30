@@ -9,6 +9,7 @@ arp/test_wr_arp.py::TestWrArp::testWrArp:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6655
 
 bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[fast:
   xfail:
@@ -16,6 +17,8 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[fa
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6656
+
 
 bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[warm:
   xfail:
@@ -23,6 +26,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[wa
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6656
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   xfail:
@@ -30,6 +34,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6657
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
   xfail:
@@ -37,6 +42,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6658
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-standby]:
   xfail:
@@ -44,6 +50,7 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_active[active-standby]:
   xfail:
@@ -51,6 +58,7 @@ dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_active
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_standby[active-standby]:
   xfail:
@@ -58,6 +66,7 @@ dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_standb
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby[active-standby]:
   xfail:
@@ -65,6 +74,7 @@ dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby[activ
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor_io/test_link_failure.py::test_standby_tor_downlink_down_downstream_standby[active-standby]:
   xfail:
@@ -72,6 +82,7 @@ dualtor_io/test_link_failure.py::test_standby_tor_downlink_down_downstream_stand
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor_io/test_tor_bgp_failure.py::test_active_tor_shutdown_bgp_sessions_upstream[active-standby]:
   xfail:
@@ -79,6 +90,7 @@ dualtor_io/test_tor_bgp_failure.py::test_active_tor_shutdown_bgp_sessions_upstre
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6659
 
 dualtor/test_orchagent_slb.py::test_orchagent_slb[ipv4-active-standby]:
   xfail:
@@ -86,6 +98,7 @@ dualtor/test_orchagent_slb.py::test_orchagent_slb[ipv4-active-standby]:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6660
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv4]:
   xfail:
@@ -93,6 +106,7 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_lo
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6660
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv6]:
   xfail:
@@ -100,6 +114,7 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_lo
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6660
 
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
@@ -107,6 +122,7 @@ dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6661
 
 dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
   xfail:
@@ -114,6 +130,7 @@ dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6661
 
 ipfwd/test_dir_bcast.py::test_dir_bcast:
   xfail:
@@ -121,6 +138,7 @@ ipfwd/test_dir_bcast.py::test_dir_bcast:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6662
 
 pc/test_lag_member.py::test_lag_member_traffic:
   xfail:
@@ -128,6 +146,7 @@ pc/test_lag_member.py::test_lag_member_traffic:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6663
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
   xfail:
@@ -135,6 +154,7 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6664
 
 platform_tests/api/test_component.py::TestComponentApi::test_get_name:
   xfail:
@@ -142,6 +162,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_name:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6664
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
   xfail:
@@ -149,6 +170,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6664
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
   xfail:
@@ -156,6 +178,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6664
 
 platform_tests/test_service_warm_restart.py::test_service_warm_restart:
   xfail:
@@ -163,6 +186,7 @@ platform_tests/test_service_warm_restart.py::test_service_warm_restart:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6665
 
 qos/test_qos_sai.py::TestQosSai::testParameter:
   xfail:
@@ -170,6 +194,7 @@ qos/test_qos_sai.py::TestQosSai::testParameter:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   xfail:
@@ -177,6 +202,7 @@ qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   xfail:
@@ -184,6 +210,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   xfail:
@@ -191,6 +218,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
   xfail:
@@ -198,6 +226,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
   xfail:
@@ -205,6 +234,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
   xfail:
@@ -212,6 +242,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   xfail:
@@ -219,6 +250,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
@@ -226,6 +258,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
   xfail:
@@ -233,6 +266,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit:
   xfail:
@@ -240,6 +274,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
   xfail:
@@ -247,6 +282,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   xfail:
@@ -254,6 +290,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
   xfail:
@@ -261,6 +298,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
   xfail:
@@ -268,6 +306,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_tunnel_qos_remap.py::test_bounced_back_traffic_in_expected_queue[active-standby]:
   xfail:
@@ -275,6 +314,7 @@ qos/test_tunnel_qos_remap.py::test_bounced_back_traffic_in_expected_queue[active
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6667
 
 qos/test_tunnel_qos_remap.py::test_encap_dscp_rewrite[active-standby]:
   xfail:
@@ -282,6 +322,7 @@ qos/test_tunnel_qos_remap.py::test_encap_dscp_rewrite[active-standby]:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6667
 
 route/test_route_flap.py::test_route_flap:
   xfail:
@@ -289,6 +330,7 @@ route/test_route_flap.py::test_route_flap:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6668
 
 route/test_static_route.py::test_static_route_ecmp:
   xfail:
@@ -296,6 +338,7 @@ route/test_static_route.py::test_static_route_ecmp:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6669
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
   xfail:
@@ -303,6 +346,7 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[c
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6670
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[techsupport]:
   xfail:
@@ -310,6 +354,7 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[t
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6670
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_interval:
   xfail:
@@ -317,6 +362,7 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6670
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
   xfail:
@@ -324,13 +370,7 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
-
-snmp/test_snmp_memory.py::test_snmp_memory:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6670
 
 snmp/test_snmp_phy_entity.py::test_fan_info:
   xfail:
@@ -338,6 +378,7 @@ snmp/test_snmp_phy_entity.py::test_fan_info:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6671
 
 stress/test_stress_routes.py::test_announce_withdraw_route:
   xfail:
@@ -345,11 +386,5 @@ stress/test_stress_routes.py::test_announce_withdraw_route:
     conditions:
       - "release in ['202205']"
       - "'dualtor' in topo_name"
-
-tacacs/test_accounting.py::test_accounting_tacacs_and_local:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6672
 
