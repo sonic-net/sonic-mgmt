@@ -1056,7 +1056,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
       ansible_host: 10.3.147.178
-      serial: FOX2531P3F5
+      serial: FOC2601NALA
       base_mac: CC:ED:4D:82:39:F0 
       model: '8808'
       syseeprom_info:
@@ -1079,7 +1079,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
       loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
       ansible_host: 10.3.147.179
-      serial: FOX2531P3F5
+      serial: FOC2602N0GP
       base_mac: CC:ED:4D:82:38:60 
       model: '8808'
       syseeprom_info:
@@ -1102,7 +1102,7 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.147.180
-      serial: FOX2531P3F5
+      serial: FOC2601NARV
       base_mac: CC:ED:4D:86:C1:50 
       model: '8808'
       syseeprom_info:
@@ -1246,7 +1246,7 @@ sonic_cisco_sup:
   vars:
     HwSku:  8800-RP-O
     sonic_hwsku:  8800-RP-O
-    sonic_hw_platform:  x86_64-8800_rp_o-r0
+    sonic_hw_platform:  x86_64-8800_rp-r0
     slot_num: slot0
     card_type: supervisor
     switch_type: chassis-packet
@@ -1280,7 +1280,7 @@ sonic_cisco_sup:
       model: '8808'
       num_asics: 16
       asic_name: Q200
-      serial: FOX2531P3F5
+      serial: FOC2516N6GB
       base_mac: F8:7A:41:E4:1D:F8 
       syseeprom_info:
         "0x21": "8800-RP"
