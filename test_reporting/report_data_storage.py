@@ -206,7 +206,7 @@ class KustoConnector(ReportDBConnector):
     def upload_swss_report_file(self, swss_file: str) -> None:
         """Upload a report to the back-end data store.
         Args:
-            file: json
+            swss_file: json_file
         """
         self._upload_swss_log_file(swss_file)
 
