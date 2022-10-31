@@ -179,6 +179,7 @@ class KustoConnector(ReportDBConnector):
                       testbed: str = "",
                       os_version: str = "") -> None:
         """Upload a report to the back-end data store.
+
         Args:
             report_json: A JUnit test report in JSON format. See junit_xml_parser.
             external_tracking_id: An identifier that a client can use to map a test report
@@ -202,7 +203,7 @@ class KustoConnector(ReportDBConnector):
             result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
 
-    def upload_swss_report_file(self, swss_file) -> None:
+    def upload_swss_report_file(self, swss_file: str) -> None:
         """Upload a report to the back-end data store.
         Args:
             file: json
@@ -240,7 +241,7 @@ class KustoConnector(ReportDBConnector):
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
 
-    def _upload_swss_log_file(self, swss_file):
+    def _upload_swss_log_file(self, swss_file: str) -> None:
         self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
