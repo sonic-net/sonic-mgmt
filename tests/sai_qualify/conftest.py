@@ -86,7 +86,7 @@ def pytest_addoption(parser):
                      default="saiserver",
                      type=str, help="SAI test container, saiserver or syncd.")
     parser.addoption("--sai_test_enable_deployment",
-                     action="store_true", default=True,
+                     action="store_true", default=False,
                      help="SAI test setup options. If deployment the \
                      saiserver and script in DUT and install \
                      dependences in PTF.")
