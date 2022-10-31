@@ -43,6 +43,6 @@
             mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
             mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
   register: kickstart_output
-  until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+  until: '"kickstart_code" in kickstart_output and (kickstart_output.kickstart_code == 0 or kickstart_output.kickstart_code != -1)'
   retries: 5
   delay: 10
