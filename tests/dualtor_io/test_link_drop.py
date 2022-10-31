@@ -61,7 +61,9 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
         logging.debug("Start set drop for upper ToR at %s", time.time())
         for port in active_active_ports:
             logging.debug("Set drop on port %s, portid %s, direction %s" % (port, portid, direction))
-            set_drop_active_active(port, portid, direction)
+        portids = [portid for _ in active_active_ports]
+        directions = [direction for _ in active_active_ports]
+        set_drop_active_active(active_active_ports, portids, directions)
 
     return _drop_flow_upper_tor_active_active
 
