@@ -1,10 +1,9 @@
 import argparse
 from curses.ascii import isupper
 import json
-import os
 
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, join, basename
 from typing import Dict, List, Tuple
 from report_data_storage import KustoConnector
 import yaml
@@ -235,8 +234,8 @@ def process_bulk(line: str) -> Tuple:
         splits = joined.split('|')
         obj_keys.append(splits[0])
         attr = []
-        for idx in range(1, len(splits)):
-            attr.append(splits[idx].split('='))
+        for id in range(1, len(splits)):
+            attr.append(splits[id].split('='))
         obj_key_attrs.append(attr)
     return obj, obj_keys, obj_key_attrs
 
@@ -257,7 +256,7 @@ def convert_log_item(config: Dict,
         info: info of the one device log config
     '''
     f = open(log_file, 'r', encoding='utf-8')
-    log_name = os.path.basename(log_file)
+    log_name = basename(log_file)
     Lines = f.readlines()
     items = []
     for line in Lines:
