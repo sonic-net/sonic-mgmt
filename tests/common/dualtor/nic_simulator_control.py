@@ -40,6 +40,31 @@ class ForwardingState(object):
     STANDBY = False
 
 
+def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+    kwargs["timeout"] = timeout
+    for i in range(retries - 1):
+        try:
+            response = func(*args, **kwargs)
+        except grpc.RpcError as e:
+            # first retries - 1 tries errors are all ignored
+            logging.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
+        else:
+            return response
+
+    try:
+        response = func(*args, **kwargs)
+    except grpc.RpcError as e:
+        logging.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
+        if not ignore_errors:
+            raise
+
+    return response
+
+
 @pytest.fixture(scope="session")
 def nic_simulator_info(request, tbinfo):
     """Fixture to gather nic_simulator related infomation."""
@@ -79,22 +104,16 @@ def restart_nic_simulator(nic_simulator_info, vmhost):
 @pytest.fixture(scope="session")
 def nic_simulator_channel(nic_simulator_info):
     """Setup connection to the nic_simulator."""
-    channel = []
     server_ip, server_port, _ = nic_simulator_info
     server_url = "%s:%s" % (server_ip, server_port)
 
     def _setup_grpc_channel_to_nic_simulator():
-        if channel:
-            return channel[0]
-
         if server_ip is None:
             return None
 
         # temporarily disable HTTP proxies
         with utilities.update_environ("http_proxy", "https_proxy"):
-            _channel = grpc.insecure_channel(server_url)
-            channel.append(_channel)
-            return _channel
+            return grpc.insecure_channel(server_url)
 
     return _setup_grpc_channel_to_nic_simulator
 
@@ -103,18 +122,12 @@ def nic_simulator_channel(nic_simulator_info):
 def nic_simulator_client(nic_simulator_channel):
     """Setup mgmt client stub to the nic_simulator."""
     channel = nic_simulator_channel()
-    stub = []
 
     def _setup_grpc_client_stub():
-        if stub:
-            return stub[0]
-
         if channel is None:
             return None
 
-        _stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
-        stub.append(_stub)
-        return _stub
+        return nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
 
     return _setup_grpc_client_stub
 
@@ -149,7 +162,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
             nic_addresses=nic_addresses,
             admin_requests=admin_requests[:len(nic_addresses)]
         )
-        reply = client_stub.QueryAdminForwardingPortState(request)
+        call_grpc(client_stub.QueryAdminForwardingPortState, [request])
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
@@ -220,42 +233,58 @@ class TrafficDirection(object):
 @pytest.fixture
 def set_drop_active_active(mux_config, nic_simulator_client):
     """Return a helper function to simulator link drop for active-active ports."""
-    drop_intfs = set()
+    _interface_names = []
+    _nic_addresses = []
+    _portids = []
+    _directions = []
 
-    def _call_set_drop_nic_simulator(nic_address, portid, direction, recover=False):
-        drop_request = nic_simulator_grpc_service_pb2.DropRequest(
-            portid=[portid],
-            direction=[direction],
-            recover=recover
-        )
+    def _call_set_drop_nic_simulator(nic_addresses, portids, directions, recover=False):
+        drop_requests = []
+        for portid, direction in zip(portids, directions):
+            drop_request = nic_simulator_grpc_service_pb2.DropRequest(
+                portid=[portid],
+                direction=[direction],
+                recover=recover
+            )
+            drop_requests.append(drop_request)
+
         request = nic_simulator_grpc_mgmt_service_pb2.ListOfDropRequest(
-            nic_addresses=[nic_address],
-            drop_requests=[drop_request]
+            nic_addresses=list(nic_addresses),
+            drop_requests=drop_requests
         )
         client_stub = nic_simulator_client()
-        client_stub.SetDrop(request)
+        call_grpc(client_stub.SetDrop, [request])
 
-    def _set_drop_active_active(interface_name, portid, direction):
+    def _set_drop_active_active(interface_names, portids, directions):
         """
         Simulate link drop on a mux link.
 
-        @param interface_name: interface name
-        @param portid: 1 for upper ToR, 0 for lower ToR
-        @param direction: 0 for downstream, 1 for upstream
+        @param interface_names: list of interface names
+        @param portids: list of portids, 1 for upper ToR, 0 for lower ToR
+        @param directions: list of directions 0 for downstream, 1 for upstream
         """
-        nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
-        logging.debug(
-            "Set drop on port %s, mux server %s, portid %s, direction %s",
-            interface_name, nic_address, portid, direction
-        )
-        drop_intfs.add((interface_name, nic_address, portid, direction))
-        _call_set_drop_nic_simulator(nic_address, portid, direction)
+        nic_addresses = []
+        for interface_name, portid, direction in zip(interface_names, portids, directions):
+            nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
+            logging.debug(
+                "Set drop on port %s, mux server %s, portid %s, direction %s",
+                interface_name, nic_address, portid, direction
+            )
+            nic_addresses.append(nic_address)
+
+        _interface_names.extend(interface_names)
+        _nic_addresses.extend(nic_addresses)
+        _portids.extend(portids)
+        _directions.extend(directions)
+
+        _call_set_drop_nic_simulator(nic_addresses, portids, directions)
 
     yield _set_drop_active_active
 
-    for (interface_name, nic_address, portid, direction) in drop_intfs:
+    for (interface_name, nic_address, portid, _) in zip(_interface_names, _nic_addresses, _portids, _directions):
         logging.debug(
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
-        _call_set_drop_nic_simulator(nic_address, portid, direction, recover=True)
+
+    _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
