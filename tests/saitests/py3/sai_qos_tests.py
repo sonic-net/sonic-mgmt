@@ -684,7 +684,6 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dscp_to_pg_map = self.test_params['inner_dscp_to_pg_map']
         asic_type = self.test_params['sonic_asic_type']
         cell_size = self.test_params['cell_size']
-        dscp_to_pg_map = {}
         PKT_NUM = 100
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
         ERROR_TOLERANCE = {
