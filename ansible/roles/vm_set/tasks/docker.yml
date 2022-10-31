@@ -54,7 +54,7 @@
   become: yes
   environment: "{{ proxy_env | default({}) }}"
   register: apt_update_res
-  until: apt_update_res.cache_updated
+  until: apt_update_res.cache_updated is defined and apt_update_res.cache_updated
   retries: 5
   delay: 10
 
