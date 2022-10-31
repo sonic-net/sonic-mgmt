@@ -64,5 +64,3 @@ Must be strictly checked in code reviews
  - vm_base must not overlap with testbeds from different groups (different test-name)
 
 TODO: check this constraints in testbed-cli.sh
-
-

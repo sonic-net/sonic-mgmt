@@ -248,7 +248,7 @@ Verify the DUT is created successfully. In your host run
    docker0                   240.127.1.1/24       up/down       N/A             N/A
    eth0                      10.250.0.101/24      up/up         N/A             N/A
    lo                        127.0.0.1/16         up/up         N/A             N/A
-   admin@vlab-01:~$ 
+   admin@vlab-01:~$
    ```
 
 
@@ -266,13 +266,13 @@ Now that the testbed has been fully setup and configured, let's run a simple tes
 If neighbor devices are EOS
 
    ```
-   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=eos --disable_loganalyzer --skip_sanity" 
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=eos --disable_loganalyzer --skip_sanity"
    ```
 
 If neighbor devices are Cisco
 
    ```
-   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=cisco --disable_loganalyzer --skip_sanity" 
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=cisco --disable_loganalyzer --skip_sanity"
    ```
 You should see tests run and pass. You're now set up and ready to use the KVM testbed!
 

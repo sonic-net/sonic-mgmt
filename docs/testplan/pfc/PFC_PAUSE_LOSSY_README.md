@@ -36,10 +36,3 @@ This experiment needs the following five steps:
 - Check if the IXIA rx port receives all the sent frames of test data traffic and background data traffic.
 
 - Stop PFC pause storm
-
-
-
-
-
-
-
