@@ -36,7 +36,3 @@ This experiment needs the following five steps:
 - Check if the IXIA rx port receives (1) all the sent frames of background data traffic (which should not be impacted by PFC), and (2) zero frame of test data traffic (which should be fully blocked by PFC pause storm). Check if (3) the total number of transmitted bytes of test data traffic is smaller than the switch shared buffer size.
 
 - Stop PFC pause storm
-
-
-
-

@@ -17,7 +17,7 @@ SSIP also extends the existing syslog implementation with VRF device and server 
 
 ### Scope
 
-The test is to verify SSIP take effect after doing relevant SSIP configuration   
+The test is to verify SSIP take effect after doing relevant SSIP configuration
 
 ### Scale / Performance
 
@@ -52,7 +52,7 @@ The tests will be supported on any topo.
 ### Test cases #1 -  Configure syslog server with VRF/Source:unset/unset
 1. Configure syslog server with VRF/Source:unset/unset like below:
 ```
-config syslog add 2.2.2.2 
+config syslog add 2.2.2.2
 ```
 2. Check syslog config by show syslog, the result should like below:
 ```
@@ -64,7 +64,7 @@ SERVER      SOURCE      PORT    VRF
 3. Check the corresponding interface will send syslog message with port 514 on dut
 4. Del syslog server config like below:
 ```
-config syslog del 2.2.2.2 
+config syslog del 2.2.2.2
 ```
 5. Check syslog config by show syslog, the relevant config should be removed
 6. Check the corresponding interface will not send syslog message with port 514 on dut
@@ -114,7 +114,7 @@ SERVER      SOURCE      PORT    VRF
 ```
 config syslog del 2.2.2.2
 config syslog del 3.3.3.3
-config syslog del 2222::2222 
+config syslog del 2222::2222
 ```
 5. Check syslog config by show syslog, the relevant config should be removed
 6. Check the corresponding interface will not send syslog message with port 514 on dut
@@ -142,7 +142,7 @@ SERVER      SOURCE      PORT    VRF
 ```
 config syslog del 2.2.2.2
 config syslog del 3.3.3.3
-config syslog del 2222::2222 
+config syslog del 2222::2222
 ```
 5. Check syslog config by show syslog, the relevant config should be removed
 6. Check the corresponding interface will not send any syslog message with related port and source ip
@@ -192,18 +192,18 @@ Error: Invalid value for "-s" / "--source": 10.210.24.128 IP doesn't exist in Li
 4. Check the syslog config doesn't include relevant item
 
 
-### Test cases #8-  Configure syslog server with non-existing vrf 
+### Test cases #8-  Configure syslog server with non-existing vrf
 1. Configure syslog server with non-existing vrf:
 ```
 config syslog add 2222::2222  --vrf vrf-non
 ```
-2. Check there is relevant error prompt like blow 
+2. Check there is relevant error prompt like blow
 ```
 Error: Invalid value for "-r" / "--vrf": invalid choice: vrf-non. (choose from default, Vrf-red)
 ```
  3. Check the syslog config doesn't include relevant item
- 
- 
+
+
 ### Test cases #9 -  After Configure syslog server and save config, do cold/fast/warm reboot, check syslog config still work
 1. Configure syslog server with VRF/Source: set/set like below:
 ```

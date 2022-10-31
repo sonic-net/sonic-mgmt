@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Gets list of syncd docker names. 
+Gets list of syncd docker names.
 
 There should be a docker name for each NPU present on the DUT.
 

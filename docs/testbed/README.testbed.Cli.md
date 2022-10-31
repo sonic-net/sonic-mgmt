@@ -72,4 +72,3 @@ Keysight API server can be accessed using the `ptf_ip` from the testbed file. Si
 
 The most recent IxNetwork API Server docker image can be found [here](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.00_Update-3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2).
 See also the [Ixia software download](https://support.ixiacom.com/public/support-overview/product-support/downloads-updates/versions/68) page for any newer versions.
-

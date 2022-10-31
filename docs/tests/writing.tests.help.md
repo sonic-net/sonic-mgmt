@@ -22,12 +22,12 @@ If a class is being used, the class name must begin with `Test` and any test fun
 class TestHttpCopy(object):
     def __init__:
         ...
-    
+
     def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost, localhost):
         ...
 ```
 
-## Failing/Passing a Test 
+## Failing/Passing a Test
 A test will pass so long as an exception is no thrown and a fail statement is not reached. The prefered way to fail a test is using the `pytest_assert`. If the `condition` parameter is `False`, the test will fail and the error message will be displayed.
 
 ```

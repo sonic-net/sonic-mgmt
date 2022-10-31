@@ -6,7 +6,7 @@ Through previous docs make sure the PTF docker, sonic-mgmt docker, DUT (running 
 ### Prepare test cases on PTF
 In this section, we will prepare SAI test cases on the PTF docker.
 1. Logon to your PTF docker, make sure the PTF docker could access to GitHub, then type following commands to clone SAI repo:
-- SAI **v1.7** will be used for this example since v1.7 is one of supported SAI versions in SONiC.202012, for more information please check [Check SAI header with SONiC branch](CheckSAIHeaderVersionAndSONiCBranch.md) 
+- SAI **v1.7** will be used for this example since v1.7 is one of supported SAI versions in SONiC.202012, for more information please check [Check SAI header with SONiC branch](CheckSAIHeaderVersionAndSONiCBranch.md)
 
 ```
 rm -rf ./SAI
@@ -125,7 +125,7 @@ admin@s6000:~$ docker exec -it saiserver bash
 
 ```
 admin@s6000:~$ sudo netstat -tulpn | grep LISTEN
-<some other ports>           
+<some other ports>
 tcp6       0      0 :::9092                 :::*                    LISTEN      1224720/saiserver
 ```
 Now the saiserver on DUT should be ready for SAI testing.
@@ -141,7 +141,7 @@ It will have the result like this:
 ```
 root@314fb9c4a38f:/tmp/SAI/test/saithrift# ptf --test-dir tests sail2.L2AccessToAccessVlanTest --interface '1@eth1' --interface '2@eth2' -t "server='<DUT ipaddr>';port_map_file='default_interface_to_front_map.ini'"
 WARNING: No route found for IPv6 destination :: (no default route?)
-sail2.L2AccessToAccessVlanTest ... 
+sail2.L2AccessToAccessVlanTest ...
 Sending L2 packet port 1 -> port 2 [access vlan=10])
 ok
 

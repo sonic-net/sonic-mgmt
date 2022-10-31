@@ -28,7 +28,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
     - Default: `12`
 
 ## Expected Output
-Dictionary describing the cpu and memory usage of all processes. The dictionary hierarchy is described below, with each indentation describing a sub-dictionary: 
+Dictionary describing the cpu and memory usage of all processes. The dictionary hierarchy is described below, with each indentation describing a sub-dictionary:
 
 - `monit_results` - List of dictionaries, where each dictionary refers to a separate process
     - `status` - Whether process is runing or not

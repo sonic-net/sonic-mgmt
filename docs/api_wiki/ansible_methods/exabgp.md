@@ -11,8 +11,8 @@ Start or stop exabgp instance with certain configurations
 ## Examples
 ```
 def test_fun(ptfhost):
-    ptfhost.exabgp(name="t1", 
-                   state="started", 
+    ptfhost.exabgp(name="t1",
+                   state="started",
                    router_id="10.0.0.0",
                    local_ip="10.0.0.0",
                    peer_ip="10.0.0.1",

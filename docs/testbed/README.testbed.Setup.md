@@ -85,7 +85,7 @@ Managing the testbed and running tests requires various dependencies to be insta
     ```
 
     You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&definitionId=194&artifactName=docker-sonic-mgmt&target=target%2Fdocker-sonic-mgmt.gz).
-    
+
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
@@ -136,11 +136,11 @@ Managing the testbed and running tests requires various dependencies to be insta
             forward-delay: 0
             max-age: 0
           dhcp4: no
-          dhcp6: no    
-          
+          dhcp6: no
+
     ```
     Since the bridge is assigned a virtual ip address, it is better to have one more management network interface (e.g. ma1) so that you can access your server from your lab.
-    
+
     alternatively use this script but settings will be lost on reboot
 
     ```
