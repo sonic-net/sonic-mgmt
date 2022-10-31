@@ -1,8 +1,7 @@
 import logging
 import time
-from concurrent.futures import wait, ALL_COMPLETED
 
-from macsec_helper import get_mka_session, getns_prefix, macsec_thread_pool
+from macsec_helper import get_mka_session, getns_prefix, wait_all_complete, submit_async_task
 from macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
@@ -156,23 +155,21 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
         devices.add(duthost)
 
     logger.info("Cleanup macsec configuration step1: disable macsec port")
-    tasks = []
     for dut_port, nbr in ctrl_links.items():
-        tasks.append(macsec_thread_pool.submit(disable_macsec_port, duthost, dut_port))
-        tasks.append(macsec_thread_pool.submit(disable_macsec_port, nbr["host"], nbr["port"]))
+        submit_async_task(disable_macsec_port, (duthost, dut_port))
+        submit_async_task(disable_macsec_port, (nbr["host"], nbr["port"]))
         devices.add(nbr["host"])
-    wait(tasks, timeout=300, return_when=ALL_COMPLETED)
+    wait_all_complete(timeout=300)
 
     logger.info("Cleanup macsec configuration step2: delete macsec profile")
-    tasks = []
     # Delete the macsec profile once after it is removed from all interfaces. if we pass port as None, 
     # the profile is removed from the DB in all namespaces.
-    tasks.append(macsec_thread_pool.submit(delete_macsec_profile, duthost, None, profile_name))
+    submit_async_task(delete_macsec_profile, (duthost, None, profile_name))
 
     # Delete the macsec profile in neighbors
     for d in devices:
-        tasks.append(macsec_thread_pool.submit(delete_macsec_profile, d, None, profile_name))
-    wait(tasks, timeout=300, return_when=ALL_COMPLETED)
+        submit_async_task(delete_macsec_profile, (d, None, profile_name))
+    wait_all_complete(timeout=300)
 
     logger.info("Cleanup macsec configuration finished")
 
@@ -188,26 +185,24 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile
     i = 0
-    tasks = []
     for dut_port, nbr in ctrl_links.items():
-        tasks.append(macsec_thread_pool.submit(set_macsec_profile, duthost, dut_port, profile_name, default_priority,
+        submit_async_task(set_macsec_profile, (duthost, dut_port, profile_name, default_priority,
                        cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
         if i % 2 == 0:
             priority = default_priority - 1
         else:
             priority = default_priority + 1
-        tasks.append(macsec_thread_pool.submit(set_macsec_profile, nbr["host"], nbr["port"], profile_name, priority,
+        submit_async_task(set_macsec_profile, (nbr["host"], nbr["port"], profile_name, priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
         i += 1
-    wait(tasks, timeout=180, return_when=ALL_COMPLETED)
+    wait_all_complete(timeout=180)
 
     logger.info("Setup macsec configuration step2: enable macsec profile")
     # 2. Enable macsec profile
-    tasks = []
     for dut_port, nbr in ctrl_links.items():
-        tasks.append(macsec_thread_pool.submit(enable_macsec_port, duthost, dut_port, profile_name))
-        tasks.append(macsec_thread_pool.submit(enable_macsec_port, nbr["host"], nbr["port"], profile_name))
-    wait(tasks, timeout=180, return_when=ALL_COMPLETED)
+        submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name))
+        submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name))
+    wait_all_complete(timeout=180)
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in ctrl_links.items():

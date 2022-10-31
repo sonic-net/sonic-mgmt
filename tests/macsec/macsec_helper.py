@@ -5,7 +5,7 @@ import re
 import struct
 import time
 from collections import defaultdict
-from concurrent.futures import wait, ALL_COMPLETED
+from multiprocessing import Process
 
 import cryptography.exceptions
 import ptf
@@ -14,7 +14,6 @@ import ptf.packet as packet
 import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
-from concurrent.futures.thread import ThreadPoolExecutor
 
 from macsec_common_helper import convert_on_off_to_boolean
 from macsec_platform_helper import sonic_db_cli
@@ -37,9 +36,27 @@ __all__ = [
     'get_ipnetns_prefix',
 ]
 
-macsec_thread_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="macsec_")
-
 logger = logging.getLogger(__name__)
+process_queue = []
+
+
+def submit_async_task(target, args):
+    global process_queue
+    proc = Process(target=target, args=args)
+    process_queue.append(proc)
+    proc.start()
+
+
+def wait_all_complete(timeout=300):
+    global process_queue
+    for proc in process_queue:
+        proc.join(timeout)
+        # If process timeout, terminate all processes, otherwise the pytest process will never finish.
+        if proc.is_alive():
+            [p.terminate() for p in process_queue]
+            raise RuntimeError("Process {} timeout {}".format(proc, timeout))
+    process_queue = []
+
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
     cmd = "ps aux | grep -w 'wpa_supplicant' | grep -w '{}' | grep -v 'grep'".format(
@@ -158,13 +175,12 @@ def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, po
 
 def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     logger.info("Check appl_db start")
-    tasks = []
     for port_name, nbr in ctrl_links.items():
         if isinstance(nbr["host"], EosHost):
             continue
-        tasks.append(macsec_thread_pool.submit(__check_appl_db, duthost, port_name, nbr["host"],
+        submit_async_task(__check_appl_db, (duthost, port_name, nbr["host"],
                         nbr["port"], policy, cipher_suite, send_sci))
-    wait(tasks, timeout=180, return_when=ALL_COMPLETED)
+    wait_all_complete(timeout=180)
     logger.info("Check appl_db finished")
     return True
 
