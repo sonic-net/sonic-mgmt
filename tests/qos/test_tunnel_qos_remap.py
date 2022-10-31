@@ -13,7 +13,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
-from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config
+from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
 from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm
 from ptf import testutils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
