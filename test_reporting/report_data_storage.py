@@ -29,8 +29,10 @@ TASK_RESULT_FILE = "pipeline_task_results.json"
 
 class ReportDBConnector(ABC):
     """ReportDBConnector is a wrapper for a back-end data store for JUnit test reports.
+
     The ReportDBConnector API is intentionally very high-level so that different data stores
     with (possibly) drastically different data models can be used interchangeably.
+
     Subclasses of ReportDBConnector should not add ANY data store/data model/schema specific
     details into the ReportDBConnector DB API.
     """
@@ -38,6 +40,7 @@ class ReportDBConnector(ABC):
     @abstractmethod
     def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "") -> None:
         """Upload a report to the back-end data store.
+
         Args:
             report_json: A JUnit test report in JSON format. See junit_xml_parser.
             external_tracking_id: An identifier that a client can use to map a test report
@@ -50,6 +53,7 @@ class ReportDBConnector(ABC):
     @abstractmethod
     def upload_reachability_data(self, ping_output: List) -> None:
         """Upload testbed reachability data to the back-end data store.
+
         Args:
             ping_output: A list of ICMP ping results from devutils.
         """
@@ -58,6 +62,7 @@ class ReportDBConnector(ABC):
     @abstractmethod
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         """Upload PDU status data to the back-end data store.
+
         Args:
             pdu_status_output: A list of PDU status results from devutils.
         """
@@ -65,6 +70,7 @@ class ReportDBConnector(ABC):
     @abstractmethod
     def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
         """Upload reboot test report to the back-end data store.
+
         Args:
             path_name: Path to reboot report/summary file
             report_guid: A randomly generated UUID that is used to query for a specific test run across tables.
@@ -73,6 +79,7 @@ class ReportDBConnector(ABC):
     @abstractmethod
     def upload_expected_runs(self, expected_runs: List) -> None:
         """Upload expected test runs to the back-end data store.
+
         Args:
             expected_runs: A list of expected runs.
         """
@@ -126,6 +133,7 @@ class KustoConnector(ReportDBConnector):
 
     def __init__(self, db_name: str):
         """Initialize a Kusto report DB connector.
+
         Args:
             db_name: The Kusto database to connect to.
         """
@@ -162,7 +170,7 @@ class KustoConnector(ReportDBConnector):
             kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
                                                                                         service_id,
                                                                                         service_key,
-                                                                                        tenant_id)  # noqa
+                                                                                        tenant_id)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
     def upload_report(self, report_json: Dict,
