@@ -8,6 +8,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
 def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_index):
     """compare the interfaces between observed states and target state"""
 
@@ -44,9 +45,11 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
         verify_mac_address(host_facts, mg_facts['minigraph_vlan_interfaces'], router_mac)
     verify_mac_address(host_facts, mg_facts['minigraph_interfaces'], router_mac)
 
+
 def verify_port(host_facts, ports):
     for port in ports:
         pytest_assert(host_facts[port]['active'], "interface {} is not active".format(port))
+
 
 def verify_mac_address(host_facts, intfs, router_mac):
     for intf in intfs:
@@ -55,12 +58,14 @@ def verify_mac_address(host_facts, intfs, router_mac):
         else:
             ifname = intf['name']
 
-        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(), \
-                "interface {} mac address {} does not match router mac {}".format(ifname, host_facts[ifname]['macaddress'], router_mac))
+        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(),
+                      "interface {} mac address {} does not match router mac {}"
+                      .format(ifname, host_facts[ifname]['macaddress'], router_mac))
+
 
 def verify_ip_address(host_facts, intfs):
     for intf in intfs:
-        if intf.has_key('attachto'):
+        if 'attachto' in intf:
             ifname = intf['attachto']
         else:
             ifname = intf['name']
@@ -69,7 +74,7 @@ def verify_ip_address(host_facts, intfs):
         if ip.version == 4:
             addrs = []
             addrs.append(host_facts[ifname]['ipv4'])
-            if host_facts[ifname].has_key('ipv4_secondaries'):
+            if 'ipv4_secondaries' in host_facts[ifname]:
                 for addr in host_facts[ifname]['ipv4_secondaries']:
                     addrs.append(addr)
         else:
@@ -79,7 +84,7 @@ def verify_ip_address(host_facts, intfs):
         ips_found = []
         for addr in addrs:
             ips_found.append(addr['address'])
-            print addr
+            print(str(addr))
             if IPAddress(addr['address']) == ip:
                 found = True
                 break
