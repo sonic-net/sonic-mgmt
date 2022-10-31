@@ -120,11 +120,11 @@
               mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
     register: kickstart_output
-    until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
+    until: '"kickstart_code" in kickstart_output and (kickstart_output.kickstart_code == 0 or kickstart_output.kickstart_code != -1)'
     retries: 5
     delay: 10
     when: vm_name not in vm_list_running.list_vms
-  
+
   # for cisco vm, after destroy/start vm, vm will have existing configuration (which is conflict with cisco_kickstart procedure), need to respin vm
   - name: Respin vm {{ vm_name }}
     include_tasks: respin_cisco_vm.yml
@@ -163,7 +163,7 @@
       vars:
         src_disk_image: "{{ root_path }}/images/{{ cisco_image_filename }}"
         disk_image: "{{ root_path }}/disks/{{ vm_name }}.img"
-    
+
     - name: Check failed cisco {{ vm_name }} reachablity
       iosxr_command:
         commands: show version

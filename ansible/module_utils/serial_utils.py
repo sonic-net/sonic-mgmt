@@ -82,12 +82,11 @@ class CiscoSerial(SerialSession):
 
     def set_account(self, user, password):
         try:
-            time.sleep(60*10)
+            time.sleep(60*5)
             logging.debug('## Waiting system start up')
-            self.pair('\r\n', [r'Press RETURN to get started.', r'Enter root-system username:'], 1200)
-
+            self.pair('\r\n', [r'Press RETURN to get started.', r'Enter root-system username:'], 900)
             logging.debug('## Getting the login prompt')
-            self.pair('\r\n', [r'Enter root-system username:'], 120)
+            self.pair('\r\n', [r'Enter root-system username:'], 300)
         except EMatchNotFound:
             logging.debug('No login prompt is found')
             raise ELoginPromptNotFound
@@ -102,10 +101,24 @@ class CiscoSerial(SerialSession):
             raise EWrongDefaultPassword
         return
 
+    def wait_ztp(self, retry_cnt):
+        for retry in range(1, retry_cnt):
+            try:
+                index = self.pair('show ztp log | include Exiting SUCCESSFULLY',
+                                  [r'INF: Exiting SUCCESSFULLY'], 10*retry)
+                if index == 0:
+                    return
+            except EMatchNotFound:
+                logging.debug('Wait ztp finished, retry {} times'.format(retry))
+        return
+
     def login(self, user, password):
         self.pair('\n', [r'Username:'])
         self.pair(user, [r'Password'])
         self.pair(password, None)
+        # wait for ZTP Exited, otherwise mgmt port will be shutdown by ztp
+        self.wait_ztp(20)
+        self.pair('show ztp log | include Exiting SUCCESSFULLY', [r'INF: Exiting SUCCESSFULLY'])
         return
 
 
