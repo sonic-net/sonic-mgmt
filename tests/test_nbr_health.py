@@ -11,17 +11,19 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('util') #special marker
+    pytest.mark.topology('util')  # special marker
 ]
+
 
 def check_snmp(hostname, mgmt_addr, localhost, community, is_eos):
     logger.info("Check neighbor {}, mgmt ip {} snmp".format(hostname, mgmt_addr))
     res = localhost.snmp_facts(host=mgmt_addr, version='v2c', is_eos=is_eos, community=community)
     try:
         snmp_data = res['ansible_facts']
-    except:
-        return "neighbor {} has no snmp data".format(hostname)
+    except Exception as e:
+        return "neighbor {} has no snmp data, exception: {}".format(hostname, repr(e))
     logger.info("Neighbor {}, sysdescr {}".format(hostname, snmp_data['ansible_sysdescr']))
+
 
 def check_eos_facts(hostname, mgmt_addr, host):
     logger.info("Check neighbor {} eos facts".format(hostname))
@@ -29,22 +31,24 @@ def check_eos_facts(hostname, mgmt_addr, host):
     logger.info("facts: {}".format(json.dumps(res, indent=4)))
     try:
         eos_facts = res['ansible_facts']
-    except:
-        return "neighbor {} has no eos_facts".format(hostname)
+    except Exception as e:
+        return "neighbor {} has no eos_facts, exception: {}".format(hostname, repr(e))
 
-    mgmt_ifnames = [ x for x in eos_facts['ansible_net_interfaces'] if x.startswith('Management') ]
+    mgmt_ifnames = [x for x in eos_facts['ansible_net_interfaces'] if x.startswith('Management')]
     if len(mgmt_ifnames) == 0:
         return "there is no management interface in neighbor {}".format(hostname)
     for ifname in mgmt_ifnames:
         try:
             mgmt_ip = eos_facts['ansible_net_interfaces'][ifname]['ipv4']['address']
         except Exception as e:
-            logger.info("interface {} has no managment address on neighbor {}".format(ifname, hostname))
+            logger.info("interface {} has no managment address on neighbor {}, exception: {}"
+                        .format(ifname, hostname, repr(e)))
 
         if mgmt_ip == mgmt_addr:
             return
 
     return "neighbor {} has no management address {}".format(hostname, mgmt_ip)
+
 
 def check_sonic_facts(hostname, mgmt_addr, host):
     logger.info("Check neighbor {} eos facts".format(hostname))
@@ -56,21 +60,24 @@ def check_sonic_facts(hostname, mgmt_addr, host):
     for addr in mgmt_addrs:
         if addr == mgmt_addr:
             return
-    return "neighbor {} has no management address {}".format(hostname, mgmt_ip)
+    return "neighbor {} has no management address {}".format(hostname, mgmt_addr)
+
 
 def check_eos_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
     res = host.eos_command(commands=['show ip bgp sum'])
     logger.info("bgp: {}".format(res))
-    if not res.has_key('stdout_lines') or u'BGP summary' not in res['stdout_lines'][0][0]:
+    if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
+
 
 def check_sonic_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
     res = host.command('vtysh -c "show ip bgp sum"')
     logger.info("bgp: {}".format(res))
-    if not res.has_key('stdout_lines') or u'Unicast Summary' not in "\n".join(res['stdout_lines']):
+    if 'stdout_lines' not in res or u'Unicast Summary' not in "\n".join(res['stdout_lines']):
         return "neighbor {} bgp not configured correctly".format(hostname)
+
 
 def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_frontend_dut_hostname):
     """Check each neighbor device health"""
@@ -78,7 +85,7 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
     fails = []
     duthost = duthosts[enum_frontend_dut_hostname]
 
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     dut_type = None
@@ -126,7 +133,6 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
         else:
             failmsg = "neighbor type {} is unknown".format(k)
             fails.append(failmsg)
-
 
     # TODO: check link, bgp, etc. on
 
