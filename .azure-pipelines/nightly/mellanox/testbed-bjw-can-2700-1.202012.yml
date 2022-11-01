@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-2700
+    default: testbed-bjw-can-2700-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
