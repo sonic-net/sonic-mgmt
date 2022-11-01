@@ -209,7 +209,7 @@ stages:
           TOPOLOGY: dualtor
           MIN_WORKER: 1
           MAX_WORKER: 1
-          COMMON_EXTRA_PARAMS: "r --disable_loganalyzer"
+          COMMON_EXTRA_PARAMS: " --disable_loganalyzer"
 
   - job:
     pool: sonictest-ma
