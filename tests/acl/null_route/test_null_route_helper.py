@@ -9,7 +9,7 @@ import json
 from ptf.mask import Mask
 import ptf.packet as scapy
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
 import ptf.testutils as testutils
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
@@ -40,23 +40,36 @@ DROP = "DROP"
 
 TEST_DATA = [
     # src_ip, action, expected_result
-    ("1.2.3.4", "", FORWARD), # Should be forwared in default
-    ("fc03:1001::1", "", FORWARD), # Should be forwared in default
+    ("1.2.3.4", "", FORWARD),  # Should be forwared in default
+    ("fc03:1001::1", "", FORWARD),  # Should be forwared in default
 
-    ("1.2.3.4", "block {} 1.2.3.4".format(ACL_TABLE_NAME_V4), DROP), # Verify block ipv4 without prefix len
-    ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify unblock ipv4 with prefix len
-    ("1.2.3.4", "block {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), DROP), # Verify block ipv4 with prefix len
-    ("1.2.3.4", "block {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), DROP), # Verify double-block dosen't cause issue
-    ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify unblock ipv4 with prefix len
-    ("1.2.3.4", "unblock {} 1.2.3.4/32".format(ACL_TABLE_NAME_V4), FORWARD), # Verify double-unblock doesn't cause issue
+    ("1.2.3.4", "block {} 1.2.3.4"
+     .format(ACL_TABLE_NAME_V4), DROP),  # Verify block ipv4 without prefix len
+    ("1.2.3.4", "unblock {} 1.2.3.4/32"
+     .format(ACL_TABLE_NAME_V4), FORWARD),  # Verify unblock ipv4 with prefix len
+    ("1.2.3.4", "block {} 1.2.3.4/32"
+     .format(ACL_TABLE_NAME_V4), DROP),  # Verify block ipv4 with prefix len
+    ("1.2.3.4", "block {} 1.2.3.4/32"
+     .format(ACL_TABLE_NAME_V4), DROP),  # Verify double-block dosen't cause issue
+    ("1.2.3.4", "unblock {} 1.2.3.4/32"
+     .format(ACL_TABLE_NAME_V4), FORWARD),  # Verify unblock ipv4 with prefix len
+    ("1.2.3.4", "unblock {} 1.2.3.4/32"
+     .format(ACL_TABLE_NAME_V4), FORWARD),  # Verify double-unblock doesn't cause issue
 
-    ("fc03:1000::1", "block {} fc03:1000::1".format(ACL_TABLE_NAME_V6), DROP), # Verify block ipv6 without prefix len
-    ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv6 with prefix len
-    ("fc03:1000::1", "block {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), DROP), # Verify block ipv6 with prefix len
-    ("fc03:1000::1", "block {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), DROP), # Verify double-block dosen't cause issue
-    ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify unblock ipv4 with prefix len
-    ("fc03:1000::1", "unblock {} fc03:1000::1/128".format(ACL_TABLE_NAME_V6), FORWARD), # Verify double-unblock doesn't cause issue
+    ("fc03:1000::1", "block {} fc03:1000::1"
+     .format(ACL_TABLE_NAME_V6), DROP),  # Verify block ipv6 without prefix len
+    ("fc03:1000::1", "unblock {} fc03:1000::1/128".
+     format(ACL_TABLE_NAME_V6), FORWARD),  # Verify unblock ipv6 with prefix len
+    ("fc03:1000::1", "block {} fc03:1000::1/128"
+     .format(ACL_TABLE_NAME_V6), DROP),  # Verify block ipv6 with prefix len
+    ("fc03:1000::1", "block {} fc03:1000::1/128"
+     .format(ACL_TABLE_NAME_V6), DROP),  # Verify double-block dosen't cause issue
+    ("fc03:1000::1", "unblock {} fc03:1000::1/128"
+     .format(ACL_TABLE_NAME_V6), FORWARD),  # Verify unblock ipv4 with prefix len
+    ("fc03:1000::1", "unblock {} fc03:1000::1/128"
+     .format(ACL_TABLE_NAME_V6), FORWARD),  # Verify double-unblock doesn't cause issue
 ]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(rand_selected_dut):
@@ -82,8 +95,8 @@ def remove_dataacl_table(rand_selected_dut):
     output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
     try:
         entry = json.loads(output)[TABLE_NAME]
-        cmd_create_table = "config acl add table {} {} -p {} -s {}".format(TABLE_NAME, entry['type'], \
-             ",".join(entry['ports']), entry['stage'])
+        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+            .format(TABLE_NAME, entry['type'], ",".join(entry['ports']), entry['stage'])
         logger.info("Restoring ACL table {}".format(TABLE_NAME))
         rand_selected_dut.shell(cmd_create_table)
     except Exception as e:
@@ -94,7 +107,7 @@ def remove_acl_table(duthost):
     """
     A helper function to remove ACL table for testing
     """
-    cmds= [
+    cmds = [
         "config acl remove table {}".format(ACL_TABLE_NAME_V4),
         "config acl remove table {}".format(ACL_TABLE_NAME_V6)
     ]
@@ -144,8 +157,10 @@ def apply_pre_defined_rules(rand_selected_dut, create_acl_table):
     time.sleep(5)
     yield
     # Clear ACL rules
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'.format(ACL_TABLE_NAME_V4))
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'.format(ACL_TABLE_NAME_V6))
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'
+                            .format(ACL_TABLE_NAME_V4))
+    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'
+                            .format(ACL_TABLE_NAME_V6))
 
 
 @pytest.fixture(scope="module")
@@ -157,7 +172,7 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     vlan_name = ""
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     for vlan_info in mg_facts["minigraph_vlan_interfaces"]:
-        ip_ver =  ipaddress.ip_network(vlan_info['addr'], False).version
+        ip_ver = ipaddress.ip_network(vlan_info['addr'], False).version
         dst_ports[ip_ver] = str(ipaddress.ip_address(vlan_info['addr']) + 1) + '/' + str(vlan_info['prefixlen'])
         vlan_name = vlan_info['attachto']
 
@@ -177,7 +192,7 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     """
     Build ipv4 and ipv6 packets/expected_packets for testing.
     """
-    if ipaddress.ip_network(unicode(src_ip), False).version == 4:
+    if ipaddress.ip_network(str(src_ip), False).version == 4:
         pkt = testutils.simple_ip_packet(eth_dst=dst_mac, ip_src=src_ip, ip_dst=dst_ip)
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -209,7 +224,8 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defined_rules, setup_ptf):
     """
     Test case to verify script null_route_helper.
-    Some packets are generated as defined in TEST_DATA and sent to DUT, and verify if packet is forwarded or dropped as expected.
+    Some packets are generated as defined in TEST_DATA and sent to DUT,
+    and verify if packet is forwarded or dropped as expected.
     """
     ptf_port_info = setup_ptf
     rx_port = ptf_port_info['port']
@@ -228,9 +244,9 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         src_ip = test_item[0]
         action = test_item[1]
         expected_result = test_item[2]
-        ip_ver = ipaddress.ip_network(unicode(src_ip), False).version
+        ip_ver = ipaddress.ip_network(str(src_ip), False).version
         logger.info("Testing with src_ip = {} action = {} expected_result = {}"
-                .format(src_ip, action, expected_result))
+                    .format(src_ip, action, expected_result))
         pkt, exp_pkt = generate_packet(src_ip, DST_IP[ip_ver], router_mac)
         if action != "":
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
