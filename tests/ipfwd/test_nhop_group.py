@@ -320,7 +320,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     """
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
-        default_max_nhop_paths = 10
+        default_max_nhop_paths = 2
         polling_interval = 1
         sleep_time = 380
     elif is_innovium_device(duthost):
@@ -357,7 +357,10 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     eth_if = ip_ifaces[0]
 
     # Generate ARP entries
-    arp_count = 40
+    if is_cisco_device(duthost):
+        arp_count = 150
+    else:
+        arp_count = 40
     arplist = Arp(duthost, asic, arp_count, eth_if)
     arplist.arps_add()
 
@@ -414,7 +417,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if not is_mellanox_device(duthost):
+    if not is_mellanox_device(duthost) and not is_cisco_device(duthost):
         pytest_assert(
             crm_after["available"] == 0,
             "Unused NHOP group resource: {}, used:{}".format(
