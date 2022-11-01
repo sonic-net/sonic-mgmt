@@ -60,6 +60,9 @@ class TestPlanManager(object):
         for param in common_extra_params:
             common_params.append("--"+str(param))
 
+        print(common_extra_params)
+        print(common_params)
+
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
