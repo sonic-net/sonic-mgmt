@@ -187,6 +187,7 @@ stages:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
     timeoutInMinutes: 400
+    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-template.yml
@@ -196,6 +197,19 @@ stages:
           ptf_name: ptf-04
           tbtype: dualtor
           vmtype: ceos
+
+  - job: dualtor_testbedv2
+    displayName: "kvmtest-dualtor-t0 by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: false
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: dualtor
+          MIN_WORKER: 1
+          MAX_WORKER: 1
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
 
   - job:
     pool: sonictest-ma
