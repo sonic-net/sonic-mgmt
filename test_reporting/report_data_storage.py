@@ -26,6 +26,7 @@ from typing import Dict, List
 
 TASK_RESULT_FILE = "pipeline_task_results.json"
 
+
 class ReportDBConnector(ABC):
     """ReportDBConnector is a wrapper for a back-end data store for JUnit test reports.
 
@@ -83,10 +84,12 @@ class ReportDBConnector(ABC):
             expected_runs: A list of expected runs.
         """
 
+
 class KustoConnector(ReportDBConnector):
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
 
     METADATA_TABLE = "TestReportMetadata"
+    SWSSDATA_TABLE = "SwssInvocationReport"
     SUMMARY_TABLE = "TestReportSummary"
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
@@ -100,10 +103,11 @@ class KustoConnector(ReportDBConnector):
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
+        SWSSDATA_TABLE: DataFormat.MULTIJSON,
         SUMMARY_TABLE: DataFormat.JSON,
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
-        TESTBEDREACHABILITY_TABLE:DataFormat.JSON,
+        TESTBEDREACHABILITY_TABLE: DataFormat.JSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
@@ -114,6 +118,7 @@ class KustoConnector(ReportDBConnector):
 
     TABLE_MAPPING_LOOKUP = {
         METADATA_TABLE: "FlatMetadataMappingV1",
+        SWSSDATA_TABLE: "SwssInvocationReportMapping",
         SUMMARY_TABLE: "FlatSummaryMappingV1",
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
@@ -149,8 +154,9 @@ class KustoConnector(ReportDBConnector):
         self._ingestion_client = KustoIngestClient(kcsb)
 
         """
-            Kusto performance depends on the work load of cluster, to improve the high availability of test result data service 
-            by hosting a backup cluster, which is optional. 
+            Kusto performance depends on the work load of cluster,
+            to improve the high availability of test result data service
+            by hosting a backup cluster, which is optional.
         """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
@@ -167,7 +173,11 @@ class KustoConnector(ReportDBConnector):
                                                                                         tenant_id)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
-    def upload_report(self, report_json: Dict, external_tracking_id: str = "", report_guid: str = "", testbed: str = "", os_version: str = "") -> None:
+    def upload_report(self, report_json: Dict,
+                      external_tracking_id: str = "",
+                      report_guid: str = "",
+                      testbed: str = "",
+                      os_version: str = "") -> None:
         """Upload a report to the back-end data store.
 
         Args:
@@ -192,6 +202,13 @@ class KustoConnector(ReportDBConnector):
         for result in ping_output:
             result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
+
+    def upload_swss_report_file(self, swss_file: str) -> None:
+        """Upload a report to the back-end data store.
+        Args:
+            swss_file: json_file
+        """
+        self._upload_swss_log_file(swss_file)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -219,10 +236,13 @@ class KustoConnector(ReportDBConnector):
         if "summary.json" in path_name:
             self._ingest_data(self.REBOOT_TIMING_TABLE, reboot_timing_data)
         elif "report.json" in path_name:
-             self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
+            self._ingest_data(self.RAW_REBOOT_TIMING_TABLE, reboot_timing_data)
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
+
+    def _upload_swss_log_file(self, swss_file: str) -> None:
+        self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {
@@ -303,3 +323,14 @@ class KustoConnector(ReportDBConnector):
             if self._ingestion_client_backup:
                 print("Ingest to backup cluster...")
                 self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
+
+    def _ingest_data_file(self, table, data_file):
+        props = IngestionProperties(
+            database=self.db_name,
+            table=table,
+            data_format=self.TABLE_FORMAT_LOOKUP[table],
+            ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table],
+            flush_immediately=True
+        )
+
+        self._ingestion_client.ingest_from_file(data_file, ingestion_properties=props)
