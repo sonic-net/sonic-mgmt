@@ -100,13 +100,14 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
 @pytest.fixture(scope="module")
 def acl_rule_cleanup(duthost, tbinfo):
     """Cleanup all the existing DATAACL rules"""
+    # remove all rules under the ACL_RULE table
     if "t0-backend" in tbinfo["topo"]["name"]:
         duthost.shell('acl-loader delete')
 
     yield
 
 @pytest.fixture(scope="module")
-def modify_acl_table(duthost, tbinfo, acl_rule_cleanup):
+def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
    """ Remove the DATAACL table prior to the test and recreate it at the end"""
    if "t0-backend" in tbinfo["topo"]["name"]:
        duthost.command('config acl remove table DATAACL')
@@ -173,7 +174,7 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts, modify_acl_table):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts, setup_acl_table):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
