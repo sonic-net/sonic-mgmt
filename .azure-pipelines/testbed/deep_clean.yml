@@ -120,7 +120,7 @@ parameters:
           - vms21-dual-t0-7260
           - vms21-t0-2700
           - vms21-t0-7215-acs-3
-          - vms21-t0-8102-01
+          - vms21-t1-8102-01
           - vms21-t0-dx010-7
           - vms21-t0-z9332f-02
           - vms21-t1-2700-2

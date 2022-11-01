@@ -1051,15 +1051,15 @@
   auto_recover: 'True'
   comment: yaqiangzhu
 
-- conf-name: vms21-t0-8102-01
+- conf-name: vms21-t1-8102-01
   group-name: vms21-8
-  topo: t0-64
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms21-8
   ptf_ip: 10.64.246.231/23
   ptf_ipv6:
   server: server_21
-  vm_base: VM21084
+  vm_base: VM21102
   dut:
     - str2-8102-01
   inv_name: str2

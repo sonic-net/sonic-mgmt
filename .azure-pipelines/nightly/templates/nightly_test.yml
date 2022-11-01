@@ -509,7 +509,7 @@ stages:
               TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
               AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN)
 
-          - ${{ if in(parameters.TESTBED_NAME, 'vms21-t0-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
+          - ${{ if in(parameters.TESTBED_NAME, 'vms21-t1-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
             - task: Bash@3
               displayName: Upload test results to Cisco Kusto Cluster
               timeoutInMinutes: 20
