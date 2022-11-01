@@ -1,19 +1,21 @@
 import datetime
-import threading
 import time
 import socket
 import random
 import struct
 import ipaddress
 import logging
+import jinja2
 import json
+import os
+
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from operator import itemgetter
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.utilities import InterruptableThread
+from tests.common.utilities import wait_until
 from natsort import natsorted
 from collections import defaultdict
 
@@ -24,6 +26,10 @@ VLAN_INDEX = 0
 VLAN_HOSTS = 100
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 LAG_BASE_MAC_PATTERN = '5c010203{:04}'
+TEMPLATES_DIR = "templates/"
+SUPERVISOR_CONFIG_DIR = "/etc/supervisor/conf.d/"
+DUAL_TOR_SNIFFER_CONF_TEMPL = "dual_tor_sniffer.conf.j2"
+DUAL_TOR_SNIFFER_CONF = "dual_tor_sniffer.conf"
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +117,35 @@ class DualTorIO:
 
         self.all_packets = []
 
+    def setup_ptf_sniffer(self):
+        """Setup ptf sniffer supervisor config."""
+        ptf_sniffer_args = '-f "%s" -p %s -l %s -t %s' % (
+            self.sniff_filter,
+            self.capture_pcap,
+            self.capture_log,
+            self.sniff_timeout
+        )
+        templ = jinja2.Template(open(os.path.join(TEMPLATES_DIR, DUAL_TOR_SNIFFER_CONF_TEMPL)).read())
+        self.ptfhost.copy(
+            content=templ.render(ptf_sniffer=self.ptf_sniffer, ptf_sniffer_args=ptf_sniffer_args),
+            dest=os.path.join(SUPERVISOR_CONFIG_DIR, DUAL_TOR_SNIFFER_CONF)
+        )
+        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
+        self.ptfhost.shell("supervisorctl update")
+
+    def start_ptf_sniffer(self):
+        """Start the ptf sniffer."""
+        self.ptfhost.shell("supervisorctl start dual_tor_sniffer")
+
+    def stop_ptf_sniffer(self):
+        """Stop the ptf sniffer."""
+        self.ptfhost.shell("supervisorctl stop dual_tor_sniffer", module_ignore_errors=True)
+
+    def force_stop_ptf_sniffer(self):
+        """Force stop the ptf sniffer by sending SIGTERM."""
+        logger.info("Force stop the ptf sniffer process by sending SIGTERM")
+        self.ptfhost.command("pkill -SIGTERM -f %s" % self.ptf_sniffer, module_ignore_errors=True)
+
     def _generate_vlan_servers(self):
         """
         Create mapping of server IPs to PTF interfaces
@@ -171,9 +206,8 @@ class DualTorIO:
         else:
             logger.error("Traffic generator not provided or invalid")
             return
-        # start and later join the sender and sniffer threads
-        self.send_and_sniff(sender=self.traffic_sender_thread,
-            sniffer=self.traffic_sniffer_thread)
+
+        self.send_and_sniff()
 
     def generate_from_t1_to_server(self):
         """
@@ -357,31 +391,96 @@ class DualTorIO:
 
         return host_ip
 
+    def send_and_sniff(self):
+        """Start the I/O sender/sniffer."""
+        try:
+            self.start_sniffer()
+            self.send_packets()
+            self.stop_sniffer()
+        except Exception:
+            self.force_stop_ptf_sniffer()
+            raise
 
-    def send_and_sniff(self, sender, sniffer):
-        """
-        @summary: This method starts and joins two background threads in parallel: sender and sniffer
-        """
-        self.sender_thr = InterruptableThread(target=sender)
-        self.sniff_thr = InterruptableThread(target=sniffer)
-        self.sniffer_started = threading.Event()
-        self.sniff_thr.set_error_handler(lambda *args, **kargs: self.sniffer_started.set())
-        self.sender_thr.set_error_handler(lambda *args, **kargs: self.io_ready_event.set())
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sender_thr.join()
-        self.sniff_thr.join()
+        self.fetch_captured_packets()
 
+    def _get_ptf_sniffer_status(self):
+        """Get the ptf sniffer status."""
+        # the output should be like
+        # $ supervisorctl status dual_tor_sniffer
+        # dual_tor_sniffer                 EXITED    Oct 29 01:11 PM
+        stdout_text = self.ptfhost.command(
+            "supervisorctl status dual_tor_sniffer", module_ignore_errors=True
+        )["stdout"]
+        if "no such process" in stdout_text:
+            return None
+        else:
+            return stdout_text.split()[1]
 
-    def traffic_sender_thread(self):
-        """
-        @summary: Generalized Sender thread (to be used for traffic in both directions)
-        Waits for a signal from the `traffic_sniffer_thread` before actually starting.
-        This is to make sure that that packets are not sent before they are ready to be captured.
-        """
+    def _is_ptf_sniffer_running(self):
+        """Check if the ptf sniffer is running."""
+        status = self._get_ptf_sniffer_status()
+        return ((status is not None) and ("RUNNING" in status))
+
+    def _is_ptf_sniffer_stopped(self):
+        status = self._get_ptf_sniffer_status()
+        return ((status is None) or ("EXITED" in status or "STOPPED" in status))
+
+    def start_sniffer(self):
+        """Start ptf sniffer."""
+        self.sniff_timeout = self.time_to_listen + self.sniff_time_incr
+        self.sniffer_start = datetime.datetime.now()
+        logger.info("Sniffer started at {}".format(str(self.sniffer_start)))
+        self.sniff_filter = "tcp and tcp dst port {} and tcp src port 1234 and not icmp".\
+            format(TCP_DST_PORT)
+
+        # We run a PTF script on PTF to sniff traffic. The PTF script calls
+        # scapy.sniff which by default capture the backplane interface for
+        # announcing routes from PTF to VMs. On VMs, the PTF backplane is the
+        # next hop for the annoucned routes. So, packets sent by DUT to VMs
+        # are forwarded to the PTF backplane interface as well. Then on PTF,
+        # the packets sent by DUT to VMs can be captured on both the PTF interfaces
+        # tapped to VMs and on the backplane interface. This will result in
+        # packet duplication and fail the test. Below change is to add capture
+        # filter to filter out all the packets destined to the PTF backplane interface.
+        output = self.ptfhost.shell('cat /sys/class/net/backplane/address',\
+            module_ignore_errors=True)
+        if not output['failed']:
+            ptf_bp_mac = output['stdout']
+            self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
+
+        self.capture_pcap = '/tmp/capture.pcap'
+        self.capture_log = '/tmp/capture.log'
+
+        self.setup_ptf_sniffer()
+        self.start_ptf_sniffer()
+
+        # Let the scapy sniff initialize completely.
+        if not wait_until(20, 5, 10, self._is_ptf_sniffer_running):
+            self.stop_sniffer()
+            raise RuntimeError("Could not start ptf sniffer.")
+
+    def stop_sniffer(self):
+        """Stop the ptf sniffer."""
+        if self._is_ptf_sniffer_running():
+            self.stop_ptf_sniffer()
+
+        # The pcap write might take some time, add some waiting here.
+        if not wait_until(30, 5, 0, self._is_ptf_sniffer_stopped):
+            raise RuntimeError("Could not stop ptf sniffer.")
+        logger.info("Sniffer finished running after {}".\
+            format(str(datetime.datetime.now() - self.sniffer_start)))
+
+    def fetch_captured_packets(self):
+        """Fetch the captured packet file generated by the ptf sniffer."""
+        logger.info('Fetching pcap file from ptf')
+        self.ptfhost.fetch(src=self.capture_pcap, dest='/tmp/', flat=True, fail_on_missing=False)
+        self.all_packets = scapyall.rdpcap(self.capture_pcap)
+        logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
+
+    def send_packets(self):
+        """Send packets generated."""
         logger.info("Sender waiting to send {} packets".format(len(self.packets_list)))
 
-        self.sniffer_started.wait(timeout=10)
         sender_start = datetime.datetime.now()
         logger.info("Sender started at {}".format(str(sender_start)))
 
@@ -401,23 +500,15 @@ class DualTorIO:
                 self.packets_sent_per_server.get(server_addr, 0) + 1
             sent_packets_count = sent_packets_count + 1
 
+        # wait 10s so all packets could be forwarded
         time.sleep(10)
-        self.stop_sniffer_early()
-        logger.info("Stop the sender thread gracefully after sending {} packets"\
-            .format(sent_packets_count))
-
-        logger.info("Sender finished running after {}".format(
-            str(datetime.datetime.now() - sender_start)))
-
-
-    def stop_sniffer_early(self):
-        # Try to stop sniffer earlier by sending SIGINT signal to the sniffer process
-        # Python installs a small number of signal handlers by default.
-        # SIGINT is translated into a KeyboardInterrupt exception.
-        logger.info("Stop the sniffer thread gracefully: sending SIGINT to ptf process")
-        self.ptfhost.command("pkill -SIGINT -f {}".format(self.ptf_sniffer),\
-            module_ignore_errors=True)
-
+        logger.info(
+            "Sender finished running after %s, %s packets sent",
+            datetime.datetime.now() - sender_start,
+            sent_packets_count
+        )
+        if not self._is_ptf_sniffer_running():
+            raise RuntimeError("ptf sniffer is not running enough time to cover packets sending.")
 
     def get_server_address(self, packet):
         if self.traffic_generator == self.generate_from_t1_to_server:
@@ -425,77 +516,6 @@ class DualTorIO:
         elif self.traffic_generator == self.generate_from_server_to_t1:
             server_addr = packet[scapyall.IP].src
         return server_addr
-
-
-    def traffic_sniffer_thread(self):
-        """
-        @summary: Generalized sniffer thread (to be used for traffic in both directions)
-        Starts `scapy_sniff` thread, and waits for its setup before
-        signalling the sender thread to start
-        """
-        wait = self.time_to_listen + self.sniff_time_incr
-        sniffer_start = datetime.datetime.now()
-        logger.info("Sniffer started at {}".format(str(sniffer_start)))
-        sniff_filter = "tcp and tcp dst port {} and tcp src port 1234 and not icmp".\
-            format(TCP_DST_PORT)
-
-        # We run a PTF script on PTF to sniff traffic. The PTF script calls
-        # scapy.sniff which by default capture the backplane interface for
-        # announcing routes from PTF to VMs. On VMs, the PTF backplane is the
-        # next hop for the annoucned routes. So, packets sent by DUT to VMs
-        # are forwarded to the PTF backplane interface as well. Then on PTF,
-        # the packets sent by DUT to VMs can be captured on both the PTF interfaces
-        # tapped to VMs and on the backplane interface. This will result in
-        # packet duplication and fail the test. Below change is to add capture
-        # filter to filter out all the packets destined to the PTF backplane interface.
-        output = self.ptfhost.shell('cat /sys/class/net/backplane/address',\
-            module_ignore_errors=True)
-        if not output['failed']:
-            ptf_bp_mac = output['stdout']
-            sniff_filter = '({}) and (not ether dst {})'.format(sniff_filter, ptf_bp_mac)
-
-        scapy_sniffer = InterruptableThread(
-            target=self.scapy_sniff,
-            kwargs={
-                'sniff_timeout': wait,
-                'sniff_filter': sniff_filter
-            }
-        )
-        scapy_sniffer.start()
-        time.sleep(10)               # Let the scapy sniff initialize completely.
-        self.sniffer_started.set()  # Unblock waiter for the send_in_background.
-        scapy_sniffer.join()
-        logger.info("Sniffer finished running after {}".\
-            format(str(datetime.datetime.now() - sniffer_start)))
-        self.sniffer_started.clear()
-
-
-    def scapy_sniff(self, sniff_timeout=180, sniff_filter=''):
-        """
-        @summary: PTF runner -  runs a sniffer in PTF container.
-        Running sniffer in sonic-mgmt container has missing SOCKET problem
-        and permission issues (scapy and tcpdump require root user)
-        The remote function listens on all intfs. Once found, all packets
-        are dumped to local pcap file, and all packets are saved to
-        self.all_packets as scapy type.
-
-        Args:
-            sniff_timeout (int): Duration in seconds to sniff the traffic
-            sniff_filter (str): Filter that Scapy will use to collect only relevant packets
-        """
-        capture_pcap = '/tmp/capture.pcap'
-        capture_log = '/tmp/capture.log'
-        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest=self.ptf_sniffer)
-        self.ptfhost.command(
-            'python {} -f "{}" -p {} -l {} -t {}'.format(
-                self.ptf_sniffer, sniff_filter, capture_pcap, capture_log, sniff_timeout
-            )
-        )
-        logger.info('Fetching pcap file from ptf')
-        self.ptfhost.fetch(src=capture_pcap, dest='/tmp/', flat=True, fail_on_missing=False)
-        self.all_packets = scapyall.rdpcap(capture_pcap)
-        logger.info("Number of all packets captured: {}".format(len(self.all_packets)))
-
 
     def get_test_results(self):
         return self.test_results

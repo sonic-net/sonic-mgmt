@@ -161,6 +161,10 @@ class InterruptableThread(threading.Thread):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
 
+    def set_exit_handler(self, exit_handler):
+        """Add exit handler callback that will be called when the thread eixts."""
+        self.exit_handler = exit_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -172,6 +176,9 @@ class InterruptableThread(threading.Thread):
             self._e = sys.exc_info()
             if getattr(self, "error_handler", None) is not None:
                 self.error_handler(*self._e)
+
+        if getattr(self, "exit_handler", None) is not None:
+            self.exit_handler()
 
     def join(self, timeout=None, suppress_exception=False):
         """
