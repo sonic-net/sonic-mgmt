@@ -30,3 +30,5 @@ r, ".* ERR swss#fdbsyncd: :- readData: netlink reports an error.* on reading a n
 r, ".* ERR kernel:.* PortChannel.*: Device Ethernet.* is up. Set it down before adding it as a team port.*"
 r, ".* ERR pmon#python3.* checkReplyType: Expected to get redis type 2 got type 3.*"
 r, ".* ERR pmon#python3.* guard: RedisReply catches system_error: command.*"
+r, ".* ERR syncd#syncd:.*Core .* TCAM update failed.*"
+r, ".* ERR syncd#syncd:.*shared/src/hw_tables/lpm/lpm_core.cpp::.* update_tcam status = Leaba_Err: Out of resources.*failed to update TCAM.*"
