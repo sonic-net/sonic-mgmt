@@ -331,14 +331,23 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
             ipv4_interfaces = []
             used_subnets = set()
+            asic_idx = 0
             if mg_facts["minigraph_interfaces"]:
                 for intf in mg_facts["minigraph_interfaces"]:
                     if _is_ipv4_address(intf["addr"]):
-                        ipv4_interfaces.append(intf["attachto"])
+                        intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
+                        if not ipv4_interfaces:
+                            ipv4_interfaces.append(intf["attachto"])
+                            asic_idx = intf_asic_idx
+                            used_subnets.add(ipaddress.ip_network(intf["subnet"]))
+                        else:
+                            if intf_asic_idx != asic_idx:
+                                continue
+                            else:
+                                ipv4_interfaces.append(intf["attachto"])
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             ipv4_lag_interfaces = []
-            asic_idx = 0
             if mg_facts["minigraph_portchannel_interfaces"]:
                 for pt in mg_facts["minigraph_portchannel_interfaces"]:
                     if _is_ipv4_address(pt["addr"]):
@@ -378,6 +387,10 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     break
             if not loopback_ip:
                 pytest.fail("ipv4 lo interface not found")
+
+            num_intfs = len(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces)
+            if num_intfs < peer_count:
+                pytest.skip("Found {} IPv4 interfaces or lags with 1 port member, but require {} interfaces".format(num_intfs, peer_count))
 
             for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
                 conn = {}
