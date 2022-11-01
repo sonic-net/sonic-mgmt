@@ -307,7 +307,9 @@ class ParseTestbedTopoinfo():
             vm_topo_config['devices_interconnect_interfaces'] = []
 
         if 'wan_dut_configuration' in topo_definition:
-            vm_topo_config['wan_dut_configuration'] = topo_definition['wan_dut_configuration']
+            vm_topo_config['wan_dut_configuration'] = [None]*dut_num
+            for _, v in topo_definition['wan_dut_configuration'].items():
+                vm_topo_config['wan_dut_configuration'][v['dut_offset']] = v
 
         self.vm_topo_config = vm_topo_config
         self.asic_topo_config = asic_topo_config
