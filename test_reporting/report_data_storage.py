@@ -100,6 +100,7 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
+    CASE_INVOC_TABLE = "CaseInvocationReportV2"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -113,7 +114,8 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
-        PIPELINE_TABLE: DataFormat.JSON
+        PIPELINE_TABLE: DataFormat.JSON,
+        CASE_INVOC_TABLE: DataFormat.JSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -128,7 +130,8 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
-        PIPELINE_TABLE: "FlatPipelineMappingV1"
+        PIPELINE_TABLE: "FlatPipelineMappingV1",
+        CASE_INVOC_TABLE: "CaseInvocationReportMappingV2",
     }
 
     def __init__(self, db_name: str):
@@ -209,6 +212,13 @@ class KustoConnector(ReportDBConnector):
             swss_file: json_file
         """
         self._upload_swss_log_file(swss_file)
+    
+    def upload_case_invoc_report_file(self, file) -> None:
+        """Upload a report to the back-end data store.
+        Args:
+            file: json
+        """
+        self._upload_case_invoc_report_file(file)
 
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
@@ -243,6 +253,9 @@ class KustoConnector(ReportDBConnector):
 
     def _upload_swss_log_file(self, swss_file: str) -> None:
         self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
+    
+    def _upload_case_invoc_report_file(self, case_invoc_file):          
+        self._ingest_data_file(self.CASE_INVOC_TABLE, case_invoc_file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {

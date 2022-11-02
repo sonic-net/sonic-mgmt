@@ -3,6 +3,7 @@ import json
 import sys
 import uuid
 import re
+import os
 
 from junit_xml_parser import (
     validate_junit_json_file,
@@ -101,6 +102,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
             with open(path_name) as f:
                 expected_runs.extend(json.load(f))
         kusto_db.upload_expected_runs(expected_runs)
+    elif args.category == "case_invoc":
+        for path_name in args.path_list:
+            fns = os.listdir(path_name)
+            for fn in fns:
+                fn = os.path.join(path_name, fn)
+                kusto_db._upload_case_invoc_report_file(fn)
 
     else:
         print('Unknown category "{}"'.format(args.category))
