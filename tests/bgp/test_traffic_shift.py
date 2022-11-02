@@ -361,6 +361,7 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
                       "Not all ipv6 routes are announced to neighbors")
 
 
+@pytest.mark.disable_loganalyzer
 def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
@@ -408,6 +409,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                                 "Not all ipv6 routes are announced to neighbors")
 
 
+@pytest.mark.disable_loganalyzer
 def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
                                                 traffic_shift_community, tbinfo):
     """
