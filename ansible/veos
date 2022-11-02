@@ -22,6 +22,7 @@ all:
         vm_host_29:
         vm_host_61:
         vm_svc_host_1:
+        vm_svc_host_3:
         vm_bjw_host_6:
     eos:
       children:
@@ -45,6 +46,7 @@ all:
         vms_28:
         vms_29:
         vms_svc_1:
+        vms_svc_3:
         vms_bjw_6:
     servers:
       children:
@@ -68,6 +70,7 @@ all:
         server_28:
         server_29:
         server_svc_1:
+        server_svc_3:
         server_bjw_6:
       vars:
         topologies:
@@ -193,6 +196,10 @@ vm_svc_host_1:
   hosts:
     SVCSTR-SERVER-1:
       ansible_host: 10.206.144.7
+vm_svc_host_3:
+  hosts:
+    SVCSTR-SERVER-3:
+      ansible_host: 10.206.144.149
 vm_bjw_host_6:
   hosts:
     BJW-CAN-SERV-6:
@@ -3962,6 +3969,201 @@ vms_svc_1:
     VM10095:
       ansible_host: 172.16.139.127
 
+vms_svc_3:
+  hosts:
+    VM30000:
+      ansible_host: 10.206.144.150
+    VM30001:
+      ansible_host: 10.206.144.151
+    VM30002:
+      ansible_host: 10.206.144.152
+    VM30003:
+      ansible_host: 10.206.144.153
+    VM30004:
+      ansible_host: 10.206.144.154
+    VM30005:
+      ansible_host: 10.206.144.155
+    VM30006:
+      ansible_host: 10.206.144.156
+    VM30007:
+      ansible_host: 10.206.144.157
+    VM30008:
+      ansible_host: 10.206.144.158
+    VM30009:
+      ansible_host: 10.206.144.159
+    VM30010:
+      ansible_host: 10.206.144.160
+    VM30011:
+      ansible_host: 10.206.144.161
+    VM30012:
+      ansible_host: 10.206.144.162
+    VM30013:
+      ansible_host: 10.206.144.163
+    VM30014:
+      ansible_host: 10.206.144.164
+    VM30015:
+      ansible_host: 10.206.144.165
+    VM30016:
+      ansible_host: 10.206.144.166
+    VM30017:
+      ansible_host: 10.206.144.167
+    VM30018:
+      ansible_host: 10.206.144.168
+    VM30019:
+      ansible_host: 10.206.144.169
+    VM30020:
+      ansible_host: 10.206.144.170
+    VM30021:
+      ansible_host: 10.206.144.171
+    VM30022:
+      ansible_host: 10.206.144.172
+    VM30023:
+      ansible_host: 10.206.144.173
+    VM30024:
+      ansible_host: 10.206.144.174
+    VM30025:
+      ansible_host: 10.206.144.175
+    VM30026:
+      ansible_host: 10.206.144.176
+    VM30027:
+      ansible_host: 10.206.144.177
+    VM30028:
+      ansible_host: 10.206.144.178
+    VM30029:
+      ansible_host: 10.206.144.179
+    VM30030:
+      ansible_host: 10.206.144.180
+    VM30031:
+      ansible_host: 10.206.144.181
+    VM30032:
+      ansible_host: 10.206.144.182
+    VM30033:
+      ansible_host: 10.206.144.183
+    VM30034:
+      ansible_host: 10.206.144.184
+    VM30035:
+      ansible_host: 10.206.144.185
+    VM30036:
+      ansible_host: 10.206.144.186
+    VM30037:
+      ansible_host: 10.206.144.187
+    VM30038:
+      ansible_host: 10.206.144.188
+    VM30039:
+      ansible_host: 10.206.144.189
+    VM30040:
+      ansible_host: 10.206.144.190
+    VM30041:
+      ansible_host: 10.206.144.191
+    VM30042:
+      ansible_host: 10.206.144.192
+    VM30043:
+      ansible_host: 10.206.144.193
+    VM30044:
+      ansible_host: 10.206.144.194
+    VM30045:
+      ansible_host: 10.206.144.195
+    VM30046:
+      ansible_host: 10.206.144.196
+    VM30047:
+      ansible_host: 10.206.144.197
+    VM30048:
+      ansible_host: 10.206.144.198
+    VM30049:
+      ansible_host: 10.206.144.199
+    VM30050:
+      ansible_host: 10.206.144.200
+    VM30051:
+      ansible_host: 10.206.144.201
+    VM30052:
+      ansible_host: 10.206.144.202
+    VM30053:
+      ansible_host: 10.206.144.203
+    VM30054:
+      ansible_host: 10.206.144.204
+    VM30055:
+      ansible_host: 10.206.144.205
+    VM30056:
+      ansible_host: 10.206.144.206
+    VM30057:
+      ansible_host: 10.206.144.207
+    VM30058:
+      ansible_host: 10.206.144.208
+    VM30059:
+      ansible_host: 10.206.144.209
+    VM30060:
+      ansible_host: 10.206.144.210
+    VM30061:
+      ansible_host: 10.206.144.211
+    VM30062:
+      ansible_host: 10.206.144.212
+    VM30063:
+      ansible_host: 10.206.144.213
+    VM30064:
+      ansible_host: 10.206.144.214
+    VM30065:
+      ansible_host: 10.206.144.215
+    VM30066:
+      ansible_host: 10.206.144.216
+    VM30067:
+      ansible_host: 10.206.144.217
+    VM30068:
+      ansible_host: 10.206.144.218
+    VM30069:
+      ansible_host: 10.206.144.219
+    VM30070:
+      ansible_host: 10.206.144.220
+    VM30071:
+      ansible_host: 10.206.144.221
+    VM30072:
+      ansible_host: 10.206.144.222
+    VM30073:
+      ansible_host: 10.206.144.223
+    VM30074:
+      ansible_host: 10.206.144.224
+    VM30075:
+      ansible_host: 10.206.144.225
+    VM30076:
+      ansible_host: 10.206.144.226
+    VM30077:
+      ansible_host: 10.206.144.227
+    VM30078:
+      ansible_host: 10.206.144.228
+    VM30079:
+      ansible_host: 10.206.144.229
+    VM30080:
+      ansible_host: 10.206.144.230
+    VM30081:
+      ansible_host: 10.206.144.231
+    VM30082:
+      ansible_host: 10.206.144.232
+    VM30083:
+      ansible_host: 10.206.144.233
+    VM30084:
+      ansible_host: 10.206.144.234
+    VM30085:
+      ansible_host: 10.206.144.235
+    VM30086:
+      ansible_host: 10.206.144.236
+    VM30087:
+      ansible_host: 10.206.144.237
+    VM30088:
+      ansible_host: 10.206.144.238
+    VM30089:
+      ansible_host: 10.206.144.239
+    VM30090:
+      ansible_host: 10.206.144.240
+    VM30091:
+      ansible_host: 10.206.144.241
+    VM30092:
+      ansible_host: 10.206.144.242
+    VM30093:
+      ansible_host: 10.206.144.243
+    VM30094:
+      ansible_host: 10.206.144.244
+    VM30095:
+      ansible_host: 10.206.144.245
+
 vms_bjw_6:
   hosts:
     VM56000:
@@ -4162,6 +4364,12 @@ server_svc_1:
   children:
     vm_svc_host_1:
     vms_svc_1:
+server_svc_3:
+  vars:
+    host_var_file: host_vars/SVCSTR-SERVER-3.yml
+  children:
+    vm_svc_host_3:
+    vms_svc_3:
 server_bjw_6:
   vars:
     host_var_file: host_vars/BJW-CAN-SERV-6.yml

@@ -22,6 +22,8 @@ all:
           ansible_host: 10.206.144.140
         svc1-4:
           ansible_host: 10.206.144.142
+        svc3-1:
+          ansible_host: 10.206.144.128
 
 fanout:
   hosts:
@@ -37,6 +39,10 @@ fanout:
       ansible_host: 10.206.144.136
     svcstr-7260cx3-acs-8:
       ansible_host: 10.206.144.137
+    svcstr-7260cx3-acs-11:
+      ansible_host: 10.206.144.129
+    svcstr-7260cx3-acs-12:
+      ansible_host: 10.206.144.130
 
 sonic:
   vars:
@@ -44,6 +50,8 @@ sonic:
   children:
     sonic_nexus_3164:
     sonic_arista:
+    sonic_nokia_lc_100G:
+    sonic_nokia_sup:
 
 sonic_nexus_3164:
   vars:
@@ -141,9 +149,78 @@ sonic_arista:
         "0x2E": "Aboot-norcal6-6.1.11-18917935"
         "0x2F": "JPE21131246"
 
+sonic_nokia_lc_100G:
+  vars:
+    max_cores: 48
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    svcstr-7250-lc1-1:
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: NS222464260
+      base_mac:  18:5b:00:50:6b:fe
+      ansible_host: 10.206.144.145
+    svcstr-7250-lc2-1:
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot2
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      serial: NS222464263
+      base_mac: 18:5b:00:50:6c:08 
+      ansible_host: 10.206.144.146
+    svcstr-7250-lc3-1:
+      hwsku: Nokia-IXR7250E-36x100G
+      sonic_hwsku: Nokia-IXR7250E-36x100G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot3
+      switchids: [10,12]
+      voq_inband_ip: [3.3.3.10/32,3.3.3.12/32]
+      voq_inband_ipv6: [3333::3:a/128,3333::3:c/128]
+      loopback4096_ip: [192.0.0.10/32,192.0.0.12/32]
+      loopback4096_ipv6: [2603:10e2:400::a/128,2603:10e2:400::c/128]
+      serial: NS222464263
+      base_mac: 18:5b:00:50:6c:08
+      ansible_host: 10.206.144.147
+
+sonic_nokia_sup:
+  vars:
+    HwSku:  Nokia-IXR7250E-SUP-10
+    sonic_hwsku:  Nokia-IXR7250E-SUP-10
+    sonic_hw_platform:  x86_64-nokia_ixr7250e_sup-r0
+    slot_num: slot0
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+  hosts:
+    svcstr-7250-sup-1:
+      ansible_host: 10.206.144.144
+      hwsku: Nokia-IXR7250E-SUP-10
+
 server:
   hosts:
     svcstr-server-1:
       ansible_host: 10.206.144.7
     svcstr-server-2:
       ansible_host: 10.206.144.18
+    svcstr-server-3:
+      ansible_host: 10.206.144.149

@@ -1480,6 +1480,25 @@
   auto_recover: 'True'
   comment: jujoseph
 
+- conf-name: vmsvc3-t2-7250-1
+  group-name: svc3-1
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: svc3-1
+  ptf_ip: 10.206.144.128/24
+  ptf_ipv6:
+  server: server_svc_3
+  vm_base: VM30000
+  dut:
+    - svcstr-7250-lc1-1
+    - svcstr-7250-lc2-1
+    - svcstr-7250-lc3-1
+    - svcstr-7250-sup-1
+
+  inv_name: strsvc
+  auto_recover: 'True'
+  comment: sumeenak
+
 - conf-name: vmsvc1-t1-n3164-acs-1
   group-name: svc1-1
   topo: t1-64-lag
