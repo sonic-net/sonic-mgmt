@@ -45,7 +45,7 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
 
 
 def genrate_ipv4_ip():
-    ipv4_addr = ip_network(str(ARP_BASE_IP), strict=False)
+    ipv4_addr = ip_network(ARP_BASE_IP.encode().decode(), strict=False)
     ptf_intf_ipv4_hosts = ipv4_addr.hosts()
     return list(ptf_intf_ipv4_hosts)
 
@@ -99,7 +99,7 @@ def generate_global_addr(mac):
     for i in range(0, len(parts), 2):
         ipv6Parts.append("".join(parts[i:i+2]))
     ipv6 = "fc02:1000::{}".format(":".join(ipv6Parts))
-    ipv6 = str(ip_address(str(ipv6)))
+    ipv6 = str(ip_address(ipv6.encode().decode()))
     return ipv6
 
 
