@@ -36,8 +36,8 @@ wan_dut_configuration:
 configuration_properties:
   common:
     dut_asn: 65100
-    dut_type: InternetBackboneRouter
-    swrole: leaf
+    dut_type: Router
+    swrole: core
 configuration:
   ARISTA01T1:
     properties:
