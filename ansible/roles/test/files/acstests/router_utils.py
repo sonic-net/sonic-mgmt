@@ -56,7 +56,7 @@ class RouterUtility():
         '''
         is_valid_ipv4 = True
         try:
-            # building ipaddress fails for some of addresses unless 
+            # building ipaddress fails for some of addresses unless
             # ipaddr.encode().decode() is specified for both ipv4/ipv6
             # Example - 192.168.156.129, it is valid IPV4 address, send_packet works with it.
             ip = ipaddress.IPv4Address(ipaddr.encode().decode())     # noqa F841
