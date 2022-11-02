@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_INTERNAL)
+    default: $(BJW_IMAGE_MLNX_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_INTERNAL)
+    default: $(BJW_SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
@@ -39,6 +39,11 @@ parameters:
     default: '-S "platform_tests"'
     displayName: Testbed specific
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly-bjw
+    displayName: "Agent pool"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -46,3 +51,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
