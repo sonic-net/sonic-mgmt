@@ -192,7 +192,7 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     """
     Build ipv4 and ipv6 packets/expected_packets for testing.
     """
-    if ipaddress.ip_network(str(src_ip), False).version == 4:
+    if ipaddress.ip_network(src_ip.encode().decode(), False).version == 4:
         pkt = testutils.simple_ip_packet(eth_dst=dst_mac, ip_src=src_ip, ip_dst=dst_ip)
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -244,7 +244,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         src_ip = test_item[0]
         action = test_item[1]
         expected_result = test_item[2]
-        ip_ver = ipaddress.ip_network(str(src_ip), False).version
+        ip_ver = ipaddress.ip_network(src_ip.encode().decode(), False).version
         logger.info("Testing with src_ip = {} action = {} expected_result = {}"
                     .format(src_ip, action, expected_result))
         pkt, exp_pkt = generate_packet(src_ip, DST_IP[ip_ver], router_mac)
