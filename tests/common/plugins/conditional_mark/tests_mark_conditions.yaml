@@ -755,11 +755,7 @@ snmp/test_snmp_queue.py:
   skip:
     reason: "Interfaces not present on supervisor node"
     conditions:
-      - "is_supervisor"
-  skip:
-    reason: "M0 topo does not support test_snmp_queue"
-    conditions:
-      - "topo_name in ['m0']"
+      - "is_supervisor or topo_name in ['m0']"
 
 #######################################
 #####            span             #####
