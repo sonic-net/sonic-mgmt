@@ -225,3 +225,16 @@ stages:
           tbtype: multi-asic-t1-lag-pr
           vmtype: ceos
           image: sonic-4asic-vs.img.gz
+
+  - job: multi_asic_testbedv2
+      displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
+      timeoutInMinutes: 1080
+      condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+      continueOnError: false
+      steps:
+        - template: .azure-pipelines/run-test-scheduler-template.yml
+          parameters:
+            TOPOLOGY: t1-64-lag
+            MIN_WORKER: 1
+            MAX_WORKER: 3
+            NUM_ASIC: 4
