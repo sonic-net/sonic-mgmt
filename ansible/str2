@@ -23,7 +23,7 @@ all:
         vms18-7:
           ansible_host: 10.64.246.159
         vms18-8:
-          ansible_host: 10.64.246.160
+          ansible_host: 10.64.246.60
         vms20-6:
           ansible_host: 10.64.246.120
         vms20-8:
@@ -109,6 +109,12 @@ all:
 
     pdu:
       hosts:
+        pdu-82:
+          ansible_host: 10.3.155.82
+          protocol: snmp
+        pdu-83:
+          ansible_host: 10.3.155.83
+          protocol: snmp
         pdu-84:
           ansible_host: 10.3.155.84
           protocol: snmp

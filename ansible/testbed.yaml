@@ -755,7 +755,7 @@
   topo: m0
   ptf_image_name: docker-ptf
   ptf: vms18-8
-  ptf_ip: 10.64.246.160/23
+  ptf_ip: 10.64.246.60/23
   ptf_ipv6:
   server: server_18
   vm_base: VM18102
