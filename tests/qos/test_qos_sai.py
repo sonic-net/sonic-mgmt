@@ -84,7 +84,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile
+        ingressLosslessProfile, egressLosslessProfile, tbinfo
     ):
         """
             Test QoS SAI XOFF limits
@@ -144,6 +144,19 @@ class TestQosSai(QosSaiBase):
 
         if 'cell_size' in qosConfig[xoffProfile].keys():
             testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
+
+        if "dualtor" in tbinfo["topo"]["name"]:
+            testParams["is_dualtor"] = True
+            if tbinfo["topo"]["type"] == 't0':
+                testParams["is_t0"] = True
+            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                default_vlan_name = vlan_cfgs['default_vlan_config']
+                if default_vlan_name:
+                    for vlan in vlan_cfgs[default_vlan_name].values():
+                        if 'mac' in vlan and vlan['mac']:
+                            testParams["def_vlan_mac"] = vlan['mac']
+                            break
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
