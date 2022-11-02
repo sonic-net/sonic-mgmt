@@ -4,10 +4,16 @@ topology:
     ARISTA01T1:
       vlans:
         - 0
+        - 1
+        - 2
+        - 3
       vm_offset: 0
     ARISTA02T1:
       vlans:
-        - 1
+        - 10
+        - 11
+        - 12
+        - 13
       vm_offset: 1
   DUT:
     loopback:
@@ -19,11 +25,11 @@ wan_dut_configuration:
   WANDUT01:
     interfaces:
       PortChannel101:
-        intfs: [0]
+        intfs: [0, 1, 2, 3]
         ipv4: 10.0.0.56/31
         ipv6: FC00::71/126
       PortChannel102:
-        intfs: [1]
+        intfs: [10, 11, 12, 13]
         ipv4: 10.0.0.58/31
         ipv6: FC00::75/126
     dut_offset: 0
@@ -48,6 +54,12 @@ configuration:
         ipv6: 2064:100::1d/128
       Ethernet1:
         lacp: 1
+      Ethernet2:
+        lacp: 1
+      Ethernet3:
+        lacp: 1
+      Ethernet4:
+        lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.57/31
         ipv6: fc00::72/126
@@ -68,6 +80,12 @@ configuration:
         ipv4: 100.1.0.30/32
         ipv6: 2064:100::1e/128
       Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Ethernet3:
+        lacp: 1
+      Ethernet4:
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.59/31
