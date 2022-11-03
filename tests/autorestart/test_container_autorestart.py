@@ -26,12 +26,14 @@ CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 
+
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     yield
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, safe_reload=True)
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
@@ -78,7 +80,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
-            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported \
+            for bridge port type port.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
             ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
@@ -95,20 +98,20 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR snmp#snmpd.*",
         ]
     ignore_regex_dict = {
-        'common' : [
+        'common': [
             ".*ERR monit.*",
             ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
         ],
-        'pmon' : [
+        'pmon': [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
         ],
-        'swss' : swss_syncd_teamd_regex,
-        'syncd' : swss_syncd_teamd_regex,
-        'teamd' : swss_syncd_teamd_regex,
+        'swss': swss_syncd_teamd_regex,
+        'syncd': swss_syncd_teamd_regex,
+        'teamd': swss_syncd_teamd_regex,
     }
 
     feature = enum_dut_feature
@@ -133,7 +136,8 @@ def get_group_program_info(duthost, container_name, group_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(group_name) != -1:
             program_name = program_info.split()[0].split(':')[1].strip()
@@ -158,7 +162,8 @@ def get_program_info(duthost, container_name, program_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
             program_status = program_info.split()[1].strip()
@@ -178,7 +183,7 @@ def is_container_running(duthost, container_name):
     @summary: Decide whether the container is running or not
     @return:  Boolean value. True represents the container is running
     """
-    result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
+    result = duthost.shell(r"docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))
     return result["stdout_lines"][0].strip() == "true"
 
 
@@ -445,7 +450,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         processes_status = duthost.all_critical_process_status()
         pstatus = [
             {
-                k:{
+                k: {
                     "status": v["status"],
                     "exited_critical_process": v["exited_critical_process"]
                 }
@@ -464,6 +469,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         )
 
     logger.info("End of testing the container '{}'".format(container_name))
+
 
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
