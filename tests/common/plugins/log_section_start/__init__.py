@@ -94,7 +94,7 @@ def _pytest_import_callback(module):
         try:
             next(it)
         except StopIteration:
-            raise
+            return
         except Exception as detail:
             logging.exception("\n%r", detail)
             raise
