@@ -8,7 +8,8 @@ import sys
 
 from pyclibrary import CParser
 
-from constant import *
+from constant import (IGNORE_HEADER_FILE_LIST, PRIORI_RESULT_SAVE_DIR,
+                      SAI_HEADER_FILENAME)
 from data_model.sai_interface_header import SAIInterfaceHeader
 from sai_report_utils import store_result
 

@@ -1,5 +1,5 @@
 """
-This file scans sai_adapter, generating the attribute name and value pairs in SAI interface 
+This file scans sai_adapter, generating the attribute name and value pairs in SAI interface
 """
 
 import argparse
@@ -7,7 +7,7 @@ import ast
 import json
 import os
 
-from constant import *
+from constant import PRIORI_RESULT_SAVE_DIR, SAI_ADAPTER_FILENAME
 
 
 def get_parser(description="SAI Adapter Scanner"):

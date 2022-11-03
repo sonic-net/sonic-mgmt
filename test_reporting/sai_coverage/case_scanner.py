@@ -10,7 +10,9 @@ import os
 
 from multipledispatch import dispatch
 
-from constant import *
+from constant import (FINAL_RESULT_SAVE_DIR, IGNORE_FILE_LIST,
+                      PRIORI_RESULT_SAVE_DIR, SAI_API_PREFIX,
+                      SAI_HEADER_FILENAME, UNRUNNABLE_TAG_LIST)
 from data_model.test_invocation import TestInvocation
 from sai_report_utils import seach_defalt_parms
 
@@ -46,7 +48,9 @@ class SAICoverageScanner(object):
         '''
         for (root, _, filenames) in os.walk(self.case_path):
             for filename in filenames:
-                if filename.endswith(".py") and filename not in IGNORE_FILE_LIST and "helper" not in filename.lower():
+                if filename.endswith(".py") and \
+                   filename not in IGNORE_FILE_LIST and \
+                   "helper" not in filename.lower():
                     with open(root + "/" + filename, "r") as f:
                         test_set = "t0" if 'sai_test' in root else "ptf"
                         code = f.read()
@@ -72,7 +76,8 @@ class SAICoverageScanner(object):
                 self.parse_method(node, file_name, node.name,
                                   test_set, runnable, sai_folder)
 
-    def parse_method(self, node: ast.ClassDef, file_name, class_name, test_set, runnable, sai_folder):
+    def parse_method(self, node: ast.ClassDef, file_name, class_name,
+                     test_set, runnable, sai_folder):
         '''
         parse method level
 
@@ -89,7 +94,8 @@ class SAICoverageScanner(object):
                 self.parse_sai_interface(
                     n, file_name, class_name, n.name, test_set, runnable, sai_folder)
 
-    def parse_sai_interface(self, node: ast.FunctionDef, file_name, class_name, method_name, test_set, runnable, sai_folder):
+    def parse_sai_interface(self, node: ast.FunctionDef, file_name, class_name, method_name,
+                            test_set, runnable, sai_folder):
         '''
         parse SAI interface level
 
@@ -113,9 +119,11 @@ class SAICoverageScanner(object):
                 sai_interface = child.func.attr
                 if SAI_API_PREFIX in sai_interface and "t" not in sai_interface.split("_"):
                     self.parse_ast_attribute(
-                        child, file_name, class_name, method_name, sai_interface, test_set, runnable, sai_folder)
+                        child, file_name, class_name, method_name,
+                        sai_interface, test_set, runnable, sai_folder)
 
-    def parse_ast_name(self, child: ast.Call, file_name, class_name, method_name, sai_interface, test_set, runnable, sai_folder):
+    def parse_ast_name(self, child: ast.Call, file_name, class_name, method_name, sai_interface,
+                       test_set, runnable, sai_folder):
         '''
         parse Attribute level (child.func : ast.Name)
 
@@ -141,8 +149,8 @@ class SAICoverageScanner(object):
 
                 attr_key = seach_defalt_parms(sai_interface, idx)
                 attr_val = v
-                self.construct_invocation_data(
-                    file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder)
+                self.construct_invocation_data(file_name, class_name, method_name, sai_interface,
+                                               attr_key, attr_val, test_set, runnable, sai_folder)
 
         for keyword in child.keywords:
             v = self.get_attr_and_values_arg(keyword.value)
@@ -154,7 +162,8 @@ class SAICoverageScanner(object):
             self.construct_invocation_data(
                 file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder)
 
-    def parse_ast_attribute(self, child: ast.Call, file_name, class_name, method_name, sai_interface, test_set, runnable, sai_folder):
+    def parse_ast_attribute(self, child: ast.Call, file_name, class_name, method_name, sai_interface,
+                            test_set, runnable, sai_folder):
         '''
         parse Attribute level (child.func : ast.Attribute)
 
@@ -181,7 +190,8 @@ class SAICoverageScanner(object):
                 attr_key = seach_defalt_parms(sai_interface, idx)
                 attr_val = v
                 self.construct_invocation_data(
-                    file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder)
+                    file_name, class_name, method_name, sai_interface, attr_key, attr_val,
+                    test_set, runnable, sai_folder)
 
         for keyword in child.keywords:
             v = self.get_attr_and_values_arg(keyword.value)
@@ -193,7 +203,8 @@ class SAICoverageScanner(object):
             self.construct_invocation_data(
                 file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder)
 
-    def construct_invocation_data(self, file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder):
+    def construct_invocation_data(self, file_name, class_name, method_name, sai_interface, attr_key, attr_val,
+                                  test_set, runnable, sai_folder):
         '''
         Construct SAI interface invocation report
 
@@ -261,7 +272,9 @@ class SAICoverageScanner(object):
             subscrpt = arg.slice.id
             v = arg.value.value.id + '.' + \
                 arg.value.attr + '[' + subscrpt + ']'
-        elif isinstance(arg.value, ast.Attribute) or isinstance(arg.value, ast.Subscript) or isinstance(arg.value, ast.Name):
+        elif isinstance(arg.value, ast.Attribute) or \
+                isinstance(arg.value, ast.Subscript) or \
+                isinstance(arg.value, ast.Name):
             v = "values"
         return v
 

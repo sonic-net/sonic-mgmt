@@ -12,6 +12,7 @@ from junit_xml_parser import (
 )
 from report_data_storage import KustoConnector
 
+
 def _parse_os_version(image_url):
     """Parse os version from image url"""
     os_version = ''
@@ -27,6 +28,7 @@ def _parse_os_version(image_url):
                 os_version = item.split("-")[-1]
     return os_version if os_version else "UNKNOWN"
 
+
 def _run_script():
     parser = argparse.ArgumentParser(
         description="Upload test reports to Kusto.",
@@ -36,8 +38,10 @@ Examples:
 python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
 """,
     )
-    parser.add_argument("path_list", metavar="path", nargs="+", type=str, help="list of file/directory to upload.")
-    parser.add_argument("db_name", metavar="database", type=str, help="The Kusto DB to upload to.")
+    parser.add_argument("path_list", metavar="path", nargs="+",
+                        type=str, help="list of file/directory to upload.")
+    parser.add_argument("db_name", metavar="database",
+                        type=str, help="The Kusto DB to upload to.")
     parser.add_argument(
         "--external_id", "-e", type=str, help="An external tracking ID to append to the report.",
     )
@@ -52,10 +56,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     )
     os_version = parser.add_mutually_exclusive_group(required=False)
     os_version.add_argument(
-        "--image_url", "-i", type=str, help="Image url. If has this argument, will ignore version. They are mutually exclusive."
+        "--image_url", "-i", type=str,
+        help="Image url. If has this argument, will ignore version. They are mutually exclusive."
     )
     os_version.add_argument(
-        "--version", "-o", type=str, help="OS version. If has this argument, will ignore image_url. They are mutually exclusive."
+        "--version", "-o", type=str,
+        help="OS version. If has this argument, will ignore image_url. They are mutually exclusive."
     )
 
     args = parser.parse_args()
@@ -72,7 +78,8 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         else:
             version = "UNKNOWN"
         for path_name in args.path_list:
-            reboot_data_regex = re.compile('.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
+            reboot_data_regex = re.compile(
+                '.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
             if reboot_data_regex.match(path_name):
                 kusto_db.upload_reboot_report(path_name, report_guid)
             else:
@@ -81,7 +88,8 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 else:
                     roots = validate_junit_xml_path(path_name)
                     test_result_json = parse_test_result(roots)
-                kusto_db.upload_report(test_result_json, tracking_id, report_guid, testbed, version)
+                kusto_db.upload_report(
+                    test_result_json, tracking_id, report_guid, testbed, version)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:

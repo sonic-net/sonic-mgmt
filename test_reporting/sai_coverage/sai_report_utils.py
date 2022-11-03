@@ -5,7 +5,7 @@ This file defines SAI qualification report utils
 import json
 import os
 
-from constant import *
+from constant import PRIORI_RESULT_SAVE_DIR, SAI_ADAPTER_FILENAME
 
 
 def store_result(data, file_name):
