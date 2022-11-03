@@ -249,22 +249,22 @@ class SAICoverageScanner(object):
             json.dump(self.final_coverage, f, indent=4)
 
     @dispatch(ast.Name)
-    def get_attr_and_values_arg(self, arg: ast.Name) -> str:
+    def get_attr_and_values_arg(self, arg: ast.Name) -> str:  # noqa: F811
         return arg.id
 
     @dispatch(ast.Constant)
-    def get_attr_and_values_arg(self, arg: ast.Constant) -> str:
+    def get_attr_and_values_arg(self, arg: ast.Constant) -> str:  # noqa: F811
         return str(arg.value).lower()
 
     @dispatch(ast.Attribute)
-    def get_attr_and_values_arg(self, arg: ast.Attribute) -> str:
+    def get_attr_and_values_arg(self, arg: ast.Attribute) -> str:  # noqa: F811
         if isinstance(arg.value, ast.Attribute) or isinstance(arg.value, ast.Subscript):
             return ("values")
         else:
             return (arg.value.id + '.' + arg.attr)
 
     @dispatch(ast.Subscript)
-    def get_attr_and_values_arg(self, arg: ast.Subscript) -> str:
+    def get_attr_and_values_arg(self, arg: ast.Subscript) -> str:  # noqa: F811
         if isinstance(arg.slice, ast.Constant):
             subscrpt = str(arg.slice.value)
             v = arg.value.value.id + '.' + \
@@ -280,7 +280,7 @@ class SAICoverageScanner(object):
         return v
 
     @dispatch(ast.List)
-    def get_attr_and_values_arg(self, arg: ast.List) -> str:
+    def get_attr_and_values_arg(self, arg: ast.List) -> str:  # noqa: F811
         for elt in arg.elts:
             if isinstance(elt, ast.Name):
                 v = '[' + elt.id + ']'
@@ -295,23 +295,23 @@ class SAICoverageScanner(object):
         return v
 
     @dispatch(ast.Dict)
-    def get_attr_and_values_arg(self, arg: ast.Dict) -> str:
+    def get_attr_and_values_arg(self, arg: ast.Dict) -> str:  # noqa: F811
         return "dict type with { : }"
 
     @dispatch(ast.BinOp)
-    def get_attr_and_values_arg(self, arg: ast.BinOp) -> str:
+    def get_attr_and_values_arg(self, arg: ast.BinOp) -> str:  # noqa: F811
         return "dict type with { : }"
 
     @dispatch(ast.UnaryOp)
-    def get_attr_and_values_arg(self, arg: ast.UnaryOp) -> str:
+    def get_attr_and_values_arg(self, arg: ast.UnaryOp) -> str:  # noqa: F811
         return "dict type with { : }"
 
     @dispatch(ast.Call)
-    def get_attr_and_values_arg(self, arg: ast.Call) -> None:
+    def get_attr_and_values_arg(self, arg: ast.Call) -> None:  # noqa: F811
         return None
 
     @dispatch(ast.IfExp)
-    def get_attr_and_values_arg(self, arg: ast.IfExp) -> None:
+    def get_attr_and_values_arg(self, arg: ast.IfExp) -> None:  # noqa: F811
         return None
 
     def parse_header(self, header_path):
