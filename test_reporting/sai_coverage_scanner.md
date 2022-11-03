@@ -35,28 +35,28 @@ python3 test_reporting/sai_coverage/case_scanner.py -p ptf
 
 Firstly, the corresponding table and mapping should be created in Kusto by the following Kusto commands.
 ```kql
-.create table CaseInvocationReport 
+.create table CaseInvocationReport
 (
-file_name: string, 
-case_name: string, 
-class_name: string, 
-case_invoc: string, 
-sai_header: string, 
-saiintf_id: string, 
-saiintf_method_table: string, 
-sai_api: string, 
-saiintf_alias: string, 
-test_set: string, 
-test_platform: string, 
-platform_purpose_attr: string, 
-sai_obj_attr_key: string, 
-sai_obj_attr_value: string, 
-runnable: bool, 
-sai_folder: string 
+file_name: string,
+case_name: string,
+class_name: string,
+case_invoc: string,
+sai_header: string,
+saiintf_id: string,
+saiintf_method_table: string,
+sai_api: string,
+saiintf_alias: string,
+test_set: string,
+test_platform: string,
+platform_purpose_attr: string,
+sai_obj_attr_key: string,
+sai_obj_attr_value: string,
+runnable: bool,
+sai_folder: string
 )
 
 
-.create table CaseInvocationReport ingestion json mapping 
+.create table CaseInvocationReport ingestion json mapping
 'CaseInvocationReportMapping' '['
 '{"column":"file_name","Properties":{"path":"$.file_name"}},'
 '{"column":"case_name","Properties":{"path":"$.case_name"}},'
