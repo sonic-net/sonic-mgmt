@@ -195,6 +195,8 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     chassis = init_versions["chassis"].keys()[0] # Only one chassis
     paths = get_install_paths(duthost, fw, init_versions, chassis)
     current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+    if component not in paths:
+        pytest.skip("No available firmware to install on {}. Skipping".format(component))
 
     generate_config(duthost, paths, init_versions)
     upload_platform(duthost, paths, next_image)
@@ -208,8 +210,6 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw, component=None, next_image=Non
     if component is None:
         command += " all"
     else:
-        if component not in paths:
-            pytest.skip("No available firmware to install on {}. Skipping".format(component))
         command += " chassis component {} fw".format(component)
 
     if basepath is not None:
