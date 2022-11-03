@@ -863,8 +863,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
-            # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            # actual leakout by sending packets and reading actual leakout from HW.
+            # And apply this behavior to all Arista device using Broadcom ASIC.
+            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
@@ -886,12 +887,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(
                     self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - \
                     xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out)
+                sys.stderr.write('Send {} packets as leakout compensation'.format(actual_pkts_num_leak_out))
+                time.sleep(8)
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
