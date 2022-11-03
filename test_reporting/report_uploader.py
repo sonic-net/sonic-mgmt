@@ -105,9 +105,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
     elif args.category == "case_invoc":
         for path_name in args.path_list:
             fns = os.listdir(path_name)
+            count = 0
             for fn in fns:
                 fn = os.path.join(path_name, fn)
                 kusto_db._upload_case_invoc_report_file(fn)
+                count += 1
+                print("Ingested file {}, {}/{}".format(fn, count, len(fns)))
 
     else:
         print('Unknown category "{}"'.format(args.category))

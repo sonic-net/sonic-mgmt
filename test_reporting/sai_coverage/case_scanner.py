@@ -36,7 +36,8 @@ class SAICoverageScanner(object):
     def __init__(self, parser):
         self.case_path = parser.path
         self.save_path = parser.save_path
-        self.header_path = os.path.join(PRIORI_RESULT_SAVE_DIR, SAI_HEADER_FILENAME)
+        self.header_path = os.path.join(
+            PRIORI_RESULT_SAVE_DIR, SAI_HEADER_FILENAME)
         self.final_coverage = list()
 
     def parse(self):
@@ -222,7 +223,7 @@ class SAICoverageScanner(object):
             saiintf_name=header_data[header_key]["intf_name"],
             saiintf_alias=header_data[header_key]["intf_alias"],
             test_set=test_set,
-            test_platform="vms3-t1-dx010-1",
+            test_platform="vms3-t1-dx010-1" if runnable else "",
             platform_purpose_attr="",
             attr_name=attr_key,
             attr_value=attr_val,

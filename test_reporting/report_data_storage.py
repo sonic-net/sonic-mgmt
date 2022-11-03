@@ -100,7 +100,7 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
-    CASE_INVOC_TABLE = "CaseInvocationReportV2"
+    CASE_INVOC_TABLE = "CaseInvocationReport"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -115,7 +115,7 @@ class KustoConnector(ReportDBConnector):
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
         PIPELINE_TABLE: DataFormat.JSON,
-        CASE_INVOC_TABLE: DataFormat.JSON,
+        CASE_INVOC_TABLE: DataFormat.MULTIJSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -131,7 +131,7 @@ class KustoConnector(ReportDBConnector):
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
         PIPELINE_TABLE: "FlatPipelineMappingV1",
-        CASE_INVOC_TABLE: "CaseInvocationReportMappingV2",
+        CASE_INVOC_TABLE: "CaseInvocationReportMapping",
     }
 
     def __init__(self, db_name: str):
