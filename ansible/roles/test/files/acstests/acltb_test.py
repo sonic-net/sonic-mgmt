@@ -17,7 +17,6 @@ Usage:
 from __future__ import print_function
 
 import logging
-import json
 
 import ptf
 import ptf.packet as scapy
