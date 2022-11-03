@@ -188,6 +188,14 @@ platform_tests/test_service_warm_restart.py::test_service_warm_restart:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6665
 
+qos/test_pfc_pause.py::test_no_pfc:
+  xfail:
+    reason: "test issue or image issue, to be RCA'ed"
+    conditions:
+      - "release in ['202205']"
+      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6716
+
 qos/test_qos_sai.py::TestQosSai::testParameter:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
