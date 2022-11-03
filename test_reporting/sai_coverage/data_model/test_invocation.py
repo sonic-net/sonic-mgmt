@@ -2,7 +2,10 @@ class TestInvocation(object):
     """
     Structure of invocation
     """
-    def __init__(self, file_name, class_name, case_name, case_invoc, sai_header, saiintf_id, saiintf_method_table, saiintf_name, saiintf_alias, test_set, test_platform, platform_purpose_attr, attr_name, attr_value, runnable, sai_folder):
+
+    def __init__(self, file_name, class_name, case_name, case_invoc, sai_header, saiintf_id,
+                 saiintf_method_table, saiintf_name, saiintf_alias, test_set, test_platform,
+                 platform_purpose_attr, attr_name, attr_value, runnable, sai_folder):
         self.file_name = file_name
         self.case_name = case_name
         self.class_name = class_name
