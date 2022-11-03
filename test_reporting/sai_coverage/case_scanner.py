@@ -160,7 +160,8 @@ class SAICoverageScanner(object):
             attr_key = keyword.arg
             attr_val = v
             self.construct_invocation_data(
-                file_name, class_name, method_name, sai_interface, attr_key, attr_val, test_set, runnable, sai_folder)
+                file_name, class_name, method_name, sai_interface,
+                attr_key, attr_val, test_set, runnable, sai_folder)
 
     def parse_ast_attribute(self, child: ast.Call, file_name, class_name, method_name, sai_interface,
                             test_set, runnable, sai_folder):
