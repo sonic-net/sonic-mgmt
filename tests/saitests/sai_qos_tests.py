@@ -732,10 +732,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
 
-        is_dualtor = bool(self.test_params.get('is_dualtor', False))
-        is_t0 = bool(self.test_params.get('is_t0', False))
+        is_dualtor = self.test_params.get('is_dualtor', False)
         def_vlan_mac = self.test_params.get('def_vlan_mac', None)
-        if is_dualtor and is_t0 and bool(def_vlan_mac):
+        if is_dualtor and def_vlan_mac != None:
             pkt_dst_mac = def_vlan_mac
 
         pkt = construct_ip_pkt(packet_length,

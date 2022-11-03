@@ -144,8 +144,6 @@ class TestQosSai(QosSaiBase):
 
         if "dualtor" in tbinfo["topo"]["name"]:
             testParams["is_dualtor"] = True
-            if tbinfo["topo"]["type"] == 't0':
-                testParams["is_t0"] = True
             vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
             if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
                 default_vlan_name = vlan_cfgs['default_vlan_config']
