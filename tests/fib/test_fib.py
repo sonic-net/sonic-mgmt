@@ -54,15 +54,27 @@ def ignore_ttl(duthosts):
     return False
 
 
+@pytest.fixture(scope="module")
+def updated_tbinfo(tbinfo):
+    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+        # skip ifaces from PortChannel 201 iface
+        ifaces_po_201 = tbinfo['topo']['properties']['topology']['DUT']['portchannel_config']['PortChannel201']['intfs']
+        for iface in ifaces_po_201:
+            ptf_map_iface_index = tbinfo['topo']['ptf_map']['0'][str(iface)]
+            tbinfo['topo']['ptf_map_disabled']['0'].update({str(iface): ptf_map_iface_index})
+            tbinfo['topo']['properties']['topology']['disabled_host_interfaces'].append(iface)
+    return tbinfo
+
+
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                    toggle_all_simulator_ports_to_random_side,
                    fib_info_files_per_function,
-                   tbinfo, mux_server_url,
+                   updated_tbinfo, mux_server_url,
                    mux_status_from_nic_simulator,
                    ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
 
-    if 'dualtor' in tbinfo['topo']['name']:
+    if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -85,7 +97,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         params={
             "fib_info_files": fib_info_files_per_function[:3],  # Test at most 3 DUTs
             "ptf_test_port_map": ptf_test_port_map_active_active(
-                ptfhost, tbinfo, duthosts, mux_server_url,
+                ptfhost, updated_tbinfo, duthosts, mux_server_url,
                 duts_running_config_facts, duts_minigraph_facts,
                 mux_status_from_nic_simulator()
             ),
@@ -255,10 +267,10 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
 
 def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
               toggle_all_simulator_ports_to_rand_selected_tor_m,
-              tbinfo, mux_server_url, mux_status_from_nic_simulator,
+              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator,
               ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
 
-    if 'dualtor' in tbinfo['topo']['name']:
+    if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -277,7 +289,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
         platform_dir="ptftests",
         params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
                 "ptf_test_port_map": ptf_test_port_map_active_active(
-                    ptfhost, tbinfo, duthosts, mux_server_url,
+                    ptfhost, updated_tbinfo, duthosts, mux_server_url,
                     duts_running_config_facts, duts_minigraph_facts,
                     mux_status_from_nic_simulator()
                 ),
