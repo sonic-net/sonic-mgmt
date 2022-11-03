@@ -731,6 +731,12 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = int(self.test_params['packet_size'])
         else:
             packet_length = 64
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
+
         pkt = construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,
@@ -772,8 +778,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         try:
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and 
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find 
-            # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            # actual leakout by sending packets and reading actual leakout from HW.
+            # And apply this behavior to all Arista device using Broadcom ASIC.
+            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0 
 
             # send packets short of triggering pfc
@@ -791,23 +798,27 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] -  xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out) 
+                sys.stderr.write('Send {} packets as leakout compensation'.format(actual_pkts_num_leak_out))
+                time.sleep(8)
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            test_stage = 'after send packets short of triggering PFC'
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
-            assert(recv_counters[pg] == recv_counters_base[pg])
+            assert(recv_counters[pg] == recv_counters_base[pg]), 'unexpectedly PFC counter increase, {}'.format(test_stage)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr])
+                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send 1 packet to trigger pfc
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -818,14 +829,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters_base = recv_counters
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            test_stage = 'after send a few packets to trigger PFC'
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg])
+            assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr])
+                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send packets short of ingress drop
             send_packet(self, src_port_id, pkt, pkts_num_trig_ingr_drp - pkts_num_trig_pfc - 1 - 2 * margin)
@@ -836,14 +849,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters_base = recv_counters
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            test_stage = 'after send packets short of ingress drop'
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg])
+            assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr])
+                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send 1 packet to trigger ingress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -854,14 +869,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters_base = recv_counters
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            test_stage = 'after send a few packets to trigger drop'
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg])
+            assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] > recv_counters_base[cntr])
+                assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(self.client, port_list[src_port_id])
