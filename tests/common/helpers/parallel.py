@@ -96,7 +96,6 @@ def parallel_run(
                 if init_result:
                     init_result['failed'] = True
                     results[results.keys()[0]] = init_result
-                    logger.info("killing results:{}".format(results))
                 else:
                     results[p.name] = {'failed': True}
                 try:
