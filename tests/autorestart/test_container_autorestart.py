@@ -32,7 +32,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     yield
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 
 @pytest.fixture(autouse=True)

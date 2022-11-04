@@ -68,7 +68,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     """
     reload SONiC configuration
     :param duthost: DUT host object
-    :param config_source: configuration source either 'config_db' or 'minigraph'
+    :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for DUT to initialize after configuration reload
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :return:
