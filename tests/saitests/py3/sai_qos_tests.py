@@ -2758,7 +2758,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
 
-        cell_occupancy = (packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl = 64
@@ -2859,7 +2859,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
-            pkts_inc = (total_shared / cell_occupancy) >> 2
+            pkts_inc = (total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
@@ -2871,7 +2871,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff = (expected_wm - total_shared +
-                            cell_occupancy - 1) / cell_occupancy
+                            cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
@@ -3184,7 +3184,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl=64
@@ -3278,7 +3278,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm=0
             total_shared=pkts_num_trig_drp - pkts_num_fill_min - 1
-            pkts_inc=(total_shared / cell_occupancy) >> 2
+            pkts_inc=(total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 pkts_total=0  # track total desired queue fill level
                 pkts_num=1
@@ -3289,7 +3289,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff=(expected_wm - total_shared + \
-                          cell_occupancy - 1) / cell_occupancy
+                          cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment=total_shared - expected_wm
@@ -3409,7 +3409,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         pkt=simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
