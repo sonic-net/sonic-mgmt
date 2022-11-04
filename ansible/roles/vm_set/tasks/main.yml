@@ -308,10 +308,6 @@
   include_tasks: add_topo.yml
   when: action == 'add_topo'
 
-- name: Add WAN topology
-  include_tasks: add_wan_topo.yml
-  when: action == 'add_wan_topo'
-
 - name: Remove topology
   include_tasks: remove_topo.yml
   when: action == 'remove_topo'
