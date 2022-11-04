@@ -2099,6 +2099,26 @@ qos_params:
                     pkts_num_margin: 4
                     packet_size: 1350
                     cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 8000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2204,6 +2224,26 @@ qos_params:
                     pkts_num_margin: 4
                     packet_size: 1350
                     cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 8000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2299,6 +2339,26 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 4
                     packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    src_port_id: 34
+                    dst_port_id: 36
+                    pkts_num_trig_egr_drp: 8000
+                    pkts_num_margin: 4
+                    packet_size: 64
                     cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
