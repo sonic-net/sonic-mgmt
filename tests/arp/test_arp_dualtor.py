@@ -5,14 +5,14 @@ import ptf.testutils as testutils
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, show_muxcable_status  # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_garp_service, change_mac_addresses, run_icmp_responder
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, show_muxcable_status  # noqa F401
 from tests.common.utilities import wait_until
 
-pytestmark= [
+pytestmark = [
     pytest.mark.topology('dualtor')
 ]
+
 
 @pytest.fixture
 def restore_mux_auto_config(duthosts):
@@ -25,11 +25,14 @@ def restore_mux_auto_config(duthosts):
     for duthost in duthosts:
         duthost.shell("sudo config mux mode auto all")
 
+
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
-    ptfadapter, packets_for_test, upper_tor_host, toggle_all_simulator_ports_to_upper_tor):
+                                        ptfadapter, packets_for_test, upper_tor_host,   # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor):   # noqa F811
     """
-    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN that is
-    routed via the IPinIP tunnel (i.e. that IP points to a standby neighbor)
+    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
+    within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
+    (i.e. that IP points to a standby neighbor)
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
 
@@ -45,7 +48,7 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
     # This should never fail since we are only running on dual ToR platforms
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs, check dual ToR configuration')
 
-    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index  = ip_and_intf_info
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ip_version, outgoing_packet, expected_packet = packets_for_test
 
     if ip_version == 'v4':
@@ -53,7 +56,7 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
         intf_name_cmd = "show arp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
-        intf_name_cmd= "show ndp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
+        intf_name_cmd = "show ndp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
 
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
     intf_name = upper_tor_host.shell(intf_name_cmd)['stdout']
