@@ -14,6 +14,7 @@ from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
                            simple_tcp_packet,
+                           simple_udp_packet,
                            simple_qinq_tcp_packet,
                            simple_ip_packet)
 from ptf.mask import Mask
@@ -2425,6 +2426,133 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+
+class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
+        sonic_version = self.test_params['sonic_version']
+        router_mac = self.test_params['router_mac']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+
+        # get counter names to query
+        ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        # prepare tcp packet data
+        ttl = 64
+
+        pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+            cell_size = int(self.test_params['cell_size'])
+            if packet_length != 64:
+                cell_occupancy = (packet_length + cell_size - 1) / cell_size
+                pkts_num_trig_egr_drp /= cell_occupancy
+        else:
+            packet_length = 64
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        # crafting 2 udp packets with different udp_dport in order for traffic to go through different flows
+        pkt = simple_udp_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=((dscp << 2) | ecn),
+                                udp_sport=1024,
+                                udp_dport=2048,
+                                ip_ecn=ecn,
+                                ip_ttl=ttl)
+
+        pkt2 = simple_udp_packet(pktlen=packet_length,
+                                 eth_dst=pkt_dst_mac,
+                                 eth_src=src_port_mac,
+                                 ip_src=src_port_ip,
+                                 ip_dst=dst_port_ip,
+                                 ip_tos=((dscp << 2) | ecn),
+                                 udp_sport=1024,
+                                 udp_dport=2049,
+                                 ip_ecn=ecn,
+                                 ip_ttl=ttl)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d " % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+
+        # get a snapshot of counter values at recv and transmit ports
+        # queue_counters value is not of our interest here
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        # add slight tolerance in threshold characterization to consider
+        # the case that npu puts packets in the egress queue after we pause the egress
+        # or the leak out is simply less than expected as we have occasionally observed
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 2
+
+        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+        try:
+            if asic_type == 'cisco-8000':
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']),
+                       asic_type))
+                # send packets short of triggering egress drop on flow1 and flow2
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+                send_packet(self, src_port_id, pkt2, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters[cntr] == recv_counters_base[cntr])
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+            # send 1 packet to trigger egress drop
+            send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            send_packet(self, src_port_id, pkt2, 1 + 2 * margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters[cntr] == recv_counters_base[cntr])
+            # xmit port egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] > xmit_counters_base[cntr])
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
 
 # pg shared pool applied to both lossy and lossless traffic
 

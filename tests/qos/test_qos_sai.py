@@ -34,6 +34,7 @@ from tests.common.dualtor.dual_tor_utils import dualtor_ports             # lgtm
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
+from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
 logger = logging.getLogger(__name__)
 
@@ -168,8 +169,8 @@ class TestQosSai(QosSaiBase):
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
-            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen
             Only for MLNX Platforms
 
             Args:
@@ -742,6 +743,69 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.LossyQueueTest",
             testParams=testParams
         )
+
+    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
+    def testQosSaiLossyQueueVoq(
+        self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLossyProfile, duthost, localhost
+    ):
+        """
+            Test QoS SAI Lossy queue with non_default voq and default voq
+            Args:
+                LossyVoq : qos.yml entry lookup key
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLossyProfile (Fxiture): Map of ingress lossy buffer profile attributes
+                duthost : DUT host params
+                localhost : local host params
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Lossy Queue Voq test is not supported")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+
+        if "lossy_queue_voq_2" in LossyVoq:
+            original_voq_markings = get_markings_dut(duthost)
+            setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
+
+        try:
+            testParams = dict()
+            testParams.update(dutTestParams["basicParams"])
+            testParams.update({
+                "dscp": qosConfig[LossyVoq]["dscp"],
+                "ecn": qosConfig[LossyVoq]["ecn"],
+                "pg": qosConfig[LossyVoq]["pg"],
+                "src_port_id": qosConfig[LossyVoq]["src_port_id"],
+                "src_port_ip": testPortIps[qosConfig[LossyVoq]["src_port_id"]]['peer_addr'],
+                "dst_port_id": qosConfig[LossyVoq]["dst_port_id"],
+                "dst_port_ip": testPortIps[qosConfig[LossyVoq]["dst_port_id"]]['peer_addr'],
+                "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+                "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
+            })
+
+            if "packet_size" in qosConfig[LossyVoq].keys():
+                testParams["packet_size"] = qosConfig[LossyVoq]["packet_size"]
+                testParams["cell_size"] = qosConfig[LossyVoq]["cell_size"]
+
+            if "pkts_num_margin" in qosConfig[LossyVoq].keys():
+                testParams["pkts_num_margin"] = qosConfig[LossyVoq]["pkts_num_margin"]
+
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.LossyQueueVoqTest",
+                testParams=testParams
+            )
+
+        finally:
+            if "lossy_queue_voq_2" in LossyVoq:
+                setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, dutTestParams, dutConfig
