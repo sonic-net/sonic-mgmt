@@ -9,6 +9,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import  get_markings_dut, setup_markings_dut
+from tests.ixia.ptf_utils import get_sai_attributes
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
@@ -18,6 +19,7 @@ def test_dequeue_ecn(request,
                      conn_graph_facts,
                      fanout_graph_facts,
                      duthosts,
+                     ptfhost,
                      localhost,
                      rand_one_dut_hostname,
                      rand_one_dut_portname_oper_up,
@@ -63,7 +65,7 @@ def test_dequeue_ecn(request,
 
     if cisco_platform:
         original_ecn_markings = get_markings_dut(duthost)
-        setup_ecn_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
+        setup_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
         oq_cell_count = 100      # Number of cells in OQ for this lossless priority 
         cell_size = 384
         cell_per_pkt = (pkt_size + cell_size - 1) // cell_size
@@ -71,6 +73,7 @@ def test_dequeue_ecn(request,
         margin = margin_cells // cell_per_pkt
         pkt_to_oq = (oq_cell_count//cell_per_pkt) + margin # Packets forwarded to OQ
         pkt_to_check = pkt_to_oq + 1
+        get_sai_attributes(duthost, ptfhost, dut_port, [], clear_only=True)
     else:
         pkt_to_check = 0
 
@@ -102,6 +105,9 @@ def test_dequeue_ecn(request,
         """ Check if the last packet is not marked """
         pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                       "The last packet should not be marked")
+        if cisco_platform:
+            print(get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=False))
+
     finally:
          if cisco_platform:
             setup_markings_dut(duthost, localhost, **original_ecn_markings)
