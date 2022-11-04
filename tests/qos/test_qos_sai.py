@@ -30,7 +30,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import dualtor_ports             # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -843,13 +843,14 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDwrr(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
     ):
         """
             Test QoS SAI DWRR
 
             Args:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                duthost (AnsibleHost): The DUT for testing
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
@@ -863,7 +864,7 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
-
+        qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -884,6 +885,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku'],
             "topo": dutTestParams["topo"]
         })
+        if qos_remap_enable:
+            testParams.update({
+                "qos_remap_enable": qos_remap_enable,
+                "q7_num_of_pkts": qosConfig["wrr"].get("q7_num_of_pkts", 0)
+            })
 
         if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
             testParams["ecn"] = qosConfig[portSpeedCableLength]["lossy_queue_1"]["ecn"]
