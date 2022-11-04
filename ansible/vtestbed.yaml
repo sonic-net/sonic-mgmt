@@ -275,4 +275,3 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
-
