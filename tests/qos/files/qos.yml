@@ -2091,6 +2091,46 @@ qos_params:
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -2216,6 +2256,46 @@ qos_params:
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -2331,6 +2411,46 @@ qos_params:
                     pg: 4
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    src_port_1_id: 34
+                    src_port_2_id: 36
+                    dst_port_id: 37
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
                     packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
