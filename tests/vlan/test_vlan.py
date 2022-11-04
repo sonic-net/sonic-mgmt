@@ -16,6 +16,7 @@ from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_lis
 from tests.common.fixtures.duthost_utils import utils_create_test_vlans
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,27 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
 
     return work_vlan_ports_list
 
+@pytest.fixture(scope="module")
+def acl_rule_cleanup(duthost, tbinfo):
+    """Cleanup all the existing DATAACL rules"""
+    # remove all rules under the ACL_RULE table
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete')
+
+    yield
+
+@pytest.fixture(scope="module")
+def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
+   """ Remove the DATAACL table prior to the test and recreate it at the end"""
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+
+   yield
+
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+       # rebind with new set of ports
+       bind_acl_table(duthost, tbinfo)
 
 def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
     cmds = []
@@ -152,7 +174,7 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts, setup_acl_table):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -175,6 +197,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_po
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
             populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
+            bind_acl_table(duthost, tbinfo)
+            apply_acl_rules(duthost, tbinfo)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
