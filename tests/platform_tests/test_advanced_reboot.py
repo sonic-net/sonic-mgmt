@@ -10,7 +10,8 @@ from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.skip_check_dut_health
 ]
 
 def pytest_generate_tests(metafunc):
