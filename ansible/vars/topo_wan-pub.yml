@@ -15,11 +15,23 @@ topology:
         - 10.1.0.32/32
       ipv6:
         - FC00:1::32/128
+wan_dut_configuration:
+  WANDUT01:
+    interfaces:
+      PortChannel101:
+        intfs: [0]
+        ipv4: 10.0.0.56/31
+        ipv6: FC00::71/126
+      PortChannel102:
+        intfs: [1]
+        ipv4: 10.0.0.58/31
+        ipv6: FC00::75/126
+    dut_offset: 0
 configuration_properties:
   common:
     dut_asn: 65100
-    dut_type: InternetBackboneRouter
-    swrole: leaf
+    dut_type: Router
+    swrole: core
 configuration:
   ARISTA01T1:
     properties:
@@ -35,7 +47,6 @@ configuration:
         ipv4: 100.1.0.29/32
         ipv6: 2064:100::1d/128
       Ethernet1:
-        dut_index: 0      
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.57/31
@@ -57,7 +68,6 @@ configuration:
         ipv4: 100.1.0.30/32
         ipv6: 2064:100::1e/128
       Ethernet1:
-        dut_index: 0
         lacp: 1
       Port-Channel1:
         ipv4: 10.0.0.59/31

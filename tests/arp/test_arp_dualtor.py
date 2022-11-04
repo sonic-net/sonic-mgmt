@@ -13,9 +13,10 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, show_muxcable_status, config_dualtor_arp_responder  # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import mux_config
 from tests.common.fixtures.ptfhost_utils import run_garp_service, change_mac_addresses, run_icmp_responder, pause_garp_service
+
 from tests.common.utilities import wait_until
 
-pytestmark= [
+pytestmark = [
     pytest.mark.topology('dualtor')
 ]
 
@@ -25,6 +26,7 @@ FAILED = "FAILED"
 INCOMPLETE = "INCOMPLETE"
 STALE = "STALE"
 REACHABLE = "REACHABLE"
+
 
 @pytest.fixture
 def restore_mux_auto_config(duthosts):
@@ -87,10 +89,12 @@ def verify_neighbor_status(duthost, neigh_ip, expected_status):
 
 
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
-    ptfadapter, packets_for_test, upper_tor_host, toggle_all_simulator_ports_to_upper_tor):
+                                        ptfadapter, packets_for_test, upper_tor_host,   # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor):   # noqa F811
     """
-    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN that is
-    routed via the IPinIP tunnel (i.e. that IP points to a standby neighbor)
+    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
+    within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
+    (i.e. that IP points to a standby neighbor)
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
 
