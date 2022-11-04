@@ -49,12 +49,16 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None):
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None, common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
+
+        common_params = ["--completeness_level=confident", "--allow_recover"]
+        for param in common_extra_params:
+            common_params.append(param)
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -73,10 +77,7 @@ class TestPlanManager(object):
                     "features_exclude": [],
                     "scripts_exclude": []
                 },
-                "common_params": [
-                    "--completeness_level=confident",
-                    "--allow_recover"
-                ],
+                "common_params": common_params,
                 "specified_params": {
                 },
                 "deploy_mg_params": deploy_mg_extra_params
@@ -85,11 +86,14 @@ class TestPlanManager(object):
                 "pull_request_id": pr_id,
                 "build_id": build_id,
                 "source_repo": repo_name,
-                "kvm_build_id": kvm_build_id
+                "kvm_build_id": kvm_build_id,
+                "dump_kvm_if_fail": True,
+                "mgmt_branch": kwargs["mgmt_branch"],
             },
             "priority": 10,
             "requester": "pull request"
         })
+
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
@@ -192,6 +196,9 @@ class TestPlanManager(object):
                     raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
                                     .format(test_plan_id, status, result, time.time() - start_time))
             elif status in expected_states:
+                if status == "KVMDUMP":
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
+                                    .format(test_plan_id, status, result, time.time() - start_time))
                 return
             else:
                 print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
@@ -274,6 +281,23 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="KVM build id."
+    )
+    parser_create.add_argument(
+        "--mgmt-branch",
+        type=str,
+        dest="mgmt_branch",
+        default="master",
+        required=False,
+        help="Branch of sonic-mgmt repo to run the test"
+    )
+    parser_create.add_argument(
+        "--common-extra-params",
+        type=str,
+        dest="common_extra_params",
+        default="",
+        nargs='*',
+        required=False,
+        help="Run test common extra params"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -378,7 +402,9 @@ if __name__ == "__main__":
                 max_worker=args.max_worker,
                 pr_id=pr_id,
                 scripts=get_test_scripts(args.test_set),
-                output=args.output
+                output=args.output,
+                mgmt_branch=args.mgmt_branch,
+                common_extra_params=args.common_extra_params
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)

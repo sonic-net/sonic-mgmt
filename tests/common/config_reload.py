@@ -10,7 +10,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 
 logger = logging.getLogger(__name__)
 
-config_sources = ['config_db', 'minigraph']
+config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 def config_system_checks_passed(duthost):
     logging.info("Checking if system is running")
@@ -64,12 +64,13 @@ def config_force_option_supported(duthost):
 
 @ignore_loganalyzer
 def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
-                  check_intf_up_ports=False, traffic_shift_away=False):
+                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
     :param config_source: configuration source either 'config_db' or 'minigraph'
     :param wait: wait timeout for DUT to initialize after configuration reload
+    :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :return:
     """
 
@@ -79,10 +80,6 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             ' or '.join(['"{}"'.format(src) for src in config_sources])
         ))
 
-    cmd = 'config reload -y &>/dev/null'
-    if config_force_option_supported(duthost):
-        cmd = 'config reload -y -f &>/dev/null'
-
     logger.info('reloading {}'.format(config_source))
 
     if config_source == 'minigraph':
@@ -91,10 +88,12 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
+        cmd = 'config load_minigraph -y &>/dev/null'
         if traffic_shift_away:
-            duthost.shell('config load_minigraph -y -t &>/dev/null', executable="/bin/bash")
-        else:
-            duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+            cmd += ' -t'
+        if override_config:
+            cmd += ' -o'
+        duthost.shell(cmd, executable="/bin/bash")
         time.sleep(60)
         if start_bgp:
             duthost.shell('config bgp startup all')
@@ -102,7 +101,16 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             duthost.shell('enable-dynamic-buffer.py')
         duthost.shell('config save -y')
 
-    if config_source == 'config_db':
+    elif config_source == 'config_db':
+        cmd = 'config reload -y &>/dev/null'
+        if config_force_option_supported(duthost):
+            cmd = 'config reload -y -f &>/dev/null'
+        duthost.shell(cmd, executable="/bin/bash")
+
+    elif config_source == 'running_golden_config':
+        cmd = 'config reload -y -l /etc/sonic/running_golden_config.json &>/dev/null'
+        if config_force_option_supported(duthost):
+            cmd = 'config reload -y -f -l /etc/sonic/running_golden_config.json &>/dev/null'
         duthost.shell(cmd, executable="/bin/bash")
 
     modular_chassis = duthost.get_facts().get("modular_chassis")

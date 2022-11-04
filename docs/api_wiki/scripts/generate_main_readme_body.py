@@ -3,6 +3,7 @@
 
 import os
 
+
 def get_section(title, path):
     # Prints a section of the body
 
@@ -27,9 +28,10 @@ def get_section(title, path):
 
     return "\n".join(ret_list)
 
+
 print("\n\n".join([get_section("Ansible Modules", "docs/api_wiki/ansible_methods"),
-                 get_section("Sonichost Methods", "docs/api_wiki/sonichost_methods"),
-                 get_section("Multi ASIC Methods", "docs/api_wiki/multi_asic_methods"),
-                 get_section("Sonic ASIC Methods", "docs/api_wiki/sonic_asic_methods"), 
-                 get_section("Ptfhost Methods", "docs/api_wiki/ptfhost_methods"), 
-                 get_section("Preconfigured Function Arguments", "docs/api_wiki/preconfigured")]))
+                  get_section("Sonichost Methods", "docs/api_wiki/sonichost_methods"),
+                  get_section("Multi ASIC Methods", "docs/api_wiki/multi_asic_methods"),
+                  get_section("Sonic ASIC Methods", "docs/api_wiki/sonic_asic_methods"),
+                  get_section("Ptfhost Methods", "docs/api_wiki/ptfhost_methods"),
+                  get_section("Preconfigured Function Arguments", "docs/api_wiki/preconfigured")]))
