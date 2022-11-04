@@ -3,12 +3,16 @@
 {% set ethernet_intf_pattern = "GigabitEthernet0/0/0/" %}
 {% set port_channel_pattern = "Bundle-Ether" %}
 !
-hostname {{ inventory_hostname }}
+hostname {{ hostname }}
+
 username {{ cisco_login }}
  group root-lr
  group cisco-support
  secret 0 {{ cisco_password }}
 !
+
+snmp-server community strcommunity RO
+
 interface MgmtEth0/RP0/CPU0/0
  ipv4 address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
@@ -27,11 +31,9 @@ interface {{ bp_ifname }}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Ethernet') %}
 interface {{ ethernet_intf_pattern }}{{ name | regex_replace('Ethernet', '') | int }}
-{% endif %}
-{% if name.startswith('Port-Channel') %}
+{% elif name.startswith('Port-Channel') %}
 interface {{ port_channel_pattern }}{{ name | regex_replace('Port-Channel', '') | int }}
-{% endif %}
-{% if name.startswith('Loopback') %}
+{% else %}
 interface {{ name }}
 {% endif %}
 {% if iface['ipv4'] is defined %}
@@ -40,13 +42,12 @@ interface {{ name }}
 {% if iface['ipv6'] is defined %}
  ipv6 address {{ iface['ipv6'] }}
 {% endif %}
-{% if name.startswith('Ethernet') %}
 {% if iface['lacp'] is defined %}
  bundle id {{ iface['lacp'] }} mode active
 {% endif %}
+{% if not name.startswith('Loopback') and not name.startswith('Port-Channel') %}
  lldp
   enable
- !
 {% endif %}
  no shutdown
 !

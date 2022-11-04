@@ -34,6 +34,7 @@ all:
           - dualtor-mixed-120
           - wan-pub
           - wan-4link
+          - wan-pub-cisco
       children:
         server_1:
     lab:
