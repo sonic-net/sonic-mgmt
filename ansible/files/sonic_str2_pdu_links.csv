@@ -202,3 +202,11 @@ pdu-82,4,str2-pikez-acs-1,PSU1
 pdu-83,4,str2-pikez-acs-1,PSU2
 pdu-82,3,str2-7215-acs-5,PSU1
 pdu-83,3,str2-7215-acs-5,PSU2
+pdu-118,46,str2-bluefield-host-01,PSU1
+pdu-119,18,str2-bluefield-host-01,PSU2
+pdu-119,5,str2-bluefield-host-02,PSU1
+pdu-119,17,str2-bluefield-host-02,PSU2
+pdu-118,46,str2-bluefield-01,PSU1
+pdu-119,18,str2-bluefield-01,PSU2
+pdu-119,5,str2-bluefield-02,PSU1
+pdu-119,17,str2-bluefield-02,PSU2
