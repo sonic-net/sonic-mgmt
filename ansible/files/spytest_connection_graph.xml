@@ -1041,8 +1041,8 @@
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet45/3" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet246"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet46/1" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet46/3" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet250"/>
-      <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet47/1" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet252"/>
-      <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet47/3" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet254"/>
+      <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet18/1" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet252"/>
+      <DeviceInterfaceLink BandWidth="50000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet18/3" StartDevice="str2-7260cx3-acs-9" StartPort="Ethernet254"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260-26" EndPort="Ethernet1/1" StartDevice="str2-n3164-acs-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260-26" EndPort="Ethernet2/1" StartDevice="str2-n3164-acs-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260-26" EndPort="Ethernet3/1" StartDevice="str2-n3164-acs-1" StartPort="Ethernet8"/>
@@ -3994,8 +3994,8 @@
       <InterfaceVlan mode="Access" portname="Ethernet45/3" vlanids="3147"/>
       <InterfaceVlan mode="Access" portname="Ethernet46/1" vlanids="3148"/>
       <InterfaceVlan mode="Access" portname="Ethernet46/3" vlanids="3149"/>
-      <InterfaceVlan mode="Access" portname="Ethernet47/1" vlanids="3150"/>
-      <InterfaceVlan mode="Access" portname="Ethernet47/3" vlanids="3151"/>
+      <InterfaceVlan mode="Access" portname="Ethernet18/1" vlanids="3150"/>
+      <InterfaceVlan mode="Access" portname="Ethernet18/3" vlanids="3151"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="3376"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="3377"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="3378"/>
