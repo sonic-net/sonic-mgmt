@@ -23,7 +23,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
 - `docker_name` - name of docker `service` is a member of
     - Required: `False`
     - Type: `String`
-    - Default: `None` 
+    - Default: `None`
 
 ## Expected Output
 `True` if service is running, `False` otherwise.

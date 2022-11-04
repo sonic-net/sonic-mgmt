@@ -11,8 +11,7 @@ class AutoTechSupportCli(object):
         release = kwargs.get('release')
         duthost = kwargs.get('duthost')
         supported_cli_classes = {'default': AutoTechSupportCliDefault(duthost),
-                                 '202111': AutoTechSupportCli202111(duthost),
-                                 '202205': AutoTechSupportCli202205(duthost)}
+                                 '202111': AutoTechSupportCli202111(duthost)}
 
         cli_class = supported_cli_classes.get(release, supported_cli_classes['default'])
         cli_class_name = cli_class.__class__.__name__
@@ -43,7 +42,7 @@ class AutoTechSupportCliDefault:
         'max_techsupport_limit': '10', 'max_core_size': '5', 'since': '2 days ago'}
         """
         with allure.step('Parsing "show auto-techsupport global" output'):
-            regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(\d+)\s+(\d+)\s+(.*)'
+            regexp = r'(enabled|disabled)\s+(\d+)\s+(\d+.\d+|\d+)\s+(\d+.\d+|\d+)\s+(\d+|N\/A)\s+(\d+|N\/A)\s+(.*)'
             cmd_output = self.show_auto_techsupport_global()
             state, rate_limit_interval, max_techsupport_limit, max_core_size, avail_mem, min_avail_mem, since = \
                 re.search(regexp, cmd_output).groups()
@@ -86,7 +85,7 @@ class AutoTechSupportCliDefault:
         """
         with allure.step('Parsing "show auto-techsupport-feature" output'):
             result_dict = {}
-            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+\.\d|N/A)'
+            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+\.\d|N\/A)'
             cmd_output = self.show_auto_techsupport_feature()
 
             name_index = 0
@@ -214,8 +213,3 @@ class AutoTechSupportCli202111(AutoTechSupportCliDefault):
                 result_dict[dump[dump_name_index].strip()] = {'triggered_by': dump[triggered_by_index],
                                                               'core_dump': dump[core_dump_index]}
         return result_dict
-
-
-class AutoTechSupportCli202205(AutoTechSupportCli202111):
-    def __int__(self, *args, **kwargs):
-        pass

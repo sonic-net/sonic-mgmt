@@ -2433,8 +2433,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
 
     if is_innovium_device(duthost):
-        buffer_items_to_check_dict["up"][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
-        buffer_items_to_check_dict["down"][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+        buffer_items_to_check_dict["up"][KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_items_to_check_dict["down"][KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
 
     if check_qos_db_fv_reference_with_table(duthost):
         profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'

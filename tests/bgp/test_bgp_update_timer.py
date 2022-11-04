@@ -10,10 +10,10 @@ from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
-
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -35,7 +35,7 @@ NEIGHBOR_PORT1 = 11001
 
 
 @contextlib.contextmanager
-def log_bgp_updates(duthost, iface, save_path):
+def log_bgp_updates(duthost, iface, save_path, ns):
     """Capture bgp packets to file."""
     if iface == "any":
         # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
@@ -44,8 +44,9 @@ def log_bgp_updates(duthost, iface, save_path):
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    stop_pcap = "pkill -f '%s'" % start_pcap
-    start_pcap = "nohup %s &" % start_pcap
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
+    stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
+    start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     duthost.shell(start_pcap)
     try:
         yield
@@ -57,7 +58,7 @@ def log_bgp_updates(duthost, iface, save_path):
 def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    show_res = duthost.shell("vtysh -c 'show version'")
+    show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
     return "Quagga" in show_res["stdout"]
 
 
@@ -71,6 +72,10 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
+    conn0_ns = DEFAULT_NAMESPACE if "namespace" not in conn0.keys() else conn0["namespace"]
+    conn1_ns = DEFAULT_NAMESPACE if "namespace" not in conn1.keys() else conn1["namespace"]
+    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} started on different asics!".format(conn0_ns, conn1_ns))
+
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
     dut_type = ''
@@ -94,7 +99,9 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
             dut_asn,
             NEIGHBOR_PORT0,
             neigh_type,
-            is_multihop=is_quagga or is_dualtor
+            conn0_ns,
+            is_multihop=is_quagga or is_dualtor,
+            is_passive=False
         ),
         BGPNeighbor(
             duthost,
@@ -106,7 +113,9 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
             dut_asn,
             NEIGHBOR_PORT1,
             neigh_type,
-            is_multihop=is_quagga or is_dualtor
+            conn1_ns,
+            is_multihop=is_quagga or is_dualtor,
+            is_passive=False
         )
     )
 
@@ -198,10 +207,11 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         n1.start_session()
 
         # sleep till new sessions are steady
-        time.sleep(30)
+        time.sleep(60)
 
         # ensure new sessions are ready
-        bgp_facts = duthost.bgp_facts()["ansible_facts"]
+        # handle both multi-sic and single-asic
+        bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
         assert n0.ip in bgp_facts["bgp_neighbors"]
         assert n1.ip in bgp_facts["bgp_neighbors"]
         assert bgp_facts["bgp_neighbors"][n0.ip]["state"] == "established"
@@ -211,7 +221,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         withdraw_intervals = []
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
-            with log_bgp_updates(duthost, "any", bgp_pcap):
+            with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 n0.withdraw_route(route)
