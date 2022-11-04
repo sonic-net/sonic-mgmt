@@ -17,7 +17,7 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index):
+def test_wan_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index):
     """ verify the LLDP message on DUT """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -37,7 +37,7 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, co
         else:
             assert(False)
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
+def test_wan_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
                        collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo):
     """ verify LLDP information on neighbors """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
