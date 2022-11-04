@@ -1004,6 +1004,176 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
+
+class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        sonic_version = self.test_params['sonic_version']
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_1_id = int(self.test_params['src_port_1_id'])
+        src_port_1_ip = self.test_params['src_port_1_ip']
+        src_port_1_mac = self.dataplane.get_mac(0, src_port_1_id)
+        src_port_2_id = int(self.test_params['src_port_2_id'])
+        src_port_2_ip = self.test_params['src_port_2_ip']
+        src_port_2_mac = self.dataplane.get_mac(0, src_port_2_id)
+        num_of_flows = self.test_params['num_of_flows']
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        # get counter names to query
+        ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        # Prepare IP packet data
+        ttl = 64
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+        pkt = simple_udp_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_1_mac,
+                                ip_src=src_port_1_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=((dscp << 2) | ecn),
+                                udp_sport=1024,
+                                udp_dport=2048,
+                                ip_ecn=ecn,
+                                ip_ttl=ttl)
+
+        pkt3 = simple_udp_packet(pktlen=packet_length,
+                                 eth_dst=pkt_dst_mac,
+                                 eth_src=src_port_2_mac,
+                                 ip_src=src_port_2_ip,
+                                 ip_dst=dst_port_ip,
+                                 ip_tos=((dscp << 2) | ecn),
+                                 udp_sport=1024,
+                                 udp_dport=2050,
+                                 ip_ecn=ecn,
+                                 ip_ttl=ttl)
+
+        if num_of_flows == "multiple":
+            pkt2 = simple_udp_packet(pktlen=packet_length,
+                                     eth_dst=pkt_dst_mac,
+                                     eth_src=src_port_1_mac,
+                                     ip_src=src_port_1_ip,
+                                     ip_dst=dst_port_ip,
+                                     ip_tos=((dscp << 2) | ecn),
+                                     udp_sport=1024,
+                                     udp_dport=2049,
+                                     ip_ecn=ecn,
+                                     ip_ttl=ttl)
+
+            pkt4 = simple_udp_packet(pktlen=packet_length,
+                                     eth_dst=pkt_dst_mac,
+                                     eth_src=src_port_2_mac,
+                                     ip_src=src_port_2_ip,
+                                     ip_dst=dst_port_ip,
+                                     ip_tos=((dscp << 2) | ecn),
+                                     udp_sport=1024,
+                                     udp_dport=2051,
+                                     ip_ecn=ecn,
+                                     ip_ttl=ttl)
+
+        print >> sys.stderr, "test dst_port_id: {}, src_port_1_id: {}".format(
+            dst_port_id, src_port_1_id
+        )
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_1_id, pkt_dst_mac, dst_port_ip, src_port_1_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+
+        # get a snapshot of counter values at recv and transmit ports
+        recv_counters_base1, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_1_id])
+        recv_counters_base2, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_2_id])
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        # Add slight tolerance in threshold characterization to consider
+        # the case that cpu puts packets in the egress queue after we pause the egress
+        # or the leak out is simply less than expected as we have occasionally observed
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 2
+
+        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+        try:
+            assert(fill_leakout_plus_one(self, src_port_1_id, dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+            # send packets short of triggering pfc
+            # Send 1 less packet due to leakout filling
+            if num_of_flows == 'multiple':
+                send_packet(self, src_port_1_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
+                send_packet(self, src_port_1_id, pkt2, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
+                send_packet(self, src_port_2_id, pkt3, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
+                send_packet(self, src_port_2_id, pkt4, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
+            else:
+                send_packet(self, src_port_1_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 2 - margin)
+                send_packet(self, src_port_2_id, pkt3, pkts_num_leak_out + pkts_num_trig_pfc - 2 - margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters1, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_1_id])
+            recv_counters2, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_2_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters1[pg] == recv_counters_base1[pg])
+            assert(recv_counters2[pg] == recv_counters_base2[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters1[cntr] == recv_counters_base1[cntr])
+                assert(recv_counters2[cntr] == recv_counters_base2[cntr])
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+            # send 1 packet to trigger pfc
+            if num_of_flows == "multiple":
+                send_packet(self, src_port_1_id, pkt, 1 + 2 * margin)
+                send_packet(self, src_port_1_id, pkt2, 1 + 2 * margin)
+                send_packet(self, src_port_2_id, pkt3, 1 + 2 * margin)
+                send_packet(self, src_port_2_id, pkt4, 1 + 2 * margin)
+            else:
+                send_packet(self, src_port_1_id, pkt, 1 + 2 * margin)
+                send_packet(self, src_port_2_id, pkt3, 1 + 2 * margin)
+
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters_base1 = recv_counters1
+            recv_counters_base2 = recv_counters2
+            recv_counters1, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_1_id])
+            recv_counters2, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_2_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port pfc
+            assert(recv_counters1[pg] > recv_counters_base1[pg])
+            assert(recv_counters2[pg] > recv_counters_base2[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters1[cntr] == recv_counters_base1[cntr])
+                assert(recv_counters2[cntr] == recv_counters_base2[cntr])
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
 # Base class used for individual PTF runs used in the following: testPfcStormWithSharedHeadroomOccupancy
 
 

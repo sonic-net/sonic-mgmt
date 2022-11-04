@@ -413,6 +413,60 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
 
+    @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
+                             "lossless_voq_3", "lossless_voq_4"])
+    def testQosSaiLosslessVoq(
+        self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI XOFF limits for various voq mode configurations
+            Args:
+                LosslessVoqProfile (pytest parameter): LosslessVoq Profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Lossless Voq test is not supported")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[LosslessVoqProfile]["dscp"],
+            "ecn": qosConfig[LosslessVoqProfile]["ecn"],
+            "pg": qosConfig[LosslessVoqProfile]["pg"],
+            "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
+            "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
+            "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
+            "src_port_1_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_1_id"]]['peer_addr'],
+            "src_port_2_id": qosConfig[LosslessVoqProfile]["src_port_2_id"],
+            "src_port_2_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_2_id"]]['peer_addr'],
+            "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
+            "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+            "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
+        })
+
+        if "pkts_num_margin" in qosConfig[LosslessVoqProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[LosslessVoqProfile]["pkts_num_margin"]
+
+        if "packet_size" in qosConfig[LosslessVoqProfile].keys():
+            testParams["packet_size"] = qosConfig[LosslessVoqProfile]["packet_size"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
+        )
+
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
