@@ -11,14 +11,12 @@ import json
 import subprocess
 import datetime
 import traceback
-import os
 import sys
 import socket
 import threading
 from collections import defaultdict
 from pprint import pprint
 from Queue import Queue
-from time import sleep
 
 import ptf
 from ptf.base_tests import BaseTest
@@ -30,8 +28,6 @@ from device_connection import DeviceConnection
 import ipaddress
 
 class ArpTest(BaseTest):
-    COUNTERS_UPDATE_INTERVAL = 10
-
     def __init__(self):
         BaseTest.__init__(self)
 
@@ -363,125 +359,3 @@ class ArpTest(BaseTest):
         reply = self.q_from_dut.get()
         self.log("reply: %s" % reply)
         return reply
-
-    def enable_garp(self, port):
-        port_ip = ""
-        port_mac = ""
-        garp_conf = {}
-        for test in self.tests:
-            for p in test['acc_ports']:
-                if p == port:
-                    port_ip  = test['vlan_ip_prefixes'][port]
-                    port_mac = self.ptf_mac_addrs['eth%d' % port]
-                    break
-        self.assertTrue(port_ip == "", "eth%d ip not found" % port)
-        garp_conf['{}'.format(port)] = {
-            'target_ip': '{}'.format(port_ip)
-        }
-        self.copy(src=os.path.join("scripts/", 'garp_service.py'), dest="/opt")
-        with open("/tmp/garp_conf.json", "w") as garp_config:
-            json.dump(garp_conf, garp_config)
-        self.copy(src="/tmp/garp_conf.json", dest="/tmp/garp_conf.json")
-        self.host.options["variable_manager"].extra_vars.update({"garp_service_args": "--interval 5"})
-        self.template(src="templates/garp_service.conf.j2", dest="/etc/supervisor/conf.d/garp_service.conf")
-        self.shell('supervisorctl reread && supervisorctl update')
-        self.shell('supervisorctl restart garp_service')
-
-    def disable_garp(self):
-        self.log("Stopping GARP service on single tor")
-        self.shell("supervisorctl stop garp_service", module_ignore_errors=True)
-        self.file(path=os.path.join("/opt", 'garp_service.py'), state="absent")
-
-    def warm_reboot(self):
-        # trigger warm reboot
-        thr = threading.Thread(target=self.dut_thr, kwargs={'q_from': self.q_to_dut, 'q_to': self.q_from_dut})
-        thr.setDaemon(True)
-        thr.start()
-        self.stop_at = time.time() + self.how_long
-
-        self.log("Issuing WR command")
-        result = self.req_dut('WR')
-        if result.startswith('ok'):
-            self.log("WR OK!")
-        else:
-            self.log("Error in WR")
-            self.req_dut('quit')
-            self.assertTrue(False, "Error in WR")
-        
-        self.assertTrue(time.time() < self.stop_at, "warm-reboot took to long")
-
-        uptime_after = self.req_dut('uptime')
-        if uptime_after.startswith('error'):
-            self.log("DUT returned error for second uptime request")
-            self.req_dut('quit')
-            self.assertTrue(False, "DUT returned error for second uptime request")
-
-        self.req_dut('quit')
-
-
-    def test_non_broadcast_reply_thr(self, port):
-        pkt, exp_pkt = self.gen_pkts[port]
-        
-        while True:
-            # wait 2 seconds to check if everflow created
-            count_before = self.get_everflow_acl_counter(self, 2)
-            if count_before == -1:
-                continue
-            testutils.send_packet(self, port, pkt)
-            # check arp reply should come from same port
-            # clean arp, test broadcast reply if needed
-            testutils.verify_packet_any_port(self, exp_pkt, ports=port)
-            count_after = self.get_everflow_acl_counter(self)
-            self.assertTrue(count_after >= count_before + 1,
-                            "Unexpected results, counter_after {} <= counter_before {}".format(count_after, count_before))
-
-    # make sure setUp is done before run this test case
-    def test_non_broadcast_reply(self, port):
-        self.enable_garp(self, port)
-       
-        test_non_broadcast_reply_thread = threading.Thread(target=self.test_non_broadcast_reply_thr, kwargs={'port': port})
-        test_non_broadcast_reply_thread.setDaemon(True)
-        test_non_broadcast_reply_thread.start()
-
-        self.warm_reboot(self)
-        
-        test_non_broadcast_reply_thread.join(timeout=self.how_long)
-        if test_non_broadcast_reply_thread.isAlive():
-            self.log("Timed out waiting for test_non_broadcast_reply_thread")
-            self.assertTrue(False, "Timed out waiting for test_non_broadcast_reply_thread")
-        self.disable_garp(self)
-
-
-    def get_everflow_acl_counter(self, timeout=COUNTERS_UPDATE_INTERVAL):
-        # Wait for orchagent to update the ACL counters
-        time.sleep(timeout)
-        result = self.dut_connection.show_and_parse('aclshow -a')
-
-        if len(result) == 0:
-            self.assertTrue(False, "Failed to retrieve acl counter")
-        for rule in result:
-            if "EVERFLOW" == rule['table name'] and "rule_arp" == rule['rule name']:
-                return int(rule['packets count'])
-        # warm reboot may not started, or warm reboot finished
-        self.log("Failed to retrieve acl counter for EVERFLOW|rule_arp")
-        return -1
-
-    def get_from_ferret_vxlan_counter(self, timeout=COUNTERS_UPDATE_INTERVAL):
-        # based on the test result of test_non_broadcast_reply
-        # check if everflow acl counter > 0 to confirm packet send to ferret
-        # check if ferret give us reply and check vxlan counters
-        # Wait for orchagent to update the ACL counters
-        time.sleep(timeout)
-        result = self.dut_connection.show_and_parse('show vxlan counters')
-
-        if len(result) == 0:
-            self.assertTrue(False, "Failed to retrieve vxlan counters")
-        for rule in result:
-            if "EVERFLOW" == rule['table name'] and "rule_arp" == rule['rule name']:
-                return int(rule['packets count'])
-        # warm reboot may not started, or warm reboot finished
-        self.log("Failed to retrieve vxlan counter from ferret")
-        return -1
-
-        
-
