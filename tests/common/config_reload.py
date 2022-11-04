@@ -9,7 +9,7 @@ from tests.configlet.util.common import chk_for_pfc_wd
 
 logger = logging.getLogger(__name__)
 
-config_sources = ['config_db', 'minigraph']
+config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 def config_system_checks_passed(duthost):
     logging.info("Checking if system is running")
@@ -59,10 +59,6 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             ' or '.join(['"{}"'.format(src) for src in config_sources])
         ))
 
-    cmd = 'config reload -y &>/dev/null'
-    if config_force_option_supported(duthost):
-        cmd = 'config reload -y -f &>/dev/null'
-
     logger.info('reloading {}'.format(config_source))
 
     if config_source == 'minigraph':
@@ -79,7 +75,16 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             duthost.shell('enable-dynamic-buffer.py')
         duthost.shell('config save -y')
 
-    if config_source == 'config_db':
+    elif config_source == 'config_db':
+        cmd = 'config reload -y &>/dev/null'
+        if config_force_option_supported(duthost):
+            cmd = 'config reload -y -f &>/dev/null'
+        duthost.shell(cmd, executable="/bin/bash")
+
+    elif config_source == 'running_golden_config':
+        cmd = 'config reload -y -l /etc/sonic/running_golden_config.json &>/dev/null'
+        if config_force_option_supported(duthost):
+            cmd = 'config reload -y -f -l /etc/sonic/running_golden_config.json &>/dev/null'
         duthost.shell(cmd, executable="/bin/bash")
 
     modular_chassis = duthost.get_facts().get("modular_chassis")
