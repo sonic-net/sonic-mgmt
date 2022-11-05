@@ -5,40 +5,55 @@
     https://github.com/sonic-net/SONiC/blob/8ca1ac93c8912fda7b09de9bfd51498e5038c292/doc/vxlan/Overlay%20ECMP%20with%20BFD.md#test-cases
 
     To test functionality:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual \
+            -p /home/vxr/vxlan/logs/ -c 'vxlan/test_vxlan_ecmp.py'
 
     To test ECMP with 2 paths per destination:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c 'vxlan/test_vxlan_ecmp.py' -e '--nhs_per_destination=2'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual \
+            -p /home/vxr/vxlan/logs/ -c 'vxlan/test_vxlan_ecmp.py' -e '--nhs_per_destination=2'
 
     To test ECMP+Scale(for all 4 types of encap):
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual -p /home/vxr/vxlan/logs/    -c  'vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint' \
-                    -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=32000' -e '--total_number_of_endpoints=1024'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --disable_loganalyzer -m individual \
+            -p /home/vxr/vxlan/logs/ \
+            -c 'vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint' \
+            -e '--ecmp_nhs_per_destination=128' -e '--total_number_of_nexthops=32000' \
+            -e '--total_number_of_endpoints=1024'
 
     To keep the temporary config files created in the DUT:
-    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files -c 'vxlan/test_vxlan_ecmp.py'
+    ./run_tests.sh -n ucs-m5-2 -d mth64-m5-2 -O -u -e -s -e --keep_temp_files \
+            -c 'vxlan/test_vxlan_ecmp.py'
 
     Other options:
         keep_temp_files             : Keep the temporary files created in the DUT. Default: False
-        debug_enabled               : Enable debug mode, for debugging script. The temp files will not have timestamped names. Default: False
-        dut_hostid                  : An integer in the range of 1 - 100 to be used as the host part of the IP address for DUT. Default: 1
+        debug_enabled               : Enable debug mode, for debugging script. The temp files will
+                                      not have timestamped names. Default: False
+        dut_hostid                  : An integer in the range of 1 - 100 to be used as the host
+                                      part of the IP address for DUT. Default: 1
         ecmp_nhs_per_destination    : Number of ECMP next-hops per destination.
-        total_number_of_endpoints   : Number of Endpoints (a pool of this number of ip addresses will used for next-hops). Default:2
-        total_number_of_nexthops    : Maximum number of all nexthops for every destination combined(per encap_type).
-        vxlan_port                  : Global vxlan port (UDP port) to be used for the DUT. Default: 4789
+        total_number_of_endpoints   : Number of Endpoints (a pool of this number of ip addresses
+                                      will used for next-hops). Default:2
+        total_number_of_nexthops    : Maximum number of all nexthops for every destination
+                                      combined(per encap_type).
+        vxlan_port                  : Global vxlan port (UDP port) to be used for the DUT.
+                                      Default: 4789
         bfd                         : Set it to True if you want to run all VXLAN cases with BFD
-        include_crm                 : Include the CRM testcases.
+                                      Default: False
+        include_crm                 : Include the CRM testcases. Default:False
+        include_long_tests          : Include the entropy, random-hash testcases,
+                                      that take longer time. Default: False
 '''
 
 import time
 import logging
 from datetime import datetime
+import json
 import pytest
+
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory    # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from vxlan_ecmp_utils import Ecmp_Utils
-import json
+from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -57,17 +72,49 @@ pytestmark = [
     pytest.mark.sanity_check(post_check=True)
 ]
 
-@pytest.fixture(scope="module", params=SUPPORTED_ENCAP_TYPES)
-def encap_type(request):
+@pytest.fixture(name="encap_type", scope="module", params=SUPPORTED_ENCAP_TYPES)
+def fixture_encap_type(request):
+    '''
+        This fixture forces the script to perform one encap_type at a time.
+        So this script doesn't support multiple encap types at the same.
+    '''
     yield request.param
 
-@pytest.fixture(scope="module")
-def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
-          tbinfo, encap_type):
+@pytest.fixture(autouse=True)
+def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
+            [
+                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+                ".*missed_in_asic_db_routes.*",
+                ".*Look at reported mismatches above.*",
+                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+                ".*'vnetRouteCheck' status failed.*",
+                ".*Vnet Route Mismatch reported.*"
+            ])
+    return
 
+@pytest.fixture(name="setUp", scope="module")
+def fixture_setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
+                  tbinfo, encap_type):
+    '''
+        Setup for the entire script.
+        The basic steps in VxLAN configs are:
+            1. Configure VxLAN tunnel.
+            2. Configure Vnet and its VNI.
+            3. Attach the Vnet to an interface(optional).
+            4. Configure routes for the Vnet. The setup does all the above.
+
+            The testcases are focused on the "configure routes" step. They add, delete, modify, the
+            routes. Some cases modify the underlay itself, by add/delete bgp, or shut/start
+            interfaces etc.
+    '''
+
+    data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type == "cisco-8000":
-        ECMP_TOLERANCE = 0.01
+        data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")
 
@@ -85,97 +132,111 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
 
     Logger.info("Constants to be used in the script:%s", ecmp_utils.Constants)
 
-    SUPPORTED_ENCAP_TYPES = [encap_type]
-
-    data = {}
     data['enable_bfd'] = request.config.option.bfd
     data['include_crm'] = request.config.option.include_crm
+    data['include_long_tests'] = request.config.option.include_long_tests
     data['monitor_file'] = '/tmp/bfd_responder_monitor_file.txt'
-    data['tolerance'] = ECMP_TOLERANCE
     data['ptfhost'] = ptfhost
     data['tbinfo'] = tbinfo
     data['duthost'] = duthosts[rand_one_dut_hostname]
     data['minigraph_facts'] = data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     data['vxlan_port'] = request.config.option.vxlan_port
-    data['crm'] =data['duthost'].get_crm_resources()['main_resources']
-    ecmp_utils.configure_vxlan_switch(data['duthost'], vxlan_port=data['vxlan_port'], dutmac=data['dut_mac'])
+    data['crm'] = data['duthost'].get_crm_resources()['main_resources']
+    ecmp_utils.configure_vxlan_switch(
+        data['duthost'],
+        vxlan_port=data['vxlan_port'],
+        dutmac=data['dut_mac'])
     data['list_of_bfd_monitors'] = set()
     data['list_of_downed_endpoints'] = set()
-    list_of_bfd_monitors = []
 
-    selected_interfaces = {}
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        selected_interfaces[encap_type] = ecmp_utils.select_required_interfaces(
-            data['duthost'],
-            number_of_required_interfaces=1,
-            minigraph_data=minigraph_facts,
-            af=outer_layer_version)
+    outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+    encap_type_data = {}
+    encap_type_data['selected_interfaces'] = ecmp_utils.select_required_interfaces(
+        data['duthost'],
+        number_of_required_interfaces=1,
+        minigraph_data=minigraph_facts,
+        af=outer_layer_version)
 
     # To store the names of the tunnels, for every outer layer version.
     tunnel_names = {}
     # To track the vnets for every outer_layer_version.
     vnet_af_map = {}
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        try:
-            tunnel_names[outer_layer_version]
-        except KeyError:
-            tunnel_names[outer_layer_version] = ecmp_utils.create_vxlan_tunnel(data['duthost'], minigraph_data=minigraph_facts, af=outer_layer_version)
+    outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+    try:
+        tunnel_names[outer_layer_version]
+    except KeyError:
+        tunnel_names[outer_layer_version] = ecmp_utils.create_vxlan_tunnel(
+            data['duthost'], minigraph_data=minigraph_facts, af=outer_layer_version)
 
-        payload_version = ecmp_utils.get_payload_version(encap_type)
-        encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
-        encap_type_data = {}
-        encap_type_data['selected_interfaces'] = selected_interfaces[encap_type]
+    payload_version = ecmp_utils.get_payload_version(encap_type)
+    encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
 
-        try:
-            encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
-        except KeyError:
-            vnet_af_map[outer_layer_version] = ecmp_utils.create_vnets(data['duthost'],
-                                                            tunnel_name=tunnel_names[outer_layer_version],
-                                                            vnet_count=1, # default scope can take only one vnet.
-                                                            vnet_name_prefix="Vnet_" + encap_type,
-                                                            scope="default",
-                                                            vni_base=10000)
-            encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
+    try:
+        encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
+    except KeyError:
+        vnet_af_map[outer_layer_version] = ecmp_utils.create_vnets(
+            data['duthost'],
+            tunnel_name=tunnel_names[outer_layer_version],
+            vnet_count=1, # default scope can take only one vnet.
+            vnet_name_prefix="Vnet_" + encap_type,
+            scope="default",
+            vni_base=10000)
+        encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
 
-        encap_type_data['vnet_intf_map'] = ecmp_utils.setup_vnet_intf(data['duthost'],
-                                                           selected_interfaces=encap_type_data['selected_interfaces'],
-                                                           vnet_list=encap_type_data['vnet_vni_map'].keys(),
-                                                           minigraph_data=minigraph_facts)
-        encap_type_data['intf_to_ip_map'] = ecmp_utils.assign_intf_ip_address(selected_interfaces=encap_type_data['selected_interfaces'], af=payload_version)
-        encap_type_data['t2_ports'] = ecmp_utils.get_t2_ports(data['duthost'], minigraph_facts)
-        encap_type_data['neighbor_config'] = ecmp_utils.configure_vnet_neighbors(data['duthost'], encap_type_data['intf_to_ip_map'], minigraph_data=minigraph_facts, af=payload_version)
-        encap_type_data['dest_to_nh_map'] = ecmp_utils.create_vnet_routes(data['duthost'], encap_type_data['vnet_vni_map'].keys(),
-                                                               nhs_per_destination=request.config.option.ecmp_nhs_per_destination,
-                                                               number_of_available_nexthops=request.config.option.total_number_of_endpoints,
-                                                               number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
-                                                               dest_af=payload_version,
-                                                               dest_net_prefix=DESTINATION_PREFIX,
-                                                               nexthop_prefix=NEXTHOP_PREFIX,
-                                                               nh_af=outer_layer_version,
-                                                               bfd = request.config.option.bfd)
+    encap_type_data['vnet_intf_map'] = ecmp_utils.setup_vnet_intf(
+        selected_interfaces=encap_type_data['selected_interfaces'],
+        vnet_list=encap_type_data['vnet_vni_map'].keys(),
+        minigraph_data=minigraph_facts)
+    encap_type_data['intf_to_ip_map'] = ecmp_utils.assign_intf_ip_address(
+        selected_interfaces=encap_type_data['selected_interfaces'],
+        af=payload_version)
+    encap_type_data['t2_ports'] = ecmp_utils.get_t2_ports(
+        data['duthost'],
+        minigraph_facts)
+    encap_type_data['neighbor_config'] = ecmp_utils.configure_vnet_neighbors(
+        data['duthost'],
+        encap_type_data['intf_to_ip_map'],
+        minigraph_data=minigraph_facts,
+        af=payload_version)
+    encap_type_data['dest_to_nh_map'] = ecmp_utils.create_vnet_routes(
+        data['duthost'], encap_type_data['vnet_vni_map'].keys(),
+        nhs_per_destination=request.config.option.ecmp_nhs_per_destination,
+        number_of_available_nexthops=request.config.option.total_number_of_endpoints,
+        number_of_ecmp_nhs=request.config.option.total_number_of_nexthops,
+        dest_af=payload_version,
+        dest_net_prefix=DESTINATION_PREFIX,
+        nexthop_prefix=NEXTHOP_PREFIX,
+        nh_af=outer_layer_version,
+        bfd=request.config.option.bfd)
 
-        data[encap_type] = encap_type_data
-        for vnet in encap_type_data['dest_to_nh_map'].keys():
-            for dest in encap_type_data['dest_to_nh_map'][vnet].keys():
-                list_of_bfd_monitors.extend(encap_type_data['dest_to_nh_map'][vnet][dest])
-        data['list_of_bfd_monitors'] = set(list_of_bfd_monitors)
+    data[encap_type] = encap_type_data
+    for vnet in encap_type_data['dest_to_nh_map'].keys():
+        for dest in encap_type_data['dest_to_nh_map'][vnet].keys():
+            data['list_of_bfd_monitors'] = data['list_of_bfd_monitors'] |\
+                set(encap_type_data['dest_to_nh_map'][vnet][dest])
 
     # Setting up bfd responder is needed only once per script run.
     loopback_addresses = [str(x['addr']) for x in minigraph_facts[u'minigraph_lo_interfaces']]
     if request.config.option.bfd:
-        ecmp_utils.start_bfd_responder(data['ptfhost'], data[encap_type]['t2_ports'], data['dut_mac'], loopback_addresses,  monitor_file=data['monitor_file'])
+        ecmp_utils.start_bfd_responder(
+            data['ptfhost'],
+            data['dut_mac'],
+            loopback_addresses,
+            monitor_file=data['monitor_file'])
         # Add all endpoint_monitors to the bfd responder monitor.
-        ecmp_utils.update_monitor_file(data['ptfhost'], data['monitor_file'], data[encap_type]['t2_ports'], list(list_of_bfd_monitors))
+        ecmp_utils.update_monitor_file(
+            data['ptfhost'],
+            data['monitor_file'],
+            data[encap_type]['t2_ports'],
+            list(data['list_of_bfd_monitors']))
 
     # This data doesn't change per testcase, so we copy
     # it as a seperate file. The test-specific config
     # data will be copied on testase basis.
     data['ptfhost'].copy(content=json.dumps(
         {
-            'minigraph_facts':    data['minigraph_facts'],
+            'minigraph_facts': data['minigraph_facts'],
             'tbinfo' : data['tbinfo']
         },
         indent=4), dest="/tmp/vxlan_topo_info.json")
@@ -184,25 +245,30 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     yield data
 
     # Cleanup code.
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        payload_version = ecmp_utils.get_payload_version(encap_type)
+    outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+    payload_version = ecmp_utils.get_payload_version(encap_type)
 
-        ecmp_utils.set_routes_in_dut(data['duthost'], data[encap_type]['dest_to_nh_map'], payload_version, "DEL")
+    ecmp_utils.set_routes_in_dut(
+        data['duthost'],
+        data[encap_type]['dest_to_nh_map'],
+        payload_version,
+        "DEL")
 
-        for intf in data[encap_type]['selected_interfaces']:
-            redis_string = "INTERFACE"
-            if "PortChannel" in intf:
-                redis_string = "PORTCHANNEL_INTERFACE"
-            data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\" vnet_name".format(redis_string, intf))
-            data['duthost'].shell("for i in `redis-cli -n 4 --scan --pattern \"NEIGH|{}|*\" `; do redis-cli -n 4 del $i ; done".format(intf))
+    for intf in data[encap_type]['selected_interfaces']:
+        redis_string = "INTERFACE"
+        if "PortChannel" in intf:
+            redis_string = "PORTCHANNEL_INTERFACE"
+        data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\""
+                              "vnet_name".format(redis_string, intf))
+        data['duthost'].shell(
+            "for i in `redis-cli -n 4 --scan --pattern \"NEIGH|{}|*\" `; "
+            "do redis-cli -n 4 del $i ; done".format(intf))
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
-    for encap_type in SUPPORTED_ENCAP_TYPES:
-         for vnet in data[encap_type]['vnet_vni_map'].keys():
-             data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+    for vnet in data[encap_type]['vnet_vni_map'].keys():
+        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in tunnel_names.values():
@@ -212,9 +278,20 @@ def setUp(duthosts, ptfhost, request, rand_one_dut_hostname, minigraph_facts,
     if request.config.option.bfd:
         ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
-class Test_VxLAN:
-
-    def dump_self_info_and_run_ptf(self, tcname, encap_type, expect_encap_success, packet_count=4, random_dport = True, random_sport = False, random_src_ip = False, tolerance = None):
+class Test_VxLAN():
+    '''
+        Base class for all VxLAN+BFD tests.
+    '''
+    setup = {}
+    def dump_self_info_and_run_ptf(self,
+                                   tcname,
+                                   encap_type,
+                                   expect_encap_success,
+                                   packet_count=4,
+                                   random_dport=True,
+                                   random_sport=False,
+                                   random_src_ip=False,
+                                   tolerance=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines everytime.
         '''
@@ -224,7 +301,8 @@ class Test_VxLAN:
         if ecmp_utils.Constants['DEBUG']:
             config_filename = "/tmp/vxlan_configs.json"
         else:
-            config_filename = "/tmp/vxlan_configs." + tcname + "-" + encap_type + "-" + str(time.time()) + ".json"
+            config_filename = "/tmp/vxlan_configs." + tcname + "-" + encap_type + "-" +\
+                str(time.time()) + ".json"
         self.setup['ptfhost'].copy(content=json.dumps(
             {
                 'vnet_vni_map' : self.setup[encap_type]['vnet_vni_map'],
@@ -246,53 +324,77 @@ class Test_VxLAN:
         for cmd in cmds:
             self.setup['duthost'].shell(cmd)
 
+        ptf_params = {
+            "topo_file" : "/tmp/vxlan_topo_info.json",
+            "config_file" : config_filename,
+            "t0_ports" : ecmp_utils.get_ethernet_ports(
+                self.setup[encap_type]['selected_interfaces'], self.setup['minigraph_facts']),
+                "t2_ports" : self.setup[encap_type]['t2_ports'],
+                "dut_mac" : self.setup['dut_mac'],
+            "vxlan_port" : self.setup['vxlan_port'],
+            "expect_encap_success" : expect_encap_success,
+            "packet_count" : packet_count,
+            "random_dport" : random_dport,
+            "random_sport" : random_sport,
+            "random_src_ip" : random_src_ip,
+            "tolerance" : tolerance,
+            "downed_endpoints" : list(self.setup['list_of_downed_endpoints'])
+        }
+        Logger.info("ptf arguments:%s", ptf_params)
+        Logger.info("dest->nh mapping:%s",self.setup[encap_type]['dest_to_nh_map'])
+
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
-                   params={
-                           "topo_file": "/tmp/vxlan_topo_info.json",
-                           "config_file": config_filename,
-                           "t0_ports":ecmp_utils.get_ethernet_ports(self.setup[encap_type]['selected_interfaces'], self.setup['minigraph_facts']),
-                           "t2_ports":self.setup[encap_type]['t2_ports'],
-                           "dut_mac":self.setup['dut_mac'],
-                           "vxlan_port": self.setup['vxlan_port'],
-                           "expect_encap_success":expect_encap_success,
-                           "packet_count":packet_count,
-                           "random_dport":random_dport,
-                           "random_sport":random_sport,
-                           "random_src_ip":random_src_ip,
-                           "tolerance": tolerance,
-                           "downed_endpoints": list(self.setup['list_of_downed_endpoints'])
-                   },
+                   params = ptf_params,
                    qlen=1000,
-                   log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(tcname, encap_type, datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
+                   log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
+                       tcname,
+                       encap_type,
+                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
 
     def update_monitor_list(self, bfd_enable, encap_type, ip_address_list):
+        '''
+            Local function to update the bfd_responder's monitor file that tracks which
+            interfaces and ip addresses the bfd_responder will work with.
+        '''
         if not bfd_enable:
             return
-        if type(ip_address_list) == str:
+        if isinstance(ip_address_list, str):
             ip_address_list = [ip_address_list]
-        self.setup['list_of_bfd_monitors'] = self.setup['list_of_bfd_monitors'] | set(ip_address_list)
-        ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+        self.setup['list_of_bfd_monitors'] = self.setup['list_of_bfd_monitors'] |\
+            set(ip_address_list)
+        ecmp_utils.update_monitor_file(
+            self.setup['ptfhost'],
+            self.setup['monitor_file'],
+            self.setup[encap_type]['t2_ports'],
+            list(self.setup['list_of_bfd_monitors']))
 
     def update_down_list(self, bfd_enable, encap_type, ip_address_list):
+        '''
+            Local function to keep track of endpoint monitors that are down.
+            The bfd_responder will not be replying to any packet with these addresses.
+        '''
         if not bfd_enable:
             return
-        if type(ip_address_list) == str:
+        if isinstance(ip_address_list, str):
             ip_address_list = [ip_address_list]
-        self.setup['list_of_downed_endpoints'] = self.setup['list_of_downed_endpoints'] | set(ip_address_list)
-        self.setup['list_of_bfd_monitors'] = self.setup['list_of_bfd_monitors'] - set(ip_address_list)
-        ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+        self.setup['list_of_downed_endpoints'] = self.setup['list_of_downed_endpoints'] |\
+            set(ip_address_list)
+        self.setup['list_of_bfd_monitors'] = self.setup['list_of_bfd_monitors'] -\
+            set(ip_address_list)
+        ecmp_utils.update_monitor_file(
+            self.setup['ptfhost'],
+            self.setup['monitor_file'],
+            self.setup[encap_type]['t2_ports'],
+            list(self.setup['list_of_bfd_monitors']))
 
-@pytest.fixture
-def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
-    """Ignore expected failures logs during test execution."""
-    if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*"])
-    return
 
 class Test_VxLAN_route_tests(Test_VxLAN):
+    '''
+        Common class for the basic route test cases.
+    '''
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
             tc1:Create a tunnel route to a single endpoint a. Send packets to the route prefix dst.
@@ -313,8 +415,9 @@ class Test_VxLAN_route_tests(Test_VxLAN):
 
         Logger.info("Create a new endpoint, or endpoint-list.")
         tc2_new_end_point_list = []
-        for i in range(int(request.config.option.ecmp_nhs_per_destination)):
-            tc2_new_end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(int(request.config.option.ecmp_nhs_per_destination)):
+            tc2_new_end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
 
         Logger.info("Map the destination to the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc2_dest] = tc2_new_end_point_list
@@ -330,7 +433,14 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         #     "OP": "{}"
         #   }
         # ]
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc2_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc2_new_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc2_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc2_new_end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc2_new_end_point_list)
 
         Logger.info("Copy the new set of configs to the PTF and run the tests.")
@@ -338,22 +448,36 @@ class Test_VxLAN_route_tests(Test_VxLAN):
 
     def test_vxlan_remove_all_route(self, setUp, encap_type):
         '''
-            tc3: remove the tunnel route. send packets to the route prefix dst. packets should not be received at any ports with dst ip of b")
+            tc3: remove the tunnel route. send packets to the route prefix dst. packets should not
+            be received at any ports with dst ip of b")
         '''
         self.setup = setUp
         try:
             Logger.info("Remove the existing routes in the DUT.")
-            ecmp_utils.set_routes_in_dut(self.setup['duthost'], self.setup[encap_type]['dest_to_nh_map'], ecmp_utils.get_payload_version(encap_type), "DEL")
+            ecmp_utils.set_routes_in_dut(
+                self.setup['duthost'],
+                self.setup[encap_type]['dest_to_nh_map'],
+                ecmp_utils.get_payload_version(encap_type),
+                "DEL")
             Logger.info("Verify that the traffic is not coming back.")
             self.dump_self_info_and_run_ptf("tc3", encap_type, False)
         finally:
             Logger.info("Restore the routes in the DUT.")
-            ecmp_utils.set_routes_in_dut(self.setup['duthost'], self.setup[encap_type]['dest_to_nh_map'], ecmp_utils.get_payload_version(encap_type), "SET", bfd=self.setup['enable_bfd'])
+            ecmp_utils.set_routes_in_dut(
+                self.setup['duthost'],
+                self.setup[encap_type]['dest_to_nh_map'],
+                ecmp_utils.get_payload_version(encap_type),
+                "SET",
+                bfd=self.setup['enable_bfd'])
 
 class Test_VxLAN_ecmp_create(Test_VxLAN):
+    '''
+        Class for all the ECMP (multiple nexthops per destination) create testcases.
+    '''
     def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
         '''
-            tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send packets to the route 1's prefix dst. packets are received at either a1 or a2.
+            tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send packets to the
+            route 1's prefix dst. packets are received at either a1 or a2.
         '''
         self.setup = setUp
 
@@ -362,17 +486,28 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Create a new list of endpoint(s).")
         tc4_end_point_list = []
-        for i in range(2):
-            tc4_end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            tc4_end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        tc4_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc4_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = tc4_end_point_list
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc4_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc4_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc4_end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc4_end_point_list)
 
         Logger.info("Verify that the new config takes effect and run traffic.")
@@ -381,7 +516,8 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
     def test_vxlan_remove_ecmp_route1(self, setUp, encap_type):
         '''
-            Remove tunnel route 1. Send multiple packets (varying tuple) to the route 1's prefix dst.
+            Remove tunnel route 1. Send multiple packets (varying tuple) to the route 1's
+            prefix dst.
         '''
         self.setup = setUp
 
@@ -392,26 +528,46 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Create a new list of endpoint(s).")
         ecmp_route1_end_point_list = []
-        for i in range(2):
-            ecmp_route1_end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            ecmp_route1_end_point_list.append(
+                ecmp_utils.get_ip_address(
+                    af=ecmp_utils.get_outer_layer_version(encap_type),
+                    netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        ecmp_route1_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        ecmp_route1_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
-        self.setup[encap_type]['dest_to_nh_map'][vnet][ecmp_route1_new_dest] = ecmp_route1_end_point_list
+        self.setup[encap_type]['dest_to_nh_map'][vnet][ecmp_route1_new_dest] = \
+                ecmp_route1_end_point_list
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, ecmp_route1_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], ecmp_route1_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            ecmp_route1_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            ecmp_route1_end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, ecmp_route1_end_point_list)
 
         Logger.info("Verify that the new config takes effect and run traffic.")
         self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
         #Deleting Tunnel route 1
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, ecmp_route1_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], ecmp_route1_end_point_list, "DEL")
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            ecmp_route1_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            ecmp_route1_end_point_list,
+            "DEL")
 
-        self.setup[encap_type]['dest_to_nh_map'][vnet] = {ecmp_route1_new_dest: ecmp_route1_end_point_list}
+        self.setup[encap_type]['dest_to_nh_map'][vnet] =\
+            {ecmp_route1_new_dest: ecmp_route1_end_point_list}
 
         Logger.info("Verify that the new config takes effect and run traffic.")
         self.dump_self_info_and_run_ptf("tc5", encap_type, False)
@@ -422,7 +578,8 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
     def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type):
         '''
-            tc5: set tunnel route 2 to endpoint group a = {a1, a2}. send packets to route 2"s prefix dst. packets are received at either a1 or a2
+            tc5: set tunnel route 2 to endpoint group a = {a1, a2}. send packets to route 2"s
+            prefix dst. packets are received at either a1 or a2
         '''
         self.setup = setUp
         self.setup_route2_ecmp_group_b(encap_type)
@@ -430,6 +587,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
     def setup_route2_ecmp_group_b(self, encap_type):
+        '''
+            Function for handling the dependency of tc6 on tc5. This function is essentially tc5.
+        '''
         if self.setup[encap_type].get('tc5_dest', None):
             return
         Logger.info("Choose a vnet for testing.")
@@ -439,21 +599,31 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         tc5_end_point_list = self.setup[encap_type]['dest_to_nh_map'][vnet].values()[0]
 
         Logger.info("Create a new destination to use.")
-        tc5_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc5_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination to the endpoint.")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc5_new_dest] = tc5_end_point_list
 
         Logger.info("Create the new config and apply to the DUT.")
 
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc5_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc5_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc5_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc5_end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc5_end_point_list)
 
         self.setup[encap_type]['tc5_dest'] = tc5_new_dest
 
     def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type):
         '''
-            tc6: set tunnel route 2 to endpoint group b = {b1, b2}. send packets to route 2"s prefix dst. packets are received at either b1 or b2.
+            tc6: set tunnel route 2 to endpoint group b = {b1, b2}. send packets to route 2"s
+            prefix dst. packets are received at either b1 or b2.
         '''
         self.setup = setUp
         self.setup_route2_ecmp_group_b(encap_type)
@@ -463,8 +633,11 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Create a new list of endpoints.")
         tc6_end_point_list = []
-        for i in range(2):
-            tc6_end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            tc6_end_point_list.append(
+                ecmp_utils.get_ip_address(
+                    af=ecmp_utils.get_outer_layer_version(encap_type),
+                    netid=NEXTHOP_PREFIX))
 
         Logger.info("Choose one of the existing destinations.")
         tc6_new_dest = self.setup[encap_type]['tc5_dest']
@@ -473,37 +646,58 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc6_new_dest] = tc6_end_point_list
 
         Logger.info("Create the config and apply on the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc6_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc6_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc6_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc6_end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc6_end_point_list)
         Logger.info("Verify that the traffic works.")
 
         self.dump_self_info_and_run_ptf("tc6", encap_type, True)
 
+    @pytest.mark.skipif(
+        "config.option.bfd is False",
+        reason="This test will be run only if '--bfd=True' is provided.")
     def test_vxlan_bfd_health_state_change_a2down_a1up(self, setUp, encap_type):
         '''
-            Set BFD state for a1' to UP and a2' to Down. Send multiple packets (varying tuple) to the route 1's prefix dst.
-            Packets are received only at endpoint a1. Verify advertise table is present
+            Set BFD state for a1' to UP and a2' to Down. Send multiple packets (varying tuple) to
+            the route 1's prefix dst. Packets are received only at endpoint a1. Verify advertise
+            table is present.
         '''
         self.setup = setUp
-        if not self.setup['enable_bfd']:
-            pytest.skip("This test will run only if --bfd=True is given.")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
-        for i in range(2):
-            end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            end_point_list.append(
+                ecmp_utils.get_ip_address(
+                    af=ecmp_utils.get_outer_layer_version(encap_type),
+                    netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        tc4_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc4_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = end_point_list
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc4_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         # Only a1 is up, bfd-responder will not respond to a2.
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, end_point_list[0])
         self.update_down_list(self.setup['enable_bfd'], encap_type, end_point_list[1])
@@ -511,64 +705,88 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Logger.info("Verify that the new config takes effect and run traffic.")
         self.dump_self_info_and_run_ptf("tc_a2down_a1up", encap_type, True)
 
+    @pytest.mark.skipif(
+        "config.option.bfd is False",
+        reason="This test will be run only if '--bfd=True' is provided.")
     def test_vxlan_bfd_health_state_change_a1a2_down(self, setUp, encap_type):
         '''
-            Set BFD state for a1' to Down and a2' to Down. Send multiple packets (varying tuple) to the route 1's prefix dst.
-            Packets are not received at any ports. Verify advertise table is removed
+            Set BFD state for a1' to Down and a2' to Down. Send multiple packets (varying tuple)
+            to the route 1's prefix dst. Packets are not received at any ports. Verify advertise
+            table is removed
         '''
         self.setup = setUp
-        if not self.setup['enable_bfd']:
-            pytest.skip("This test will run only if --bfd=True is given.")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
-        for i in range(2):
-            end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        tc4_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc4_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = end_point_list
-        #backup_nhmap = dict((k,v) for k,v in self.setup[encap_type]['dest_to_nh_map'][vnet].items())
-        backup_nhmap = self.setup[encap_type]['dest_to_nh_map'][vnet].copy()
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc4_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         # No adding to the monitor_list.
         self.update_down_list(self.setup['enable_bfd'], encap_type, end_point_list)
 
         Logger.info("Verify that the new config takes effect and run traffic.")
         self.dump_self_info_and_run_ptf("a1a2_down", encap_type, True, packet_count=4)
 
+    @pytest.mark.skipif(
+        "config.option.bfd is False",
+        reason="This test will be run only if '--bfd=True' is provided.")
     def test_vxlan_bfd_health_state_change_a2up_a1down(self, setUp, encap_type):
         '''
             Set BFD state for a2' to UP. Send packets to the route 1's prefix dst.
             Packets are received only at endpoint a2. Verify advertise table is present
         '''
         self.setup = setUp
-        if not self.setup['enable_bfd']:
-            pytest.skip("This test will run only if --bfd=True is given.")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
-        for i in range(2):
-            end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            end_point_list.append(
+                ecmp_utils.get_ip_address(
+                    af=ecmp_utils.get_outer_layer_version(encap_type),
+                    netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        tc4_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc4_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = end_point_list
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'],vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc4_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         # Only a2 is up, but a1 is down.
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, end_point_list[1])
         self.update_down_list(self.setup['enable_bfd'], encap_type, end_point_list[0])
@@ -578,8 +796,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
     def test_vxlan_bfd_health_state_change_a1a2_up(self, setUp, encap_type):
         '''
-            Set BFD state for a1' & a2' to UP. Send multiple packets (varying tuple) to the route 1's prefix dst.
-            Packets are received at both a1 and a2. Verify advertise table is present
+            Set BFD state for a1' & a2' to UP. Send multiple packets (varying tuple) to the
+            route 1's prefix dst. Packets are received at both a1 and a2. Verify advertise table
+            is present
         '''
         self.setup = setUp
 
@@ -588,17 +807,28 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
-        for i in range(2):
-            end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
         Logger.info("Create a new destination")
-        tc4_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc4_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc4_new_dest] = end_point_list
 
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc4_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc4_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, end_point_list)
 
         Logger.info("Verify that the new config takes effect and run traffic.")
@@ -606,8 +836,13 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
-
+    '''
+       Class for all the next-hop group modification testcases.
+    '''
     def setup_route2_single_endpoint(self, encap_type):
+        '''
+            Function to handle dependency of tc9 on tc8.
+        '''
         if self.setup[encap_type].get('tc8_dest', None):
             return
 
@@ -616,18 +851,30 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         Logger.info("Choose a route 2 destination and a new single endpoint for it.")
         tc8_new_dest = self.setup[encap_type]['dest_to_nh_map'][vnet].keys()[0]
-        tc8_new_nh = ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX)
+        tc8_new_nh = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_outer_layer_version(encap_type),
+            netid=NEXTHOP_PREFIX)
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc8_new_dest] = [tc8_new_nh]
-        Logger.info("Using destinations: dest:{} => nh:{}".format(tc8_new_dest, tc8_new_nh))
+        Logger.info("Using destinations: dest:%s => nh:%s", tc8_new_dest, tc8_new_nh)
 
         Logger.info("Map the destination and new endpoint.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc8_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], [tc8_new_nh], "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc8_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            [tc8_new_nh],
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc8_new_nh)
 
         Logger.info("Apply the new config in the DUT and run traffic test.")
         self.setup[encap_type]['tc8_dest'] = tc8_new_dest
 
     def setup_route2_shared_endpoints(self, encap_type):
+        '''
+            Function to handle dependency of tc10 on tc9
+        '''
         if self.setup[encap_type].get('tc9_dest', None):
             return
         self.setup_route2_single_endpoint(encap_type)
@@ -649,22 +896,36 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
                     nh2 = nh
                     break
         if nh2:
-            Logger.info("Using destinations: dest:{}, nexthops:{}, {}".format(tc9_new_dest1, nh1, nh2))
+            Logger.info("Using destinations: dest:%s, nexthops:%s, %s", tc9_new_dest1, nh1, nh2)
         else:
-            raise RuntimeError("Couldnot find different nexthop for this test. The current list: {}".format(self.setup[encap_type]['dest_to_nh_map']))
+            raise RuntimeError(
+                "Couldnot find different nexthop for this test."
+                "The current list: {}".format(self.setup[encap_type]['dest_to_nh_map']))
 
-        Logger.info("Use the selected nexthops(tunnel endpoints). They are guaranteed to be different.")
+        Logger.info(
+            "Use the selected nexthops(tunnel endpoints)."
+            "They are guaranteed to be different.")
         tc9_new_nhs = [nh1, nh2]
 
         Logger.info("Map the destination 1 to the combined list.")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = tc9_new_nhs
 
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc9_new_dest1, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc9_new_nhs, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc9_new_dest1,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc9_new_nhs,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc9_new_nhs)
 
         self.setup[encap_type]['tc9_dest'] = tc9_new_dest1
 
     def setup_route2_shared_different_endpoints(self, encap_type):
+        '''
+            Function to handle dependency of tc9.2 on tc9
+        '''
         if self.setup[encap_type].get('tc9_dest', None):
             return
         self.setup_route2_single_endpoint(encap_type)
@@ -682,7 +943,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             nexthops = self.setup[encap_type]['dest_to_nh_map'][vnet][dest]
             for nh in nexthops:
                 if nh == old_nh:
-                    next
+                    continue
                 else:
                     if not nh1:
                         nh1 = nh
@@ -691,22 +952,34 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
                             nh2 = nh
                             break
         if nh2:
-            Logger.info("Using destinations: dest:{}, nexthops:{}, {}".format(tc9_new_dest1, nh1, nh2))
+            Logger.info("Using destinations: dest:%s, nexthops:%s, %s", tc9_new_dest1, nh1, nh2)
         else:
-            raise RuntimeError("Couldnot find different nexthop for this test. The current list: {}".format(self.setup[encap_type]['dest_to_nh_map']))
+            raise RuntimeError(
+                "Couldnot find different nexthop for this test."
+                "The current list: {}".format(self.setup[encap_type]['dest_to_nh_map']))
 
-        Logger.info("Use the selected nexthops(tunnel endpoints). They are guaranteed to be different.")
+        Logger.info(
+            "Use the selected nexthops(tunnel endpoints)."
+            "They are guaranteed to be different.")
         tc9_new_nhs = [nh1, nh2]
 
         Logger.info("Map the destination 1 to the combined list.")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = tc9_new_nhs
         self.setup[encap_type]['tc9_dest'] = tc9_new_dest1
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc9_new_dest1, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc9_new_nhs, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc9_new_dest1,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc9_new_nhs,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc9_new_nhs)
 
     def test_vxlan_remove_route2(self, setUp, encap_type):
         '''
-            tc7:send packets to route 1's prefix dst. by removing route 2 from group a, no change expected to route 1.
+            tc7:send packets to route 1's prefix dst. by removing route 2 from group a, no change
+            expected to route 1.
         '''
         self.setup = setUp
 
@@ -715,20 +988,32 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         Logger.info("Setup: Create two destinations with the same endpoint group.")
         tc7_end_point_list = []
-        for i in range(2):
-            tc7_end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            tc7_end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
         tc7_destinations = []
-        for i in range(2):
-            tc7_destinations.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX))
+        for _ in range(2):
+            tc7_destinations.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_payload_version(encap_type),
+                netid=DESTINATION_PREFIX))
 
         Logger.info("Map the new destinations to the same endpoint list.")
         for i in range(2):
-            self.setup[encap_type]['dest_to_nh_map'][vnet][tc7_destinations[i]] = tc7_end_point_list
+            self.setup[encap_type]['dest_to_nh_map'][vnet][tc7_destinations[i]] = \
+                    tc7_end_point_list
 
         Logger.info("Apply the setup configs to the DUT.")
         for i in range(2):
-            ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc7_destinations[i], ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc7_end_point_list, "SET", bfd=self.setup['enable_bfd'])
+            ecmp_utils.create_and_apply_config(
+                self.setup['duthost'],
+                vnet,
+                tc7_destinations[i],
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc7_end_point_list,
+                "SET",
+                bfd=self.setup['enable_bfd'])
 
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc7_end_point_list)
         Logger.info("Verify the setup works.")
@@ -742,7 +1027,13 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         del self.setup[encap_type]['dest_to_nh_map'][vnet][tc7_removed_dest]
 
         Logger.info("Remove the chosen dest/endpoint from the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc7_removed_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc7_removed_endpoint, "DEL")
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc7_removed_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc7_removed_endpoint,
+            "DEL")
 
         Logger.info("Verify the rest of the traffic still works.")
         self.dump_self_info_and_run_ptf("tc7", encap_type, True)
@@ -757,7 +1048,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
     def test_vxlan_route2_shared_nh(self, setUp, encap_type):
         '''
-            tc9: set tunnel route 2 to shared endpoints a1 and b1. send packets to route 2's prefix dst.
+            tc9: set tunnel route 2 to shared endpoints a1 and b1. send packets to route 2's
+            prefix dst.
         '''
         self.setup = setUp
         self.setup_route2_shared_endpoints(encap_type)
@@ -765,7 +1057,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
     def test_vxlan_route2_shared_different_nh(self, setUp, encap_type):
         '''
-            tc9.2: set tunnel route 2 to 2 completely different shared(no-reuse) endpoints a1 and b1. send packets to route 2's prefix dst.
+            tc9.2: set tunnel route 2 to 2 completely different shared(no-reuse) endpoints a1 and
+            b1. send packets to route 2's prefix dst.
         '''
         self.setup = setUp
         self.setup_route2_shared_different_endpoints(encap_type)
@@ -789,14 +1082,22 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             Logger.info("Choose a destination and its nhs to delete.")
             tc10_dest = self.setup[encap_type]['tc9_dest']
             tc10_nhs = self.setup[encap_type]['dest_to_nh_map'][vnet][tc10_dest]
-            Logger.info("Using destination: dest:{}, nh:{}".format(tc10_dest, tc10_nhs))
+            Logger.info("Using destination: dest:%s, nh:%s", tc10_dest, tc10_nhs)
 
             Logger.info("Delete the dest and nh in the DUT.")
-            ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc10_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc10_nhs, "DEL")
+            ecmp_utils.create_and_apply_config(
+                self.setup['duthost'],
+                vnet,
+                tc10_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc10_nhs,
+                "DEL")
 
             del_needed = True
 
-            Logger.info("We should pass only the deleted entry to the ptf call, and expect encap to fail.")
+            Logger.info(
+                "We should pass only the deleted entry to the ptf call,"
+                "and expect encap to fail.")
             Logger.info("Clear out the mappings, and keep only the deleted dest and nhs.")
             self.setup[encap_type]['dest_to_nh_map'][vnet] = {}
             self.setup[encap_type]['dest_to_nh_map'][vnet][tc10_dest] = tc10_nhs
@@ -823,10 +1124,18 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             raise
 
 
+@pytest.mark.skipif(
+    "config.option.include_long_tests is False",
+    reason="This test will be run only if '--include_long_tests=True' is provided.")
 class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
+    '''
+        Class for testing different tcp ports for payload.
+    '''
     def test_vxlan_random_hash(self, setUp, encap_type):
         '''
-            tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}. ensure c1, c2, and c3 matches to underlay default route. send 1000 pkt with random hash to route 3's prefix dst.
+            tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}. ensure c1, c2, and c3
+            matches to underlay default route. send 1000 pkt with random hash to route 3's
+            prefix dst.
         '''
         self.setup = setUp
 
@@ -834,44 +1143,70 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
         Logger.info("Create a new destination and 3 nhs for it.")
-        tc11_new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        tc11_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
 
         tc11_new_nhs = []
-        for i in range(3):
-            tc11_new_nhs.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(3):
+            tc11_new_nhs.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
         # the topology always provides the default routes for any ip address.
         # so it is already taken care of.
 
         Logger.info("Map the new dest and nhs.")
         self.setup[encap_type]['dest_to_nh_map'][vnet][tc11_new_dest] = tc11_new_nhs
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, tc11_new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], tc11_new_nhs, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            tc11_new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            tc11_new_nhs,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, tc11_new_nhs)
 
-        Logger.info("Apply the config in the DUT and verify traffic. The random hash and ECMP check is already taken care of in the VxLAN PTF script.")
+        Logger.info(
+            "Apply the config in the DUT and verify traffic."
+            "The random hash and ECMP check is already taken care of in the VxLAN PTF script.")
         self.dump_self_info_and_run_ptf("tc11", encap_type, True, packet_count=1000)
 
 @pytest.mark.usefixtures("ignore_route_sync_errlogs")
+@pytest.mark.skipif(
+    "config.option.include_long_tests is False",
+    reason="This test will be run only if '--include_long_tests=True' is provided.")
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
+    '''
+        Class for all test cases that modify the underlay default route.
+    '''
     @pytest.mark.parametrize("ecmp_path_count", [1, 2])
-    def test_vxlan_modify_underlay_default(self, setUp, minigraph_facts, encap_type, ecmp_path_count):
+    def test_vxlan_modify_underlay_default(
+            self, setUp, minigraph_facts, encap_type, ecmp_path_count):
         '''
-            tc12: modify the underlay default route nexthop/s. send packets to route 3's prefix dst.
+            tc12: modify the underlay default route nexthop/s. send packets to route 3's
+            prefix dst.
         '''
         self.setup = setUp
         # First step: pick one or two of the interfaces connected to t2, and bring them down.
         # verify that the encap is still working, and ptf receives the traffic.
         # Bring them back up.
-        # After that, bring down all the other t2 interfaces, other than the ones used in the first step.
-        # This will force a modification to the underlay default routes nexthops.
+        # After that, bring down all the other t2 interfaces, other than the ones used in
+        # the first step. This will force a modification to the underlay default routes nexthops.
 
-        all_t2_intfs = list(ecmp_utils.get_portchannels_to_neighbors(self.setup['duthost'], "T2", minigraph_facts))
+        all_t2_intfs = list(ecmp_utils.get_portchannels_to_neighbors(
+            self.setup['duthost'],
+            "T2",
+            minigraph_facts))
 
         if not all_t2_intfs:
             all_t2_intfs = ecmp_utils.get_ethernet_to_neighbors("T2", minigraph_facts)
-        Logger.info("Dumping T2 link info: {}".format(all_t2_intfs))
+        Logger.info("Dumping T2 link info: %s", all_t2_intfs)
         if not all_t2_intfs:
-            raise RuntimeError("No interface found connected to t2 neighbors. pls check the testbed, aborting.")
+            raise RuntimeError(
+                "No interface found connected to t2 neighbors. "
+                "pls check the testbed, aborting.")
 
         # Keep a copy of the internal housekeeping list of t2 ports.
         # This is the full list of DUT ports connected to T2 neighbors.
@@ -884,8 +1219,8 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         try:
             selected_intfs = []
             # Choose some intfs based on the parameter ecmp_path_count.
-            # when ecmp_path_count == 1, it is non-ecmp. The switching happens between ecmp and non-ecmp.
-            # Otherwise, the switching happens within ecmp only.
+            # when ecmp_path_count == 1, it is non-ecmp. The switching happens between ecmp
+            # and non-ecmp. Otherwise, the switching happens within ecmp only.
             for i in range(ecmp_path_count):
                 selected_intfs.append(all_t2_intfs[i])
 
@@ -893,8 +1228,18 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.setup['duthost'].shell("sudo config interface shutdown {}".format(intf))
             downed_ports = ecmp_utils.get_corresponding_ports(selected_intfs, minigraph_facts)
             self.setup[encap_type]['t2_ports'] = list(set(all_t2_ports) - set(downed_ports))
-            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(selected_intfs, minigraph_facts)
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost'], down_list=downed_bgp_neighbors), "BGP neighbors didn't come up after all interfaces have been brought up.")
+            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(
+                selected_intfs, minigraph_facts)
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost'],
+                    down_list=downed_bgp_neighbors),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
+            time.sleep(10)
             self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
 
             Logger.info("Reverse the action: bring up the selected_intfs and shutdown others.")
@@ -904,31 +1249,71 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             remaining_interfaces = list(set(all_t2_intfs) - set(selected_intfs))
             for intf in remaining_interfaces:
                 self.setup['duthost'].shell("sudo config interface shutdown {}".format(intf))
-            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(remaining_interfaces, minigraph_facts)
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost'], down_list=downed_bgp_neighbors), "BGP neighbors didn't come up after all interfaces have been brought up.")
-            self.setup[encap_type]['t2_ports'] = ecmp_utils.get_corresponding_ports(selected_intfs, minigraph_facts)
+            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(
+                remaining_interfaces,
+                minigraph_facts)
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost'],
+                    down_list=downed_bgp_neighbors),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
+            self.setup[encap_type]['t2_ports'] = \
+                    ecmp_utils.get_corresponding_ports(selected_intfs, minigraph_facts)
 
-            # Need to update the bfd_responder to listen only on the sub-set of T2 ports that are active. If we still receive packets on the downed ports, we have a problem!
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+            # Need to update the bfd_responder to listen only on the sub-set of T2 ports that are
+            # active. If we still receive packets on the downed ports, we have a problem!
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
+            time.sleep(10)
             self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
 
             Logger.info("Recovery. Bring all up, and verify traffic works.")
             for intf in all_t2_intfs:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
             Logger.info("Wait for all bgp is up.")
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost']), "BGP neighbors didn't come up after all interfaces have been brought up.")
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost']),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
             Logger.info("Verify traffic flows after recovery.")
             self.setup[encap_type]['t2_ports'] = all_t2_ports
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
+            time.sleep(10)
             self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
 
         except Exception:
             # If anything goes wrong in the try block, atleast bring the intf back up.
             self.setup[encap_type]['t2_ports'] = all_t2_ports
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
             for intf in all_t2_intfs:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost']), "BGP neighbors didn't come up after all interfaces have been brought up.")
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost']),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
             raise
 
     def test_vxlan_remove_add_underlay_default(self, setUp, minigraph_facts, encap_type):
@@ -937,44 +1322,71 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
            tc14: add the underlay default route.
         '''
         self.setup = setUp
-        Logger.info("Find all the underlay default routes' interfaces. This means all T2 interfaces.")
-        all_t2_intfs = list(ecmp_utils.get_portchannels_to_neighbors(self.setup['duthost'], "T2", minigraph_facts))
+        Logger.info(
+            "Find all the underlay default routes' interfaces. This means all T2 interfaces.")
+        all_t2_intfs = list(ecmp_utils.get_portchannels_to_neighbors(
+            self.setup['duthost'],
+            "T2",
+            minigraph_facts))
         if not all_t2_intfs:
             all_t2_intfs = ecmp_utils.get_ethernet_to_neighbors("T2", minigraph_facts)
-        Logger.info("Dumping T2 link info: {}".format(all_t2_intfs))
+        Logger.info("Dumping T2 link info: %s", all_t2_intfs)
         if not all_t2_intfs:
-            raise RuntimeError("No interface found connected to t2 neighbors. pls check the testbed, aborting.")
+            raise RuntimeError(
+                "No interface found connected to t2 neighbors."
+                "Pls check the testbed, aborting.")
         try:
             Logger.info("Bring down the T2 interfaces.")
             for intf in all_t2_intfs:
                 self.setup['duthost'].shell("sudo config interface shutdown {}".format(intf))
-            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(all_t2_intfs, minigraph_facts)
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost'], down_list=downed_bgp_neighbors),
-                          "BGP neighbors have not reached the required state after T2 intf are shutdown.")
+            downed_bgp_neighbors = ecmp_utils.get_downed_bgp_neighbors(
+                all_t2_intfs,
+                minigraph_facts)
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost'],
+                    down_list=downed_bgp_neighbors),
+                "BGP neighbors have not reached the required state after T2 intf are shutdown.")
             Logger.info("Verify that traffic is not flowing through.")
             self.dump_self_info_and_run_ptf("tc13", encap_type, False)
 
-            '''
-               tc14: Re-add the underlay default route.
-            '''
+            #tc14: Re-add the underlay default route.
             Logger.info("Bring up the T2 interfaces.")
             for intf in all_t2_intfs:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
             Logger.info("Wait for all bgp is up.")
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost']), "BGP neighbors didn't come up after all interfaces have been brought up.")
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost']),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
             Logger.info("Verify the traffic is flowing through, again.")
             self.dump_self_info_and_run_ptf("tc14", encap_type, True, packet_count=1000)
         except Exception:
             Logger.info("If anything goes wrong in the try block, atleast bring the intf back up.")
             for intf in all_t2_intfs:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
-            pytest_assert(wait_until(300, 30, 0, ecmp_utils.bgp_established, self.setup['duthost']), "BGP neighbors didn't come up after all interfaces have been brought up.")
+            pytest_assert(
+                wait_until(
+                    300,
+                    30,
+                    0,
+                    ecmp_utils.bgp_established,
+                    self.setup['duthost']),
+                "BGP neighbors didn't come up after all interfaces have been brought up.")
             raise
 
     def test_underlay_specific_route(self, setUp, minigraph_facts, encap_type):
         '''
-        Create a more specific underlay route to c1.
-        Verify c1 packets are received only on the c1's nexthop interface
+            Create a more specific underlay route to c1.
+            Verify c1 packets are received only on the c1's nexthop interface
         '''
         self.setup = setUp
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
@@ -987,52 +1399,85 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         t2_neighbor = all_t2_neighbors.keys()[0]
 
         #Gathering PTF indices corresponding to specific T2 Neighbor
-        ret_list = ecmp_utils.gather_ptf_indices_t2_neighbor(minigraph_facts, all_t2_neighbors, t2_neighbor, encap_type)
-
-        #Addition & Modification of static routes - endpoint_nhmap will be prefix to endpoint mapping.
+        ret_list = ecmp_utils.gather_ptf_indices_t2_neighbor(
+            minigraph_facts,
+            all_t2_neighbors,
+            t2_neighbor,
+            encap_type)
+        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
+        #Addition & Modification of static routes - endpoint_nhmap will be prefix
+        #to endpoint mapping.
         #Static routes are added towards endpoint with T2 VM's ip as nexthop
-        for destination, nexthops in endpoint_nhmap.items():
+        for _, nexthops in endpoint_nhmap.items():
             for nexthop in nexthops:
-                if ecmp_utils.get_outer_layer_version(encap_type) == "v6":
+                if outer_layer_version == "v6":
                     vtysh_config_commands = []
-                    vtysh_config_commands.append("ipv6 route {}/{} {}".format(nexthop, "64", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    vtysh_config_commands.append("ipv6 route {}/{} {}".format(nexthop, "68", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    self.setup['duthost'].copy(content="\n".join(vtysh_config_commands), dest="/tmp/specific_route_v6.txt")
+                    vtysh_config_commands.append("ipv6 route {}/{} {}".format(
+                        nexthop,
+                        "64",
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    vtysh_config_commands.append("ipv6 route {}/{} {}".format(
+                        nexthop,
+                        "68",
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    self.setup['duthost'].copy(
+                        content="\n".join(vtysh_config_commands),
+                        dest="/tmp/specific_route_v6.txt")
                     self.setup['duthost'].command("docker cp /tmp/specific_route_v6.txt bgp:/")
                     self.setup['duthost'].command("vtysh -f /specific_route_v6.txt")
-                elif ecmp_utils.get_outer_layer_version(encap_type) == "v4":
-                    add_static_route = []
-                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(".".join(nexthop.split(".")[:-1])+".0", "24",
-                                            all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    add_static_route.append("sudo config route add prefix {}/{} nexthop {}".format(nexthop, ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)],
-                                            all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                elif outer_layer_version == "v4":
+                    static_route = []
+                    static_route.append(
+                        "sudo config route add prefix {}/{} nexthop {}".format(
+                            ".".join(nexthop.split(".")[:-1])+".0", "24",
+                            all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    static_route.append(
+                        "sudo config route add prefix {}/{} nexthop {}".format(
+                            nexthop,
+                            ecmp_utils.HOST_MASK[outer_layer_version],
+                            all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
 
-                    self.setup['duthost'].shell_cmds(cmds = add_static_route)
+                    self.setup['duthost'].shell_cmds(cmds=static_route)
         self.setup[encap_type]['t2_ports'] = ret_list
 
         #Traffic verification to see if specific route is preferred before deletion of static route
         self.dump_self_info_and_run_ptf("underlay_specific_route", encap_type, True)
 
         #Deletion of all static routes
-        for destination, nexthops in endpoint_nhmap.items():
+        for _, nexthops in endpoint_nhmap.items():
             for nexthop in nexthops:
-                del_static_route = []
                 if ecmp_utils.get_outer_layer_version(encap_type) == "v6":
                     vtysh_config_commands = []
-                    vtysh_config_commands.append("no ipv6 route {}/{} {}".format(nexthop, "64", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    vtysh_config_commands.append("no ipv6 route {}/{} {}".format(nexthop, "68", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    self.setup['duthost'].copy(content="\n".join(vtysh_config_commands), dest="/tmp/specific_route_v6.txt")
+                    vtysh_config_commands.append("no ipv6 route {}/{} {}".format(
+                        nexthop,
+                        "64",
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    vtysh_config_commands.append("no ipv6 route {}/{} {}".format(
+                        nexthop,
+                        "68",
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    self.setup['duthost'].copy(
+                        content="\n".join(vtysh_config_commands),
+                        dest="/tmp/specific_route_v6.txt")
                     self.setup['duthost'].command("docker cp /tmp/specific_route_v6.txt bgp:/")
                     self.setup['duthost'].command("vtysh -f /specific_route_v6.txt")
 
                 elif ecmp_utils.get_outer_layer_version(encap_type) == "v4":
-                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(".".join(nexthop.split(".")[:-1])+".0", "24", all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
-                    del_static_route.append("sudo config route del prefix {}/{} nexthop {}".format(nexthop, ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)], all_t2_neighbors[t2_neighbor][ecmp_utils.get_outer_layer_version(encap_type)].lower()))
+                    static_route = []
+                    static_route.append("sudo config route del prefix {}/{} nexthop {}".format(
+                        ".".join(nexthop.split(".")[:-1])+".0",
+                        "24",
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
+                    static_route.append("sudo config route del prefix {}/{} nexthop {}".format(
+                        nexthop,
+                        ecmp_utils.HOST_MASK[ecmp_utils.get_outer_layer_version(encap_type)],
+                        all_t2_neighbors[t2_neighbor][outer_layer_version].lower()))
 
-                    self.setup['duthost'].shell_cmds(cmds = del_static_route)
+                    self.setup['duthost'].shell_cmds(cmds=static_route)
         self.setup[encap_type]['t2_ports'] = backup_t2_ports
 
-        Logger.info("Allow some time for recovery of default route after deleting the specific route.")
+        Logger.info(
+            "Allow some time for recovery of default route after deleting the specific route.")
         time.sleep(10)
 
         #Traffic verification to see if default route is preferred after deletion of static route
@@ -1045,17 +1490,19 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             Packets are equally recieved at c1, c2 or c3
         '''
         self.setup = setUp
-        vnet = self.setup[encap_type]['dest_to_nh_map'].keys()[0]
-        endpoint_nhmap = self.setup[encap_type]['dest_to_nh_map'][vnet]
 
         #Verification of traffic before shutting down port channel
-        self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
+        self.dump_self_info_and_run_ptf("tc12", encap_type, True)
 
         #Gathering all portchannels
-        all_t2_portchannel_intfs = list(ecmp_utils.get_portchannels_to_neighbors(self.setup['duthost'], "T2", minigraph_facts))
+        all_t2_portchannel_intfs = list(ecmp_utils.get_portchannels_to_neighbors(
+            self.setup['duthost'],
+            "T2",
+            minigraph_facts))
         all_t2_portchannel_members = {}
         for each_pc in all_t2_portchannel_intfs:
-            all_t2_portchannel_members[each_pc] = minigraph_facts['minigraph_portchannels'][each_pc]['members']
+            all_t2_portchannel_members[each_pc] =\
+                    minigraph_facts['minigraph_portchannels'][each_pc]['members']
 
         selected_portchannel = all_t2_portchannel_members.keys()[0]
 
@@ -1065,73 +1512,148 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.setup['duthost'].shell("sudo config interface shutdown {}".format(intf))
 
             all_t2_ports = list(self.setup[encap_type]['t2_ports'])
-            downed_ports = ecmp_utils.get_corresponding_ports(all_t2_portchannel_members[selected_portchannel], minigraph_facts)
+            downed_ports = ecmp_utils.get_corresponding_ports(
+                all_t2_portchannel_members[selected_portchannel],
+                minigraph_facts)
             self.setup[encap_type]['t2_ports'] = list(set(all_t2_ports) - set(downed_ports))
 
             #Verification of traffic
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
-            self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("tc12", encap_type, True)
 
             for intf in all_t2_portchannel_members[selected_portchannel]:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
             self.setup[encap_type]['t2_ports'] = all_t2_ports
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
-            self.dump_self_info_and_run_ptf("tc12", encap_type, True, packet_count=1000)
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("tc12", encap_type, True)
         except:
             for intf in all_t2_portchannel_members[selected_portchannel]:
                 self.setup['duthost'].shell("sudo config interface startup {}".format(intf))
             self.setup[encap_type]['t2_ports'] = all_t2_ports
-            ecmp_utils.update_monitor_file(self.setup['ptfhost'], self.setup['monitor_file'], self.setup[encap_type]['t2_ports'], list(self.setup['list_of_bfd_monitors']))
+            ecmp_utils.update_monitor_file(
+                self.setup['ptfhost'],
+                self.setup['monitor_file'],
+                self.setup[encap_type]['t2_ports'],
+                list(self.setup['list_of_bfd_monitors']))
             raise
 
+@pytest.mark.skipif(
+    "config.option.include_long_tests is False",
+    reason="This test will be run only if '--include_long_tests=True' is provided.")
 class Test_VxLAN_entropy(Test_VxLAN):
-    def verify_entropy(self, setup, encap_type, random_sport = False, random_dport = True, random_src_ip = False, tolerance = None):
+    '''
+        Class for all test cases that modify the payload traffic properties - tcp source port,
+        destination port and source IP address.
+    '''
+    def verify_entropy(
+            self,
+            encap_type,
+            random_sport=False,
+            random_dport=True,
+            random_src_ip=False,
+            tolerance=None):
+        '''
+            Function to be reused by the entropy testcases. Sets up a couple of endpoints on the
+            top of the existing ones, and performs the traffic test, with different payload
+            variants.
+        '''
+
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['dest_to_nh_map'].keys()[0]
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
-        for i in range(2):
-            end_point_list.append(ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX))
+        for _ in range(2):
+            end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
         Logger.info("Create a new destination")
-        new_dest = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
         Logger.info("Map the new destination and the new endpoint(s).")
         self.setup[encap_type]['dest_to_nh_map'][vnet][new_dest] = end_point_list
         Logger.info("Create a new config and Copy to the DUT.")
-        ecmp_utils.create_and_apply_config(self.setup['duthost'], vnet, new_dest, ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)], end_point_list, "SET", bfd=self.setup['enable_bfd'])
+        ecmp_utils.create_and_apply_config(
+            self.setup['duthost'],
+            vnet,
+            new_dest,
+            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+            end_point_list,
+            "SET",
+            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(self.setup['enable_bfd'], encap_type, end_point_list)
         Logger.info("Verify that the new config takes effect and run traffic.")
-        self.dump_self_info_and_run_ptf("entropy", encap_type, True, random_sport = random_sport, random_dport = random_dport, random_src_ip = random_src_ip, packet_count = 1000, tolerance = tolerance)
+        self.dump_self_info_and_run_ptf(
+            "entropy",
+            encap_type,
+            True,
+            random_sport=random_sport,
+            random_dport=random_dport,
+            random_src_ip=random_src_ip,
+            packet_count=1000,
+            tolerance=tolerance)
     def test_verify_entropy(self, setUp, encap_type):
         '''
-        Verification of entropy - Create tunnel route 4 to endpoint group A Send packets (fixed tuple) to route 4's prefix dst
+        Verification of entropy - Create tunnel route 4 to endpoint group A. Send
+        packets (fixed tuple) to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, random_dport = True, random_sport = True, random_src_ip = True, tolerance = 0.75) # More tolerance since this varies entropy a lot.
+        self.verify_entropy(
+            encap_type,
+            random_dport=True,
+            random_sport=True,
+            random_src_ip=True,
+            tolerance=0.75) # More tolerance since this varies entropy a lot.
 
     def test_vxlan_random_dst_port(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp dst port of original packet to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, tolerance = 0.03)
+        self.verify_entropy(encap_type, tolerance=0.03)
 
     def test_vxlan_random_src_port(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp src port of original packet to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, random_dport = False, random_sport = True, tolerance = 0.03)
+        self.verify_entropy(
+            encap_type,
+            random_dport=False,
+            random_sport=True,
+            tolerance=0.03)
 
     def test_vxlan_varying_src_ip(self, setUp, encap_type):
         '''
         Verification of entropy - Change the udp src ip of original packet to route 4's prefix dst
         '''
         self.setup = setUp
-        self.verify_entropy(self.setup, encap_type, random_dport = False, random_src_ip = True, tolerance = 0.03)
+        self.verify_entropy(
+            encap_type,
+            random_dport=False,
+            random_src_ip=True,
+            tolerance=0.03)
 
 
-class Test_VxLAN_Crm:
-    def test_crm_16k_routes(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+class Test_VxLAN_Crm(Test_VxLAN):
+    '''
+        Class for all testcases that verify Critical Resource Monitoring counters.
+    '''
+    def test_crm_16k_routes(self, setUp, encap_type):
+        '''
+            Verify that the CRM counter values for ipv4_route, ipv4_nexthop, ipv6_route and
+            ipv6_nexthop are updated as per the vxlan route configs.
+        '''
         self.setup = setUp
         if not self.setup['include_crm']:
             pytest.skip("This test will run only if --include_crm=True is given.")
@@ -1142,28 +1664,48 @@ class Test_VxLAN_Crm:
 
         # we need the count of unique endpoints.
         set_of_unique_endpoints = set()
-        for k,v in self.setup[encap_type]['dest_to_nh_map'][vnet].items():
-            set_of_unique_endpoints =  set_of_unique_endpoints | set(v)
+        for _, nexthops in self.setup[encap_type]['dest_to_nh_map'][vnet].items():
+            set_of_unique_endpoints = set_of_unique_endpoints | set(nexthops)
         number_of_nexthops_configured = len(set_of_unique_endpoints)
         if outer_layer_version == "v6":
-            pytest_assert(crm_output['ipv6_route']['used'] >= (self.setup['crm']['ipv6_route']['used'] + 0.90 * number_of_routes_configured), "CRM:ipv6_route usage didn't increase as needed")
-            pytest_assert(crm_output['ipv6_nexthop']['used'] >= (self.setup['crm']['ipv6_nexthop']['used'] + 0.90 * number_of_nexthops_configured), "CRM:ipv6_nexthop usage didn't increase as needed" )
+            pytest_assert(crm_output['ipv6_route']['used'] >= \
+                self.setup['crm']['ipv6_route']['used'] + 0.90 * number_of_routes_configured,\
+                          "CRM:ipv6_route usage didn't increase as needed")
+            pytest_assert(crm_output['ipv6_nexthop']['used'] >= \
+                self.setup['crm']['ipv6_nexthop']['used'] + 0.90 * number_of_nexthops_configured,
+                          "CRM:ipv6_nexthop usage didn't increase as needed")
         elif outer_layer_version == "v4":
-            pytest_assert(crm_output['ipv4_route']['used'] >= (self.setup['crm']['ipv4_route']['used'] + 0.90 * number_of_routes_configured),  "CRM:ipv4_route usage didn't increase as needed")
-            pytest_assert(crm_output['ipv4_nexthop']['used'] >= (self.setup['crm']['ipv4_nexthop']['used'] + 0.90 * number_of_nexthops_configured),  "CRM:ipv4_nexthop usage didn't increase as needed")
+            pytest_assert(crm_output['ipv4_route']['used'] >= \
+                self.setup['crm']['ipv4_route']['used'] + 0.90 * number_of_routes_configured,
+                          "CRM:ipv4_route usage didn't increase as needed")
+            pytest_assert(crm_output['ipv4_nexthop']['used'] >= \
+                self.setup['crm']['ipv4_nexthop']['used'] + 0.90 * number_of_nexthops_configured,
+                          "CRM:ipv4_nexthop usage didn't increase as needed")
 
-    def test_crm_512_nexthop_groups(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+    def test_crm_512_nexthop_groups(self, setUp, encap_type):
+        '''
+            Verify that the CRM counter values for nexthop_group is updated as per the vxlan
+            route configs.
+        '''
         self.setup = setUp
+        Logger.info("Verifying encap_type:%s", encap_type)
         if not self.setup['include_crm']:
             pytest.skip("This test will run only if --include_crm=True is given.")
         crm_output = self.setup['duthost'].get_crm_resources()['main_resources']
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        pytest_assert(crm_output['nexthop_group']['used'] >= (self.setup['crm']['nexthop_group']['used'] + 16000), "CRM:nexthop_group usage didn't increase as needed")
+        pytest_assert(crm_output['nexthop_group']['used'] >= \
+                (self.setup['crm']['nexthop_group']['used'] + 16000),
+                      "CRM:nexthop_group usage didn't increase as needed")
 
-    def test_crm_128_group_members(self, setUp, encap_type, duthosts, rand_one_dut_hostname):
+    def test_crm_128_group_members(self, setUp, encap_type):
+        '''
+            Verify that the CRM counter values for nexthop_group_member
+            is updated as per the vxlan route configs.
+        '''
         self.setup = setUp
+        Logger.info("Verifying encap_type:%s", encap_type)
         if not self.setup['include_crm']:
             pytest.skip("This test will run only if --include_crm=True is given.")
         crm_output = self.setup['duthost'].get_crm_resources()['main_resources']
-        pytest_assert(crm_output['nexthop_group_member']['used'] >= (self.setup['crm']['nexthop_group_member']['used'] + 16000), "CRM:nexthop_group_member usage didn't increase as needed")
-
+        pytest_assert(crm_output['nexthop_group_member']['used'] >= \
+                (self.setup['crm']['nexthop_group_member']['used'] + 16000),
+                      "CRM:nexthop_group_member usage didn't increase as needed")

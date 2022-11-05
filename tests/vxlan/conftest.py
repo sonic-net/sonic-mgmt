@@ -190,6 +190,14 @@ def pytest_addoption(parser):
         help="Enable CRM tests."
     )
 
+    vxlan_group.addoption(
+        "--include_long_tests",
+        action="store",
+        default=False,
+        type=bool,
+        help="Run the long-running testcases."
+    )
+
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
     """
