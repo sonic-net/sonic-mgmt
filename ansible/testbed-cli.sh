@@ -252,6 +252,10 @@ function add_topo
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
+  if [[ $vm_type == vcisco ]]; then
+      ansible_options+=" -e eos_batch_size=1"
+  fi
+
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
@@ -386,6 +390,10 @@ function refresh_dut
 
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  if [[ $vm_type == vcisco ]]; then
+      ansible_options+=" -e eos_batch_size=1"
   fi
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
