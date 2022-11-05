@@ -23,15 +23,9 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
                              timeout=5,
                              module_ignore_errors=True)
     if 'exception' in res:
-        # TODO: Remove this check once we no longer need to support Python 2
-        if request.cls.__name__ == "TestSfpApi" and duthost.facts.get("asic_type") == "mellanox" \
-                and duthost.sonic_release in ['202012', '202106']:
-            # On Mellanox platform, the SFP APIs are not migrated to python3 yet,
-            # thus we have to make it as an exception here.
-            py3_platform_api_available = False
-        else:
-            res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
-            py3_platform_api_available = not res['failed']
+
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
 
         supervisor_conf = [
             '[program:platform_api_server]',
@@ -111,3 +105,6 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
     
+
+def pytest_addoption(parser):
+    parser.addoption("--unresettable_xcvr_types", action="append", default=[], help="unsupported resettable xcvr types")

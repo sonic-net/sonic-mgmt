@@ -94,14 +94,38 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
     if "backend" in tbinfo["topo"]["name"]:
         crm_intf1 = mg_facts["minigraph_vlan_sub_interfaces"][0]["attachto"]
         crm_intf2 = mg_facts["minigraph_vlan_sub_interfaces"][2]["attachto"]
-    elif len(mg_facts["minigraph_portchannel_interfaces"]) >= 4:
-        crm_intf1 = mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]
-        crm_intf2 = mg_facts["minigraph_portchannel_interfaces"][2]["attachto"]
     else:
-        crm_intf1 = mg_facts["minigraph_interfaces"][0]["attachto"]
-        crm_intf2 = mg_facts["minigraph_interfaces"][2]["attachto"]
-    yield (crm_intf1, crm_intf2)
+        crm_intf1 = None
+        crm_intf2 = None
+        intf_status = asichost.show_interface(command='status')['ansible_facts']['int_status']
 
+        # 1. we try to get crm interfaces from portchannel interfaces
+        for a_pc in mg_facts["minigraph_portchannels"]:
+            if intf_status[a_pc]['oper_state'] == 'up':
+                # this is a pc that I can use.
+                if crm_intf1 is None:
+                    crm_intf1 = a_pc
+                elif crm_intf2 is None:
+                    crm_intf2 = a_pc
+
+        if crm_intf1 is not None and crm_intf2 is not None:
+            return (crm_intf1, crm_intf2)
+
+        # 2.  we try to get crm interfaces from routed interfaces
+        for a_intf in mg_facts["minigraph_interfaces"]:
+            intf = a_intf['attachto']
+            if intf_status[intf]['oper_state'] == 'up':
+                if crm_intf1 is None:
+                    crm_intf1 = intf
+                elif crm_intf2 is None:
+                    crm_intf2 = intf
+
+        if crm_intf1 is not None and crm_intf2 is not None:
+            return (crm_intf1, crm_intf2)
+
+    if crm_intf1 is None or crm_intf2 is None:
+        pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
+                                                                                          asichost.asic_index))
 
 @pytest.fixture(scope="module", autouse=True)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
