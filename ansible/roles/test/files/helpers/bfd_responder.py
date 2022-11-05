@@ -84,11 +84,11 @@ class BFDResponder(object):
         if ip_dst not in self.sessions:
             return
         session = self.sessions[ip_dst]
-        if bfd_state== 3L:
+        if bfd_state == 3:
             interface.send(session["pkt"])
             return
 
-        if bfd_state == 2L:
+        if bfd_state == 2:
             return
         session["other_disc"] = bfd_remote_disc
         bfd_pkt_init = self.craft_bfd_packet( session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2L )
