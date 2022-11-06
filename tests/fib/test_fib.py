@@ -170,6 +170,9 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
+    if duthost.facts['asic_type'] in ["innovium"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
