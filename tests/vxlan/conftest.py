@@ -1,11 +1,30 @@
-import argparse 
+import argparse
+from os.path import join
 import pytest
 import logging
+import yaml
+from tests.vxlan.vnet_utils import (
+    safe_open_template,
+    combine_dicts
+    )
+from tests.vxlan.vnet_constants import (
+    NUM_VNET_KEY,
+    NUM_ROUTES_KEY,
+    NUM_ENDPOINTS_KEY,
+    VXLAN_UDP_SPORT_KEY,
+    VXLAN_UDP_SPORT_MASK_KEY,
+    VXLAN_RANGE_ENABLE_KEY,
+    IPV6_VXLAN_TEST_KEY,
+    CLEANUP_KEY,
+    APPLY_NEW_CONFIG_KEY,
+    NUM_INTF_PER_VNET_KEY,
+    TEMPLATE_DIR
+)
+
 logger = logging.getLogger(__name__)
-import json
+
 
 def str2bool(v):
-    # See: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse/15008806#15008806
     if isinstance(v, bool):
         return v
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -14,6 +33,7 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 def pytest_addoption(parser):
     """
@@ -27,7 +47,8 @@ def pytest_addoption(parser):
         action="store",
         default=4789,
         type=int,
-        help="The UDP port to use for VxLAN. It must be a viable UDP port - not one of the already used standard protocol ports"
+        help="The UDP port to use for VxLAN. It must be a viable UDP port "
+             "- not one of the already used standard protocol ports"
     )
 
     vxlan_group.addoption(
@@ -128,7 +149,7 @@ def pytest_addoption(parser):
         help="Expected base VXLAN UDP src port mask"
     )
 
-    #BFD options
+    # BFD options
     vxlan_group.addoption(
         "--bfd",
         action="store",
@@ -151,13 +172,16 @@ def pytest_addoption(parser):
         action="store",
         default=1,
         type=int,
-        help="ECMP: Number of tunnel endpoints to provide for each tunnel destination"
+        help="ECMP: Number of tunnel endpoints to provide for each tunnel"
+             " destination"
     )
 
     vxlan_group.addoption(
         "--debug_enabled",
         action="store_true",
-        help="Enable debugging the script. The config file names will *not* be time-stamped, every run of the script will over-write the previously created config files."
+        help="Enable debugging the script. The config file names will "
+             "*not* be time-stamped. Every run of the script will over-write "
+             "the previously created config files."
     )
 
     vxlan_group.addoption(
@@ -170,16 +194,18 @@ def pytest_addoption(parser):
         "--dut_hostid",
         default=1,
         type=int,
-        help="This is the host part of the IP addresses for interfaces in the DUT to be used in this script."
+        help="This is the host part of the IP addresses for interfaces in "
+             "the DUT to be used in this script."
     )
 
     # This will decide the number of destinations.
     vxlan_group.addoption(
         "--total_number_of_nexthops",
         action="store",
-        default=2, # Max: 32k, 64K, or 128 K
+        default=2,   # Max: 32k, 64K, or 128 K
         type=int,
-        help="ECMP: Number of tunnel nexthops to be tested. (number of nhs_per_destination X number_of_destinations)"
+        help="ECMP: Number of tunnel nexthops to be tested. (number of "
+             "nhs_per_destination X number_of_destinations)"
     )
 
     vxlan_group.addoption(
@@ -198,6 +224,7 @@ def pytest_addoption(parser):
         help="Run the long-running testcases."
     )
 
+
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
     """
@@ -205,7 +232,8 @@ def scaled_vnet_params(request):
     Args:
         request: Pytest fixture containing parsed CLI parameters
     Returns:
-        A dictionary holding each scaled vnet parameter with the parameter name as the key
+        A dictionary holding each scaled vnet parameter with the parameter
+        name as the key.
             * num_vnet
             * num_routes
             * num_endpoints
@@ -217,6 +245,7 @@ def scaled_vnet_params(request):
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
+
 @pytest.fixture(scope="module")
 def vnet_test_params(duthost, request):
     """
@@ -225,25 +254,32 @@ def vnet_test_params(duthost, request):
         request: Pytest fixture containing parsed CLI parameters
     Returns:
         A dictionary holding each parameter with the parameter name as the key
-            * ipv6_vxlan_test - whether to include ipv6 functionality in testing
-            * cleanup - whether to remove test data/configs after test is finished
-            * apply_new_config - whether to apply new configurations that were pushed to the DUT
+            * ipv6_vxlan_test - whether to include ipv6 functionality
+                                in testing
+            * cleanup - whether to remove test data/configs after test is
+                        finished
+            * apply_new_config - whether to apply new configurations that were
+                                 pushed to the DUT
     """
 
     params = {}
     params[VXLAN_UDP_SPORT_KEY] = 0
     params[VXLAN_UDP_SPORT_MASK_KEY] = 0
 
-    vxlan_range_enable = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" vxlan_port_range')['stdout'] == "enable"
+    vxlan_range_enable = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" \
+            vxlan_port_range')['stdout'] == "enable"
 
-    if request.config.option.udp_src_port is not None or request.config.option.udp_src_port_mask is not None:
+    if request.config.option.udp_src_port is not None or \
+            request.config.option.udp_src_port_mask is not None:
         vxlan_range_enable = True
 
     if request.config.option.udp_src_port:
         params[VXLAN_UDP_SPORT_KEY] = request.config.option.udp_src_port
 
     if request.config.option.udp_src_port_mask:
-        params[VXLAN_UDP_SPORT_MASK_KEY] = request.config.option.udp_src_port_mask
+        params[VXLAN_UDP_SPORT_MASK_KEY] = \
+            request.config.option.udp_src_port_mask
 
     params[VXLAN_RANGE_ENABLE_KEY] = vxlan_range_enable
     params[IPV6_VXLAN_TEST_KEY] = request.config.option.ipv6_vxlan_test
@@ -251,6 +287,7 @@ def vnet_test_params(duthost, request):
     params[APPLY_NEW_CONFIG_KEY] = not request.config.option.skip_apply_config
     params[NUM_INTF_PER_VNET_KEY] = request.config.option.num_intf_per_vnet
     return params
+
 
 @pytest.fixture(scope="module")
 def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
@@ -265,6 +302,7 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
 
     return duthost.get_extended_minigraph_facts(tbinfo)
 
+
 @pytest.fixture(scope="module")
 def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
     """
@@ -277,10 +315,18 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
         A dictionary containing the generated vnet configuration information
     """
 
-    num_rifs = vnet_test_params[NUM_INTF_PER_VNET_KEY] * scaled_vnet_params[NUM_VNET_KEY]
+    num_rifs = vnet_test_params[NUM_INTF_PER_VNET_KEY] * \
+        scaled_vnet_params[NUM_VNET_KEY]
 
     if num_rifs > 128:
-        logger.warning("Total number of configured interfaces will be greater than 128. This is not a supported test scenario")
+        logger.warning(
+            "Total number of configured interfaces will be greater"
+            "than 128. This is not a supported test scenario")
 
-    combined_args = combine_dicts(minigraph_facts, vnet_test_params, scaled_vnet_params)
-    return yaml.safe_load(safe_open_template(path.join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
+    combined_args = combine_dicts(
+        minigraph_facts,
+        vnet_test_params,
+        scaled_vnet_params)
+    return yaml.safe_load(
+        safe_open_template(
+            join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
