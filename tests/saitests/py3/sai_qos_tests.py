@@ -1927,7 +1927,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                     print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
                         wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
-                    assert(expected_wm <= hdrm_pool_wm)
+                    if 'innovium' not in self.asic_type:
+                        assert(expected_wm <= hdrm_pool_wm)
                     assert(hdrm_pool_wm <= upper_bound_wm)
 
             print("all but the last pg hdrms filled", file=sys.stderr)
@@ -1958,7 +1959,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                # assert hdrm pool wm still remains the same
                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                    self.client, self.buf_pool_roid)
-               assert(expected_wm <= hdrm_pool_wm)
+               if 'innovium' not in self.asic_type:
+                   assert(expected_wm <= hdrm_pool_wm)
                assert(hdrm_pool_wm <= upper_bound_wm)
                # at this point headroom pool should be full. send few more packets to continue causing drops
                print("overflow headroom pool", file=sys.stderr)
