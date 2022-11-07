@@ -236,7 +236,7 @@ stages:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
-          TEST_SET: multi-asic-t1-lag-pr
+          TEST_SET: multi-asic-t1-lag
           MIN_WORKER: 1
-          MAX_WORKER: 1
+          MAX_WORKER: 3
           NUM_ASIC: 4
