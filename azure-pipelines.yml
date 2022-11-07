@@ -238,5 +238,5 @@ stages:
           TOPOLOGY: t1-8-lag
           TEST_SET: multi-asic-t1-lag
           MIN_WORKER: 1
-          MAX_WORKER: 3
+          MAX_WORKER: 1
           NUM_ASIC: 4
