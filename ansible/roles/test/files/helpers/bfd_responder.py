@@ -130,7 +130,7 @@ class BFDResponder(object):
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json',
-        help='path to json file with configuration')
+            help='path to json file with configuration')
     args = parser.parse_args()
     return args
 
