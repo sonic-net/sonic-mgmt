@@ -96,7 +96,6 @@ class TestPlanManager(object):
             "requester": "pull request"
         })
         print('Creating test plan with payload: {}'.format(payload))
-        return
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
