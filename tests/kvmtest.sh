@@ -104,50 +104,7 @@ test_t0() {
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
-      tests="\
-      arp/test_arp_extended.py \
-      arp/test_neighbor_mac.py \
-      arp/test_neighbor_mac_noptf.py\
-      bgp/test_bgp_fact.py \
-      bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved \
-      bgp/test_bgp_speaker.py \
-      bgp/test_bgpmon.py \
-      bgp/test_bgp_update_timer.py \
-      container_checker/test_container_checker.py \
-      cacl/test_cacl_application.py \
-      cacl/test_cacl_function.py \
-      dhcp_relay/test_dhcp_relay.py \
-      dhcp_relay/test_dhcpv6_relay.py \
-      iface_namingmode/test_iface_namingmode.py \
-      lldp/test_lldp.py \
-      monit/test_monit_status.py \
-      ntp/test_ntp.py \
-      pc/test_po_cleanup.py \
-      pc/test_po_update.py \
-      platform_tests/test_advanced_reboot.py::test_warm_reboot \
-      platform_tests/test_cpu_memory_usage.py \
-      route/test_default_route.py \
-      route/test_static_route.py \
-      snmp/test_snmp_cpu.py \
-      snmp/test_snmp_default_route.py \
-      snmp/test_snmp_interfaces.py \
-      snmp/test_snmp_lldp.py \
-      snmp/test_snmp_loopback.py \
-      snmp/test_snmp_pfc_counters.py \
-      snmp/test_snmp_queue.py \
-      ssh/test_ssh_ciphers.py \
-      ssh/test_ssh_limit.py \
-      syslog/test_syslog.py\
-      tacacs/test_accounting.py \
-      tacacs/test_authorization.py \
-      tacacs/test_jit_user.py \
-      tacacs/test_ro_disk.py \
-      tacacs/test_ro_user.py \
-      tacacs/test_rw_user.py \
-      telemetry/test_telemetry.py \
-      test_features.py \
-      test_interfaces.py \
-      test_procdockerstatsd.py"
+      tests="autorestart/test_container_autorestart.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -276,17 +233,7 @@ test_multi_asic_t1_lag() {
 
 test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
-    tests="\
-    bgp/test_bgp_fact.py \
-    snmp/test_snmp_default_route.py \
-    snmp/test_snmp_loopback.py \
-    snmp/test_snmp_pfc_counters.py \
-    snmp/test_snmp_queue.py \
-    tacacs/test_accounting.py \
-    tacacs/test_authorization.py \
-    tacacs/test_jit_user.py \
-    tacacs/test_ro_user.py \
-    tacacs/test_rw_user.py"
+    tests="autorestart/test_container_autorestart.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -u
