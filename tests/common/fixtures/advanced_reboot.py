@@ -174,7 +174,7 @@ class AdvancedReboot:
         vlan_mac = vlan_table[vlan_name]['mac']
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
-        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces][0]['prefixlen'])
+        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
