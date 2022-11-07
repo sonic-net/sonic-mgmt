@@ -880,16 +880,13 @@ class TestQosSai(QosSaiBase):
             "q4_num_of_pkts": qosConfig["wrr"]["q4_num_of_pkts"],
             "q5_num_of_pkts": qosConfig["wrr"]["q5_num_of_pkts"],
             "q6_num_of_pkts": qosConfig["wrr"]["q6_num_of_pkts"],
+            "q7_num_of_pkts": qosConfig["wrr"].get("q7_num_of_pkts", 0),
             "limit": qosConfig["wrr"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
-            "topo": dutTestParams["topo"]
+            "topo": dutTestParams["topo"],
+            "qos_remap_enable": qos_remap_enable
         })
-        if qos_remap_enable:
-            testParams.update({
-                "qos_remap_enable": qos_remap_enable,
-                "q7_num_of_pkts": qosConfig["wrr"].get("q7_num_of_pkts", 0)
-            })
 
         if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
             testParams["ecn"] = qosConfig[portSpeedCableLength]["lossy_queue_1"]["ecn"]
