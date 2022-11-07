@@ -1378,10 +1378,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        disableTest = request.config.getoption("--disable_test")
-        if disableTest:
-            pytest.skip("DSCP to PG mapping test disabled")
-
         if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
 
