@@ -1,11 +1,12 @@
-import pytest
-import os
-import natsort
-import json
 import collections
+import json
 import logging
+import os
 import sys
 from ipaddress import ip_address, IPv4Address
+
+import natsort
+import pytest
 
 if sys.version_info.major > 2:
     from pathlib import Path
@@ -17,7 +18,6 @@ from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
 
 logger = logging.getLogger(__name__)
-
 
 class MacsecPlugin(object):
     """
