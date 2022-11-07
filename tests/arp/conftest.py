@@ -23,6 +23,7 @@ CRM_DEFAULT_POLL_INTERVAL = 300
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope="module", autouse=True)
 def set_polling_interval(duthost):
     wait_time = 2
@@ -33,6 +34,7 @@ def set_polling_interval(duthost):
 
     duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
+
 
 # WR-ARP pytest arguments
 def pytest_addoption(parser):
@@ -47,9 +49,11 @@ def pytest_addoption(parser):
     '''
     add_wr_arp_args(parser)
 
+
 @pytest.fixture(scope='module')
 def get_function_conpleteness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
 
 @pytest.fixture(scope="module")
 def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -114,7 +118,7 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
             if intf1 is None or intf2 is None:
                 pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
-                                                                                              asic.asic_index))
+                                                                                                  asic.asic_index))
             po1 = get_po(mg_facts, intf1)
             po2 = get_po(mg_facts, intf2)
 
@@ -168,8 +172,9 @@ def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_ho
         logging.info("router_mac {}".format(router_mac))
         yield duthost, ptfhost, router_mac
     finally:
-        #Recover DUT interface IP address
+        # Recover DUT interface IP address
         config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+
 
 @pytest.fixture
 def garp_enabled(rand_selected_dut, config_facts):
@@ -224,6 +229,7 @@ def garp_enabled(rand_selected_dut, config_facts):
             else:
                 logger.info("GARP disabled for {}".format(vlan))
 
+
 @pytest.fixture(scope='module')
 def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     """
@@ -265,6 +271,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
     return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index
 
+
 @pytest.fixture
 def proxy_arp_enabled(rand_selected_dut, config_facts):
     """
@@ -284,7 +291,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
     proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
     vlans = config_facts['VLAN']
-    vlan_ids =[vlans[vlan]['vlanid'] for vlan in vlans.keys()]
+    vlan_ids = [vlans[vlan]['vlanid'] for vlan in vlans.keys()]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
 
@@ -307,6 +314,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
             # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
             duthost.shell(proxy_arp_del_cmd.format(vid))
 
+
 def generate_link_local_addr(mac):
     parts = mac.split(":")
     parts.insert(3, "ff")
@@ -318,6 +326,7 @@ def generate_link_local_addr(mac):
         ipv6Parts.append("".join(parts[i:i+2]))
     ipv6 = "fe80::{}".format(":".join(ipv6Parts))
     return ipv6
+
 
 @pytest.fixture(params=['v4', 'v6'])
 def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
@@ -331,7 +340,8 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]\
+                      .decode("utf-8")
         break
 
     if ip_version == 'v4':
@@ -358,12 +368,12 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         ll_src_addr = generate_link_local_addr(ptf_intf_mac)
         multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
         multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
-        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac) 
+        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac)
         out_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=ll_src_addr)
-        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr) 
+        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
         out_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_intf_mac)
 
-        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac) 
+        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac)
         exp_pkt /= IPv6(dst=ll_src_addr, src=generate_link_local_addr(dut_mac))
         exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
         exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)

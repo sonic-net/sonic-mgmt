@@ -79,8 +79,7 @@ class TestPlanManager(object):
                     "scripts_exclude": []
                 },
                 "common_params": common_params,
-                "specified_params": {
-                },
+                "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
             "extra_params": {
@@ -92,13 +91,13 @@ class TestPlanManager(object):
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
                     "num_asic": num_asic
+                    "vm_type": kwargs["vm_type"]
                 },
-
             },
             "priority": 10,
             "requester": "pull request"
         })
-
+        print('Creating test plan with payload: {}'.format(payload))
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
@@ -296,6 +295,22 @@ if __name__ == "__main__":
         help="Branch of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
+        "--vm-type",
+        type=str,
+        dest="vm_type",
+        default="ceos",
+        required=False,
+        help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--specified-params",
+        type=str,
+        dest="specified_params",
+        default="{}",
+        required=False,
+        help="Test module specified params"
+    )
+    parser_create.add_argument(
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
@@ -419,6 +434,8 @@ if __name__ == "__main__":
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic
+                specified_params=args.specified_params,
+                vm_type=args.vm_type,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
