@@ -1,5 +1,6 @@
 import re
 import logging
+import ast
 
 pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
 pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
@@ -17,8 +18,8 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
         Application Advertisement: N/A
         Connector: No separable connector
         Encoding: 64B/66B
-        Extended Identifier: Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h,
-                             CDR present in TX, CDR present in RX
+        Extended Identifier: Power Class 3 Module (2.5W max.),
+                             No CLEI code present in Page 02h, CDR present in TX, CDR present in RX
         Extended RateSelect Compliance: Unknown
         Identifier: QSFP28 or later
         Length Cable Assembly(m): 3.0
@@ -80,8 +81,8 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
         'Application Advertisement': 'N/A',
         'Connector': 'No separable connector',
         'Encoding': '64B/66B',
-        'Extended Identifier': 'Power Class 3 Module (2.5W max.), No CLEI code present in Page 02h,
-                               CDR present in TX, CDR present in RX',
+        'Extended Identifier': 'Power Class 3 Module (2.5W max.),
+                               No CLEI code present in Page 02h, CDR present in TX, CDR present in RX',
         'Extended RateSelect Compliance': 'Unknown',
         'Identifier': 'QSFP28 or later',
         'Length Cable Assembly(m)': '3.0',
@@ -300,18 +301,45 @@ def check_dom_monitor_key_and_data_format(expected_keys_and_pattern_dict, dom_mo
                 key, dom_monitor_data[key], pattern)
 
 
-def is_support_dom(duthost, port_index):
+def is_support_dom(duthost, port_index, pic_cr0_path):
     """
     This method is to check if cable support dom
+    1. For 202012 branch(It not support mlxlink tool, so use get_transceiver_bulk_status to judge if it support dom)
+      1) Get get transceiver bulk status
+      2) Return True, When any one value for all parameters including power, bias,temperature and voltage is not in
+         ['N/A', '0.0', 0.0, '0.0000mA', '-inf'], else False.
+    2. For other branches apart from 202012
+      1) Get the pci_cro info by mlxlink tool
+      2) Return false, when all values of 5 fields
+       (Temperature|Voltage|Bias Current|Rx Power Current|Tx Power Current) are N/A, else True
     """
-    bulk_status_str = get_transceiver_bulk_status(duthost, port_index)
-    bulk_status_str = bulk_status_str.replace('-inf', '\'-inf\'')
-    bulk_status_dict = eval(bulk_status_str)
-    for k, v in bulk_status_dict.items():
-        if "power" in k or "bias" in k or "temperature" in k or "voltage" in k:
-            if v not in ['N/A', '0.0', 0.0, '0.0000mA', '-inf']:
-                return True
-    return False
+    if duthost.sonic_release in ["202012"]:
+        bulk_status_str = get_transceiver_bulk_status(duthost, port_index)
+        bulk_status_str = bulk_status_str.replace('-inf', '\'-inf\'')
+        bulk_status_dict = ast.literal_eval(bulk_status_str)
+        for k, v in bulk_status_dict.items():
+            if "power" in k or "bias" in k or "temperature" in k or "voltage" in k:
+                if v not in ['N/A', '0.0', 0.0, '0.0000mA', '-inf']:
+                    logging.info("Port {} support dom".format(port_index))
+                    return True
+        logging.info("Port {} doesn't support dom".format(port_index))
+        return False
+    else:
+        pattern_for_dom_check = r'^(Temperature|Voltage|Bias Current|Rx Power Current|Tx Power Current).*: N\/A.*'
+        pci_cr0 = get_mlxlink_pci_cr0(duthost, pic_cr0_path, port_index)
+
+        check_support_dom_filed_number = 5
+        not_support_dom_field_counter = 0
+        for line in pci_cr0.split("\n"):
+            res = re.match(pattern_for_dom_check, line)
+            if res:
+                not_support_dom_field_counter += 1
+                logging.info("Find {} Value is N/A: {}".format(not_support_dom_field_counter, line))
+            if not_support_dom_field_counter >= check_support_dom_filed_number:
+                logging.info("Port {} doesn't support dom".format(port_index))
+                return False
+        logging.info("Port {} support dom".format(port_index))
+        return True
 
 
 def get_transceiver_bulk_status(duthost, port_index):
@@ -327,3 +355,18 @@ EOF
 """.format(port_index)
     duthost.shell(cmd)
     return duthost.command("python3 get_transceiver_bulk_status.py")["stdout"]
+
+
+def get_mlxlink_pci_cr0(duthost, pci_cr0_path, port_index):
+    """
+    This method is to get the info of /dev/mst/*_pci_cr0
+    """
+    cmd = "sudo mlxlink -d {} -p {} -m".format(pci_cr0_path, port_index)
+    return duthost.command(cmd)["stdout"]
+
+
+def get_pci_cr0_path(duthost):
+    """
+    This method is to get path for /dev/mst/*_pci_cr0
+    """
+    return duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
