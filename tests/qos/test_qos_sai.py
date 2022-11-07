@@ -26,7 +26,7 @@ import time
 import json
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
-from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -35,7 +35,6 @@ from tests.common.dualtor.dual_tor_utils import dualtor_ports             # lgtm
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
-from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map
 
 logger = logging.getLogger(__name__)
 
@@ -733,7 +732,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpQueueMapping(
-        self, duthost, ptfhost, dutTestParams, dutConfig
+        self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -744,7 +743,7 @@ class TestQosSai(QosSaiBase):
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
@@ -752,7 +751,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        if separated_dscp_to_tc_map_on_uplink(duthost):
+        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         testParams = dict()
@@ -773,7 +772,7 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
-    def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams, dutConfig, direction):
+    def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps):
         """
             Test QoS SAI DSCP to queue mapping.
             We will have separated DSCP_TO_TC_MAP for uplink/downlink ports on T1 if PCBB enabled.
@@ -786,6 +785,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 direction (str): upstream/downstream
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
@@ -793,7 +793,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Only run this test when separated DSCP_TO_TC_MAP is defined
-        if not separated_dscp_to_tc_map_on_uplink(duthost):
+        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
 
         testParams = dict()
@@ -1186,7 +1186,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, duthost, request, ptfhost, dutTestParams, dutConfig,
+        self, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -1197,7 +1197,7 @@ class TestQosSai(QosSaiBase):
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
@@ -1210,7 +1210,7 @@ class TestQosSai(QosSaiBase):
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        if separated_dscp_to_tc_map_on_uplink(duthost):
+        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         testParams = dict()
@@ -1227,7 +1227,7 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
-    def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost, dutTestParams, dutConfig, direction):
+    def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps):
         """
             Test QoS SAI DSCP to PG mapping ptf test.
             Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to 
@@ -1240,6 +1240,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 direction (str): downstream or upstream
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
@@ -1250,7 +1251,7 @@ class TestQosSai(QosSaiBase):
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
 
-        if not separated_dscp_to_tc_map_on_uplink(duthost):
+        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
 
         testParams = dict()
@@ -1272,7 +1273,7 @@ class TestQosSai(QosSaiBase):
                 })
             src_port_name = dutConfig["testPorts"]["downlink_port_names"][0]
 
-        testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name)
+        testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name, dut_qos_maps)
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",

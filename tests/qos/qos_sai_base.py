@@ -11,7 +11,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,du
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import check_qos_db_fv_reference_with_table
-from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
+from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -470,7 +470,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-        enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports
+        enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -545,7 +545,7 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
