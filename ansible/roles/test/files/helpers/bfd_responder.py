@@ -91,10 +91,10 @@ class BFDResponder(object):
         if bfd_state == 2:
             return
         session["other_disc"] = bfd_remote_disc
-        bfd_pkt_init = self.craft_bfd_packet( session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2L )
+        bfd_pkt_init = self.craft_bfd_packet(session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
         bfd_pkt_init.payload.payload.chksum = None
         interface.send(bfd_pkt_init)
-        bfd_pkt_init.payload.payload.payload.load.sta =3L
+        bfd_pkt_init.payload.payload.payload.load.sta = 3
         bfd_pkt_init.payload.payload.chksum = None
         session["pkt"] = bfd_pkt_init
         return
