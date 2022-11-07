@@ -236,7 +236,7 @@ test_multi_asic_t1_lag_pr() {
     tests="autorestart/test_container_autorestart.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
     popd
 }
 
