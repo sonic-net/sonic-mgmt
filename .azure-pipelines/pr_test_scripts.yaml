@@ -67,7 +67,11 @@ t0-2vlans:
 
 t0-sonic:
   - bgp/test_bgp_fact.py
-  - macsec/test_macsec.py
+  - macsec/test_controlplane.py
+  - macsec/test_dataplane.py
+  - macsec/test_deployment.py
+  - macsec/test_fault_handling.py
+  - macsec/test_interop_protocol.py
 
 dualtor:
   - arp/test_arp_extended.py

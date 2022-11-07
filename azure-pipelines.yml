@@ -173,6 +173,7 @@ stages:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
     timeoutInMinutes: 400
+    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: true
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -182,6 +183,23 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
+
+  - job: sonic_t0_testbedv2
+    displayName: "kvmtest-t0-sonic by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: true
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t0-64-32
+          MIN_WORKER: 1
+          MAX_WORKER: 2
+          TEST_SET: t0-sonic
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+          VM_TYPE: vsonic
+          SPECIFIED_PARAMS: '{\"test_pretest.py\":[\"--completeness_level=confident\",\"--allow_recover\"],\"test_posttest.py\":[\"--completeness_level=confident\",\"--allow_recover\"]}'
+
 
   - job:
     pool: sonictest-dualtor
