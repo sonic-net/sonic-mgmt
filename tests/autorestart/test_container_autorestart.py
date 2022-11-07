@@ -103,11 +103,16 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
+            ".*ERR wrong number of arguments for 'hset' command: Input/output error: Input/output error"
         ],
         'pmon': [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+        ],
+        'eventd': [
+            ".*ERR eventd#eventd.*The eventd service started.*",
+            ".*ERR eventd#eventd.*deserialize Failed: input stream errorstr.*"
         ],
         'swss': swss_syncd_teamd_regex,
         'syncd': swss_syncd_teamd_regex,
