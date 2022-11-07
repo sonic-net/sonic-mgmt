@@ -30,6 +30,14 @@ parameters:
   type: string
   default: ""
 
+- name: VM_TYPE
+  type: string
+  default: "ceos"
+
+- name: SPECIFIED_PARAMS
+  type: string
+  default: "{}"
+
 steps:
   - script: |
       set -ex
@@ -37,7 +45,12 @@ steps:
       pip install PyYAML
 
       rm -f new_test_plan_id.txt
-      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}"
+      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} \
+      --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) \
+      --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
+      --vm-type ${{ parameters.VM_TYPE }} \
+      --specified-params "${{ parameters.SPECIFIED_PARAMS }}"
+
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
       echo "Created test plan $TEST_PLAN_ID"
