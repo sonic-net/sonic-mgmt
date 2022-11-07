@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+
 def config_system_checks_passed(duthost):
     logging.info("Checking if system is running")
-    out= duthost.shell("systemctl is-system-running", module_ignore_errors=True)
+    out = duthost.shell("systemctl is-system-running", module_ignore_errors=True)
     if "running" not in out['stdout_lines']:
         logging.info("Checking failure reason")
         fail_reason = duthost.shell("systemctl list-units --state=failed", module_ignore_errors=True)
@@ -29,7 +30,8 @@ def config_system_checks_passed(duthost):
                 return False
 
             out = duthost.shell(
-                "ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value) | sed '1d'".format(asic.asic_index))
+                "ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value) | sed '1d'".format(
+                    asic.asic_index))
             if int(out['stdout'].strip()) < 120:
                 return False
     else:
@@ -63,12 +65,13 @@ def config_force_option_supported(duthost):
 
 
 @ignore_loganalyzer
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True, safe_reload=False,
+def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
+                  safe_reload=False,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False):
     """
     reload SONiC configuration
     :param duthost: DUT host object
-    :param config_source: configuration source either 'config_db' or 'minigraph'
+    :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for DUT to initialize after configuration reload
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :return:
@@ -84,7 +87,8 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and duthost.facts['asic_type'] == 'mellanox':
-            output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model', module_ignore_errors=True)
+            output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
+                                   module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
@@ -122,11 +126,11 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
         pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
-                "All critical services should be fully started!")
+                      "All critical services should be fully started!")
         wait_critical_processes(duthost)
         if config_source == 'minigraph':
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
-                    "PFC_WD is missing in CONFIG-DB")
+                          "PFC_WD is missing in CONFIG-DB")
 
         if check_intf_up_ports:
             pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
