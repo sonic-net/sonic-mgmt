@@ -199,7 +199,7 @@ Once the topology has been created, we need to give the devices an initial confi
    ```
    ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-wan-pub-cisco veos_vtb password.txt
    ```
-   
+
 
 Verify the DUT is created successfully. In your host run
    ```
