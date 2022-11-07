@@ -15,38 +15,6 @@ acl/test_acl_outer_vlan.py:
     conditions:
       - "asic_type in ['cisco-8000']"
 
-acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded:
-  xfail:
-    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
-    # BRCM CSP CS00012257197
-    reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-
-acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded:
-  xfail:
-    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
-    # BRCM CSP CS00012257197
-    reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-
-acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded:
-  xfail:
-    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
-    # BRCM CSP CS00012257197
-    reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-
-acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded:
-  xfail:
-    # Ignoring failure because of limitation that DNX chipset doesn't support both IPv6 src and dst address in the same rule
-    # BRCM CSP CS00012257197
-    reason: "DNX chipset doesn't support both IPv6 src and dst address in the same ACL rule"
-    conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-
 #######################################
 #####            arp              #####
 #######################################
