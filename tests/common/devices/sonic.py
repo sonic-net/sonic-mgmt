@@ -184,7 +184,7 @@ class SonicHost(AnsibleHostBase):
         facts["mgmt_interface"] = self._get_mgmt_interface()
         facts["switch_type"] = self._get_switch_type()
         asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else range(facts["num_asic"])
+        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
 
         platform_asic = self._get_platform_asic(facts["platform"])
         if platform_asic:
@@ -572,11 +572,11 @@ class SonicHost(AnsibleHostBase):
 
         @param service: Name of the SONiC service
         """
-        result = {'status': True}
-        result['exited_critical_process'] = []
-        result['running_critical_process'] = []
-        critical_group_list = []
-        critical_process_list = []
+        result = {
+            'status': True,
+            'exited_critical_process': [],
+            'running_critical_process': []
+        }
 
         # return false if the service is not started
         service_status = self.is_service_fully_started(service)
@@ -594,17 +594,11 @@ class SonicHost(AnsibleHostBase):
         output = self.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
         logging.info("====== supervisor process status for service {} ======".format(service))
 
-        for l in output['stdout_lines']:
-            (pname, status, info) = re.split("\s+", l, 2)
-            if status != "RUNNING":
-                if pname in critical_group_list or pname in critical_process_list:
-                    result['exited_critical_process'].append(pname)
-                    result['status'] = False
-            else:
-                if pname in critical_group_list or pname in critical_process_list:
-                    result['running_critical_process'].append(pname)
-
-        return result
+        return self.parse_service_status_and_critical_process(
+            service_result=output,
+            critical_group_list=critical_group_list,
+            critical_process_list=critical_process_list
+        )
 
     def all_critical_process_status(self):
         """
@@ -639,23 +633,50 @@ class SonicHost(AnsibleHostBase):
                 all_critical_process[service] = service_critical_process
                 continue
 
-            service_group_process = group_process_results[service]
-
-            service_result = service_results[service]
-            for line in service_result['stdout_lines']:
-                pname, status, _ = re.split('\s+', line, 2)
-                if status != 'RUNNING':
-                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
-                        service_critical_process['exited_critical_process'].append(pname)
-                        service_critical_process['status'] = False
-                else:
-                    if pname in service_group_process['groups'] or pname in service_group_process['processes']:
-                        service_critical_process['running_critical_process'].append(pname)
-            all_critical_process[service] = service_critical_process
+            all_critical_process[service] = self.parse_service_status_and_critical_process(
+                service_result=service_results[service],
+                critical_group_list=group_process_results[service]['groups'],
+                critical_process_list=group_process_results[service]['processes']
+            )
 
         return all_critical_process
 
-    
+    def parse_service_status_and_critical_process(self, service_result, critical_group_list,
+                                     critical_process_list):
+        """
+        Parse the result of command "docker exec <container_name> supervisorctl status"
+        and get service container status and critical processes
+        """
+        service_critical_process = {
+            'status': True,
+            'exited_critical_process': [],
+            'running_critical_process': []
+        }
+        # If container is not running, stdout_lines is empty
+        # In this situation, service container status should be false
+        if not service_result['stdout_lines']:
+            service_critical_process['status'] = False
+        for line in service_result['stdout_lines']:
+            pname, status, _ = re.split('\\s+', line, 2)
+            # 1. Check status is valid
+            # Sometimes, stdout_lines may be error messages but not emtpy
+            # In this situation, service container status should be false
+            # We can check status is valid or not
+            # You can just add valid status str in this tuple if meet later
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
+                service_critical_process['status'] = False
+            # 2. Check status is not running
+            elif status != 'RUNNING':
+                # 3. Check process is critical
+                if pname in critical_group_list or pname in critical_process_list:
+                    service_critical_process['exited_critical_process'].append(pname)
+                    service_critical_process['status'] = False
+            else:
+                if pname in critical_group_list or pname in critical_process_list:
+                    service_critical_process['running_critical_process'].append(pname)
+
+        return service_critical_process
+
     def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
@@ -1984,3 +2005,105 @@ Totals               6450                 6449
                     }
 
         return ip_ifaces
+
+    def show_syslog(self):
+        """
+        Show syslog config
+
+        Args:
+            dut (SonicHost): The target device
+        Return: Syslog config like below
+            [{
+                "server": "2.2.2.2",
+                "source": "1.1.1.1",
+                "port": "514",
+                "vrf": "default",
+              },
+              {
+                "server": "3.3.3.3",
+                "source": "4.4.4.4",
+                "port": "514",
+                "vrf": "mgmt",
+              },
+              ...
+            ]
+        """
+        return self.show_and_parse('show syslog')
+
+    def remove_acl_table(self, acl_table):
+        """
+        Remove acl table
+
+        Args:
+            acl_table: name of acl table to be removed
+        """
+        self.command("config acl remove table {}".format(acl_table))
+
+    def del_member_from_vlan(self, vlan_id, member_name):
+        """
+        Del vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface deled from vlan
+        """
+        self.command("config vlan member del {} {}".format(vlan_id, member_name))
+
+    def add_member_to_vlan(self, vlan_id, member_name, is_tagged=True):
+        """
+        Add vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface added to vlan
+            is_tagged: True - add tagged member. False - add untagged member.
+        """
+        self.command("config vlan member add {} {} {}".format("" if is_tagged else "-u", vlan_id, member_name))
+
+    def remove_ip_from_port(self, port, ip=None):
+        """
+        Remove ip addresses from port. If get ip from running config successfully, ignore arg ip provided
+
+        Args:
+            port: port name
+            ip: IP address
+        """
+        ip_addresses = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("INTERFACE", {}).get(port, {})
+        if ip_addresses:
+            for ip in ip_addresses:
+                self.command("config interface ip remove {} {}".format(port, ip))
+        elif ip:
+            self.command("config interface ip remove {} {}".format(port, ip))
+
+    def get_port_channel_status(self, port_channel_name):
+        """
+        Collect port channel information by command docker teamdctl
+
+        Args:
+            port_channel_name: name of port channel
+
+        Returns:
+            port channel status, key information example:
+            {
+                "ports": {
+                    "Ethernet28": {
+                        "runner": {
+                            "selected": True,
+                            "state": "current"
+                        },
+                        "link": {
+                            "duplex": "full",
+                            "speed": 10,
+                            "up": True
+                        }
+                    }
+                }
+            }
+        """
+        commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
+        json_info = json.loads(commond_output["stdout"])
+        return json_info
+
+    def is_intf_status_down(self, interface_name):
+        show_int_result = self.command("show interface status {}".format(interface_name))
+        return 'down' in show_int_result['stdout_lines'][2].lower()

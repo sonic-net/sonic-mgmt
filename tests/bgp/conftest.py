@@ -170,20 +170,20 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     def _is_ipv4_address(ip_addr):
         return ipaddress.ip_address(ip_addr).version == 4
 
-    def _duthost_cleanup_ip(duthost, namespace, ip):
+    def _duthost_cleanup_ip(asichost, ip):
         """
         Search if "ip" is configured on any DUT interface. If yes, remove it.
         """
 
-        for line in duthost.shell("ip addr show | grep 'inet '")['stdout_lines']:
+        for line in duthost.shell("{} ip addr show | grep 'inet '".format(asichost.ns_arg))['stdout_lines']:
             # Example line: '''    inet 10.0.0.2/31 scope global Ethernet104'''
             fields = line.split()
             intf_ip = fields[1].split("/")[0]
             if intf_ip == ip:
                 intf_name = fields[-1]
-                duthost.shell("config interface %s ip remove %s %s" % (namespace, intf_name, ip))
+                asichost.config_ip_intf(intf_name, ip, "remove")
 
-        ip_intfs = duthost.show_and_parse('show ip interface {}'.format(namespace))
+        ip_intfs = duthost.show_and_parse('show ip interface {}'.format(asichost.cli_ns_option))
 
         # For interface that has two IP configured, the output looks like:
         #       admin@vlab-03:~$ show ip int
@@ -223,7 +223,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         # Remove the specified IP from interfaces
         for ip_intf in ip_intfs:
             if ip_intf["ipv4 address/mask"].split("/")[0] == ip:
-                duthost.shell("config interface %s ip remove %s %s" % (namespace, ip_intf["interface"], ip))
+                asichost.config_ip_intf(ip_intf["interface"], ip, "remove")
+
 
     def _find_vlan_intferface(mg_facts):
         for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
@@ -330,10 +331,20 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
             ipv4_interfaces = []
             used_subnets = set()
+            asic_idx = 0
             if mg_facts["minigraph_interfaces"]:
                 for intf in mg_facts["minigraph_interfaces"]:
                     if _is_ipv4_address(intf["addr"]):
-                        ipv4_interfaces.append(intf["attachto"])
+                        intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
+                        if not ipv4_interfaces:
+                            ipv4_interfaces.append(intf["attachto"])
+                            asic_idx = intf_asic_idx
+                            used_subnets.add(ipaddress.ip_network(intf["subnet"]))
+                        else:
+                            if intf_asic_idx != asic_idx:
+                                continue
+                            else:
+                                ipv4_interfaces.append(intf["attachto"])
                         used_subnets.add(ipaddress.ip_network(intf["subnet"]))
 
             ipv4_lag_interfaces = []
@@ -344,7 +355,17 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         # Only use LAG with 1 member for bgpmon session between PTF,
                         # It's because exabgp on PTF is bind to single interface
                         if len(pt_members) == 1:
-                            ipv4_lag_interfaces.append(pt["attachto"])
+                            # If first time, we record the asic index
+                            if not ipv4_lag_interfaces:
+                                ipv4_lag_interfaces.append(pt["attachto"])
+                                asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
+                            # Not first time, only append the portchannel that belongs to the same asic in current list
+                            else:
+                                asic = duthost.get_asic_index_for_portchannel(pt["attachto"])
+                                if asic != asic_idx:
+                                    continue
+                                else:
+                                    ipv4_lag_interfaces.append(pt["attachto"])
                         used_subnets.add(ipaddress.ip_network(pt["subnet"]))
 
             vlan_sub_interfaces = []
@@ -367,6 +388,10 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             if not loopback_ip:
                 pytest.fail("ipv4 lo interface not found")
 
+            num_intfs = len(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces)
+            if num_intfs < peer_count:
+                pytest.skip("Found {} IPv4 interfaces or lags with 1 port member, but require {} interfaces".format(num_intfs, peer_count))
+
             for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
@@ -374,7 +399,10 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["loopback_ip"] = loopback_ip
-                conn["namespace"] = DEFAULT_NAMESPACE
+                if 'namespace' in mg_facts['minigraph_neighbors'][intf] and mg_facts['minigraph_neighbors'][intf]['namespace']:
+                    conn["namespace"] = mg_facts['minigraph_neighbors'][intf]['namespace']
+                else:
+                    conn["namespace"] = DEFAULT_NAMESPACE
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
@@ -390,14 +418,15 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
 
             for conn in connections:
-                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
+                asichost = duthost.asic_instance_from_namespace(conn['namespace'])
 
                 # Find out if any other interface has the same IP configured. If yes, remove it
                 # Otherwise, there may be conflicts and test would fail.
-                _duthost_cleanup_ip(duthost, namespace, conn["local_addr"])
+                _duthost_cleanup_ip(asichost, conn["local_addr"])
 
                 # bind the ip to the interface and notify bgpcfgd
-                duthost.shell("config interface %s ip add %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
+                asichost.config_ip_intf(conn["local_intf"], conn["local_addr"], "add")
+
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"], conn["neighbor_addr"]))
 
                 # add route to loopback address on PTF host
@@ -418,8 +447,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
         finally:
             for conn in connections:
-                namespace = '-n {}'.format(conn["namespace"]) if conn["namespace"] else ''
-                duthost.shell("config interface %s ip remove %s %s" % (namespace, conn["local_intf"], conn["local_addr"]))
+                asichost = duthost.asic_instance_from_namespace(conn['namespace'])
+                asichost.config_ip_intf(conn["local_intf"], conn["local_addr"], "remove")
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
                 ptfhost.shell(
                     "ip route del {}/32".format(conn["loopback_ip"]),
@@ -429,7 +458,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
-    elif tbinfo["topo"]["type"] == "t0":
+    elif tbinfo["topo"]["type"] in ["t0", "m0"]:
         setup_func = _setup_interfaces_t0
     elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
         setup_func = _setup_interfaces_t1_or_t2
@@ -500,7 +529,8 @@ def backup_bgp_config(duthost):
         apply_default_bgp_config(duthost)
 
 @pytest.fixture(scope="module")
-def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
+def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, setup_interfaces):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     connection = setup_interfaces[0]
     dut_lo_addr = connection["loopback_ip"].split("/")[0]
     peer_addr = connection['neighbor_addr'].split("/")[0]
@@ -520,7 +550,8 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
                  dest=BGPMON_CONFIG_FILE)
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
-    duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
+    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
 
@@ -549,16 +580,18 @@ def bgpmon_setup_teardown(ptfhost, duthost, localhost, setup_interfaces):
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
     ptfhost.shell("ip route add %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
 
-    pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+    pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                   "Failed to start bgp monitor session on PTF")
     pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
-    yield
+    yield connection
     # Cleanup bgp monitor
-    duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
+    asichost.run_sonic_db_cli_cmd("CONFIG_DB DEL 'BGP_MONITORS|{}'".format(peer_addr))
+
     ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
     ptfhost.file(path=CUSTOM_DUMP_SCRIPT_DEST, state="absent")
     ptfhost.file(path=DUMP_FILE, state="absent")
     # Remove the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
+

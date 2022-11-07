@@ -12,7 +12,7 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend

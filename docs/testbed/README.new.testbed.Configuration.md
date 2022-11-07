@@ -122,7 +122,7 @@ For each topology you use in your testbed environment, define the following:
 - group-name - used in interface names, up to 8 characters. The variable can be anything but should be identifiable.
 - topo - name of topology
 - ptf_image_name - defines PTF image. In this guide, the docker-ptf was an image already on the local registry. However, there is a docker-ptf from the sonic-mgmt github that a user can pull from
-    > git clone --recursive https://github.com/Azure/sonic-buildimage.git <br/>
+    > git clone --recursive https://github.com/sonic-net/sonic-buildimage.git <br/>
     > make configure PLATFORM=generic <br/>
     > make target/docker-ptf.gz
     > You can also download a pre-built docker-ptf image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz)
@@ -165,7 +165,7 @@ The docker registry container below information:
 
 If you already have this information set up, you can choose to leave this section blank and the script will skip this section.
 If you are using local docker registry, you can add your docker_registry_host, docker_registry_username, and docker_registry_password into the file.
-Example: 
+Example:
 ```
 cat ~/sonig-mgmt/ansible/vars/docker_registry.yml
 #docker_registry_host: sonicdev-microsoft.azurecr.io:443
@@ -174,11 +174,11 @@ docker_registry_username: root
 docker_registry_password: root
 ```
 
-# Testbed Processing Script 
+# Testbed Processing Script
 **NOTE**:
 - This section is an example of starting VMs, deploying topology and running test cases with ansible-playbook. However, it is old-fasioned.
-- For latest deploying, please refer [here](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md#setup-vms-on-the-server). 
-- For latest running test cases, please refer [here](https://github.com/Azure/sonic-mgmt/blob/master/docs/tests/README.md)
+- For latest deploying, please refer [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md#setup-vms-on-the-server).
+- For latest running test cases, please refer [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/tests/README.md)
 
 When the testbed.yaml file is completed with the values pertaining to your setup, place both the TestbedProcess.py script and the testbed.yaml configuration file into sonic-mgmt/ansible.
 
