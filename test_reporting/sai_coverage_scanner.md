@@ -52,7 +52,8 @@ platform_purpose_attr: string,
 sai_obj_attr_key: string,
 sai_obj_attr_value: string,
 runnable: bool,
-sai_folder: string
+sai_folder: string,
+upload_time: string
 )
 
 
@@ -73,8 +74,8 @@ sai_folder: string
 '{"column":"sai_obj_attr_key","Properties":{"path":"$.sai_obj_attr_key"}},'
 '{"column":"sai_obj_attr_value","Properties":{"path":"$.sai_obj_attr_value"}},'
 '{"column":"runnable","Properties":{"path":"$.runnable"}},'
-'{"column":"sai_folder","Properties":{"path":"$.sai_folder"}}]'
-
+'{"column":"sai_folder","Properties":{"path":"$.sai_folder"}},'
+'{"column":"upload_time","Properties":{"path":"$.upload_time"}}]'
 ```
 
 Then, connect to the `CaseInvocationReportV2` table and ingest data into it.

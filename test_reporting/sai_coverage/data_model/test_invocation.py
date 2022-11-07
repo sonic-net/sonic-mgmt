@@ -5,7 +5,7 @@ class TestInvocation(object):
 
     def __init__(self, file_name, class_name, case_name, case_invoc, sai_header, saiintf_id,
                  saiintf_method_table, saiintf_name, saiintf_alias, test_set, test_platform,
-                 platform_purpose_attr, attr_name, attr_value, runnable, sai_folder):
+                 platform_purpose_attr, attr_name, attr_value, runnable, sai_folder, upload_time):
         self.file_name = file_name
         self.case_name = case_name
         self.class_name = class_name
@@ -22,3 +22,4 @@ class TestInvocation(object):
         self.sai_obj_attr_value = attr_value
         self.runnable = runnable
         self.sai_folder = sai_folder
+        self.upload_time = upload_time
