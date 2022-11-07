@@ -177,7 +177,7 @@ def get_disabled_container_list(duthost):
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
     for container_name, status in container_status.items():
-        if "disabled" in status:
+        if "disabled".encode('UTF-8') in status:
             disabled_containers.append(container_name)
 
     return disabled_containers

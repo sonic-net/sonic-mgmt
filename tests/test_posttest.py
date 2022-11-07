@@ -42,6 +42,7 @@ def test_restore_container_autorestart(duthosts, enum_dut_hostname, enable_conta
     SNMP_RELOADING_TIME = 30
     time.sleep(SNMP_RELOADING_TIME)
 
+
 def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     # We don't need to recover the rate limit on vs testbed
