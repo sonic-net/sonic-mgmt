@@ -755,7 +755,7 @@ class ReloadTest(BaseTest):
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
-            packet = simple_icmp_packet(eth_src=self.from_server_src_mac,
+            packet = simple_icmp_packet(eth_src=src_mac,,
                                         eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
@@ -770,7 +770,6 @@ class ReloadTest(BaseTest):
                                     ip_dst=dut_lo_ipv4)
 
         self.ping_dut_exp_packet  = Mask(exp_packet)
-        self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
