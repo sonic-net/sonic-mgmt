@@ -139,7 +139,7 @@ def check_interfaces(duthosts):
 def check_bgp(duthosts):
     init_result = {"failed": False, "check_item": "bgp"}
     def _check(*args, **kwargs):
-        result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=10, init_result=init_result)
+        result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
