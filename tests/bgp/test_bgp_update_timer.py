@@ -11,8 +11,8 @@ from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import mux_server_url   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -44,7 +44,7 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
     stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     duthost.shell(start_pcap)
@@ -68,13 +68,15 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
     conn0_ns = DEFAULT_NAMESPACE if "namespace" not in conn0.keys() else conn0["namespace"]
     conn1_ns = DEFAULT_NAMESPACE if "namespace" not in conn1.keys() else conn1["namespace"]
-    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} started on different asics!".format(conn0_ns, conn1_ns))
+    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} \
+                  started on different asics!".format(conn0_ns, conn1_ns))
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
@@ -146,7 +148,7 @@ def constants(is_quagga, setup_interfaces):
 
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          toggle_all_simulator_ports_to_rand_selected_tor_m):
+                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
