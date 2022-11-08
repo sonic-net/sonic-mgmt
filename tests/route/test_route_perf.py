@@ -18,6 +18,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
+M0_MX_NUMBER_ROUTES = 500
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -221,7 +222,7 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
     if topo_name in ["m0", "mx"]:
-        set_num_routes = 500
+        set_num_routes = M0_MX_NUMBER_ROUTES
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50 # Update max num neighbors for multi-asic
