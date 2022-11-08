@@ -19,7 +19,6 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder  # noqa: F401 # lgtm[py/unused-import]
-from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor  # noqa: F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
@@ -174,8 +173,6 @@ def test_standby_tor_downstream_bgp_recovered(
     Verify traffic is distributed evenly after BGP session is recovered;
     Verify CRM that no new nexthop created
     """
-    # require real dualtor, because for mocked testbed, the route to standby is mocked.
-    pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
     PAUSE_TIME = 30
 
     down_bgp = shutdown_random_one_bgp_session(rand_selected_dut)
@@ -224,7 +221,6 @@ def test_standby_tor_downstream_loopback_route_readded(
     """
     Verify traffic is equally distributed via loopback route
     """
-    pt_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
     params = get_testbed_params()
     active_tor_loopback0 = params['active_tor_ip']
 
