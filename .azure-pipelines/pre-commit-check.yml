@@ -14,23 +14,38 @@ steps:
   displayName: 'checkout sonic-mgmt repo'
 
 - script: |
-    set -ex
+    set -x
 
     sudo pip install pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
 
 - script: |
-    set -ex
-
+    # Run pre-commit check and capture the output
     out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
     RC=$?
 
     echo "Pre-commit check results:"
     echo "$out"
 
+    # Truncate the output if it has more than 20 lines
+    if [[ `echo "$out" | wc -l` -gt 20 ]]; then
+      out=`echo "$out" | head -n 20`
+      out="$out\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"
+      out=`printf "$out"`
+    fi
+
+    # Append '<br/>' to each line and join them into a single line. Explanation of this trick:
+    #
+    # The check results need to be passed in an AZP variable to the subsequent task for posting Github comment.
+    # However, AZP does not support multiple lines in variable value. We need a way to join multiple lines into a
+    # single line and then expand them into multiple lines in Github comment.
+    # Luckily we can embed the html new line tag '<br/>' in the variable value. Github web page is able to render
+    # that html tag as a new line.
     br='<br/>'
     results=`echo "$out" |  while read line; do echo $line$br; done | tr -d '\n'`
+
+    # Store the check results in an AZP variable, it will be rendered in Github comment
     echo "##vso[task.setvariable variable=results;]$results"
 
     exit $RC

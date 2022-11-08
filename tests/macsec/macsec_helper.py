@@ -1,21 +1,23 @@
-from collections import defaultdict
-import struct
-import binascii
-import time
-import re
 import ast
+import binascii
+import logging
+import re
+import struct
+import time
+from collections import defaultdict
+from multiprocessing import Process
 
 import cryptography.exceptions
 import ptf
-import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
 from macsec_common_helper import convert_on_off_to_boolean
 from macsec_platform_helper import sonic_db_cli
-
+from tests.common.devices.eos import EosHost
 
 __all__ = [
     'check_wpa_supplicant_process',
@@ -31,8 +33,29 @@ __all__ = [
     'get_macsec_counters',
     'get_sci',
     'getns_prefix',
-    'get_ipnetns_prefix'
+    'get_ipnetns_prefix',
 ]
+
+logger = logging.getLogger(__name__)
+process_queue = []
+
+
+def submit_async_task(target, args):
+    global process_queue
+    proc = Process(target=target, args=args)
+    process_queue.append(proc)
+    proc.start()
+
+
+def wait_all_complete(timeout=300):
+    global process_queue
+    for proc in process_queue:
+        proc.join(timeout)
+        # If process timeout, terminate all processes, otherwise the pytest process will never finish.
+        if proc.is_alive():
+            [p.terminate() for p in process_queue]
+            raise RuntimeError("Process {} timeout {}".format(proc, timeout))
+    process_queue = []
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -117,7 +140,7 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
 
 
-def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
+def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
     # Check MACsec port table
     dut_port_table, dut_egress_sc_table, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
         duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name)
@@ -141,8 +164,6 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
     # CHeck MACsec SA Table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
-    assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
-    assert len(nbr_ingress_sa_table) >= len(dut_egress_sa_table)
     for egress_sas, ingress_sas in \
             ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
         for an, sa in egress_sas.items():
@@ -150,6 +171,18 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
             assert sa["sak"] == ingress_sas[an]["sak"]
             assert sa["auth_key"] == ingress_sas[an]["auth_key"]
             assert sa["next_pn"] >= ingress_sas[an]["lowest_acceptable_pn"]
+
+
+def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
+    logger.info("Check appl_db start")
+    for port_name, nbr in ctrl_links.items():
+        if isinstance(nbr["host"], EosHost):
+            continue
+        submit_async_task(__check_appl_db, (duthost, port_name, nbr["host"],
+                        nbr["port"], policy, cipher_suite, send_sci))
+    wait_all_complete(timeout=180)
+    logger.info("Check appl_db finished")
+    return True
 
 
 def get_mka_session(host):
@@ -405,4 +438,3 @@ def get_macsec_counters(sonic_asic, namespace, name):
 __origin_dp_poll = testutils.dp_poll
 __macsec_infos = defaultdict(lambda: None)
 testutils.dp_poll = macsec_dp_poll
-

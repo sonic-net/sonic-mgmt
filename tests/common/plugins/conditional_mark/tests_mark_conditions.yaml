@@ -16,6 +16,15 @@ acl/test_acl_outer_vlan.py:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####            arp              #####
+#######################################
+arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
+  skip:
+    reason: "`accept_untracked_na` currently only available in 202012"
+    conditions:
+      - "release not in ['202012']"
+
+#######################################
 #####            bfd              #####
 #######################################
 bfd/test_bfd.py:
@@ -70,9 +79,20 @@ bgp/test_bgpmon.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_gr_helper.py:
+  skip:
+    reason: 'bgp graceful restarted is not a supported feature for T2'
+    conditions:
+      - "'t2' in topo_name"
+
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Caclmgrd change to allow mgmt traffic by default requires test case update"
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/12464
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -230,6 +250,13 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
     conditions:
       - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+
+ecmp/test_fgnhg.py:
+  xfail:
+    reason: "case failed waiting for fix"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6558
 
 #######################################
 #####         everflow            #####
@@ -890,9 +917,15 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 #######################################
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run 8102. 4600 has issue https://github.com/sonic-net/sonic-mgmt/issues/6616"
     conditions:
-      - "(is_multi_asic==True) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0'])"
+
+vxlan/test_vnet_vxlan.py:
+  skip:
+    reason: "enable tests only for: mellanox, barefoot"
+    conditions:
+      - "asic_type not in ['mellanox', 'barefoot']"
 
 #######################################
 #####           telemetry         #####
