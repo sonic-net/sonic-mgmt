@@ -625,6 +625,10 @@ jobs:
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+            git remote add public https://github.com/sonic-net/sonic-mgmt.git
+            git fetch public
+            git checkout public/master -- sai_qualify/
+            
             if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
             then
               pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \
