@@ -130,19 +130,20 @@ def deploy_sai_test_container(duthost, creds, request):
     """
     logger.info("sai_test_enable_deployment {}"
                 .format(request.config.option.sai_test_enable_deployment))
-    if not request.config.option.sai_test_enable_deployment:
-        return
-    logger.info("sai_test_keep_test_env {}"
-                .format(request.config.option.sai_test_keep_test_env))
-    logger.info("sai_test_skip_setup_env {}"
-                .format(request.config.option.sai_test_skip_setup_env))
     container_name = request.config.option.sai_test_container
-    if not request.config.option.sai_test_skip_setup_env:
-        __copy_sai_qualify_script(duthost)
-        stop_dockers(duthost)
-        prepare_sai_test_container(duthost, creds, container_name, request)
-        logger.info("Starting sai test container {}"
-                    .format(get_sai_test_container_name(request)))
+    if not request.config.option.sai_test_enable_deployment:
+        logger.info("Skip deploy_sai_test_container!")
+    else:
+        logger.info("sai_test_keep_test_env {}"
+                    .format(request.config.option.sai_test_keep_test_env))
+        logger.info("sai_test_skip_setup_env {}"
+                    .format(request.config.option.sai_test_skip_setup_env))
+        if not request.config.option.sai_test_skip_setup_env:
+            __copy_sai_qualify_script(duthost)
+            stop_dockers(duthost)
+            prepare_sai_test_container(duthost, creds, container_name, request)
+            logger.info("Starting sai test container {}"
+                        .format(get_sai_test_container_name(request)))
     yield
     if not request.config.option.sai_test_keep_test_env:
         logger.info("Stopping and removing sai test container {}"
@@ -195,10 +196,11 @@ def prepare_ptf_server(ptfhost, duthost, request):
     logger.info("sai_test_enable_deployment {}"
                 .format(request.config.option.sai_test_enable_deployment))
     if not request.config.option.sai_test_enable_deployment:
-        return
-    if not request.config.option.sai_test_skip_setup_env:
-        update_saithrift_ptf(request, ptfhost)
-        __create_sai_port_map_file(ptfhost, duthost)
+        logger.info("Skip prepare_ptf_server!")
+    else:
+        if not request.config.option.sai_test_skip_setup_env:
+            update_saithrift_ptf(request, ptfhost)
+            __create_sai_port_map_file(ptfhost, duthost)
     yield
     if not request.config.option.sai_test_keep_test_env:
         __delete_sai_port_map_file(ptfhost)
