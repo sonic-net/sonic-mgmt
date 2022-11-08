@@ -255,12 +255,6 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
-everflow:
-  skip:
-    reason: "Skipping everflow tests. Unsupported topology."
-    conditions:
-      - "'backend' in topo_name or topo_name in ['m0']"
-
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed."
