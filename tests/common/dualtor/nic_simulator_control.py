@@ -162,7 +162,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
             nic_addresses=nic_addresses,
             admin_requests=admin_requests[:len(nic_addresses)]
         )
-        call_grpc(client_stub.QueryAdminForwardingPortState, [request])
+        reply = call_grpc(client_stub.QueryAdminForwardingPortState, [request])
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
