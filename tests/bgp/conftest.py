@@ -23,13 +23,15 @@ from bgp_helpers import DUT_TMP_DIR
 from bgp_helpers import TEMPLATE_DIR
 from bgp_helpers import BGP_PLAIN_TEMPLATE
 from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
-from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, \
+                        BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope='module')
 def setup_keepalive_and_hold_timer(duthosts, rand_one_dut_hostname, nbrhosts):
@@ -38,11 +40,11 @@ def setup_keepalive_and_hold_timer(duthosts, rand_one_dut_hostname, nbrhosts):
     duthost.command("vtysh -c \"configure terminal\" \
                            -c \"router bgp {}\" \
                            -c \"neighbor {} timers 60 180\"".format(
-                               metadata['localhost']['bgp_asn'], \
-                               bgp_nbr_ip))
+                               metadata['localhost']['bgp_asn'],    # noqa F821
+                               bgp_nbr_ip))                         # noqa F821
 
     for k, nbr in nbrhosts.items():
-        nbr['host'].eos_config(lines=["timers 60 180"], parents=["router bgp {}".format(bgp_nbr['asn'])])
+        nbr['host'].eos_config(lines=["timers 60 180"], parents=["router bgp {}".format(bgp_nbr['asn'])])   # noqa F821
 
     yield
 
@@ -67,7 +69,7 @@ def check_results(results):
 def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
 
     @reset_ansible_local_tmp
@@ -87,18 +89,18 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         logger.info('enable graceful restart on neighbor host {}'.format(node['host'].hostname))
         logger.info('bgp asn {}'.format(node['conf']['bgp']['asn']))
         node_results.append(node['host'].eos_config(
-                lines=['graceful-restart restart-time 300'], \
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn'])], \
+                lines=['graceful-restart restart-time 300'],
+                parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
                 module_ignore_errors=True)
             )
         node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'], \
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'], \
+                lines=['graceful-restart'],
+                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
                 module_ignore_errors=True)
             )
         node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'], \
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'], \
+                lines=['graceful-restart'],
+                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
                 module_ignore_errors=True)
             )
         results[node['host'].hostname] = node_results
@@ -121,13 +123,13 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         node['host'].start_bgpd()
         logger.info('disable graceful restart on neighbor {}'.format(node))
         node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'], \
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'], \
+                lines=['no graceful-restart'],
+                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
                 module_ignore_errors=True)
             )
         node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'], \
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'], \
+                lines=['no graceful-restart'],
+                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
                 module_ignore_errors=True)
             )
         results[node['host'].hostname] = node_results
@@ -225,7 +227,6 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             if ip_intf["ipv4 address/mask"].split("/")[0] == ip:
                 asichost.config_ip_intf(ip_intf["interface"], ip, "remove")
 
-
     def _find_vlan_intferface(mg_facts):
         for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
             if _is_ipv4_address(vlan_intf["addr"]):
@@ -258,7 +259,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         "local_intf": loopback_intf["name"],
                         "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
                         "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
-                        "neighbor_addr": "%s/%s" % (mux_configs[local_interface]["server_ipv4"].split("/")[0], vlan_intf_prefixlen)
+                        "neighbor_addr": "%s/%s" % (mux_configs[local_interface]["server_ipv4"].split("/")[0],
+                                                    vlan_intf_prefixlen)
                     }
                 )
 
@@ -379,7 +381,6 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             # Use a subnet which doesnt conflict with other subnets used in minigraph
             subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
 
-
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
                 if netaddr.IPAddress(intf["addr"]).version == 4:
@@ -390,16 +391,19 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
             num_intfs = len(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces)
             if num_intfs < peer_count:
-                pytest.skip("Found {} IPv4 interfaces or lags with 1 port member, but require {} interfaces".format(num_intfs, peer_count))
+                pytest.skip("Found {} IPv4 interfaces or lags with 1 port member, but require {} interfaces"
+                            .format(num_intfs, peer_count))
 
-            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
+            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces
+                                    + vlan_sub_interfaces, peer_count), subnets):
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
                 conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["loopback_ip"] = loopback_ip
-                if 'namespace' in mg_facts['minigraph_neighbors'][intf] and mg_facts['minigraph_neighbors'][intf]['namespace']:
+                if 'namespace' in mg_facts['minigraph_neighbors'][intf] and \
+                        mg_facts['minigraph_neighbors'][intf]['namespace']:
                     conn["namespace"] = mg_facts['minigraph_neighbors'][intf]['namespace']
                 else:
                     conn["namespace"] = DEFAULT_NAMESPACE
@@ -528,6 +532,7 @@ def backup_bgp_config(duthost):
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         apply_default_bgp_config(duthost)
 
+
 @pytest.fixture(scope="module")
 def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, setup_interfaces):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -577,12 +582,14 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32", module_ignore_errors=True)
 
     # Add the route to DUT loopback IP  and the interface router mac
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" %
+                  (dut_lo_addr, duthost.facts["router_mac"], connection["neighbor_intf"]))
     ptfhost.shell("ip route add %s dev %s" % (dut_lo_addr + "/32", connection["neighbor_intf"]))
 
     pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
-                  "Failed to start bgp monitor session on PTF")
-    pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]), 'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
+              "Failed to start bgp monitor session on PTF")
+    pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]),
+              'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
     yield connection
     # Cleanup bgp monitor
@@ -594,4 +601,3 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     # Remove the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
-
