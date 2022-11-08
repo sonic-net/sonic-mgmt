@@ -22,7 +22,7 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
-CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
+CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 
@@ -396,8 +396,8 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
-    # bgp0 -> bgp, bgp -> bgp
-    feature_name = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
+    # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
+    feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
 
     # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
     pytest_require(feature_name not in skip_condition,
