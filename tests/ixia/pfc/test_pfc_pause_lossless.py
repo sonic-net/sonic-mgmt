@@ -4,6 +4,12 @@ import pytest
 from files.helper import run_pfc_test
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+    fanout_graph_facts
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
+from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
+    lossy_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
