@@ -69,26 +69,12 @@ class AosHost(AnsibleHostBase):
         return self.__str__()
 
     def shutdown(self, interface_name):
-        task_name = 'Shutdown interface {}'.format(interface_name)
-        template = 'configure\n' + \
-                   '    interface {}\n'.format(interface_name) + \
-                   '    shutdown\n' + \
-                   '    exit\n' + \
-                   'exit\n' + \
-                   'exit\n'
-        out = self._exec_jinja_template(task_name, template)
+        out = self.aos_config(lines=['shutdown'], parents=['interface {}'.format(interface_name)])
         logging.info('Shut interface {}'.format(interface_name))
         return {self.hostname : out }
 
     def no_shutdown(self, interface_name):
-        task_name = 'No shutdown interface {}'.format(interface_name)
-        template = 'configure\n' + \
-                   '    interface {}\n'.format(interface_name) + \
-                   '    no shutdown\n' + \
-                   '    exit\n' + \
-                   'exit\n' + \
-                   'exit\n'
-        out = self._exec_jinja_template(task_name, template)
+        out = self.aos_config(lines=['no shutdown'], parents=['interface {}'.format(interface_name)])
         logging.info('No shut interface {}'.format(interface_name))
         return {self.hostname : out }
 
