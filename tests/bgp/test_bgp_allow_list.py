@@ -9,7 +9,6 @@ import pytest
 import requests
 import ipaddr as ipaddress
 
-from jinja2 import Template
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -48,15 +47,16 @@ ALLOW_LIST = {
         'DEPLOYMENT_ID|{}|{}'.format(DEPLOYMENT_ID, TEST_COMMUNITY): {
             'prefixes_v4': PREFIX_LISTS['ALLOWED_WITH_COMMUNITY'],
             'prefixes_v6': PREFIX_LISTS['ALLOWED_WITH_COMMUNITY_V6'],
-            'default_action':''
+            'default_action': ''
         },
         'DEPLOYMENT_ID|{}'.format(DEPLOYMENT_ID): {
             'prefixes_v4': PREFIX_LISTS['ALLOWED'],
             'prefixes_v6': PREFIX_LISTS['ALLOWED_V6'],
-            'default_action':''
+            'default_action': ''
         }
     }
 }
+
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
@@ -71,14 +71,16 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     global DEFAULT_ACTION
     try:
         DEFAULT_ACTION = constants['constants']['bgp']['allow_list']['default_action']
-    except KeyError as e:
-        pytest.skip('No BGP Allow List configuration in {}, BGP Allow List is not supported.'.format(CONSTANTS_FILE))
+    except KeyError as e:   # noqa F841
+        pytest.skip('No BGP Allow List configuration in {}, BGP Allow List is not supported.'
+                    .format(CONSTANTS_FILE))
 
     global DROP_COMMUNITY
     try:
         DROP_COMMUNITY = constants['constants']['bgp']['allow_list']['drop_community']
-    except KeyError as e:
-        pytest.skip('No BGP Allow List Drop Commnity define in {}, BGP Allow List is not supported.'.format(CONSTANTS_FILE))
+    except KeyError as e:   # noqa F841
+        pytest.skip('No BGP Allow List Drop Commnity define in {}, BGP Allow List is not supported.'
+                    .format(CONSTANTS_FILE))
 
     setup_info = {}
 
@@ -122,12 +124,10 @@ def update_routes(action, ptfip, port, route):
         msg += ' community {}'.format(route['community'])
 
     url = 'http://%s:%d' % (ptfip, port)
-    data = {'commands': msg }
+    data = {'commands': msg}
     logger.info('Post url={}, data={}'.format(url, data))
     r = requests.post(url, data=data)
     assert r.status_code == 200
-
-
 
 
 @pytest.fixture
@@ -136,17 +136,19 @@ def load_remove_allow_list(duthosts, setup, rand_one_dut_hostname, request):
 
     allowed_list_prefixes = ALLOW_LIST['BGP_ALLOWED_PREFIXES']
 
-    for k,v in allowed_list_prefixes.items():
+    for k, v in allowed_list_prefixes.items():
         v['default_action'] = request.param
 
     namespace = setup['tor1_namespace']
     duthost.copy(content=json.dumps(ALLOW_LIST, indent=3), dest=ALLOW_LIST_PREFIX_JSON_FILE)
-    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '', ALLOW_LIST_PREFIX_JSON_FILE))
+    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '',
+                  ALLOW_LIST_PREFIX_JSON_FILE))
     time.sleep(3)
 
     yield request.param
 
-    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format('-n ' + namespace if namespace else ''))['stdout_lines']
+    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'
+                                    .format('-n ' + namespace if namespace else ''))['stdout_lines']
     for key in allow_list_keys:
         duthost.shell('sonic-db-cli {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
 
@@ -227,13 +229,13 @@ class TestBGPAllowListBase(object):
                 pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))
 
     def check_results(self, results):
-        pytest_assert(len(results.keys())>0, 'No result on neighbors')
+        pytest_assert(len(results.keys()) > 0, 'No result on neighbors')
         failed_results = {}
         for node, node_prefix_results in results.items():
             failed_results[node] = [r for r in node_prefix_results if r['failed']]
 
-        pytest_assert(all([len(r) == 0 for r in failed_results.values()]), \
-            'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
+        pytest_assert(all([len(r) == 0 for r in failed_results.values()]),
+                      'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
 
     def check_routes_on_neighbors(self, nbrhosts, setup, permit=True):
         other_neighbors = setup['other_neighbors']
@@ -262,15 +264,15 @@ class TestBGPAllowListBase(object):
                                     prefix_result['failed'] = True
                                     prefix_result['reasons']\
                                         .append('When default_action="permit", should add drop_community to routes not '
-                                            'on allow list. route={}, node={}'.format(prefix, node))
+                                                'on allow list. route={}, node={}'.format(prefix, node))
                             else:
                                 # Should not add drop_community to routes on allow list
                                 if DROP_COMMUNITY in communityList:
                                     prefix_result['failed'] = True
                                     prefix_result['reasons']\
                                         .append('When default_action="permit", should not add drop_community to routes '
-                                            'on allow listroute in allow list with community, route={}, node={}'
-                                            .format(prefix, node))
+                                                'on allow listroute in allow list with community, route={}, node={}'
+                                                .format(prefix, node))
 
                                 # Should keep original route community
                                 if 'COMMUNITY' in list_name:
@@ -278,21 +280,25 @@ class TestBGPAllowListBase(object):
                                         prefix_result['failed'] = True
                                         prefix_result['reasons']\
                                             .append('When default_action="permit", route on allow list with community '
-                                                'should keep its original community {}, route={}, node={}'
-                                                .format(TEST_COMMUNITY, prefix, node))
+                                                    'should keep its original community {}, route={}, node={}'
+                                                    .format(TEST_COMMUNITY, prefix, node))
                     else:   # default_action=='deny'
                         if 'DISALLOWED' in list_name:
                             # Routes not on allow list should not be forwarded
                             if prefix in neigh_route:
                                 prefix_result['failed'] = True
-                                prefix_result['reasons'].append('When default_action="deny", route NOT on allow list '
-                                    'should not be forwarded. route={}, node={}'.format(prefix, node))
+                                prefix_result['reasons']\
+                                    .append('When default_action="deny", route NOT on allow list '
+                                            'should not be forwarded. route={}, node={}'
+                                            .format(prefix, node))
                         else:
                             # Routes on allow list should be forwarded
                             if prefix not in neigh_route:
                                 prefix_result['failed'] = True
-                                prefix_result['reasons'].append('When default_action="deny", route on allow list '
-                                    'should be forwarded. route={}, node={}'.format(prefix, node))
+                                prefix_result['reasons']\
+                                    .append('When default_action="deny", route on allow list '
+                                            'should be forwarded. route={}, node={}'
+                                            .format(prefix, node))
                             else:
                                 communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
                                 # Forwarded route should not have DROP_COMMUNITY
@@ -300,8 +306,8 @@ class TestBGPAllowListBase(object):
                                     prefix_result['failed'] = True
                                     prefix_result['reasons']\
                                         .append('When default_action="deny", route on allow list with community '
-                                            'should not have drop_community. route={}, node={}'\
-                                            .format(prefix, node))
+                                                'should not have drop_community. route={}, node={}'
+                                                .format(prefix, node))
 
                                 # Should keep original route community
                                 if 'COMMUNITY' in list_name:
@@ -309,8 +315,8 @@ class TestBGPAllowListBase(object):
                                         prefix_result['failed'] = True
                                         prefix_result['reasons'].\
                                             append('When default_action="deny", route on allow list with community '
-                                                'should keep its original community {}. route={}, node={}'
-                                                .format(TEST_COMMUNITY, prefix, node))
+                                                   'should keep its original community {}. route={}, node={}'
+                                                   .format(TEST_COMMUNITY, prefix, node))
                     prefix_results.append(prefix_result)
             results[node] = prefix_results
 
@@ -343,7 +349,8 @@ class TestBGPAllowListBase(object):
                                 prefix_result['failed'] = True
                                 prefix_result['reasons']\
                                     .append('When default_action="permit" and allow list is empty, should add '
-                                        'drop_community to all routes. route={}, node={}'.format(prefix, node))
+                                            'drop_community to all routes. route={}, node={}'
+                                            .format(prefix, node))
 
                             # Should keep original route community
                             if 'COMMUNITY' in list_name:
@@ -351,41 +358,47 @@ class TestBGPAllowListBase(object):
                                     prefix_result['failed'] = True
                                     prefix_result['reasons']\
                                         .append('When default_action="permit" and allow list is empty, should keep '
-                                            'the original community {}, route={}, node={}'
-                                            .format(TEST_COMMUNITY, prefix, node))
+                                                'the original community {}, route={}, node={}'
+                                                .format(TEST_COMMUNITY, prefix, node))
 
                     else:   # default_action=='deny'
                         # All routes should be dropped
                         if prefix in neigh_route:
                             prefix_result['failed'] = True
-                            prefix_result['reasons'].append('When default_action="deny" and allow list is empty, '
-                                'all routes should be dropped. route={}, node={}'.format(prefix, node))
+                            prefix_result['reasons']\
+                                .append('When default_action="deny" and allow list is empty, '
+                                        'all routes should be dropped. route={}, node={}'
+                                        .format(prefix, node))
                     prefix_results.append(prefix_result)
             results[node] = prefix_results
 
         results = parallel_run(check_other_neigh, (nbrhosts, permit), {}, other_neighbors, timeout=180)
         self.check_results(results)
 
-    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
+    def test_default_allow_list_preconfig(self, duthosts, rand_one_dut_hostname,
+                                          setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
         permit = True if DEFAULT_ACTION == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit)
         routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
-        pytest_assert(routes_not_announced==[],
+        pytest_assert(routes_not_announced == [],
                       "Not all routes are announced to bgpmon: %s" % str(routes_not_announced))
 
     @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
+    def test_allow_list(self, duthosts, rand_one_dut_hostname, setup, nbrhosts,
+                        load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
         permit = True if load_remove_allow_list == "permit" else False
         duthost = duthosts[rand_one_dut_hostname]
         self.check_routes_on_tor1(setup, nbrhosts)
         self.check_routes_on_dut(duthost, setup['tor1_namespace'])
         self.check_routes_on_neighbors(nbrhosts, setup, permit)
         routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
-        pytest_assert(routes_not_announced==[],
+        pytest_assert(routes_not_announced == [],
                       "Not all routes are announced to bgpmon: %s" % str(routes_not_announced))
 
-    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown):
-        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup, nbrhosts, ptfhost, bgpmon_setup_teardown)
+    def test_default_allow_list_postconfig(self, duthosts, rand_one_dut_hostname, setup,
+                                           nbrhosts, ptfhost, bgpmon_setup_teardown):
+        self.test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, setup,
+                                               nbrhosts, ptfhost, bgpmon_setup_teardown)

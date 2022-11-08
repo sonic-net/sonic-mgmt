@@ -44,6 +44,7 @@ def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhost
             nbrhosts_to_dut.update(new_nbrhost)
     return nbrhosts_to_dut
 
+
 def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
     prefix = "BGP{} : ".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
     result_str = "{}{}".format(prefix, match_result)
@@ -93,12 +94,12 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
                 peer_ip_v6 = ip
 
         if 4 == ip_ver:
-            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv4'  -c 'neighbor {} soft-reconfiguration inbound' ".format(
-                    peer_ip_v4)
+            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv4'  -c \
+                       'neighbor {} soft-reconfiguration inbound' ".format(peer_ip_v4)
             bgp_nbr_cmd = "sudo vtysh -c 'show ip bgp neighbors {} received-routes json'".format(peer_ip_v4)
         else:
-            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv6'  -c 'neighbor {} soft-reconfiguration inbound' ".format(
-                    peer_ip_v6)
+            conf_cmd = "sudo vtysh -c 'configure terminal' -c 'router bgp' -c 'address-family ipv6'  -c \
+                       'neighbor {} soft-reconfiguration inbound' ".format(peer_ip_v6)
             bgp_nbr_cmd = "sudo vtysh -c 'show bgp ipv6 neighbors {} received-routes json'".format(peer_ip_v6)
 
         host.shell(conf_cmd)
@@ -111,7 +112,8 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
             routes[a_route] = ""
         all_routes[hostname] = routes
 
-    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(), timeout=120, concurrent_tasks=8)
+    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(),
+                              timeout=120, concurrent_tasks=8)
     return all_routes
 
 
@@ -149,18 +151,15 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         # The json formatter on EOS consumes too much time (over 40 seconds).
         # So we have to parse the raw output instead json.
         if 4 == ip_ver:
-            cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v4,
-                                                                                               BGP_ENTRY_HEADING,
-                                                                                               BGP_COMMUNITY_HEADING)
+            cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
+                  .format(peer_ip_v4, BGP_ENTRY_HEADING,  BGP_COMMUNITY_HEADING)
             cmd_backup = ""
         else:
-            cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6,
-                                                                                             BGP_ENTRY_HEADING,
-                                                                                             BGP_COMMUNITY_HEADING)
+            cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\""\
+                  .format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             # For compatibility on EOS of old version
-            cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\"".format(peer_ip_v6,
-                                                                                                BGP_ENTRY_HEADING,
-                                                                                                BGP_COMMUNITY_HEADING)
+            cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
+                         .format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
         res = host.eos_command(commands=[cmd], module_ignore_errors=True)
         if res['failed'] and cmd_backup != "":
             res = host.eos_command(commands=[cmd_backup], module_ignore_errors=True)
@@ -255,7 +254,7 @@ def verify_only_loopback_routes_are_announced_to_neighs(dut_host, neigh_hosts, c
     Verify only loopback routes with certain community are announced to neighs in TSA
     """
     return verify_loopback_route_with_community(dut_host, neigh_hosts, 4, community) and \
-           verify_loopback_route_with_community(dut_host, neigh_hosts, 6, community)
+        verify_loopback_route_with_community(dut_host, neigh_hosts, 6, community)
 
 
 # API to check if the image has support for BGP_DEVICE_GLOBAL table in the configDB
@@ -271,7 +270,8 @@ def check_tsa_persistence_support(duthost):
     return True
 
 
-def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
+def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+             nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -288,10 +288,12 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
         # linecards are also not going to be advertised to bgpmon.
         # So, cannot validate all routes are send to bgpmon on T2.
         if tbinfo['topo']['type'] != 't2':
-            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
-                        "Not all routes are announced to bgpmon")
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
+                                                             bgpmon_setup_teardown['namespace']) == [],
+                          "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+                                                                          traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
         # Recover to Normal state
@@ -320,7 +322,8 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
                   "Not all ipv6 routes are announced to neighbors")
 
 
-def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname, bgpmon_setup_teardown, nbrhosts):
+def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                   bgpmon_setup_teardown, nbrhosts):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
@@ -362,7 +365,8 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
+def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+                                    nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -381,10 +385,12 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
         if tbinfo['topo']['type'] != 't2':
-            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
+                                                             bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+                                                                          traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
         """
@@ -401,16 +407,17 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
         # Wait until all routes are announced to neighbors
-        pytest_assert(wait_until(300, 3, 0, 
-                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                                "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(wait_until(300, 3, 0, 
-                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                                "Not all ipv6 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
+                                 duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                      "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
+                                 duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                      "Not all ipv6 routes are announced to neighbors")
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
+def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                                ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
                                                 traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
@@ -428,11 +435,13 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
                       "DUT is not in maintenance state")
         if tbinfo['topo']['type'] != 't2':
-            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
+            pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost,
+                                                             bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut, traffic_shift_community),
-                     "Failed to verify routes on nbr in TSA")
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+                                                                          traffic_shift_community),
+                      "Failed to verify routes on nbr in TSA")
     finally:
         """
         Recover with TSB and verify route advertisement
@@ -445,9 +454,9 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
         # Wait until all routes are announced to neighbors
-        pytest_assert(wait_until(300, 3, 0, 
-                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                                "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(wait_until(300, 3, 0, 
-                                verify_all_routes_announce_to_neighs, duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                                "Not all ipv6 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
+                                 duthost, nbrhosts, parse_rib(duthost, 4), 4),
+                      "Not all ipv4 routes are announced to neighbors")
+        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
+                                 duthost, nbrhosts, parse_rib(duthost, 6), 6),
+                      "Not all ipv6 routes are announced to neighbors")
