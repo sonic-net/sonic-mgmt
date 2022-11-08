@@ -1,17 +1,8 @@
-name: $(Build.DefinitionName)_Running_Init_$(Build.BuildId)_$(Date:yyyyMMdd)
-
-trigger: none
-pr: none
-
-variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
-
 parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms11-t0-s6000
+    default: vms3-t1-dx010-1
 
   - name: IMAGE_URL
     type: string
@@ -48,6 +39,22 @@ parameters:
     - $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     - $(SAITHRIFTV2_BRCM_INTERNAL_202205)
 
+ # Deploy SAI SDK
+  - name: DEPLOY_SAI_SDK
+    displayName: "Build and deploy sai sdk"
+    type: boolean
+    default: true
+
+  - name: BRCMSAI_BRANCH
+    displayName: "brcm sai branch"
+    type: string
+    default: REL_4.3.5.2_pre
+
+  - name: SDK_ARTIFACT_NAME
+    displayName: "artifact name"
+    type: string
+    default: saibcm.4_3
+
   - name: SAI_REPO
     type: string
     displayName: "SAI Dev Repo"
@@ -62,13 +69,13 @@ parameters:
   - name: PTF_DEPLOY_VSCODE
     displayName: "Deploy Vscode in PTF"
     type: boolean
-    default: true
+    default: false
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
     type: boolean
-    default: false
+    default: true
 
   - name: CHANGE_TOPO
     displayName: "Deploy non-topo"
@@ -88,7 +95,7 @@ parameters:
   - name: RECOVER_TB
     displayName: "Recover Testbed"
     type: boolean
-    default: false
+    default: true
 
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
@@ -98,7 +105,7 @@ parameters:
   - name: ENABLE_BRCM_T0_TEST
     displayName: "Run Brcm T0 Test"
     type: boolean
-    default: false
+    default: true
 
   - name: ENABLE_COMMUNITY_TEST
     displayName: "Run community test case"
@@ -115,6 +122,17 @@ parameters:
     type: boolean
     default: false
 
+  # Self is mgmt-int, saibcm is acs-saibcm
+  - name: saibcmrepo
+    displayName: "BCM SAI Checkout Repo name"
+    type: string
+    default: saibcm
+
+  - name: pool
+    type: string
+    displayName: "Resource pool"
+    default: sonicbld
+
   - name: SAI_PTF_DOCKER
     type: string
     displayName: "SAI PTF DOCKER"
@@ -125,10 +143,29 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
+resources:
+  repositories:
+  - repository: saibcm
+    type: git
+    name: One/Networking-acs-saibcm
+    ref: ${{ parameters.BRCMSAI_BRANCH }}
+    endpoint: acs-saibcm
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
 stages:
-- stage: RunSAITest
+- stage: Build_Publish_BCMSAI
+  condition: ${{ parameters.DEPLOY_SAI_SDK }}
   jobs:
-  - template: ../templates/sai_test.yml
+  - template: .pipelines/Build.template.yml@saibcm
+    parameters:
+      pool: ${{ parameters.pool }}
+      saibcmrepo: ${{ parameters.saibcmrepo }}
+
+- stage: Run_SAI_Test
+  jobs:
+  - template: ../nightly/templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
@@ -148,4 +185,6 @@ stages:
       SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+      SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
       PTF_DEPLOY_VSCODE: ${{ parameters.PTF_DEPLOY_VSCODE }}
