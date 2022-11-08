@@ -233,6 +233,7 @@ stages:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
     timeoutInMinutes: 400
+    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-template.yml
@@ -243,3 +244,17 @@ stages:
           tbtype: multi-asic-t1-lag-pr
           vmtype: ceos
           image: sonic-4asic-vs.img.gz
+
+  - job: multi_asic_testbedv2
+    displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: false
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t1-8-lag
+          TEST_SET: multi-asic-t1-lag
+          MIN_WORKER: 1
+          MAX_WORKER: 1
+          NUM_ASIC: 4
