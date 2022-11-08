@@ -12,7 +12,6 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
 __all__ = [
-    'require_mocked_dualtor',
     'apply_active_state_to_orchagent',
     'apply_dual_tor_neigh_entries',
     'apply_dual_tor_peer_switch_route',
@@ -137,12 +136,6 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
 
 def is_mocked_dualtor(tbinfo):
     return 'dualtor' not in tbinfo['topo']['name']
-
-
-@pytest.fixture
-def require_mocked_dualtor(tbinfo):
-    pytest_require(is_t0_mocked_dualtor(tbinfo), "This testcase is designed for "
-        "single tor testbed with mock dualtor config. Skip this testcase on real dualtor testbed")
 
 
 def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):

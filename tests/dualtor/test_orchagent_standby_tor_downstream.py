@@ -128,7 +128,7 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def test_standby_tor_downstream(rand_selected_dut, require_mocked_dualtor, get_testbed_params):
+def test_standby_tor_downstream(rand_selected_dut, get_testbed_params):
     """
     Verify tunnel traffic to active ToR is distributed equally across nexthops, and
     no traffic is forwarded to server from standby ToR
@@ -138,8 +138,7 @@ def test_standby_tor_downstream(rand_selected_dut, require_mocked_dualtor, get_t
 
 
 def test_standby_tor_downstream_t1_link_recovered(
-    rand_selected_dut, require_mocked_dualtor,
-    verify_crm_nexthop_counter_not_increased, tbinfo, get_testbed_params
+    rand_selected_dut, verify_crm_nexthop_counter_not_increased, tbinfo, get_testbed_params
 ):
     """
     Verify traffic is distributed evenly after t1 link is recovered;
@@ -167,7 +166,7 @@ def test_standby_tor_downstream_t1_link_recovered(
 
 
 def test_standby_tor_downstream_bgp_recovered(
-    rand_selected_dut, require_mocked_dualtor, verify_crm_nexthop_counter_not_increased,
+    rand_selected_dut, verify_crm_nexthop_counter_not_increased,
     get_testbed_params, tbinfo
 ):
     """
@@ -253,8 +252,8 @@ def test_standby_tor_downstream_loopback_route_readded(
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    require_mocked_dualtor, set_crm_polling_interval,
-    tunnel_traffic_monitor, vmhost, get_testbed_params,  # noqa: F811
+    set_crm_polling_interval, tunnel_traffic_monitor,  # noqa: F811
+    vmhost, get_testbed_params,
     ip_version
 ):
     """
@@ -310,8 +309,8 @@ def test_standby_tor_remove_neighbor_downstream_standby(
 def test_downstream_standby_mux_toggle_active(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
-    require_mocked_dualtor, tunnel_traffic_monitor,  # noqa: F811
-    vmhost, toggle_all_simulator_ports, tor_mux_intfs,  # noqa: F811
+    tunnel_traffic_monitor, vmhost,  # noqa: F811
+    toggle_all_simulator_ports, tor_mux_intfs,  # noqa: F811
     ip_version, get_testbed_params
 ):
     # set rand_selected_dut as standby and rand_unselected_dut to active tor
