@@ -755,7 +755,7 @@ class ReloadTest(BaseTest):
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
-            packet = simple_icmp_packet(eth_src=src_mac,,
+            packet = simple_icmp_packet(eth_src=src_mac,
                                         eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
