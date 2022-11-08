@@ -560,6 +560,22 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
+platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "release in ['202205']"
+      - "platform in ['x86_64-cel_seastone-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/api/test_psu.py::TestPsuApi::test_led:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "release in ['202205']"
+      - "platform in ['x86_64-cel_seastone-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 platform_tests/broadcom/test_ser.py::test_ser:
   skip:
     reason: "platform does not support test_ser"
