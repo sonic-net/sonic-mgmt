@@ -22,7 +22,7 @@ import itertools
 import ptf
 import ptf.packet as scapy
 
-from collections import Iterable
+from collections import Iterable, defaultdict
 
 from ptf import config
 from ptf.base_tests import BaseTest
@@ -73,6 +73,7 @@ class FibTest(BaseTest):
     DEFAULT_BALANCING_TEST_NUMBER = 1
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
+    DEFAULT_SWITCH_TYPE = 'voq'
 
     _required_params = [
         'fib_info_files',
@@ -134,6 +135,7 @@ class FibTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
         self.balancing_test_number = self.test_params.get('balancing_test_number', self.DEFAULT_BALANCING_TEST_NUMBER)
         self.balancing_test_count = 0
+        self.switch_type = self.test_params.get('switch_type', self.DEFAULT_SWITCH_TYPE)
 
         self.pkt_action = self.test_params.get('pkt_action', self.ACTION_FWD)
         self.ttl = self.test_params.get('ttl', 64)
@@ -480,25 +482,28 @@ class FibTest(BaseTest):
         result = True
 
         asic_list = defaultdict(list)
-        for port in dest_port_list:
-            if type(port) == list:
-                port_map = self.ptf_test_port_map[str(port[0])]
-                asic_id = port_map.get('asic_idx',0)
-                member = asic_list.get(asic_id)
-                if member is None:
-                    member = [];member.append(port)
+        if self.switch_type == "voq":
+            asic_list['voq'] = dest_port_list
+        else:
+            for port in dest_port_list:
+                if type(port) == list:
+                    port_map = self.ptf_test_port_map[str(port[0])]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = [];member.append(port)
+                    else:
+                        member.append(port)
+                    asic_list[asic_id] = member
                 else:
-                    member.append(port)
-                asic_list[asic_id] = member
-            else:
-                port_map = self.ptf_test_port_map[str(port)]
-                asic_id = port_map.get('asic_idx',0)
-                member = asic_list.get(asic_id)
-                if member is None:
-                    member = [];member.append(port)
-                else:
-                    member.append(port)
-                asic_list[asic_id] = member
+                    port_map = self.ptf_test_port_map[str(port)]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = [];member.append(port)
+                    else:
+                        member.append(port)
+                    asic_list[asic_id] = member
 
         for asic_member in asic_list.values():
             total_hit_cnt = 0
