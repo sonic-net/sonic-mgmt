@@ -8,22 +8,23 @@ function usage
   echo "Usage:"
   echo "    $0 [options] (start-vms | stop-vms) <server-name> <vault-password-file>"
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (add-topo | add-wan-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (deploy-topo-with-cache) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (add-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
   echo "    $0 [options] announce-routes <testbed-name> <vault-password-file>"
-  echo "    $0 [options] (gen-mg | deploy-mg | test-mg | activate-wan-sonic-device) <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
-  echo "    $0 [options] activate-vendor-device <testbed-name> <server-name> <vault-password-file>"
+  echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic) (default: 'veos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'veos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -34,6 +35,7 @@ function usage
   echo "    <testbed-name>        : Name of the target testbed"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
   echo "    <k8s-server-name>     : Server identifier in form k8s_server_{id}, corresponds to k8s_ubuntu inventory group name"
+  echo "    <image-url>           : Location of the image to be installed"
   echo
   echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
@@ -51,6 +53,8 @@ function usage
   echo "To deploy topology for specified testbed on a server: $0 add-topo 'testbed-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
+  echo "To deploy topology with the help of the last cached deployed topology for the specified testbed on a server:"
+  echo "        $0 deploy-topo-with-cache 'testbed-name' 'inventory' ~/.password"
   echo "To remove topology for specified testbed on a server: $0 remove-topo 'testbed-name' ~/.password"
   echo "To remove topology and keysight-api-server container for specified testbedon a server:"
   echo "        $0 remove-topo 'testbed-name' ~/.password remove_keysight_api_server"
@@ -70,6 +74,7 @@ function usage
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
+  echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
@@ -183,22 +188,6 @@ function start_vms
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
-function activate_vendor_device
-{
-  testbed_name=$1
-  server=$2
-  passwd=$3
-  shift
-  shift
-  shift 
-  echo "Activate vendor device on server '${server}'"
-  
-  read_file ${testbed_name}
-  
-  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile activate_vendor_config.yml \
-      --vault-password-file="${passwd}" -l "${server}" -e dut_name="$duts" $@
-}
-
 function stop_vms
 {
   if [[ $vm_type == ceos ]]; then
@@ -250,34 +239,6 @@ function stop_topo_vms
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
-function add_wan_topo
-{
-  testbed_name=$1
-  passwd=$2
-  shift
-  shift
-  echo "Deploying topology for wan testbed '${testbed_name}'"
-
-  read_file ${testbed_name}
-  echo "Virtual devices:" "$dut" "$duts"
-  echo $duts
-
-  ANSIBLE_SCP_IF_SSH=y  ANSIBLE_KEEP_REMOTE_FILES=1 ansible-playbook -i $vmfile testbed_add_wan_topology.yml --vault-password-file="${passwd}" -l "$server" \
-        -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" -e wan_sonic_topo="yes" \
-        $ansible_options $@
-
-  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
-  fi
-
-  # Delete the obsoleted arp entry for the PTF IP
-  ip neighbor flush $ptf_ip || true
-
-  echo Done
-}
-
 function add_topo
 {
   testbed_name=$1
@@ -287,11 +248,15 @@ function add_topo
   echo "Deploying topology for testbed '${testbed_name}'"
 
   read_file ${testbed_name}
-  
+
   echo "$dut" "$duts"
-  
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
+  fi
+
+  if [[ $vm_type == vcisco ]]; then
+      ansible_options+=" -e eos_batch_size=1"
   fi
 
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
@@ -306,6 +271,11 @@ function add_topo
 
   # Delete the obsoleted arp entry for the PTF IP
   ip neighbor flush $ptf_ip || true
+
+  cache_files_path_value=$(is_cache_exist)
+  if [[ -n $cache_files_path_value ]]; then
+    echo "$testbed_name" > $cache_files_path_value/$dut
+  fi
 
   echo Done
 }
@@ -425,6 +395,10 @@ function refresh_dut
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
+  if [[ $vm_type == vcisco ]]; then
+      ansible_options+=" -e eos_batch_size=1"
+  fi
+
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
@@ -491,25 +465,6 @@ function generate_minigraph
 
   echo Done
 }
-
-function activate_wan_sonic_config
-{
-  testbed_name=$1
-  inventory=$2
-  passfile=$3
-  shift
-  shift
-  shift
-
-  echo "Configure WAN SONiC config in testbed '$testbed_name'"
-
-  read_file $testbed_name
-
-  ansible-playbook -i "$inventory" config_wan_sonic_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
-
-  echo Done
-}
-
 
 function deploy_minigraph
 {
@@ -644,6 +599,119 @@ function cleanup_vmhost
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
+function install_image
+{
+  testbed_name=$1
+  inventory=$2
+  image_url=$3
+  shift
+  shift
+  shift
+
+  echo "Upgrading image on '$testbed_name'"
+
+  ansible-playbook upgrade_sonic.yml -i "$inventory" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e upgrade_type=sonic -e image_url="$image_url"
+
+  echo Done
+}
+
+function read_topologies_from_csv_file
+{
+  topologies_by_setup_name=$(cat $tbfile | grep $setup_name | awk 'BEGIN { FS = "," } ; {print $1}')
+  for topology in $topologies_by_setup_name
+  do
+      if [[ "$topology" == *"$setup_name"* ]]; then
+          result_topologies_list+=("$topology")
+      fi
+  done
+
+  echo ${result_topologies_list[@]}
+}
+
+function is_cache_exist
+{
+  cache_files_path="$(pwd)/cached_topologies_path"
+  if [ ! -f "$cache_files_path" ]; then
+      echo "cached_topologies_path file does not exist, the path for cached topologies is mandatory to run this command. exiting..." >&2
+      echo ""
+      return
+  fi
+
+  cache_files_path_value=$(cat $cache_files_path)
+  if [[ "$cache_files_path_value" == "" ]]; then
+      echo "cached_topologies_path file content is empty, please add a path to cache topologies. exiting..." >&2
+      echo ""
+      return
+  fi
+
+  if [ ! -d "$cache_files_path_value" ]; then
+      echo "Path specified in cached_topologies_path file does not exist, creating..." >&2
+      mkdir -p "$cache_files_path_value"
+  fi
+
+  echo $cache_files_path_value
+}
+
+function deploy_topo_with_cache
+{
+  testbed_name=$1
+  inventory=$2
+  passwd=$3
+
+  cache_files_path_value=$(is_cache_exist)
+  if [[ -z $cache_files_path_value ]]; then
+    exit
+  fi
+
+  read_file ${testbed_name}
+  setup_name=$dut
+  if [[ "$setup_name" == "" ]]; then
+      echo "No such testbed: $testbed_name, exiting..."
+      exit
+  fi
+  setup_topologies=$(read_topologies_from_csv_file)
+
+  if [[ ! " ${setup_topologies[*]} " =~ " ${testbed_name} " ]]; then
+      echo "No such testbed: $testbed_name, exiting..."
+      exit
+  fi
+
+  remove_all_topologies=true
+
+  echo "Try to read the topology from cache file: '$cache_files_path_value/$setup_name'"
+  if [ -f "$cache_files_path_value/$setup_name" ]; then
+      echo "Cache file: '$setup_name', exists."
+      cache_topo=$(cat $cache_files_path_value/$setup_name)
+      if [[ ! " ${setup_topologies[*]} " =~ " ${cache_topo} " ]]; then
+          echo "Topology in cache file [$setup_name] is not valid, falling back."
+          echo "Removing all known topologies from the setup and creating new cache file"
+      elif [[ "$cache_topo" == "$testbed_name" ]]; then
+          echo "Topology [$testbed_name] is already deployed, exiting..."
+          exit
+      else
+          echo "Removing cached topology [$cache_topo] from the setup and updating the cache file"
+          remove_all_topologies=false
+      fi
+  else
+      echo "Cache file: '$cache_files_path_value/$setup_name', not exists."
+      echo "Removing all known topologies from the setup and creating new cache file."
+  fi
+
+  if [ "$remove_all_topologies" = true ]; then
+      for topo in $setup_topologies
+      do
+          remove_topo $topo $passwd
+      done
+  else
+      remove_topo $cache_topo $passwd
+  fi
+
+  add_topo $testbed_name $passwd
+  deploy_minigraph $testbed_name $inventory $passwd
+
+  echo "Done!"
+}
+
 vmfile=veos
 tbfile=testbed.csv
 vm_type=veos
@@ -696,10 +764,6 @@ case "${subcmd}" in
                ;;
   add-topo)    add_topo $@
                ;;
-  add-wan-topo) add_wan_topo $@
-               ;;
-  activate-vendor-device) activate_vendor_device $@
-               ;;
   remove-topo) remove_topo $@
                ;;
   redeploy-topo) redeploy_topo $@
@@ -707,6 +771,8 @@ case "${subcmd}" in
   renumber-topo) renumber_topo $@
                ;;
   connect-topo) connect_topo $@
+               ;;
+  deploy-topo-with-cache) deploy_topo_with_cache $@
                ;;
   refresh-dut) refresh_dut $@
                ;;
@@ -722,8 +788,6 @@ case "${subcmd}" in
                ;;
   deploy-mg)   deploy_minigraph $@
                ;;
-  activate-wan-sonic-device)   activate_wan_sonic_config $@
-               ;;
   test-mg)     test_minigraph $@
                ;;
   config-y-cable) config_y_cable $@
@@ -738,6 +802,8 @@ case "${subcmd}" in
   destroy-master) stop_k8s_vms $@
                ;;
   restart-ptf) restart_ptf $@
+               ;;
+  install-image) install_image $@
                ;;
   *)           usage
                ;;

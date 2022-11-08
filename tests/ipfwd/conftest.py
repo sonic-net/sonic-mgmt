@@ -102,8 +102,10 @@ def arptable_on_switch(dut, asic_host, mg_facts):
         switch_arptable = asic_host.switch_arptable()['ansible_facts']
         for intf in mg_facts['minigraph_portchannel_interfaces']:
             if dut.is_backend_portchannel(intf['attachto'], mg_facts):
-	        continue 
+                continue
             peer_addr = intf['peer_addr']
+            # ping neighbor to refresh ARP in case of dirctly connected routers.
+            dut.shell("ping -c 1 {}".format(peer_addr), module_ignore_errors=True)
             if ip_address(peer_addr).version == 4 and peer_addr not in switch_arptable['arptable']['v4']:
                 all_rebuilt = False
                 break
@@ -134,6 +136,8 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
         pytest.fail("ARP table is not rebuilt in given time")
 
     used_intfs = set()
+    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+        used_intfs.add('PortChannel201')  # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     src = None  # Name of lag or interface that is is up
     dst = None  # Name of lag or interface that is is up
 
