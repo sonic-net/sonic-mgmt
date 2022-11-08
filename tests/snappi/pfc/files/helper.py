@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
+TEST_FLOW_SINGLE_RATE_PERCENT = 75
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
+BG_FLOW_SINGLE_RATE_PERCENT = 75
 DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
@@ -35,7 +37,8 @@ def run_pfc_test(api,
                  test_prio_list,
                  bg_prio_list,
                  prio_dscp_map,
-                 test_traffic_pause):
+                 test_traffic_pause,
+                 headroom_test_result=None):
     """
     Run a PFC test
     Args:
@@ -52,6 +55,7 @@ def run_pfc_test(api,
         bg_prio_list (list): priorities of background flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
+        headroom_test_result (bool): if the associated pfc pause quanta results in no packet drop
     Returns:
         N/A
     """
@@ -71,8 +75,12 @@ def run_pfc_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     """ Rate percent must be an integer """
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
+    if headroom_test_result is None:
+        test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+        bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
+    else:
+        test_flow_rate_percent = TEST_FLOW_SINGLE_RATE_PERCENT
+        bg_flow_rate_percent = BG_FLOW_SINGLE_RATE_PERCENT
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -119,7 +127,8 @@ def run_pfc_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      speed_gbps=speed_gbps,
                      test_flow_pause=test_traffic_pause,
-                     tolerance=TOLERANCE_THRESHOLD)
+                     tolerance=TOLERANCE_THRESHOLD,
+                     headroom_test_result=headroom_test_result)
 
 
 sec_to_nanosec = lambda x: x * 1e9
@@ -368,7 +377,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      speed_gbps,
                      test_flow_pause,
-                     tolerance):
+                     tolerance,
+                     headroom_test_result=None):
     """
     Verify if we get expected experiment results
     Args:
@@ -383,6 +393,7 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
+        headroom_test_result (bool): if the associated pfc pause quanta results in no packet drop
     Returns:
         N/A
     """
@@ -391,7 +402,8 @@ def __verify_results(rows,
     pause_flow_row = next(row for row in rows if row.name == pause_flow_name)
     tx_frames = pause_flow_row.frames_tx
     rx_frames = pause_flow_row.frames_rx
-    pytest_assert(tx_frames > 0 and rx_frames == 0,
+    if headroom_test_result is None or headroom_test_result:
+        pytest_assert(tx_frames > 0 and rx_frames == 0,
                   'All the pause frames should be dropped')
 
     """ Check background flows """

@@ -76,3 +76,30 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
 
     duthost = duthosts[rand_one_dut_hostname]
     enable_packet_aging(duthost)
+
+
+@pytest.fixture(scope="module")
+def retrieve_pfc_pause_quanta(duthosts, rand_one_dut_hostname):
+    """
+    Retrieves a dictionary of pfc pause quantas for the headroom test
+    Args:
+        duthost (Ansible host instance): device under test
+    Returns:
+        pfc_pause_quanta_values: Mapped from pfc pause quanta to whether
+                                the headroom test will fail or not
+                                E.g. {1:True, 2:False, 3:False}
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    platform = duthost.facts['platform']
+    pfc_pause_quanta_values = {}
+    if '8102' in platform:
+        pfc_pause_quanta_values[1] = True
+        pfc_pause_quanta_values[2] = True
+        pfc_pause_quanta_values[3] = False
+    elif '7050cx3' in platform:
+        pfc_pause_quanta_values[1] = True
+        pfc_pause_quanta_values[2] = False
+    else:
+        pfc_pause_quanta_values = None
+    
+    return pfc_pause_quanta_values
