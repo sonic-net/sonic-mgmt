@@ -11,6 +11,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,du
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import check_qos_db_fv_reference_with_table
+from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -469,7 +470,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-        enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports
+        enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -491,6 +492,12 @@ class QosSaiBase(QosBase):
         dutLagInterfaces = []
         dutPortIps = {}
         testPortIps = {}
+        uplinkPortIds = []
+        uplinkPortIps = []
+        uplinkPortNames = []
+        downlinkPortIds = []
+        downlinkPortIps = []
+        downlinkPortNames = []
 
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
@@ -499,7 +506,7 @@ class QosSaiBase(QosBase):
 
         testPortIds = []
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or topo in self.SUPPORTED_T1_TOPOS or isMellanoxDevice(duthost):
+        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
             pytest_assert(
                 not duthost.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
@@ -538,12 +545,13 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
                     if "." in iface:
-                        iface, vlan_id = iface.split(".")
-                    portIndex = mgFacts["minigraph_ptf_indices"][iface]
+                        portName, vlan_id = iface.split(".")
+                    portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
@@ -555,6 +563,18 @@ class QosSaiBase(QosBase):
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
                     dutPortIps.update({portIndex: portIpMap})
+                # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
+                # we also need to test them separately
+                if use_separated_upkink_dscp_tc_map:
+                    neighName = mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
+                    if 't0' in neighName:
+                        downlinkPortIds.append(portIndex)
+                        downlinkPortIps.append(addr["peer_ipv4"])
+                        downlinkPortNames.append(portName)
+                    elif 't2' in neighName:
+                        uplinkPortIds.append(portIndex)
+                        uplinkPortIps.append(addr["peer_ipv4"])
+                        uplinkPortNames.append(portName)
 
             testPortIds = sorted(dutPortIps.keys())
 
@@ -624,6 +644,15 @@ class QosSaiBase(QosBase):
             testPortIds = dualTorPortIndexes
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
+        # Update the uplink/downlink ports to testPorts
+        testPorts.update({
+            "uplink_port_ids": uplinkPortIds,
+            "uplink_port_ips": uplinkPortIps,
+            "uplink_port_names": uplinkPortNames,
+            "downlink_port_ids": downlinkPortIds,
+            "downlink_port_ips": downlinkPortIps,
+            "downlink_port_names": downlinkPortNames
+            })
         dutinterfaces = {}
         for port, index in mgFacts["minigraph_ptf_indices"].items():
             if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
