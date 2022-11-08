@@ -59,7 +59,7 @@ If you want to skip downloading the image when the cEOS image is not imported lo
 
 
 ### Option 2: Use Cisco image as neighboring devices
-You need to prepare a Cisco IOS-XR image `cisco-vs.img` in `~/cisco-vm/images/`. We don't support to download cisco image automatically, you can download an available image from [Download Cisco image](https://software.cisco.com/download/home/282414851/type/280805694/release/7.6.2) and put it into the directory `~/veos-vm/images`
+You need to prepare a Cisco IOS-XR image `cisco-vs.img` in `~/veos-vm/images/`.The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/vm_host/main.yml:cisco_image_filename](../../ansible/group_vars/vm_host/main.yml). We don't support to download cisco image automatically, you can download an available image from [Download Cisco image](https://software.cisco.com/download/home/282414851/type/280805694/release/7.6.2) and put it into the directory `~/veos-vm/images`
 
 
 ## Download the sonic-vs image
@@ -176,7 +176,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 
 1. Start the VMs:
    ```
-   ./testbed-cli.sh -m veos_vtb -k vcisco -t vtestbed.yaml start-topo-vms vms-kvm-wan-pub password.txt
+   ./testbed-cli.sh -m veos_vtb -k vcisco -t vtestbed.yaml start-topo-vms vms-kvm-wan-pub-cisco password.txt
    ```
 
    Verify that the vcisco neighbors were created properly:
@@ -185,16 +185,21 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 2. Deploy topology
    ```
    cd /data/sonic-mgmt/ansible
-   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vcisco add-topo vms-kvm-wan-pub password.txt
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vcisco add-topo vms-kvm-wan-pub-cisco password.txt
    ```
 
 ## Deploy configuration on the devices
 Once the topology has been created, we need to give the devices an initial configuration.
 
-1. Deploy configuration:
+   cEOS:
    ```
    ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-wan-pub veos_vtb password.txt
    ```
+   cisco:
+   ```
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-wan-pub-cisco veos_vtb password.txt
+   ```
+
 
 Verify the DUT is created successfully. In your host run
    ```
@@ -272,7 +277,7 @@ If neighbor devices are EOS
 If neighbor devices are Cisco
 
    ```
-   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=cisco --disable_loganalyzer --skip_sanity"
+   ./run_tests.sh -m group -a False -n vms-kvm-wan-pub-cisco -u -d vlab-01 -c wan/lldp/ -f vtestbed.yaml -i veos_vtb -e "--neighbor_type=cisco --disable_loganalyzer --skip_sanity"
    ```
 You should see tests run and pass. You're now set up and ready to use the KVM testbed!
 
@@ -286,5 +291,5 @@ Then run command:
    ```
    For cisco neighbor:
    ```
-   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vcisco remove-topo vms-kvm-wan-pub password.txt
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k vcisco remove-topo vms-kvm-wan-pub-cisco password.txt
    ```
