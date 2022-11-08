@@ -61,11 +61,11 @@ DOWNSTREAM_DST_IP = {
 }
 DOWNSTREAM_IP_TO_ALLOW = {
     "ipv4": "192.168.0.252",
-    "ipv6": "20c0:a800::4"
+    "ipv6": "20c0:a800::1"
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::8"
+    "ipv6": "20c0:a800::9"
 }
 
 DOWNSTREAM_IP_PORT_MAP = {}
@@ -76,11 +76,11 @@ UPSTREAM_DST_IP = {
 }
 UPSTREAM_IP_TO_ALLOW = {
     "ipv4": "193.191.32.1",
-    "ipv6": "20c1:cb50::4"
+    "ipv6": "20c1:cb50::1"
 }
 UPSTREAM_IP_TO_BLOCK = {
     "ipv4": "193.221.112.1",
-    "ipv6": "20c1:e2f0::8"
+    "ipv6": "20c1:e2f0::9"
 }
 
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
@@ -413,7 +413,7 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
         "Egress ACLs are not currently supported on {} topo".format(tbinfo["topo"]["name"])
     )
     pytest_require(
-        request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
+        request.param == "ingress" or duthost.facts["platform_asic"] == "broadcom-dnx" or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
