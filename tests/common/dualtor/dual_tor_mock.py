@@ -8,7 +8,7 @@ from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
 __all__ = [
