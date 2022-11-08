@@ -986,6 +986,7 @@ sonic_arista_lc_100G:
   hosts:
     str2-7804-lc3-1:
       hwsku: Arista-7800R3-48CQ2-C4
+      model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C4
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
       slot_num: slot3
@@ -995,8 +996,20 @@ sonic_arista_lc_100G:
       loopback4096_ip: [192.0.0.3/32]
       loopback4096_ipv6: [2603:10e2:400::3/128]
       serial: SSN20220006
-      base_mac:  fc:bd:67:67:e4:1C
+      base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.147.15
+      syseeprom_info:
+        "0x21": "7800R3-48CQ2-LC"
+        "0x22": "ASY050910106"
+        "0x23": "SSN20220006"
+        "0x24": "fc:bd:67:67:e4:1b"
+        "0x25": "2020/08/18 18:58:52"
+        "0x26": "01"
+        "0x27": "29.00"
+        "0x28": "x86_64-arista_7800r3_48cq2_lc"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.0-22087069"
+        "0x2F": "SSN20220006"
     str2-7804-lc6-1:
       hwsku: Arista-7800R3-48CQM2-C48
       sonic_hwsku: Arista-7800R3-48CQM2-C48
@@ -1007,9 +1020,21 @@ sonic_arista_lc_100G:
       voq_inband_ipv6: [3333::3:6/128]
       loopback4096_ip: [192.0.0.6/32]
       loopback4096_ipv6: [2603:10e2:400::6/128]
-      serial: SSN20220006
-      base_mac:  fc:bd:67:67:d9:30
+      serial: SSN20150382
+      base_mac: fc:bd:67:67:d8:9f
       ansible_host: 10.3.147.16
+      syseeprom_info:
+        "0x21": "7800R3-48CQM2-LC"
+        "0x22": "ASY030580105"
+        "0x23": "SSN20150382"
+        "0x24": "fc:bd:67:67:d8:9f"
+        "0x25": "2020/08/25 20:27:32"
+        "0x26": "01"
+        "0x27": "29.00"
+        "0x28": "x86_64-arista_7800r3_48cqm2_lc"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.0-22087069"
+        "0x2F": "SSN20150382"
     str2-7804-lc7-1:
       hwsku: Arista-7800R3-48CQ2-C4
       sonic_hwsku: Arista-7800R3-48CQ2-C4
@@ -1020,9 +1045,22 @@ sonic_arista_lc_100G:
       voq_inband_ipv6: [3333::3:7/128]
       loopback4096_ip: [192.0.0.7/32]
       loopback4096_ipv6: [2603:10e2:400::7/128]
+      model: 7800R3-48CQ2-LC
       serial: SSN20220011
-      base_mac:  fc:bd:67:67:de:5b
+      base_mac: fc:bd:67:67:dc:a4
       ansible_host: 10.3.147.18
+      syseeprom_info:
+        "0x21": "7800R3-48CQ2-LC"
+        "0x22": "ASY050910106"
+        "0x23": "SSN20220011"
+        "0x24": "fc:bd:67:67:dc:a4"
+        "0x25": "2020/08/18 17:53:17"
+        "0x26": "01"
+        "0x27": "29.00"
+        "0x28": "x86_64-arista_7800r3_48cq2_lc"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.0-22087069"
+        "0x2F": "SSN20220011"
 
 sonic_cisco_lc_100G:
   vars:
@@ -1235,6 +1273,24 @@ sonic_arista_sup:
     str2-7804-sup-1:
       ansible_host: 10.3.146.249
       hwsku: Arista-7808R3A-FM
+      model: 'DCS-7800-SUP1A'
+      serial: SSN20290100
+      base_mac: fc:bd:67:65:e8:89
+      syseeprom_info:
+        "0x21": "DCS-7800-SUP1A"
+        "0x22": "ASY052280202"
+        "0x23": "SSN20290100"
+        "0x24": "fc:bd:67:65:e8:89"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "01.0a"
+        "0x28": "x86_64-arista_7800_sup"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.1.4-14169220"
+        "0xFE": 3735928559
       skip_modules:
           'line-cards':
             - LINE-CARD1
