@@ -229,7 +229,7 @@ def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     avail_routes_count = asichost.count_crm_resources("main_resources", route_tag, "available")
     pytest_assert(avail_routes_count, "CRM main_resources data is not ready within adjusted CRM polling time {}s".\
             format(CRM_POLL_INTERVAL))
-
+    
     num_routes = min(avail_routes_count, set_num_routes)
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))
