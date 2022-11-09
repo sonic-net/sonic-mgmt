@@ -1,11 +1,9 @@
 """
 this tests checks secure boot upgrade
-
 In order to run this test, you need to specify the following argument:
-	1. --target_image_list (to contain your non secure image path e.g. /tmp/images/my_non_secure_img.bin)
-e.g.:
-(from tests dir)
-	pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin
+    1. --target_image_list (to contain one non-secure image path e.g. /tmp/images/my_non_secure_img.bin)
+e.g.: (run from tests dir)
+    pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin
 """
 import logging
 import pytest
@@ -13,7 +11,6 @@ import re
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.upgrade_path.upgrade_helpers import install_sonic
-from tests.upgrade_path.test_upgrade_path import upgrade_path_lists
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -23,7 +20,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
 
 @pytest.fixture(scope='session', autouse=True)
 def keep_same_version_installed(duthost):
