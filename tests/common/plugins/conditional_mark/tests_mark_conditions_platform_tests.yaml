@@ -504,7 +504,8 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
   xfail:
-    reason:
+    reason: "Testcase consistently fails on Celestica, raised issue to track"
+    conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
