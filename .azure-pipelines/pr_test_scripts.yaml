@@ -107,12 +107,8 @@ multi-asic-t1-lag:
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
-  - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-
-multi-asic-t1-lag-pr:
-  - bgp/test_bgp_fact.py
 
 t2:
   - test_vs_chassis_setup.py
