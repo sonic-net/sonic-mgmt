@@ -180,6 +180,19 @@ The M0 type topology is to simulate a SONiC DUT running as a Management ToR Rout
 * The next 2 ports are connected to 2 VMs simulating downstream Mx neighbors. No port-channel is configured for the links between DUT and Mx neighbors.
 * The last 4 ports are connected to another 4 VMs simulating upstream M1 devices. The connection to each of the upstream M1 is configured as a port-channel with single link.
 
+### MX type topology
+
+The MX type topology is to simulate a SONiC DUT running as a BMC Management ToR Router device. For this type of topology, a set of DUT ports are connected to VMs simulating upstream M0 (Management ToR Router) neighbors. Another set of the ports are connected to a PTF docker simulating downstream servers.
+
+**The PTF docker also has injected ports connected to the open vSwitch bridges interconnecting VMs and DUT ports. The injected ports can be used for both injecting packets to DUT and sniffing packets from DUT. Details of the injected ports will be explained in later sections.**
+
+![](./img/testbed-mx.png)
+
+* The DUT has 48 ports.
+* Requires 2 VMs.
+* The first 46 ports are connected to PTF docker simulating servers.
+* The last 2 ports are connected to 2 VMs simulating upstream M0 neighbors. No port-channel is configured for the links between DUT and M0 neighbors.
+
 ### PTF type topology
 
 The PTF type topology does not have VMs. All the DUT ports are connected to a PTF docker. Because there is no VM, the PTF docker does not have injected ports. The PTF type topology has variations:
@@ -487,3 +500,71 @@ Assume a t1-lag topology testbed uses KVM based SONiC DUT is defined as below in
 After the above example testbed is deployed, internal of the t1-lag topology looks like below:
 
 ![](./img/testbed-t1-lag-vssetup.png)
+
+
+
+Testbed had evolved to support multiple devices/multiple protocols verification. Please refer to [Multiple VS Devices Setup](./README.testbed.WANSetup.md) for more details of setting up a testbed uses KVM based SONiC DUT.
+
+Assume a wan-pub topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-pub
+  group-name: vms6-1
+  topo: wan-pub
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  comment: Example testbed
+```
+
+After wan-pub testbed is deployed, internal of the wan-pub topology looks like below:
+
+![](./img/testbed-wan-pub-vssetup.png)
+
+Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-xlink
+  group-name: vms6-1
+  topo: wan-xlink
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  comment: Example testbed
+```
+
+After wan-xlink testbed is deployed, internal of the wan-xlink topology looks like below:
+
+![](./img/testbed-wan-xlink-vssetup.png)
+
+Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
+
+```yaml
+- conf-name: vms-kvm-wan-xdut
+  group-name: vms6-1
+  topo: wan-xdut
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+    - vlab-02
+  comment: Example testbed
+```
+
+After wan-xdut testbed is deployed, internal of the wan-xdut topology looks like below:
+
+![](./img/testbed-wan-xdut-xlink-vssetup.png)

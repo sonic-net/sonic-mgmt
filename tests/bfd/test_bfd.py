@@ -3,12 +3,15 @@ import random
 import time
 import json
 
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+
 pytestmark = [
     pytest.mark.topology('t1')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
 BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
+
 
 def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
@@ -124,7 +127,8 @@ def get_loopback_intf(mg_facts, ipv6):
     if ipv6:
         return mg_facts['minigraph_lo_interfaces'][ipv6idx]['addr']
     else:
-         return mg_facts['minigraph_lo_interfaces'][(ipv6idx+1) %2]['addr']
+        return mg_facts['minigraph_lo_interfaces'][(ipv6idx + 1) % 2]['addr']
+
 
 def get_neighbors_multihop(duthost, tbinfo, ipv6=False, count=1):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -132,33 +136,34 @@ def get_neighbors_multihop(duthost, tbinfo, ipv6=False, count=1):
     t0_ipv6_pattern = '3000:3000:{:x}::3000'
     t0_intfs = get_t0_intfs(mg_facts)
     ptf_ports = [mg_facts['minigraph_ptf_indices'][port] for port in t0_intfs]
-    loopback_addr = get_loopback_intf( mg_facts, ipv6 )
+    loopback_addr = get_loopback_intf(mg_facts, ipv6)
 
     index = random.sample(list(range(len(t0_intfs))), k=1)[0]
     port_intf = t0_intfs[index]
     ptf_intf = ptf_ports[index]
     nexthop_ip = ""
     neighbour_dev_name = mg_facts['minigraph_neighbors'][port_intf]['name']
-    for bgpinfo in  mg_facts['minigraph_bgp']:
+    for bgpinfo in mg_facts['minigraph_bgp']:
         if bgpinfo['name'] == neighbour_dev_name:
-            nexthop_ip =  bgpinfo['addr']
-            if  ipv6 and ":" not in nexthop_ip :
+            nexthop_ip = bgpinfo['addr']
+            if ipv6 and ":" not in nexthop_ip:
                 nexthop_ip = ""
                 continue
             break
-    if nexthop_ip =="":
+    if nexthop_ip == "":
         assert False
     neighbor_addrs = []
-    idx2 =0
+    idx2 = 0
     for idx in range(1, count):
-        if idx %250 ==0:
-            idx2 +=1
+        if idx % 250 == 0:
+            idx2 += 1
         if ipv6:
             neighbor_addrs.append(t0_ipv6_pattern.format(idx))
         else:
-            neighbor_addrs.append(t0_ipv4_pattern.format((idx%250),idx2))
-    
+            neighbor_addrs.append(t0_ipv4_pattern.format((idx % 250), idx2))
+
     return loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs
+
 
 def init_ptf_bfd(ptfhost):
     ptfhost.shell("bfdd-beacon")
@@ -250,6 +255,7 @@ def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_
     if dut_init_first:
         ptfhost.shell(ptf_buffer)
 
+
 def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
@@ -260,16 +266,16 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
         bfd_config.append({
             "BFD_SESSION_TABLE:default:default:{}".format(neighbor_addr): {
                 "local_addr": loopback_addr,
-                "multihop" : "true"
+                "multihop": "true"
             },
             "OP": "SET"
         })
         ptf_config.append(
             {
                 "neighbor_addr": loopback_addr,
-                "local_addr" : neighbor_addr,
-                "multihop" : "true",
-                "ptf_intf" : "eth{}".format(ptf_intf)
+                "local_addr": neighbor_addr,
+                "multihop": "true",
+                "ptf_intf": "eth{}".format(ptf_intf)
             }
         )
 
@@ -286,13 +292,14 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
 
     ptfhost.copy(src=BFD_RESPONDER_SCRIPT_SRC_PATH, dest=BFD_RESPONDER_SCRIPT_DEST_PATH)
 
-    extra_vars = {"bfd_responder_args" : "-c {}".format(ptf_file_dir)}
+    extra_vars = {"bfd_responder_args": "-c {}".format(ptf_file_dir)}
     ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
 
     ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
     ptfhost.command('supervisorctl reread')
     ptfhost.command('supervisorctl update')
     ptfhost.command('supervisorctl start bfd_responder')
+
 
 def remove_bfd_sessions(duthost, neighbor_addrs):
     # Create a tempfile for BFD sessions
@@ -407,11 +414,13 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
 
 
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
-def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):
+def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
+                      toggle_all_simulator_ports_to_rand_selected_tor_m, ipv6):    # noqa F811
     duthost = rand_selected_dut
 
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-    loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs = get_neighbors_multihop(duthost, tbinfo, ipv6, count = bfd_session_cnt)
+    loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs = get_neighbors_multihop(duthost, tbinfo, ipv6,
+                                                                                 count=bfd_session_cnt)
     try:
         cmd_buffer = ""
         for neighbor in neighbor_addrs:

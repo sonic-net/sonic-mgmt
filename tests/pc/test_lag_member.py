@@ -2,9 +2,9 @@ import pytest
 
 import time
 import logging
-import json
 import ipaddress
 import sys
+from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
@@ -196,7 +196,7 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
 
     return lag_port_map
 
-def setup_dut_ptf(ptfhost, duthost, tbinfo):
+def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
     """
     Setup dut and ptf based on ports available in dut vlan
 
@@ -215,27 +215,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo):
     # Get id of vlan that concludes enough up ports as src_vlan_id, port in this vlan is used for testing
     cfg_facts = duthost.config_facts(host = duthost.hostname, source="running")["ansible_facts"]
     port_status = cfg_facts["PORT"]
-    src_vlan_id = -1
-    pytest_require(cfg_facts.has_key("VLAN_MEMBER"), "Can't get vlan member")
-    for vlan_name, members in cfg_facts["VLAN_MEMBER"].items():
-        # Number of members in vlan is insufficient
-        if len(members) < number_of_lag_member + 1:
-            continue
-
-        # Get count of available port in vlan
-        count = 0
-        for vlan_member in members:
-            if port_status[vlan_member].get("admin_status", "down") != "up":
-                continue
-
-            count += 1
-            if count == number_of_lag_member + 1:
-                src_vlan_id = int(''.join([i for i in vlan_name if i.isdigit()]))
-                break
-
-        if src_vlan_id != -1:
-            break
-
+    src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
     pytest_require(src_vlan_id != -1, "Can't get usable vlan concluding enough member")
 
     dut_ports = {
@@ -245,17 +225,19 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo):
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
     # Get the port correspondence between DUT and PTF
     port_index_map = cfg_facts["port_index_map"]
+    port_speed, ports_num = most_common_port_speed
+    number_of_lag_member = ports_num if ports_num < number_of_lag_member else number_of_lag_member
     # Get dut_ports (behind / not behind lag) used for creating dut lag by src_vlan_members and port_index_map
     for port_name, _ in src_vlan_members.items():
         port_id = port_index_map[port_name]
-        if len(dut_ports[ATTR_PORT_BEHIND_LAG]) == number_of_lag_member:
-            dut_ports[ATTR_PORT_NOT_BEHIND_LAG] = {
-                    "port_id": port_id,
-                    "port_name": port_name
-                }
-            break
+        if port_status[port_name]['speed'] == port_speed and len(dut_ports[ATTR_PORT_BEHIND_LAG]) < number_of_lag_member:
+            dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
 
-        dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
+        if port_id not in dut_ports[ATTR_PORT_BEHIND_LAG] and not len(dut_ports[ATTR_PORT_NOT_BEHIND_LAG]):
+            dut_ports[ATTR_PORT_NOT_BEHIND_LAG] = {
+                "port_id": port_id,
+                "port_name": port_name
+                }
 
     ptf_ports = {
         ATTR_PORT_BEHIND_LAG: {},
@@ -290,6 +272,37 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo):
     ptf_lag_map = setup_ptf_lag(ptfhost, ptf_ports, vlan)
     return dut_lag_map, ptf_lag_map, src_vlan_id
 
+def get_vlan_id(cfg_facts, number_of_lag_member):
+    """
+    Determine if Vlan have enough port members needed
+
+    Args:
+        cfg_facts: DUT config facts
+        number_of_lag_member: number of lag members needed for test
+    """
+    port_status = cfg_facts["PORT"]
+    src_vlan_id = -1
+    pytest_require(cfg_facts.has_key("VLAN_MEMBER"), "Can't get vlan member")
+    for vlan_name, members in cfg_facts["VLAN_MEMBER"].items():
+        # Number of members in vlan is insufficient
+        if len(members) < number_of_lag_member + 1:
+            continue
+
+        # Get count of available port in vlan
+        count = 0
+        for vlan_member in members:
+            if port_status[vlan_member].get("admin_status", "down") != "up":
+                continue
+
+            count += 1
+            if count == number_of_lag_member + 1:
+                src_vlan_id = int(''.join([i for i in vlan_name if i.isdigit()]))
+                break
+
+        if src_vlan_id != -1:
+            break
+    return src_vlan_id
+
 @pytest.fixture(scope="module")
 def common_setup_teardown(ptfhost):
     logger.info("########### Setup for lag testing ###########")
@@ -307,7 +320,7 @@ def common_setup_teardown(ptfhost):
     ptfhost.file(path=TEST_DIR, state="absent")
 
 @pytest.fixture(scope="module")
-def ptf_dut_setup_and_teardown(duthost, ptfhost, tbinfo):
+def ptf_dut_setup_and_teardown(duthost, ptfhost, tbinfo, most_common_port_speed):
     """
     Setup and teardown of ptf and dut
 
@@ -316,14 +329,33 @@ def ptf_dut_setup_and_teardown(duthost, ptfhost, tbinfo):
         ptfhost: PTF host object
         tbinfo: fixture provides information about testbed
     """
-    dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo)
+    dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed)
 
     yield dut_lag_map, ptf_lag_map
 
     dut_teardown(duthost, dut_lag_map, src_vlan_id)
     ptf_teardown(ptfhost, ptf_lag_map)
 
-def test_lag_member_status(duthost, ptf_dut_setup_and_teardown):
+@pytest.fixture(scope="module")
+def most_common_port_speed(duthost):
+    """
+    Determine ports with most common speed
+
+    Args:
+        duthost: DUT host object
+    Returns:
+        Ports with most common speed and amount of such ports
+    """
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    port_status = cfg_facts["PORT"]
+    number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(duthost.facts["hwsku"], DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
+    src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
+    src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
+    all_ports_speeds = [port_status[port_name]['speed'] for port_name in src_vlan_members]
+    port_speed, ports_num = Counter(all_ports_speeds).most_common(1)[0]
+    return port_speed, ports_num
+
+def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_teardown):
     """
     Test ports' status of members in a lag
 
@@ -334,6 +366,8 @@ def test_lag_member_status(duthost, ptf_dut_setup_and_teardown):
     port_channel_status = duthost.get_port_channel_status(DUT_LAG_NAME)
     dut_hwsku = duthost.facts["hwsku"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
+    _, ports_num = most_common_port_speed
+    number_of_lag_member = ports_num if ports_num < number_of_lag_member else number_of_lag_member
     pytest_assert(port_channel_status.has_key("ports") and number_of_lag_member == len(port_channel_status["ports"]), "get port status error")
     for _, status in port_channel_status["ports"].items():
         pytest_assert(status["runner"]["selected"], "status of lag member error")

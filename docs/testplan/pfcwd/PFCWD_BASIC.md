@@ -96,5 +96,3 @@ After the above steps, we should check the following items:
   - PFC watchdog is NOT triggered at interface et2.
   - All the packets of traffic 1 are received.
   - All the packets of traffic 2 are received. The throughput of traffic 2 is close to 100% of line rate.
-
-
