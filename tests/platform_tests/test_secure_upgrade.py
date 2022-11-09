@@ -1,7 +1,7 @@
 """
 This tests checks secure upgrade feature. If we have a secure system with secured image installed
 on it, the system is expected to install only secured images on it. So trying to install non-secure image
-will cause fail and a print of failure message to console indicating it is not signed image.
+will cause fail and a print of failure message to console indicating it is not a secured image.
 This test case validates the error flow mentioned above.
 
 In order to run this test, you need to specify the following argument:
@@ -9,7 +9,7 @@ In order to run this test, you need to specify the following argument:
     --target_image_list (to contain one non-secure image path e.g. /tmp/images/my_non_secure_img.bin)
 
 Example run from tests directory:
-    "pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin"
+    "pytest platform_tests/test_secure_upgrade.py <regular arguments> --target_image_list non_secure_image.bin"
 """
 import logging
 import pytest
