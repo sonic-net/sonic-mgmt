@@ -78,7 +78,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    switch_type = duthosts[0].facts['switch_type']
+    switch_type = duthosts[0].facts.get('switch_type')
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
@@ -278,7 +278,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
-    switch_type = duthosts[0].facts['switch_type']
+    switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)

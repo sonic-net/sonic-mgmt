@@ -415,26 +415,26 @@ class HashTest(BaseTest):
                     asic_id = port_map.get('asic_idx',0)
                     member = asic_list.get(asic_id)
                     if member is None:
-                        member = [];member.append(port)
-                    else:
-                        member.append(port)
+                        member = []
+                    member.append(port)
                     asic_list[asic_id] = member
                 else:
                     port_map = self.ptf_test_port_map[str(port)]
                     asic_id = port_map.get('asic_idx',0)
                     member = asic_list.get(asic_id)
                     if member is None:
-                        member = [];member.append(port)
-                    else:
-                        member.append(port)
+                        member = []
+                    member.append(port)
                     asic_list[asic_id] = member
 
-        for asic_member in asic_list.values():
-            total_hit_cnt = 0
-            for ecmp_entry in asic_member:
-                for member in ecmp_entry:
-                    total_hit_cnt += port_hit_cnt.get(member, 0)
+        total_hit_cnt = 0
+        for ecmp_entry in dest_port_list:
+            for member in ecmp_entry:
+                total_hit_cnt += port_hit_cnt.get(member, 0)
+        
+        total_hit_cnt = total_hit_cnt//len(asic_list.keys())
 
+        for asic_member in asic_list.values():
             for ecmp_entry in asic_member:
                 total_entry_hit_cnt = 0
                 for member in ecmp_entry:
