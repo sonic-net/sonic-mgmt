@@ -18,7 +18,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
-M0_MX_NUMBER_ROUTES = 500
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -215,14 +214,11 @@ def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_n
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
+def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
-    topo_name = tbinfo['topo']['name']
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
-    if topo_name in ["m0", "mx"]:
-        set_num_routes = M0_MX_NUMBER_ROUTES
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50 # Update max num neighbors for multi-asic
@@ -233,9 +229,8 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
     avail_routes_count = asichost.count_crm_resources("main_resources", route_tag, "available")
     pytest_assert(avail_routes_count, "CRM main_resources data is not ready within adjusted CRM polling time {}s".\
             format(CRM_POLL_INTERVAL))
-    
-    # Will crash the docker container if we run out of available routes count
-    num_routes = min(avail_routes_count * 0.8, set_num_routes)
+
+    num_routes = min(avail_routes_count, set_num_routes)
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))
 
