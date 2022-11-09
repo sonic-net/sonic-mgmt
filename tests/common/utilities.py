@@ -672,11 +672,13 @@ def update_environ(*remove, **update):
 
 def get_image_type(duthost):
     """get the SONiC image type
-    It might be public/microsoft/...or any other type.
-    Different vendors can define their different types by checking the specific information from the build image.
+        It might be public/microsoft/...or any other type.
+        Different vendors can define their different types by checking the specific information from the build image.
     Args:
         duthost: AnsibleHost instance for DUT
-    Returns: image type. Str. It should be the right key in DEFAULT_SSH_CONNECT_PARAMS in tests/common/constants.py
+    Returns:
+        The returned image type string will be used as a key of map DEFAULT_SSH_CONNECT_PARAMS defined in
+        tests/common/constants.py for looking up default credential for this type of image.
     """
 
     return "public"

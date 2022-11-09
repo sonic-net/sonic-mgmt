@@ -8,7 +8,6 @@ import time
 import pytest
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.portstat_utilities import parse_column_positions
 from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
 from tests.common.utilities import get_image_type
 
@@ -42,48 +41,17 @@ def parse_interfaces(output_lines, pc_ports_map):
     return route_targets, ifaces
 
 
-def parse_rif_counters(output_lines):
+def parse_rif_counters(lines):
     """
-    Parse the output of "show interfaces counters rif" command
+    Parse the output of duthost.show_and_parse("show interfaces counters rif")
     """
 
-    header_line = ''
-    separation_line = ''
-    separation_line_number = 0
-    for idx, line in enumerate(output_lines):
-        if line.find('----') >= 0:
-            header_line = output_lines[idx - 1]
-            separation_line = output_lines[idx]
-            separation_line_number = idx
-            break
+    result = {}
 
-    try:
-        positions = parse_column_positions(separation_line)
-    except Exception:
-        logger.error('Possibly bad command output')
-        return {}
+    for line in lines:
+        result[line["iface"]] = line
 
-    headers = []
-    for pos in positions:
-        header = header_line[pos[0]:pos[1]].strip().lower()
-        headers.append(header)
-
-    if not headers:
-        return {}
-
-    results = {}
-    for line in output_lines[separation_line_number + 1:]:
-        portstats = []
-        for pos in positions:
-            portstat = line[pos[0]:pos[1]].strip()
-            portstats.append(portstat)
-
-        intf = portstats[0]
-        results[intf] = {}
-        for idx in range(1, len(portstats)):  # Skip the first column interface name
-            results[intf][headers[idx]] = portstats[idx]
-
-    return results
+    return result
 
 
 def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
@@ -118,8 +86,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0]]
     # Some platforms do not support rif counter
     try:
-        rif_counter_out = parse_rif_counters(
-            duthost.command("show interfaces counters rif")["stdout_lines"])
+        rif_counter_out = parse_rif_counters(duthost.show_and_parse("show interfaces counters rif"))
         rif_iface = list(rif_counter_out.keys())[0]
         rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
     except Exception as e:
@@ -175,13 +142,22 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
     default_username_password = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
 
     # Simulate disk exhaustion and release space after 60 seconds
-    # Use command 'fallocate' to create large file, it's effective.
+    # Use command 'fallocate' to create large file, it's efficient.
     # Create a shell script to do the operations like fallocate and remove file,
     # because when space is full, duthost.command() is not work
+
+    # i. First get how many space was left in /tmp mounted partition, the output of "df /tmp" was like below:
+    #   Filesystem     1K-blocks    Used Available Use% Mounted on
+    #   root-overlay    14874056 6429908   8427764  44% /
+    df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+    total_space = df_rst[1]
+    used_before_test = int(df_rst[4].rstrip('%'))
+
+    # ii. Second create sh and execute
     duthost.shell_cmds(cmds=[
-        "echo 'fallocate -l 50G /tmp/file' > /tmp/test.sh",
+        "echo 'fallocate -l {}K /tmp/huge_dummy_file' > /tmp/test.sh".format(total_space),
         "echo 'sleep 60' >> /tmp/test.sh",
-        "echo 'sudo rm /tmp/file' >> /tmp/test.sh",
+        "echo 'sudo rm /tmp/huge_dummy_file' >> /tmp/test.sh",
         "chmod u+x /tmp/test.sh",
         "nohup /tmp/test.sh >/dev/null 2>&1 &"
     ], continue_on_fail=False, module_ignore_errors=True)
@@ -208,3 +184,12 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
 
     # Wait for disk space release
     time.sleep(60)
+
+    # Delete test.sh
+    duthost.shell("sudo rm /tmp/test.sh")
+    # Confirm dish space was released
+    df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+    used_after_test = int(df_rst[4].rstrip('%'))
+    logger.info("Use% before test is {}%, Use% after test is {}%".format(used_before_test, used_after_test))
+    pytest_assert(used_after_test < 100 and used_after_test <= used_before_test / 0.8,
+                  "Disk space was not released expectedly, please check.")
