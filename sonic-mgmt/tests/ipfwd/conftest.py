@@ -136,6 +136,8 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
         pytest.fail("ARP table is not rebuilt in given time")
 
     used_intfs = set()
+    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+        used_intfs.add('PortChannel201')  # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     src = None  # Name of lag or interface that is is up
     dst = None  # Name of lag or interface that is is up
 

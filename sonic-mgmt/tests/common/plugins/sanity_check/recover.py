@@ -36,6 +36,11 @@ def _recover_interfaces(dut, fanouthosts, result, wait_time):
             action = 'config_reload'
             continue
 
+        # If internal port is down, do 'config_reload' to recover.
+        if '-IB' in pn or '-Rec' in pn or '-BP' in pn:
+            action = 'config_reload'
+            continue
+
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         if fanout and fanout_port:
             fanout.shutdown(fanout_port)

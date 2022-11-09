@@ -663,7 +663,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -2103,3 +2103,7 @@ Totals               6450                 6449
         commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
         json_info = json.loads(commond_output["stdout"])
         return json_info
+
+    def is_intf_status_down(self, interface_name):
+        show_int_result = self.command("show interface status {}".format(interface_name))
+        return 'down' in show_int_result['stdout_lines'][2].lower()

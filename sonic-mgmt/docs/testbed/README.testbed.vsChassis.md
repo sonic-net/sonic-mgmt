@@ -38,7 +38,7 @@ fe48c207a51c        ceos_vms6-1_VM0103   2.04%               970.9MiB / 125.9GiB
 
 ## Network Setup
 
-We first create a base container `net_${testbed_name}_${vm_name}`, inject six ethernet ports into the base container, 
+We first create a base container `net_${testbed_name}_${vm_name}`, inject six ethernet ports into the base container,
 and then start cEOS `ceos_${testbed_name}_${vm_name}` container on top of the base container. The six ethernet ports
 are used for
 - 1 management port
@@ -101,13 +101,13 @@ There are two ways to get into cEOS container
 lgh@jenkins-worker-15:~$ docker exec -it ceos_vms6-1_VM0100 Cli
 ARISTA01T1>show int status
 Port       Name      Status       Vlan     Duplex Speed  Type            Flags Encapsulation
-Et1                  connected    in Po1   full   unconf EbraTestPhyPort                    
-Et2                  connected    1        full   unconf EbraTestPhyPort                    
-Et3                  connected    1        full   unconf EbraTestPhyPort                    
-Et4                  connected    1        full   unconf EbraTestPhyPort                    
-Et5        backplane connected    routed   full   unconf EbraTestPhyPort                    
-Ma0                  connected    routed   full   10G    10/100/1000                        
-Po1                  connected    routed   full   unconf N/A    
+Et1                  connected    in Po1   full   unconf EbraTestPhyPort
+Et2                  connected    1        full   unconf EbraTestPhyPort
+Et3                  connected    1        full   unconf EbraTestPhyPort
+Et4                  connected    1        full   unconf EbraTestPhyPort
+Et5        backplane connected    routed   full   unconf EbraTestPhyPort
+Ma0                  connected    routed   full   10G    10/100/1000
+Po1                  connected    routed   full   unconf N/A
 
 ARISTA01T1>
 ```
@@ -115,17 +115,16 @@ ARISTA01T1>
 2. ssh
 ```
 lgh@jenkins-worker-15:~$ ssh admin@10.250.0.51
-Password: 
+Password:
 ARISTA01T1>show int status
 Port       Name      Status       Vlan     Duplex Speed  Type            Flags Encapsulation
-Et1                  connected    in Po1   full   unconf EbraTestPhyPort                    
-Et2                  connected    1        full   unconf EbraTestPhyPort                    
-Et3                  connected    1        full   unconf EbraTestPhyPort                    
-Et4                  connected    1        full   unconf EbraTestPhyPort                    
-Et5        backplane connected    routed   full   unconf EbraTestPhyPort                    
-Ma0                  connected    routed   full   10G    10/100/1000                        
-Po1                  connected    routed   full   unconf N/A                                
+Et1                  connected    in Po1   full   unconf EbraTestPhyPort
+Et2                  connected    1        full   unconf EbraTestPhyPort
+Et3                  connected    1        full   unconf EbraTestPhyPort
+Et4                  connected    1        full   unconf EbraTestPhyPort
+Et5        backplane connected    routed   full   unconf EbraTestPhyPort
+Ma0                  connected    routed   full   10G    10/100/1000
+Po1                  connected    routed   full   unconf N/A
 
 ARISTA01T1>
 ```
-

@@ -3,10 +3,10 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses                                 # lgtm[py/unused-import]
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses                                 # noqa F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
 
 
@@ -21,6 +21,7 @@ pytestmark = [
 PTFRUNNER_QLEN = 1000
 VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
 DEFAULT_TEST_DURATION = 370
+
 
 class TestWrArp:
     '''
@@ -95,7 +96,7 @@ class TestWrArp:
             above 192.168.8.0/25 subnet will be taken and host IP given to ferret script will be 192.168.8.1
         '''
         result = duthost.shell(
-            cmd='''ip route show type unicast |
+            cmd=r'''ip route show type unicast |
             sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
             head -n 1 |
             sed -ne 's/0\/.*$/1/p'
@@ -106,7 +107,6 @@ class TestWrArp:
 
         dip = result['stdout']
         logger.info('VxLan Sender {0}'.format(dip))
-
 
         vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
         if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
@@ -135,8 +135,8 @@ class TestWrArp:
 
     @pytest.fixture(scope='class', autouse=True)
     def setupFerretFixture(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
-         duthost = duthosts[rand_one_dut_hostname]
-         self.setupFerret(duthost, ptfhost, tbinfo)
+        duthost = duthosts[rand_one_dut_hostname]
+        self.setupFerret(duthost, ptfhost, tbinfo)
 
     @pytest.fixture(scope='class', autouse=True)
     def clean_dut(self, duthosts, rand_one_dut_hostname):
@@ -144,7 +144,7 @@ class TestWrArp:
         yield
         logger.info("Clear ARP cache on DUT")
         duthost.command('sonic-clear arp')
-    
+
     def setupRouteToPtfhost(self, duthost, ptfhost):
         '''
             Sets routes up on DUT to PTF host. This class-scope fixture runs once before test start
@@ -168,9 +168,9 @@ class TestWrArp:
                 "Add explicit route for PTF host ({0}) through eth0 (mgmt) interface ({1})".format(ptfIp, gwIp)
             )
             duthost.shell(cmd='ip route add {0}/32 {1}'.format(ptfIp, gwIp))
-        
+
         return route, ptfIp, gwIp
-    
+
     def teardownRouteToPtfhost(self, duthost, route, ptfIp, gwIp):
         """
         Teardown the routes added by setupRouteToPtfhost
@@ -211,10 +211,10 @@ class TestWrArp:
         '''
             Control Plane Assistant test for Warm-Reboot.
 
-            The test first start Ferret server, implemented in Python. Then initiate Warm-Reboot procedure. While the
-            host in Warm-Reboot test continuously sending ARP request to the Vlan member ports and expect to receive ARP
-            replies. The test will fail as soon as there is no replies for more than 25 seconds for one of the Vlan
-            member ports.
+            The test first start Ferret server, implemented in Python. Then initiate Warm-Reboot procedure.
+            While the host in Warm-Reboot test continuously sending ARP request to the Vlan member ports and
+            expect to  receive ARP replies. The test will fail as soon as there is no replies for
+            more than 25 seconds for one of the Vlan member ports.
 
             Args:
                 request: pytest request object
@@ -229,7 +229,8 @@ class TestWrArp:
         dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
 
         logger.info('Warm-Reboot Control-Plane assist feature')
-        sonicadmin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+        sonicadmin_alt_password = duthost.host.options['variable_manager'].\
+            _hostvars[duthost.hostname].get("ansible_altpassword")
         ptf_runner(
             ptfhost,
             'ptftests',
@@ -238,13 +239,13 @@ class TestWrArp:
             platform_dir='ptftests',
             platform='remote',
             params={
-                'ferret_ip' : ptfIp,
-                'dut_ssh' : dutIp,
+                'ferret_ip': ptfIp,
+                'dut_ssh': dutIp,
                 'dut_username': creds['sonicadmin_user'],
                 'dut_password': creds['sonicadmin_password'],
                 "alt_password": sonicadmin_alt_password,
-                'config_file' : VXLAN_CONFIG_FILE,
-                'how_long' : testDuration,
+                'config_file': VXLAN_CONFIG_FILE,
+                'how_long': testDuration,
             },
             log_file='/tmp/wr_arp.ArpTest.log'
         )

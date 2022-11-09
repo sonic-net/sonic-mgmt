@@ -90,7 +90,8 @@ class DefineOid(object):
             dp = ""
 
         # From IF-MIB
-        self.if_descr       = dp + ".0.8802.1.1.2.1.3.7.1.3"
+        #ifdescr is common support, replace the lldpportid
+        self.if_descr       = dp + ".3.6.1.2.1.2.2.1.2"
 
         # From LLDP-MIB
         self.lldp_rem_port_id      = dp + ".0.8802.1.1.2.1.4.1.1.7"

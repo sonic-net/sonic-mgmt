@@ -19,7 +19,7 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
     # example dut api call
     duthost.get_extended_minigraph_facts()
-    
+
     # example ptf api call
     ptfhost.shell("ls")
 ```
@@ -318,7 +318,7 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_vtysh_cmd_for_namespace](multi_asic_methods/get_vtysh_cmd_for_namespace.md) - Provides modified VTYSH command provided ASIC namespace and command.
 
-- [has_config_subcommand](multi_asic_methods/has_config_subcommand.md) - Check if a config or show subcommand exists on the remote host. *WARNING*: to test whether it exists, the method will run the command. Ensure that there will be no negative sid-effects of having this command run on 
+- [has_config_subcommand](multi_asic_methods/has_config_subcommand.md) - Check if a config or show subcommand exists on the remote host. *WARNING*: to test whether it exists, the method will run the command. Ensure that there will be no negative sid-effects of having this command run on
 the remote host.
 
 - [is_bgp_state_idle](multi_asic_methods/is_bgp_state_idle.md) - Checks if all BGP peers are in IDLE state on the sonichost.

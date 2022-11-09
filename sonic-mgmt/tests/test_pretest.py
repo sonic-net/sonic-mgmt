@@ -7,15 +7,12 @@ import time
 
 from collections import defaultdict
 
-from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.helpers.dut_utils import verify_features_state
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.utilities import get_host_visible_vars
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +49,7 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
                              verify_features_state, duthost), "Not all service states are valid!")
     logger.info("The states of features in 'CONFIG_DB' are all valid.")
 
+
 def test_cleanup_cache():
     folder = '_cache'
     if os.path.exists(folder):
@@ -74,11 +72,12 @@ def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
         # this step is needed to remove some backup files or the debug files added by users
         # which can create issue for log-analyzer
         duthost.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
-            module_ignore_errors=True, executable="/bin/bash")
+                      module_ignore_errors=True, executable="/bin/bash")
 
     # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
     if ptfhost:
-        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
+        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
+                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
 
 def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_container_autorestart):
@@ -126,6 +125,7 @@ def collect_dut_info(dut):
 
     return dut_info
 
+
 def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     metadata = {}
     tbname = tbinfo['conf-name']
@@ -135,7 +135,7 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
         dutinfo = collect_dut_info(dut)
         metadata[dut.hostname] = dutinfo
 
-    info = { tbname : metadata }
+    info = {tbname: metadata}
     folder = 'metadata'
     filepath = os.path.join(folder, tbname + '.json')
     try:
@@ -181,6 +181,7 @@ def collect_dut_lossless_prio(dut):
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
     return result
 
+
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
@@ -197,10 +198,12 @@ def collect_dut_all_prio(dut):
     tc = [int(p) for p in dscp_to_tc_map.values()]
     return list(set(tc))
 
+
 def collect_dut_lossy_prio(dut):
     lossless_prio = collect_dut_lossless_prio(dut)
     all_prio = collect_dut_all_prio(dut)
     return [p for p in all_prio if p not in lossless_prio]
+
 
 def test_collect_testbed_prio(duthosts, tbinfo):
     all_prio = {}
@@ -225,9 +228,10 @@ def test_collect_testbed_prio(duthosts, tbinfo):
             if not os.path.exists(folder):
                 os.mkdir(folder)
             with open(filepath, 'w') as yf:
-                json.dump({ tbname : prio_info[i]}, yf, indent=4)
+                json.dump({tbname: prio_info[i]}, yf, indent=4)
         except IOError as e:
             logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
 
 def test_update_saithrift_ptf(request, ptfhost):
     '''
@@ -239,7 +243,7 @@ def test_update_saithrift_ptf(request, ptfhost):
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
     result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
-    if result["failed"] != False or "OK" not in result["msg"]:
+    if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
@@ -252,15 +256,10 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
     dut = duthosts[enum_dut_hostname]
     dut.command('pfcwd stop')
 
-"""
-    Separator for internal pretests.
-    Please add public pretest above this comment and keep internal
-    pretests below this comment.
-"""
 
 def prepare_autonegtest_params(duthosts, fanouthosts):
     from tests.common.platform.device_utils import list_dut_fanout_connections
-    
+
     cadidate_test_ports = {}
 
     for duthost in duthosts:
@@ -270,7 +269,8 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
         for dut_port, fanout, fanout_port in all_ports:
             auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
             if auto_neg_mode is not None:
-                cadidate_test_ports[duthost.hostname][dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port}
+                cadidate_test_ports[duthost.hostname][dut_port] = \
+                    {'fanout': fanout.hostname, 'fanout_port': fanout_port}
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
     try:
@@ -279,6 +279,15 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     except IOError as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
+
+"""
+    Separator for internal pretests.
+    Please add public pretest above this comment and keep internal
+    pretests below this comment.
+"""
+
+
+# This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
 def test_generate_running_golden_config(duthosts):
     """
     Generate running golden config after pre test.

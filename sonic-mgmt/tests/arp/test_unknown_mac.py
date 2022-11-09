@@ -12,11 +12,11 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from tests.common import constants
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.utilities import get_intf_by_sub_intf
 
 logger = logging.getLogger(__name__)
@@ -25,11 +25,13 @@ pytestmark = [pytest.mark.topology("t0")]
 
 TEST_PKT_CNT = 10
 
+
 def initClassVars(func):
     """
     Automatically assign instance variables. currently handles only arg list
     """
     names, varargs, keywords, defaults = inspect.getargspec(func)
+
     @functools.wraps(func)
     def wrapper(self, *args):
         for name, value in list(zip(names[1:], args)):
@@ -37,6 +39,7 @@ def initClassVars(func):
 
         func(self, *args)
     return wrapper
+
 
 @pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
@@ -97,8 +100,8 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
             intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
             sub_intfs.add(sub_intf_name)
             ptf_ports[sub_intf_name] = (ptf_portmap[intf_name], sub_intf_name,
-                                           vlan_sub_interface['peer_addr'],
-                                           vlan_id)
+                                        vlan_sub_interface['peer_addr'],
+                                        vlan_id)
             intfs = list(sub_intfs)
     else:
         for key in mg_facts['minigraph_portchannels']:
@@ -125,6 +128,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
              }
     yield setup
 
+
 @pytest.fixture
 def flushArpFdb(duthosts, rand_one_dut_hostname):
     """
@@ -145,9 +149,10 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
     duthost.shell("sonic-clear fdb all")
     duthost.shell("ip neigh flush all")
 
+
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor_m):
+                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -160,7 +165,6 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
     """
     # Wait 5 seconds for mux to toggle
     time.sleep(5)
-    duthost = duthosts[rand_one_dut_hostname]
     setup = unknownMacSetup
     ptfhost.script("./scripts/remove_ip.sh")
     logger.info("Populate ARP entry for dest port")
@@ -197,7 +201,7 @@ class PreTestVerify(object):
                       "ARP entry for {} missing in ASIC".format(self.dst_ip))
         result = self.duthost.shell("ip neigh show {}".format(self.dst_ip))
         pytest_assert(result['stdout_lines'], "{} not in arp table".format(self.dst_ip))
-        match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
+        match = re.match(r"{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
                          result['stdout_lines'][0])
         pytest_assert(match,
                       "Regex failed while retreiving arp entry for {}".format(self.dst_ip))
@@ -209,7 +213,8 @@ class PreTestVerify(object):
         """
         result = self.duthost.command("show mac")
         out = result['stdout']
-        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB".format(self.arp_entry[self.dst_ip]))
+        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB"
+                      .format(self.arp_entry[self.dst_ip]))
         logger.info("'{}' not present in fdb as expected".format(self.arp_entry[self.dst_ip]))
 
     def verifyArpFdb(self):

@@ -102,11 +102,11 @@ def t1_lower_tor_intfs():
     Returns:
         List containing the interface names on the T1 corresponding to the lower ToR
     """
-    
+
 def apply_dual_tor_config(duthost, active=True):
     """
     Applies dual ToR configurations to a regular ToR device
-    
+
     Allows mocking/testing parts of a dual ToR system without requiring a dual ToR testbed
     See dual ToR orchagent test plan for details.
     Args:
@@ -594,10 +594,10 @@ def test_server_down():
     No data plane operations/checks
     """
 
-def test_tunnel(): 
+def test_tunnel():
     """
     This test will no longer be planned. Explicitly checking encap/decap of tunnel packets is reserved for the orchagent tests. Test cases listed in this document will still verify correct tunnel packets.
-    
+
     ~~Send encapped server traffic from ToR A to ToR B, and ToR B to ToR A~~
 
     ~~Verify that the T1 switch sees the expected IP-in-IP packet, and that each ToR receives the packet~~

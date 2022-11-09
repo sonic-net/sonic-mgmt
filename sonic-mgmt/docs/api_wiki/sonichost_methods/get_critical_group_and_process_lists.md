@@ -17,7 +17,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
 
     if not succeeded:
         pytest.fail("Could not get container states")
-    
+
     rand_container_name = random.choice(containers_states.keys())
 
     critical_group_proc = duthost.get_critical_group_and_process_lists(rand_container_name)

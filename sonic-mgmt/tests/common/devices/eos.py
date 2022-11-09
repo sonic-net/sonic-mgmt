@@ -91,11 +91,20 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.no_shutdown(intf_str)
 
+
     def check_intf_link_state(self, interface_name):
         show_int_result = self.eos_command(
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
-
+        
+        
+    def is_intf_status_down(self, interface_name):
+        show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
+        logging.info("Checking interface state: {}".format(show_int_result['stdout_lines'][0][0]))
+        # Either admin/opr status is down meaning link is down
+        return 'down' in show_int_result['stdout_lines'][0][0].lower()
+        
+        
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],

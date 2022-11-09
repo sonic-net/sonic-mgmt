@@ -1,0 +1,35 @@
+- name: Set ansible login user name and password
+  set_fact: ansible_user={{ cisco_login }} ansible_password={{ cisco_password }}
+
+- name: Get VM front panel interface number
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^\s*{{ inventory_hostname }}-t" | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- name: Set cisco backplane port name
+  set_fact: bp_ifname="GigabitEthernet0/0/0/{{ fp_num.stdout|int + 1 }}"
+
+- name: Set template file used in cisco vm
+  set_fact:
+    template_file: "{{ topo }}-{{ props.swrole }}.j2"
+
+#for wan topo, use one template for all wan topology
+- name: Set template file used in cisco vm for wan
+  set_fact:
+    template_file: "wan-pub-{{ props.swrole }}.j2"
+  when: "'wan' in topo"
+
+#Due to below issue, need to set serial to 1 (-e eos_batch_size=1) when loading cisco configuration
+#https://github.com/ansible-collections/cisco.iosxr/issues/67
+- name: Load configuration to cisco device {{ inventory_hostname }}
+  iosxr_config:
+    src: "{{ template_file }}"
+    replace: config
+  vars:
+    - ansible_connection: 'network_cli'
+    - ansible_network_os: 'iosxr'
+  register: configuration_result
+  when: hostname in configuration
+
+- debug: msg={{ configuration_result }}

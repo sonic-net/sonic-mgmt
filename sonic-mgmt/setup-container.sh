@@ -195,9 +195,12 @@ fi
 
 # User configuration
 RUN if getent passwd {{ USER_NAME }}; \
-then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
-else useradd -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }}; \
+# Usermod will hang when user_id is large (https://github.com/moby/moby/issues/5419), and it can not work around this issue itself.
+# So, we first delete the user and use `useradd -l` to work around this issue.
+#then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
+then userdel {{ USER_NAME }}; \
 fi
+RUN useradd -o -l -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }};
 
 # Docker configuration
 RUN if getent group {{ DGROUP_NAME }}; \
