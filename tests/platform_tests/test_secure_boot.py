@@ -3,13 +3,13 @@ this tests checks secure boot upgrade
 
 In order to run this test, you need to specify the following argument:
 	1. --target_image_list (to contain your non secure image path e.g. /tmp/images/my_non_secure_img.bin)
-	2. --upgrade_type always set to cold (see run command for example)
 e.g.:
 (from tests dir)
-	pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin --upgrade_type cold
+	pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin
 """
 import logging
 import pytest
+import re
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
@@ -27,14 +27,26 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_non_secure_boot_upgrade_failure(duthosts, enum_rand_one_per_hwsku_hostname, localhost, upgrade_path_lists, tbinfo, capsys):
+def get_current_version(duthost):
+    '''
+    @summary: extract the current version installed as shown in the "show boot" output.
+    :param duthost: device under test
+    :return: the version currently installed
+    '''
+    output = duthost.shell("show boot")['stdout']
+    results = re.findall("Current\s*\:\s*(.*)\n", output)
+    pytest_assert(len(results) > 0, "Current image is empty!")
+    return results[0]
+
+
+def test_non_secure_boot_upgrade_failure(duthosts, enum_rand_one_per_hwsku_hostname, upgrade_path_lists, tbinfo):
     """
     @summary: This test case validates non successful upgrade of a given non secure image
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     upgrade_type, _, non_secure_img, _ = upgrade_path_lists
-    logger.info("get current version installed")
-    current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
+    current_version = get_current_version(duthost)
+    logger.info("current version installed is {}".format(current_version))
     # install non secure image
     logger.info("install non secure image - expect fail, image url = {}".format(non_secure_img))
     result = "image install failure" # because we expect fail
@@ -46,10 +58,8 @@ def test_non_secure_boot_upgrade_failure(duthosts, enum_rand_one_per_hwsku_hostn
         logger.info("Expected fail, msg : {}".format(err_msg))
         pytest_assert("Failure: CMS signature verification failed" in str(err_msg), "failure was not due to security limitations")
     finally:
+        logger.info("reset the image installed back to original image - {}".format(current_version))
+        duthost.shell("sonic-installer set-default {}",format(current_version))
         pytest_assert(result=="image install failure", "install non secure image should not succeed")
-        logger.info("Cold reboot the DUT")
-        reboot(duthost, localhost)
         logger.info("Check version has not changed after reboot")
         check_sonic_version(duthost, current_version)
-        check_reboot_cause(duthost, upgrade_type)
-        check_services(duthost)

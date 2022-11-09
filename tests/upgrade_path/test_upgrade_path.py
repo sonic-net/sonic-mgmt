@@ -5,8 +5,16 @@ from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version, get_reboot_command
+from tests.upgrade_path.upgrade_helpers import restore_image
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
-from tests.platform_tests.conftest import advanceboot_loganalyzer  # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import verify_dut_health
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+
+from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore  # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
 
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
@@ -36,8 +44,8 @@ def upgrade_path_lists(request):
 
 
 @pytest.mark.device_type('vs')
-def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, tbinfo,
-                        get_advanced_reboot, advanceboot_loganalyzer,
+def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrhosts, fanouthosts, tbinfo,
+                        restore_image, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
                         upgrade_path_lists):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
@@ -72,9 +80,10 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, tbinfo,
 
 
 @pytest.mark.device_type('vs')
-def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
-                        get_advanced_reboot, advanceboot_loganalyzer,
-                        upgrade_path_lists, sad_case_type):
+def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
+                        restore_image, get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
+                        upgrade_path_lists, backup_and_restore_config_db, advanceboot_neighbor_restore,
+                        sad_case_type):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
