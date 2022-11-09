@@ -11,10 +11,8 @@ import logging
 import pytest
 import re
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
-from tests.upgrade_path.upgrade_helpers import check_services, check_sonic_version, \
-     install_sonic, check_reboot_cause
+from tests.upgrade_path.upgrade_helpers import install_sonic
 from tests.upgrade_path.test_upgrade_path import upgrade_path_lists
 
 pytestmark = [
@@ -27,39 +25,46 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def get_current_version(duthost):
+@pytest.fixture(scope='session', autouse=True)
+def keep_same_version_installed(duthost):
     '''
     @summary: extract the current version installed as shown in the "show boot" output.
+    and restore original image installed after the test run
     :param duthost: device under test
     :return: the version currently installed
     '''
     output = duthost.shell("show boot")['stdout']
     results = re.findall("Current\s*\:\s*(.*)\n", output)
     pytest_assert(len(results) > 0, "Current image is empty!")
-    return results[0]
+    current_version = results[0]
+    yield
+    duthost.shell("sonic-installer set-default {}", format(current_version))
 
 
-def test_non_secure_boot_upgrade_failure(duthosts, enum_rand_one_per_hwsku_hostname, upgrade_path_lists, tbinfo):
+@pytest.fixture(scope='session')
+def non_secure_image_path(upgrade_path_lists):
+    '''
+    @summary: will extract the non secure image path from --target_image_list parameter
+    :return: given non secure image path
+    '''
+    _, _, non_secure_img_path, _ = upgrade_path_lists
+    pytest_assert(len(non_secure_img_path) == 1, "Please specify one non-secure image path")
+    return non_secure_img_path
+
+
+def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo):
     """
     @summary: This test case validates non successful upgrade of a given non secure image
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    upgrade_type, _, non_secure_img, _ = upgrade_path_lists
-    current_version = get_current_version(duthost)
-    logger.info("current version installed is {}".format(current_version))
     # install non secure image
-    logger.info("install non secure image - expect fail, image url = {}".format(non_secure_img))
+    logger.info("install non secure image - expect fail, image path = {}".format(non_secure_image_path))
     result = "image install failure" # because we expect fail
     try:
-        # in case of success result will return target image name
-        result = install_sonic(duthost, non_secure_img, tbinfo)
+        # in case of success result will take the target image name
+        result = install_sonic(duthost, non_secure_image_path, tbinfo)
     except RunAnsibleModuleFail as err:
         err_msg = str(err.results._check_key("module_stdout"))
         logger.info("Expected fail, msg : {}".format(err_msg))
         pytest_assert("Failure: CMS signature verification failed" in str(err_msg), "failure was not due to security limitations")
     finally:
-        logger.info("reset the image installed back to original image - {}".format(current_version))
-        duthost.shell("sonic-installer set-default {}",format(current_version))
-        pytest_assert(result=="image install failure", "install non secure image should not succeed")
-        logger.info("Check version has not changed after reboot")
-        check_sonic_version(duthost, current_version)
+        pytest_assert(result == "image install failure", "non-secure image was successfully installed")
