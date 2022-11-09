@@ -173,6 +173,7 @@ stages:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
     timeoutInMinutes: 400
+    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: true
     steps:
     - template: .azure-pipelines/run-test-template.yml
@@ -182,6 +183,23 @@ stages:
         ptf_name: ptf_vms6-1
         tbtype: t0-sonic
         vmtype: vsonic
+
+  - job: sonic_t0_testbedv2
+    displayName: "kvmtest-t0-sonic by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: true
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t0-64-32
+          MIN_WORKER: 1
+          MAX_WORKER: 2
+          TEST_SET: t0-sonic
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+          VM_TYPE: vsonic
+          SPECIFIED_PARAMS: '{\"test_pretest.py\":[\"--completeness_level=confident\",\"--allow_recover\"],\"test_posttest.py\":[\"--completeness_level=confident\",\"--allow_recover\"]}'
+
 
   - job:
     pool: sonictest-dualtor
@@ -215,6 +233,7 @@ stages:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
     timeoutInMinutes: 400
+    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-template.yml
@@ -225,3 +244,17 @@ stages:
           tbtype: multi-asic-t1-lag-pr
           vmtype: ceos
           image: sonic-4asic-vs.img.gz
+
+  - job: multi_asic_testbedv2
+    displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: false
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t1-8-lag
+          TEST_SET: multi-asic-t1-lag
+          MIN_WORKER: 1
+          MAX_WORKER: 1
+          NUM_ASIC: 4

@@ -49,7 +49,8 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None, common_extra_params="", **kwargs):
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -78,8 +79,7 @@ class TestPlanManager(object):
                     "scripts_exclude": []
                 },
                 "common_params": common_params,
-                "specified_params": {
-                },
+                "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
             "extra_params": {
@@ -89,11 +89,15 @@ class TestPlanManager(object):
                 "kvm_build_id": kvm_build_id,
                 "dump_kvm_if_fail": True,
                 "mgmt_branch": kwargs["mgmt_branch"],
+                "testbed": {
+                    "num_asic": kwargs["num_asic"],
+                    "vm_type": kwargs["vm_type"]
+                },
             },
             "priority": 10,
             "requester": "pull request"
         })
-
+        print('Creating test plan with payload: {}'.format(payload))
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
@@ -291,6 +295,22 @@ if __name__ == "__main__":
         help="Branch of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
+        "--vm-type",
+        type=str,
+        dest="vm_type",
+        default="ceos",
+        required=False,
+        help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--specified-params",
+        type=str,
+        dest="specified_params",
+        default="{}",
+        required=False,
+        help="Test module specified params"
+    )
+    parser_create.add_argument(
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
@@ -298,6 +318,14 @@ if __name__ == "__main__":
         nargs='*',
         required=False,
         help="Run test common extra params"
+    )
+    parser_create.add_argument(
+        "--num-asic",
+        type=int,
+        dest="num_asic",
+        default=1,
+        required=False,
+        help="The asic number of dut"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -404,7 +432,10 @@ if __name__ == "__main__":
                 scripts=get_test_scripts(args.test_set),
                 output=args.output,
                 mgmt_branch=args.mgmt_branch,
-                common_extra_params=args.common_extra_params
+                common_extra_params=args.common_extra_params,
+                num_asic=args.num_asic,
+                specified_params=args.specified_params,
+                vm_type=args.vm_type,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
