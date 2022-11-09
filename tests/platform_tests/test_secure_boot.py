@@ -8,7 +8,6 @@ e.g.: (run from tests dir)
 import logging
 import pytest
 import re
-from tests.upgrade_path.test_upgrade_path import upgrade_path_lists
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.upgrade_path.upgrade_helpers import install_sonic
@@ -46,8 +45,7 @@ def non_secure_image_path(request):
     :return: given non secure image path
     '''
     non_secure_img_path = request.config.getoption('target_image_list')
-    logger.info("your non-secure image path is {}".format(non_secure_image_path))
-    return non_secure_img_path
+    return str(non_secure_img_path)
 
 
 def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo):
@@ -61,10 +59,11 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
         # in case of success result will take the target image name
         result = install_sonic(duthost, non_secure_image_path, tbinfo)
     except RunAnsibleModuleFail as err:
-        err_msg = str(err.results._check_key("module_stdout"))
-        logger.info("Expected fail, msg : {}".format(err_msg))
+        output_msg = str(err.results._check_key("module_stdout"))
+        err_msg = str(err.results._check_key("msg"))
+        logger.info("Expected fail, err msg is : {}\n\noutput_msg is {}".format(err_msg, output_msg))
         pytest_assert(
-            "Failure: CMS signature verification failed" in str(err_msg),
+            "Failure: CMS signature verification failed" in str(output_msg),
             "failure was not due to security limitations")
     finally:
         pytest_assert(result == "image install failure", "non-secure image was successfully installed")
