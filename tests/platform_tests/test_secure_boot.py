@@ -21,6 +21,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='session', autouse=True)
 def keep_same_version_installed(duthost):
     '''
