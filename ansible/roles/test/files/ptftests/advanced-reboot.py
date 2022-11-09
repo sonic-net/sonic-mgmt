@@ -1327,8 +1327,13 @@ class ReloadTest(BaseTest):
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        if self.reboot_type != 'service-warm-restart':
+        if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
             stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+
+        elif self.test_params['other_vendor_flag'] is True:
+            ignore_db_integrity_check = " -d"
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type + ignore_db_integrity_check, timeout=30)
+
         else:
             self.restart_service()
             return
