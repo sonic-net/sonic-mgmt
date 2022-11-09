@@ -84,7 +84,7 @@ sonic_arista_720dt:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
         "0x2F": "WTW22180040"
-        "0xFE": 3735928559
+        "0xFE": "0xdeadbeef"
 
 sonic_celestica_dx010:
   vars:
