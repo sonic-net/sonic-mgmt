@@ -23,7 +23,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def keep_same_version_installed(duthost):
     '''
     @summary: extract the current version installed as shown in the "show boot" output.
@@ -40,13 +40,13 @@ def keep_same_version_installed(duthost):
 
 
 @pytest.fixture(scope='session')
-def non_secure_image_path(upgrade_path_lists):
+def non_secure_image_path(request):
     '''
     @summary: will extract the non secure image path from --target_image_list parameter
     :return: given non secure image path
     '''
-    _, _, non_secure_img_path, _ = upgrade_path_lists
-    pytest_assert(len(non_secure_img_path) == 1, "Please specify one non-secure image path")
+    non_secure_img_path = request.config.getoption('target_image_list')
+    logger.info("your non-secure image path is {}".format(non_secure_image_path))
     return non_secure_img_path
 
 
