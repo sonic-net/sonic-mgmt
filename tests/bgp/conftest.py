@@ -269,6 +269,9 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             for conn in connections:
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
                                                   conn["neighbor_addr"]))
+                # NOTE: this enables the standby ToR to passively learn
+                # all the neighbors configured on the ptf interfaces
+                ptfhost.shell("arping %s -S %s -C 5" % (vlan_intf_addr, conn["neighbor_addr"].split("/")[0]), module_ignore_errors=True)
             ptfhost.shell("ip route add %s via %s" % (loopback_intf_addr, vlan_intf_addr))
             yield connections
 
