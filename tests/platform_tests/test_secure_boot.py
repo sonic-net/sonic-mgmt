@@ -8,6 +8,7 @@ e.g.: (run from tests dir)
 import logging
 import pytest
 import re
+from tests.upgrade_path.test_upgrade_path import upgrade_path_lists
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.upgrade_path.upgrade_helpers import install_sonic
@@ -35,7 +36,7 @@ def keep_same_version_installed(duthost):
     pytest_assert(len(results) > 0, "Current image is empty!")
     current_version = results[0]
     yield
-    duthost.shell("sonic-installer set-default {}", format(current_version))
+    duthost.shell("sudo sonic-installer set-default {}", format(current_version))
 
 
 @pytest.fixture(scope='session')
