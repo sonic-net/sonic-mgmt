@@ -3,7 +3,7 @@ this tests checks secure boot upgrade
 
 In order to run this test, you need to specify the following argument:
 	1. --target_image_list (to contain the non secure image path)
-	2. --upgrade_type always set to cold
+	2. --upgrade_type always set always to cold
 e.g.:
 (from tests dir)
 	pytest platform_tests/test_secure_boot.py <regular arguments> --target_image_list non_secure_image.bin --upgrade_type cold
