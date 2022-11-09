@@ -2,13 +2,11 @@ test_features.py
 test_interfaces.py
 test_nbr_health.py
 test_pretest.py
-test_procdockerstatsd.py
-lldp/test_lldp.py
+lldp/test_lldp.py::test_lldp
 test_posttest.py
 arp/test_arpall.py::test_arp_no_reply_src_out_range
 arp/test_neighbor_mac_noptf.py::testNeighborMacNoPtf
 cacl/test_cacl_application.py
-dhcp_relay/test_dhcp_relay.py::test_interface_binding
 monit/test_monit_status.py::test_monit_status
 mvrf/test_mgmtvrf.py:test_curl
 scp/test_scp_copy.py::test_scp_copy
