@@ -8,13 +8,13 @@ from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.upgrade_path.upgrade_helpers import check_services, check_sonic_version, \
      install_sonic, check_reboot_cause
-from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from tests.upgrade_path.test_upgrade_path import upgrade_path_lists
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('physical'),
+    pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 logger = logging.getLogger(__name__)
