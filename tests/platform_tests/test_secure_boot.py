@@ -28,7 +28,6 @@ def keep_same_version_installed(duthost):
     @summary: extract the current version installed as shown in the "show boot" output.
     and restore original image installed after the test run
     :param duthost: device under test
-    :return: the version currently installed
     '''
     output = duthost.shell("show boot")['stdout']
     results = re.findall(r"Current\s*\:\s*(.*)\n", output)
