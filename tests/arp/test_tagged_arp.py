@@ -6,7 +6,7 @@ import logging
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_ports_list   # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list   # noqa F401
 from tests.common.helpers.assertions import pytest_require
 
 
