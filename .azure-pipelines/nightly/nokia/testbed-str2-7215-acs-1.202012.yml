@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms18-t0-7215-acs-1
+    default: testbed-str2-7215-acs-1
     displayName: "Testbed Name"
 
   # Upgrade parameters

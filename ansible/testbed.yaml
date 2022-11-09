@@ -615,7 +615,7 @@
   auto_recover: 'True'
   comment: lawlee
 
-- conf-name: vms12-9-t0-e1031
+- conf-name: testbed-str-e1031-acs-3
   group-name: vms12-9
   topo: t0-52
   ptf_image_name: docker-ptf
@@ -705,7 +705,7 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms18-t0-7215-acs-1
+- conf-name: testbed-str2-7215-acs-1
   group-name: vms18-2
   topo: m0
   ptf_image_name: docker-ptf
@@ -1036,7 +1036,7 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms21-t0-7215-acs-3
+- conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9
   topo: m0
   ptf_image_name: docker-ptf
@@ -1627,7 +1627,7 @@
     - lab-msft-sup-1
   comment: Chasiss Testbed
   
-- conf-name: bjw-vms6-t0-720dt-1
+- conf-name: testbed-bjw-can-720dt-1
   group-name: bjw6-1
   topo: m0
   ptf_image_name: docker-ptf
@@ -1642,7 +1642,7 @@
   auto_recover: 'True'
   comment: Beijing lab
 
-- conf-name: bjw-vms6-t1-lag-ec9516-1
+- conf-name: testbed-bjw-can-ec9516-1
   group-name: bjw6-2
   topo: t1-lag
   ptf_image_name: docker-ptf
