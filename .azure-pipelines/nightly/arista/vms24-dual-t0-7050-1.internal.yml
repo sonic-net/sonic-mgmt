@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 1,3"
+  - cron: "0 10 * * 1,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -45,7 +45,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces"'
+    default: '-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'
     displayName: Testbed specific
 
 stages:

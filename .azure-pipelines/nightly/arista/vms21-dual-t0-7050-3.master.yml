@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 2 * * 0,2"
+  - cron: "0 10 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -18,13 +18,13 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms24-dual-t0-7050-2
+    default: vms21-dual-t0-7050-3
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
   # Deploy parameters
@@ -35,17 +35,17 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_PUBLIC)
     displayName: "py_saithrift URL"
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "platform_tests/test_cont_warm_reboot.py"
+    default: "platform_tests/test_cont_warm_reboot.py dualtor/test_orch_stress.py"
     displayName: "Skip Scripts"
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io platform_tests"'
+    default: '-S "span sub_port_interfaces dualtor_io platform_tests dualtor qos pc generic_config_updater acl drop_packets snmp"'
     displayName: Testbed specific
 
 stages:
