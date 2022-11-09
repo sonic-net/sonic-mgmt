@@ -32,7 +32,7 @@ Manual ACL configuration can be done using swssconfig utility in swss container.
 
     swssconfig <json-file to apply>
 
-## Test structure 
+## Test structure
 ### Setup configuration
 ACL configuration should be created on the DUT before running the test. Configuration could be deployed using ansible sonic test playbook with the tag acltb_configure.
 
@@ -45,10 +45,10 @@ There will be two j2 template files for the ACL test configuration: acltb_test_t
 ##### acl_testbed.yml
 
 acl_testbed.yml when run with ***different tags*** will
- 
-Tag ***acltb_configure*** will generate acl json files for the ACL test out of the corresponding j2 files and apply them on the switch.  
-Tag ***acltb_test*** will run ACL test (or ACL+LAG) test.  
-Tag ***acltb_cleanup*** will clear the test ACL configuration from the switch.  
+
+Tag ***acltb_configure*** will generate acl json files for the ACL test out of the corresponding j2 files and apply them on the switch.
+Tag ***acltb_test*** will run ACL test (or ACL+LAG) test.
+Tag ***acltb_cleanup*** will clear the test ACL configuration from the switch.
 
 ACL test consists of a number of subtests, and each of them will include the following steps:
 
@@ -110,18 +110,18 @@ acltb_test_rules.j2 will contain ACL rules needed for the test
 
 ACL Rules:
 
-**RulesN..N+1000-<existing>:** Any rules, action: forward (placeholder)  
-**Rule#1:** match src ip 10.0.0.2, action: drop  
-**Rule#2:** match dst ip TBD, action: drop  
-**Rule#3:** match l4_src_port 0x1235, action: drop  
-**Rule#4:** match l4_dst_port 0x1235, action: drop  
-**Rule#5:** match ether type 0x1234, action: forward  
-**Rule#6:** match ip protocol 0x7E, action: drop  
-**Rule#7:** match tcp flags 0xFF/RST, action: drop  
-**Rule#8:** match ip type TBD, action: drop  
-**Rules#9.1-9.8:** match source ports range [[0x1240..0x1249], [0x1250..0x1259]...], action: drop (8 rules with different port ranges)  
-**Rule#10.1-10.8:** match destination ports range [[0x1240..0x1249], [0x1250..0x1259]...], action: drop (8 rules with different port ranges)  
-**Rules#11-12:** check priority: match some src ip 10.0.0.3, action: drop + match src ip 10.0.0.3 (higher prio), action: forward  
+**RulesN..N+1000-<existing>:** Any rules, action: forward (placeholder)
+**Rule#1:** match src ip 10.0.0.2, action: drop
+**Rule#2:** match dst ip TBD, action: drop
+**Rule#3:** match l4_src_port 0x1235, action: drop
+**Rule#4:** match l4_dst_port 0x1235, action: drop
+**Rule#5:** match ether type 0x1234, action: forward
+**Rule#6:** match ip protocol 0x7E, action: drop
+**Rule#7:** match tcp flags 0xFF/RST, action: drop
+**Rule#8:** match ip type TBD, action: drop
+**Rules#9.1-9.8:** match source ports range [[0x1240..0x1249], [0x1250..0x1259]...], action: drop (8 rules with different port ranges)
+**Rule#10.1-10.8:** match destination ports range [[0x1240..0x1249], [0x1250..0x1259]...], action: drop (8 rules with different port ranges)
+**Rules#11-12:** check priority: match some src ip 10.0.0.3, action: drop + match src ip 10.0.0.3 (higher prio), action: forward
 
 /if needed additionally match src ip/
 
@@ -146,16 +146,16 @@ Packet with the values below should not trigger any "drop" rule.
   src = [auto]
   type = 0x800
 ###[ IP ]###
-    version = 4  
-    ttl = <auto>  
-    proto = tcp  
-    chksum = None  
-    src = 10.0.0.1  
+    version = 4
+    ttl = <auto>
+    proto = tcp
+    chksum = None
+    src = 10.0.0.1
     dst = [get_from_route_info]
-###[ TCP ]###  
-    sport = 4660 (0x1234)  
-    dport = http (80)  
-    flags = S  
+###[ TCP ]###
+    sport = 4660 (0x1234)
+    dport = http (80)
+    flags = S
 </pre>
 
 ### Test case \#0 - Resources consuming test
@@ -180,10 +180,10 @@ Verify match source IP address works.
 <pre>
 ...
 ###[ IP ]###
-    version = 4  
-    ttl = <auto>  
-    proto = tcp  
-    chksum = None  
+    version = 4
+    ttl = <auto>
+    proto = tcp
+    chksum = None
     <b>src = 10.0.0.2</b>
     dst = [get_from_route_info]
 ...
@@ -206,10 +206,10 @@ Verify match destination IP address works.
 <pre>
 ...
 ###[ IP ]###
-    version = 4  
-    ttl = <auto>  
-    proto = tcp  
-    chksum = None  
+    version = 4
+    ttl = <auto>
+    proto = tcp
+    chksum = None
     src = 10.0.0.1
     <b>dst = [get_from_route_info]</b>
 ...
@@ -231,7 +231,7 @@ Verify match L4 source port works.
 #### Packet to trigger the rule #3
 <pre>
 ...
-###[ TCP ]###  
+###[ TCP ]###
     <b>sport = 4661 (0x1235)</b>
     dport = 80
     flags = S
@@ -253,7 +253,7 @@ Verify match L4 source port works.
 #### Packet to trigger the rule #4
 <pre>
 ...
-###[ TCP ]###  
+###[ TCP ]###
     sport = 4660 (0x1234)
     <b>dport = 4661 (0x1235)</b>
     flags = S
@@ -299,11 +299,11 @@ Verify match ip protocol works.
 <pre>
 ...
 ###[ IP ]###
-    version = 4  
-    ttl = <auto>  
+    version = 4
+    ttl = <auto>
     <b>proto = 0x7E</b>
-    chksum = None  
-    src = 10.0.0.1  
+    chksum = None
+    src = 10.0.0.1
     dst = [get_from_route_info]
 </pre>
 ...
@@ -324,7 +324,7 @@ Verify match TCP flags works.
 #### Packet to trigger the rule #7
 <pre>
 ...
-###[ TCP ]###  
+###[ TCP ]###
     sport = 4660 (0x1234)
     dport = 80
     <b>flags = RS</b>
@@ -359,7 +359,7 @@ Verify match source port range works.
 #### Packet to trigger the rule #9
 <pre>
 ...
-###[ TCP ]###  
+###[ TCP ]###
     <b>sport = 0x1236..0x1240</b>
     dport = 80
     flags = S
@@ -380,7 +380,7 @@ Verify match destination port range works.
 #### Packet to trigger the rule #9
 <pre>
 ...
-###[ TCP ]###  
+###[ TCP ]###
     sport = 0x1234
     <b>dport = 0x1236..0x1240</b>
     flags = S
@@ -409,7 +409,7 @@ Verify rules priority works.
 
 #### Test objective
 
-Verify rules are not triggered by mistake.  
+Verify rules are not triggered by mistake.
 This test should be executed the last.
 
 #### Test steps
