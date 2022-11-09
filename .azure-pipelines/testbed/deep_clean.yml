@@ -94,7 +94,7 @@ parameters:
         pool: nightly
         testbeds:
           - vms18-t0-7050qx-acs-02
-          - vms18-t0-7215-acs-1
+          - testbed-str2-7215-acs-1
           - vms18-t1-7050qx-acs-03
           - vms18-t1-msn4600c-acs-1
           - testbed-str2-pikez-acs-1
@@ -119,7 +119,7 @@ parameters:
           - vms21-dual-t0-7050-3
           - vms21-dual-t0-7260
           - vms21-t0-2700
-          - vms21-t0-7215-acs-3
+          - testbed-str2-7215-acs-3
           - vms21-t1-8102-01
           - vms21-t0-dx010-7
           - vms21-t0-z9332f-02

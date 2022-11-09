@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 7 * * 0-5"
+  - cron: "0 11 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -18,19 +18,19 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms18-t0-7215-acs-1
+    default: testbed-bjw-can-ec9516-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MARVELL_202012)
+    default: $(BJW_IMAGE_BFN_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MARVELL_202012)
+    default: $(BJW_SAITHRIFT_BFN_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: EXTRA_PARAMS
@@ -43,6 +43,16 @@ parameters:
     default: "platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Skip Scripts"
 
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-bjw
+    displayName: "Agent pool"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -51,3 +61,5 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}

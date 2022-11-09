@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: bjw-vms6-t0-720dt-1
+    default: testbed-bjw-can-720dt-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
