@@ -30,7 +30,7 @@ def keep_same_version_installed(duthost):
     :return: the version currently installed
     '''
     output = duthost.shell("show boot")['stdout']
-    results = re.findall("Current\s*\:\s*(.*)\n", output)
+    results = re.findall(r"Current\s*\:\s*(.*)\n", output)
     pytest_assert(len(results) > 0, "Current image is empty!")
     current_version = results[0]
     yield
@@ -54,7 +54,7 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
     """
     # install non secure image
     logger.info("install non secure image - expect fail, image path = {}".format(non_secure_image_path))
-    result = "image install failure" # because we expect fail
+    result = "image install failure"  # because we expect fail
     try:
         # in case of success result will take the target image name
         result = install_sonic(duthost, non_secure_image_path, tbinfo)
