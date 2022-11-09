@@ -66,7 +66,3 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
             "failure was not due to security limitations")
     finally:
         pytest_assert(result == "image install failure", "non-secure image was successfully installed")
-<<<<<<< af387af592ef9da73caf04f47ecc46305fe40a01
-
-=======
->>>>>>> Adding new test case for non secure upgarde failure check:
