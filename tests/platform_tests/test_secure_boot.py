@@ -22,7 +22,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='function', autouse=True)
 def keep_same_version_installed(duthost):
     '''
     @summary: extract the current version installed as shown in the "show boot" output.
