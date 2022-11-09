@@ -62,7 +62,8 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
     except RunAnsibleModuleFail as err:
         err_msg = str(err.results._check_key("module_stdout"))
         logger.info("Expected fail, msg : {}".format(err_msg))
-        pytest_assert("Failure: CMS signature verification failed" in str(err_msg),
-                      "failure was not due to security limitations")
+        pytest_assert(
+            "Failure: CMS signature verification failed" in str(err_msg),
+            "failure was not due to security limitations")
     finally:
         pytest_assert(result == "image install failure", "non-secure image was successfully installed")
