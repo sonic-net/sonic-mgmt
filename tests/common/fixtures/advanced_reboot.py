@@ -173,7 +173,6 @@ class AdvancedReboot:
             config_facts = self.duthost.get_running_config_facts()
             vlan_table = config_facts['VLAN']
             vlan_name = list(vlan_table.keys())[0]
-            vlan_mac = self.duthost.get_dut_face_mac(vlan_name)
             vlan_mac = vlan_table[vlan_name]['mac']
             self.rebootData['vlan_mac'] = vlan_mac
         else:
