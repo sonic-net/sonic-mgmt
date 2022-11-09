@@ -526,6 +526,10 @@ After wan-pub testbed is deployed, internal of the wan-pub topology looks like b
 
 ![](./img/testbed-wan-pub-vssetup.png)
 
+After wan-pub with cisco neighbor testbed is deployed, internal of the wan-pub topology looks like below:
+
+![](./img/testbed-wan-pub-cisco.png)
+
 Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
 
 ```yaml
@@ -546,6 +550,11 @@ Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below
 After wan-xlink testbed is deployed, internal of the wan-xlink topology looks like below:
 
 ![](./img/testbed-wan-xlink-vssetup.png)
+
+After wan-xlink with cisco neighbor testbed is deployed, internal of the wan-xlink topology looks like below:
+
+![](./img/testbed-wan-xlink-cisco.png)
+
 
 Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
 
@@ -568,3 +577,7 @@ Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as b
 After wan-xdut testbed is deployed, internal of the wan-xdut topology looks like below:
 
 ![](./img/testbed-wan-xdut-xlink-vssetup.png)
+
+After wan-xdut with cisco neighbor testbed is deployed, internal of the wan-xdut topology looks like below:
+
+![](./img/testbed-wan-xdut-xlink-cisco.png)
