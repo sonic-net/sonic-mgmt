@@ -730,7 +730,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32'] and asic_type not in ['mellanox']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
@@ -831,13 +831,9 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node"
+    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue"
     conditions:
-      - "is_supervisor"
-  skip:
-    reason: "M0 topo does not support test_snmp_queue"
-    conditions:
-      - "topo_name in ['m0']"
+      - "is_supervisor or topo_name in ['m0']"
 
 #######################################
 #####            span             #####
