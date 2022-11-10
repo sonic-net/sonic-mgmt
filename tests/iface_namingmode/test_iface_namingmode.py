@@ -6,6 +6,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -441,7 +442,7 @@ class TestShowQueue():
         supported_queues = set(re.findall(r'SAI_QUEUE_TYPE_(\w*)', ''.join(redis_out)))
         return supported_queues
 
-    def test_show_queue_counters(self, setup, setup_config_mode):
+    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
@@ -450,11 +451,22 @@ class TestShowQueue():
         queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC\|ALL"'.format(ifmode))['stdout']
         logger.info('queue_counter:\n{}'.format(queue_counter))
 
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        buffer_queue_keys = redis_get_keys(duthost, 'CONFIG_DB', 'BUFFER_QUEUE|*')
+        interfaces = set()
+
+        for key in buffer_queue_keys:
+            try:
+                interfaces.add(key.split('|')[1])
+            except IndexError:
+                pass
+
         if mode == 'alias':
-            for alias in setup['port_alias']:
+            for intf in interfaces:
+                alias = setup['port_name_map'][intf]
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
         elif mode == 'default':
-            for intf in setup['default_interfaces']:
+            for intf in interfaces:
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
@@ -482,12 +494,13 @@ class TestShowQueue():
         show_queue_pwm_cast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue persistent-watermark {}'.format(ifmode, queues))['stdout']
         logger.info('show_queue_pwm_cast:\n{}'.format(show_queue_pwm_cast))
 
-        if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_pwm_cast) is not None
-        elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_pwm_cast) is not None
+        if show_queue_pwm_cast != "Object map from the COUNTERS_DB is empty because the multicast queues are not configured in the CONFIG_DB!":
+            if mode == 'alias':
+                for alias in setup['port_alias']:
+                    assert re.search(r'{}'.format(alias), show_queue_pwm_cast) is not None
+            elif mode == 'default':
+                for intf in setup['default_interfaces']:
+                    assert re.search(r'{}'.format(intf), show_queue_pwm_cast) is not None
 
     @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
     def test_show_queue_watermark(self, setup, setup_config_mode, queues, supported_queues):

@@ -161,6 +161,9 @@ def test_announce_routes(fib):
     assert True
 ```
 
+## Announce routes
+For more details about announce_routes, please refer to: [AnnounceRoutes.Internal.md](./READ.testbed.AnnounceRoutes.Internal.md)
+
 ## Q&A
 Q: Why not use exabgp to advertise routes directly to the DUT?
 A: Yes, we can. But, we could not simulate the BGP over LAG as there is no LAG protocol

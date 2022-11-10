@@ -48,12 +48,18 @@ class TestPlanManager(object):
         except Exception as e:
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
-    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="", min_worker=1, max_worker=2, pr_id="unknown", scripts=[],
-               output=None):
+    def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
-        print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name, repo_name, pr_id, build_id))
+        print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
+                                                                                       repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
+
+        common_params = ["--completeness_level=confident", "--allow_recover"]
+        for param in common_extra_params:
+            common_params.append(param)
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -72,23 +78,26 @@ class TestPlanManager(object):
                     "features_exclude": [],
                     "scripts_exclude": []
                 },
-                "common_params": [
-                    "--completeness_level=confident",
-                    "--allow_recover"
-                ],
-                "specified_params": {
-                },
+                "common_params": common_params,
+                "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
                 "source_repo": repo_name,
-                "kvm_build_id": kvm_build_id
+                "kvm_build_id": kvm_build_id,
+                "dump_kvm_if_fail": True,
+                "mgmt_branch": kwargs["mgmt_branch"],
+                "testbed": {
+                    "num_asic": kwargs["num_asic"],
+                    "vm_type": kwargs["vm_type"]
+                },
             },
             "priority": 10,
             "requester": "pull request"
         })
+        print('Creating test plan with payload: {}'.format(payload))
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
@@ -140,7 +149,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_state=""):
+    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -148,7 +157,7 @@ class TestPlanManager(object):
                                                                 |-- FINISHED
         '''
 
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}" \
+        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
         print("Max polling time: {} seconds".format(timeout))
@@ -184,22 +193,26 @@ class TestPlanManager(object):
 
             if status in ["FINISHED", "CANCELLED", "FAILED"]:
                 if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds" \
+                    print("Test plan is successfully {}. Elapsed {:.0f} seconds"
                           .format(status, time.time() - start_time))
                     return
                 else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds" \
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
                                     .format(test_plan_id, status, result, time.time() - start_time))
-            elif status == expected_state:
+            elif status in expected_states:
+                if status == "KVMDUMP":
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
+                                    .format(test_plan_id, status, result, time.time() - start_time))
                 return
             else:
-                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds" \
+                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
                       .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled" \
+            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
                             .format(poll_url))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -273,6 +286,47 @@ if __name__ == "__main__":
         required=False,
         help="KVM build id."
     )
+    parser_create.add_argument(
+        "--mgmt-branch",
+        type=str,
+        dest="mgmt_branch",
+        default="master",
+        required=False,
+        help="Branch of sonic-mgmt repo to run the test"
+    )
+    parser_create.add_argument(
+        "--vm-type",
+        type=str,
+        dest="vm_type",
+        default="ceos",
+        required=False,
+        help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--specified-params",
+        type=str,
+        dest="specified_params",
+        default="{}",
+        required=False,
+        help="Test module specified params"
+    )
+    parser_create.add_argument(
+        "--common-extra-params",
+        type=str,
+        dest="common_extra_params",
+        default="",
+        nargs='*',
+        required=False,
+        help="Run test common extra params"
+    )
+    parser_create.add_argument(
+        "--num-asic",
+        type=int,
+        dest="num_asic",
+        default=1,
+        required=False,
+        help="The asic number of dut"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -280,19 +334,19 @@ if __name__ == "__main__":
     for p in [parser_cancel, parser_poll]:
         p.add_argument(
             "-i", "--test-plan-id",
-            type=int,
+            type=str,
             dest="test_plan_id",
             required=True,
             help="Test plan id."
         )
 
     parser_poll.add_argument(
-        "-e", "--expected-state",
+        "-e", "--expected-states",
         type=str,
-        dest="expected_state",
+        dest="expected_states",
         required=False,
+        nargs='*',
         help="Expected state.",
-        choices = ["PREPARE_TESTBED", "EXECUTING", "FINISHED"],
         default="FINISHED"
     )
     parser_poll.add_argument(
@@ -317,6 +371,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     args = parser.parse_args()
+
+    if "test_plan_id" in args:
+        # vso may add unexpected "'" as trailing symbol
+        # https://github.com/microsoft/azure-pipelines-tasks/issues/10331
+        args.test_plan_id = args.test_plan_id.replace("'", "")
+
     print("Test plan utils parameters: {}".format(args))
     auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
     required_env = ["TESTBED_TOOLS_URL"]
@@ -352,12 +412,12 @@ if __name__ == "__main__":
 
             test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                repo=repo,
-                reason=reason,
-                pr_id=pr_id,
-                build_id=build_id,
-                job_name=job_name
-            ).replace(' ', '_')
+                    repo=repo,
+                    reason=reason,
+                    pr_id=pr_id,
+                    build_id=build_id,
+                    job_name=job_name
+                ).replace(' ', '_')
             if args.test_set is None or args.test_set == "":
                 # Use topology as default test set if not passed
                 args.test_set = args.topology
@@ -370,10 +430,15 @@ if __name__ == "__main__":
                 max_worker=args.max_worker,
                 pr_id=pr_id,
                 scripts=get_test_scripts(args.test_set),
-                output=args.output
+                output=args.output,
+                mgmt_branch=args.mgmt_branch,
+                common_extra_params=args.common_extra_params,
+                num_asic=args.num_asic,
+                specified_params=args.specified_params,
+                vm_type=args.vm_type,
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)

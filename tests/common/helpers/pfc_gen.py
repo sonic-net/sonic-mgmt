@@ -44,12 +44,12 @@ def main():
     (options, args) = parser.parse_args()
 
     if options.interface is None:
-        print "Need to specify the interface to send PFC/global pause frame packets."
+        print("Need to specify the interface to send PFC/global pause frame packets.")
         parser.print_help()
         sys.exit(1)
 
     if options.time > 65535 or options.time < 0:
-        print "Quanta is not valid. Need to be in range 0-65535."
+        print("Quanta is not valid. Need to be in range 0-65535.")
         parser.print_help()
         sys.exit(1)
 
@@ -57,11 +57,11 @@ def main():
         # Send global pause frames
         # -p option should not be set
         if options.priority != -1:
-            print "'-p' option is not valid when sending global pause frames ('--global' / '-g')"
+            print("'-p' option is not valid when sending global pause frames ('--global' / '-g')")
             parser.print_help()
             sys.exit(1)
     elif options.priority > 255 or options.priority < 0:
-        print "Enable class bitmap is not valid. Need to be in range 0-255."
+        print("Enable class bitmap is not valid. Need to be in range 0-255.")
         parser.print_help()
         sys.exit(1)
 
@@ -72,7 +72,7 @@ def main():
        for i in range(0, len(interfaces)):
            sockets.append(socket(AF_PACKET, SOCK_RAW))
     except:
-        print "Unable to create socket. Check your permissions"
+        print("Unable to create socket. Check your permissions")
         sys.exit(1)
 
     # Configure logging
@@ -122,13 +122,13 @@ def main():
     pause time      |        0x0000         |
                     -------------------------
     """
-    src_addr = "\x00\x01\x02\x03\x04\x05"
-    dst_addr = "\x01\x80\xc2\x00\x00\x01"
+    src_addr = b"\x00\x01\x02\x03\x04\x05"
+    dst_addr = b"\x01\x80\xc2\x00\x00\x01"
     if options.global_pf:
-        opcode = "\x00\x01"
+        opcode = b"\x00\x01"
     else:
-        opcode = "\x01\x01"
-    ethertype = "\x88\x08"
+        opcode = b"\x01\x01"
+    ethertype = b"\x88\x08"
 
     packet = dst_addr + src_addr + ethertype + opcode
     if options.global_pf:
@@ -142,10 +142,10 @@ def main():
             if (class_enable & (1<<p)):
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
-                packet = packet + "\x00\x00"
+                packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    print "Generating %s Packet(s)" % options.num
+    print("Generating %s Packet(s)" % options.num)
     my_logger.debug(pre_str + '_STORM_START')
     iteration = options.num
     while iteration > 0:
