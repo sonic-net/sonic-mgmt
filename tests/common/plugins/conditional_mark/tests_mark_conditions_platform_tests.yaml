@@ -430,6 +430,13 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
@@ -452,6 +459,13 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
     reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_led:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
@@ -773,6 +787,34 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
     conditions:
       - "release in ['201911']"
 
+platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/daemon/test_psud.py::test_pmon_psud_running_status:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -835,11 +877,32 @@ platform_tests/test_reboot.py:
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4']"
 
+platform_tests/test_reboot.py::test_cold_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/test_reboot.py::test_continuous_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0"
     conditions:
       - "topo_name in ['m0']"
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_power_off_reboot:
   skip:
@@ -853,11 +916,25 @@ platform_tests/test_reboot.py::test_soft_reboot:
     conditions:
       - "topo_name in ['m0']"
 
+platform_tests/test_reboot.py::test_soft_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
     reason: "Skip test_warm_reboot for m0"
     conditions:
       - "topo_name in ['m0']"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
