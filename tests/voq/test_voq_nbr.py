@@ -1194,7 +1194,6 @@ class TestGratArp(object):
                 pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-                ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
             finally:
                 logger.info("Will Restore ethernet mac on neighbor: %s, port %s, vm %s", neighbor,
                             nbrinfo['shell_intf'], nbrinfo['vm'])
