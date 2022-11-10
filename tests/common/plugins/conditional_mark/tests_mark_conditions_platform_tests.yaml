@@ -434,7 +434,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
@@ -464,7 +464,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
@@ -790,28 +790,28 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 #######################################
@@ -880,14 +880,14 @@ platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_continuous_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_fast_reboot:
@@ -900,7 +900,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_power_off_reboot:
@@ -919,7 +919,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_warm_reboot:
@@ -932,7 +932,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "platform in ['x86_64-cel_seastone-r0']"
+      - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
