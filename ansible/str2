@@ -1618,7 +1618,7 @@ sonic_arista_720dt:
         "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_720dt_48s"
-        "0x2A": 65535
+        "0x2A": "0xffff"
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"

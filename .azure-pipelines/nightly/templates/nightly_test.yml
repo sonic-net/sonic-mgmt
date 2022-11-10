@@ -238,6 +238,11 @@ stages:
                         --vault-password-file password.txt \
                         -e pause_time=60 -vv || true
                 fi
+
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BUILD_VERSION_PRE=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                echo "previous image: $BUILD_VERSION_PRE"
+
                 ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                     -i $(INVENTORY_NAME) \
                     -e testbed_name=${{ parameters.TESTBED_NAME }} \
@@ -245,6 +250,15 @@ stages:
                     -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
                     --vault-password-file password.txt \
                     -e pause_time=${{ parameters.PAUSE_TIME }} -vv
+
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BUILD_VERSION=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                echo "current image: $BUILD_VERSION"
+
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$BUILD_VERSION" == "$BUILD_VERSION_PRE" ]]; then
+                  echo "sonic image build version not change after upgrading image"
+                  exit 1
+                fi
 
                 SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
                 BRANCH_NAME=$(echo "$SONIC_VERSION" | grep branch: | cut -d "'" -f2)
