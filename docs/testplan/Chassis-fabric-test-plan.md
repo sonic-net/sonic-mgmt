@@ -70,4 +70,3 @@ Repeat the above test for the following packet sizes (bytes): 64, 256, 1512, 900
 * Verify on the egress ASIC that all fabric links have non-zero value for RX fabric data unit counters.
 * Verify that the RX fabric data unit counters are not less than the TX counters.
 * Verify that there are no increments in error counters.
-

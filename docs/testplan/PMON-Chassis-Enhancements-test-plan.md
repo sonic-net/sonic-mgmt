@@ -665,5 +665,3 @@ This set of test cases will verify expected value return API calls using HTTP se
 #### Pass/Fail Criteria
  * Values are type float and returns applicable values
  * verify value returned for each fan is valid
-
-

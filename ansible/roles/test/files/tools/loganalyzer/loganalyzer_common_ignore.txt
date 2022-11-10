@@ -159,3 +159,6 @@ r, ".* ERR syncd#syncd.*SAI_API_LAG:_brcm_sai_lag_acl_bind_update.*"
 # https://github.com/sonic-net/sonic-buildimage/issues/12303
 r, ".* ERR .*echo_receive: failing to read echo rc.*"
 r, ".* ERR .*echo_receive: last:errno=.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/16110065
+r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
