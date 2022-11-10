@@ -1765,7 +1765,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                 send_packet(
-                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
+                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc // self.pkt_size_factor)
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -1840,8 +1840,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full /
-                            self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial / self.pkt_size_factor)
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full //
+                            self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial // self.pkt_size_factor)
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
@@ -1986,7 +1986,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Test configuration packet counts and sizing should accurately trigger shared limit
         cell_occupancy = (self.packet_size +
-                          self.cell_size - 1) / self.cell_size
+                          self.cell_size - 1) // self.cell_size
         assert sum(self.pkt_counts[:-1]) * cell_occupancy * \
                    self.cell_size < self.shared_limit_bytes
         assert sum(self.pkt_counts) * cell_occupancy * \
@@ -2443,7 +2443,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
-                cell_occupancy = (packet_length + cell_size - 1) / cell_size
+                cell_occupancy = (packet_length + cell_size - 1) // cell_size
                 pkts_num_trig_egr_drp /= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
                 # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
@@ -2558,6 +2558,133 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
+
+class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.client)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg = int(self.test_params['pg']) + 2
+        sonic_version = self.test_params['sonic_version']
+        router_mac = self.test_params['router_mac']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+
+        # get counter names to query
+        ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        # prepare tcp packet data
+        ttl = 64
+
+        pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
+        pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+        if 'packet_size' in self.test_params.keys():
+            packet_length = int(self.test_params['packet_size'])
+            cell_size = int(self.test_params['cell_size'])
+            if packet_length != 64:
+                cell_occupancy = (packet_length + cell_size - 1) // cell_size
+                pkts_num_trig_egr_drp //= cell_occupancy
+        else:
+            packet_length = 64
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        # crafting 2 udp packets with different udp_dport in order for traffic to go through different flows
+        pkt = simple_udp_packet(pktlen=packet_length,
+                                eth_dst=pkt_dst_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=((dscp << 2) | ecn),
+                                udp_sport=1024,
+                                udp_dport=2048,
+                                ip_ecn=ecn,
+                                ip_ttl=ttl)
+
+        pkt2 = simple_udp_packet(pktlen=packet_length,
+                                 eth_dst=pkt_dst_mac,
+                                 eth_src=src_port_mac,
+                                 ip_src=src_port_ip,
+                                 ip_dst=dst_port_ip,
+                                 ip_tos=((dscp << 2) | ecn),
+                                 udp_sport=1024,
+                                 udp_dport=2049,
+                                 ip_ecn=ecn,
+                                 ip_ttl=ttl)
+        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d " % (dst_port_id, src_port_id)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+
+        # get a snapshot of counter values at recv and transmit ports
+        # queue_counters value is not of our interest here
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+        # add slight tolerance in threshold characterization to consider
+        # the case that npu puts packets in the egress queue after we pause the egress
+        # or the leak out is simply less than expected as we have occasionally observed
+        if 'pkts_num_margin' in self.test_params.keys():
+            margin = int(self.test_params['pkts_num_margin'])
+        else:
+            margin = 2
+
+        sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+
+        try:
+            if asic_type == 'cisco-8000':
+                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, int(self.test_params['pg']),
+                       asic_type))
+                # send packets short of triggering egress drop on flow1 and flow2
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+                send_packet(self, src_port_id, pkt2, pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
+
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters[cntr] == recv_counters_base[cntr])
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr])
+
+            # send 1 packet to trigger egress drop
+            send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            send_packet(self, src_port_id, pkt2, 1 + 2 * margin)
+            # allow enough time for the dut to sync up the counter values in counters_db
+            time.sleep(8)
+            # get a snapshot of counter values at recv and transmit ports
+            # queue counters value is not of our interest here
+            recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+            xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+            # recv port no pfc
+            assert(recv_counters[pg] == recv_counters_base[pg])
+            # recv port no ingress drop
+            for cntr in ingress_counters:
+                assert(recv_counters[cntr] == recv_counters_base[cntr])
+            # xmit port egress drop
+            for cntr in egress_counters:
+                assert(xmit_counters[cntr] > xmit_counters_base[cntr])
+
+        finally:
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+
 # pg shared pool applied to both lossy and lossless traffic
 
 
@@ -2592,7 +2719,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
 
-        cell_occupancy = (packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl = 64
@@ -2693,7 +2820,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
-            pkts_inc = (total_shared / cell_occupancy) >> 2
+            pkts_inc = (total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
@@ -2705,7 +2832,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff = (expected_wm - total_shared +
-                            cell_occupancy - 1) / cell_occupancy
+                            cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
@@ -2876,7 +3003,9 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(
                 self.client, port_list[src_port_id])
             print("exceeded pkts num sent: %d" % (pkts_num), file=sys.stderr)
-            print("lower bound: %d, actual value: %d, upper bound: %d" % ((expected_wm - margin) * cell_size * cell_occupancy, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size * cell_occupancy), file=sys.stderr)
+            print("lower bound: %d, actual value: %d, upper bound: %d" %
+                  ((expected_wm - margin) * cell_size * cell_occupancy, pg_headroom_wm_res[pg],
+                   ((expected_wm + margin) * cell_size * cell_occupancy)), file=sys.stderr)
             assert(expected_wm == total_hdrm)
             assert(pg_headroom_wm_res[pg] <= (
                 expected_wm + margin) * cell_size * cell_occupancy)
@@ -2952,7 +3081,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 if 'cisco-8000' in asic_type:
                     queue_counters=sai_thrift_read_queue_occupancy(
                         self.client, dst_port_id)
-                    occ_pkts=queue_counters[queue] / (packet_length + 24)
+                    occ_pkts=queue_counters[queue] // (packet_length + 24)
                     leaked_pkts=pkts_num_trig_pfc - occ_pkts
                     print("resending leaked packets {}".format(
                         leaked_pkts), file=sys.stderr)
@@ -3018,7 +3147,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl=64
@@ -3112,7 +3241,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm=0
             total_shared=pkts_num_trig_drp - pkts_num_fill_min - 1
-            pkts_inc=(total_shared / cell_occupancy) >> 2
+            pkts_inc=(total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 pkts_total=0  # track total desired queue fill level
                 pkts_num=1
@@ -3123,7 +3252,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff=(expected_wm - total_shared + \
-                          cell_occupancy - 1) / cell_occupancy
+                          cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment=total_shared - expected_wm
@@ -3243,7 +3372,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         pkt=simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
