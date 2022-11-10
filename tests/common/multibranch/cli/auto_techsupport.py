@@ -85,7 +85,7 @@ class AutoTechSupportCliDefault:
         """
         with allure.step('Parsing "show auto-techsupport-feature" output'):
             result_dict = {}
-            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+\.\d|N\/A)'
+            regexp = r'(.*)\s+(enabled|disabled)\s+(\d+)\s+(\d+|\d+\.\d+|N\/A)'
             cmd_output = self.show_auto_techsupport_feature()
 
             name_index = 0
