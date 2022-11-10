@@ -65,8 +65,7 @@ def neighbor_reachable(duthost, neighbor_ip):
 
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost, testbed_setup,
-    rand_selected_dut, tbinfo,
-    require_mocked_dualtor, set_crm_polling_interval,
+    rand_selected_dut, tbinfo, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -139,8 +138,7 @@ def test_active_tor_remove_neighbor_downstream_active(
 
 def test_downstream_ecmp_nexthops(
     ptfadapter, rand_selected_dut, tbinfo,
-    require_mocked_dualtor, toggle_all_simulator_ports,
-    tor_mux_intfs, ip_version
+    toggle_all_simulator_ports, tor_mux_intfs, ip_version
     ):
     nexthops_count = 4
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
