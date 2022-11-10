@@ -58,8 +58,8 @@ def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend
         config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
-def bgp_enabled(duthost):
-    return 'BGP instance not found' not in duthost.shell('show ip bgp neighbors')['stdout']
+def has_bgp_neighbors(duthost, portchannel):
+    return duthost.shell("show ip int | grep {} | awk '{{print $4}}'".format(portchannel))['stdout'] != 'N/A'
 
 
 def pc_active(asichost, portchannel):
@@ -114,8 +114,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
-            or not pc_active(asichost, portchannel))
+            has_bgp_neighbors(duthost, portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            or not wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
         # Step 3: Create tmp portchannel
         asichost.config_portchannel(tmp_portchannel, "add")
@@ -136,8 +136,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
-            or pc_active(asichost, tmp_portchannel))
+            has_bgp_neighbors(duthost, tmp_portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, asichost, tmp_portchannel))
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
@@ -159,8 +159,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
         time.sleep(5)
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
-            or pc_active(asichost, portchannel))
+            has_bgp_neighbors(duthost, portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
 
 def test_po_update_io_no_loss(
@@ -244,8 +244,8 @@ def test_po_update_io_no_loss(
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][pc]['link'])
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
-            or not pc_active(asichost, pc))
+            has_bgp_neighbors(duthost, pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            or not wait_until(10, 10, 0, pc_active, asichost, pc))
 
         # Step 3: Create tmp port channel with default min-links(1)
         asichost.config_portchannel(tmp_pc, "add")
@@ -267,8 +267,8 @@ def test_po_update_io_no_loss(
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['link'])
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
-            or pc_active(asichost, tmp_pc))
+            has_bgp_neighbors(duthost, tmp_pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, asichost, tmp_pc))
 
         # Keep sending packets, and add/del different members during that time, observe whether packets lose
         pkt = testutils.simple_ip_packet(
@@ -339,8 +339,8 @@ def test_po_update_io_no_loss(
         if create_tmp_pc:
             asichost.config_portchannel(tmp_pc, "del")
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
-            or not pc_active(asichost, tmp_pc))
+            has_bgp_neighbors(duthost, tmp_pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            or not wait_until(10, 10, 0, pc_active, asichost, tmp_pc))
         if remove_pc_ip:
             asichost.config_ip_intf(pc, pc_ip + "/31", "add")
         if remove_pc_members:
@@ -349,5 +349,5 @@ def test_po_update_io_no_loss(
 
         time.sleep(5)
         pytest_assert(
-            bgp_enabled(duthost) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
-            or pc_active(asichost, pc))
+            has_bgp_neighbors(duthost, pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, asichost, pc))
