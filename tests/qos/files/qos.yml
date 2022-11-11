@@ -1470,6 +1470,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1480,6 +1481,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1668,6 +1670,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1678,6 +1681,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1860,6 +1864,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1870,6 +1875,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -2017,6 +2023,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -2027,6 +2034,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
