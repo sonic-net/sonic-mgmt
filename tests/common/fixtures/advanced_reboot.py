@@ -169,14 +169,13 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
-        if "dualtor" in tbinfo['topo']['name']:
-            config_facts = self.duthost.get_running_config_facts()
-            vlan_table = config_facts['VLAN']
+        vlan_mac = self.rebootData['dut_mac']
+        config_facts = self.duthost.get_running_config_facts()
+        vlan_table = config_facts.get('VLAN', None)
+        if vlan_table:
             vlan_name = list(vlan_table.keys())[0]
-            vlan_mac = vlan_table[vlan_name]['mac']
-            self.rebootData['vlan_mac'] = vlan_mac
-        else:
-            self.rebootData['vlan_mac'] = self.rebootData['dut_mac']
+            vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
+        self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
