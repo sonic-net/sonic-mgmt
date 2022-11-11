@@ -148,7 +148,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
     # Create a shell script to do the operations like fallocate and remove file,
     # because when space is full, duthost.command() is not work
 
-    # i. First get how many space was left in /tmp mounted partition, the output of "df /tmp" was like below:
+    # i. First, get how much space total has in /tmp mounted partition, the output of "df /tmp" was like below:
     #   Filesystem     1K-blocks    Used Available Use% Mounted on
     #   root-overlay    14874056 6429908   8427764  44% /
     df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
