@@ -171,6 +171,15 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
+        vlan_mac = self.rebootData['dut_mac']
+        config_facts = self.duthost.get_running_config_facts()
+        vlan_table = config_facts.get('VLAN', None)
+        if vlan_table:
+            vlan_name = list(vlan_table.keys())[0]
+            vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
+        self.rebootData['vlan_mac'] = vlan_mac
+        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
             if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
@@ -628,6 +637,8 @@ class AdvancedReboot:
             "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
             "ports_file" : self.rebootData['ports_file'],
             "dut_mac" : self.rebootData['dut_mac'],
+            "vlan_mac" : self.rebootData['vlan_mac'],
+            "lo_prefix" : self.rebootData['lo_prefix'],
             "default_ip_range" : self.rebootData['default_ip_range'],
             "vlan_ip_range" : self.rebootData['vlan_ip_range'],
             "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
