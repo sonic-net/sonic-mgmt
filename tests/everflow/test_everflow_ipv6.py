@@ -9,7 +9,7 @@ from everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "m0", "mx")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"

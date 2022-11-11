@@ -60,12 +60,6 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
-bgp/test_bgp_speaker.py:
-  skip:
-    reason: "M0 topo does not support test_bgp_speaker"
-    conditions:
-      - "topo_name in ['m0']"
-
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
@@ -137,7 +131,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0', 'mx']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   xfail:
@@ -150,9 +144,9 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
-    reason: "Unsupported topology, expected to run only on 'T0*' or 'M0' topology"
+    reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
     conditions:
-      - "'t0' not in topo_name and 'm0' not in topo_name"
+      - "'t0' not in topo_name and topo_name not in ['m0', 'mx']"
 
 #######################################
 #####            decap            #####
@@ -202,9 +196,9 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
 #######################################
 drop_packets:
   skip:
-    reason: "M0 topo does not support drop_packets"
+    reason: "M0/MX topo does not support drop_packets"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####           dualtor           #####
@@ -319,12 +313,6 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
-everflow:
-  skip:
-    reason: "Skipping everflow tests. Unsupported topology."
-    conditions:
-      - "'backend' in topo_name or topo_name in ['m0']"
-
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed."
@@ -345,7 +333,7 @@ fdb/test_fdb_mac_expire.py:
   skip:
     reason: "Not supported on this DUT topology."
     conditions:
-      - "topo_type not in ['t0', 'm0']"
+      - "topo_type not in ['t0', 'm0', 'mx']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -355,12 +343,6 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
-
-generic_config_updater/test_bgp_speaker.py:
-  skip:
-    reason: "M0 topo does not support test_bgp_speaker"
-    conditions:
-      - "topo_name in ['m0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -391,9 +373,9 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
   skip:
-    reason: "M0 topo does not support TestShowPriorityGroup"
+    reason: "M0/MX topo does not support TestShowPriorityGroup"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -411,9 +393,9 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue:
   skip:
-    reason: "M0 topo does not support TestShowQueue"
+    reason: "M0/MX topo does not support TestShowQueue"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####            ip               #####
@@ -443,13 +425,13 @@ ipfwd/test_dip_sip.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 't1', 't2', 'm0']"
+      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0']"
+      - "topo_type not in ['t0', 'm0', 'mx']"
   xfail:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
@@ -497,9 +479,9 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0 topo does not support mvrf"
+    reason: "M0/MX topo does not support mvrf"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####           nat               #####
@@ -593,9 +575,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on m0 or dual tor testbed."
+    reason: "Pfcwd tests skipped on m0/mx or dual tor testbed."
     conditions:
-      - "'dualtor' in topo_name or topo_name in ['m0']"
+      - "'dualtor' in topo_name or topo_name in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -653,9 +635,9 @@ platform_tests/test_auto_negotiation.py:
 #######################################
 qos:
   skip:
-    reason: "M0 topo does not support qos"
+    reason: "M0/MX topo does not support qos"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 qos/test_buffer_traditional.py:
   skip:
@@ -785,12 +767,6 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/sonic-net/sonic-buildimage/issues/4930
 
-route/test_route_perf.py:
-  skip:
-    reason: "M0 topo does not support test_route_perf"
-    conditions:
-      - "topo_name in ['m0']"
-
 #######################################
 #####      show_techsupport       #####
 #######################################
@@ -819,9 +795,9 @@ snmp/test_snmp_lldp.py:
 
 snmp/test_snmp_pfc_counters.py:
   skip:
-    reason: "M0 topo does not support test_snmp_pfc_counters"
+    reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 snmp/test_snmp_phy_entity.py::test_psu_info:
   skip:
