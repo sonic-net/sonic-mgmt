@@ -5,7 +5,7 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0')
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
