@@ -1806,18 +1806,22 @@ def core_dump_and_config_check(duthosts, request):
             pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
             cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
 
+            # Current skipped keys:
+            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
+            #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
+            #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            EXCLUDE_CONFIG_KEYS = set(["MUX_LINKMGR"])
             # Check if there are extra keys in pre running config
-            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys)
+            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
             for key in pre_config_extra_keys:
                 pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
 
             # Check if there are extra keys in cur running config
-            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys)
+            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_KEYS)
             for key in cur_config_extra_keys:
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
 
             # Get common keys in pre running config and cur running config
-            EXCLUDE_CONFIG_KEYS = set([])
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
 
             # Check if the running config is modified after module running
