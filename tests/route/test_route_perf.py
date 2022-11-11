@@ -18,6 +18,9 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
+DEFAULT_NUM_ROUTES = 10000
+DEAFULT_M0_MX_NUM_ROUTES = 500
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -214,11 +217,17 @@ def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_n
     # Retuen time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
+def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
+    if set_num_routes is None:
+        topo_name = tbinfo["topo"]["name"]
+        if topo_name in ["m0", "mx"]:
+            set_num_routes = DEAFULT_M0_MX_NUM_ROUTES
+        else:
+            set_num_routes = DEFAULT_NUM_ROUTES
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50 # Update max num neighbors for multi-asic
