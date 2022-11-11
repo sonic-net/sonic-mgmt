@@ -2315,31 +2315,54 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        print("dst_port_id: %d, src_port_id: %d" %
-              (dst_port_id, src_port_id), file=sys.stderr)
+        qos_remap_enable = bool(self.test_params.get('qos_remap_enable', False))
+        print("dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" %
+              (dst_port_id, src_port_id, qos_remap_enable), file=sys.stderr)
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
             dst_port_mac, src_port_mac, src_port_ip, dst_port_ip), file=sys.stderr)
         asic_type = self.test_params['sonic_asic_type']
         default_packet_length = 1500
         exp_ip_id = 110
-        queue_0_num_of_pkts = int(self.test_params['q0_num_of_pkts'])
-        queue_1_num_of_pkts = int(self.test_params['q1_num_of_pkts'])
-        queue_2_num_of_pkts = int(self.test_params['q2_num_of_pkts'])
-        queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
-        queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
-        queue_5_num_of_pkts = int(self.test_params['q5_num_of_pkts'])
-        queue_6_num_of_pkts = int(self.test_params['q6_num_of_pkts'])
+        queue_0_num_of_pkts = int(self.test_params.get('q0_num_of_pkts', 0))
+        queue_1_num_of_pkts = int(self.test_params.get('q1_num_of_pkts', 0))
+        queue_2_num_of_pkts = int(self.test_params.get('q2_num_of_pkts', 0))
+        queue_3_num_of_pkts = int(self.test_params.get('q3_num_of_pkts', 0))
+        queue_4_num_of_pkts = int(self.test_params.get('q4_num_of_pkts', 0))
+        queue_5_num_of_pkts = int(self.test_params.get('q5_num_of_pkts', 0))
+        queue_6_num_of_pkts = int(self.test_params.get('q6_num_of_pkts', 0))
+        queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         topo = self.test_params['topo']
 
         if 'backend' not in topo:
-            prio_list = [3, 4, 8, 0, 5, 46, 48]
+            if not qos_remap_enable:
+                # When qos_remap is disabled, the map is as below
+                # DSCP TC QUEUE
+                # 3    3    3
+                # 4    4    4
+                # 8    0    0
+                # 0    1    1
+                # 5    2    2
+                # 46   5    5
+                # 48   6    6
+                prio_list = [3, 4, 8, 0, 5, 46, 48]
+                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts, queue_1_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+            else:
+                # When qos_remap is enabled, the map is as below
+                # DSCP TC QUEUE
+                # 3    3    3
+                # 4    4    4
+                # 8    0    0
+                # 0    1    1
+                # 46   5    5
+                # 48   7    7
+                prio_list = [3, 4, 8, 0, 46, 48]
+                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts, queue_1_num_of_pkts, queue_5_num_of_pkts, queue_7_num_of_pkts]
         else:
             prio_list = [3, 4, 1, 0, 2, 5, 6]
-        q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts,
-            queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
-
+            q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts, queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+        q_cnt_sum = sum(q_pkt_cnt)
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         pkt = construct_ip_pkt(64,
@@ -2431,8 +2454,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 diff_list.append((dscp_of_pkt, (queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts +
-                                  queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts))
+                 diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
 
             print(queue_pkt_counters, file=sys.stderr)
 
@@ -2451,8 +2473,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
               queue_counters_base)), file=sys.stderr)
 
         # All packets sent should be received intact
-        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts +
-               queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts == total_pkts)
+        assert(q_cnt_sum == total_pkts)
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
