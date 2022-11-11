@@ -29,7 +29,15 @@ POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
+    # Enable autorestart for all features before the test begins
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        feature_list, _ = duthost.get_feature_status()
+        for feature, status in feature_list.items():
+            if status == 'enabled':
+                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
+    # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
@@ -410,12 +418,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
     logger.info("Start testing the container '{}'...".format(container_name))
 
-    restore_disabled_state = False
-    if feature_autorestart_states[feature_name] == "disabled":
-        logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
-        restore_disabled_state = True
-
     # Currently we select 'rsyslogd' as non-critical processes for testing based on
     # the assumption that every container has an 'rsyslogd' process running and it is not
     # considered to be a critical process
@@ -452,10 +454,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             # why we use 'break' statement. Once we add the "extended" mode, we will remove this
             # statement
             break
-
-    if restore_disabled_state:
-        logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
