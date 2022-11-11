@@ -272,8 +272,9 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        dual_tor_scenario = self.test_params.get('dual_tor_scenario')
-        dual_tor = self.test_params.get('dual_tor')
+        dual_tor_scenario = self.test_params.get('dual_tor_scenario', None)
+        dual_tor = self.test_params.get('dual_tor', None)
+        leaf_downstream = self.test_params.get('leaf_downstream', None)
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -363,40 +364,37 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dual_tor_scenario: represents whether the device is deployed into a dual ToR scenario
             # dual_tor: represents whether the source and destination ports are configured with additional lossless queues
             # According to SONiC configuration all dscp are classified to queue 1 except:
-            #            Normal scenario   Dual ToR scenario
-            #            All ports         Normal ports    Ports with additional lossless queues
-            # dscp  8 -> queue 0           queue 0         queue 0
-            # dscp  5 -> queue 2           queue 1         queue 1
-            # dscp  3 -> queue 3           queue 3         queue 3
-            # dscp  4 -> queue 4           queue 4         queue 4
-            # dscp 46 -> queue 5           queue 5         queue 5
-            # dscp 48 -> queue 6           queue 7         queue 7
-            # dscp  2 -> queue 1           queue 1         queue 2
-            # dscp  6 -> queue 1           queue 1         queue 6
+            #            Normal scenario   Dual ToR scenario                                               Leaf router with separated DSCP_TO_TC_MAP
+            #            All ports         Normal ports    Ports with additional lossless queues           downstream (source is T2)                upstream (source is T0)
+            # dscp  8 -> queue 0           queue 0         queue 0                                         queue 0                                  queue 0
+            # dscp  5 -> queue 2           queue 1         queue 1                                         queue 1                                  queue 1
+            # dscp  3 -> queue 3           queue 3         queue 3                                         queue 3                                  queue 3
+            # dscp  4 -> queue 4           queue 4         queue 4                                         queue 4                                  queue 4
+            # dscp 46 -> queue 5           queue 5         queue 5                                         queue 5                                  queue 5
+            # dscp 48 -> queue 6           queue 7         queue 7                                         queue 7                                  queue 7
+            # dscp  2 -> queue 1           queue 1         queue 2                                         queue 1                                  queue 2
+            # dscp  6 -> queue 1           queue 1         queue 6                                         queue 1                                  queue 6
             # rest 56 dscps -> queue 1
             # So for the 64 pkts sent the mapping should be the following:
-            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57
-            # queue 2/6  1                 0               1
-            # queue 3/4  1                 1               1
-            # queue 5    1                 1               1
-            # queue 7    0                 1               1
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57                                     59                                        57
+            # queue 2/6  1                 0               1                                                0                                         0
+            # queue 3/4  1                 1               1                                                1                                         1
+            # queue 5    1                 1               1                                                1                                         1
+            # queue 7    0                 1               1                                                1                                         1
             # LAG ports can have LACP packets on queue 0, hence using >= comparison
             assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            if dual_tor or not dual_tor_scenario:
-                assert(queue_results[QUEUE_2] == 1 +
-                       queue_results_base[QUEUE_2])
-                assert(queue_results[QUEUE_6] == 1 +
-                       queue_results_base[QUEUE_6])
+            if dual_tor or (dual_tor_scenario == False) or (leaf_downstream == False):
+                assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
+                assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
             else:
                 assert(queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
                 assert(queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
             if dual_tor_scenario:
-                if not dual_tor:
-                    assert(queue_results[QUEUE_1] ==
-                           59 + queue_results_base[QUEUE_1])
+                if (dual_tor == False) or leaf_downstream:
+                    assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
                 else:
                     assert(queue_results[QUEUE_1] ==
                            57 + queue_results_base[QUEUE_1])
@@ -552,6 +550,8 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
+
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
@@ -560,18 +560,27 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 100
         exp_ttl = 63
 
-        # According to SONiC configuration all dscps are classified to pg 0 except:
-        # dscp  3 -> pg 3
-        # dscp  4 -> pg 4
-        # So for the 64 pkts sent the mapping should be -> 62 pg 0, 1 for pg 3, and 1 for pg 4
-        lossy_dscps = list(range(0, 64))
-        lossy_dscps.remove(3)
-        lossy_dscps.remove(4)
-        pg_dscp_map = {
-            3: [3],
-            4: [4],
-            0: lossy_dscps
-        }
+        if not dscp_to_pg_map:
+            # According to SONiC configuration all dscps are classified to pg 0 except:
+            # dscp  3 -> pg 3
+            # dscp  4 -> pg 4
+            # So for the 64 pkts sent the mapping should be -> 62 pg 0, 1 for pg 3, and 1 for pg 4
+            lossy_dscps = list(range(0, 64))
+            lossy_dscps.remove(3)
+            lossy_dscps.remove(4)
+            pg_dscp_map = {
+                3: [3],
+                4: [4],
+                0: lossy_dscps
+            }
+        else:
+            pg_dscp_map = {}
+            for dscp, pg in dscp_to_pg_map.items():
+                if pg in pg_dscp_map:
+                    pg_dscp_map[int(pg)].append(int(dscp))
+                else:
+                    pg_dscp_map[int(pg)] = [int(dscp)]
+
         print(pg_dscp_map, file=sys.stderr)
 
         try:
@@ -1827,7 +1836,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                 send_packet(
-                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc / self.pkt_size_factor)
+                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkts_num_trig_pfc // self.pkt_size_factor)
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -1902,8 +1911,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full /
-                            self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial / self.pkt_size_factor)
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, self.pkts_num_hdrm_full //
+                            self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial // self.pkt_size_factor)
                 # allow enough time for the dut to sync up the counter values in counters_db
                 time.sleep(8)
 
@@ -2048,7 +2057,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Test configuration packet counts and sizing should accurately trigger shared limit
         cell_occupancy = (self.packet_size +
-                          self.cell_size - 1) / self.cell_size
+                          self.cell_size - 1) // self.cell_size
         assert sum(self.pkt_counts[:-1]) * cell_occupancy * \
                    self.cell_size < self.shared_limit_bytes
         assert sum(self.pkt_counts) * cell_occupancy * \
@@ -2306,31 +2315,54 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        print("dst_port_id: %d, src_port_id: %d" %
-              (dst_port_id, src_port_id), file=sys.stderr)
+        qos_remap_enable = bool(self.test_params.get('qos_remap_enable', False))
+        print("dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" %
+              (dst_port_id, src_port_id, qos_remap_enable), file=sys.stderr)
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
             dst_port_mac, src_port_mac, src_port_ip, dst_port_ip), file=sys.stderr)
         asic_type = self.test_params['sonic_asic_type']
         default_packet_length = 1500
         exp_ip_id = 110
-        queue_0_num_of_pkts = int(self.test_params['q0_num_of_pkts'])
-        queue_1_num_of_pkts = int(self.test_params['q1_num_of_pkts'])
-        queue_2_num_of_pkts = int(self.test_params['q2_num_of_pkts'])
-        queue_3_num_of_pkts = int(self.test_params['q3_num_of_pkts'])
-        queue_4_num_of_pkts = int(self.test_params['q4_num_of_pkts'])
-        queue_5_num_of_pkts = int(self.test_params['q5_num_of_pkts'])
-        queue_6_num_of_pkts = int(self.test_params['q6_num_of_pkts'])
+        queue_0_num_of_pkts = int(self.test_params.get('q0_num_of_pkts', 0))
+        queue_1_num_of_pkts = int(self.test_params.get('q1_num_of_pkts', 0))
+        queue_2_num_of_pkts = int(self.test_params.get('q2_num_of_pkts', 0))
+        queue_3_num_of_pkts = int(self.test_params.get('q3_num_of_pkts', 0))
+        queue_4_num_of_pkts = int(self.test_params.get('q4_num_of_pkts', 0))
+        queue_5_num_of_pkts = int(self.test_params.get('q5_num_of_pkts', 0))
+        queue_6_num_of_pkts = int(self.test_params.get('q6_num_of_pkts', 0))
+        queue_7_num_of_pkts = int(self.test_params.get('q7_num_of_pkts', 0))
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         topo = self.test_params['topo']
 
         if 'backend' not in topo:
-            prio_list = [3, 4, 8, 0, 5, 46, 48]
+            if not qos_remap_enable:
+                # When qos_remap is disabled, the map is as below
+                # DSCP TC QUEUE
+                # 3    3    3
+                # 4    4    4
+                # 8    0    0
+                # 0    1    1
+                # 5    2    2
+                # 46   5    5
+                # 48   6    6
+                prio_list = [3, 4, 8, 0, 5, 46, 48]
+                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts, queue_1_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+            else:
+                # When qos_remap is enabled, the map is as below
+                # DSCP TC QUEUE
+                # 3    3    3
+                # 4    4    4
+                # 8    0    0
+                # 0    1    1
+                # 46   5    5
+                # 48   7    7
+                prio_list = [3, 4, 8, 0, 46, 48]
+                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts, queue_1_num_of_pkts, queue_5_num_of_pkts, queue_7_num_of_pkts]
         else:
             prio_list = [3, 4, 1, 0, 2, 5, 6]
-        q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts,
-            queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
-
+            q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts, queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+        q_cnt_sum = sum(q_pkt_cnt)
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         pkt = construct_ip_pkt(64,
@@ -2422,8 +2454,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
             queue_pkt_counters[dscp_of_pkt] += 1
             if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                 diff_list.append((dscp_of_pkt, (queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts +
-                                  queue_3_num_of_pkts + queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts) - total_pkts))
+                 diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
 
             print(queue_pkt_counters, file=sys.stderr)
 
@@ -2442,8 +2473,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
               queue_counters_base)), file=sys.stderr)
 
         # All packets sent should be received intact
-        assert(queue_0_num_of_pkts + queue_1_num_of_pkts + queue_2_num_of_pkts + queue_3_num_of_pkts +
-               queue_4_num_of_pkts + queue_5_num_of_pkts + queue_6_num_of_pkts == total_pkts)
+        assert(q_cnt_sum == total_pkts)
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
@@ -2484,7 +2514,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
-                cell_occupancy = (packet_length + cell_size - 1) / cell_size
+                cell_occupancy = (packet_length + cell_size - 1) // cell_size
                 pkts_num_trig_egr_drp /= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
                 # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
@@ -2631,8 +2661,8 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
-                cell_occupancy = (packet_length + cell_size - 1) / cell_size
-                pkts_num_trig_egr_drp /= cell_occupancy
+                cell_occupancy = (packet_length + cell_size - 1) // cell_size
+                pkts_num_trig_egr_drp //= cell_occupancy
         else:
             packet_length = 64
 
@@ -2760,7 +2790,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
 
-        cell_occupancy = (packet_length + cell_size - 1) / cell_size
+        cell_occupancy = (packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl = 64
@@ -2861,7 +2891,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm = 0
             total_shared = pkts_num_fill_shared - pkts_num_fill_min
-            pkts_inc = (total_shared / cell_occupancy) >> 2
+            pkts_inc = (total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
@@ -2873,7 +2903,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff = (expected_wm - total_shared +
-                            cell_occupancy - 1) / cell_occupancy
+                            cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
@@ -3044,7 +3074,9 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(
                 self.client, port_list[src_port_id])
             print("exceeded pkts num sent: %d" % (pkts_num), file=sys.stderr)
-            print("lower bound: %d, actual value: %d, upper bound: %d" % (expected_wm - margin) * cell_size * cell_occupancy, pg_headroom_wm_res[pg], ((expected_wm + margin) * cell_size * cell_occupancy), file=sys.stderr)
+            print("lower bound: %d, actual value: %d, upper bound: %d" %
+                  ((expected_wm - margin) * cell_size * cell_occupancy, pg_headroom_wm_res[pg],
+                   ((expected_wm + margin) * cell_size * cell_occupancy)), file=sys.stderr)
             assert(expected_wm == total_hdrm)
             assert(pg_headroom_wm_res[pg] <= (
                 expected_wm + margin) * cell_size * cell_occupancy)
@@ -3120,7 +3152,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 if 'cisco-8000' in asic_type:
                     queue_counters=sai_thrift_read_queue_occupancy(
                         self.client, dst_port_id)
-                    occ_pkts=queue_counters[queue] / (packet_length + 24)
+                    occ_pkts=queue_counters[queue] // (packet_length + 24)
                     leaked_pkts=pkts_num_trig_pfc - occ_pkts
                     print("resending leaked packets {}".format(
                         leaked_pkts), file=sys.stderr)
@@ -3186,7 +3218,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl=64
@@ -3280,7 +3312,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # first round sends only 1 packet
             expected_wm=0
             total_shared=pkts_num_trig_drp - pkts_num_fill_min - 1
-            pkts_inc=(total_shared / cell_occupancy) >> 2
+            pkts_inc=(total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
                 pkts_total=0  # track total desired queue fill level
                 pkts_num=1
@@ -3291,7 +3323,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
                     diff=(expected_wm - total_shared + \
-                          cell_occupancy - 1) / cell_occupancy
+                          cell_occupancy - 1) // cell_occupancy
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment=total_shared - expected_wm
@@ -3411,7 +3443,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length=64
 
-        cell_occupancy=(packet_length + cell_size - 1) / cell_size
+        cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
         pkt=simple_tcp_packet(pktlen=packet_length,
                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
