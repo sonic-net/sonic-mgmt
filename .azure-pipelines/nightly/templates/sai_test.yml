@@ -165,7 +165,11 @@ parameters:
     type: boolean
     default: false
 
-  # Checkout sai_qualify/ folder
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    type: boolean
+    default: false
+
   - name: MGMT_REPO
     displayName: "sonic-mgmt repo"
     type: string
@@ -637,9 +641,12 @@ jobs:
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            git remote add public https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
-            git fetch public
-            git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
+            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
+            then
+              git remote add public https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
+              git fetch public
+              git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
+            fi
             
             if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
             then
@@ -678,6 +685,7 @@ jobs:
           SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
           PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+          OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
 
       - task: Bash@3
         displayName: Organize SAI Test Result
@@ -769,6 +777,7 @@ jobs:
 
 
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+            rm -rf ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}

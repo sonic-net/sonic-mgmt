@@ -143,7 +143,12 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
-  # Checkout sai_qualify/ folder
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
+    type: boolean
+    default: true
+
   - name: MGMT_REPO
     displayName: "sonic-mgmt repo"
     type: string
@@ -199,5 +204,6 @@ stages:
       DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
       SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
       PTF_DEPLOY_VSCODE: ${{ parameters.PTF_DEPLOY_VSCODE }}
+      OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
       MGMT_REPO: ${{ parameters.MGMT_REPO }}
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}

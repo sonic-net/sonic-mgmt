@@ -133,7 +133,12 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
-  # Checkout sai_qualify/ folder
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
+    type: boolean
+    default: true
+
   - name: MGMT_REPO
     displayName: "sonic-mgmt repo"
     type: string
@@ -167,5 +172,6 @@ stages:
       SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
       MGMT_REPO: ${{ parameters.MGMT_REPO }}
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
