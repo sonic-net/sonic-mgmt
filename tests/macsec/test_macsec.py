@@ -82,12 +82,18 @@ class TestControlPlane():
         _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         up_link = upstream_links[port_name]
-        output = duthost.command("{} ping {} -w {} -q -i 0.1".format(get_ipnetns_prefix(duthost, port_name), up_link["local_ipv4_addr"], rekey_period * 2))["stdout_lines"]
+        tmp_file = "/tmp/rekey_ping.txt"
+        # This ping commands may take a long time to confirm the packet loss during rekey rotation,
+        # But this time may exceed the maximum timeout of SSH so that the Ansible comes to disconnection.
+        duthost.shell("bash -c 'sudo nohup {} ping {} -q -w {} -i 0.1 > {} &'".format(get_ipnetns_prefix(duthost, port_name), up_link["local_ipv4_addr"], rekey_period * 2, tmp_file))
+        sleep(rekey_period * 2)
+        output = duthost.command("cat {}".format(tmp_file))["stdout_lines"]
         _, _, _, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         assert last_dut_egress_sa_table != new_dut_egress_sa_table
         assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
         assert float(re.search(r"([\d\.]+)% packet loss", output[-2]).group(1)) < 1.0
+        duthost.command("rm {}".format(tmp_file))
 
 
 class TestDataPlane():
