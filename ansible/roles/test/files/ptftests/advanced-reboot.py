@@ -139,9 +139,10 @@ class ReloadTest(BaseTest):
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
         self.check_param('dut_mac', '', required=True)
+        self.check_param('vlan_mac', '', required=True)
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
-        self.check_param('lo_prefix', '10.1.0.32/32', required=False)
+        self.check_param('lo_prefix', '', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
@@ -567,6 +568,8 @@ class ReloadTest(BaseTest):
         if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
+        self.vlan_mac = self.test_params['vlan_mac']
+        self.lo_prefix = self.test_params['lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -601,6 +604,7 @@ class ReloadTest(BaseTest):
         self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
         self.log("DUT reboot limit in seconds: %s" % self.limit)
         self.log("DUT mac address: %s" % self.dut_mac)
+        self.log("DUT vlan mac address: %s" % self.vlan_mac)
 
         self.log("From server src addr: %s" % self.from_server_src_addr)
         self.log("From server src port: %s" % self.from_server_src_port)
@@ -726,8 +730,8 @@ class ReloadTest(BaseTest):
 
     def generate_from_vlan(self):
         packet = simple_tcp_packet(
-                      eth_dst=self.dut_mac,
                       eth_src=self.from_server_src_mac,
+                      eth_dst=self.vlan_mac,
                       ip_src=self.from_server_src_addr,
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=5000
@@ -747,17 +751,17 @@ class ReloadTest(BaseTest):
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
-        dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
+        dut_lo_ipv4 = self.lo_prefix.split('/')[0]
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
-                                        eth_dst=self.dut_mac,
+                                        eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
             self.ping_dut_packets.append((src_port, str(packet)))
 
-        exp_packet = simple_icmp_packet(eth_src=self.dut_mac,
+        exp_packet = simple_icmp_packet(eth_src=self.vlan_mac,
                                         ip_src=dut_lo_ipv4,
                                         icmp_type='echo-reply')
 
