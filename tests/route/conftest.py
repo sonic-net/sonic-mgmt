@@ -6,7 +6,7 @@ def pytest_addoption(parser):
 
     route_group = parser.getgroup("Route test suite options")
 
-    route_group.addoption("--num_routes", action="store", default=10000, type=int,
+    route_group.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes for add/delete")
 
 @pytest.fixture(scope='module')
