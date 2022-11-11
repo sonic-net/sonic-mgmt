@@ -893,9 +893,9 @@ platform_tests/test_reboot.py::test_continuous_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for m0"
+    reason: "Skip test_fast_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 platform_tests/test_reboot.py::test_fast_reboot:
   xfail:
@@ -912,9 +912,9 @@ platform_tests/test_reboot.py::test_power_off_reboot:
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
-    reason: "Skip test_soft_reboot for m0"
+    reason: "Skip test_soft_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 platform_tests/test_reboot.py::test_soft_reboot:
   xfail:
@@ -925,9 +925,9 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for m0"
+    reason: "Skip test_warm_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 platform_tests/test_reboot.py::test_warm_reboot:
   xfail:
@@ -942,9 +942,9 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions:
       - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
   skip:
-    reason: "Skip watchdog reboot test for m0"
+    reason: "Skip watchdog reboot test for m0/mx"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####   test_reload_config.py     #####

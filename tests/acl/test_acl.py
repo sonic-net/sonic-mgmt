@@ -217,7 +217,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     vlan_ports = []
     vlan_mac = None
 
-    if topo in ["t0", "m0"]:
+    if topo in ["t0", "m0", "mx"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
 
@@ -248,12 +248,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     else:
         for interface, neighbor in mg_facts["minigraph_neighbors"].items():
             port_id = mg_facts["minigraph_ptf_indices"][interface]
-            if (topo == "t1" and "T0" in neighbor["name"]) or (topo in ["t0", "m0"] and "Server" in neighbor["name"]):
+            if (topo == "t1" and "T0" in neighbor["name"]) or \
+               (topo in ["t0", "m0", "mx"] and "Server" in neighbor["name"]):
                 downstream_ports[neighbor['namespace']].append(interface)
                 downstream_port_ids.append(port_id)
                 downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
             elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-                 (topo == "m0" and "M1" in neighbor["name"]):
+                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
                 upstream_ports[neighbor['namespace']].append(interface)
                 upstream_port_ids.append(port_id)
                 upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
@@ -268,8 +269,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
         peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
         for interface, neighbor in peer_mg_facts['minigraph_neighbors'].items():
-            if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-               (topo == "m0" and "M1" in neighbor["name"]):
+            if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
                 port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
                 upstream_port_ids.append(port_id)
                 upstream_port_id_to_router_mac_map[port_id] = rand_unselected_dut.facts["router_mac"]
@@ -280,14 +280,14 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
+    if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
         for namespace, port in downstream_ports.iteritems():
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
 
-    if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+    if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
         for k, v in port_channels.iteritems():
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -332,7 +332,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0", "m0"] and request.param == "ipv6":
+    if tbinfo["topo"]["type"] in ["t0", "m0", "mx"] and request.param == "ipv6":
         pytest.skip("IPV6 ACL test not currently supported on t0/m0 testbeds")
 
     return request.param
@@ -342,7 +342,7 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
 def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, ip_version):
     """Set up the ARP responder utility in the PTF container."""
     duthost = duthosts[rand_one_dut_hostname]
-    if setup["topo"] not in ["t0", "m0"]:
+    if setup["topo"] not in ["t0", "m0", "mx"]:
         def noop():
             pass
 

@@ -40,7 +40,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
