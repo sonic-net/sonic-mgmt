@@ -143,6 +143,17 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
+  # Checkout sai_qualify/ folder
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+  
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
+
 resources:
   repositories:
   - repository: saibcm
@@ -188,3 +199,5 @@ stages:
       DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
       SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
       PTF_DEPLOY_VSCODE: ${{ parameters.PTF_DEPLOY_VSCODE }}
+      MGMT_REPO: ${{ parameters.MGMT_REPO }}
+      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}

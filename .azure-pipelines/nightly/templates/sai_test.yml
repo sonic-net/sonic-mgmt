@@ -165,6 +165,17 @@ parameters:
     type: boolean
     default: false
 
+  # Checkout sai_qualify/ folder
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+  
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
+
 jobs:
   - job: SAITest
     pool: nightly
@@ -221,7 +232,7 @@ jobs:
           INTERVAL=60
 
           wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no -b no; do
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1
@@ -622,12 +633,13 @@ jobs:
 
 
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+            rm -rf ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            git remote add public https://github.com/sonic-net/sonic-mgmt.git
+            git remote add public https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
             git fetch public
-            git checkout public/master -- sai_qualify/
+            git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
             
             if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
             then

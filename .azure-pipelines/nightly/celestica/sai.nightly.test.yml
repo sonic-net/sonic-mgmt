@@ -133,6 +133,16 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
+  # Checkout sai_qualify/ folder
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+  
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
 
 stages:
 - stage: RunSAITest
@@ -157,3 +167,5 @@ stages:
       SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      MGMT_REPO: ${{ parameters.MGMT_REPO }}
+      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
