@@ -86,11 +86,13 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: invalid OIDs in fdb notifications.*",
-            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid "
+            "OIDs.*",
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
-            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for "
+            "bridge port type port.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
             ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
@@ -106,7 +108,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
-            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* after [0-9]+ retries",
+            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* "
+            "after [0-9]+ retries",
         ]
     ignore_regex_dict = {
         'common': [
