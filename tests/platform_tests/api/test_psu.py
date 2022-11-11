@@ -197,7 +197,7 @@ class TestPsuApi(PlatformApiTestBase):
     def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         ''' PSU power test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
+        skip_release_for_platform(duthost, ["202205", "202012", "201911", "201811"], ["arista"])
 
         for psu_id in range(self.num_psus):
             name = psu.get_name(platform_api_conn, psu_id)
