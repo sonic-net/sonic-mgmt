@@ -101,6 +101,8 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
 
         # 1. we try to get crm interfaces from portchannel interfaces
         for a_pc in mg_facts["minigraph_portchannels"]:
+            if a_pc not in intf_status:
+                continue
             if intf_status[a_pc]['oper_state'] == 'up':
                 # this is a pc that I can use.
                 if crm_intf1 is None:
@@ -114,6 +116,8 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
         # 2.  we try to get crm interfaces from routed interfaces
         for a_intf in mg_facts["minigraph_interfaces"]:
             intf = a_intf['attachto']
+            if intf not in intf_status:
+                continue
             if intf_status[intf]['oper_state'] == 'up':
                 if crm_intf1 is None:
                     crm_intf1 = intf
