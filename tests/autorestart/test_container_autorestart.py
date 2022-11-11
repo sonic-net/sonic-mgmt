@@ -33,7 +33,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         feature_list, _ = duthost.get_feature_status()
-        for feature,status in feature_list.items():
+        for feature, status in feature_list.items():
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
