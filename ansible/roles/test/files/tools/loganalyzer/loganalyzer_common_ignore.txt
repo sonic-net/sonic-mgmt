@@ -146,3 +146,6 @@ r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, u
 
 # https://github.com/sonic-net/sonic-swss/pull/2401
 r, ".* ERR swss#orchagent: :- update: Unsupported FDB Flush: .*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/16110065
+r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
