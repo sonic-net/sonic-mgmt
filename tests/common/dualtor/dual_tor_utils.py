@@ -1437,3 +1437,7 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):
 
     supervisor_cmd = "supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder"
     ptfhost.shell(supervisor_cmd)
+
+    yield
+
+    ptfhost.shell("supervisorctl stop arp_responder")
