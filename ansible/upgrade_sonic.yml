@@ -97,8 +97,10 @@
         - name: Remove some old sonic image(s) and install new image
           reduce_and_add_sonic_images:
           become: true
+          async: 500
+          poll: 10
           register: result
-          retries: 10
+          retries: 5
           delay: 10
           until: result is not failed
           args:
