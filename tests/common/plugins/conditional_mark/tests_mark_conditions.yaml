@@ -445,15 +445,6 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
-#####           ixia              #####
-#######################################
-ixia/ecn/test_ecn_markings_cisco_8000.py:
-  skip:
-    reason: "This script is applicable only for Cisco 8000 Platform."
-    conditions:
-      - "asic_type not in ['cisco-8000']"
-
-#######################################
 #####           macsec            #####
 #######################################
 macsec/test_macsec.py:
