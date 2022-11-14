@@ -61,7 +61,9 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
         logging.debug("Start set drop for upper ToR at %s", time.time())
         for port in active_active_ports:
             logging.debug("Set drop on port %s, portid %s, direction %s" % (port, portid, direction))
-            set_drop_active_active(port, portid, direction)
+        portids = [portid for _ in active_active_ports]
+        directions = [direction for _ in active_active_ports]
+        set_drop_active_active(active_active_ports, portids, directions)
 
     return _drop_flow_upper_tor_active_active
 
@@ -70,7 +72,7 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
 def check_simulator_flap_counter(
     simulator_flap_counter,
     toggle_all_simulator_ports_to_upper_tor,
-    tor_mux_intfs
+    active_standby_ports
 ):
     """Check the flap count for each server-facing interfaces."""
     def set_expected_counter_diff(diff):
@@ -78,7 +80,7 @@ def check_simulator_flap_counter(
         expected_diff.append(diff)
 
     expected_diff = []
-    tor_mux_intfs = [str(_) for _ in tor_mux_intfs]
+    tor_mux_intfs = [str(_) for _ in active_standby_ports]
     counters_before = {intf: simulator_flap_counter(intf) for intf in tor_mux_intfs}
     yield set_expected_counter_diff
     counters_after = {intf: simulator_flap_counter(intf) for intf in tor_mux_intfs}

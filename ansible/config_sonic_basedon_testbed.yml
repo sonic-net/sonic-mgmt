@@ -525,14 +525,77 @@
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
+      - block:
+        - name: set the default grpc credential file path
+          set_fact:
+            grpc_credential_file: /etc/sonic/grpc_secrets.json
+
+        - name: check if grpc credential file exists
+          stat:
+            path: "{{ grpc_credential_file }}"
+          register: stat_result
+
+        - block:
+          - name: collect initial grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse initial grpc credentials
+            set_fact:
+              grpc_secrets_before: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: use insecure grpc for testing
+            shell: "sed -E -i 's/\"type\": \"secure\"/\"type\": \"insecure\"/' {{ grpc_credential_file }}"
+            become: true
+
+          - name: collect current grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse current grpc credentials
+            set_fact:
+              grpc_secrets_after: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: show original grpc setting
+            debug:
+              var: grpc_secrets_before
+
+          - name: show new grpc setting
+            debug:
+              var: grpc_secrets_after
+
+          - name: restart the pmon service
+            service:
+              name: pmon
+              state: restarted
+            become: true
+
+          when: stat_result.stat.exists
+
+        when: "'dualtor-mixed' in topo"
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
         when: save is defined and save|bool == true
 
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
+
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
         ignore_errors: true
+
+      # In pr https://github.com/sonic-net/sonic-buildimage/pull/12109, it decrease the sshd timeout
+      # which may cause timeout when executing `generate_dump -s yesterday`.
+      # Increase this time during deploying minigraph
+      - name: Reset sshd timeout
+        become: True
+        shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true

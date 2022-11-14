@@ -116,6 +116,10 @@ def swap_syncd(duthost, creds):
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
@@ -169,6 +173,9 @@ def restore_default_syncd(duthost, creds):
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
 
     duthost.stop_service("swss")
     duthost.delete_container("syncd")

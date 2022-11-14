@@ -52,5 +52,5 @@
         * The exact file used for validating SPyTest is:  [IxNetwork 8.42](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/IxNetwork8.42EA.exe)
     * The IxNetwork Server IP address needs to be given in testbed file as "ix_server"
     * The IxNetwork API Server needs to be launched before launching SPyTest
-    * For Scapy traffic generator refer to [README.testbed.Setup.md](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md)
+    * For Scapy traffic generator refer to [README.testbed.Setup.md](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md)
 

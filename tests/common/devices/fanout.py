@@ -175,3 +175,5 @@ class FanoutHost(object):
 
     def set_port_fec(self, interface_name, mode):
         self.host.set_port_fec(interface_name, mode)
+    def is_intf_status_down(self, interface_name):
+        return self.host.is_intf_status_down(interface_name)
