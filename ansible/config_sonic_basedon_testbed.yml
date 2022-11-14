@@ -593,6 +593,6 @@
 
       -name: Reset sshd timeout
        become: True
-       shell: sed -i "s/ClientAliveInterval 300/ClientAliveInterval 900/g" /etc/ssh/sshd_config
+       shell: sed -i "s/ClientAliveInterval 300/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true
