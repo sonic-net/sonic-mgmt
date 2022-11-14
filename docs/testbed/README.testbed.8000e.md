@@ -32,10 +32,10 @@ docker images |grep 8000e-sonic
 8000e-sonic    latest   f5f181cf2a51    27 minutes ago   6.58GB
 ```
 
-Follow [instructions](README.testbed.VsSetup.md) to setup virtual sonic testbed. 
+Follow [instructions](README.testbed.VsSetup.md) to setup virtual sonic testbed.
 
 
-## Bring up 8000e T0 topology 
+## Bring up 8000e T0 topology
 
 Start neighboring devices
 
@@ -61,5 +61,3 @@ cd ../tests
 
 bgp/test_bgp_fact.py::test_bgp_facts[vlab-8k-01-None] PASSED
 ```
-
-

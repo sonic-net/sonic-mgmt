@@ -34,7 +34,3 @@ This experiment needs the following five steps:
 - Check if the IXIA rx port receives all the sent frames of test data traffic. Check if the throughput of test data traffic is close to link capacity.
 
 - Stop global pause storm
-
-
-
-

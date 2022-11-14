@@ -77,7 +77,7 @@ Verify that traffic run without changes during neighbor graceful restart.
 #### Test steps
 
 - Randomly choose VM for the test.
-- Change VM startup config (advertised routes should be different). 
+- Change VM startup config (advertised routes should be different).
 - Reboot VM.
 - Verify that preserved routes are removed when VM back.
 - Verify that new routes are installed when VM back.
