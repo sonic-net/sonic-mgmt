@@ -928,8 +928,6 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "Skip test_warm_reboot for m0/mx"
     conditions:
       - "topo_name in ['m0', 'mx']"
-
-platform_tests/test_reboot.py::test_warm_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
