@@ -1005,22 +1005,3 @@ def check_balancing(port_hit_cnt):
         return True
 
     return False
-
-def apply_acl_rules(duthost, tbinfo, intf_list):
-    if "t0-backend" not in tbinfo["topo"]["name"]:
-        return
-
-    dst_acl_template = os.path.join(DUT_TMP_DIR, ACL_TEMPLATE)
-    dst_acl_file = os.path.join(DUT_TMP_DIR, 'backend_new_acl.json')
-    duthost.copy(src=os.path.join(TEMPLATE_DIR, ACL_TEMPLATE), dest=dst_acl_template)
-    intfs = ",".join(intf_list)
-    confvar = '{{"intf_list" : "{}"}}'.format(intfs)
-    duthost.shell("sonic-cfggen -a '{}' -d -t {} > {}".format(confvar, dst_acl_template, dst_acl_file))
-    tmp = duthost.stat(path=dst_acl_file)
-    if tmp['stat']['exists']:
-        duthost.command("acl-loader update incremental {}".format(dst_acl_file))
-
-
-def bind_acl_table(duthost):
-    vlan_intfs = duthost.get_vlan_intfs()
-    duthost.command("config acl add table DATAACL L3 -p {}".format(",".join(vlan_intfs)))
