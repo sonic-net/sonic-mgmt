@@ -591,4 +591,8 @@
         delegate_to: localhost
         ignore_errors: true
 
+      -name: Reset sshd timeout
+       become: True
+       shell: sed -i "s/ClientAliveInterval 300/ClientAliveInterval 900/g" /etc/ssh/sshd_config
+
     when: deploy is defined and deploy|bool == true
