@@ -41,10 +41,35 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.Ether, "src")
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
-    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is set to 255
+    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is kept default (64)
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
 
     return pkt, exp_tunnel_pkt
+
+
+def get_queue_counter(duthost, port, queue, clear_before_read=False):
+    """
+    Return the counter for given queue in given port
+    """
+    if clear_before_read:
+        duthost.shell("sonic-clear queuecounters")
+    # Wait a default interval (10 seconds)
+    time.sleep(10)
+    cmd = "show queue counters {}".format(port)
+    output = duthost.shell('show queue counters')['stdout_lines']
+    """
+             Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
+        ---------  -----  --------------  ---------------  -----------  ------------
+        Ethernet4    UC0               0                0            0             0
+    """
+    txq = "UC{}".format(queue)
+    for line in output:    
+        fields = line.split()
+        if fields[1] == txq:
+            return int(2)
+
+    return 0
+
 
 def check_queue_counter(duthost, intfs, queue, counter):
     output = duthost.shell('show queue counters')['stdout_lines']
@@ -353,7 +378,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
     logger.info("Start running {} on ptf host".format(test_case))
     pytest_assert(ptfhost.shell(
                       argv = [
-                          "ptf",
+                          "/root/env-python3/bin/ptf",
                           "--test-dir",
                           "saitests/py3",
                           test_case,

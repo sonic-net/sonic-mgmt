@@ -934,17 +934,31 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
+                    pkts_num_margin: 4
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
+                    pkts_num_margin: 4
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
                     pkts_num_trig_pfc: 58620
                     pkts_num_trig_ingr_drp: 59245
                     pkts_num_margin: 4
-                xoff_2:
+                pcbb_xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
                     pkts_num_trig_pfc: 58620
                     pkts_num_trig_ingr_drp: 59245
                     pkts_num_margin: 4
-                xoff_3:
+                pcbb_xoff_3:
                     outer_dscp: 2
                     dscp: 3
                     ecn: 1
@@ -952,7 +966,7 @@ qos_params:
                     pkts_num_trig_pfc: 58620
                     pkts_num_trig_ingr_drp: 59245
                     pkts_num_margin: 4
-                xoff_4:
+                pcbb_xoff_4:
                     outer_dscp: 6
                     dscp: 4
                     ecn: 1

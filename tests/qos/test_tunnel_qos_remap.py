@@ -14,7 +14,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
 from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
-from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm
+from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
 from ptf import testutils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -30,7 +30,7 @@ SERVER_IP = "192.168.0.2"
 DUMMY_IP = "1.1.1.1"
 DUMMY_MAC = "aa:aa:aa:aa:aa:aa"
 
-PFC_PKT_COUNT = 5000000 # Cost 16 seconds
+PFC_PKT_COUNT = 10000000 # Cost 32 seconds
 
 @pytest.fixture(scope='module', autouse=True)
 def check_running_condition(tbinfo, duthost):
@@ -209,8 +209,8 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
     """
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority
-        (3, 2, 2),
-        (4, 6, 6)
+        (3, 2, 2, 2),
+        (4, 6, 6, 6)
     }
     dualtor_meta = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
     t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
@@ -223,7 +223,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
     active_tor_mac = rand_unselected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     ptfadapter.dataplane.flush()
-    for inner_dscp, outer_dscp, prio in TEST_DATA:
+    for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, exp_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                             dst_ip=SERVER_IP,
                                             active_tor_mac=active_tor_mac,
@@ -238,6 +238,12 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
         # Get the actual egress port
         result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
         actual_port = dst_ports[result[0]]
+        # Get the port name from mgfacts
+        for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
+            if idx == actual_port:
+                actual_port_name = port_name
+                break
+        pytest_assert(actual_port_name)
         peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, actual_port)
         storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
                                     pfc_queue_idx=prio,
@@ -246,10 +252,16 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
         try:
             # Start PFC storm from leaf fanout switch
             start_pfc_storm(storm_handler, peer_info, prio)
+            # Record the queue counter before sending test packet
+            base_queue_count = get_queue_counter(rand_selected_dut, actual_port_name, queue, True)
             # Send testing packet again
             testutils.send_packet(ptfadapter, src_port, pkt, 1)
             # The packet should be paused
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
+            # Check the queue counter didn't increase
+            queue_count = get_queue_counter(rand_selected_dut, actual_port_name, queue, False)
+            pytest_assert(base_queue_count == queue_count, "The queue {} for port {} counter increased unexpectedly".format(queue, actual_port_name))
+
         finally:
             stop_pfc_storm(storm_handler)
 
@@ -264,9 +276,9 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
     4. Verify lossless traffic are paused
     """
     TEST_DATA = {
-        # Inner DSCP, Outer DSCP, Priority
-        (3, 2, 3),
-        (4, 6, 4)
+        # Inner DSCP, Outer DSCP, Priority, Queue
+        (3, 2, 3, 3),
+        (4, 6, 4, 4)
     }
     dualtor_meta = dualtor_info(ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
     t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
@@ -275,7 +287,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
     ptfadapter.dataplane.flush()
-    for inner_dscp, outer_dscp, prio in TEST_DATA:
+    for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
                                             dst_ip=dualtor_meta['target_server_ip'],
                                             active_tor_mac=active_tor_mac,
@@ -302,10 +314,15 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
         try:
             # Start PFC storm from leaf fanout switch
             start_pfc_storm(storm_handler, peer_info, prio)
+            # Read queue counter before sending packet
+            base_queue_count = get_queue_counter(rand_selected_dut, dualtor_meta['selected_port'], queue, True)
             # Send testing packet again
             testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
             # The packet should be paused
             testutils.verify_no_packet(ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
+            # Check the queue counter didn't increase
+            queue_count = get_queue_counter(rand_selected_dut, dualtor_meta['selected_port'], queue, False)
+            pytest_assert(base_queue_count == queue_count, "The queue {} for port {} counter increased unexpectedly".format(queue, dualtor_meta['selected_port']))
         finally:
             stop_pfc_storm(storm_handler)
 
@@ -353,7 +370,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize("xoff_profile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
+@pytest.mark.parametrize("xoff_profile", ["pcbb_xoff_1", "pcbb_xoff_2", "pcbb_xoff_3", "pcbb_xoff_4"])
 def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
     """
     The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
