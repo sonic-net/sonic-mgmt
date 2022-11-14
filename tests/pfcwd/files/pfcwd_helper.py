@@ -16,7 +16,7 @@ class TrafficPorts(object):
         """
         self.mg_facts = mg_facts
         self.bgp_info = self.mg_facts['minigraph_bgp']
-        self.port_idx_info = self.mg_facts['minigraph_port_indices']
+        self.port_idx_info = self.mg_facts['minigraph_ptf_indices']
         self.pc_info = self.mg_facts['minigraph_portchannels']
         self.vlan_info = self.mg_facts['minigraph_vlans']
         self.neighbors = neighbors
