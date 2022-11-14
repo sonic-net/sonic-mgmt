@@ -12,9 +12,7 @@ Tests for the `show platform ...` commands in SONiC
 import json
 import logging
 import re
-
 import pytest
-
 import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
@@ -22,6 +20,8 @@ from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release_for_platform
+from tests.common.utilities import wait_until
+
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -34,11 +34,13 @@ CMD_SHOW_PLATFORM = "show platform"
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
+
 @pytest.fixture(scope='module')
 def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
     inv_files = get_inventory_files(request)
     dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
     yield dut_vars
+
 
 def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
     """
@@ -50,14 +52,15 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     logging.info("Verifying output of '{}' on '{}'...".format(cmd, duthost.hostname))
     summary_output_lines = duthost.command(cmd)["stdout_lines"]
     summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
-    expected_fields = set(["Platform", "HwSKU", "ASIC"])
+    expected_fields = {"Platform", "HwSKU", "ASIC"}
     actual_fields = set(summary_dict.keys())
     if 'switch_type' in dut_vars:
-        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"])
+        new_field = {"ASIC Count", "Serial Number", "Hardware Revision", "Model Number", "Switch Type"}
     else:
-        new_field = set(["ASIC Count", "Serial Number", "Hardware Revision", "Model Number"])
+        new_field = {"ASIC Count", "Serial Number", "Hardware Revision", "Model Number"}
     missing_fields = expected_fields - actual_fields
-    pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
+    pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields),
+                                                                                       duthost.hostname))
 
     unexpected_fields = actual_fields - expected_fields
     pytest_assert(((unexpected_fields.issubset(new_field)) or len(unexpected_fields) == 0),
@@ -87,7 +90,9 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     actual_fields_values = set(summary_dict.values())
     diff_fields_values = expected_fields_values.difference(actual_fields_values)
     pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() is None)),
-                  "Unexpected value of fields, actual={}, expected={} on host '{}'".format(actual_fields_values, expected_fields_values, duthost.hostname))
+                  "Unexpected value of fields, actual={}, expected={} on host '{}'".format(actual_fields_values,
+                                                                                           expected_fields_values,
+                                                                                           duthost.hostname))
 
 
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
@@ -95,7 +100,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050","arista_7260"])
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -106,7 +111,6 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     """
     Gather expected data from a inventory file instead if 'syseeprom_info' is defined in the inventory
     # Sample inventory with syseeprom:
-    
     str-msn2700-01:
         ansible_host: 10.251.0.188
         model: MSN2700-CS2FO
@@ -125,30 +129,27 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "0x2B": "Mellanox"
             "0xFE": "0xFBA1E964"
     """
-    if 'arista' in duthost.facts.get( 'platform', '' ).lower():
-       """
-       'show platform syseeprom' output is vendor specific and on Arista duts the
-       output is what is contained in our prefdl. Validate that the output contains
-       non empty data.
-       """
-       pytest_assert( len( syseeprom_output_lines ) > 0, "Cmd returns no output" )
+    if 'arista' in duthost.facts.get('platform', '').lower():
+        """
+        'show platform syseeprom' output is vendor specific and on Arista duts the
+        output is what is contained in our prefdl. Validate that the output contains
+        non empty data.
+        """
+        pytest_assert(len(syseeprom_output_lines) > 0, "Cmd returns no output")
+        # Validate each output line has a "Key Value" format
+        parsed_syseeprom = {}
+        for line in syseeprom_output_lines:
+            fields = line.split(': ', 1)
+            pytest_assert(len(fields) == 2, "Expected format: 'Key: Value'")
 
-       # Validate each output line has a "Key Value" format
-       parsed_syseeprom = {}
-       for line in syseeprom_output_lines:
-          fields = line.split( ': ', 1 )
-          pytest_assert( len( fields ) == 2, "Expected format: 'Key: Value'" )
-
-          key = fields[ 0 ]
-          value = fields[ 1 ]
-          parsed_syseeprom[ key ] = value
-
-       # Validate that we have a min set of expected fields
-       exp_fields = [ "SID", "SKU", "SerialNumber"  ]
-       for exp_field in exp_fields:
-          pytest_assert( parsed_syseeprom.get( exp_field, None ) is not None,
-                         "Expected field {} not present.".format( exp_field ) )
-
+            key = fields[0]
+            value = fields[1]
+            parsed_syseeprom[key] = value
+        # Validate that we have a min set of expected fields
+        exp_fields = ["SID", "SKU", "SerialNumber"]
+        for exp_field in exp_fields:
+            pytest_assert(parsed_syseeprom.get(exp_field, None) is not None,
+                          "Expected field {} not present.".format(exp_field))
     elif 'syseeprom_info' in dut_vars:
         expected_syseeprom_info_dict = dut_vars['syseeprom_info']
 
@@ -162,10 +163,12 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
                 parsed_syseeprom[tlv_code_lower_case] = t1.group(4).strip()
 
         for field in expected_syseeprom_info_dict:
-            pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
+            pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".
+                          format(field, duthost.hostname))
             pytest_assert(parsed_syseeprom[field.lower()] == expected_syseeprom_info_dict[field],
                           "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field], duthost.hostname))
+                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field],
+                                 duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         expected_fields = [
@@ -182,18 +185,22 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
 
         utility_cmd = "sudo python -c \"import imp; \
             m = imp.load_source('eeprom', '/usr/share/sonic/device/{}/plugins/eeprom.py'); \
-            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"".format(duthost.facts["platform"])
+            t = m.board('board', '', '', ''); e = t.read_eeprom(); t.decode_eeprom(e)\"".\
+            format(duthost.facts["platform"])
 
         utility_cmd_output = duthost.command(utility_cmd)
 
         for field in expected_fields:
-            pytest_assert(syseeprom_output.find(field) >= 0, "Expected field '{}' was not found on '{}'".format(field, duthost.hostname))
-            pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".format(field, duthost.hostname))
+            pytest_assert(syseeprom_output.find(field) >= 0, "Expected field '{}' was not found on '{}'".
+                          format(field, duthost.hostname))
+            pytest_assert(utility_cmd_output["stdout"].find(field) >= 0, "Expected field '{}' was not found on '{}'".
+                          format(field, duthost.hostname))
 
         for line in utility_cmd_output["stdout_lines"]:
             if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
-                line_regexp = re.sub(r'\s+', '\s+', line)
-                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".format(line, duthost.hostname))
+                line_regexp = re.sub(r'\s+', '\\s+', line)
+                pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".
+                              format(line, duthost.hostname))
 
 
 def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
@@ -250,10 +257,14 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     else:
         led_status_list = ["green", "amber", "red", "off"]
     for psu_info in psu_info_list:
-        expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current", "power"]
-        pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".format(psu_status_output))
-        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".format(psu_info["status"]))
-        pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".format(psu_info["led_status"]))
+        expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current",
+                         "power"]
+        pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".
+                      format(psu_status_output))
+        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".
+                      format(psu_info["status"]))
+        pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".
+                      format(psu_info["led_status"]))
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
@@ -263,19 +274,24 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     """
     # workaround to make this test compatible with 201911 and master
     if parse_version(duthost.kernel_version) > parse_version('4.9.0'):
-        NUM_EXPECTED_COLS = 8
+        num_expected_clos = 8
     else:
-        NUM_EXPECTED_COLS = 6
+        num_expected_clos = 6
     fans = {}
-    pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".format(duthost.hostname))
+    pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".
+                  format(duthost.hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected", "Unexpected fan status output on '{}'".format(duthost.hostname))
+        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected",
+                      "Unexpected fan status output on '{}'".format(duthost.hostname))
     else:
-        pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output if any fan is detected on '{}'".format(duthost.hostname))
+        pytest_assert(len(raw_output_lines) > 2,
+                      "There must be at least two lines of output if any fan is detected on '{}'".
+                      format(duthost.hostname))
         second_line = raw_output_lines[1]
         field_ranges = util.get_field_range(second_line)
         field_names = util.get_fields(raw_output_lines[0], field_ranges)
-        pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns on '{}'".format(NUM_EXPECTED_COLS, duthost.hostname))
+        pytest_assert(len(field_ranges) == num_expected_clos, "Output should consist of {} columns on '{}'".
+                      format(num_expected_clos, duthost.hostname))
 
         fan_num = 0
         for line in raw_output_lines[2:]:
@@ -287,13 +303,8 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
 
     return fans
 
-def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
-    """
-    @summary: Verify output of `show platform fan`
-    """
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
 
+def check_fan_status(duthost, cmd):
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
@@ -303,7 +314,17 @@ def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
     for a_fan in fans.values():
         if a_fan['Status'] == "OK":
             num_fan_ok += 1
-    pytest_assert(num_fan_ok > 0, " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
+    return num_fan_ok > 0
+
+
+def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
+    """
+    @summary: Verify output of `show platform fan`
+    """
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
+    pytest_assert(wait_until(90, 5, 0, check_fan_status, duthost, cmd),
+                  " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
 
 
 def verify_show_platform_temperature_output(raw_output_lines, hostname):
@@ -311,16 +332,19 @@ def verify_show_platform_temperature_output(raw_output_lines, hostname):
     @summary: Verify output of `show platform temperature`. Expected output is
               "Thermal Not detected" or a table of thermal status data with 8 columns.
     """
-    NUM_EXPECTED_COLS = 8
+    num_expected_clos = 8
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".format(hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected", "Unexpected thermal status output on '{}'".format(hostname))
+        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected",
+                      "Unexpected thermal status output on '{}'".format(hostname))
     else:
-        pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output if any thermal is detected on '{}'".format(hostname))
+        pytest_assert(len(raw_output_lines) > 2,
+                      "There must be at least two lines of output if any thermal is detected on '{}'".format(hostname))
         second_line = raw_output_lines[1]
         field_ranges = util.get_field_range(second_line)
-        pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns on '{}'".format(NUM_EXPECTED_COLS, hostname))
+        pytest_assert(len(field_ranges) == num_expected_clos, "Output should consist of {} columns on '{}'".
+                      format(num_expected_clos, hostname))
 
 
 def test_show_platform_temperature(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -347,14 +371,16 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     logging.info("Verifying output of '{}' on ''{}'...".format(cmd, duthost.hostname))
     ssdhealth_output_lines = duthost.command(cmd)["stdout_lines"]
     ssdhealth_dict = util.parse_colon_speparated_lines(ssdhealth_output_lines)
-    expected_fields = set(["Device Model", "Health", "Temperature"])
+    expected_fields = {"Device Model", "Health", "Temperature"}
     actual_fields = set(ssdhealth_dict.keys())
 
     missing_fields = expected_fields - actual_fields
-    pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".format(repr(missing_fields), duthost.hostname))
+    pytest_assert(len(missing_fields) == 0, "Output missing fields: {} on '{}'".
+                  format(repr(missing_fields), duthost.hostname))
 
     unexpected_fields = actual_fields - expected_fields
-    pytest_assert(len(unexpected_fields) == 0, "Unexpected fields in output: {} on '{}'".format(repr(unexpected_fields), duthost.hostname))
+    pytest_assert(len(unexpected_fields) == 0, "Unexpected fields in output: {} on '{}'".
+                  format(repr(unexpected_fields), duthost.hostname))
 
     # TODO: Test values against platform-specific expected data instead of testing for missing values
     for key in expected_fields:
@@ -366,15 +392,15 @@ def verify_show_platform_firmware_status_output(raw_output_lines, hostname):
     @summary: Verify output of `show platform firmware status`. Expected output is
               a table of firmware data conaining 5 columns.
     """
-    NUM_EXPECTED_COLS = 5
-
+    num_expected_clos = 5
     # Skip if command not implemented for platform
     if len(raw_output_lines) <= 2:
         pytest.skip("show platform firmware status not implemented")
     pytest_assert(len(raw_output_lines) > 2, "There must be at least two lines of output on '{}'".format(hostname))
     second_line = raw_output_lines[1]
     field_ranges = util.get_field_range(second_line)
-    pytest_assert(len(field_ranges) == NUM_EXPECTED_COLS, "Output should consist of {} columns on '{}'".format(NUM_EXPECTED_COLS, hostname))
+    pytest_assert(len(field_ranges) == num_expected_clos, "Output should consist of {} columns on '{}'".
+                  format(num_expected_clos, hostname))
 
 
 def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -383,7 +409,6 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
-
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
