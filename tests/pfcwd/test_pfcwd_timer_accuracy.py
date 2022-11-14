@@ -130,6 +130,8 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 300000
+    if is_innovium_device(duthost):
+        pfc_frames_count = 500000
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                            pfc_frames_number=pfc_frames_count, peer_info=peer_params)
     storm_handle.deploy_pfc_gen()
