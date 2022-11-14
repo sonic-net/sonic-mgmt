@@ -7,6 +7,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
@@ -39,8 +40,6 @@ from sub_ports_helpers import remove_bond_port
 from sub_ports_helpers import add_static_route_to_dut
 from sub_ports_helpers import remove_static_route_from_dut
 from sub_ports_helpers import update_dut_arp_table
-from sub_ports_helpers import apply_acl_rules
-from sub_ports_helpers import bind_acl_table
 
 
 def pytest_addoption(parser):
@@ -77,7 +76,7 @@ def modify_acl_table(duthost, tbinfo, port_type, acl_rule_cleanup):
    yield
 
    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
-       bind_acl_table(duthost)
+       bind_acl_table(duthost, tbinfo)
 
 @pytest.fixture
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
