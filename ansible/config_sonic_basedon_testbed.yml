@@ -595,12 +595,12 @@
       # which may cause timeout when executing `generate_dump -s yesterday`.
       # Increase this time during deploying minigraph
       - name: Reset sshd timeout
-        become: True
         lineinfile:
             name: /etc/ssh/sshd_config
             regexp: '^ClientAliveInterval [0-9].*'
             line: 'ClientAliveInterval 900'
-            backrefs: true
+            backrefs: yes
+        become: True
         shell: systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true
