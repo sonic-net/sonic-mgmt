@@ -19,3 +19,18 @@ def add_ecn_args(parser):
         default=True,
         help="Control execution of ECN tests",
     )
+
+    ecn_group.addoption(
+        "--ixia_ptf_name",
+        action="store",
+        type=str,
+        default=None,
+        help="Provide the name of the PTF host for ixia tests"
+    )
+    ecn_group.addoption(
+        "--qos_swap_syncd",
+        action="store",
+        type=str,
+        default=None,
+        help="First swap the syncd image with syncd-rpc image"
+    )
