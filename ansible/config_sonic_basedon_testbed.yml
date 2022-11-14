@@ -597,10 +597,10 @@
       - name: Reset sshd timeout
         become: True
         lineinfile:
-          name: /etc/ssh/sshd_config
-          regexp: '^ClientAliveInterval [0-9].*'
-          line: 'ClientAliveInterval 900'
-          backrefs: true
+            name: /etc/ssh/sshd_config
+            regexp: '^ClientAliveInterval [0-9].*'
+            line: 'ClientAliveInterval 900'
+            backrefs: true
         shell: systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true
