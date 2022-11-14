@@ -600,7 +600,7 @@
             regexp: '^ClientAliveInterval [0-9].*'
             line: 'ClientAliveInterval 900'
             backrefs: yes
-        become: True
+        become: true
         shell: systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true
