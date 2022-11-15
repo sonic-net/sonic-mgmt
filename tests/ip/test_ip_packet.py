@@ -184,7 +184,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -243,7 +243,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -302,7 +302,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -363,7 +363,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -421,7 +421,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
@@ -472,7 +472,7 @@ class TestIPPacket(object):
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         time.sleep(5)
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
