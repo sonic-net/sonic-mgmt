@@ -349,7 +349,7 @@ def main():
     try:
         topoinfo = ParseTestbedTopoinfo()
         vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, asic_name, 
-                asics_present, card_type)
+                                                                    asics_present, card_type)
         module.exit_json(ansible_facts={'vm_topo_config': vm_topo_config,
                                         'asic_topo_config': asic_topo_config})
     except (IOError, OSError):
