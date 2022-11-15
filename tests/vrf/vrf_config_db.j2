@@ -88,8 +88,17 @@
     },
 {%     elif k == 'VLAN' %}
     "VLAN": {
-        "Vlan1000": {"vlanid": "1000"},
-        "Vlan2000": {"vlanid": "2000"}
+        "Vlan1000": {
+            "dhcp_servers": [
+{%              for dhcp in cfg_t0['VLAN']['Vlan1000']['dhcp_servers'] %}
+                {{ dhcp | to_nice_json }}{% if not loop.last %},
+{% endif %}
+{% endfor %}
+
+            ],
+            "vlanid": "1000"},
+        "Vlan2000": {
+            "vlanid": "2000"}
     },
 {%     elif k == 'VLAN_INTERFACE' %}
     "VLAN_INTERFACE": {

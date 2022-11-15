@@ -113,7 +113,7 @@ def read_asic_name(hwsku):
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in asic_name.items():
+        for key, value in asic_name.copy().items():
             if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
@@ -123,8 +123,9 @@ def read_asic_name(hwsku):
 
         return "unknown"
 
-    except IOError as e:
+    except IOError:
         return None
+
 
 def load_dut_basic_facts(inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
@@ -154,6 +155,7 @@ def load_dut_basic_facts(inv_name, dut_name):
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 
     return results
+
 
 def get_basic_facts(session):
     testbed_name = session.config.option.testbed
@@ -209,6 +211,7 @@ def load_minigraph_facts(inv_name, dut_name):
 
     return results
 
+
 def load_config_facts(inv_name, dut_name):
     """Run 'ansible -m config_facts -a 'host={{hostname}} source='persistent' ' command to get some basic config facts.
 
@@ -225,7 +228,8 @@ def load_config_facts(inv_name, dut_name):
     logger.info('Getting config basic facts')
     try:
         # get config basic faces
-        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name), '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
+        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
+                       '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
         raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
         logger.debug('raw config basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -238,6 +242,7 @@ def load_config_facts(inv_name, dut_name):
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
 
     return results
+
 
 def load_switch_capabilities_facts(inv_name, dut_name):
     """Run 'ansible -m switch_capabilities_facts' command to get some basic config facts.
@@ -267,6 +272,7 @@ def load_switch_capabilities_facts(inv_name, dut_name):
 
     return results
 
+
 def load_console_facts(inv_name, dut_name):
     """Run 'ansible -m console_facts' command to get some basic console facts.
 
@@ -294,6 +300,7 @@ def load_console_facts(inv_name, dut_name):
         logger.error('Failed to load console basic facts, exception: {}'.format(repr(e)))
 
     return results
+
 
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
@@ -382,7 +389,7 @@ def find_longest_matches(nodeid, conditions):
     return longest_matches
 
 
-def update_issue_status(condition_str):
+def update_issue_status(condition_str, session):
     """Replace issue URL with 'True' or 'False' based on its active state.
 
     If there is an issue URL is found, this function will try to query state of the issue and replace the URL
@@ -392,6 +399,7 @@ def update_issue_status(condition_str):
 
     Args:
         condition_str (str): Condition string that may contain issue URLs.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         str: New condition string with issue URLs already replaced with 'True' or 'False'.
@@ -401,11 +409,17 @@ def update_issue_status(condition_str):
         logger.debug('No issue specified in condition')
         return condition_str
 
-    results = check_issues(issues)
+    issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+
+    unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
+    if unknown_issues:
+        results = check_issues(unknown_issues)
+        issue_status_cache.update(results)
+        session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
     for issue_url in issues:
-        if issue_url in results:
-            replace_str = str(results[issue_url])
+        if issue_url in issue_status_cache:
+            replace_str = str(issue_status_cache[issue_url])
         else:
             # Consider the issue as active anyway if unable to get issue state
             replace_str = 'True'
@@ -414,7 +428,7 @@ def update_issue_status(condition_str):
     return condition_str
 
 
-def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basic_facts):
+def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basic_facts, session):
     """Evaluate a condition string based on supplied basic facts.
 
     Args:
@@ -425,6 +439,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition string evaluation result.
@@ -432,20 +447,21 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
     if condition is None or condition.strip() == '':
         return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
-    condition_str = update_issue_status(condition)
+    condition_str = update_issue_status(condition, session)
     try:
         condition_result = bool(eval(condition_str, basic_facts))
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
-    except Exception as e:
+    except Exception:
         logger.error('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
         return False
 
 
-def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts, conditions_logical_operator):
+def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
+                        conditions_logical_operator, session):
     """Evaluate all the condition strings.
 
     Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND or OR
@@ -459,6 +475,7 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         conditions_logical_operator (str): logical operator which should be applied to conditions(by default 'AND')
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition strings evaluation result.
@@ -468,13 +485,15 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts) for c in conditions])
+            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                        for c in conditions])
         else:
-            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts) for c in conditions])
+            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                        for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
-        return evaluate_condition(dynamic_update_skip_reason, mark_details, conditions, basic_facts)
+        return evaluate_condition(dynamic_update_skip_reason, mark_details, conditions, basic_facts, session)
 
 
 def pytest_collection(session):
@@ -541,7 +560,7 @@ def pytest_collection_modifyitems(session, config, items):
                             add_mark = True
                         else:
                             add_mark = evaluate_conditions(dynamic_update_skip_reason, mark_details, mark_conditions,
-                                                           basic_facts, conditions_logical_operator)
+                                                           basic_facts, conditions_logical_operator, session)
 
                     if add_mark:
                         reason = ''

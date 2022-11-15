@@ -20,4 +20,4 @@ def test_fun(duthosts, rand_one_dut_hostname):
 This method takes no arguments
 
 ## Expected Output
-Method returns a list of interface names corresponding the the interfaces who belong to a VLAN. 
+Method returns a list of interface names corresponding the the interfaces who belong to a VLAN.

@@ -8,7 +8,6 @@ import requests
 
 from ipaddress import ip_interface
 from jinja2 import Template
-from natsort import natsorted
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -162,7 +161,7 @@ def copy_arp_responder_py(ptfhost):
 
 
 @pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
+def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -174,15 +173,18 @@ def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
         ptf_port_map = []
-        for i in range(len(portList)):
-            ptf_port_map.append("{}@{}\n".format(i, portList[i]))
+        for port in portList:
+            if "Ethernet-Rec" not in port or "Ethernet-IB" not in port:
+                index = mg_facts['minigraph_ptf_indices'][port]
+                ptf_port_map.append("{}@{}\n".format(index, port))
         file.writelines(ptf_port_map)
 
     ptfhost.copy(src=portMapFile, dest="/root/")
@@ -277,18 +279,42 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
+        vlans = config_facts['VLAN']
+        vlan_intfs = config_facts['VLAN_INTERFACE']
+        dut_mac = ''
+        for vlan_details in vlans.values():
+            if 'dualtor' in tbinfo['topo']['name']:
+                dut_mac = vlan_details['mac'].lower()
+            else:
+                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+            break
+
+        dst_ipv6 = ''
+        for intf_details in vlan_intfs.values():
+            for key in intf_details.keys():
+                try:
+                    intf_ip = ip_interface(key)
+                    if intf_ip.version == 6:
+                        dst_ipv6 = intf_ip.ip
+                        break
+                except ValueError:
+                    continue
+            break
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
             # For mocked dualtor testbed
             mux_cable_table = {}
-            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
                 server_ipv4 = str(server_ipv4_base_addr + i)
+                server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
                 mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -298,9 +324,13 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         for vlan_intf, config in mux_cable_table.items():
             ptf_port_index = ptf_indices[vlan_intf]
             server_ip = ip_interface(config['server_ipv4']).ip
+            server_ipv6 = ip_interface(config['server_ipv6']).ip
 
             garp_config[ptf_port_index] = {
-                                            'target_ip': '{}'.format(server_ip)
+                                            'dut_mac': '{}'.format(dut_mac),
+                                            'dst_ipv6': '{}'.format(dst_ipv6),
+                                            'target_ip': '{}'.format(server_ip),
+                                            'target_ipv6': '{}'.format(server_ipv6)
                                         }
 
         ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)

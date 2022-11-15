@@ -46,7 +46,10 @@ def toggle_upper_tor_pdu(upper_tor_host, get_pdu_controller):
 @pytest.fixture(scope='module')
 def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):
     pdu_controller = get_pdu_controller(lower_tor_host)
-    return lambda: toggle_pdu_outlet(pdu_controller)
+    if pdu_controller is None:
+        return lambda: lower_tor_host.shell("nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null &")
+    else:
+        return lambda: toggle_pdu_outlet(pdu_controller)
 
 
 @pytest.mark.enable_active_active
@@ -176,7 +179,7 @@ def test_active_tor_reboot_downstream(
     toggle_upper_tor_pdu()
     pytest_assert(
         wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
-        pytest.fail("Forwarding state check failed after reboot.")
+        "Forwarding state check failed after reboot."
     )
 
     # verify the upper ToR changes back to active after the upper comes back from reboot
