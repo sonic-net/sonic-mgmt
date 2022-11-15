@@ -22,17 +22,25 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
-CONTAINER_NAME_REGEX = (r"([a-zA-Z_-]+)(\d*)$")
+CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
-    yield
+    # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, safe_reload=True)
+        feature_list, _ = duthost.get_feature_status()
+        for feature, status in feature_list.items():
+            if status == 'enabled':
+                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+    yield
+    # Config reload should set the auto restart back to state before test started
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +75,14 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
         Fifth, systemd would fire an error message:"ERR systemd[1]: Failed to start SNMP/TEAMD container." since
         SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
 
+        Sixth, after a process is killed, its network resources are not immediately released. So it might take some time
+        for the ports to be available again. The problem might be more pronounced with weak devices. So we expect some
+        failures with listening or binding to a socket. When encountering this problem, the process will be repeated
+        and it typically resolves by itself. So we skip "Unable to initialize team socket" in teamsyncd and "Failed to
+        bind socket" in dhcprelay.
+
+        Also invalid OID is more of a warning. So we skip messages with keyword "invalid OID".
+
     """
     swss_syncd_teamd_regex = [
             ".*ERR swss[0-9]*#orchagent.*removeLag.*",
@@ -77,6 +93,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: invalid OIDs in fdb notifications.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*",
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
@@ -92,10 +110,12 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd[0-9]*#teamsyncd.*readData.*Unable to initialize team socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
+            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* after [0-9]+ retries",
         ]
     ignore_regex_dict = {
         'common': [
@@ -103,11 +123,16 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
+            ".*ERR wrong number of arguments for 'hset' command: Input/output error: Input/output error"
         ],
         'pmon': [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+        ],
+        'eventd': [
+            ".*ERR eventd#eventd.*The eventd service started.*",
+            ".*ERR eventd#eventd.*deserialize Failed: input stream errorstr.*"
         ],
         'swss': swss_syncd_teamd_regex,
         'syncd': swss_syncd_teamd_regex,
@@ -379,8 +404,8 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
 
-    # bgp0 -> bgp, bgp -> bgp
-    feature_name = re.match(CONTAINER_NAME_REGEX, container_name).group(1)
+    # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
+    feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
 
     # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
     pytest_require(feature_name not in skip_condition,
@@ -392,12 +417,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     logger.info("Start testing the container '{}'...".format(container_name))
-
-    restore_disabled_state = False
-    if feature_autorestart_states[feature_name] == "disabled":
-        logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
-        restore_disabled_state = True
 
     # Currently we select 'rsyslogd' as non-critical processes for testing based on
     # the assumption that every container has an 'rsyslogd' process running and it is not
@@ -435,10 +454,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             # why we use 'break' statement. Once we add the "extended" mode, we will remove this
             # statement
             break
-
-    if restore_disabled_state:
-        logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors

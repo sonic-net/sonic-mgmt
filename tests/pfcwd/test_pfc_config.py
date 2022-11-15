@@ -91,7 +91,7 @@ def cfg_teardown(duthost):
     duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
 
 @pytest.fixture(scope='class')
-def cfg_setup(setup_pfc_test, duthosts, rand_one_dut_hostname):
+def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Class level automatic fixture. Prior to the test run, create all the templates
     needed for each individual test and copy them on the DUT.
@@ -101,7 +101,7 @@ def cfg_setup(setup_pfc_test, duthosts, rand_one_dut_hostname):
         setup_pfc_test: module fixture defined in module conftest.py
         duthost: instance of AnsibleHost class
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
     pfc_wd_test_port = setup_info['test_ports'].keys()[0]
     logger.info("Creating json templates for all config tests")
@@ -143,7 +143,7 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     return original_value
 
 @pytest.fixture(scope='class')
-def mg_cfg_setup(duthosts, rand_one_dut_hostname):
+def mg_cfg_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Class level automatic fixture. Prior to the test run, enable default pfcwd configuration
     before load_minigraph.
@@ -151,11 +151,11 @@ def mg_cfg_setup(duthosts, rand_one_dut_hostname):
 
     Args:
         duthost: instance of AnsibleHost class
-        rand_one_dut_hostname(string) : randomly pick a dut in multi DUT setup
+        enum_rand_one_per_hwsku_frontend_hostname(string) : randomly pick a dut in multi DUT setup
     Returns:
         None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     logger.info("Enable pfcwd in configuration file")
     original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "enable")
@@ -168,7 +168,7 @@ def mg_cfg_setup(duthosts, rand_one_dut_hostname):
         config_reload(duthost, config_source='minigraph')
 
 @pytest.fixture(scope='function', autouse=True)
-def stop_pfcwd(duthosts, rand_one_dut_hostname):
+def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
@@ -179,7 +179,7 @@ def stop_pfcwd(duthosts, rand_one_dut_hostname):
         None
     """
     yield
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
@@ -220,7 +220,7 @@ class TestPfcConfig(object):
             out = duthost.command(cmd)
             pytest_assert(out["rc"] == 0, "Failed to execute cmd {}: Error: {}".format(cmd, out["stderr"]))
 
-    def test_forward_action_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_forward_action_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests if the config gets loaded properly for a valid cfg template
 
@@ -230,10 +230,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_fwd_action", "config_test_ignore_messages")
 
-    def test_invalid_action_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_invalid_action_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when invalid action is configured
 
@@ -243,10 +243,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_invalid_action", None, [CONFIG_TEST_EXPECT_INVALID_ACTION_RE], True)
 
-    def test_invalid_detect_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_invalid_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when invalid detect time is configured
 
@@ -256,10 +256,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_invalid_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
 
-    def test_low_detect_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_low_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when detect time < lower bound is configured
 
@@ -269,10 +269,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_low_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
 
-    def test_high_detect_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_high_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when detect time > higher bound is configured
 
@@ -282,10 +282,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_high_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
 
-    def test_invalid_restore_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_invalid_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when invalid restore time is configured
 
@@ -295,10 +295,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_invalid_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
-    def test_low_restore_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_low_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when restore time < lower bound is configured
 
@@ -308,10 +308,10 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_low_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
-    def test_high_restore_time_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_high_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for syslog error when restore time > higher bound is configured
 
@@ -321,12 +321,12 @@ class TestPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_high_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
 @pytest.mark.usefixtures('mg_cfg_setup')
 class TestDefaultPfcConfig(object):
-    def test_default_cfg_after_load_mg(self, duthosts, rand_one_dut_hostname):
+    def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for checking if pfcwd gets started after load_minigraph
 
@@ -336,7 +336,7 @@ class TestDefaultPfcConfig(object):
         Returns:
             None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         config_reload(duthost, config_source='minigraph')
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
