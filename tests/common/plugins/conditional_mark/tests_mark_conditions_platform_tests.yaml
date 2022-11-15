@@ -50,7 +50,7 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
   skip:
     reason: "Unsupported platform API"
-    conditions_logical_operator: or
+    conditions_logical_operator: 'OR'
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "'sw_to3200k' in hwsku"
