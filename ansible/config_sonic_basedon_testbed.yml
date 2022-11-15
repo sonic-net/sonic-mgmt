@@ -70,7 +70,18 @@
         vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }}
+  - name: find supervisor dut of testbed
+    set_fact:
+      sup_dut: "{{ item | default(None) }}"
+    when: hostvars[item]['card_type'] is defined and hostvars[item]['card_type'] == 'supervisor'
+    loop: "{{ testbed_facts['duts'] }}"
+
+  - name: Get asics_present of supervisor dut
+    set_fact:
+      asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
+    when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
+
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
