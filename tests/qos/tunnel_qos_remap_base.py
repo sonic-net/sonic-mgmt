@@ -66,7 +66,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     for line in output:    
         fields = line.split()
         if fields[1] == txq:
-            return int(2)
+            return int(fields[2])
 
     return 0
 
