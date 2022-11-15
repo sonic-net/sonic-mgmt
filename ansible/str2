@@ -1109,7 +1109,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.178
       serial: FOC2601NALA
       base_mac: CC:ED:4D:82:39:F0 
-      model: '8808'
+      model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1132,7 +1132,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.179
       serial: FOC2602N0GP
       base_mac: CC:ED:4D:82:38:60 
-      model: '8808'
+      model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1155,7 +1155,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.180
       serial: FOC2601NARV
       base_mac: CC:ED:4D:86:C1:50 
-      model: '8808'
+      model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
         "0x22": "1A5235"
@@ -1346,7 +1346,7 @@ sonic_cisco_sup:
     str2-8800-sup-3:
       ansible_host: 10.3.147.175
       hwsku: 8800-RP-O
-      model: '8808'
+      model: '8800-RP'
       num_asics: 16
       asic_name: Q200
       serial: FOC2516N6GB
