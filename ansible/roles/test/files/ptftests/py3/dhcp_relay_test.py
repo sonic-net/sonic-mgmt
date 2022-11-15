@@ -319,7 +319,7 @@ class DHCPTest(DataplaneBaseTest):
         return self.dhcp_offer_packet(eth_server=self.server_iface_mac,
                     eth_dst=self.uplink_mac,
                     eth_client=self.client_mac,
-                    ip_server=self.server_ip,
+                    ip_server=self.server_ip[0],
                     ip_dst=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                     ip_offered=self.client_ip,
                     port_dst=self.DHCP_SERVER_PORT,
@@ -352,11 +352,11 @@ class DHCPTest(DataplaneBaseTest):
                     flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.client_ip,
-                    siaddr=self.server_ip,
+                    siaddr=self.server_ip[0],
                     giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                     chaddr=my_chaddr)
         bootp /= scapy.DHCP(options=[('message-type', 'offer'),
-                    ('server_id', self.server_ip),
+                    ('server_id', self.server_ip[0]),
                     ('lease_time', self.LEASE_TIME),
                     ('subnet_mask', self.client_subnet),
                     ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
@@ -373,7 +373,7 @@ class DHCPTest(DataplaneBaseTest):
     def create_dhcp_request_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         request_packet = testutils.dhcp_request_packet(
             eth_client=self.client_mac,
-            ip_server=self.server_ip,
+            ip_server=self.server_ip[0],
             ip_requested=self.client_ip,
             set_broadcast_bit=True
         )
@@ -416,7 +416,7 @@ class DHCPTest(DataplaneBaseTest):
                     chaddr=my_chaddr)
         bootp /= scapy.DHCP(options=[('message-type', 'request'),
                     ('requested_addr', self.client_ip),
-                    ('server_id', self.server_ip),
+                    ('server_id', self.server_ip[0]),
                     (82, self.option82),
                     ('end')])
 
@@ -432,7 +432,7 @@ class DHCPTest(DataplaneBaseTest):
         return testutils.dhcp_ack_packet(eth_server=self.server_iface_mac,
                     eth_dst=self.uplink_mac,
                     eth_client=self.client_mac,
-                    ip_server=self.server_ip,
+                    ip_server=self.server_ip[0],
                     ip_dst=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                     ip_offered=self.client_ip,
                     port_dst=self.DHCP_SERVER_PORT,
@@ -465,11 +465,11 @@ class DHCPTest(DataplaneBaseTest):
                     flags=0x8000,
                     ciaddr=self.DEFAULT_ROUTE_IP,
                     yiaddr=self.client_ip,
-                    siaddr=self.server_ip,
+                    siaddr=self.server_ip[0],
                     giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                     chaddr=my_chaddr)
         bootp /= scapy.DHCP(options=[('message-type', 'ack'),
-                    ('server_id', self.server_ip),
+                    ('server_id', self.server_ip[0]),
                     ('lease_time', self.LEASE_TIME),
                     ('subnet_mask', self.client_subnet),
                     ('end')])
@@ -502,7 +502,7 @@ class DHCPTest(DataplaneBaseTest):
 
     def pkt_callback(self, pkt):
         if pkt.haslayer(scapy2.IP) and pkt.haslayer(scapy2.DHCP):
-            if pkt.getlayer(scapy2.IP).dst in [self.server_ip] and pkt.getlayer(scapy2.DHCP) is not None:
+            if pkt.getlayer(scapy2.IP).dst in self.server_ip and pkt.getlayer(scapy2.DHCP) is not None:
                 self.verified_option82 = False
                 pkt_options = ''
                 for option in pkt.getlayer(scapy2.DHCP).options:
