@@ -50,8 +50,10 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: 'OR'
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+      - "'sw_to3200k' in hwsku"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
@@ -60,12 +62,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "'sw_to3200k' in hwsku"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -303,19 +299,17 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
-
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_presence:
   xfail:
@@ -459,8 +453,6 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
     reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
-
-platform_tests/api/test_psu.py::TestPsuApi::test_led:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -896,8 +888,6 @@ platform_tests/test_reboot.py::test_fast_reboot:
     reason: "Skip test_fast_reboot for m0/mx"
     conditions:
       - "topo_name in ['m0', 'mx']"
-
-platform_tests/test_reboot.py::test_fast_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -915,8 +905,6 @@ platform_tests/test_reboot.py::test_soft_reboot:
     reason: "Skip test_soft_reboot for m0/mx"
     conditions:
       - "topo_name in ['m0', 'mx']"
-
-platform_tests/test_reboot.py::test_soft_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -928,8 +916,6 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "Skip test_warm_reboot for m0/mx"
     conditions:
       - "topo_name in ['m0', 'mx']"
-
-platform_tests/test_reboot.py::test_warm_reboot:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
