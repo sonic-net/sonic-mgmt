@@ -596,7 +596,7 @@
       # Increase this time during deploying minigraph
       - name: Reset sshd timeout
         lineinfile:
-            name: /etc/ssh/sshd_config
+            dest: /etc/ssh/sshd_config
             regexp: '^ClientAliveInterval [0-9].*'
             line: 'ClientAliveInterval 900'
             backrefs: yes
