@@ -663,7 +663,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -2074,6 +2074,12 @@ Totals               6450                 6449
                 self.command("config interface ip remove {} {}".format(port, ip))
         elif ip:
             self.command("config interface ip remove {} {}".format(port, ip))
+
+    def remove_vlan(self, vlan_id):
+        """
+        Remove vlan
+        """
+        self.command("config vlan del {}".format(vlan_id))
 
     def get_port_channel_status(self, port_channel_name):
         """

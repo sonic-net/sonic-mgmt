@@ -162,7 +162,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
             nic_addresses=nic_addresses,
             admin_requests=admin_requests[:len(nic_addresses)]
         )
-        call_grpc(client_stub.QueryAdminForwardingPortState, [request])
+        reply = call_grpc(client_stub.QueryAdminForwardingPortState, [request])
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
@@ -286,5 +286,4 @@ def set_drop_active_active(mux_config, nic_simulator_client):
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
-
-    _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
+        _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
