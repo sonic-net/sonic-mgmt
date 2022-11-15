@@ -1822,7 +1822,7 @@ def core_dump_and_config_check(duthosts, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture
             #   to account for the lower performance of the ICMP responder/mux simulator
-            # compared to real servers and mux cables. It's appropriate to persist
+            #   compared to real servers and mux cables. It's appropriate to persist
             #   this change since the testbed will always be using the ICMP responder
             #   and mux simulator. Linkmgrd is the only service to consume this table
             #   so it should not affect other test cases.
