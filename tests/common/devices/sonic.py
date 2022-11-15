@@ -2075,6 +2075,12 @@ Totals               6450                 6449
         elif ip:
             self.command("config interface ip remove {} {}".format(port, ip))
 
+    def remove_vlan(self, vlan_id):
+        """
+        Remove vlan
+        """
+        self.command("config vlan del {}".format(vlan_id))
+
     def get_port_channel_status(self, port_channel_name):
         """
         Collect port channel information by command docker teamdctl
