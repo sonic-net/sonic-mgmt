@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_DNX_202106)
+    default: $(IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202106)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
 stages:
