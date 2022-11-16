@@ -9,15 +9,13 @@ try:
 except ImportError:
     NTPLIB_INSTALLED = False
 
-from tests.common.helpers.snmp_helpers import get_snmp_facts
-
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
 
-SONIC_SSH_PORT  = 22
+SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
@@ -34,12 +32,12 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
         logging.warning("Will not check NTP connection. ntplib is not installed.")
 
     # Ensure we can gather basic SNMP facts from the device. Should fail on timeout
-    get_snmp_facts(localhost, 
-                   host=dut_mgmt_ip, 
-                   version="v2c", 
-                   community=creds['snmp_rocommunity'], 
-                   wait=True, 
-                   timeout = 20, 
+    get_snmp_facts(localhost,
+                   host=dut_mgmt_ip,
+                   version="v2c",
+                   community=creds['snmp_rocommunity'],
+                   wait=True,
+                   timeout=20,
                    interval=20)
 
     # Ensure we can send an NTP request
@@ -114,10 +112,10 @@ def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
     duthost.file(path="/tmp/config_service_acls.sh", state="absent")
 
     # Ensure we can gather basic SNMP facts from the device once again. Should fail on timeout
-    get_snmp_facts(localhost, 
-                   host=dut_mgmt_ip, 
-                   version="v2c", 
-                   community=creds['snmp_rocommunity'], 
-                   wait=True, 
-                   timeout = 20, 
+    get_snmp_facts(localhost,
+                   host=dut_mgmt_ip,
+                   version="v2c",
+                   community=creds['snmp_rocommunity'],
+                   wait=True,
+                   timeout=20,
                    interval=20)
