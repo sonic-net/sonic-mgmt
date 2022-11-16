@@ -105,7 +105,7 @@ class FanoutHost(object):
             host_port is a encoded string of <host name>|<port name>,
             e.g. sample_host|Ethernet0.
         """
-        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):

@@ -7,9 +7,11 @@ from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
+
 def _raise_err(msg):
-        logger.error(msg)
-        raise Exception(msg)
+    logger.error(msg)
+    raise Exception(msg)
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -18,7 +20,8 @@ class EosHost(AnsibleHostBase):
     For running ansible module on the Eos switch
     """
 
-    def __init__(self, ansible_adhoc, hostname, eos_user, eos_passwd, shell_user=None, shell_passwd=None, gather_facts=False):
+    def __init__(self, ansible_adhoc, hostname, eos_user, eos_passwd,
+                 shell_user=None, shell_passwd=None, gather_facts=False):
         '''Initialize an object for interacting with EoS type device using ansible modules
 
         Args:
@@ -35,13 +38,14 @@ class EosHost(AnsibleHostBase):
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
-        self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.localhost = ansible_adhoc(inventory='localhost', connection='local',
+                                       host_pattern="localhost")["localhost"]
 
     def __getattr__(self, module_name):
         if module_name.startswith('eos_'):
             evars = {
-                'ansible_connection':'network_cli',
-                'ansible_network_os':'eos',
+                'ansible_connection': 'network_cli',
+                'ansible_network_os': 'eos',
                 'ansible_user': self.eos_user,
                 'ansible_password': self.eos_passwd,
                 'ansible_ssh_user': self.eos_user,
@@ -52,8 +56,8 @@ class EosHost(AnsibleHostBase):
             if not self.shell_user or not self.shell_passwd:
                 raise Exception("Please specify shell_user and shell_passwd for {}".format(self.hostname))
             evars = {
-                'ansible_connection':'ssh',
-                'ansible_network_os':'linux',
+                'ansible_connection': 'ssh',
+                'ansible_network_os': 'linux',
                 'ansible_user': self.shell_user,
                 'ansible_password': self.shell_passwd,
                 'ansible_ssh_user': self.shell_user,
@@ -91,20 +95,17 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.no_shutdown(intf_str)
 
-
     def check_intf_link_state(self, interface_name):
         show_int_result = self.eos_command(
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
-        
-        
+
     def is_intf_status_down(self, interface_name):
         show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
         logging.info("Checking interface state: {}".format(show_int_result['stdout_lines'][0][0]))
         # Either admin/opr status is down meaning link is down
         return 'down' in show_int_result['stdout_lines'][0][0].lower()
-        
-        
+
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
@@ -113,12 +114,12 @@ class EosHost(AnsibleHostBase):
         # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed']
         # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
         # error.
-        if out['failed'] == True or out['changed'] == False:
+        if out['failed'] is True or out['changed'] is False:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
                 parents='interface %s' % interface_name)
-            if out['changed'] == False:
+            if out['changed'] is False:
                 logging.warning("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
                 raise Exception("Unable to set interface [%s] lacp timer to [%s]" % (interface_name, mode))
             else:
@@ -175,7 +176,8 @@ class EosHost(AnsibleHostBase):
         logging.info("ipv6 bgp summary: {}".format(out_v6))
 
         # when bgpd is inactive, the bgp summary output: [{u'vrfs': {}, u'warnings': [u'BGP inactive']}]
-        if 'BGP inactive' in out_v4['stdout'][0].get('warnings', '') and 'BGP inactive' in out_v6['stdout'][0].get('warnings', ''):
+        if 'BGP inactive' in out_v4['stdout'][0].get('warnings', '') \
+                and 'BGP inactive' in out_v6['stdout'][0].get('warnings', ''):
             return False
 
         try:
@@ -200,8 +202,8 @@ class EosHost(AnsibleHostBase):
             # ignore any KeyError due to unexpected BGP summary output
             pass
 
-        logging.info("neigh_ips_ok={} neigh_desc_available={} neigh_desc_ok={}"\
-            .format(str(neigh_ips_ok), str(neigh_desc_available), str(neigh_desc_ok)))
+        logging.info("neigh_ips_ok={} neigh_desc_available={} neigh_desc_ok={}"
+                     .format(str(neigh_ips_ok), str(neigh_desc_available), str(neigh_desc_ok)))
         if neigh_desc_available:
             if len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok):
                 return True
@@ -212,16 +214,17 @@ class EosHost(AnsibleHostBase):
         return False
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} \
+                            -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
         cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
-            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+                                           fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
     def get_route(self, prefix):
-        cmd = 'show ip bgp' if ipaddress.ip_network(unicode(prefix)).version == 4 else 'show ipv6 bgp'
+        cmd = 'show ip bgp' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show ipv6 bgp'
         return self.eos_command(commands=[{
             'command': '{} {}'.format(cmd, prefix),
             'output': 'json'
@@ -257,7 +260,6 @@ class EosHost(AnsibleHostBase):
             logger.debug('Set auto neg to {} for port {}: {}'.format(enabled, interface_name, out))
             return not self._has_cli_cmd_failed(out)
         return self._reset_port_speed(interface_name)
-
 
     def get_speed(self, interface_name):
         output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
@@ -296,7 +298,8 @@ class EosHost(AnsibleHostBase):
         Returns:
             list: A list of supported speed strings or None
         """
-        commands = ['show interfaces {} capabilities'.format(interface_name), 'show interface {} hardware'.format(interface_name)]
+        commands = ['show interfaces {} capabilities'.format(interface_name),
+                    'show interface {} hardware'.format(interface_name)]
         for command in commands:
             output = self.eos_command(commands=[command])
             found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
@@ -309,8 +312,9 @@ class EosHost(AnsibleHostBase):
         speed_list = found_txt.groups()[0]
         speed_list = speed_list.split(',')
         speed_list.remove('auto')
+
         def extract_speed_only(v):
-            return re.match('\d+', v.strip()).group() + '000'
+            return re.match(r'\d+', v.strip()).group() + '000'
         return list(map(extract_speed_only, speed_list))
 
     def get_dut_iface_mac(self, interface_name):
@@ -342,5 +346,6 @@ class EosHost(AnsibleHostBase):
                 return output["interfaces"][interface_name]["controlledPort"]
             return False
         except Exception as e:
-            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'
+                         .format(interface_name, repr(e)))
             return False
