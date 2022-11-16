@@ -192,12 +192,12 @@ pdu-121,11,str2-acs-serv-26,PSU1
 pdu-122,11,str2-acs-serv-27,PSU1
 pdu-123,26,str2-acs-serv-28,PSU1
 pdu-123,25,str2-acs-serv-29,PSU1
-pdu-111,22,str2-7250-sup-1,PSU1
+pdu-111,24,str2-7250-sup-1,PSU1
 pdu-111,23,str2-7250-sup-1,PSU2
-pdu-111,24,str2-7250-lc1-1,PSU1
-pdu-111,18,str2-7250-lc1-1,PSU2
-pdu-111,19,str2-7250-lc2-1,PSU1
-pdu-111,20,str2-7250-lc2-1,PSU2
+pdu-110,16,str2-7250-sup-1,PSU3
+pdu-111,18,str2-7250-sup-1,PSU4
+pdu-111,19,str2-7250-sup-1,PSU5
+pdu-111,20,str2-7250-sup-1,PSU6
 pdu-109,28,str2-7260cx3-d10-u19,PSU1
 pdu-110,28,str2-7260cx3-d10-u19,PSU2
 pdu-109,27,str2-7260cx3-d10-u21,PSU1
