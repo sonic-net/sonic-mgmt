@@ -241,6 +241,31 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
+@pytest.fixture
+def pause_garp_service(ptfhost):
+    """
+    Temporarily pause GARP service on PTF for one test method
+
+    `run_garp_service` is module scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when garp_service is already running on the PTF
+    """
+    needs_resume = False
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.warning("GARP service not present on PTF")
+    elif 'RUNNING' in res['stdout']:
+        needs_resume = True
+        ptfhost.shell("supervisorctl stop garp_service")
+    else:
+        logger.warning("GARP service already stopped on PTF")
+
+    yield
+
+    if needs_resume:
+        ptfhost.shell("supervisorctl start garp_service")
+
+
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
