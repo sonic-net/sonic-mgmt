@@ -81,7 +81,7 @@ class K8sMasterHost(AnsibleHostBase):
         logging.info("Ensuring kubelet is started on {}".format(self.hostname))
         kubelet_status = self.shell("sudo systemctl status kubelet | grep 'Active: '", module_ignore_errors=True)
         for line in kubelet_status["stdout_lines"]:
-            if not "running" in line:
+            if "running" not in line:
                 self.shell("sudo systemctl start kubelet")
 
 
