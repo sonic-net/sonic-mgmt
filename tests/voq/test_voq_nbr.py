@@ -132,13 +132,6 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
                                 nbr['host'].eos_config(
                                     lines=["no neighbor %s shutdown" % neighbor],
                                     parents=['router bgp {}'.format(nbr['conf']['bgp']['asn'])])
-
-                                if ":" in address:
-                                    nbr['host'].eos_config(
-                                        lines=["no ipv6 route ::/0 %s " % neighbor])
-                                else:
-                                    nbr['host'].eos_config(
-                                        lines=["no ip route 0.0.0.0/0 %s " % neighbor])
                             else:
                                 nbr['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(nbr['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor))
 
@@ -229,16 +222,6 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
                         parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
                         module_ignore_errors=True)
                     )
-                    if ":" in neighbor:
-                        node_results.append(node['host'].eos_config(
-                            lines=["ipv6 route ::/0 %s " % neighbor],
-                            module_ignore_errors=True)
-                        )
-                    else:
-                        node_results.append(node['host'].eos_config(
-                            lines=["ip route 0.0.0.0/0 %s " % neighbor],
-                            module_ignore_errors=True)
-                        )
                 else:
                     node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(node['conf']['bgp']['asn'])+ "' -c 'neighbor {} shutdown'".format(neighbor)))
 
@@ -322,15 +305,6 @@ def teardown(duthosts, nbrhosts, all_cfg_facts):
                             lines=["no neighbor %s shutdown" % neighbor],
                             parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
                         )
-                        if ":" in neighbor:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ipv6 route ::/0 %s " % neighbor])
-                            )
-                        else:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ip route 0.0.0.0/0 %s " % neighbor],
-                            )
-                            )
                     else:
                         node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(node['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor)))
 
@@ -342,16 +316,6 @@ def teardown(duthosts, nbrhosts, all_cfg_facts):
                             lines=["no neighbor %s shutdown" % neighbor],
                             parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
                         )
-                        if ":" in neighbor:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ipv6 route ::/0 %s " % neighbor],
-                            )
-                            )
-                        else:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ip route 0.0.0.0/0 %s " % neighbor],
-                            )
-                            )
                     else:
                         node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(node['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor)))
 
