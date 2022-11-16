@@ -1733,8 +1733,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     if upper_bound_wm > self.max_headroom:
                         upper_bound_wm = self.max_headroom
 
-                    print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
-                        wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
+                    print >> sys.stderr, "pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
+                        wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm)
                     if 'innovium' not in self.asic_type:
                         assert(expected_wm <= hdrm_pool_wm)
                     assert(hdrm_pool_wm <= upper_bound_wm)
