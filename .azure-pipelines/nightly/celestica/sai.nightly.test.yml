@@ -39,6 +39,7 @@ parameters:
     - $(IMAGE_BRCM_PUBLIC)
     - $(IMAGE_BRCM_DBUG)
     - $(IMAGE_BRCM_ABOOT_PUBLIC)
+    - $(IMAGE_BRCM_7.1_PUBLIC)
 
   - name: PY_SAITHRIFT_URL
     type: string
@@ -55,6 +56,7 @@ parameters:
     - $(SAITHRIFTV2_BRCM_INTERNAL_DBG)
     - $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     - $(SAITHRIFTV2_BRCM_INTERNAL_202205)
+    - $(SAITHRIFT_BRCM_7.1_PUBLIC)
 
   - name: SAI_REPO
     type: string

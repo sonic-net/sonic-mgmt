@@ -493,7 +493,7 @@ jobs:
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
             pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/setup_test_env.py::test_sai_env_setup --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
+              --junit-xml=sai_env_setup_tr.xml --log-cli-level ${LOG_LEVEL} \
               --collect_techsupport=False --topology='ptf'
         env:
           ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
@@ -777,13 +777,12 @@ jobs:
 
 
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
-            rm -rf ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
             pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/setup_test_env.py::test_sai_env_teardown --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
+              --junit-xml=sai_env_teardown_tr.xml --log-cli-level ${LOG_LEVEL} \
               --collect_techsupport=False --topology='ptf'
 
             cd ansible
