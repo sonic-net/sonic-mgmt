@@ -81,7 +81,8 @@ class AdvancedReboot:
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer" in kwargs else None
-        self.__dict__.update(kwargs)
+	self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
+	self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
         self.hostMaxLen = 0
@@ -117,7 +118,7 @@ class AdvancedReboot:
         if self.rebootLimit is None:
             if self.kvmTest:
                 self.rebootLimit = 200 # Default reboot limit for kvm
-            elif 'warm-reboot' in self.rebootType:
+	    elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
             else:
                 self.rebootLimit = 30 # Default reboot limit for physical devices
@@ -170,6 +171,15 @@ class AdvancedReboot:
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
+        vlan_mac = self.rebootData['dut_mac']
+        config_facts = self.duthost.get_running_config_facts()
+        vlan_table = config_facts.get('VLAN', None)
+        if vlan_table:
+            vlan_name = list(vlan_table.keys())[0]
+            vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
+        self.rebootData['vlan_mac'] = vlan_mac
+        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
             if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
@@ -622,10 +632,13 @@ class AdvancedReboot:
             "dut_hostname" : self.rebootData['dut_hostname'],
             "reboot_limit_in_seconds" : self.rebootLimit,
             "reboot_type" : self.rebootType,
+            "other_vendor_flag" :  self.other_vendor_nos,
             "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
             "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
             "ports_file" : self.rebootData['ports_file'],
             "dut_mac" : self.rebootData['dut_mac'],
+            "vlan_mac" : self.rebootData['vlan_mac'],
+            "lo_prefix" : self.rebootData['lo_prefix'],
             "default_ip_range" : self.rebootData['default_ip_range'],
             "vlan_ip_range" : self.rebootData['vlan_ip_range'],
             "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
@@ -661,8 +674,11 @@ class AdvancedReboot:
 
         self.__updateAndRestartArpResponder(rebootOper)
 
-
-        logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
+        if rebootOper is None and self.other_vendor_nos is True:
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case:'
+            ' Reboot from other vendor nos'.format(self.request.node.name))
+        else:
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
             self.request.node.name, str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
