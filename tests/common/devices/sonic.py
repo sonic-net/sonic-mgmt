@@ -2317,6 +2317,17 @@ Totals               6450                 6449
                 logging.info("Interface {} is up on {}".format(output_port, self.hostname))
         return True
 
+    def is_interface_status_up(self, interface):
+        """
+            Check if the status of a single interface is oper and admin up.
+                Args:
+                    interface: the interface to check
+                Returns:
+                    True if the interface is oper and admin up
+        """
+        output = self.shell('show interface status {}'.format(interface))
+        return re.search('up +up', output['stdout_lines'][-1])
+
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
@@ -2342,6 +2353,41 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
+
+    def get_switch_hash_capabilities(self):
+        out = self.shell('show switch-hash capabilities')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def get_switch_hash_configurations(self):
+        out = self.shell('show switch-hash global')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def set_switch_hash_global(self, hash_type, fields, validate=True):
+        cmd = 'config switch-hash global {}-hash'.format(hash_type)
+        for field in fields:
+            cmd += ' ' + field
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    @staticmethod
+    def _parse_hash_fields(cli_output):
+        ecmp_hash_fields = []
+        lag_hash_fields = []
+        for line in cli_output['stdout'].splitlines()[2:]:
+            ecmp_hash_field = line.split(' ')[0]
+            if ' ' in line:
+                lag_hash_field = line.split(' ')[-1]
+            else:
+                lag_hash_field = ''
+            if ecmp_hash_field != 'N/A' and ecmp_hash_field != '':
+                ecmp_hash_fields.append(ecmp_hash_field)
+            if lag_hash_field != 'N/A' and lag_hash_field != '':
+                lag_hash_fields.append(lag_hash_field)
+        return {'ecmp': ecmp_hash_fields, 'lag': lag_hash_fields}
 
 
 def assert_exit_non_zero(shell_output):
