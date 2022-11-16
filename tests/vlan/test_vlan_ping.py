@@ -103,7 +103,9 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     vlan_ip_network_v4 = ipaddress.IPv4Interface(ip4).network
 
     # selecting 2 random vlan members of DUT
-    rand_vlan_member_list = random.sample(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys(), 2)
+    # Remove portchannel in vlan member list
+    filter_vlan_member_list = [member for member in my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys() if member in mg_facts['minigraph_ptf_indices']]
+    rand_vlan_member_list = random.sample(filter_vlan_member_list, 2)
     exclude_ip = []
     exclude_ip.extend(
         [ipaddress.IPv4Interface(ip4).network.network_address, ipaddress.IPv4Interface(ip4).network.broadcast_address,
