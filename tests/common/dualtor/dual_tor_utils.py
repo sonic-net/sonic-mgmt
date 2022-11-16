@@ -1,44 +1,47 @@
 import contextlib
+import ipaddress
 import logging
 import itertools
 import pytest
 import random
 import time
 import json
+import os
 import ptf
 import re
 import string
 
-from scapy.all import Ether, IP, TCP, IPv6
-import scapy.all as scapyall
-from datetime import datetime
-from tests.ptf_runner import ptf_runner
-
 from collections import defaultdict
+from datetime import datetime
 from natsort import natsorted
+from ptf import mask
+from ptf import testutils
+from scapy.layers.l2 import Ether
+from scapy.layers.inet import IP, TCP
+from scapy.layers.inet6 import IPv6
+
+from tests.common import constants
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                                     # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                           # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import active_active_ports                                            # lgtm[py/unused-import]
-
-import ipaddress
-
-from ptf import mask
-from ptf import testutils
-from scapy.all import Ether, IP
+from tests.common.dualtor.dual_tor_common import mux_config                                                     # lgtm[py/unused-import]
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common import constants
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.ptf_runner import ptf_runner
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
 
 logger = logging.getLogger(__name__)
 
+ARP_RESPONDER_PY = "arp_responder.py"
+SCRIPTS_SRC_DIR = "scripts/"
+OPT_DIR = "/opt"
 
 def get_tor_mux_intfs(duthost):
     return sorted(duthost.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))
@@ -322,7 +325,7 @@ def force_standby_tor():
     yield force_standby_tor_fn
 
     for x in forced_intfs:
-        x[0].shell("config muxcable mode auto {}; true".format(x[1]))        
+        x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
@@ -671,7 +674,7 @@ def _shutdown_tor_downlink_intfs(tor_host, dut_intfs=None):
 
     Args:
         tor_host (object): Host object for the ToR DUT.
-        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All 
+        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All
             downlink interfaces on DUT will be shutdown. If dut_intfs is not
             specified, the function will shutdown all DUT downlink interfaces.
             Defaults to None.
@@ -828,10 +831,10 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
             ip_ttl=64
         )
         exp_pkt = mask.Mask(send_pkt)
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-        exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-        exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+        exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+        exp_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_pkt.set_do_not_care_scapy(IP, "ttl")
+        exp_pkt.set_do_not_care_scapy(IP, "chksum")
 
         inner_packet = send_pkt[IP]
         inner_packet.ttl = inner_packet.ttl - 1
@@ -845,11 +848,11 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         send_pkt.ttl = 64
         exp_tunnel_pkt[TCP] = inner_packet[TCP]
         exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id") # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl") # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum") # checksum would differ as the IP header is not the same
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -870,9 +873,9 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
             tcp_dport=dport
         )
         exp_pkt = mask.Mask(send_pkt)
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-        exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-        exp_pkt.set_do_not_care_scapy(scapyall.IPv6, "hlim")
+        exp_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_pkt.set_do_not_care_scapy(IPv6, "hlim")
 
         inner_packet = send_pkt[IPv6]
         inner_packet[IPv6].hlim -= 1
@@ -886,11 +889,11 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         send_pkt.hlim = 64
         exp_tunnel_pkt[TCP] = inner_packet[TCP]
         exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-        exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -1122,7 +1125,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     if 't0' in tbinfo["topo"]["name"]:
         # For mocked dualtor
         res['active_tor_ip'] = str(ipaddress.ip_address(res['standby_tor_ip']) + 1)
-        # For mocked dualtor, routes to peer switch is static 
+        # For mocked dualtor, routes to peer switch is static
         res['ptf_portchannel_indices'] = get_t1_active_ptf_ports(standby_tor, tbinfo)
     else:
         active_tor_mg_facts = active_tor.get_extended_minigraph_facts(tbinfo)
@@ -1200,7 +1203,7 @@ def show_muxcable_status(duthost):
     output = json.loads(duthost.shell(command)["stdout"])
 
     ret = {}
-    for port, muxcable in output['MUX_CABLE'].items(): 
+    for port, muxcable in output['MUX_CABLE'].items():
         ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
 
     return ret
@@ -1224,11 +1227,11 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
         dump_scapy_packet_show_output(pkt)
     )
     exp_pkt = mask.Mask(pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(Ether, "src")
+    exp_pkt.set_do_not_care_scapy(IP, "tos")
+    exp_pkt.set_do_not_care_scapy(IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(IP, "chksum")
     return pkt, exp_pkt
 
 
@@ -1247,9 +1250,9 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
         dump_scapy_packet_show_output(pkt)
     )
     exp_pkt = mask.Mask(pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IPv6, "hlim")
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(Ether, "src")
+    exp_pkt.set_do_not_care_scapy(IPv6, "hlim")
     return pkt, exp_pkt
 
 
@@ -1410,3 +1413,31 @@ def is_tunnel_qos_remap_enabled(duthost):
         return False
     return "enabled" == tunnel_qos_remap_status
 
+@pytest.fixture(scope="session")
+def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):
+    """
+    Apply standard ARP responder for dualtor testbeds
+
+    In this case, ARP responder will reply to ARP requests and NA messages for the
+    server IPs configured in the ToR's config DB MUX_CABLE table
+    """
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY), dest=OPT_DIR)
+    arp_responder_conf = {}
+    tor_to_ptf_intf_map = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+
+    for tor_intf, config_vals in mux_config.items():
+        ptf_intf = "eth{}".format(tor_to_ptf_intf_map[tor_intf])
+        arp_responder_conf[ptf_intf] = [
+            str(ipaddress.ip_interface(config_vals["SERVER"]["IPv4"]).ip),
+            str(ipaddress.ip_interface(config_vals["SERVER"]["IPv6"]).ip)]
+
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True), dest="/tmp/from_t1.json")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+    supervisor_cmd = "supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder"
+    ptfhost.shell(supervisor_cmd)
+
+    yield
+
+    ptfhost.shell("supervisorctl stop arp_responder")
