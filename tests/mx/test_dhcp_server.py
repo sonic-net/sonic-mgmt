@@ -5,7 +5,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.mx.mx_utils import create_vlan, remove_vlan
+from mx_utils import create_vlan, remove_vlan
 
 pytestmark = [
     pytest.mark.topology('mx'),
