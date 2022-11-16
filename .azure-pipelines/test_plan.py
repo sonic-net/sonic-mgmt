@@ -9,6 +9,9 @@ import time
 import requests
 import yaml
 
+from statusChain import TestPlanStatus, InitStatus, LockStatus, PrePareStatus, ExecutingStatus, KvmDumpStatus, FailedStatus, CancelledStatus, FinishStatus
+
+
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
@@ -149,12 +152,26 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
+    def getChainOfStatus(self, status):
+        if status == "LOCK_TESTBED":
+            return LockStatus(TestPlanStatus["LOCK_TESTBED"])
+        elif status == "PREPARE_TESTBED":
+            return PrePareStatus(TestPlanStatus["PREPARE_TESTBED"])
+        elif status == "EXECUTING":
+            return ExecutingStatus(TestPlanStatus["EXECUTING"])
+        elif status == "KVMDUMP":
+            return KvmDumpStatus(TestPlanStatus["KVMDUMP"])
+
+        return InitStatus(TestPlanStatus["INIT"])
+
     def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
         INIT -- LOCK_TESTBED -- PREPARE_TESTBED -- EXECUTING -- |-- CANCELLED
+                                                                |-- KVMDUMP
                                                                 |-- FINISHED
+
         '''
 
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
@@ -190,28 +207,29 @@ class TestPlanManager(object):
 
             status = resp_data.get("status", None)
             result = resp_data.get("result", None)
+            statusChain = self.getChainOfStatus(status)
 
-            if status in ["FINISHED", "CANCELLED", "FAILED"]:
-                if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds"
-                          .format(status, time.time() - start_time))
-                    return
-                else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                    .format(test_plan_id, status, result, time.time() - start_time))
-            elif status in expected_states:
-                if status == "KVMDUMP":
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                    .format(test_plan_id, status, result, time.time() - start_time))
-                return
-            else:
-                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
-                      .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
+            if TestPlanStatus[expected_states] == TestPlanStatus[status]:
+                statusChain.print_logs(test_plan_id, resp_data, start_time)
                 time.sleep(interval)
+            if TestPlanStatus[expected_states] < TestPlanStatus[status]:
+                steps = None
+                status = None
+                extra_params = resp_data.get("extra_params", None)
 
-        else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+                if extra_params:
+                    steps = extra_params.get("steps", None)
+                if steps:
+                    for step in steps:
+                        if step.get("step") == expected_states:
+                            status = step.get("status")
+                            break
+
+                if status == "FAILED":
+                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. Check https://www.testbed-tools.org/scheduler/testplan/{} for test plan status"
+                                    .format(test_plan_id, status, result, time.time() - start_time, test_plan_id))
+                else:
+                    return
 
 
 if __name__ == "__main__":
@@ -345,7 +363,6 @@ if __name__ == "__main__":
         type=str,
         dest="expected_states",
         required=False,
-        nargs='*',
         help="Expected state.",
         default="FINISHED"
     )
