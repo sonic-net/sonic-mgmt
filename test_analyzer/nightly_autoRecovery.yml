@@ -10,7 +10,7 @@ schedules:
     displayName: AutoRecoveryTestbedsScheduler
     branches:
       include:
-        - nightly_hawk
+        - internal
     always: true
 
 parameters:

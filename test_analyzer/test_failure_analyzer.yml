@@ -10,7 +10,7 @@ schedules:
     displayName: TestFailureAnalyzingScheduler
     branches:
       include:
-        - nightly_hawk
+        - internal
     always: true
 
 parameters:
