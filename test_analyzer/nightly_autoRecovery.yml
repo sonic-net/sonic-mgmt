@@ -1,0 +1,66 @@
+# This job is for periodically auto recovery testbed 
+
+name:  AutoRecovery_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "9 */4 * * *"    # trigger every 4 hours, start at random minutes (9)
+    displayName: AutoRecoveryTestbedsScheduler
+    branches:
+      include:
+        - nightly_hawk
+    always: true
+
+parameters:
+  - name: SANITY_CHECK
+    type: boolean
+    default: true
+    displayName: "do sanity check"
+
+stages:
+  - stage: AutoRecovery
+    jobs:
+      - job: AutoRecovery
+        pool: nightly
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: NIGHTLY_HAWK
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run auto recovery script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt              
+
+                if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
+                    python3 test_testbeds_auto_recovery.py -v -s -g
+                else
+                    echo "skip do sanity check"
+                    python3 test_testbeds_auto_recovery.py -v -g
+                fi
+                
+            env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)

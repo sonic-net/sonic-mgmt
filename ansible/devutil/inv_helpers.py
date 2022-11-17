@@ -129,7 +129,7 @@ class HostManager():
         res["console_user"] = {}
         res["console_password"] = {}
 
-        for k, v in console_login_creds.iteritems():
+        for k, v in console_login_creds.items():
             res["console_user"][k] = v["user"]
             res["console_password"][k] = v["passwd"]
 

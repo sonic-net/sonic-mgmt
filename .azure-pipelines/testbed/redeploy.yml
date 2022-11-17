@@ -1,7 +1,7 @@
 # In case there is something wrong with current testbed, this job can be manually triggered to re-deploy the testbed.
 # Tool "testbed-cli.sh" is used to perform the redeploy tasks.
 
-name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+name: $(Build.DefinitionName)_${{ parameters.TESTBED_NAME }}_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none

@@ -1,0 +1,51 @@
+
+###############################################################################
+# TEST CASE ANALYSIS TABLE SETUP                                              #
+# 1. Create a TestcaseAnalysis table to store test case analysis results      #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestcaseAnalysis (UploadTimestamp: datetime, ModulePath: string,
+                                  TestCase: string, Branch: string,
+                                  TriggerIcM: bool, Subject: string,
+                                  FailureLevelInfo: dynamic, PerTestbedTestInfo: dynamic,
+                                  PerAsicTestInfo: dynamic, PerHwskuTestInfo: dynamic,
+                                  PerHwskuTopoTestInfo: dynamic, PerOSVersionTestInfo: dynamic,
+                                  AutoBlameId: string)
+
+.create table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1' @'[{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},'
+                                                                                  '{"column":"ModulePath","Properties":{"path":"$.module_path"}},'
+                                                                                  '{"column":"TestCase","Properties":{"path":"$.testcase"}},'
+                                                                                  '{"column":"Branch","Properties":{"path":"$.branch"}},'
+                                                                                  '{"column":"Subject","Properties":{"path":"$.subject"}},'
+                                                                                  '{"column":"TriggerIcM","Properties":{"path":"$.trigger_icm"}},'
+                                                                                  '{"column":"FailureLevelInfo","Properties":{"path":"$.failure_level_info"}},'
+                                                                                  '{"column":"PerTestbedTestInfo","Properties":{"path":"$.per_testbed_info"}},'
+                                                                                  '{"column":"PerAsicTestInfo","Properties":{"path":"$.per_asic_info"}},'
+                                                                                  '{"column":"PerHwskuTestInfo","Properties":{"path":"$.per_hwsku_info"}},'
+                                                                                  '{"column":"PerHwskuTopoTestInfo","Properties":{"path":"$.per_hwsku_topo_info"}},'
+                                                                                  '{"column":"PerOSVersionTestInfo","Properties":{"path":"$.per_os_version_info"}},'
+                                                                                  '{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}}]'
+
+###############################################################################
+# AUTOBLAME REPORT TABLE SETUP                                                #
+# 1. Create a AutoBlameReport table to store Autoblame response info          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table AutoBlameReport (UploadTimestamp: datetime, ReportId: string, Repo: string, Subject: string, CommitUrl: string,
+                         Author: string, Committer: string, MergedAt: datetime, Base: string, 
+                         CommitSha: string, Stats: string, Files: string, Labels: string, KeyWord: string)
+.create table AutoBlameReport ingestion json mapping 'AutoBlameReportMapping' @'[{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},'
+                                                                     '{"column":"ReportId","Properties":{"path":"$.reportid"}},'
+                                                                     '{"column":"Repo","Properties":{"path":"$.repo"}},'
+                                                                     '{"column":"Subject","Properties":{"path":"$.subject"}},'
+                                                                     '{"column":"CommitUrl","Properties":{"path":"$.commiturl"}},'
+                                                                     '{"column":"Author","Properties":{"path":"$.author"}},'
+                                                                     '{"column":"Committer","Properties":{"path":"$.committer"}},'
+                                                                     '{"column":"MergedAt","Properties":{"path":"$.mergedat"}},'
+                                                                     '{"column":"Base","Properties":{"path":"$.base"}},'
+                                                                     '{"column":"CommitSha","Properties":{"path":"$.commitsha"}},'
+                                                                     '{"column":"Stats","Properties":{"path":"$.stats"}},'
+                                                                     '{"column":"Files","Properties":{"path":"$.files"}},'
+                                                                     '{"column":"Labels","Properties":{"path":"$.labels"}},'
+											                         '{"column":"KeyWord","Properties":{"path":"$.keyword"}},'
+                                                                     ']'
