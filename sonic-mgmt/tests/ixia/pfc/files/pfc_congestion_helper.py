@@ -1,11 +1,6 @@
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-# from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-#    fanout_graph_facts
-# from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, \
-#     ixia_api_serv_port,\
-#    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import \
     stop_pfcwd, disable_packet_aging
