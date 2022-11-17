@@ -8,10 +8,12 @@ FILE_DIR = "mx/config"
 CONFIG_FILE = "dhcp_server_vlan_conf.json"
 
 
-def remove_all_vlans(cfg_facts, duthost):
+@pytest.fixture(scope="function", autouse=True)
+def remove_all_vlans(duthost):
     """
-    Remove all vlans in DUT
+    Remove all vlans in DUT before every test case
     """
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     if "VLAN_INTERFACE" in cfg_facts:
         vlan_intfs = cfg_facts["VLAN_INTERFACE"]
         for intf, prefixs in vlan_intfs.items():
@@ -27,12 +29,11 @@ def remove_all_vlans(cfg_facts, duthost):
 
             duthost.remove_vlan(vlan_id)
 
+    yield
+
 
 @pytest.fixture(scope="module")
 def mx_common_setup_teardown(duthost, tbinfo):
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    remove_all_vlans(cfg_facts, duthost)
-
     # Get vlan configs
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     vlan_configs = json.load(open(os.path.join(FILE_DIR, CONFIG_FILE), "r"))
