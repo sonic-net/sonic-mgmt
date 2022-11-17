@@ -44,6 +44,10 @@
   shell: sed -E -i 's/(^[^#]*@\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]:514).*$/\1;RemoteSONiCFileFormat/g' /etc/rsyslog.conf
   become: true
 
+- name: Get template in rsyslog.conf
+  shell: echo `grep -c 'template=".*SONiCFileFormat"' /usr/share/sonic/templates/rsyslog.conf.j2`
+  register: remote_template
+
 # Workaround for PR https://msazure.visualstudio.com/One/_git/Networking-acs-buildimage/pullrequest/6631568
 # This PR updated the rsyslog.conf to use a new method for sending out syslog. Need to configure the new method
 # to use RemoteSONiCFileFormat too.
@@ -60,6 +64,20 @@
   loop_control:
     loop_var: rsyslog_conf_path
   become: true
+  when: remote_template.stdout == "0"
+
+- name: Patch rsyslog.conf and rsyslog.conf.j2 to use RemoteSONiCFileFormat instead of SONiCFileFormat for action type omfwd
+  replace:
+    dest: "{{ rsyslog_conf_path }}"
+    regexp: 'template=".*SONiCFileFormat"'
+    replace: 'template="RemoteSONiCFileFormat"'
+  loop:
+    - /usr/share/sonic/templates/rsyslog.conf.j2
+    - /etc/rsyslog.conf
+  loop_control:
+    loop_var: rsyslog_conf_path
+  become: true
+  when: remote_template.stdout != "0"
 
 - name: Restart rsyslog service
   shell: systemctl restart rsyslog
