@@ -113,3 +113,20 @@ multi-asic-t1-lag:
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
+
+wan-pub:
+  - system_health/test_system_status.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
+  - arp/test_arpall.py
+  - telemetry/test_telemetry.py
+  - tacacs/test_jit_user.py
+  - tacacs/test_ro_user.py
+  - tacacs/test_rw_user.py
+  - tacacs/test_ro_disk.py
+  - tacacs/test_authorization.py
+  - tacacs/test_accounting.py
