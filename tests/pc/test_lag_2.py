@@ -12,6 +12,8 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.common.helpers.constants import DEFAULT_ASIC_ID
 
 logger = logging.getLogger(__name__)
 
@@ -428,7 +430,11 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     test_lags = []
     try:
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
+        if namespace_id:
+            asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+        else:
+            asic_index = DEFAULT_ASIC_ID
         asichost = duthost.asic_instance(asic_index)
         # Test for each lag
         if dut_lag == "unknown":
@@ -471,7 +477,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                     logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
                     asichost.startup_interface(po_intf)
 
-def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
+def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
     test port channel add/deletion and check interface status in state_db
     """
@@ -481,8 +487,12 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
     if duthost is None:
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
 
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-    asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+    lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+    namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
+    if namespace_id:
+        asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+    else:
+        asic_index = DEFAULT_ASIC_ID
     asichost = duthost.asic_instance(asic_index)
     # Test for each lag
     if dut_lag == "unknown":
