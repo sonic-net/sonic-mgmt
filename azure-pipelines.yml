@@ -258,3 +258,16 @@ stages:
           MIN_WORKER: 1
           MAX_WORKER: 1
           NUM_ASIC: 4
+
+  - job: wan_testbedv2
+    displayName: "kvmtest-wan by TestbedV2"
+    timeoutInMinutes: 1080
+    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: true
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: wan-pub
+          MIN_WORKER: 1
+          MAX_WORKER: 1
+          COMMON_EXTRA_PARAMS: "--skip_sanity "
