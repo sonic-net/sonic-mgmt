@@ -91,6 +91,8 @@ class QosBase:
                           "remote",
                           "-t",
                           ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                          "--qlen",
+                          "10000",
                           "--disable-ipv6",
                           "--disable-vxlan",
                           "--disable-geneve",
