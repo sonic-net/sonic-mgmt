@@ -1838,7 +1838,7 @@ def core_dump_and_config_check(duthosts, request):
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"]['host'] = \
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
