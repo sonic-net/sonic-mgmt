@@ -1,4 +1,14 @@
 StartDevice,StartPort,EndDevice,EndPort
-pdu-122,44,str3-7260cx3-acs-root03,PSU1
-pdu-123,44,str3-7260cx3-acs-root03,PSU2
+pdu-116,4,str3-7260cx3-acs-root03,PSU1
+pdu-115,4,str3-7260cx3-acs-root03,PSU2
 pdu-118,9,str3-acs-serv-61,PSU1
+pdu-90,6,str3-7260cx3-acs-fan-01,PSU1
+pdu-91,6,str3-7260cx3-acs-fan-01,PSU2
+pdu-90,11,str3-7260cx3-acs-fan-02,PSU1
+pdu-91,11,str3-7260cx3-acs-fan-02,PSU2
+pdu-90,3,str3-7260cx3-acs-fan-03,PSU1
+pdu-91,3,str3-7260cx3-acs-fan-03,PSU1
+pdu-90,7,str3-8102-05,PSU1
+pdu-91,7,str3-8102-06,PSU2
+pdu-90,4,str3-8102,05,PSU1
+pdu-91,4,str3-8102,05,PSU2
