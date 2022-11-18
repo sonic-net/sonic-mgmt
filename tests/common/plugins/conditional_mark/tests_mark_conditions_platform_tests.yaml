@@ -630,7 +630,7 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 platform_tests/mellanox:
   skip:
-    reason: "Marvell devices does not support platform_tests/mellanox"
+    reason: "Mellanox platform tests only supported on Mellanox devices" 
     conditions:
       - "asic_type not in ['mellanox']"
 
