@@ -252,7 +252,7 @@ def __run_traffic(api,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
-    time.sleep(2)
+    time.sleep(5)
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
     api.set_state(State(FlowTransmitState(state='stop')))
 
