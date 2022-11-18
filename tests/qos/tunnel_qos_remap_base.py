@@ -56,7 +56,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     # Wait a default interval (10 seconds)
     time.sleep(10)
     cmd = "show queue counters {}".format(port)
-    output = duthost.shell('show queue counters')['stdout_lines']
+    output = duthost.shell(cmd)['stdout_lines']
     """
              Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
         ---------  -----  --------------  ---------------  -----------  ------------
