@@ -6,6 +6,7 @@ import re
 import logging
 import time
 import pytest
+from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
@@ -164,34 +165,38 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
         "nohup /tmp/test.sh >/dev/null 2>&1 &"
     ], continue_on_fail=False, module_ignore_errors=True)
 
-    # Test ssh connect manually
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
+        # Test ssh connect manually
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(duthost.mgmt_ip, username=default_username_password["username"],
                     password=default_username_password["password"], allow_agent=False,
                     look_for_keys=False)
-    except Exception:
+        # Test IP packet forward
+        testutils.send(ptfadapter, ptf_port_idx, pkt, PKT_NUM)
+        time.sleep(5)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
+
+        pytest_assert(match_cnt >= PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        logger.info("DUT Forwarded {} packets, in expected range".format(match_cnt))
+    except AuthenticationException:
         logger.info("Current login params:\tusername={}, password={}".format(default_username_password["username"],
                                                                              default_username_password["password"]))
         raise
+    except Exception:
+        raise
+    finally:
+        # Wait for disk space release
+        # This should be involved in the final block
+        # Otherwise, if the try block fails,
+        # it will execute other post steps outside the module, but disk space has not released
+        time.sleep(60)
 
-    # Test IP packet forward
-    testutils.send(ptfadapter, ptf_port_idx, pkt, PKT_NUM)
-    time.sleep(5)
-    match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
-
-    pytest_assert(match_cnt >= PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
-    logger.info("DUT Forwarded {} packets, in expected range".format(match_cnt))
-
-    # Wait for disk space release
-    time.sleep(60)
-
-    # Delete test.sh
-    duthost.shell("sudo rm /tmp/test.sh")
-    # Confirm dish space was released
-    df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
-    used_after_test = int(df_rst[4].rstrip('%'))
-    logger.info("Use% before test is {}%, Use% after test is {}%".format(used_before_test, used_after_test))
-    pytest_assert(used_after_test < 100 and used_after_test <= used_before_test / 0.8,
-                  "Disk space was not released expectedly, please check.")
+        # Delete test.sh
+        duthost.shell("sudo rm /tmp/test.sh")
+        # Confirm disk space was released
+        df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+        used_after_test = int(df_rst[4].rstrip('%'))
+        logger.info("Use% before test is {}%, Use% after test is {}%".format(used_before_test, used_after_test))
+        pytest_assert(used_after_test < 100 and used_after_test <= used_before_test / 0.8,
+                      "Disk space was not released expectedly, please check.")
