@@ -116,10 +116,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s50G_ports = [x for x in range(8, 24, 2)] + [x for x in range(40, 88, 2)] + [x for x in range(104, 128, 2)]
 
             # 100G ports
-            s100G_ports = [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
+            s100G_ports = [0, 4] + [x for x in range(24, 40, 4)] + [x for x in range(88, 104, 4)]
 
-            port_alias_to_name_map["etp1"] = "Ethernet0"
-            port_alias_to_name_map["etp2"] = "Ethernet4"
             for i in s50G_ports:
                 alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
                 port_alias_to_name_map[alias] = "Ethernet%d" % i

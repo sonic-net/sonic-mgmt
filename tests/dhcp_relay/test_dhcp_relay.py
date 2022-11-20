@@ -206,7 +206,7 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
                 assert False, "Wrong DHCP setup on Dual ToR testbeds"
 
             yield testing_mode, duthost, 'dual_testbed'
-    elif tbinfo['topo']['name'] == 't0-54-po2vlan' or tbinfo['topo']['name'] == 't0-56-po2vlan':
+    elif tbinfo['topo']['name'] in ('t0-54-po2vlan', 't0-56-po2vlan'):
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist and subtype_value == 'DualToR':
                 assert False, "Wrong DHCP setup on po2vlan testbeds"
