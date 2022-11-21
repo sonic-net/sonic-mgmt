@@ -22,6 +22,9 @@ REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
+REBOOT_TYPE_CPU = "cpu"
+REBOOT_TYPE_BIOS = "bios"
+REBOOT_TYPE_ASIC = "asic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -87,6 +90,24 @@ reboot_ctrl_dict = {
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
+    REBOOT_TYPE_CPU: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "CPU",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_BIOS: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "BIOS",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_ASIC: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "ASIC",
+        "test_reboot_cause_only": True
+    }
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
