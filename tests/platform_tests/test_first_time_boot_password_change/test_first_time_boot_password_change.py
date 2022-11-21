@@ -12,7 +12,7 @@ import pexpect
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.test_first_time_boot_password_change.default_consts import DefaultConsts
-from tests.platform_tests.test_first_time_boot_password_change.manufacture import manufacture, reboot_dut
+from tests.platform_tests.test_first_time_boot_password_change.manufacture import manufacture
 
 pytestmark = [
     pytest.mark.topology('any'),
