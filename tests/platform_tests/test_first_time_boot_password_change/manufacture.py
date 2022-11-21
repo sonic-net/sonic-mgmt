@@ -1,5 +1,5 @@
 '''
-This is script will install a given image passed in the parameters
+This script will install a given image passed in the parameters
 to the device using ONIE install mode.
 Assumptions:
     1. The system is up
@@ -28,17 +28,17 @@ logger = logging.getLogger(__name__)
 
 def print_log(msg, color=''):
     '''
-    @summary: will print the msg with date format first
-    :param msg: msg to print
+    @summary: will print the msg to log, used to add color to messages,
+    since the manufacture script is long ~6 mins total
+    :param msg: msg to print to log
     :param color: colot to print
-    :return:
     '''
     logger.info(color + msg + DefaultConsts.ENDC)
 
 
 def ping_till_alive(dut_ip, should_be_alive=True, timeout=300):
     '''
-    @summary: this function will ping system till alive, if specified otherwise
+    @summary: this function will ping system till alive, if specified otherwise it
     will ping till down
     :param dut_ip: device under test ip address
     :param should_be_alive: if True, will ping system till alive, if False will ping till down
@@ -83,7 +83,7 @@ def create_engine(dut_ip, username, password, timeout=30):
     :param dut_ip: device under test ip address
     :param username: user name to login
     :param password: password for username
-    :param timeout: default timeout
+    :param timeout: default timeout for engine
     '''
     print_log("Creating engine for {} with username: {} and password: {}".format(dut_ip, username, password))
     child = pexpect.spawn(DefaultConsts.SSH_COMMAND.format(username) + dut_ip, env={'TERM': 'dumb'}, timeout=timeout)
@@ -111,12 +111,12 @@ def upload_file_to_dut(dut_ip, filename, destination, username, password, timeou
         print_log('Please be patient this may take some time')
     cmd = DefaultConsts.SCP_COMMNAD.format(filename, username, dut_ip, destination)
     child = pexpect.spawn(cmd, timeout=timeout)
+    # sometimes the system requires password to login into, we need to consider this case
     index = child.expect(["100%",
                           DefaultConsts.PASSWORD_REGEX])
     if index == 0:
         print_log('Done Uploading file - 100%', DefaultConsts.OKGREEN)
         return
-
     # enter password
     child.sendline(password + '\r')
     child.expect(['100%'])
@@ -125,23 +125,25 @@ def upload_file_to_dut(dut_ip, filename, destination, username, password, timeou
 
 def enter_onie_install_mode(dut_ip):
     '''
-    @summary: this function will upload the "onie_install.sh" bash script
-    found in the same folder of this script and run it from the dut,
-    the script "onie_install.sh" is used to load the the ONIE install mode after reboot,
-    for more info please read the documentation in the bash script.
+    @summary: this function will upload the "onie_install.sh" bash script under '/tmp' folder on dut.
+    The script is found in the same folder of this script. The script is executed from the dut.
+    The script "onie_install.sh" is responsible for loading ONIE install mode after reboot.
+    For more info please read the documentation in the bash script and its usage.
     :param dut_ip: device under test ip address
     '''
-    print_log("Entering ONIE install mode by running \"onie_install.sh\" bash script on DUT",
+    print_log("Entering ONIE install mode by running \"{}\" bash script on DUT".format(
+        DefaultConsts.ONIE_INSTALL_PATH.split('/')[-1]),
               DefaultConsts.WARNING + DefaultConsts.BOLD)
+
     upload_file_to_dut(dut_ip, DefaultConsts.ONIE_INSTALL_PATH, '/tmp',
                         DefaultConsts.DEFAULT_USER,
                         DefaultConsts.DEFAULT_PASSWORD)
     # create ssh connection device
     sonic_engine = create_engine(dut_ip, DefaultConsts.DEFAULT_USER, DefaultConsts.DEFAULT_PASSWORD)
     sonic_engine.sendline('sudo su')
-    sonic_engine.expect('$')
+    sonic_engine.expect(DefaultConsts.SONIC_PROMPT)
     sonic_engine.sendline('cd /tmp')
-    sonic_engine.expect('$')
+    sonic_engine.expect(DefaultConsts.SONIC_PROMPT)
     print_log("Validating file \"{}\" existence".format(DefaultConsts.ONIE_INSTALL_PATH.split('/')[-1]))
     # validate the file is there
     sonic_engine.sendline('ls')
@@ -149,7 +151,7 @@ def enter_onie_install_mode(dut_ip):
     # # change permissions
     print_log("Executing the bash script uploaded")
     sonic_engine.sendline('sudo chmod +777 onie_install.sh')
-    sonic_engine.expect('$')
+    sonic_engine.expect(DefaultConsts.SONIC_PROMPT)
     sonic_engine.sendline('sudo ./onie_install.sh install')
     sonic_engine.expect('Reboot will be done after 3 sec')
     # # close session, the system will perform reboot
@@ -160,7 +162,7 @@ def enter_onie_install_mode(dut_ip):
 
 def install_image_from_onie(dut_ip, restore_image_path):
     '''
-    @summary: this function will upload the restore image to ONIE and perform
+    @summary: this function will upload the image given to ONIE and perform
     install to the image using "onie-nos-install"
     :param dut_ip: device under test ip address
     :param restore_image_path: path to restore image should be in the format /../../../your_image_name.bin
@@ -176,9 +178,9 @@ def install_image_from_onie(dut_ip, restore_image_path):
     child = create_engine(dut_ip, DefaultConsts.ONIE_USER, DefaultConsts.ONIE_PASSWORD)
     print_log("Install the image from ONIE")
     child.sendline('cd /')
-    child.sendline('.*#')
+    child.expect(DefaultConsts.ONIE_PROMPT)
     child.sendline('onie-stop')
-    child.sendline('.*#')
+    child.expect(DefaultConsts.ONIE_PROMPT)
     child.sendline('onie-nos-install {}'.format(restore_image_name) +'\r')
     print_log("Ping system till down")
     ping_till_alive(dut_ip, should_be_alive=False)
@@ -212,7 +214,7 @@ def manufacture(dut_ip, restore_image_path):
     # perform manufacture
     enter_onie_install_mode( dut_ip)
     install_image_from_onie(dut_ip, restore_image_path)
-    print_log("Sleeping for {} secs to stabilize system".format(DefaultConsts.SLEEP_AFTER_MANUFACTURE))
+    print_log("Sleeping for {} secs to stabilize system after reboot".format(DefaultConsts.SLEEP_AFTER_MANUFACTURE))
     time.sleep(DefaultConsts.SLEEP_AFTER_MANUFACTURE)
     print_log("Manufacture is completed - SUCCESS", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
 

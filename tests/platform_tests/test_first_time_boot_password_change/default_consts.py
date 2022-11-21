@@ -8,20 +8,12 @@ class DefaultConsts:
     '''
     DEFAULT_USER = 'admin'
     DEFAULT_PASSWORD = 'YourPaSsWoRd'
-    DUMMY_PASSWORD = 'admin'
     NEW_PASSWORD = 'Jg_GRK9BJB58s_5H'
     ONIE_USER = 'root'
     ONIE_PASSWORD = 'root'
 
     # connection command
     SSH_COMMAND = 'ssh  -tt -q -o ControlMaster=auto -o ControlPersist=60s -o ' \
-                  'ControlPath=/tmp/ansible-ssh-%h-%p-%r -o StrictHostKeyChecking=no ' \
-                  '-o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no ' \
-                  '-o PubkeyAuthentication=no -p 22 -l {} '
-
-    ANOTHER_SSH_COMMAND = 'ssh -l {} '
-
-    ORIGINAL = 'ssh  -tt -q -o ControlMaster=auto -o ControlPersist=60s -o ' \
                   'ControlPath=/tmp/ansible-ssh-%h-%p-%r -o StrictHostKeyChecking=no ' \
                   '-o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no ' \
                   '-o PubkeyAuthentication=no -p 22 -l {} '
@@ -34,12 +26,9 @@ class DefaultConsts:
     ONIE_INSTALL_PATH = 'platform_tests/test_first_time_boot_password_change/onie_install.sh'
     # expired password message regex
     PASSWORD_REGEX = 'assword'
-    PERMISSION_DENID = '[Pp]ermission denied'
-    DEFAULT_PROMPT = ['$', '#']
     SONIC_PROMPT = '$'
-    LOGIN_INCORRECT = 'Login incorrect'
-    KEY_VERIFICATION_ERR = 'Host key verification failed '
-    CONTINUE_CONNECTING = '(yes/no/[fingerprint])?'
+    ONIE_PROMPT = '#'
+    DEFAULT_PROMPT = [SONIC_PROMPT, ONIE_PROMPT]
     LONG_PERIOD = 30
     APPLY_CONFIGURATIONS = 10
     STABILIZATION_TIME = 60
@@ -49,7 +38,7 @@ class DefaultConsts:
     # expired password message regex
     EXPIRED_PASSWORD_MSG = 'You are required to change your password immediately'
 
-    # visual colors
+    # visual colors used for manufacture script
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
