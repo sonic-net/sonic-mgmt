@@ -8,7 +8,6 @@ onie_mount=/mnt/onie-boot
 os_boot=/host
 onie_partition=
 onie_entry=0
-secure_boot_status=
 
 enable_onie_access()
 {
@@ -67,48 +66,16 @@ system_reboot()
 }
 
 
-check_secure_boot_status()
-{
-	secure_boot_status=$(bootctl | grep "Secure Boot" | awk '{print $3}')
-}
 
-
-enable_efi_access()
-{
-    onie_partition=$(fdisk -l | grep "EFI System" | awk '{print $1}')
-	if [ ! -d $onie_mount ]; then
-		mkdir /mnt/onie-boot
-	fi
-	mount $onie_partition /mnt/onie-boot
-}
-
-
-change_efi_grub_boot_order()
-{
-	grub-editenv $onie_mount/EFI/debian/grubenv set next_entry=ONIE
-}
-
-
-clean_efi_access()
-{
-    umount $onie_partition
-}
-
-
-check_secure_boot_status
 rc=$?
-if [ "$secure_boot_status" = "enabled" ]; then
-    enable_efi_access
-    change_efi_grub_boot_order
-    clean_efi_access
-else
-	enable_onie_access
-	change_onie_grub_boot_order
-	clean_onie_access
-fi
+enable_onie_access
+change_onie_grub_boot_order
+clean_onie_access
 
 if [ $rc -eq 0 ]; then
 	system_reboot
 fi
 
 exit $rc
+
+
