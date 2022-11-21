@@ -69,7 +69,8 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token):
 
     # If access token is not empty, set headers
     if access_token:
-        artifact_req.add_header('Authorization', 'Basic {}'.format(base64.b64encode(access_token.encode('utf-8'))))
+        artifact_req.add_header('Authorization',
+                                'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8')))
 
     resp = urlopen(artifact_req)
 
@@ -111,7 +112,8 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 if access_token:
                     opener = build_opener()
                     opener.addheaders = [
-                        ('Authorization', 'Basic {}'.format(base64.b64encode(access_token.encode('utf-8'))))]
+                        ('Authorization',
+                         'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8')))]
                     install_opener(opener)
                 urlretrieve(url, filename, reporthook)
                 print('\nDownload finished!')
