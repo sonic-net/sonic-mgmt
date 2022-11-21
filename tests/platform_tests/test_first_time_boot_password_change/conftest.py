@@ -7,11 +7,7 @@ from tests.platform_tests.test_first_time_boot_password_change.default_consts im
 
 
 def pytest_addoption(parser):
-<<<<<<< 94a2833c3908b82ff22812bb912f6e8cd2692a50
-    parser.addoption("--feature_enabled", action="store", default='False', help="run all combinations")
-=======
     parser.addoption("--feature_enabled", action="store", default='False', help="set to True if the feature is enabled")
->>>>>>> Adding new test case for default password change after initial boot
 
 
 class currentConfigurations:
