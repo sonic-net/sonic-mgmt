@@ -35,10 +35,9 @@ def print_log(msg, color=''):
     logger.info(color + msg + DefaultConsts.ENDC)
 
 
-def ping_till_alive(dut_ip, should_be_alive=True, timeout=300):
+def ping_till_state(dut_ip, should_be_alive=True, timeout=300):
     '''
-    @summary: this function will ping system till alive, if specified otherwise it
-    will ping till down
+    @summary: this function will ping system till the desired
     :param dut_ip: device under test ip address
     :param should_be_alive: if True, will ping system till alive, if False will ping till down
     :param timeout: fail if the desired state is not achieved
@@ -73,6 +72,22 @@ def ping_till_alive(dut_ip, should_be_alive=True, timeout=300):
         )
         print_log(fail_msg)
     localhost_engine.close()
+
+
+def ping_till_alive(dut_ip, timeout=300):
+    '''
+    @summary: this function will ping system till alive
+    :param dut_ip: device under test ip address
+    '''
+    ping_till_state(dut_ip, should_be_alive=True, timeout=timeout)
+
+
+def ping_till_down(dut_ip, timeout=300):
+    '''
+    @summary: this function will ping system till down
+    :param dut_ip: device under test ip address
+    '''
+    ping_till_state(dut_ip, should_be_alive=False, timeout=timeout)
 
 
 def create_engine(dut_ip, username, password, timeout=30):
@@ -151,10 +166,10 @@ def enter_onie_install_mode(dut_ip):
     print_log("Executing the bash script uploaded")
     sonic_engine.sendline('sudo chmod +777 onie_install.sh')
     sonic_engine.expect(DefaultConsts.SONIC_PROMPT)
-    sonic_engine.sendline('sudo ./onie_install.sh')
+    sonic_engine.sendline('sudo ./onie_install.sh install')
     sonic_engine.expect('Reboot will be done after 3 sec')
     # # close session, the system will perform reboot
-    ping_till_alive(dut_ip, should_be_alive=False)
+    ping_till_down(dut_ip)
     print_log("System is Down!", DefaultConsts.BOLD + DefaultConsts.OKGREEN)
     sonic_engine.close()
 
@@ -166,7 +181,7 @@ def install_image_from_onie(dut_ip, restore_image_path):
     :param dut_ip: device under test ip address
     :param restore_image_path: path to restore image should be in the format /../../../your_image_name.bin
     '''
-    ping_till_alive(dut_ip, should_be_alive=True)
+    ping_till_alive(dut_ip)
     print_log("System is UP!", DefaultConsts.BOLD + DefaultConsts.OKGREEN)
     upload_file_to_dut(dut_ip, restore_image_path, '/', DefaultConsts.ONIE_USER, DefaultConsts.ONIE_PASSWORD,
                        timeout=420)
@@ -182,9 +197,9 @@ def install_image_from_onie(dut_ip, restore_image_path):
     child.expect(DefaultConsts.ONIE_PROMPT)
     child.sendline('onie-nos-install {}'.format(restore_image_name) + '\r')
     print_log("Ping system till down")
-    ping_till_alive(dut_ip, should_be_alive=False)
+    ping_till_down(dut_ip)
     print_log("Ping system till alive")
-    ping_till_alive(dut_ip, should_be_alive=True)
+    ping_till_alive(dut_ip)
     child.close()
 
 
