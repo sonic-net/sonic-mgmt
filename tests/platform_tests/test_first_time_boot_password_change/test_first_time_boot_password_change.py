@@ -117,4 +117,3 @@ def test_default_password_change_after_first_boot(dut_hostname):
         engine.close()
         raise Exception("We captured the expiring message again after reboot\n")
     engine.close()
-
