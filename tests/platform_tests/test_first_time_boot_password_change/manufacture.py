@@ -151,7 +151,7 @@ def enter_onie_install_mode(dut_ip):
     print_log("Executing the bash script uploaded")
     sonic_engine.sendline('sudo chmod +777 onie_install.sh')
     sonic_engine.expect(DefaultConsts.SONIC_PROMPT)
-    sonic_engine.sendline('sudo ./onie_install.sh install')
+    sonic_engine.sendline('sudo ./onie_install.sh')
     sonic_engine.expect('Reboot will be done after 3 sec')
     # # close session, the system will perform reboot
     ping_till_alive(dut_ip, should_be_alive=False)

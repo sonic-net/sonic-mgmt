@@ -2,7 +2,7 @@
 
 # By this script, SONiC switch moving to ONIE with specific boot_mode
 # The examples of usage:
-#     onie_install.sh install
+#     onie_install.sh
 
 onie_mount=/mnt/onie-boot
 os_boot=/host
@@ -41,7 +41,8 @@ find_onie_menuentry()
 	return 1
 }
 
-change_grub_boot_order()
+
+change_onie_grub_boot_order()
 {
 	find_onie_menuentry
 	rc=$?
@@ -52,10 +53,11 @@ change_grub_boot_order()
 		return 1
 	fi
 
-    echo "Set onie mode to $1"
-    grub-editenv $onie_mount/grub/grubenv set onie_mode=$1
+    echo "Set onie mode to install"
+    grub-editenv $onie_mount/grub/grubenv set onie_mode=install
 	return 0
 }
+
 
 system_reboot()
 {
@@ -64,25 +66,44 @@ system_reboot()
     /sbin/reboot
 }
 
-check_secure_boot_enabled()
+
+check_secure_boot_status()
 {
 	secure_boot_status=$(bootctl | grep "Secure Boot" | awk '{print $3}')
 }
 
 
-check_secure_boot_enabled
-rc=$?
-if [ "$secure_boot_status" = "enabled" ]; then
-	onie_partition=$(fdisk -l | grep "EFI System" | awk '{print $1}')
+enable_efi_access()
+{
+    onie_partition=$(fdisk -l | grep "EFI System" | awk '{print $1}')
 	if [ ! -d $onie_mount ]; then
 		mkdir /mnt/onie-boot
 	fi
 	mount $onie_partition /mnt/onie-boot
+}
+
+
+change_efi_grub_boot_order()
+{
 	grub-editenv $onie_mount/EFI/debian/grubenv set next_entry=ONIE
-	umount $onie_partition
+}
+
+
+clean_efi_access()
+{
+    umount $onie_partition
+}
+
+
+check_secure_boot_status
+rc=$?
+if [ "$secure_boot_status" = "enabled" ]; then
+    enable_efi_access
+    change_efi_grub_boot_order
+	clean_efi_access
 else
 	enable_onie_access
-	change_grub_boot_order $1
+	change_onie_grub_boot_order
 	clean_onie_access
 fi
 
