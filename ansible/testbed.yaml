@@ -1125,6 +1125,22 @@
   auto_recover: 'True'
   comment: v-saidia
 
+  - conf-name: vms61-dual-t0-8102
+  group-name: vms61-1
+  topo: dualtor
+  ptf_image_name: docker-ptf
+  ptf: vms61-1
+  ptf_ip: 10.64.247.96/23
+  ptf_ipv6:
+  server: server_61
+  vm_base: VM61000
+  dut:
+    - str3-8102-05
+    - str3-8102-06
+  inv_name: str3
+  auto_recover: 'True'
+  comment: shiyanwang
+
 - conf-name: vms28-t0-4600c-03
   group-name: vms28-3
   topo: t0-64
