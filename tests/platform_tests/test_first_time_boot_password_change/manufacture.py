@@ -215,12 +215,4 @@ def manufacture(dut_ip, restore_image_path):
     install_image_from_onie(dut_ip, restore_image_path)
     print_log("Sleeping for {} secs to stabilize system after reboot".format(DefaultConsts.SLEEP_AFTER_MANUFACTURE))
     time.sleep(DefaultConsts.SLEEP_AFTER_MANUFACTURE)
-<<<<<<< a42598611e7d5da05231bdbd2d8aa3da2e22bd57
-<<<<<<< e0196b1cf61bf50c3d0b8b9a8bd91997de20e002
     print_log("Manufacture is completed - SUCCESS", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
-=======
-    print_log("Manufacture is completed - SUCCESS", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
->>>>>>> Adding new test case for default password change after initial boot
-=======
-    print_log("Manufacture is completed - SUCCESS", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
->>>>>>> Adding new test case for default password change after initial boot
