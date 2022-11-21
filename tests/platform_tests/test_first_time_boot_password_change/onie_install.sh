@@ -100,7 +100,7 @@ rc=$?
 if [ "$secure_boot_status" = "enabled" ]; then
     enable_efi_access
     change_efi_grub_boot_order
-	clean_efi_access
+    clean_efi_access
 else
 	enable_onie_access
 	change_onie_grub_boot_order
