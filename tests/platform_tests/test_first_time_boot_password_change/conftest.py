@@ -87,4 +87,3 @@ def restore_original_password(dut_hostname):
                     DefaultConsts.DEFAULT_USER,
                     currentConfigurations.currentPassword,
                     DefaultConsts.DEFAULT_PASSWORD)
-
