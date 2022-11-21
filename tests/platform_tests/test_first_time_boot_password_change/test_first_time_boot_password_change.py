@@ -47,15 +47,14 @@ def dut_hostname(request):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def prepare_system_for_first_boot(request):
+def prepare_system_for_first_boot(request, dut_hostname):
     '''
     @summary: will bring the system to first boot state
     by installing the image given by the --restore_to_image
     '''
     restore_image_path = request.config.getoption('restore_to_image')
-    hostname = request.config.getoption('--host-pattern')
     pytest_assert(restore_image_path)
-    manufacture(hostname, restore_image_path)
+    manufacture(dut_hostname, restore_image_path)
 
 
 def change_password(dut_hostname, username, current_password, new_password):
