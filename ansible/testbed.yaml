@@ -1125,7 +1125,7 @@
   auto_recover: 'True'
   comment: v-saidia
 
-  - conf-name: vms61-dual-t0-8102
+- conf-name: vms61-dual-t0-8102
   group-name: vms61-1
   topo: dualtor
   ptf_image_name: docker-ptf
