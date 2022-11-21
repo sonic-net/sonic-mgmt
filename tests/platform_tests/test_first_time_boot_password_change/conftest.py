@@ -10,7 +10,7 @@ def pytest_addoption(parser):
     parser.addoption("--feature_enabled", action="store", default='False', help="set to True if the feature is enabled")
 
 
-class currentConfigurations:
+class CurrentConfigurations:
     '''
     @summary: this class will act as a global database to save current configurations and changes the test made.
     It will help us track the current state of the system,
@@ -20,7 +20,7 @@ class currentConfigurations:
         self.currentPassword = DefaultConsts.DEFAULT_PASSWORD  # initial password
 
 
-currentConfigurations = currentConfigurations()
+currentConfigurations = CurrentConfigurations()
 logger = logging.getLogger(__name__)
 
 

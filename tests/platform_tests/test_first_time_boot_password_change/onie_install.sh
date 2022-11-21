@@ -52,17 +52,17 @@ change_onie_grub_boot_order()
 		return 1
 	fi
 
-    echo "Set onie mode to install"
-    grub-editenv $onie_mount/grub/grubenv set onie_mode=install
+	echo "Set onie mode to install"
+	grub-editenv $onie_mount/grub/grubenv set onie_mode=install
 	return 0
 }
 
 
 system_reboot()
 {
-    echo "Reboot will be done after 3 sec."
-    sleep 3
-    /sbin/reboot
+    	echo "Reboot will be done after 3 sec."
+    	sleep 3
+    	/sbin/reboot
 }
 
 
