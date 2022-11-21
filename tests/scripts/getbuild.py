@@ -4,7 +4,8 @@ import json
 import time
 import sys
 import argparse
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
+import base64
 
 _start_time = None
 _last_time = None
@@ -59,12 +60,18 @@ def validate_url_or_abort(url):
             print("Image file not found on remote machine. Aborting...")
             sys.exit(1)
 
-def get_download_url(buildid, artifact_name):
+
+def get_download_url(buildid, artifact_name, url_prefix, access_token):
     """get download url"""
 
-    artifact_url = "https://dev.azure.com/mssonic/build/_apis/build/builds/{}/artifacts?artifactName={}&api-version=5.0".format(buildid, artifact_name)
+    artifact_req = Request("https://dev.azure.com/{}/_apis/build/builds/{}/artifacts?artifactName={}&api-version=5.0"
+                           .format(url_prefix, buildid, artifact_name))
 
-    resp = urlopen(artifact_url)
+    # If access token is not empty, set headers
+    if access_token:
+        artifact_req.add_header('Authorization', 'Basic {}'.format(base64.b64encode(access_token.encode('utf-8'))))
+
+    resp = urlopen(artifact_req)
 
     j = json.loads(resp.read().decode('utf-8'))
 
@@ -74,7 +81,7 @@ def get_download_url(buildid, artifact_name):
     return (download_url, artifact_size)
 
 
-def download_artifacts(url, content_type, platform, buildid, num_asic):
+def download_artifacts(url, content_type, platform, buildid, num_asic, access_token):
     """find latest successful build id for a branch"""
 
     if content_type == 'image':
@@ -100,6 +107,12 @@ def download_artifacts(url, content_type, platform, buildid, num_asic):
             try:
                 print('Downloading {} from build {}...'.format(filename, buildid))
                 download_times += 1
+                # If access token is not empty, set headers
+                if access_token:
+                    opener = build_opener()
+                    opener.addheaders = [
+                        ('Authorization', 'Basic {}'.format(base64.b64encode(access_token.encode('utf-8'))))]
+                    install_opener(opener)
                 urlretrieve(url, filename, reporthook)
                 print('\nDownload finished!')
                 break
@@ -145,6 +158,8 @@ def main():
     parser.add_argument('--num_asic', metavar='num_asic', type=int,
             default=1,
             help='Specifiy number of asics')
+    parser.add_argument('--url_prefix', metavar='url_prefix', type=str, default='mssonic/build', help='url prefix')
+    parser.add_argument('--access_token', metavar='access_token', type=str, default='', help='access token')
 
     args = parser.parse_args()
 
@@ -160,9 +175,11 @@ def main():
 
     artifact_name = "sonic-buildimage.{}".format(args.platform)
 
-    (dl_url, artifact_size) = get_download_url(buildid, artifact_name)
+    (dl_url, artifact_size) = get_download_url(buildid, artifact_name,
+                                               url_prefix=args.url_prefix,
+                                               access_token=args.access_token)
 
-    download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic)
+    download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic, access_token=args.access_token)
 
 if __name__ == '__main__':
     main()
