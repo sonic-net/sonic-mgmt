@@ -128,6 +128,7 @@ def test_default_password_change_after_first_boot(dut_hostname):
     logger.info("Expecting expired message printed")
     index = engine.expect([DefaultConsts.EXPIRED_PASSWORD_MSG, pexpect.TIMEOUT])
     if index != 0:
+        engine.close()
         raise Exception("We did not catch the message of expired password after initial boot!\n"
                         "Consider this as a bug or a degradation")
     logger.info('Entering current password after the expired message appeared')
