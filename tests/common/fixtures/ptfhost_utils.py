@@ -8,7 +8,6 @@ import requests
 
 from ipaddress import ip_interface
 from jinja2 import Template
-from natsort import natsorted
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -161,35 +160,48 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
-@pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, rand_one_dut_hostname, ptfhost):
+def _ptf_portmap_file(duthost, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
-
         Args:
             request (Fixture): pytest request object
             duthost (AnsibleHost): Device Under Test (DUT)
             ptfhost (AnsibleHost): Packet Test Framework (PTF)
-
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[rand_one_dut_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = natsorted([port for port in intfInfo if port.startswith('Ethernet')])
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
         file.write("# ptf host interface @ switch front port name\n")
-        file.writelines(
-            map(
-                    lambda (index, port): "{0}@{1}\n".format(index, port),
-                    enumerate(portList)
-                )
-            )
+        ptf_port_map = []
+        for port in portList:
+            if "Ethernet-Rec" not in port or "Ethernet-IB" not in port:
+                index = mg_facts['minigraph_ptf_indices'][port]
+                ptf_port_map.append("{}@{}\n".format(index, port))
+        file.writelines(ptf_port_map)
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
-    yield "/root/{}".format(portMapFile.split('/')[-1])
+    return "/root/{}".format(portMapFile.split('/')[-1])
+
+
+@pytest.fixture(scope='class')
+def ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo):
+    """
+    A class level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
+
+
+@pytest.fixture(scope='module')
+def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
+    """
+    A module level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
 @pytest.fixture(scope="module", autouse=True)
