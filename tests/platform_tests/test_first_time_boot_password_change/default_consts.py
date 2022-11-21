@@ -2,6 +2,8 @@
 This file contains the default consts used by the scripts on the same folder:
 manufactue.py and test_first_time_boot_password_change.py
 '''
+
+
 class DefaultConsts:
     '''
     @summary: a constants class used by the tests

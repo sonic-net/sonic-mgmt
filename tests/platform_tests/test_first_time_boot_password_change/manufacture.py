@@ -18,7 +18,6 @@ Detailed logic of manufacture script:
 '''
 import pexpect
 import time
-from ansible.module_utils.basic import *
 import logging
 from tests.platform_tests.test_first_time_boot_password_change.default_consts import DefaultConsts
 
@@ -136,8 +135,8 @@ def enter_onie_install_mode(dut_ip):
               DefaultConsts.WARNING + DefaultConsts.BOLD)
 
     upload_file_to_dut(dut_ip, DefaultConsts.ONIE_INSTALL_PATH, '/tmp',
-                        DefaultConsts.DEFAULT_USER,
-                        DefaultConsts.DEFAULT_PASSWORD)
+                       DefaultConsts.DEFAULT_USER,
+                       DefaultConsts.DEFAULT_PASSWORD)
     # create ssh connection device
     sonic_engine = create_engine(dut_ip, DefaultConsts.DEFAULT_USER, DefaultConsts.DEFAULT_PASSWORD)
     sonic_engine.sendline('sudo su')
@@ -181,7 +180,7 @@ def install_image_from_onie(dut_ip, restore_image_path):
     child.expect(DefaultConsts.ONIE_PROMPT)
     child.sendline('onie-stop')
     child.expect(DefaultConsts.ONIE_PROMPT)
-    child.sendline('onie-nos-install {}'.format(restore_image_name) +'\r')
+    child.sendline('onie-nos-install {}'.format(restore_image_name) + '\r')
     print_log("Ping system till down")
     ping_till_alive(dut_ip, should_be_alive=False)
     print_log("Ping system till alive")
@@ -212,7 +211,7 @@ def manufacture(dut_ip, restore_image_path):
     # create engine for the localhost running this script
     print_log("Manufacture started", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
     # perform manufacture
-    enter_onie_install_mode( dut_ip)
+    enter_onie_install_mode(dut_ip)
     install_image_from_onie(dut_ip, restore_image_path)
     print_log("Sleeping for {} secs to stabilize system after reboot".format(DefaultConsts.SLEEP_AFTER_MANUFACTURE))
     time.sleep(DefaultConsts.SLEEP_AFTER_MANUFACTURE)

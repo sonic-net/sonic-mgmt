@@ -53,7 +53,7 @@ def prepare_system_for_first_boot(request, dut_hostname):
     of the manufacture script.
     '''
     restore_image_path = request.config.getoption('restore_to_image')
-    pytest_assert(restore_image_path != None, "restore_to_image param is empty, Please specify path to an image")
+    pytest_assert(restore_image_path is not None, "restore_to_image param is empty, Please specify path to an image")
     manufacture(dut_hostname, restore_image_path)
 
 
