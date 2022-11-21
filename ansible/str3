@@ -47,6 +47,38 @@ fanout:
     str3-7260cx3-acs-fan-03:
       ansible_host: 10.3.146.32
 
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+  children:
+    sonic_stable:
+    sonic_latest:
+    sonic_mlnx:
+    sonic_arista:
+    sonic_arista_Q32:
+    sonic_arista_QX:
+    sonic_mlnx_3800:
+    sonic_mlnx_3800_50:
+    sonic_dx010_100:
+    sonic_nexus_3164:
+    sonic_mlnx_4600C:
+    sonic_arista32_100:
+    sonic_arista64_100:
+    sonic_arista_lc_100G:
+    sonic_arista_sup:
+    sonic_cisco_lc_100G:
+    sonic_cisco_lc_400G:
+    sonic_cisco_sup:
+    sonic_nokia_7215:
+    sonic_cisco_8102:
+    sonic_dell_z9332f:
+    sonic_nokia_sup:
+    sonic_nokia_lc_400G:
+    sonic_nokia_lc_100G:
+    sonic_appliance:
+    sonic_arista_720dt:
+    sonic_cisco_8101:
+
 sonic_cisco_8102:
   vars:
     hwsku: Cisco-8102-C64
