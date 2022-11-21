@@ -1,58 +1,66 @@
 import re
-import time
 import logging
+import functools
 from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
 SAMPLE_COMMAND_DATA = '''
-RP/0/RP0/CPU0:vlab-01#show operational LLDP NodeTable Node/NodeName/Rack=0;Slot=0;Instance=CPU0 Neighbors DeviceTable Device/DeviceID=vlab-02/Interf$
+RP/0/RP0/CPU0:vlab-01#show operational LLDP NodeTable Node/NodeName/Rack=0;
+Slot=0;Instance=CPU0 Neighbors DeviceTable Device/DeviceID=vlab-02/Interf$
 Wed Aug 10 08:45:43.126 UTC
 ......
       "Operational": {
         "LLDP": {
-          "@MajorVersion": "1", 
-          "@MinorVersion": "2", 
+          "@MajorVersion": "1",
+          "@MinorVersion": "2",
           "NodeTable": {
             "Node": {
               "Naming": {
                 "NodeName": {
-                  "Rack": "0", 
-                  "Slot": "0", 
+                  "Rack": "0",
+                  "Slot": "0",
                   "Instance": "CPU0"
                 }
-              }, 
+              },
               "Neighbors": {
                 "DeviceTable": {
                   "Device": {
                     "Naming": {
-                      "DeviceID": "vlab-02", 
+                      "DeviceID": "vlab-02",
                       "InterfaceName": "GigabitEthernet0/0/0/1"
-                    }, 
+                    },
                     "Entry": {
-                      "ReceivingInterfaceName": "GigabitEthernet0/0/0/1", 
-                      "ReceivingParentInterfaceName": "Bundle-Ether1", 
-                      "DeviceID": "vlab-02", 
-                      "ChassisID": "5254.0085.5c1c", 
-                      "PortIDDetail": "fortyGigE0/4", 
-                      "HeaderVersion": "0", 
-                      "HoldTime": "120", 
-                      "EnabledCapabilities": "B,R", 
+                      "ReceivingInterfaceName": "GigabitEthernet0/0/0/1",
+                      "ReceivingParentInterfaceName": "Bundle-Ether1",
+                      "DeviceID": "vlab-02",
+                      "ChassisID": "5254.0085.5c1c",
+                      "PortIDDetail": "fortyGigE0/4",
+                      "HeaderVersion": "0",
+                      "HoldTime": "120",
+                      "EnabledCapabilities": "B,R",
                       "Detail": {
-                        "PeerMACAddress": "5254.0012.3456", 
-                        "PortDescription": "vlab-01:fortyGigE0/4", 
-                        "SystemName": "vlab-02", 
-                        "SystemDescription": "SONiC Software Version: SONiC.HEAD.361-dirty-20220105.010103 - HwSku: soda-crystalnet - Distribution: Debian 10.11 - Kernel: 4.19.0-12-2-amd64", 
-                        "TimeRemaining": "98", 
-                        "SystemCapabilities": "B,W,R,S", 
-                        "EnabledCapabilities": "B,R", 
-                        "NetworkAddresses": {
-                          "Entry": {
-                            "Address": {
-                              "AddressType": "IPv4", 
-                              "IPv4Address": "10.250.0.113"
 ......
 '''
+
+
+def adapt_interface_name(func):
+    """Decorator to adapt interface name used in topology to cisco interface name."""
+    @functools.wraps(func)
+    def _decorated(self, *args):
+        args_list = list(args)
+        new_list = []
+        for item in args_list:
+            new_item = item
+            if 'Ethernet' in new_item:
+                new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
+            if 'Port-Channel' in item:
+                new_item = re.sub(r'(^|\s)Port-Channel', 'Bundle-Ether', new_item)
+            new_list.append(new_item)
+        new_args = tuple(new_list)
+        return func(self, *new_args)
+    return _decorated
+
 
 class CiscoHost(AnsibleHostBase):
     """
@@ -75,8 +83,10 @@ class CiscoHost(AnsibleHostBase):
     def __getattr__(self, module_name):
         if module_name.startswith('iosxr_'):
             evars = {
-                'ansible_connection':'network_cli',
-                'ansible_network_os':module_name.split('_', 1)[0],
+                'ansible_connection': 'network_cli',
+                'ansible_network_os': module_name.split('_', 1)[0],
+                'ansible_user': self.ansible_user,
+                'ansible_password': self.ansible_passwd,
                 'ansible_ssh_user': self.ansible_user,
                 'ansible_ssh_pass': self.ansible_passwd,
             }
@@ -97,6 +107,48 @@ class CiscoHost(AnsibleHostBase):
     def config(self, *args, **kwargs):
         return self.iosxr_config(*args, **kwargs)
 
+    @adapt_interface_name
+    def shutdown(self, interface_name=None):
+        out = self.config(
+            lines=['shutdown'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Shut interface [%s]' % interface_name)
+        return out
+
+    def shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.shutdown(interface_name=intf_str)
+
+    @adapt_interface_name
+    def no_shutdown(self, interface_name):
+        out = self.config(
+            lines=['no shutdown'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown_multiple(self, interfaces):
+        intf_str = ','.join(interfaces)
+        return self.no_shutdown(intf_str)
+
+    @adapt_interface_name
+    def check_intf_link_state(self, interface_name):
+        show_int_result = self.commands(
+            commands=['show interfaces %s' % interface_name])
+        return 'line protocol is up' in show_int_result['stdout_lines'][0]
+
+    @adapt_interface_name
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        if mode == 'fast':
+            command = 'lacp period short'
+        else:
+            command = 'no lacp period'
+
+        out = self.config(
+            lines=[command],
+            parents='interface %s' % interface_name)
+        return out
+
     def get_lldp_neighbor(self, local_iface=None, remote_device=None):
         try:
             if (local_iface is not None and remote_device is not None):
@@ -105,7 +157,9 @@ class CiscoHost(AnsibleHostBase):
                     'Device/DeviceID={}/InterfaceName={} json'.format(local_iface, remote_device)
             else:
                 command = 'show operational LLDP json'
-            output = self.commands(commands=[command], module_ignore_errors=True)
+            output = self.commands(
+                    commands=[command],
+                    module_ignore_errors=True)
             logger.debug('cisco lldp output: %s' % (output))
             return output['stdout_lines'][0]['Response']['Get']['Operational'] if output['failed'] is False else False
         except Exception as e:
@@ -121,9 +175,9 @@ class CiscoHost(AnsibleHostBase):
         # configure key chain parameters
         output = self.config(
                 lines=['accept-lifetime 00:00:00 december 01 2014 infinite',
-                        'send-lifetime 00:00:00 december 01 2014 infinite',
-                        'cryptographic-algorithm HMAC-MD5',
-                        'key-string clear {}'.format(key)],
+                       'send-lifetime 00:00:00 december 01 2014 infinite',
+                       'cryptographic-algorithm HMAC-MD5',
+                       'key-string clear {}'.format(key)],
                 parents=['key chain {} key 1'.format(name)])
         logger.debug('config key chain parameters: %s' % (output))
 
@@ -139,7 +193,7 @@ class CiscoHost(AnsibleHostBase):
         # configure key chain to isis
         output = self.config(
                 lines=['lsp-password keychain {} level 2'.format(key_chain_name),
-                        'interface Bundle-Ether1 hello-password keychain {}'.format(key_chain_name)],
+                       'interface Bundle-Ether1 hello-password keychain {}'.format(key_chain_name)],
                 parents=['router isis test'])
         logger.debug('config key chain to isis: %s' % (output))
 
@@ -148,7 +202,7 @@ class CiscoHost(AnsibleHostBase):
         # remove key chain from isis
         output = self.config(
                 lines=['no lsp-password keychain {} level 2'.format(key_chain_name),
-                        'no interface Bundle-Ether1 hello-password keychain {}'.format(key_chain_name)],
+                       'no interface Bundle-Ether1 hello-password keychain {}'.format(key_chain_name)],
                 parents=['router isis test'])
         logger.debug('remove key chain from isis: %s' % (output))
 
@@ -159,7 +213,7 @@ class CiscoHost(AnsibleHostBase):
             command = 'ping {} count 5'.format(dest)
             output = self.commands(commands=[command])
             logger.debug('ping result: %s' % (output))
-            return re.search('!!!!!', output['stdout'][0]) != None if output['failed'] is False else False
+            return re.search('!!!!!', output['stdout'][0]) is not None if output['failed'] is False else False
         except Exception as e:
             logger.error('command {} failed. exception: {}'.format(command, repr(e)))
         return False

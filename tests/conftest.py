@@ -24,6 +24,7 @@ from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
+from tests.common.devices.cisco import CiscoHost
 from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
@@ -96,7 +97,7 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
     # FWUtil options
@@ -513,6 +514,18 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
                         vm_name,
                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
+                    ),
+                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                }
+            )
+        elif neighbor_type == "cisco":
+            device = NeighborDevice(
+                {
+                    'host': CiscoHost(
+                        ansible_adhoc,
+                        vm_name,
+                        creds['cisco_login'],
+                        creds['cisco_password'],
                     ),
                     'conf': tbinfo['topo']['properties']['configuration'][k]
                 }
@@ -1819,27 +1832,47 @@ def core_dump_and_config_check(duthosts, request):
             duts_data[duthost.hostname]["cur_running_config"] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
-            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
-            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
-
+            # The tables that we don't care
+            EXCLUDE_CONFIG_TABLE_NAMES = set([])
+            # The keys that we don't care
             # Current skipped keys:
             # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
             #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
             #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
-            EXCLUDE_CONFIG_KEYS = set(["MUX_LINKMGR"])
+            EXCLUDE_CONFIG_KEY_NAMES = [
+                'MUX_LINKMGR|LINK_PROBER'
+            ]
+            
+            def _remove_entry(table_name, key_name, config):
+                if table_name in config and key_name in config[table_name]:
+                    config[table_name].pop(key_name)
+                    if len(config[table_name]) == 0:
+                        config.pop(table_name)
+
+            # Remove ignored keys from base config
+            for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
+                fields = exclude_key.split('|')
+                if len(fields) != 2:
+                    continue
+                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["pre_running_config"])
+                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["cur_running_config"])
+
+            # Get common keys in pre running config and cur running config
+
+            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
+            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
+
             # Check if there are extra keys in pre running config
-            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
+            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
             for key in pre_config_extra_keys:
                 pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
 
             # Check if there are extra keys in cur running config
-            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_KEYS)
+            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
             for key in cur_config_extra_keys:
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
-
-            # Get common keys in pre running config and cur running config
-            common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
-
+            
+            common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
             # Check if the running config is modified after module running
             for key in common_config_keys:
                 # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
