@@ -1893,10 +1893,11 @@ def core_dump_and_config_check(duthosts, request):
                 cur_config_extra_keys = list(
                     cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
                 for key in cur_config_extra_keys:
-                     cur_only_config[duthost.hostname].update({key: cur_running_config[key]})
+                    cur_only_config[duthost.hostname].update({key: cur_running_config[key]})
 
                 # Get common keys in pre running config and cur running config
-                common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
+                                          EXCLUDE_CONFIG_TABLE_NAMES)
 
                 # Check if the running config is modified after module running
                 for key in common_config_keys:
