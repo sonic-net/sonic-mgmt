@@ -33,7 +33,7 @@ def dut_hostname(request):
 @pytest.fixture(scope='module', autouse=True)
 def prepare_system_for_first_boot(request, dut_hostname):
     '''
-    @summary: will manufacture the dut device to the given image in the parameter --restore_to_image,
+    @summary: will manufacture the dut device to the given image in the parameter --base_image_list,
     by installing the image given from ONIE. for detailed information read the documentation
     of the manufacture script.
     '''
