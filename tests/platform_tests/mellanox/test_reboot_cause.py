@@ -2,7 +2,7 @@ import allure
 import logging
 import pytest
 from tests.common.reboot import REBOOT_TYPE_CPU, REBOOT_TYPE_BIOS, REBOOT_TYPE_ASIC, check_reboot_cause
-from tests.platform_tests.thermal_control_test_helper import mocker_factory
+from tests.platform_tests.thermal_control_test_helper import mocker_factory  # noqa: F401
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -16,7 +16,7 @@ REBOOT_CAUSE_TYPES = [REBOOT_TYPE_CPU, REBOOT_TYPE_BIOS, REBOOT_TYPE_ASIC]
 
 
 @pytest.mark.parametrize("reboot_cause", REBOOT_CAUSE_TYPES)
-def test_reboot_cause(rand_selected_dut, mocker_factory, reboot_cause):
+def test_reboot_cause(rand_selected_dut, mocker_factory, reboot_cause):  # noqa: F811
     """
     Validate reboot cause from cpu/bios/asic
     :param rand_selected_dut: The fixture returns a randomly selected DUT
