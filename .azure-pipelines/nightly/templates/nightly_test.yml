@@ -326,7 +326,7 @@ stages:
                     PARAMS="$PARAMS --completeness_level=confident"
                 fi
 
-                if [[ $IMAGE_URL =~ \/public\/ ]] || [[ $IMAGE_URL =~ \/master\/ ]]; then
+                if [[ $IMAGE_URL =~ \/public\/ ]] || [[ $IMAGE_URL =~ \/mssonic-public-pipelines\/ ]]; then
                     PARAMS="$PARAMS --public_docker_registry"
                 fi
 
