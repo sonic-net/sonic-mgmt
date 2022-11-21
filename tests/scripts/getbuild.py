@@ -36,11 +36,12 @@ def reporthook(count, block_size, total_size):
         percent = int(count * block_size * 100 / total_size)
         time_left = (total_size - progress_size) / speed / 1024
         sys.stdout.write("\r...%d%%, %d(%d) MB, %d KB/s, %d seconds left..." %
-                     (percent, progress_size / (1024 * 1024), total_size / (1024 * 1024), speed, time_left))
+                         (percent, progress_size / (1024 * 1024), total_size / (1024 * 1024), speed, time_left))
     else:
         sys.stdout.write("\r...%d MB, %d KB/s, ..." %
-                     (progress_size / (1024 * 1024), speed))
+                         (progress_size / (1024 * 1024), speed))
     sys.stdout.flush()
+
 
 def validate_url_or_abort(url):
     # Attempt to retrieve HTTP response code
@@ -121,16 +122,19 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
             except Exception as e:
                 print("Download error", e)
                 if download_times < MAX_DOWNLOAD_TIMES:
-                    print('Download times: {}, sleep: {} seconds before retry.'.format(download_times, 30 * download_times))
+                    print('Download times: {}, sleep: {} seconds before retry.'.format(download_times,
+                                                                                       30 * download_times))
                     time.sleep(30 * download_times)
                     continue
                 else:
                     sys.exit(1)
 
-def find_latest_build_id(branch, success_flag = "succeeded"):
+
+def find_latest_build_id(branch, success_flag="succeeded"):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}&resultFilter={}&statusFilter=completed&api-version=6.0".format(
+        branch, success_flag)
 
     resp = urlopen(builds_url)
 
@@ -145,6 +149,7 @@ def find_latest_build_id(branch, success_flag = "succeeded"):
 
     return latest_build_id
 
+
 def main():
     global artifact_size
 
@@ -152,14 +157,14 @@ def main():
     parser.add_argument('--buildid', metavar='buildid', type=int, help='build id')
     parser.add_argument('--branch', metavar='branch', type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-            choices=['broadcom', 'mellanox', 'vs'],
-            help='platform to download')
+                        choices=['broadcom', 'mellanox', 'vs'],
+                        help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
-            choices=['all', 'image'], default='image',
-            help='download content type [all|image(default)]')
+                        choices=['all', 'image'], default='image',
+                        help='download content type [all|image(default)]')
     parser.add_argument('--num_asic', metavar='num_asic', type=int,
-            default=1,
-            help='Specifiy number of asics')
+                        default=1,
+                        help='Specifiy number of asics')
     parser.add_argument('--url_prefix', metavar='url_prefix', type=str, default='mssonic/build', help='url prefix')
     parser.add_argument('--access_token', metavar='access_token', type=str, default='', help='access token')
 
@@ -182,6 +187,7 @@ def main():
                                                access_token=args.access_token)
 
     download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic, access_token=args.access_token)
+
 
 if __name__ == '__main__':
     main()
