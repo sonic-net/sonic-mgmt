@@ -46,8 +46,12 @@ class DefaultConsts:
     WARNING = '\033[93m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
+<<<<<<< a42598611e7d5da05231bdbd2d8aa3da2e22bd57
 <<<<<<< e0196b1cf61bf50c3d0b8b9a8bd91997de20e002
     BOLD = '\033[1m'
+=======
+    BOLD = '\033[1m'
+>>>>>>> Adding new test case for default password change after initial boot
 =======
     BOLD = '\033[1m'
 >>>>>>> Adding new test case for default password change after initial boot
