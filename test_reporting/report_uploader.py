@@ -17,7 +17,7 @@ def _parse_os_version(image_url):
     """Parse os version from image url"""
     os_version = ''
     items = image_url.split("/")
-    if "public" in items:
+    if "public" in items or "master" in items:
         os_version = "master"
     elif "internal" in items:
         os_version = "internal"
