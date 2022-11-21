@@ -93,9 +93,6 @@ def test_default_password_change_after_first_boot(dut_hostname):
     engine.sendline(DefaultConsts.NEW_PASSWORD + '\r')
     # we should get the default prompt
     engine.expect(DefaultConsts.DEFAULT_PROMPT)
-    engine.sendline('pwd')
-    logger.info("pwd cmd output: {}".format(engine.before.decode('ascii')))
-    engine.expect(DefaultConsts.DEFAULT_PROMPT)
     engine.sendline('sudo reboot')
     engine.expect('firmware is up to date')
     # pinging till down
