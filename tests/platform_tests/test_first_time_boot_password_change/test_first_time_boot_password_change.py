@@ -28,7 +28,7 @@ class currentConfigurations:
     and we will be used as part of cleanup fixtures.
     '''
     def __init__(self):
-        self.currentPassword = DefaultConsts.DEFAULT_PASSWORD # initial password
+        self.currentPassword = DefaultConsts.DEFAULT_PASSWORD  # initial password
 
 
 logger = logging.getLogger(__name__)
