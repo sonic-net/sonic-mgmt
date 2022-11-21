@@ -38,12 +38,15 @@ SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
 IS_TEST_ENV_FAILED = False
 WARM_TEST_DIR = "warm_boot"
 WARM_TEST_ARGS = ";test_reboot_mode='warm'"
-WARM_TEST_SETUP = ";test_reboot_stage='setup'"
-WARM_TEST_STARTING = ";test_reboot_stage='starting'"
-WARM_TEST_POST = ";test_reboot_stage='post'"
-WARM_TEST_STAGES = [WARM_TEST_SETUP, WARM_TEST_STARTING, WARM_TEST_POST]
+WARM_TEST_PRE_REBOOT = ";test_reboot_stage='pre_reboot'"
+WARM_TEST_REBOOTING = ";test_reboot_stage='rebooting'"
+WARM_TEST_POST_REBOOT = ";test_reboot_stage='post_reboot'"
+WARM_TEST_STAGES = [WARM_TEST_PRE_REBOOT,
+                    WARM_TEST_REBOOTING, WARM_TEST_POST_REBOOT]
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+COMMON_CONFIG_FORMAT = ';common_configured=\'{}\''
+NEED_CONFIG = False
 
 
 # PTF_TEST_ROOT_DIR is the root folder for SAI testing
@@ -62,7 +65,6 @@ SAISERVER_CONTAINER = "saiserver"
 SYNCD_CONATINER = "syncd"
 
 PORT_MAP_FILE_PATH = "/tmp/default_interface_to_front_map.ini"
-
 SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC = 140
 SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC = 35
 RPC_RESTART_INTERVAL_IN_SEC = 32
@@ -226,6 +228,14 @@ def create_sai_test_interface_param(duthost):
     return interfaces_para
 
 
+@pytest.fixture(scope="module")
+def rebooting_setup(duthost, request):
+    logger.info("rebooting setup,stop the contaniner")
+    stop_and_rm_sai_test_container(
+        duthost, get_sai_test_container_name(request))
+    saiserver_warmboot_config(duthost, "start")
+
+
 def prepare_sai_test_container(duthost, creds, container_name, request):
     """
     Prepare the sai test container.
@@ -357,7 +367,8 @@ def stop_and_rm_sai_test_container(duthost, container_name):
         container_name: The container name for sai testing on DUT.
     """
     logger.info("Stopping the container '{}'...".format(container_name))
-    duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
+    duthost.shell("docker stop " + container_name)
+    # duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
     duthost.delete_container(container_name)
 
 
@@ -510,7 +521,7 @@ def __deploy_syncd_rpc_as_syncd(duthost, creds):
 
     logger.info("Swapping docker container from image: \
         [{}] to [{}] ...".format(
-            docker_rpc_image, docker_syncd_name))
+        docker_rpc_image, docker_syncd_name))
     tag_image(
         duthost,
         "{}:latest".format(docker_syncd_name),
@@ -631,12 +642,7 @@ def saiserver_warmboot_config(duthost, operation):
         operation: init|start|restore
     """
     duthost.command(
-        "docker exec {} {}/{} -o {}".format(
-            SAISERVER_CONTAINER,
-            USR_BIN_DIR,
-            WARMBOOT_PROFILE_SCRIPT,
-            operation),
-        module_ignore_errors=True
+        "{}/{} -o {}".format(USR_BIN_DIR, WARMBOOT_PROFILE_SCRIPT, operation)
     )
 
 
