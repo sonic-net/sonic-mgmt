@@ -86,12 +86,4 @@ def restore_original_password(dut_hostname):
     change_password(dut_hostname,
                     DefaultConsts.DEFAULT_USER,
                     currentConfigurations.currentPassword,
-<<<<<<< e299ea4745c6aa9918ad573e2b1c2a718f7c1d4d
-<<<<<<< d9c5dff70aca2eaf8b11ad9c866f4cdf20a3ccda
                     DefaultConsts.DEFAULT_PASSWORD)
-=======
-                    DefaultConsts.DEFAULT_PASSWORD)
->>>>>>> Adding new test case for default password change after initial boot
-=======
-                    DefaultConsts.DEFAULT_PASSWORD)
->>>>>>> Adding new test case for default password change after initial boot
