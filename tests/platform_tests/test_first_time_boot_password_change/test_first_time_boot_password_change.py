@@ -2,9 +2,8 @@
 This test case checks default password change after initial reboot.
 Due to new law passed in California, each default user must change their default password.
 
-Important Notes:
-	1. Please run this test from sonic-mgmt/tests folder, otherwise it will fail.
-	2. Please specify the parameter --feature_enabled to the pytest commandline (set as True)
+Important Note:
+    Please run this test from sonic-mgmt/tests folder, otherwise it will fail.
 '''
 import pexpect
 import time
