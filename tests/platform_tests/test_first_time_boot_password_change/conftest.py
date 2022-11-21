@@ -6,6 +6,10 @@ from tests.platform_tests.test_first_time_boot_password_change.manufacture impor
 from tests.platform_tests.test_first_time_boot_password_change.default_consts import DefaultConsts
 
 
+def pytest_addoption(parser):
+    parser.addoption("--feature_enabled", action="store", default='False' ,help="run all combinations")
+
+
 class currentConfigurations:
     '''
     @summary: this class will act as a global database to save current configurations and changes the test made.
@@ -28,6 +32,17 @@ def dut_hostname(request):
     hostname = request.config.getoption('--host-pattern')
     logger.info("Hostname is {}".format(hostname))
     return hostname
+
+
+@pytest.fixture(scope='module', autouse=True)
+def is_feature_disabled(request):
+    '''
+    @summary: this fixture will be responsible for
+    skipping the test if the feature is disabled
+    '''
+    feature_enabled = request.config.getoption("feature_enabled")
+    if feature_enabled == 'False':
+        pytest.skip("Feature is disabled, will not run the test")
 
 
 @pytest.fixture(scope='module', autouse=True)
