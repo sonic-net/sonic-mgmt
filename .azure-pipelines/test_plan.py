@@ -94,7 +94,7 @@ class TestPlanManager(object):
                     "vm_type": kwargs["vm_type"]
                 },
                 "secrets": {
-                    "access_token": kwargs["access_token"]
+                    "azp_access_token": kwargs["access_token"]
                 }
             },
             "priority": 10,
