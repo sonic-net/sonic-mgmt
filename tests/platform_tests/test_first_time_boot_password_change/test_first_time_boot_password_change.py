@@ -159,5 +159,6 @@ def test_default_password_change_after_first_boot(dut_hostname):
     # we should not expect the expired password regex to appear again
     index = engine.expect([DefaultConsts.EXPIRED_PASSWORD_MSG] + DefaultConsts.DEFAULT_PROMPT)
     if index == 0:
+        engine.close()
         raise Exception("We captured the expiring message again after updating a new password!\n")
     engine.close()
