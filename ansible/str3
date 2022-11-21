@@ -13,6 +13,9 @@ all:
       vars:
         ansible_ssh_user: root
         ansible_ssh_pass: root
+        hosts:
+        vms61-1:
+          ansible_host: 10.64.246.5
 
     pdu:
       hosts:
@@ -51,40 +54,14 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
-    sonic_stable:
-    sonic_latest:
-    sonic_mlnx:
-    sonic_arista:
-    sonic_arista_Q32:
-    sonic_arista_QX:
-    sonic_mlnx_3800:
-    sonic_mlnx_3800_50:
-    sonic_dx010_100:
-    sonic_nexus_3164:
-    sonic_mlnx_4600C:
-    sonic_arista32_100:
-    sonic_arista64_100:
-    sonic_arista_lc_100G:
-    sonic_arista_sup:
-    sonic_cisco_lc_100G:
-    sonic_cisco_lc_400G:
-    sonic_cisco_sup:
-    sonic_nokia_7215:
     sonic_cisco_8102:
-    sonic_dell_z9332f:
-    sonic_nokia_sup:
-    sonic_nokia_lc_400G:
-    sonic_nokia_lc_100G:
-    sonic_appliance:
-    sonic_arista_720dt:
-    sonic_cisco_8101:
 
 sonic_cisco_8102:
   vars:
     hwsku: Cisco-8102-C64
     iface_speed: 100000
   hosts:
-    str2-8102-05:
+    str3-8102-05:
       ansible_host: 10.3.146.121
       model: 8102-64H-O
       serial: FLM24530034
@@ -101,7 +78,7 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0x4365416D"
-    str2-8102-06:
+    str3-8102-06:
       ansible_host: 10.3.146.78
       model: 8102-64H-O
       serial: FLM24530036
