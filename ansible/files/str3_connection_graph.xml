@@ -146,7 +146,7 @@
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
     <DevicesL3Info Hostname="str3-7260cx3-acs-root03">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.152/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.152/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-7260cx3-acs-root03">
       <InterfaceVlan mode="Trunk" portname="Ethernet1/1" vlanids="201-260"/>
