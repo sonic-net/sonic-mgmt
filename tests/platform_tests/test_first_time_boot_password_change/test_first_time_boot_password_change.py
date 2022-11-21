@@ -30,6 +30,7 @@ def test_default_password_change_after_first_boot(dut_hostname):
     Test Flow:
         1.A message should appear after initial boot, requesting password change for default user.
         2.Password change, it will be tested by relogin to dut with new password and expecting no expire message again
+	3. reboot and login again and expect no expiring message
     :param dut_hostname: name of device under test
     '''
     logger.info("------ STAGE 1 ------")
