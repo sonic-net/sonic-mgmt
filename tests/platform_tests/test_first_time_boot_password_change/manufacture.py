@@ -216,4 +216,3 @@ def manufacture(dut_ip, restore_image_path):
     print_log("Sleeping for {} secs to stabilize system after reboot".format(DefaultConsts.SLEEP_AFTER_MANUFACTURE))
     time.sleep(DefaultConsts.SLEEP_AFTER_MANUFACTURE)
     print_log("Manufacture is completed - SUCCESS", DefaultConsts.OKGREEN + DefaultConsts.BOLD)
-
