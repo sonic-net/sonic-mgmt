@@ -38,7 +38,8 @@ def prepare_system_for_first_boot(request, dut_hostname):
     of the manufacture script.
     '''
     base_image = request.config.getoption('base_image_list')
-    assert(base_image is not None, "base_image_list param is empty, Please specify path to an image")
+    if not base_image:
+        pytest.skip("base_image_list param is empty")
     manufacture(dut_hostname, base_image)
 
 
