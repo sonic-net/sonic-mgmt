@@ -2,8 +2,7 @@
 
 # By this script, SONiC switch moving to ONIE with specific boot_mode
 # The examples of usage:
-#     onie_reboot.sh install
-#     onie_reboot.sh update
+#     onie_install.sh install
 
 onie_mount=/mnt/onie-boot
 os_boot=/host
