@@ -294,3 +294,8 @@ def test_generate_running_golden_config(duthosts):
     """
     for duthost in duthosts:
         duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                asic_ns = 'asic{}'.format(asic_index)
+                duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                              format(asic_ns, asic_index))
