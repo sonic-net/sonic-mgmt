@@ -42,6 +42,7 @@ class DefaultConsts:
     CONTINUE_CONNECTING = '(yes/no/[fingerprint])?'
     LONG_PERIOD = 30
     APPLY_CONFIGURATIONS = 10
+    STABILIZATION_TIME = 60
     SLEEP_AFTER_MANUFACTURE = 60
     NEW_PASSWORD_REGEX = 'New password'
     RETYPE_PASSWORD_REGEX = 'Retype new password'

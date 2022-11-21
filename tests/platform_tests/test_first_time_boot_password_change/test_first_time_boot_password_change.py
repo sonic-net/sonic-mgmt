@@ -97,6 +97,8 @@ def restore_original_password(dut_hostname):
     2. If the password was changed: need to revert it back to original
     '''
     yield
+    logger.info("Sleep {} secs for system stabilization".format(DefaultConsts.STABILIZATION_TIME))
+    time.sleep(DefaultConsts.STABILIZATION_TIME)
     logger.info("Restore original password")
     change_password(dut_hostname,
                     DefaultConsts.DEFAULT_USER,
