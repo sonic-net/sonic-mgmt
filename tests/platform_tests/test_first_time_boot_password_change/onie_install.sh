@@ -77,5 +77,3 @@ if [ $rc -eq 0 ]; then
 fi
 
 exit $rc
-
-
