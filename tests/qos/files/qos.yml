@@ -944,6 +944,36 @@ qos_params:
                     pkts_num_trig_pfc: 59784
                     pkts_num_trig_ingr_drp: 60410
                     pkts_num_margin: 4
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_3:
+                    outer_dscp: 2
+                    dscp: 3
+                    ecn: 1
+                    pg: 2
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_4:
+                    outer_dscp: 6
+                    dscp: 4
+                    ecn: 1
+                    pg: 6
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1
@@ -1470,6 +1500,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1480,6 +1511,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1668,6 +1700,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1678,6 +1711,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1860,6 +1894,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1870,6 +1905,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -2017,6 +2053,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -2027,6 +2064,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30

@@ -7,17 +7,18 @@ import argparse
 import os.path
 from fcntl import ioctl
 import logging
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 import scapy.all as scapy2
-scapy2.conf.use_pcap=True
-from  scapy.contrib.bfd import BFD
+from scapy.contrib.bfd import BFD
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+scapy2.conf.use_pcap = True
+
 
 def get_if(iff, cmd):
     s = socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+    ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
     s.close()
-
     return ifreq
+
 
 def get_mac(iff):
     SIOCGIFHWADDR = 0x8927          # Get hardware address
@@ -84,31 +85,30 @@ class BFDResponder(object):
         if ip_dst not in self.sessions:
             return
         session = self.sessions[ip_dst]
-
-        if bfd_state== 3L:
+        if bfd_state == 3:
             interface.send(session["pkt"])
             return
 
-        if bfd_state == 2L:
+        if bfd_state == 2:
             return
-        session = self.sessions[ip_dst]
         session["other_disc"] = bfd_remote_disc
-        bfd_pkt_init = self.craft_bfd_packet( session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2L )
-        print("sending INIT", bfd_pkt_init)
+        bfd_pkt_init = self.craft_bfd_packet(session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
+        bfd_pkt_init.payload.payload.chksum = None
         interface.send(bfd_pkt_init)
-        bfd_pkt_init.payload.payload.payload.load.sta =3L
+        bfd_pkt_init.payload.payload.payload.load.sta = 3
+        bfd_pkt_init.payload.payload.chksum = None
         session["pkt"] = bfd_pkt_init
         return
 
     def extract_bfd_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
         ether = scapy2.Ether(data)
-        mac_src= ether.src
+        mac_src = ether.src
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
         bfdpkt = BFD(ether.payload.payload.payload.load)
-        bfd_remote_disc =bfdpkt.my_discriminator
+        bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
         return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
 
@@ -122,16 +122,18 @@ class BFDResponder(object):
         ethpart.payload.payload.payload.load = bfdpart
         ethpart.src = mac_dst
         ethpart.dst = mac_src
-        ethpart.payload.src= ip_dst
-        ethpart.payload.dst= ip_src
+        ethpart.payload.src = ip_dst
+        ethpart.payload.dst = ip_src
         return ethpart
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
-    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json', help='path to json file with configuration')
+    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json',
+            help='path to json file with configuration')
     args = parser.parse_args()
-
     return args
+
 
 def main():
     args = parse_args()
@@ -154,18 +156,18 @@ def main():
         curr_session["remote"] = bfd["neighbor_addr"]
         curr_session["intf"] = bfd["ptf_intf"]
         curr_session["multihop"] = bfd["multihop"]
-        curr_session["my_disc"] =  local_disc_base
+        curr_session["my_disc"] = local_disc_base
         curr_session["other_disc"] = 0x00
-        curr_session["mac"] = get_mac( str( bfd["ptf_intf"]))
+        curr_session["mac"] = get_mac(str(bfd["ptf_intf"]))
         curr_session["src_port"] = local_src_port
         curr_session["pkt"] = ""
         if bfd["ptf_intf"] not in ifaces:
             ifaces[curr_session["intf"]] = curr_session["mac"]
 
-        local_disc_base +=1
-        local_src_port +=1
+        local_disc_base += 1
+        local_src_port += 1
         sessions[curr_session["local"]] = curr_session
-    ifaceobjs =[]
+    ifaceobjs = []
     for iface_name in ifaces.keys():
         iface = Interface(str(iface_name))
         iface.bind()
@@ -175,8 +177,9 @@ def main():
 
     p = Poller(ifaceobjs, resp)
     p.poll()
-
     return
+
 
 if __name__ == '__main__':
     main()
+

@@ -19,6 +19,7 @@ function usage
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
+  echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -34,6 +35,7 @@ function usage
   echo "    <testbed-name>        : Name of the target testbed"
   echo "    <inventory>           : Name of the Ansible inventory containing the DUT"
   echo "    <k8s-server-name>     : Server identifier in form k8s_server_{id}, corresponds to k8s_ubuntu inventory group name"
+  echo "    <image-url>           : Location of the image to be installed"
   echo
   echo "To start all VMs on a server: $0 start-vms 'server-name' ~/.password"
   echo "To restart a subset of VMs:"
@@ -72,6 +74,7 @@ function usage
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
+  echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
@@ -596,6 +599,22 @@ function cleanup_vmhost
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
+function install_image
+{
+  testbed_name=$1
+  inventory=$2
+  image_url=$3
+  shift
+  shift
+  shift
+
+  echo "Upgrading image on '$testbed_name'"
+
+  ansible-playbook upgrade_sonic.yml -i "$inventory" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e upgrade_type=sonic -e image_url="$image_url"
+
+  echo Done
+}
+
 function read_topologies_from_csv_file
 {
   topologies_by_setup_name=$(cat $tbfile | grep $setup_name | awk 'BEGIN { FS = "," } ; {print $1}')
@@ -783,6 +802,8 @@ case "${subcmd}" in
   destroy-master) stop_k8s_vms $@
                ;;
   restart-ptf) restart_ptf $@
+               ;;
+  install-image) install_image $@
                ;;
   *)           usage
                ;;
