@@ -216,6 +216,6 @@ class AutoTechSupportCli202111(AutoTechSupportCliDefault):
         return result_dict
 
 
-class AutoTechSupportCli202205(AutoTechSupportCli202111):
+class AutoTechSupportCli202205(AutoTechSupportCliDefault):
     def __int__(self, *args, **kwargs):
         pass
