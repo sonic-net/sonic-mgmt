@@ -209,19 +209,36 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
-        "--include_crm",
-        action="store",
-        default=False,
-        type=bool,
-        help="Enable CRM tests."
-    )
-
-    vxlan_group.addoption(
         "--include_long_tests",
         action="store",
         default=False,
         type=bool,
         help="Run the long-running testcases."
+    )
+
+    vxlan_group.addoption(
+        "--crm_num_nexthops",
+        action="store",
+        default=4096,
+        type=int,
+        help="CRM:Number of available pool of nexthops."
+    )
+
+    vxlan_group.addoption(
+        "--crm_num_nexthop_groups",
+        action="store",
+        default=512,
+        type=int,
+        help="CRM:Number of Vnet nexthop groups."
+    )
+
+    vxlan_group.addoption(
+        "--crm_num_nexthop_group_members",
+        action="store",
+        default=1024,
+        type=int,
+        help="CRM:Number of Vnet nexthop group members"
+             "(number of repeated addresses to use across all the routes)."
     )
 
 
