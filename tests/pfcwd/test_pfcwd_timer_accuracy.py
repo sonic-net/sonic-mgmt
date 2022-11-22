@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+from tests.common.innovium_data import is_innovium_device
 
 
 pytestmark = [
@@ -130,7 +131,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 300000
-    if is_innovium_device(duthost):
+    if is_innovium_device(dut):
         pfc_frames_count = 500000
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                            pfc_frames_number=pfc_frames_count, peer_info=peer_params)
