@@ -376,7 +376,6 @@ class Test_VxLAN():
         Logger.info(
             "dest->nh mapping:%s", self.setup[encap_type]['dest_to_nh_map'])
 
-        import pdb; pdb.set_trace()
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VXLAN",
