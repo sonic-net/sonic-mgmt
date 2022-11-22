@@ -1213,6 +1213,15 @@ sonic_nokia_lc_400G:
       serial: 19688-0038
       base_mac:  40:7C:7D:BB:26:0B
       ansible_host: 10.3.147.134
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0038"
+        "0x24": "40:7C:7D:BB:26:0B"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x7412F0DE"
     str2-7250-lc2-1:
       hwsku: Nokia-IXR7250E-36x400G
       sonic_hwsku: Nokia-IXR7250E-36x400G
@@ -1226,6 +1235,15 @@ sonic_nokia_lc_400G:
       serial: 19688-0041
       base_mac:  40:7C:7D:BB:26:1D
       ansible_host: 10.3.147.135
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0041"
+        "0x24": "40:7C:7D:BB:26:1D"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x72DB8BCE"
 
 sonic_nokia_lc_100G:
   vars:
@@ -1249,6 +1267,17 @@ sonic_nokia_lc_100G:
       serial: NS220304200
       base_mac:  A4:7B:2C:E5:94:0F
       ansible_host: 10.3.147.132
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS220304200"
+        "0x24": "A4:7B:2C:E5:94:0F"
+        "0x25": "01252022"
+        "0x26": "56"
+        "0x2A": "2"
+        "0x2E": "D-EAG2-04-200"
+        "0xFE": "0x0ACAC6F2"
     str2-7250-lc2-2:
       hwsku: Nokia-IXR7250E-36x100G
       sonic_hwsku: Nokia-IXR7250E-36x100G
@@ -1262,6 +1291,17 @@ sonic_nokia_lc_100G:
       serial: NS220304199
       base_mac:  A4:7B:2C:E5:94:0D
       ansible_host: 10.3.147.133
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS220304199"
+        "0x24": "A4:7B:2C:E5:94:0D"
+        "0x25": "01252022"
+        "0x26": "56"
+        "0x28": "2"
+        "0x2E": "D-EAG2-04-199"
+        "0xFE": "0xEED3AEFC"
 
 sonic_arista_sup:
   vars:
@@ -1408,10 +1448,81 @@ sonic_nokia_sup:
     str2-7250-sup-1:
       ansible_host: 10.3.147.130
       hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS214510034
+      base_mac: 20:F4:4F:27:AE:A8
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS214510034"
+        "0x24": "20:F4:4F:27:AE:A8"
+        "0x25": "01252022"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0x3194DCD0"
+      skip_modules:
+          'line-cards':
+            - LINE-CARD2
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD3
+            - FABRIC-CARD4
+            - FABRIC-CARD5
+            - FABRIC-CARD6
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU7
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
 
     str2-7250-sup-2:
       ansible_host: 10.3.147.131
       hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS214510036
+      base_mac: 20:F4:4F:27:AE:F8
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS214510034"
+        "0x24": "20:F4:4F:27:AE:F8"
+        "0x25": "20211102"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0x62ECD61C"
+      skip_modules:
+          'line-cards':
+            - LINE-CARD2
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD3
+            - FABRIC-CARD4
+            - FABRIC-CARD5
+            - FABRIC-CARD6
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU7
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
+
 
 sonic_nokia_7215:
   vars:
