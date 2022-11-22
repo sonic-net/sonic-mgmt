@@ -326,7 +326,7 @@ def get_testbed_info(testbed):
     tbinfo = parse_testbed(testbed)
     if tbinfo is None:
         logger.error("Can't find information for testbed {}, please verify if testbed name is correct.".format(testbed))
-        raise RuntimeError('Can not find information for testbed {} '.format(testbed))
+        return None, None, None
 
     hostmgr = HostManager(os.path.join(ANSIBLE_DIR, tbinfo['inv_name']))
     dut_console = []
@@ -450,6 +450,10 @@ class Testbeds_auto_recovery(object):
             testbed = testbedTmp.strip()
             # get testbed's DUT, IP, console
             dut, console, ip = get_testbed_info(testbed)
+            if dut == None and console == None and ip == None:
+                logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
+                continue
+
             self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : str(datetime.datetime.utcnow()),
                                                 'TestbedName'   : testbed,
                                                 'DutName'       : dut,
@@ -527,6 +531,10 @@ class Testbeds_auto_recovery(object):
 
                 # get testbed's DUT, IP, console
                 dut, console, ip = get_testbed_info(testbed)
+                if dut == None and console == None and ip == None:
+                    logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
+                    continue
+
                 self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : autoRecovery_testbeds[testbed]['UTCTimestamp'],
                                                     'TestbedName'   : autoRecovery_testbeds[testbed]['TestbedName'],
                                                     'DutName'       : dut,
@@ -566,6 +574,10 @@ class Testbeds_auto_recovery(object):
 
                 # get testbed's DUT, IP, console
                 dut, console, ip = get_testbed_info(testbed)
+                if dut == None and console == None and ip == None:
+                    logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
+                    continue
+
                 self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : unhealthy_testbeds_table[testbed]['UTCTimestamp'],
                                                     'TestbedName'   : unhealthy_testbeds_table[testbed]['TestbedName'],
                                                     'DutName'       : dut,
@@ -829,7 +841,7 @@ class Testbeds_auto_recovery(object):
                 self.update_testbeds_ToCusto(testbed, False, True, self.unhealthy_testbeds[testbed]['Powercycle'], \
                                             "success#" + str(self.unhealthy_testbeds[testbed]['buildID']['redeploy']), \
                                             "success#" + str(self.unhealthy_testbeds[testbed]['buildID']['sanity']), \
-                                             "UnLock failure", 0, lock_statue["release"])
+                                             "UnLock failure", 0, "auto recover complete")
 
             del self.unhealthy_testbeds[testbed]
             self.build_testbeds_list.remove(testbed)
@@ -886,11 +898,12 @@ class Testbeds_auto_recovery(object):
             logger.info("{} testbed {} ".format(lock_release, testbed))
 
         testbed_lock = {}
-        for count in range(3):
+        for count in range(5):
             testbed_lock = get_testbed(testbed, self.token, self.proxies)
             if testbed_lock:
                 if testbed_lock.get('failed') == False:
                     break
+            time.sleep(1)
             logger.info("testbed {} get_testbed failed, try {} ".format(testbed, count + 1))
 
         logger.info("testbed {} {}".format(testbed, testbed_lock))
