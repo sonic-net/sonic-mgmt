@@ -93,6 +93,9 @@ class TestPlanManager(object):
                     "num_asic": kwargs["num_asic"],
                     "vm_type": kwargs["vm_type"]
                 },
+                "secrets": {
+                    "azp_access_token": kwargs["access_token"]
+                }
             },
             "priority": 10,
             "requester": "pull request"
@@ -327,6 +330,14 @@ if __name__ == "__main__":
         required=False,
         help="The asic number of dut"
     )
+    parser_create.add_argument(
+        "--access-token",
+        type=str,
+        dest="access_token",
+        default="",
+        required=False,
+        help="Authorization token to access internal resource (image, etc)"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -436,6 +447,7 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
+                access_token=args.access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
