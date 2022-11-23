@@ -13,9 +13,24 @@ all:
       vars:
         ansible_ssh_user: root
         ansible_ssh_pass: root
+        hosts:
+        vms61-1:
+          ansible_host: 10.64.246.5
 
     pdu:
       hosts:
+        pdu-90:
+          ansible_host: 10.3.155.90
+          protocol: snmp
+        pdu-91:
+          ansible_host: 10.3.155.91
+          protocol: snmp
+        pdu-115:
+          ansible_host: 10.3.155.115
+          protocol: snmp
+        pdu-116:
+          ansible_host: 10.3.155.116
+          protocol: snmp
         pdu-118:
           ansible_host: 10.3.155.118
           protocol: snmp
@@ -25,6 +40,61 @@ all:
         pdu-123:
           ansible_host: 10.3.155.123
           protocol: snmp
+
+fanout:
+  hosts:
+    str3-7260cx3-acs-fan-01:
+      ansible_host: 10.3.146.33
+    str3-7260cx3-acs-fan-02:
+      ansible_host: 10.3.146.35
+    str3-7260cx3-acs-fan-03:
+      ansible_host: 10.3.146.32
+
+sonic:
+  vars:
+    mgmt_subnet_mask_length: 23
+  children:
+    sonic_cisco_8102:
+
+sonic_cisco_8102:
+  vars:
+    hwsku: Cisco-8102-C64
+    iface_speed: 100000
+  hosts:
+    str3-8102-05:
+      ansible_host: 10.3.146.121
+      model: 8102-64H-O
+      serial: FLM24530034
+      base_mac: F8:7A:41:A7:2C:F8
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM24530034"
+        "0x24": "F8:7A:41:A7:2C:F8"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x4365416D"
+    str3-8102-06:
+      ansible_host: 10.3.146.78
+      model: 8102-64H-O
+      serial: FLM24530036
+      base_mac: E8:EB:34:B7:63:C0
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM24530036"
+        "0x24": "E8:EB:34:B7:63:C0"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xA3746C27"
 
 server:
   hosts:
