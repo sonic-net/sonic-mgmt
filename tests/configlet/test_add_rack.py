@@ -15,7 +15,7 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_image_version(duthost):
+def check_image_version(duthosts, rand_one_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202111
 
     Args:
@@ -24,11 +24,12 @@ def check_image_version(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
        Ignore expected errors in logs during test execution
 
@@ -36,6 +37,7 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
            loganalyzer: Loganalyzer utility fixture
            duthost: DUT host object
     """
+    duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
          loganalyzer_ignore_regex = [
              ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
