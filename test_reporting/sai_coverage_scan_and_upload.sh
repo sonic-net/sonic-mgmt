@@ -10,3 +10,4 @@ python3 test_reporting/sai_coverage/case_scanner.py -p ptf
 
 # 4. upload the results (json files) to Kusto
 python3 test_reporting/report_uploader.py result/scan SaiTestData -c case_invoc
+python3 test_reporting/report_uploader.py result/sai_header_scan_result_test.json SaiTestData -c sai_header_def
