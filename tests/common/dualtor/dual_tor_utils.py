@@ -1100,7 +1100,7 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
-def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_function_completeness_level):
+def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_function_completeness_level=None):
     """
     @summary: A helper function for collecting info of dualtor testbed.
     @param ptfhost: The ptf host fixture
