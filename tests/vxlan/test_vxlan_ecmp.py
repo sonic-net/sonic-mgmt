@@ -45,7 +45,6 @@
                                       for the DUT. Default: 4789
         bfd                         : Set it to True if you want to run all
                                       VXLAN cases with BFD Default: False
-        include_crm                 : Include the CRM testcases. Default:False
         include_long_tests          : Include the entropy, random-hash
                                       testcases, that take longer time.
                                       Default: False
@@ -55,6 +54,7 @@ import time
 import logging
 from datetime import datetime
 import json
+import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -91,11 +91,11 @@ def fixture_encap_type(request):
         This fixture forces the script to perform one encap_type at a time.
         So this script doesn't support multiple encap types at the same.
     '''
-    yield request.param
+    return request.param
 
 
 @pytest.fixture(autouse=True)
-def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
@@ -108,6 +108,20 @@ def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*Vnet Route Mismatch reported.*"
             ])
     return
+
+
+def setup_crm_interval(duthost, interval):
+    crm_stdout = duthost.shell("crm show summary")['stdout_lines']
+    match = re.search("Polling Interval: ([0-9]*) second", "".join(crm_stdout))
+
+    if match:
+        current_polling_seconds = match.group(1)
+    else:
+        raise RuntimeError(
+            "Couldn't parse the crm polling "
+            "interval. output:{}".format(crm_stdout))
+    duthost.shell("crm config polling interval {}".format(interval))
+    return current_polling_seconds
 
 
 @pytest.fixture(name="setUp", scope="module")
@@ -154,7 +168,6 @@ def fixture_setUp(duthosts,
     Logger.info("Constants to be used in the script:%s", ecmp_utils.Constants)
 
     data['enable_bfd'] = request.config.option.bfd
-    data['include_crm'] = request.config.option.include_crm
     data['include_long_tests'] = request.config.option.include_long_tests
     data['monitor_file'] = '/tmp/bfd_responder_monitor_file.txt'
     data['ptfhost'] = ptfhost
@@ -164,6 +177,9 @@ def fixture_setUp(duthosts,
         data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     data['vxlan_port'] = request.config.option.vxlan_port
+    data['original_crm_interval'] = setup_crm_interval(data['duthost'],
+                                                       interval=3)
+    time.sleep(4)
     data['crm'] = data['duthost'].get_crm_resources()['main_resources']
     ecmp_utils.configure_vxlan_switch(
         data['duthost'],
@@ -305,6 +321,8 @@ def fixture_setUp(duthosts,
     time.sleep(1)
     if request.config.option.bfd:
         ecmp_utils.stop_bfd_responder(data['ptfhost'])
+
+    setup_crm_interval(data['duthost'], int(data['original_crm_interval']))
 
 
 class Test_VxLAN():
@@ -1894,81 +1912,3 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=False,
             random_src_ip=True,
             tolerance=0.03)
-
-
-@pytest.mark.skipif(
-    "config.option.include_crm is False",
-    reason="This test will be run only if "
-           "'--include_crm=True' is provided.")
-class Test_VxLAN_Crm(Test_VxLAN):
-    '''
-        Class for all testcases that verify Critical Resource Monitoring
-        counters.
-    '''
-    def test_crm_16k_routes(self, setUp, encap_type):
-        '''
-            Verify that the CRM counter values for ipv4_route, ipv4_nexthop,
-            ipv6_route and ipv6_nexthop are updated as per the vxlan route
-            configs.
-        '''
-        self.setup = setUp
-        vnet = self.setup[encap_type]['dest_to_nh_map'].keys()[0]
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        number_of_routes_configured = \
-            len(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())
-
-        # We need the count of unique endpoints.
-        dest_nh_map = self.setup[encap_type]['dest_to_nh_map'][vnet]
-        set_of_unique_endpoints = set()
-        for _, nexthops in dest_nh_map.items():
-            set_of_unique_endpoints = \
-                set_of_unique_endpoints | set(nexthops)
-        number_of_nexthops_configured = len(set_of_unique_endpoints)
-
-        routes_used = \
-            crm_output['ip{}_route'.format(outer_layer_version)]['used']
-        nhs_used = \
-            crm_output['ip{}_nexthop'.format(outer_layer_version)]['used']
-        old_routes = \
-            self.setup['crm']['ip{}_route'.format(outer_layer_version)]['used']
-        old_nhs = self.setup['crm'][
-            'ip{}_nexthop'.format(outer_layer_version)]['used']
-
-        pytest_assert(
-            routes_used >= old_routes + 0.90 * number_of_routes_configured,
-            "CRM:ip{}_route usage didn't increase as needed".format(
-                outer_layer_version))
-        pytest_assert(
-            nhs_used >= old_nhs + 0.90 * number_of_nexthops_configured,
-            "CRM:ip{}_nexthop usage didn't increase as needed".format(
-                outer_layer_version))
-
-    def test_crm_512_nexthop_groups(self, setUp, encap_type):
-        '''
-            Verify that the CRM counter values for nexthop_group is updated as
-            per the vxlan route configs.
-        '''
-        self.setup = setUp
-        Logger.info("Verifying encap_type:%s", encap_type)
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        pytest_assert(
-            crm_output['nexthop_group']['used'] >=
-            self.setup['crm']['nexthop_group']['used'] + 16000,
-            "CRM:nexthop_group usage didn't increase as needed")
-
-    def test_crm_128_group_members(self, setUp, encap_type):
-        '''
-            Verify that the CRM counter values for nexthop_group_member
-            is updated as per the vxlan route configs.
-        '''
-        self.setup = setUp
-        Logger.info("Verifying encap_type:%s", encap_type)
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        pytest_assert(
-            crm_output['nexthop_group_member']['used'] >=
-            self.setup['crm']['nexthop_group_member']['used'] + 16000,
-            "CRM:nexthop_group_member usage didn't increase as needed")
