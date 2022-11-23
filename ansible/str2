@@ -1293,6 +1293,7 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
+      asics_present: [0,2]
 sonic_nokia_lc_400G:
   vars:
     max_cores: 48
