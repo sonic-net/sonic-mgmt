@@ -17,7 +17,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
 ]
 
 logger = logging.getLogger(__name__)

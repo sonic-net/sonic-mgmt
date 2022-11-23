@@ -22,7 +22,7 @@ from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, i
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 

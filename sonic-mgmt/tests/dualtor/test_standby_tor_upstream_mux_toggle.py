@@ -31,7 +31,7 @@ def test_cleanup(rand_selected_dut):
 
 def test_standby_tor_upstream_mux_toggle(
     rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,
-    require_mocked_dualtor, toggle_all_simulator_ports, set_crm_polling_interval):
+    toggle_all_simulator_ports, set_crm_polling_interval):
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
@@ -77,5 +77,3 @@ def test_standby_tor_upstream_mux_toggle(
     crm_facts1 = rand_selected_dut.get_crm_facts()
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
     pt_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
-
-

@@ -17,7 +17,7 @@ def _parse_os_version(image_url):
     """Parse os version from image url"""
     os_version = ''
     items = image_url.split("/")
-    if "public" in items:
+    if "public" in items or "master" in items:
         os_version = "master"
     elif "internal" in items:
         os_version = "internal"
@@ -119,6 +119,9 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 kusto_db._upload_case_invoc_report_file(fn)
                 count += 1
                 print("Ingested file {}, {}/{}".format(fn, count, len(fns)))
+    elif args.category == "sai_header_def":
+        for path_name in args.path_list:
+            kusto_db.upload_sai_header_def_report_file(path_name)
 
     else:
         print('Unknown category "{}"'.format(args.category))
