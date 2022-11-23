@@ -1,3 +1,8 @@
+name: SAI_202012_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
 parameters:
   - name: TESTBED_NAME
     type: string
@@ -158,7 +163,7 @@ parameters:
     displayName: "sonic-mgmt repo"
     type: string
     default: "sonic-net"
-  
+
   - name: MGMT_BRANCH
     displayName: "sonic-mgmt branch"
     type: string
