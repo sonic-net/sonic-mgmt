@@ -1,8 +1,13 @@
 parameters:
   - name: TESTBED_NAME
     type: string
-    displayName: "Testbed Name"
+    displayName: "Testbed Name for SAI test"
     default: vms3-t1-dx010-1
+
+  - name: TESTBED_NAME_FOR_SONIC
+    type: string
+    displayName: "Testbed Name for SONiC test"
+    default: vms20-t1-dx010-6
 
   - name: IMAGE_URL
     type: string
@@ -179,31 +184,44 @@ stages:
       pool: ${{ parameters.pool }}
       saibcmrepo: ${{ parameters.saibcmrepo }}
 
-- stage: Run_SAI_Test
+- stage: Run_Test
   jobs:
-  - template: ../nightly/templates/sai_test.yml
-    parameters:
-      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
-      PREPARE_SAI_TB: ${{ parameters.PREPARE_SAI_TB }}
-      UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
-      CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
-      RECOVER_TB: ${{ parameters.RECOVER_TB }}
-      ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
-      ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
-      ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-      ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
-      RUN_TEST: ${{ or(or(parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST), or( parameters.ENABLE_COMMUNITY_TEST, parameters.ENABLE_WARM_REBOOT_TEST )) }}
-      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
-      SAI_REPO: ${{ parameters.SAI_REPO }}
-      SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
-      JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-      UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
-      DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
-      SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
-      PTF_DEPLOY_VSCODE: ${{ parameters.PTF_DEPLOY_VSCODE }}
-      OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
-      MGMT_REPO: ${{ parameters.MGMT_REPO }}
-      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+    - job: Run_SAI_Test
+    - template: ../nightly/templates/sai_test.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+        PREPARE_SAI_TB: ${{ parameters.PREPARE_SAI_TB }}
+        UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
+        CHANGE_TOPO: ${{ parameters.CHANGE_TOPO }}
+        RECOVER_TB: ${{ parameters.RECOVER_TB }}
+        ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
+        ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
+        ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
+        ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
+        RUN_TEST: ${{ or(or(parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST), or( parameters.ENABLE_COMMUNITY_TEST, parameters.ENABLE_WARM_REBOOT_TEST )) }}
+        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
+        SAI_REPO: ${{ parameters.SAI_REPO }}
+        SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
+        JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
+        PTF_DEPLOY_VSCODE: ${{ parameters.PTF_DEPLOY_VSCODE }}
+        OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
+        MGMT_REPO: ${{ parameters.MGMT_REPO }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+
+    - job: Run_SONiC_Test
+    - template: ../nightly/templates/sonic_test_for_sai.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME_FOR_SONIC }}
+        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+        UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
+        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
