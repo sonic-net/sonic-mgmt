@@ -2,10 +2,10 @@
 The purpose is to test the functionality of ECN Configuration on the SONIC Switch.
 The test does not require any links on the Switch.
 
-Test cases cover initial ECN WRED configuration and 
+Test cases cover initial ECN WRED configuration and
 
 ## Related tools and CLI utilities
-Utility to be used for QoS configuration (including ECN WRED) validation: `sonic-cfggen`.  
+Utility to be used for QoS configuration (including ECN WRED) validation: `sonic-cfggen`.
 
     sonic-cfggen -j qos.json --print-config
 Utility to test ECN WRED configuration update: `ecnconfig`.

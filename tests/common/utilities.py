@@ -161,6 +161,10 @@ class InterruptableThread(threading.Thread):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
 
+    def set_exit_handler(self, exit_handler):
+        """Add exit handler callback that will be called when the thread eixts."""
+        self.exit_handler = exit_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -172,6 +176,9 @@ class InterruptableThread(threading.Thread):
             self._e = sys.exc_info()
             if getattr(self, "error_handler", None) is not None:
                 self.error_handler(*self._e)
+
+        if getattr(self, "exit_handler", None) is not None:
+            self.exit_handler()
 
     def join(self, timeout=None, suppress_exception=False):
         """
@@ -661,3 +668,17 @@ def update_environ(*remove, **update):
         env.update(to_restore)
         for k in to_removed:
             env.pop(k)
+
+
+def get_image_type(duthost):
+    """get the SONiC image type
+        It might be public/microsoft/...or any other type.
+        Different vendors can define their different types by checking the specific information from the build image.
+    Args:
+        duthost: AnsibleHost instance for DUT
+    Returns:
+        The returned image type string will be used as a key of map DEFAULT_SSH_CONNECT_PARAMS defined in
+        tests/common/constants.py for looking up default credential for this type of image.
+    """
+
+    return "public"
