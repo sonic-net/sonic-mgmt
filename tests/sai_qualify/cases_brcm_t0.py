@@ -85,7 +85,7 @@ TEST_CASE = [
         "sai_route_test.SviMacFloodingTest",
         "sai_route_test.SviMacFloodingv6Test",
         "sai_route_test.SviDirectBroadcastTest",
-        "sai_route_test.RemoveRouteTest",
+        "sai_route_test.RemoveRouteV4Test",
         "sai_route_test.DefaultRouteV4Test",
         "sai_route_test.DefaultRouteV6Test",
         "sai_route_test.RouteSameSipDipv4Test",
