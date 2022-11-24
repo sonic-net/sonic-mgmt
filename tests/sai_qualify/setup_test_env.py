@@ -23,6 +23,7 @@ def test_sai_env_setup(sai_testbed, creds, duthost, ptfhost, request):
     """
     Setup the sai test environment.
     Replay the fixture setup in sequence, sai_testbed, sai_test_env_check
+
     Args:
         sai_testbed: Fixture which can help prepare the sai testbed.
         creds (dict): Credentials used to access the docker registry.
@@ -36,6 +37,7 @@ def test_sai_env_setup(sai_testbed, creds, duthost, ptfhost, request):
 def test_sai_env_teardown(sai_testbed, creds, duthost, ptfhost, request):
     """
     Remove the sai test env.
+
     Args:
         sai_testbed: Fixture which can help prepare the sai testbed.
         creds (dict): Credentials used to access the docker registry.
