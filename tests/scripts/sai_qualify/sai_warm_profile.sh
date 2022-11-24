@@ -31,10 +31,8 @@ restore_profile(){
 config_warmboot_init(){
     cd /usr/share/sonic/device/$PLATFORM/$HWSKU
     echo "change $profile for warmboot init"
-    sudo chmod 777 $profile
     echo "SAI_WARM_BOOT_WRITE_FILE=/var/warmboot/sai-warmboot.bin" >> $profile
     echo "SAI_WARM_BOOT_READ_FILE=/var/warmboot/sai-warmboot.bin" >> $profile
-    # echo "SAI_BOOT_TYPE=1" >> $profile
 }
 
 config_warmboot_start(){
