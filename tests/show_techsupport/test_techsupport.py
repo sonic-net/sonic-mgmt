@@ -283,6 +283,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         The access of sfp eeprom happens through firmware and xcvrd gets the DOM fields
         every 60 seconds which fails during the fw dump.
         This is a temporary issue and this log can be ignored. 
+        Issue link: https://github.com/sonic-net/sonic-buildimage/issues/12621
     """
     ignoreRegex = [
         ".*ERR kernel:.*Reg cmd access status failed.*",
