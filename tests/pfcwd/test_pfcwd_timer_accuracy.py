@@ -2,7 +2,6 @@ import logging
 import pytest
 import time
 
-
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
