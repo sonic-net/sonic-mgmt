@@ -266,7 +266,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in data.items():
+                for k, v in list(data.items()):
                     if k == lookup_key:
                         result.append(data)
                     elif isinstance(v, (list, dict)):
@@ -290,7 +290,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in data.items():
+                for k, v in list(data.items()):
                     if k == lookup_key:
                         result.append(v)
                     elif isinstance(v, (list, dict)):

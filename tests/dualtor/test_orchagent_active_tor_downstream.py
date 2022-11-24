@@ -153,11 +153,11 @@ def test_downstream_ecmp_nexthops(
     if ip_version == "ipv4":
         dst_server_addr = "1.1.1.2"
         interface_to_server = {intf: servers["server_ipv4"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     elif ip_version == "ipv6":
         dst_server_addr = "fc10:2020::f"
         interface_to_server = {intf: servers["server_ipv6"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     else:
         raise ValueError("Unknown IP version '%s'" % ip_version)
 

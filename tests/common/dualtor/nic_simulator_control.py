@@ -172,7 +172,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_p
 
     def _get_mux_status(ports=None):
         if ports is None:
-            ports = active_active_ports_config.keys()
+            ports = list(active_active_ports_config.keys())
         elif isinstance(ports, list) or isinstance(ports, tuple):
             ports = list(ports)
         else:
@@ -191,7 +191,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_p
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
-            mux_status[ptf_index_map[port]] = dict(zip(port_status.portid, port_status.state))
+            mux_status[ptf_index_map[port]] = dict(list(zip(port_status.portid, port_status.state)))
 
         return mux_status
 

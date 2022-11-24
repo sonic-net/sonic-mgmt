@@ -561,15 +561,15 @@ class SonicAsic(object):
             host=self.sonichost.hostname
         )['ansible_facts']
 
-        if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+        if len(list(mg_facts['minigraph_portchannels'].keys())) == 0:
             return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            for pc in mg_facts['minigraph_portchannels'].keys():
+            for pc in list(mg_facts['minigraph_portchannels'].keys()):
                 pc_members = mg_facts['minigraph_portchannels'][pc]['members']
                 port_channels_data[pc] = pc_members
         else:
-            for k, v in mg_facts['minigraph_portchannels'].iteritems():
+            for k, v in mg_facts['minigraph_portchannels'].items():
                 if 'namespace' in v and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
@@ -621,7 +621,7 @@ class SonicAsic(object):
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
                 # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
-                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                if self.sonichost.is_multi_asic and list(def_rt_json.values())[0]['value']['ifname'] == 'eth0':
                     continue
                 return False
         return True
@@ -635,7 +635,7 @@ class SonicAsic(object):
         """
         bgp_facts = self.bgp_facts()['ansible_facts']
         neigh_ok = []
-        for k, v in bgp_facts['bgp_neighbors'].items():
+        for k, v in list(bgp_facts['bgp_neighbors'].items()):
             if v['state'] == state:
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)

@@ -74,15 +74,15 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
-    conn0_ns = DEFAULT_NAMESPACE if "namespace" not in conn0.keys() else conn0["namespace"]
-    conn1_ns = DEFAULT_NAMESPACE if "namespace" not in conn1.keys() else conn1["namespace"]
+    conn0_ns = DEFAULT_NAMESPACE if "namespace" not in list(conn0.keys()) else conn0["namespace"]
+    conn1_ns = DEFAULT_NAMESPACE if "namespace" not in list(conn1.keys()) else conn1["namespace"]
     pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} \
                   started on different asics!".format(conn0_ns, conn1_ns))
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
     dut_type = ''
-    for k, v in mg_facts['minigraph_devices'].iteritems():
+    for k, v in mg_facts['minigraph_devices'].items():
         if k == duthost.hostname:
             dut_type = v['type']
 

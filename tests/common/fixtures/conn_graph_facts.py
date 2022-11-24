@@ -17,10 +17,10 @@ def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_fa
     duthost = duthosts[rand_one_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
-    for _, val in dev_conn[duthost.hostname].items():
+    for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
+            facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
     return facts
 
 
@@ -29,10 +29,10 @@ def enum_fanout_graph_facts(localhost, duthosts, enum_rand_one_per_hwsku_fronten
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
-    for _, val in dev_conn[duthost.hostname].items():
+    for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
+            facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
     return facts
 
 

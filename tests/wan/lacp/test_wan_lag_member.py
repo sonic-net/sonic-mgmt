@@ -125,7 +125,7 @@ def test_lag_member_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         members_from_cli_query = duthost.shell(cmd)['stdout'].split('\n')
 
         port_channel_status = duthost.get_port_channel_status(portchannel)
-        memebers_from_teamd_query = port_channel_status["ports"].keys()
+        memebers_from_teamd_query = list(port_channel_status["ports"].keys())
         pytest_assert(
                         len(members_from_cli_query) == len(memebers_from_teamd_query),
                         "Missing ports in {}".format(portchannel)
@@ -163,8 +163,8 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         portchannel_itfs = cfg_facts["PORTCHANNEL_INTERFACE"]
 
-        pytest_require(len(portchannel_itfs.items()) > 1, "We need two port channels.")
-        portchannel = portchannel_itfs.keys()[0]
+        pytest_require(len(list(portchannel_itfs.items())) > 1, "We need two port channels.")
+        portchannel = list(portchannel_itfs.keys())[0]
         dut_lag = {
             'pc': portchannel,
             "id": 109,
@@ -175,7 +175,7 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         dut_ports = cfg_facts["PORT"]
         port_index_map = cfg_facts["port_index_map"]
         port_list = []
-        for port, _ in portchannel_members.items():
+        for port, _ in list(portchannel_members.items()):
             port_list.append("eth{}".format(port_index_map[port]))
             nei_lag_ports.append(dut_ports[port]['description'])
 
@@ -190,8 +190,8 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         aux_port = None
         pc_member = None
         aux_portchannel = portchannel_itfs.keys()[1]
-        for port, _ in cfg_facts["PORTCHANNEL_MEMBER"][aux_portchannel].items():
-            if (port not in portchannel_members.keys()):
+        for port, _ in list(cfg_facts["PORTCHANNEL_MEMBER"][aux_portchannel].items()):
+            if (port not in list(portchannel_members.keys())):
                 pc_member = port
                 aux_port_idx = port_index_map[port]
                 aux_port = "eth{}".format(aux_port_idx)

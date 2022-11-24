@@ -469,7 +469,7 @@ def compare_crm_facts(left, right):
     """
     unmatched = []
 
-    for k, v in left['resources'].items():
+    for k, v in list(left['resources'].items()):
         lv = v
         rv = right['resources'][k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -491,7 +491,7 @@ def compare_crm_facts(left, right):
             'used': ag['used count']
         }
 
-    for k, v in left_acl_group.items():
+    for k, v in list(left_acl_group.items()):
         lv = v
         rv = right_acl_group[k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:

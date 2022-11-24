@@ -49,7 +49,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
 
     failures = list()
     # Calculate and log test summaries
-    for server_ip, result in natsorted(results.items()):
+    for server_ip, result in natsorted(list(results.items())):
         total_received_packets = result['received_packets']
         received_packet_diff = result['received_packets'] - result['sent_packets']
         total_disruptions = len(result['disruptions'])

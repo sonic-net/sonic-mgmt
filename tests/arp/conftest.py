@@ -66,7 +66,7 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asic.get_extended_minigraph_facts(tbinfo)
-    external_ports = [p for p in mg_facts['minigraph_ports'].keys() if 'BP' not in p]
+    external_ports = [p for p in list(mg_facts['minigraph_ports'].keys()) if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
     po1 = None
     po2 = None
@@ -84,8 +84,8 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         else:
             if 'PORTCHANNEL_MEMBER' in config_facts:
                 portchannel_members = []
-                for _, v in config_facts['PORTCHANNEL_MEMBER'].items():
-                    portchannel_members += v.keys()
+                for _, v in list(config_facts['PORTCHANNEL_MEMBER'].items()):
+                    portchannel_members += list(v.keys())
                 ports_for_test = [x for x in ports if x not in portchannel_members]
             else:
                 ports_for_test = ports
@@ -194,7 +194,7 @@ def garp_enabled(rand_selected_dut, config_facts):
     """
     duthost = rand_selected_dut
 
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
+    vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
     garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
     garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
     cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
@@ -241,7 +241,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
+    vlan_addrs = list(config_facts['VLAN_INTERFACE'].items())[0][1].keys()
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 
@@ -291,7 +291,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
     proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
     vlans = config_facts['VLAN']
-    vlan_ids = [vlans[vlan]['vlanid'] for vlan in vlans.keys()]
+    vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
 
@@ -309,7 +309,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
     yield all('enabled' in val for val in new_proxy_arp_vals)
 
     proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    for vid, proxy_arp_val in old_proxy_arp_vals.items():
+    for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
             duthost.shell(proxy_arp_del_cmd.format(vid))
@@ -336,7 +336,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
     dut_mac = ''
-    for vlan_details in vlans.values():
+    for vlan_details in list(vlans.values()):
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:

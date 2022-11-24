@@ -103,7 +103,7 @@ def recover_ports(duthosts, fanouthosts):
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
         # Only do the sampling when there are no candidates
-        if duthost.hostname in all_ports_by_dut.keys():
+        if duthost.hostname in list(all_ports_by_dut.keys()):
             continue
 
         all_ports_by_dut[duthost.hostname] = {}
@@ -114,7 +114,7 @@ def recover_ports(duthosts, fanouthosts):
     yield
 
     logger.info('Recovering port configuration for fanout...')
-    for fanout, port, speed, autoneg, fec_mode in fanout_original_port_states.values():
+    for fanout, port, speed, autoneg, fec_mode in list(fanout_original_port_states.values()):
         fanout.set_auto_negotiation_mode(port, autoneg)
         fanout.set_speed(port, speed)
         if not autoneg:

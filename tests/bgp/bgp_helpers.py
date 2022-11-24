@@ -133,7 +133,7 @@ def parse_rib(host, ip_ver, asic_namespace=None):
         cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
 
         route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
-        for ip, nexthops in route_data['routes'].iteritems():
+        for ip, nexthops in route_data['routes'].items():
             aspath = set()
             for nexthop in nexthops:
                 # if internal route with aspath as '' skip adding
@@ -158,8 +158,8 @@ def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
     bgpmon_routes = parse_exabgp_dump(ptfhost)
     rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
     rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
-    routes_dut = dict(rib_v4.items() + rib_v6.items())
-    return [route for route in routes_dut.keys() if route not in bgpmon_routes]
+    routes_dut = dict(list(rib_v4.items()) + list(rib_v6.items()))
+    return [route for route in list(routes_dut.keys()) if route not in bgpmon_routes]
 
 
 def remove_bgp_neighbors(duthost, asic_index):

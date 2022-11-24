@@ -208,7 +208,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
                 if out_port_lag_name is not None:
                     out_port_lag_name.append("Not Applicable")
 
-                for portchannelinfo in mg_facts["minigraph_portchannels"].items():
+                for portchannelinfo in list(mg_facts["minigraph_portchannels"].items()):
                     if port in portchannelinfo[1]["members"]:
                         if out_port_lag_name is not None:
                             out_port_lag_name[-1] = portchannelinfo[0]

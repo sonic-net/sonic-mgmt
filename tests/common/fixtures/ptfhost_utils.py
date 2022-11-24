@@ -346,7 +346,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         vlans = config_facts['VLAN']
         vlan_intfs = config_facts['VLAN_INTERFACE']
         dut_mac = ''
-        for vlan_details in vlans.values():
+        for vlan_details in list(vlans.values()):
             if 'dualtor' in tbinfo['topo']['name']:
                 dut_mac = vlan_details['mac'].lower()
             else:
@@ -355,8 +355,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             break
 
         dst_ipv6 = ''
-        for intf_details in vlan_intfs.values():
-            for key in intf_details.keys():
+        for intf_details in list(vlan_intfs.values()):
+            for key in list(intf_details.keys()):
                 try:
                     intf_ip = ip_interface(key)
                     if intf_ip.version == 6:
@@ -387,7 +387,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         logger.info("Generating GARP service config file")
 
-        for vlan_intf, config in mux_cable_table.items():
+        for vlan_intf, config in list(mux_cable_table.items()):
             ptf_port_index = ptf_indices[vlan_intf]
             server_ip = ip_interface(config['server_ipv4']).ip
             server_ipv6 = ip_interface(config['server_ipv6']).ip
@@ -426,12 +426,12 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
         pt_assert(res.status_code == 200, 'Failed to get mux status: {}'.format(res.text))
-        for mux_status in res.json().values():
+        for mux_status in list(res.json().values()):
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = active_dut_index
 
     disabled_ptf_ports = set()
-    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
+    for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
         disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
 
@@ -443,12 +443,12 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
 
     asic_idx = 0
     ports_map = {}
-    for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
+    for ptf_port, dut_intf_map in list(tbinfo['topo']['ptf_dut_intf_map'].items()):
         if str(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
 
-        if len(dut_intf_map.keys()) == 2:
+        if len(list(dut_intf_map.keys())) == 2:
             # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
             # Packet sent from this ptf port will only be accepted by the active side DUT
             # DualToR DUTs use same special Vlan interface MAC address
@@ -468,7 +468,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
-                    if target_dut_port in mg_facts['minigraph_port_indices'].values():
+                    if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
@@ -501,7 +501,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                                                    if port_status[active_dut_index]]
 
     disabled_ptf_ports = set()
-    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
+    for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
         disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
 
@@ -513,12 +513,12 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
 
     asic_idx = 0
     ports_map = {}
-    for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
+    for ptf_port, dut_intf_map in list(tbinfo['topo']['ptf_dut_intf_map'].items()):
         if str(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
 
-        if len(dut_intf_map.keys()) == 2:
+        if len(list(dut_intf_map.keys())) == 2:
             # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
             # Packet sent from this ptf port will only be accepted by the active side DUT
             # DualToR DUTs use same special Vlan interface MAC address
@@ -539,7 +539,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
-                    if target_dut_port in mg_facts['minigraph_port_indices'].values():
+                    if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx

@@ -16,7 +16,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-from __future__ import print_function
+
 import sys
 import getopt
 import re
@@ -632,7 +632,7 @@ def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_
     expected_lines_total = []
 
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
-        for key, val in analysis_result_per_file.items():
+        for key, val in list(analysis_result_per_file.items()):
             matching_lines, expected_lines = val
 
             out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
@@ -685,7 +685,7 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_m
     out_file.write("\nLOG ANALYSIS SUMMARY\n")
     total_match_cnt = 0
     total_expect_cnt = 0
-    for key, val in analysis_result_per_file.items():
+    for key, val in list(analysis_result_per_file.items()):
         matching_lines, expecting_lines = val
 
         file_match_cnt = len(matching_lines)
@@ -763,7 +763,7 @@ def main(argv):
 
     analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
-    log_file_list = list(filter(None, log_files_in.split(tokenizer)))
+    log_file_list = list([_f for _f in log_files_in.split(tokenizer) if _f])
 
     result = {}
     if action == "init":

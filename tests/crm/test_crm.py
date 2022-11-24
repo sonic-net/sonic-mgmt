@@ -252,7 +252,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
-    for key, value in THR_VERIFY_CMDS.items():
+    for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
         template = Template(value)
         if "exceeded" in key:
@@ -319,9 +319,9 @@ def check_crm_stats(cmd, duthost, origin_crm_stats_used, origin_crm_stats_availa
 def generate_neighbors(amount, ip_ver):
     """ Generate list of IPv4 or IPv6 addresses """
     if ip_ver == "4":
-        ip_addr_list = list(ipaddress.IPv4Network(u"%s" % "2.0.0.0/8").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv4Network("%s" % "2.0.0.0/8").hosts())[0:amount]
     elif ip_ver == "6":
-        ip_addr_list = list(ipaddress.IPv6Network(u"%s" % "2001::/112").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv6Network("%s" % "2001::/112").hosts())[0:amount]
     else:
         pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
     return ip_addr_list
@@ -986,7 +986,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    port_dict = dict(zip(cfg_facts['port_index_map'].values(), cfg_facts['port_index_map'].keys()))
+    port_dict = dict(list(zip(list(cfg_facts['port_index_map'].values()), list(cfg_facts['port_index_map'].keys()))))
     # Use for test 1st in list hosts interface port to add into dummy VLAN
     host_port_id = [id for id in topology["host_interfaces"]][0]
     iface = port_dict[host_port_id]

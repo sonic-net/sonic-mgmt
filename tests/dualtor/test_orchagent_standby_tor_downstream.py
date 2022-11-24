@@ -76,7 +76,7 @@ def shutdown_random_one_t1_link(dut):
     """
     Shutdown a random t1 link
     """
-    port_channels = dut.get_running_config_facts()['PORTCHANNEL'].keys()
+    port_channels = list(dut.get_running_config_facts()['PORTCHANNEL'].keys())
     if not port_channels:
         return None
     link_to_shutdown = random.choice(port_channels)
@@ -107,7 +107,7 @@ def shutdown_random_one_bgp_session(dut):
     """
     bgp_facts = dut.get_bgp_neighbors()
     up_bgp_neighbors = []
-    for k, v in bgp_facts.items():
+    for k, v in list(bgp_facts.items()):
         if v['state'] == 'established' and ipaddress.ip_address(k).version == 4:
             up_bgp_neighbors.append(k)
     if not up_bgp_neighbors:

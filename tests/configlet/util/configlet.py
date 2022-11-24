@@ -3,10 +3,10 @@
 import json
 
 from tempfile import mkstemp
-from helpers import log_info, log_debug
-from common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
+from .helpers import log_info, log_debug
+from .common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
 
-import strip
+from . import strip
 
 orig_config = None
 
@@ -20,7 +20,7 @@ def is_version_2019_higher():
 def get_pfc_time():
     ret = 0
     pfc_wd = config_db_data_orig.get("PFC_WD", {})
-    for n, val in pfc_wd.items():
+    for n, val in list(pfc_wd.items()):
         ret = int(val.get("detection_time", 0))
         if ret:
             break
@@ -193,7 +193,7 @@ def get_port_related_data(is_mlnx, is_storage_backend):
         cable[local_port] = orig_config["CABLE_LENGTH|AZURE"]['value'][local_port]
 
         def filter_cfg_keys(target_key):
-            return [key for key in orig_config.keys() if target_key in key]
+            return [key for key in list(orig_config.keys()) if target_key in key]
 
         # "BUFFER_PG"
         for pg in filter_cfg_keys("BUFFER_PG|" + local_port):

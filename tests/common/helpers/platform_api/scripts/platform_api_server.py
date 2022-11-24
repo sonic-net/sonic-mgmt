@@ -9,7 +9,7 @@ import syslog
 if sys.version_info.major == 3:
     from http.server import HTTPServer, BaseHTTPRequestHandler
 else:
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+    from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import sonic_platform
 

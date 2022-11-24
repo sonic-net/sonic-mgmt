@@ -232,7 +232,7 @@ class EosHost(AnsibleHostBase):
             return False
 
         try:
-            for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
+            for k, v in list(out_v4['stdout'][0]['vrfs']['default']['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k in neigh_ips:
                         neigh_ips_ok.append(k)
@@ -241,7 +241,7 @@ class EosHost(AnsibleHostBase):
                         if v['description'] in neigh_desc:
                             neigh_desc_ok.append(v['description'])
 
-            for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
+            for k, v in list(out_v6['stdout'][0]['vrfs']['default']['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k.lower() in neigh_ips:
                         neigh_ips_ok.append(k)

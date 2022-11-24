@@ -6,8 +6,8 @@ from time import sleep
 import pytest
 from jinja2 import Template
 from netaddr import IPAddress
-from vnet_constants import DUT_VXLAN_PORT_JSON
-from vnet_utils import render_template_to_host
+from .vnet_constants import DUT_VXLAN_PORT_JSON
+from .vnet_utils import render_template_to_host
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]

@@ -15,10 +15,9 @@ logger = logging.getLogger(__name__)
 CREDENTIALS_FILE = 'credentials.yaml'
 
 
-class IssueCheckerBase(object):
+class IssueCheckerBase(object, metaclass=ABCMeta):
     """Base class for issue checker
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, url):
         self.url = url
