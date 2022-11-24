@@ -653,18 +653,12 @@ def makeLabYAML(data, devices, testbed, outfile):
                         'serial': devices[dut].get("serial"),
                         'os': devices[dut].get("os"),
                         'model': devices[dut].get("model"),
-                        'asic_type': devices[dut].get("asic_type"),
-                        'syseeprom_info': {"0x21": devices[dut].get("syseeprom_info").get("0x21"),
-                                           "0x22": devices[dut].get("syseeprom_info").get("0x22"),
-                                           "0x23": devices[dut].get("syseeprom_info").get("0x23"),
-                                           "0x24": devices[dut].get("syseeprom_info").get("0x24"),
-                                           "0x25": devices[dut].get("syseeprom_info").get("0x25"),
-                                           "0x26": devices[dut].get("syseeprom_info").get("0x26"),
-                                           "0x2A": devices[dut].get("syseeprom_info").get("0x2A"),
-                                           "0x2B": devices[dut].get("syseeprom_info").get("0x2B"),
-                                           "0xFE": devices[dut].get("syseeprom_info").get("0xFE")}
+                        'asic_type': devices[dut].get("asic_type")
                         }
                     })
+                    if devices[dut].get("syseeprom_info"):
+                        dutDict[dut].update({'syseeprom_info': {field: devices[dut]["syseeprom_info"][field] \
+                            for field in devices[dut]["syseeprom_info"]}})
                     sonicDict[group]['hosts'].update(dutDict)
     if "fanout" in deviceGroup['lab']['children']:
         for fanoutType in deviceGroup['fanout']['children']:
