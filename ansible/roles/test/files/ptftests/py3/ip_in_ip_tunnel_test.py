@@ -25,7 +25,7 @@ PACKET_NUM_FOR_NEGATIVE_CHECK = 100
 # max times we can try for verifying balanced traffic
 MAX_TIMES_CHECK = 100
 # basic packet count for verifying traffic is forwarded via IPinIP tunnel
-BASIC_PACKET_NUM = 10
+BASIC_PACKET_NUM = 20
 # basic packet count for verifying traffic is not forwarded from standby tor to server directly
 BASIC_PACKET_NUM_FOR_NEGATIVE_CHECK = 10
 
