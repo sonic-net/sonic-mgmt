@@ -52,12 +52,14 @@ def test_sai(
     try:
         sai_test_interface_para = create_sai_test_interface_param
         run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request)
+        if request.config.option.always_stop_sai_test_container:
+            stop_and_rm_sai_test_container(
+                duthost, get_sai_test_container_name(request))
     except BaseException as e:
         logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))
         stop_and_rm_sai_test_container(duthost, containter_name)
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
-        saiserver_warmboot_config(duthost, "restore")
         store_test_result(ptfhost)
+        saiserver_warmboot_config(duthost, "restore")
         saiserver_warmboot_config(duthost, "init")
-    stop_and_rm_sai_test_container(duthost, containter_name)

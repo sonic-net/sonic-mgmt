@@ -26,7 +26,6 @@ WARM_REBOOT_TEST_CASE = [
     "sai_fdb_test.FdbDisableMacMoveDropTest",
     "sai_fdb_test.FdbDynamicMacMoveTest",
     "sai_fdb_test.FdbStaticMacMoveTest",
-    "warm_saisanity.WarmL2SanityTest",
     "sai_vlan_test.Vlan_Domain_Forwarding_Test",
     "sai_vlan_test.UntagAccessToAccessTest",
     "sai_vlan_test.MismatchDropTest",

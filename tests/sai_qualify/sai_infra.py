@@ -83,30 +83,52 @@ def sai_test_env_check(creds, duthost, ptfhost, request):
 
 
 @pytest.fixture(scope="module")
-def start_warm_reboot_watcher(creds, duthost, request, ptfhost, create_sai_test_interface_param):
+def start_warm_reboot_watcher(duthost, request, ptfhost):
+    """
+    In this function
+    1. First, a file will be created in the ptf container to interact with the ptf test
+    2. Start a watcher daemon
+    Args:
+        duthost (SonicHost): The target device.
+        request: Pytest request.
+        ptfhost (AnsibleHost): The PTF server.
+    """
     # install apscheduler before running
-    logger.info("start warm reboot watcher")
-    logging.getLogger("apscheduler.executors.default").propagate = False
-    logging.getLogger("apscheduler.executors.default").setLevel(logging.ERROR)
+    logger.info("create and clean up the shared file with ptf")
     ptfhost.shell("touch {}".format("/tmp/warm_reboot"))
     ptfhost.shell("echo  > {}".format("/tmp/warm_reboot"))
+
+    logger.info("start warm reboot watcher")
+    close_apschedule_log()
     scheduler = BackgroundScheduler(
         {'apscheduler.job_defaults.max_instances': 1})
 
     scheduler.add_job(warm_reboot_change_handler, "cron", [
-                      creds, duthost, request, ptfhost, create_sai_test_interface_param], second="*/1")
+                      duthost, request, ptfhost], second="*/1")
     scheduler.start()
 
 
-def warm_reboot_change_handler(creds, duthost, request, ptfhost, create_sai_test_interface_param):
+def close_apschedule_log():
+    logging.getLogger("apscheduler.executors.default").propagate = False
+    logging.getLogger("apscheduler.executors.default").setLevel(logging.ERROR)
+
+
+def warm_reboot_change_handler(duthost, request, ptfhost):
+    '''
+    1. Loop to monitor whether the switch setup of the ptf test is completed
+    2. If setup ends ('rebooting' is obtained from the file)
+        i. Stop the saiserver container
+        ii. Update the script to start saiserver so that the next startup is a warm reboot,
+            using the previous configuration
+        iii. Restart saiserver
+        iv. Write 'post_reboot_done' in the shared file to notify ptf that warm reboot is done
+    '''
     result = ptfhost.shell("cat {}".format("/tmp/warm_reboot"))
     if result["stdout_lines"] and result["stdout_lines"][0] == 'rebooting':
         duthost.shell(USR_BIN_DIR + "/saiserver.sh" + " stop")
         saiserver_warmboot_config(duthost, "start")
         result = ptfhost.shell(
             "echo rebooting_done > {}".format("/tmp/warm_reboot"))
-        # duthost.shell(USR_BIN_DIR + "/saiserver.sh" + " start")
-        # check
 
         start_sai_test_conatiner_with_retry(
             duthost, get_sai_test_container_name(request))
