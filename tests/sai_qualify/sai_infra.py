@@ -14,8 +14,10 @@
 import pytest
 import logging
 import time
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from conftest import DUT_WORKING_DIR
+from conftest import USR_BIN_DIR
 from conftest import PORT_MAP_FILE_PATH
 from conftest import PTF_TEST_ROOT_DIR
 from conftest import SAI_TEST_REPORT_DIR_ON_PTF
@@ -30,8 +32,9 @@ from conftest import SAI_TEST_REPORT_TMP_DIR_ON_PTF
 from conftest import SAI_TEST_SAI_CASE_DIR_ON_PTF
 from conftest import WARM_TEST_ARGS
 from conftest import start_sai_test_conatiner_with_retry
-from conftest import WARM_TEST_DIR, get_sai_running_vendor_id
+from conftest import get_sai_running_vendor_id
 from conftest import get_sai_test_container_name
+from conftest import saiserver_warmboot_config
 from conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
@@ -76,8 +79,62 @@ def sai_test_env_check(creds, duthost, ptfhost, request):
         logger.info("Test env check is failed in previous check. \
             Fails this check directly.")
         raise Exception("SAI Test env error.")
-
     check_test_env_with_retry(creds, duthost, ptfhost, request)
+
+
+@pytest.fixture(scope="module")
+def start_warm_reboot_watcher(duthost, request, ptfhost):
+    """
+    In this function
+    1. First, a file will be created in the ptf container to interact with the ptf test
+    2. Start a watcher daemon
+    Args:
+        duthost (SonicHost): The target device.
+        request: Pytest request.
+        ptfhost (AnsibleHost): The PTF server.
+    """
+    # install apscheduler before running
+    logger.info("create and clean up the shared file with ptf")
+    ptfhost.shell("touch {}".format("/tmp/warm_reboot"))
+    ptfhost.shell("echo  > {}".format("/tmp/warm_reboot"))
+
+    logger.info("start warm reboot watcher")
+    close_apschedule_log()
+    scheduler = BackgroundScheduler(
+        {'apscheduler.job_defaults.max_instances': 1})
+
+    scheduler.add_job(warm_reboot_change_handler, "cron", [
+                      duthost, request, ptfhost], second="*/1")
+    scheduler.start()
+
+
+def close_apschedule_log():
+    logging.getLogger("apscheduler.executors.default").propagate = False
+    logging.getLogger("apscheduler.executors.default").setLevel(logging.ERROR)
+
+
+def warm_reboot_change_handler(duthost, request, ptfhost):
+    '''
+    1. Loop to monitor whether the switch setup of the ptf test is completed
+    2. If setup ends ('rebooting' is obtained from the file)
+        i. Stop the saiserver container
+        ii. Update the script to start saiserver so that the next startup is a warm reboot,
+            using the previous configuration
+        iii. Restart saiserver
+        iv. Write 'post_reboot_done' in the shared file to notify ptf that warm reboot is done
+    '''
+    result = ptfhost.shell("cat {}".format("/tmp/warm_reboot"))
+    if result["stdout_lines"] and result["stdout_lines"][0] == 'rebooting':
+        duthost.shell(USR_BIN_DIR + "/saiserver.sh" + " stop")
+        saiserver_warmboot_config(duthost, "start")
+        result = ptfhost.shell(
+            "echo rebooting_done > {}".format("/tmp/warm_reboot"))
+
+        start_sai_test_conatiner_with_retry(
+            duthost, get_sai_test_container_name(request))
+        logger.info("saiserver start warm reboot")
+        result = ptfhost.shell(
+            "echo post_reboot_done > {}".format("/tmp/warm_reboot"))
 
 
 @pytest.fixture(scope="module")
@@ -124,12 +181,12 @@ def check_test_env_with_retry(creds, duthost, ptfhost, request):
             logger.info(
                 "Run test env check failed, reset the env, \
                     retry: [{}/{}], failed as {}.".format(
-                        retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
+                    retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
             if retry + 1 < SAI_TEST_ENV_RESET_TIMES:
                 reset_sai_test_dut(duthost, creds, request)
                 logger.info("Liveness check waiting {} \
                     sec for another retry.".format(
-                        LIVENESS_CHECK_INTERVAL_IN_SEC))
+                    LIVENESS_CHECK_INTERVAL_IN_SEC))
                 time.sleep(LIVENESS_CHECK_INTERVAL_IN_SEC)
             else:
                 logger.info("Run test env check failed. \
@@ -170,31 +227,31 @@ def run_case_from_ptf(duthost,
         test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';\
             port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(
-                dut_ip, request.config.option.sai_port_config_file)
+            dut_ip, request.config.option.sai_port_config_file)
     elif request.config.option.enable_ptf_sai_test:
         test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';\
             port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(
-                dut_ip, request.config.option.sai_port_config_file)
+            dut_ip, request.config.option.sai_port_config_file)
     elif request.config.option.enable_warmboot_test:
-        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
-        test_para += "/{}".format(WARM_TEST_DIR)
-        test_para += " \"--test-params=thrift_server='{}'{}{}\"".format(
-            dut_ip,
-            WARM_TEST_ARGS,
-            warm_boot_stage)
+        test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
+        test_para += " \"--test-params=thrift_server='{}';\
+            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
+            dut_ip, request.config.option.sai_port_config_file,  WARM_TEST_ARGS)
+
     else:  # for old community test
-        test_para = " --test-dir {} -t \"server='{}';\
-            port_map_file='{}'\"".format(SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
-                                         dut_ip,
-                                         PORT_MAP_FILE_PATH)
+        test_para = " --test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
+            SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
+            dut_ip,
+            PORT_MAP_FILE_PATH)
     ptfhost.shell(("ptf {} {} --relax --xunit \
         --xunit-dir {} {}").format(test_case,
                                    test_interface_params,
                                    SAI_TEST_REPORT_TMP_DIR_ON_PTF,
                                    test_para))
-    ptfhost.shell("sed -i \'/export \
-        PLATFORM={}/d\' ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
+
+    ptfhost.shell(
+        "sed -i \'/export PLATFORM={}/d\' ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
     logger.info("Test case [{}] passed.".format(test_case))
 
 
@@ -259,7 +316,7 @@ def sai_test_container_liveness_check(duthost,
         except BaseException as e:
             logger.info("Run liveness check [{}], \
                 retry: [{}/{}] failed as {}".format(
-                    test_case, retry + 1, LIVENESS_CHECK_RETRY_TIMES,  e))
+                test_case, retry + 1, LIVENESS_CHECK_RETRY_TIMES,  e))
             if retry + 1 < LIVENESS_CHECK_RETRY_TIMES:
                 logger.info(
                     "Liveness check waiting {} sec for another retry.".format(
@@ -369,6 +426,7 @@ def copy_sai_test_cases(ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
         request: Pytest request.
     """
+
     logger.info("Copying SAI test cases to PTF server.")
     ptfhost.copy(
         src=request.config.option.sai_test_dir,
@@ -464,9 +522,9 @@ def store_test_result(ptfhost):
         logger.info(
             "Error when Copying file from folder\
                 : {0} to folder: {1}. Failes as {2}".format(
-                    SAI_TEST_REPORT_TMP_DIR_ON_PTF,
-                    SAI_TEST_REPORT_DIR_ON_PTF,
-                    e))
+                SAI_TEST_REPORT_TMP_DIR_ON_PTF,
+                SAI_TEST_REPORT_DIR_ON_PTF,
+                e))
 
 
 def collect_sai_test_report_xml(ptfhost, request):
