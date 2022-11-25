@@ -37,6 +37,7 @@ PORT_STATUS_CHECK_INTERVAL = 10
 all_ports_by_dut = {}
 fanout_original_port_states = {}
 
+
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202106
@@ -63,7 +64,12 @@ def save_fanout_port_state(portinfo):
 
 
 def skip_if_datafile_is_not_read(params):
-    pytest_require(params['dutname'] != 'unknown', 'required datafile is missing at metadata/autoneg-test-params.json. To create it run pretest before the tests: py.test test_pretest -k test_update_testbed_metadata')
+    pytest_require(
+        params['dutname'] != 'unknown',
+        'required datafile is missing at metadata/autoneg-test-params.json. '
+        'To create it before the tests run: py.test test_pretest -k test_update_testbed_metadata'
+    )
+
 
 @pytest.fixture
 def enum_dut_portname_module_fixture(request):
@@ -171,7 +177,10 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
 
     # Advertise all supported speeds in fanout port
     success = fanout.set_speed(fanout_port, None)
-    pytest_require(success, 'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port))
+    pytest_require(
+        success,
+        'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port)
+    )
 
     if dut_all_speeds_option == SPEEDS_BY_LITERAL:
         all_speeds = 'all'
@@ -209,7 +218,10 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
     skip_if_no_multi_speed_adv_support(fanout, fanout_port)
 
     speed = enum_speed_per_dutport_fixture['speed']
-    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
+    pytest_require(
+        is_sfp_speed_supported(duthost, portname, speed),
+        'Speed {} is not supported for given port/SFP'.format(speed)
+    )
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
     success = fanout.set_auto_negotiation_mode(fanout_port, True)
@@ -232,7 +244,10 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
         speed)
     pytest_assert(wait_result, '{} are still down'.format(dut_port))
     fanout_actual_speed = fanout.get_speed(fanout_port)
-    pytest_assert(fanout_actual_speed == speed, 'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed))
+    pytest_assert(
+        fanout_actual_speed == speed,
+        'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
+    )
 
 
 @pytest.mark.parametrize('dut_all_speeds_option', [SPEEDS_BY_LITERAL, SPEEDS_BY_LIST])
@@ -253,8 +268,10 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fi
         dut_advertised_speeds = ','.join(duthost.get_supported_speeds(portname))
 
     speed = enum_speed_per_dutport_fixture['speed']
-    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
-    
+    pytest_require(
+        is_sfp_speed_supported(duthost, portname, speed),
+        'Speed {} is not supported for given port/SFP'.format(speed)
+    )
 
     duthost.shell('config interface autoneg {} enabled'.format(dut_port))
     duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, dut_advertised_speeds))
@@ -278,7 +295,10 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fi
         wait_result, '{} are still down. Advertised speeds: DUT = {}, fanout = {}'
         .format(dut_port, dut_advertised_speeds, speed))
     fanout_actual_speed = fanout.get_speed(fanout_port)
-    pytest_assert(fanout_actual_speed == speed, 'expected fanout speed: {}, but got {}'.format(speed, fanout_actual_speed))
+    pytest_assert(
+        fanout_actual_speed == speed,
+        'expected fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
+    )
 
 
 def test_force_speed(enum_speed_per_dutport_fixture):
@@ -290,7 +310,10 @@ def test_force_speed(enum_speed_per_dutport_fixture):
 
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
     speed = enum_speed_per_dutport_fixture['speed']
-    pytest_require(is_sfp_speed_supported(duthost, portname, speed), 'Speed {} is not supported for given port/SFP'.format(speed))
+    pytest_require(
+        is_sfp_speed_supported(duthost, portname, speed),
+        'Speed {} is not supported for given port/SFP'.format(speed)
+    )
 
     FEC_FOR_SPEED = {
         25000: 'fc',
@@ -313,7 +336,7 @@ def test_force_speed(enum_speed_per_dutport_fixture):
     duthost.shell('config interface autoneg {} disabled'.format(dut_port))
     duthost.shell('config interface speed {} {}'.format(dut_port, speed))
     logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
-    
+
     duthost.set_port_fec(dut_port, fec_mode)
     fanout.set_port_fec(fanout_port, fec_mode)
 
@@ -327,7 +350,7 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         speed
     )
     pytest_assert(wait_result, '{} are still down'.format(dut_port))
-    
+
     fanout_actual_speed = fanout.get_speed(fanout_port)
     pytest_assert(
         fanout_actual_speed == speed,
