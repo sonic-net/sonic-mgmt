@@ -274,14 +274,18 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
                 if auto_neg_mode is not None:
                     speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
-                    selected_ports[dut_port] = {'fanout':fanout.hostname, 'fanout_port': fanout_port, 'common_port_speeds': speeds}
+                    selected_ports[dut_port] = {
+                        'fanout': fanout.hostname,
+                        'fanout_port': fanout_port,
+                        'common_port_speeds': speeds
+                    }
             if len(selected_ports) > 0:
                 cadidate_test_ports[duthost.hostname] = selected_ports
         if len(cadidate_test_ports) > 0:
             with open(filepath, 'w') as yf:
                 json.dump(cadidate_test_ports, yf, indent=4)
         else:
-            logger.warning('skipped to create autoneg test datafile because of no ports selected')    
+            logger.warning('skipped to create autoneg test datafile because of no ports selected')
     except Exception as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
@@ -300,3 +304,8 @@ def test_generate_running_golden_config(duthosts):
     """
     for duthost in duthosts:
         duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                asic_ns = 'asic{}'.format(asic_index)
+                duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                              format(asic_ns, asic_index))
