@@ -25,7 +25,7 @@ PACKET_NUM_FOR_NEGATIVE_CHECK = 100
 # max times we can try for verifying balanced traffic
 MAX_TIMES_CHECK = 100
 # basic packet count for verifying traffic is forwarded via IPinIP tunnel
-BASIC_PACKET_NUM = 20
+BASIC_PACKET_NUM = 100
 # basic packet count for verifying traffic is not forwarded from standby tor to server directly
 BASIC_PACKET_NUM_FOR_NEGATIVE_CHECK = 10
 
@@ -240,7 +240,8 @@ class IpinIPTunnelTest(BaseTest):
         # Step 2. verify packet is received from IPinIP tunnel and check balance
         for hash_key in self.hash_key_list:
             self.logger.info("Verifying traffic balance for hash key {}".format(hash_key))
-            pkt_distribution = {}
+            for port in self.ptf_portchannel_indices.keys():
+                pkt_distribution[port] = 0
             # For thorough completeness level, verify PACKET_NUM packets
             if self.completeness_level == "thorough":
                 self.logger.info("Verifying traffic balance on {} completeness level, send {} packets every time.".format(self.completeness_level, PACKET_NUM//MAX_TIMES_CHECK))
