@@ -53,12 +53,15 @@ def setup_testbed_ipv6(ip_version, request):
     if ip_version == "ipv6":
         request.getfixturevalue("run_arp_responder_ipv6")
 
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
 
 @pytest.fixture
-def get_testbed_params(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ip_version, setup_testbed_ipv6):
+def get_testbed_params(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ip_version, setup_testbed_ipv6, get_function_completeness_level):
     """Return a function to get testbed params."""
     def _get_testbed_params():
-        params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+        params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_function_completeness_level)
         params["check_ipv6"] = (ip_version == "ipv6")
         return params
 
