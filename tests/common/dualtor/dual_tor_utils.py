@@ -722,7 +722,8 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_ipv6, target_server_port, ptf_portchannel_indices, check_ipv6=False):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip,
+                        target_server_ipv6, target_server_port, ptf_portchannel_indices, completeness_level, check_ipv6=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -740,6 +741,7 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
     Returns:
         None.
     """
+
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
@@ -749,7 +751,8 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         "active_tor_ip": active_tor_ip,
         "standby_tor_ip": standby_tor_ip,
         "ptf_portchannel_indices": ptf_portchannel_indices,
-        "hash_key_list": HASH_KEYS
+        "hash_key_list": HASH_KEYS,
+        "completeness_level": completeness_level
     }
     if check_ipv6:
         params["server_ip"] = target_server_ipv6
@@ -1059,7 +1062,7 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
-def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
+def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_function_completeness_level=None):
     """
     @summary: A helper function for collecting info of dualtor testbed.
     @param ptfhost: The ptf host fixture
@@ -1101,6 +1104,9 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
     res['target_server_ipv6'] = servers[random_server_iface]['server_ipv6'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
+
+    normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+    res['completeness_level'] = normalize_level
 
     logger.debug("dualtor info is generated {}".format(res))
     return res
