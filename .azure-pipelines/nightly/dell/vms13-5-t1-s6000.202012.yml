@@ -33,9 +33,21 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests generic_config_updater"'
+    displayName: Testbed specific
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
