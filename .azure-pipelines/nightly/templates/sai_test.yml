@@ -1,6 +1,7 @@
 parameters:
   - name: TESTBED_NAME
     type: string
+    displayName: "Testbed Name"
 
   - name: SAI_BRANCH
     type: string
@@ -48,7 +49,7 @@ parameters:
   - name: PREPARE_SAI_TB
     displayName: "Prepare SAI Test Env"
     type: boolean
-    default: false
+    default: true
 
   - name: UPDATE_IMAGE
     displayName: "Update Image"
@@ -73,6 +74,15 @@ parameters:
   - name: TESTBED_LOCK_HOUR
     type: string
     default: "3"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
 
   # Upgrade parameters
   - name: IMAGE_URL
@@ -119,7 +129,7 @@ parameters:
   - name: RUN_TEST
     displayName: "Run Test"
     type: boolean
-    default: false
+    default: true
 
   # SAI test report parameters
   # todo : collect reports from DUT
@@ -142,14 +152,11 @@ parameters:
     type: string
     default: "tests"
 
-  - name: SAI_PYTEST_ENDPOINT
-    type: string
-    default: sai_qualify/sai_infra.py::test_sai_from_ptf
-
  # SAI test report upload option
   - name: UPLOAD_TEST_REPORT
+    displayName: "Upload Test Report"
     type: boolean
-    default: false
+    default: true
 
  # Deploy SAI SDK
   - name: DEPLOY_SAI_SDK
@@ -162,13 +169,15 @@ parameters:
 
   # Deploy vscode in PTF
   - name: PTF_DEPLOY_VSCODE
+    displayName: "Deploy Vscode in PTF"
     type: boolean
     default: false
 
   # Checkout sai_qualify/ folder from public
   - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
     type: boolean
-    default: false
+    default: true
 
   - name: MGMT_REPO
     displayName: "sonic-mgmt repo"
@@ -182,7 +191,7 @@ parameters:
 
 jobs:
   - job: SAITest
-    pool: nightly
+    pool: ${{ parameters.AGENT_POOL }}
     timeoutInMinutes: ${{ parameters.SAI_TEST_TIMEOUT }}
     variables:
       - group: TBSHARE_SECRETS
@@ -416,6 +425,22 @@ jobs:
             PY_SAITHRIFT_PATH=$PTF_PATH/sai_test/resources/
             PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
 
+            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify
+            echo "Install SAI_Qualify requirements"
+            cat requirements.txt       
+            pip3 install -r requirements.txt
+            pip install -r requirements.txt
+            popd
+
+            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
+            then
+              git remote add public https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
+              git fetch public
+              git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
+            fi
+            popd
+
             rm -rf ./SAI
             git init SAI
             cd SAI
@@ -496,20 +521,15 @@ jobs:
               --junit-xml=sai_env_setup_tr.xml --log-cli-level ${LOG_LEVEL} \
               --collect_techsupport=False --topology='ptf'
         env:
-          ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
           PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-          SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
-          ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
-          ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-          ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
           SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
-          PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+          OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
 
       - task: Bash@3
         condition: ${{ parameters.PTF_DEPLOY_VSCODE }}
@@ -585,9 +605,6 @@ jobs:
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker commit saiserver docker-saiserverv2-brcm"
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker tag docker-saiserverv2-brcm docker-saiserverv2-brcm:patch"
 
-        env:
-          ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
-          PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
         displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
 
       - task: Bash@3
@@ -641,12 +658,6 @@ jobs:
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
-            then
-              git remote add public https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
-              git fetch public
-              git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
-            fi
             
             if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
             then
@@ -681,11 +692,8 @@ jobs:
           ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
           ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
           ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-          ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
           SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
-          PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-          OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
 
       - task: Bash@3
         displayName: Organize SAI Test Result
@@ -795,12 +803,6 @@ jobs:
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-          SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
-          ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
-          ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-          ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
-          SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
-          PYTEST_ENDPOINT: ${{ parameters.SAI_PYTEST_ENDPOINT }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
 
 
