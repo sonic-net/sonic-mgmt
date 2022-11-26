@@ -425,12 +425,6 @@ jobs:
             PY_SAITHRIFT_PATH=$PTF_PATH/sai_test/resources/
             PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
 
-            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify
-            echo "Install SAI_Qualify requirements"
-            cat requirements.txt       
-            pip3 install -r requirements.txt
-            pip install -r requirements.txt
-            popd
 
             pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
             if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
@@ -439,6 +433,13 @@ jobs:
               git fetch public
               git checkout public/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
             fi
+            popd
+
+            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify
+            echo "Install SAI_Qualify requirements"
+            cat requirements.txt       
+            pip3 install -r requirements.txt
+            pip install -r requirements.txt
             popd
 
             rm -rf ./SAI
