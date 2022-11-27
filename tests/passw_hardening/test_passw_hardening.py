@@ -8,7 +8,6 @@ Tests Password Hardening Feature:
 import logging
 import re
 import pytest
-import sys
 import datetime
 from tests.common.helpers.assertions import pytest_assert
 import passw_hardening_utils
@@ -86,6 +85,25 @@ def get_passw_expire_time_existing_user(duthost, normal_account):
             break
 
     return last_passw_change
+
+
+def check_expiration_value(duthost, expiration_value):
+    """
+    Determine whether last password change date will be expired compared
+    to expiration value to be set
+    Args:
+        duthost: duthost object
+        expiration_value: expiration value to be checked
+    Return:
+        expiration: Expiration value to be set
+    """
+    msg = "Expiration diff is {}; Expected expiration to set {}; expiration used {}"
+    last_passw_change = duthost.shell('chage -l `echo "$USER"` | head -1')['stdout']
+    date = ' '.join(last_passw_change.split()[-3:])
+    exp_diff = datetime.datetime.today() - datetime.datetime.strptime(date, "%b %d, %Y")
+    expiration = exp_diff.days + 2 if exp_diff.days > expiration_value else expiration_value
+    logging.info(msg.format(exp_diff.days, expiration_value, expiration))
+    return str(expiration)
 
 
 def compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, username=None):
@@ -249,10 +267,11 @@ def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, cle
      """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
 
     # 1. set new policies for history passw support
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='8',
@@ -296,10 +315,11 @@ def test_passw_hardening_age_expiration(duthosts, enum_rand_one_per_hwsku_hostna
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 30)
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='30',
+                                        expiration=expiration,
                                         expiration_warning='15',
                                         history='10',
                                         len_min='8',
@@ -321,10 +341,11 @@ def test_passw_hardening_age_expiration_warning(duthosts, enum_rand_one_per_hwsk
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 120)
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='120',
+                                        expiration=expiration,
                                         expiration_warning='30',
                                         history='10',
                                         len_min='8',
@@ -346,10 +367,11 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, cle
         2. bad flow: set longer len min, and set small passw"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='8',
@@ -371,7 +393,7 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname, cle
     # --- Bad Flow ---
     # set new passw hardening policies values
     passw_hardening_ob_len_min_big = passw_hardening_utils.PasswHardening(state='enabled',
-                                                    expiration='10',
+                                                    expiration=expiration,
                                                     expiration_warning='10',
                                                     history='10',
                                                     len_min='10',
@@ -403,13 +425,14 @@ def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostn
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 100)
     passw_test = '19892022'
     passw_bad_test = 'b_a_d_passw_no_digs'
     passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='100',
+                                        expiration=expiration,
                                         expiration_warning='15',
                                         history='12',
                                         len_min='1',
@@ -432,13 +455,14 @@ def test_passw_hardening_policies_lower_class(duthosts, enum_rand_one_per_hwsku_
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
     passw_test = 'n_v_d_i_a'
     passw_bad_test = 'BADFLOWNOLOWERLETTERS'
     passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='1',
@@ -461,13 +485,14 @@ def test_passw_hardening_policies_upper_class(duthosts, enum_rand_one_per_hwsku_
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
     passw_test = 'NVI_DI_A_UP#'
     passw_bad_test = 'l_o_w_l_#_e#t1'
     passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='1',
@@ -490,13 +515,14 @@ def test_passw_hardening_policies_special_class(duthosts, enum_rand_one_per_hwsk
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
     passw_test = 'nvipashar_'
     passw_bad_test = 'no11spec'
     passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='1',
@@ -518,13 +544,14 @@ def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    expiration = check_expiration_value(duthost, 10)
     passw_test = '19892022'
     passw_bad_test = passw_hardening_utils.USERNAME_ONE_POLICY
     passw_exp_error = 'BAD PASSWORD: contains the user name in some form'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
-                                        expiration='10',
+                                        expiration=expiration,
                                         expiration_warning='10',
                                         history='10',
                                         len_min='1',
