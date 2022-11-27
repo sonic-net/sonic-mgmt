@@ -7,10 +7,7 @@ This script is to cover the test case in the SONiC platform daemon and service t
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
-import re
 import time
-
-from datetime import datetime
 
 import pytest
 
@@ -75,7 +72,7 @@ def collect_data(duthost):
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
     return {'keys': keys, 'data': dev_data}

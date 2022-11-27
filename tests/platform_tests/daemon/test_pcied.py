@@ -8,10 +8,7 @@ This script is to cover the test case in the SONiC platform daemon and service t
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
-import re
 import time
-
-from datetime import datetime
 
 import pytest
 
@@ -72,7 +69,7 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         time.sleep(10)
 
 def check_pcie_devices_table_ready(duthost):
-    if duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES"):
+    if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
     return False
 
@@ -81,17 +78,17 @@ def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911"])
     pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost), "PCIE_DEVICES table is empty")
-    command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
+    command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
 
     global pcie_devices_status_tbl_key
     pcie_devices_status_tbl_key = command_output["stdout"]
 
 def collect_data(duthost):
-    keys = duthost.shell('redis-cli -n 6 keys "PCIE_DEVICE|*"')['stdout_lines']
+    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "PCIE_DEVICE|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('redis-cli -n 6 hgetall "{}"'.format(k))['stdout_lines']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
 
