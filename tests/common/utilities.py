@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 from io import BytesIO
+from ast import literal_eval
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -502,13 +503,16 @@ def dump_scapy_packet_show_output(packet):
         sys.stdout = _stdout
 
 
-def compose_dict_from_cli(fields_list):
-    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+def compose_dict_from_cli(str_output):
+    """Convert the output of sonic-db-cli <DB> HGETALL command from string to
+       dict object containing the field, key pairs of the database table content
 
     Args:
-        fields_list: A list of lines, the output of redis-cli hgetall command
+        str_output: String with output of cli sonic-db-cli <DB> HGETALL <key>
+    Returns:
+        dict: dict object containing the field, key pairs of the database table content
     """
-    return dict(zip(fields_list[0::2], fields_list[1::2]))
+    return literal_eval(str_output)
 
 
 def get_intf_by_sub_intf(sub_intf, vlan_id=None):
