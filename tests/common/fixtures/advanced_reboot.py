@@ -36,7 +36,7 @@ class AdvancedReboot:
     """
 
     def __init__(self, request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
-        '''
+        """
         Class constructor.
         @param request: pytest request object
         @param duthost: AnsibleHost instance of DUT
@@ -44,7 +44,7 @@ class AdvancedReboot:
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
-        '''
+        """
         assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or
                                            'fast-reboot' in kwargs['rebootType'] or
                                            'service-warm-restart' in kwargs['rebootType']), \
@@ -100,9 +100,9 @@ class AdvancedReboot:
             self.service_data = {}
 
     def __extractTestParam(self):
-        '''
+        """
         Extract test parameters from pytest request object. Note that all the parameters have default values.
-        '''
+        """
         self.vnet = self.request.config.getoption("--vnet")
         self.vnetPkts = self.request.config.getoption("--vnet_pkts")
         self.rebootLimit = self.request.config.getoption("--reboot_limit")
@@ -127,40 +127,40 @@ class AdvancedReboot:
                 self.rebootLimit = 30  # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
-        '''
+        """
         Accessor method for hostMaxLen
-        '''
+        """
         # Number of VMS - 1
         return self.hostMaxLen
 
     def getlagMemberCnt(self):
-        '''
+        """
         Accessor method for lagMemberCnt
-        '''
+        """
         return self.lagMemberCnt
 
     def getVlanMaxCnt(self):
-        '''
+        """
         Accessor method for vlanMaxCnt
-        '''
+        """
         return self.vlanMaxCnt
 
     def getHostMaxCnt(self):
-        '''
+        """
         Accessor method for hostMaxCnt
-        '''
+        """
         return self.hostMaxCnt
 
     def getTestbedType(self):
-        '''
+        """
         Accessor method for testbed's topology name
-        '''
+        """
         return self.tbinfo['topo']['name']
 
     def __buildTestbedData(self, tbinfo):
-        '''
+        """
         Build testbed data that are needed by ptf advanced-reboot.ReloadTest class
-        '''
+        """
 
         self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -205,9 +205,9 @@ class AdvancedReboot:
                 break
 
     def __updateNextHopIps(self):
-        '''
+        """
         Update next hop IPs
-        '''
+        """
         if self.inbootList is not None:
             self.rebootData['nexthop_ips'] = [
                 self.tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4'],
@@ -217,9 +217,9 @@ class AdvancedReboot:
             self.rebootData['nexthop_ips'] = None
 
     def __validateAndBuildSadList(self):
-        '''
+        """
         Validate sad list (preboot/inboot lists) member data
-        '''
+        """
         prebootList = [] if self.prebootList is None else self.prebootList
         inbootList = [] if self.inbootList is None else self.inbootList
         sadList = [item for item in itertools.chain(prebootList, inbootList)]
@@ -252,11 +252,11 @@ class AdvancedReboot:
         self.rebootData['sadList'] = sadList if len(sadList) > 0 else [None]
 
     def __transferTestDataFiles(self, data, ansibleHost):
-        '''
+        """
         Convert data into json format and transfers json file to ansible host (ptfhost/duthost)
         @param data: map that includedata source and json file name
         @param ansibleHost: Ansible host that is receiving this data
-        '''
+        """
         for item in data:
             data_source = item['source']
             filename = '/tmp/' + item['name'] + '.json'
@@ -268,26 +268,26 @@ class AdvancedReboot:
             self.rebootData[item['name'] + '_file'] = filename
 
     def __runScript(self, scripts, ansibleHost):
-        '''
+        """
         Run script on an Ansibl host
         @param scripts: list of script names to be run on Ansible host
         @param ansibleHost: Ansible host to run the scripts on
-        '''
+        """
         # this could be done using script API from ansible modules
         for script in scripts:
             logger.info('Running script {0} on {1}'.format(script, ansibleHost.hostname))
             ansibleHost.script('scripts/' + script)
 
     def __prepareTestbedSshKeys(self):
-        '''
+        """
         Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
-        '''
+        """
         prepareTestbedSshKeys(self.duthost, self.ptfhost, self.rebootData['dut_username'])
 
     def __handleMellanoxDut(self):
-        '''
+        """
         Handle Mellanox DUT reboot when upgrading from SONiC-OS-201803 to SONiC-OS-201811
-        '''
+        """
         if self.newSonicImage is not None and \
                 self.rebootType == 'fast-reboot' and \
                 isMellanoxDevice(self.duthost):
@@ -297,10 +297,10 @@ class AdvancedReboot:
                 self.__runScript(['upgrade_mlnx_fw.sh'], self.duthost)
 
     def __updateAndRestartArpResponder(self, item=None):
-        '''
+        """
         Update ARP responder configuration data based on the inboot/preboot operation (item)
         @param item: inboot/preboot operation
-        '''
+        """
         arp_responder_args = '-e'
         if item is not None:
             arp_responder_args += ' -c /tmp/from_t1_{0}.json'.format(item)
@@ -313,9 +313,9 @@ class AdvancedReboot:
         self.ptfhost.shell('supervisorctl reread && supervisorctl update')
 
     def __handleRebootImage(self):
-        '''
+        """
         Download and install new image to DUT
-        '''
+        """
         if self.newSonicImage is None:
             self.newImage = False
             return
@@ -355,7 +355,7 @@ class AdvancedReboot:
         for service_name in self.service_list:
             data = {}
             docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''.format(service_name))['stdout']
-            cmd = 'docker images {} --format \{{\{{.ID\}}\}}'.format(docker_image_name)
+            cmd = r'docker images {} --format {{{{.ID}}}}'.format(docker_image_name)
             data['image_id'] = self.duthost.shell(cmd)['stdout']
             data['image_name'], data['image_tag'] = docker_image_name.split(':')
 
@@ -377,9 +377,9 @@ class AdvancedReboot:
         logger.info('service data = {}'.format(json.dumps(self.service_data, indent=2)))
 
     def __setupTestbed(self):
-        '''
+        """
         Sets testbed up. It tranfers test data files, ARP responder, and runs script to update IPs and MAC addresses.
-        '''
+        """
         self.__runScript(['remove_ip.sh'], self.ptfhost)
 
         self.__prepareTestbedSshKeys()
@@ -393,9 +393,9 @@ class AdvancedReboot:
             self.duthost.copy(src='scripts/fast-reboot', dest='/usr/bin/')
 
     def __clearArpAndFdbTables(self):
-        '''
+        """
         Clears ARP and FDB entries
-        '''
+        """
         logger.info('Clearing arp entries on DUT  {}'.format(self.duthost.hostname))
         self.duthost.shell('sonic-clear arp')
 
@@ -403,9 +403,9 @@ class AdvancedReboot:
         self.duthost.shell('sonic-clear fdb all')
 
     def __fetchTestLogs(self, rebootOper=None):
-        '''
+        """
         Fetch test logs from duthost and ptfhost after individual test run
-        '''
+        """
         if rebootOper:
             dir_name = "{}_{}".format(self.request.node.name, rebootOper)
         else:
@@ -467,12 +467,12 @@ class AdvancedReboot:
         return log_dir
 
     def imageInstall(self, prebootList=None, inbootList=None, prebootFiles=None):
-        '''
+        """
         This method validates and prepares test bed for reboot test case.
         @param prebootList: list of operation to run before reboot process
-        @param inbootList: list of operation to run during reboot prcoess
+        @param inbootList: list of operation to run during reboot process
         @param prebootFiles: preboot files
-        '''
+        """
         self.prebootList = prebootList
         self.inbootList = inbootList
         self.prebootFiles = prebootFiles
@@ -637,10 +637,10 @@ class AdvancedReboot:
             rebootOper.revert()
 
     def __runPtfRunner(self, rebootOper=None):
-        '''
+        """
         Run single PTF advanced-reboot.ReloadTest
         @param rebootOper:Reboot operation to conduct before/during reboot process
-        '''
+        """
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
         params = {
@@ -713,9 +713,9 @@ class AdvancedReboot:
         return result
 
     def __restorePrevImage(self):
-        '''
+        """
         Restore previous image and reboot DUT
-        '''
+        """
         currentImage = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         if currentImage != self.currentImage:
             logger.info('Restore current image')
@@ -759,9 +759,9 @@ class AdvancedReboot:
         )
 
     def tearDown(self):
-        '''
+        """
         Tears down test case. It also verifies that config_db.json exists.
-        '''
+        """
         logger.info('Running test tear down')
         if 'warm-reboot' in self.rebootType and self.newSonicImage is not None:
             logger.info('Save configuration after warm rebooting into new image')
@@ -788,21 +788,21 @@ class AdvancedReboot:
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
-    '''
+    """
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
-        @param duthost: AnsibleHost instance of DUT
+        @param duthosts: AnsibleHost instance of DUT
         @param ptfhost: PTFHost for interacting with PTF through ansible
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
-    '''
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
 
     def get_advanced_reboot(**kwargs):
-        '''
+        """
         API that returns instances of AdvancedReboot class
-        '''
+        """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
         advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
