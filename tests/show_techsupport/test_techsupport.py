@@ -275,6 +275,31 @@ def execute_command(duthost, since):
     return True
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+        In Mellanox, when techsupport is taken, it invokes fw dump.
+        While taking the fw dump, the fw is busy and doesn't respond to other calls.
+        The access of sfp eeprom happens through firmware and xcvrd gets the DOM fields
+        every 60 seconds which fails during the fw dump.
+        This is a temporary issue and this log can be ignored. 
+        Issue link: https://github.com/sonic-net/sonic-buildimage/issues/12621
+    """
+    ignoreRegex = [
+        ".*ERR kernel:.*Reg cmd access status failed.*",
+        ".*ERR kernel:.*Reg cmd access failed.*",
+        ".*ERR kernel:.*Eeprom query failed.*",
+        ".*ERR kernel:.*Fails to access.*register MCIA.*",
+        ".*ERR kernel:.*Fails to read module eeprom.*",
+        ".*ERR kernel:.*Fails to access.*module eeprom.*",
+        ".*ERR kernel:.*Fails to get module type.*",
+        ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
+    ]
+
+    if loganalyzer:
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+
+
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     test the "show techsupport" command in a loop
