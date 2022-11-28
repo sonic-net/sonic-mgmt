@@ -37,17 +37,26 @@ fanout:
       ansible_host: 10.150.22.20
     bjw-can-7060-fanout-1:
       ansible_host: 10.150.22.30
-    bjw-can-720dt-2:
-      ansible_host: 10.150.22.113
-      os: sonic
     bjw-can-z9332f-1:
       ansible_host: 10.150.22.108
       os: sonic
     bjw-slx-can-2:
       ansible_host: 10.150.22.105
       os: sonic
+    bjw-slx-can-4:
+      ansible_host: 10.150.22.107
+      os: sonic
     bjw-can-slx-5:
       ansible_host: 10.150.22.100
+      os: sonic
+    bjw-can-7215-2:
+      ansible_host: 10.150.22.111
+      os: sonic
+    bjw-can-7215-3:
+      ansible_host: 10.150.22.103
+      os: sonic
+    bjw-can-7215-4:
+      ansible_host: 10.150.22.102
       os: sonic
 
 sonic:
@@ -58,6 +67,7 @@ sonic:
     sonic_celestica_dx010:
     sonic_intel_ec9516:
     sonic_mlnx_sn2700:
+    sonic_nokia_7215:
 
 sonic_arista_720dt:
   vars:
@@ -84,6 +94,27 @@ sonic_arista_720dt:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
         "0x2F": "WTW22180040"
+        "0xFE": "0xdeadbeef"
+    bjw-can-720dt-2:    # TODO: fix values
+      ansible_host: 10.150.22.113
+      model: CCS-720DT-48S
+      serial: WTW22180032
+      base_mac: 2c:dd:e9:fc:df:08
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S"
+        "0x22": "ASY062430103"
+        "0x23": "WTW22180032"
+        "0x24": "2c:dd:e9:fc:df:08"
+        "0x25": "2022/06/10 11:50:55"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
+        "0x2F": "WTW22180032"
         "0xFE": "0xdeadbeef"
 
 sonic_celestica_dx010:
@@ -157,6 +188,30 @@ sonic_mlnx_sn2700:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x1619F9E1"
+
+sonic_nokia_7215:
+  vars:
+    hwsku: Nokia-7215
+    iface_speed: 1000
+  hosts:
+    bjw-can-7215-1:
+      ansible_host: 10.150.22.110
+      model: 3HE16794AARD01
+      serial: NK222413040
+      base_mac: AC:8F:F8:6A:5D:FD
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARD01"
+        "0x23": "NK222413040"
+        "0x24": "AC:8F:F8:6A:5D:FD"
+        "0x25": "06/11/2022 14:11:28"
+        # "0x27": "D05115"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.1"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0xF02FB771"
 
 server:
   hosts:
