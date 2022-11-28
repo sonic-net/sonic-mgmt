@@ -110,7 +110,7 @@ interface {{ intf }}
    switchport mode trunk
    switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
    spanning-tree portfast
-   speed force 40gfull
+   speed force {{ device_conn[inventory_hostname][intf]['speed'] }}full
    no switchport mac address learning
    no shutdown
 {% else %}
