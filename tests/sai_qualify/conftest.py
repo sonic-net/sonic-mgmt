@@ -113,6 +113,23 @@ def pytest_addoption(parser):
                      action="store_true",
                      help="If always stop the container after one \
                      test or not, true or false.")
+    parser.addoption("--sai_origin_version", action="store", default=None,
+                     type=str, help="SAI SDK originla version before upgrade.")
+    parser.addoption("--sai_upgrade_version", action="store", default=None,
+                     type=str, help="SAI SDK upgrade version.")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def tag_sai_test_report(
+        request, pytestconfig, tbinfo, duthost, record_testsuite_property):
+    if not request.config.getoption("--junit-xml"):
+        return
+
+    # Test run information
+    record_testsuite_property(
+        "sai_origin_version", request.config.option.sai_origin_version)
+    record_testsuite_property(
+        "sai_upgrade_version", request.config.option.sai_upgrade_version)
 
 
 @pytest.fixture(scope="module")
