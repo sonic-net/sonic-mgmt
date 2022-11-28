@@ -34,6 +34,9 @@ pytestmark = [
     pytest.mark.topology("t0")
 ]
 
+# The packet number for test
+PACKET_NUM = 100
+
 @contextlib.contextmanager
 def stop_garp(ptfhost):
     """Temporarily stop garp service."""
@@ -92,9 +95,10 @@ def build_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_dscp = random.choice(range(0, 33))
+    inner_dscp = random.choice([3, 4, 2, 6]) #lossy queue is 3 or 4 or 2 or 6.
     inner_ttl = random.choice(range(3, 65))
     inner_ecn = random.choice(range(0,3))
+    logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
 
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
@@ -140,9 +144,10 @@ def build_non_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    dscp = random.choice(range(0, 33))
+    dscp = random.choice([3, 4, 2, 6]) #lossy queue is 3 or 4 or 2 or 6.
     ttl = random.choice(range(3, 65))
     ecn = random.choice(range(0,3))
+    logging.info("DSCP: {0:06b}, ECN: {1:02b}".format(dscp, ecn))
 
     packet = testutils.simple_ip_packet(
         eth_dst=tor.facts["router_mac"],
@@ -187,13 +192,14 @@ def build_expected_packet_to_server(
 
     return exp_pkt
 
-def get_queue_id_of_received_packet(
+def check_received_packet_on_expected_queue(
     duthosts, 
     rand_one_dut_hostname, 
-    rand_selected_interface
+    rand_selected_interface,
+    expected_queue
 ):
     """
-    Get queue id of the packet received on destination
+    Check if received expected number of packets on expected queue
     """
     duthost = duthosts[rand_one_dut_hostname]
     queue_counter = duthost.shell('show queue counters {} | grep "UC"'.format(rand_selected_interface[0]))['stdout']
@@ -204,19 +210,22 @@ def get_queue_id_of_received_packet(
     ----------------------------------------------------------------------------_---
     Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
     -----------  -----  --------------  ---------------  -----------  --------------
-    Ethernet124    UC1              10             1000            0             0
+    Ethernet124    UC1             100             1000            0             0
     """
-    result = re.search(r'\S+\s+UC\d\s+10+\s+\S+\s+\S+\s+\S+', queue_counter)
+    # In case of other noise packets
+    DIFF = 0.1
+    result = re.findall(r'\S+\s+UC%d\s+(\d+)+\s+\S+\s+\S+\s+\S+' % expected_queue, queue_counter)
 
-    if result is not None:
-        output = result.group(0)
-        output_list = output.split()
-        queue = int(output_list[1][2])
+    if result:
+        for number in result:
+            if int(number) <= PACKET_NUM * (1 + DIFF) and int(number) >= PACKET_NUM:
+                logging.info("the expected Queue : {} received expected numbers of packet {}".format(expected_queue, number))
+                return True
+        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}".format(expected_queue, PACKET_NUM))
+        return False
     else:
-        logging.info("Error occured while fetching queue counters from DUT")
-        return None
-
-    return queue
+        logging.debug("Could not find expected queue counter matches.")
+    return False
 
 def verify_ecn_on_received_packet(
     ptfadapter, 
@@ -265,23 +274,23 @@ def test_dscp_to_queue_during_decap_on_active(
         ptfadapter.dataplane.flush()
         ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
         logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=PACKET_NUM)
 
         exp_tos = encapsulated_packet[IP].payload[IP].tos
         exp_dscp = exp_tos >> 2
-        exp_queue = derive_queue_id_from_dscp(exp_dscp)
+        exp_queue = derive_queue_id_from_dscp(duthost, exp_dscp, False)
 
         _, rec_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[exp_ptf_port_index], timeout=10)
         rec_pkt = Ether(rec_pkt)
         logging.info("received decap packet:\n%s", dump_scapy_packet_show_output(rec_pkt))
 
         time.sleep(10)
-        rec_queue = get_queue_id_of_received_packet(duthosts, rand_one_dut_hostname, rand_selected_interface)
+        check_result = check_received_packet_on_expected_queue(duthosts, rand_one_dut_hostname, rand_selected_interface, exp_queue)
 
-        if rec_queue == None or rec_queue != exp_queue:
-            pytest.fail("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
+        if not check_result:
+            pytest.fail("the expected Queue : {} did not receive expected numbers of packet : {}".format(exp_queue, PACKET_NUM))
         else:
-            logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+            logging.info("the expected Queue : {} received expected numbers of packet {}".format(exp_queue, PACKET_NUM))
 
 @pytest.fixture(scope='module')
 def write_standby(rand_selected_dut):
@@ -325,8 +334,8 @@ def test_dscp_to_queue_during_encap_on_standby(
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
-    with tunnel_traffic_monitor(tor, existing=True):
-       testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
+    with tunnel_traffic_monitor(tor, existing=True, packet_count=PACKET_NUM):
+       testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=PACKET_NUM)
 
 def test_ecn_during_decap_on_active(
     ptfhost, setup_dualtor_tor_active,
@@ -353,7 +362,7 @@ def test_ecn_during_decap_on_active(
         tor.shell("portstat -c")
         tor.shell("show arp")
         ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=PACKET_NUM)
         tor.shell("portstat -j")
         verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
@@ -377,5 +386,5 @@ def test_ecn_during_encap_on_standby(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
-    with tunnel_traffic_monitor(tor, existing=True):
-        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=10)
+    with tunnel_traffic_monitor(tor, existing=True, packet_count=PACKET_NUM):
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=PACKET_NUM)
