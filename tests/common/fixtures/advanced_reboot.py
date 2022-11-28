@@ -83,7 +83,8 @@ class AdvancedReboot:
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
-        self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer" in kwargs else None
+        self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer"\
+                                                                            in kwargs else None
         self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -195,7 +196,8 @@ class AdvancedReboot:
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
         prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
-        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + (1 << (32 - prefixLen))
+        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
+                      (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
             ipaddress.ip_interface(unicode(str(testNetwork) + '/{0}'.format(prefixLen))).network
         )
@@ -354,7 +356,8 @@ class AdvancedReboot:
 
         for service_name in self.service_list:
             data = {}
-            docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''.format(service_name))['stdout']
+            docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''
+                                                   .format(service_name))['stdout']
             cmd = r'docker images {} --format {{{{.ID}}}}'.format(docker_image_name)
             data['image_id'] = self.duthost.shell(cmd)['stdout']
             data['image_name'], data['image_tag'] = docker_image_name.split(':')
@@ -440,9 +443,12 @@ class AdvancedReboot:
 
         logger.info('Extract log files on dut host')
         dutLogFiles = [
-            {'directory': '/var/log', 'file_prefix': 'syslog', 'start_string': 'Linux version', 'target_filename': syslogFile},
-            {'directory': '/var/log/swss', 'file_prefix': 'sairedis.rec', 'start_string': 'recording on:', 'target_filename': sairedisRec},
-            {'directory': '/var/log/swss', 'file_prefix': 'swss.rec', 'start_string': 'recording started', 'target_filename': swssRec},
+            {'directory': '/var/log', 'file_prefix': 'syslog', 'start_string': 'Linux version',
+             'target_filename': syslogFile},
+            {'directory': '/var/log/swss', 'file_prefix': 'sairedis.rec', 'start_string': 'recording on:',
+             'target_filename': sairedisRec},
+            {'directory': '/var/log/swss', 'file_prefix': 'swss.rec', 'start_string': 'recording started',
+             'target_filename': swssRec},
         ]
         for logFile in dutLogFiles:
             self.duthost.extract_log(**logFile)
@@ -506,7 +512,8 @@ class AdvancedReboot:
                 with open(os.path.join(log_dir, log_file)) as reboot_log:
                     reboot_text_log_file = reboot_log.read()
                     reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file).group()
-                    if reboot_summary.find('Fails') == -1:  # if no fails detected - the test passed, print the summary only
+                    if reboot_summary.find('Fails') == -1:
+                        # if no fails detected - the test passed, print the summary only
                         logger.info('\n'+reboot_summary)
                     else:
                         logger.info(reboot_text_log_file)
@@ -563,12 +570,13 @@ class AdvancedReboot:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
-                        logger.error("Post reboot verification failed. List of failures: {}".format('\n'.join(verification_errors)))
+                        logger.error("Post reboot verification failed. List of failures: {}"
+                                     .format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
                 self.acl_manager_checker(test_results[test_case_name])
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
-            if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
+            if 1 < len(self.rebootData['sadList']) != count:
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
             failed_list = [(testcase, failures) for testcase, failures in test_results.items() if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
@@ -670,7 +678,8 @@ class AdvancedReboot:
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files": self.prebootFiles,
-            "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword"),
+            "alt_password": self.duthost.host.options['variable_manager']
+                            ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
         }
@@ -743,7 +752,8 @@ class AdvancedReboot:
             logger.info('Restore docker image for {}'.format(service_name))
             self.duthost.shell('service {} stop'.format(service_name))
             self.duthost.shell('docker rm {}'.format(service_name))
-            image_ids = self.duthost.shell(r'docker images {} --format {{{{.ID}}}}'.format(data['image_name']))['stdout_lines']
+            image_ids = self.duthost.shell(r'docker images {} --format {{{{.ID}}}}'
+                                           .format(data['image_name']))['stdout_lines']
             for image_id in image_ids:
                 if image_id != data['image_id']:
                     self.duthost.shell('docker rmi -f {}'.format(image_id))
@@ -787,7 +797,8 @@ class AdvancedReboot:
 
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,
+                        creds):
     """
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
