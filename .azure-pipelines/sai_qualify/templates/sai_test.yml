@@ -46,6 +46,11 @@ parameters:
     type: boolean
     default: true
 
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI Test"
+
   - name: PREPARE_SAI_TB
     displayName: "Prepare SAI Test Env"
     type: boolean
@@ -167,6 +172,14 @@ parameters:
     default: ""
     type: string
 
+  # - name: PIPELINE_BRANCH
+  #   default: "internal"
+  #   type: string
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    default: "build_brcm_sai_4.3"
+    type: string
+
   # Deploy vscode in PTF
   - name: PTF_DEPLOY_VSCODE
     displayName: "Deploy Vscode in PTF"
@@ -247,7 +260,7 @@ jobs:
           INTERVAL=60
 
           wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no; do
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "${{ parameters.LOCK_TESTBED_REASON }}" -f no; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1
@@ -590,12 +603,17 @@ jobs:
         displayName: "Deploy vscode in PTF"
 
       - task: DownloadPipelineArtifact@2
-        condition: ${{ parameters.DEPLOY_SAI_SDK }}
+        condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())
         inputs:
+          source: specific
+          project: internal
+          pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
           artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
+          # runVersion: 'latestFromBranch'
+          # runBranch: refs/heads/${{ parameters.PIPELINE_BRANCH }}
           path: $(Build.ArtifactStagingDirectory)/download
           patterns: |
-            *.deb
+            *.*
           script: |
             set -x
             ls  $(Build.ArtifactStagingDirectory)/download
@@ -625,7 +643,7 @@ jobs:
             python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/tests/scripts/sai_qualify/install_saibcm.sh dest=$DUT_PATH/download"
 
             # copy file to saiserver docker and commit docker
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download saiserver:/""
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download saiserver:/"
 
             # TODO here, we need a shell script to commit the docker base on different OS version and platform
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker tag docker-saiserverv2-brcm docker-saiserverv2-brcm:origin"
