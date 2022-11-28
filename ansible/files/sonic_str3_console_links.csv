@@ -2,5 +2,7 @@ StartDevice,StartPort,EndDevice,Console_type,Proxy
 console-197,28,str3-7260cx3-acs-fan-01,ssh,admin
 console-197,24,str3-7260cx3-acs-fan-02,ssh,admin
 console-197,27,str3-7260cx3-acs-fan-03,ssh,admin
+console-197,38,str3-7260cx3-acs-fan-04,ssh,admin
+console-197,6,str3-8102-01,ssh,admin
 console-197,6,str3-8102-05,ssh,admin
 console-197,19,str3-8102-06,ssh,admin

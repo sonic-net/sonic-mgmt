@@ -1141,6 +1141,21 @@
   auto_recover: 'True'
   comment: shiyanwang
 
+- conf-name: vms61-t0-8102-01
+  group-name: vms61-2
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms61-2
+  ptf_ip: 10.64.247.36/23
+  ptf_ipv6:
+  server: server_61
+  vm_base: VM61004
+  dut:
+    - str3-8102-01
+  inv_name: str3
+  auto_recover: 'True'
+  comment: shengkaiwang
+
 - conf-name: vms28-t0-4600c-03
   group-name: vms28-3
   topo: t0-64

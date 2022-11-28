@@ -152,6 +152,12 @@ parameters:
           - vms28-t0-4600c-04
           - vms28-t0-7280-3
           - vms28-t1-8102-02
+      server_61:
+        vm_type: ceos
+        pool: nightly
+        testbeds:
+          - vms61-dual-t0-8102
+          - vms61-t0-8102-01
       server_svc_1:
         vm_type: ceos
         pool: nightly-svc

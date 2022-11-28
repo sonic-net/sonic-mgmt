@@ -46,6 +46,11 @@ parameters:
     type: boolean
     default: true
 
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI Test"
+
   - name: PREPARE_SAI_TB
     displayName: "Prepare SAI Test Env"
     type: boolean
@@ -167,6 +172,14 @@ parameters:
     default: ""
     type: string
 
+  # - name: PIPELINE_BRANCH
+  #   default: "internal"
+  #   type: string
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    default: "build_brcm_sai_4.3"
+    type: string
+
   # Deploy vscode in PTF
   - name: PTF_DEPLOY_VSCODE
     displayName: "Deploy Vscode in PTF"
@@ -235,6 +248,8 @@ jobs:
             timestamp = datetime.datetime.now().strftime("%Y%m%d")
             builder_id = "SAI_Qualification_" + "Running_On_" + testbed_name + "_" + buildid + "_" + str(timestamp)
             print("##vso[build.updatebuildnumber]{0}".format(builder_id))
+            print("##vso[task.setvariable variable=sai_updated_version;]")
+            print("##vso[task.setvariable variable=sai_origin_version;]")
         env:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
@@ -245,7 +260,7 @@ jobs:
           INTERVAL=60
 
           wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "SAI Testing" -f no; do
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "${{ parameters.LOCK_TESTBED_REASON }}" -f no; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1
@@ -338,7 +353,7 @@ jobs:
           targetType: 'inline'
           script: |
             set -x
-
+            echo "##vso[task.setvariable variable=BASE_PATH;]$(pwd)"
             python ./tests/common/testbed.py -y ./ansible/$TESTBED_FILE -n $TESTBED_NAME -s ./ansible/$SAI_TESTBED_FILE -p $SAI_PTF_DOCKER
             cat ./ansible/testbed_sai.yaml
         env:
@@ -346,6 +361,37 @@ jobs:
           TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
           SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}
+
+      - task: PythonScript@0
+        condition: and(${{ parameters.UPDATE_IMAGE}}, succeeded())
+        inputs:
+          scriptSource: 'inline'
+          script: |
+
+            import os
+            import imp
+
+            SAI_ADHOC_PATH = os.environ['SAI_ADHOC_PATH']
+            print("sai adhoc patch:{}".format(SAI_ADHOC_PATH))
+            adhoc = imp.load_source("adhoc", SAI_ADHOC_PATH)
+
+            dut, ptf, inv_name = adhoc.get_info_helper("${{ parameters.TESTBED_NAME }}")
+            result = adhoc.run_command(
+                dut, inv_name,
+                "docker exec syncd dpkg -l | grep libsaibcm | awk -F'[ ]+' '{print $3}'",
+                False)
+            print(
+                '##vso[task.setvariable variable=sai_origin_version;]{}'.format(
+                    result))
+        env:
+          ANSIBLE_CONFIG: $(BASE_PATH)/ansible
+          ANSIBLE_LIBRARY: $(BASE_PATH)/ansible/library/
+          ANSIBLE_CONNECTION_PLUGINS: $(BASE_PATH)/ansible/plugins/connection
+          ANSIBLE_CLICONF_PLUGINS: $(BASE_PATH)/ansible/cliconf_plugins
+          ANSIBLE_TERMINAL_PLUGINS: $(BASE_PATH)/ansible/terminal_plugins
+          SAI_ADHOC_PATH: $(BASE_PATH)/tests/common/sai_adhoc.py
+          DUT_PATH: /tmp/pkg
+        displayName: "Parse SAI SDK Version From Image"
 
       - task: Bash@3
         displayName: Add SAI Testbed Topo
@@ -557,12 +603,17 @@ jobs:
         displayName: "Deploy vscode in PTF"
 
       - task: DownloadPipelineArtifact@2
-        condition: ${{ parameters.DEPLOY_SAI_SDK }}
+        condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())
         inputs:
+          source: specific
+          project: internal
+          pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
           artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
+          # runVersion: 'latestFromBranch'
+          # runBranch: refs/heads/${{ parameters.PIPELINE_BRANCH }}
           path: $(Build.ArtifactStagingDirectory)/download
           patterns: |
-            *.deb
+            *.*
           script: |
             set -x
             ls  $(Build.ArtifactStagingDirectory)/download
@@ -592,7 +643,7 @@ jobs:
             python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/tests/scripts/sai_qualify/install_saibcm.sh dest=$DUT_PATH/download"
 
             # copy file to saiserver docker and commit docker
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download saiserver:/""
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download saiserver:/"
 
             # TODO here, we need a shell script to commit the docker base on different OS version and platform
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker tag docker-saiserverv2-brcm docker-saiserverv2-brcm:origin"
@@ -607,6 +658,47 @@ jobs:
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker tag docker-saiserverv2-brcm docker-saiserverv2-brcm:patch"
 
         displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
+
+      - task: PythonScript@0
+        condition: and(${{ parameters.PREPARE_SAI_TB}}, succeeded())
+        inputs:
+          scriptSource: 'inline'
+          script: |
+
+            import os
+            import imp
+
+            SAI_ADHOC_PATH = os.environ['SAI_ADHOC_PATH']
+            print("sai adhoc patch:{}".format(SAI_ADHOC_PATH))
+            adhoc = imp.load_source("adhoc", SAI_ADHOC_PATH)
+
+            dut, ptf, inv_name = adhoc.get_info_helper("${{ parameters.TESTBED_NAME }}")
+            result = adhoc.run_command(
+                dut, inv_name,
+                "docker exec saiserver dpkg -l | grep libsaibcm | awk -F'[ ]+' '{print $3}'",
+                False)
+            print(
+                '##vso[task.setvariable variable=sai_updated_version;]{}'.format(
+                    result))
+        env:
+          ANSIBLE_CONFIG: $(BASE_PATH)/ansible
+          ANSIBLE_LIBRARY: $(BASE_PATH)/ansible/library/
+          ANSIBLE_CONNECTION_PLUGINS: $(BASE_PATH)/ansible/plugins/connection
+          ANSIBLE_CLICONF_PLUGINS: $(BASE_PATH)/ansible/cliconf_plugins
+          ANSIBLE_TERMINAL_PLUGINS: $(BASE_PATH)/ansible/terminal_plugins
+          SAI_ADHOC_PATH: $(BASE_PATH)/tests/common/sai_adhoc.py
+          DUT_PATH: /tmp/pkg
+        displayName: "Parse SAI SDK Version From SaiServer"
+
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+            echo sai_origin_version $(sai_origin_version)
+            echo sai_updated_version $(sai_updated_version)
+
+        displayName: "Check SAI Version"
 
       - task: Bash@3
         displayName: Run SAI tests

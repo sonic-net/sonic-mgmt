@@ -4,6 +4,8 @@ str3-acs-serv-61,10.64.246.96/23,TestServ,Server,
 str3-7260cx3-acs-fan-01,10.3.146.33/23,Arista-7260CX3,FanoutLeaf,
 str3-7260cx3-acs-fan-02,10.3.146.35/23,Arista-7260CX3,FanoutLeaf,
 str3-7260cx3-acs-fan-03,10.3.146.32/23,Arista-7260CX3,FanoutLeaf,
+str3-7260cx3-acs-fan-04,10.3.146.10/23,Arista-7260CX3,FanoutLeaf,
+str3-8102-01,10.3.146.120/23,Cisco-8102-C64,DevSonic,
 str3-8102-05,10.3.146.121/23,Cisco-8102-C64,DevSonic,
 str3-8102-06,10.3.146.78/23,Cisco-8102-C64,DevSonic,
 pdu-90,10.3.155.90,Sentry,Pdu,snmp

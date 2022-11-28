@@ -13,10 +13,11 @@ all:
       vars:
         ansible_ssh_user: root
         ansible_ssh_pass: root
-        hosts:
+      hosts:
         vms61-1:
           ansible_host: 10.64.246.5
-
+        vms61-2:
+          ansible_host: 10.64.247.36
     pdu:
       hosts:
         pdu-90:
@@ -49,6 +50,8 @@ fanout:
       ansible_host: 10.3.146.35
     str3-7260cx3-acs-fan-03:
       ansible_host: 10.3.146.32
+    str3-7260cx3-acs-fan-04:
+      ansible_host: 10.3.146.10
 
 sonic:
   vars:
@@ -61,6 +64,23 @@ sonic_cisco_8102:
     hwsku: Cisco-8102-C64
     iface_speed: 100000
   hosts:
+    str3-8102-01:
+      ansible_host: 10.3.146.120
+      model: 8102-64H-O
+      serial: FLM25040614
+      base_mac: E8:EB:34:B7:57:A8
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM25040614"
+        "0x24": "E8:EB:34:B7:57:A8"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xB68424AA"
     str3-8102-05:
       ansible_host: 10.3.146.121
       model: 8102-64H-O
