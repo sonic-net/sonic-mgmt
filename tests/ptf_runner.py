@@ -25,9 +25,10 @@ def ptf_collect(host, log_file):
         host.fetch(src=pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
 
+
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
-               socket_recv_size=None, log_file=None, device_sockets=[], timeout=0,
+               socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
                module_ignore_errors=False, is_python3=False):
     # Call virtual env ptf for migrated py3 scripts.
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
@@ -37,9 +38,9 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         if path_exists["stat"]["exists"]:
             cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
         else:
-            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check and update docker-ptf image, make sure to use the correct one."
-            logger.error("Exception caught while executing case: {}. Error message: {}"\
-            .format(testname, error_msg))
+            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\n" \
+                        "Please check and update docker-ptf image, make sure to use the correct one."
+            logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, error_msg))
             raise Exception(error_msg)
     else:
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
@@ -75,6 +76,9 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if timeout:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
+    if custom_options:
+        cmd += " " + custom_options
+
     if hasattr(host, "macsec_enabled") and host.macsec_enabled:
         if not is_python3:
             logger.error("MACsec is only available in Python3")
@@ -95,7 +99,6 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             ptf_collect(host, log_file)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
-        logger.error("Exception caught while executing case: {}. Error message: {}"\
-            .format(testname, traceback_msg))
+        logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
         raise Exception
     return True
