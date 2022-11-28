@@ -76,6 +76,8 @@ def loopback_ips(duthosts, duts_running_config_facts):
     lo_ips = []
     lo_ipv6s = []
     for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
         cfg_facts = duts_running_config_facts[duthost.hostname]
         lo_ip = None
         lo_ipv6 = None
