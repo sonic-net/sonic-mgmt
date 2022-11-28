@@ -179,6 +179,9 @@ def fixture_setUp(duthosts,
         data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     data['vxlan_port'] = request.config.option.vxlan_port
+    data['original_crm_interval'] = setup_crm_interval(data['duthost'],
+                                                       interval=3)
+    time.sleep(4)
     data['crm'] = data['duthost'].get_crm_resources()['main_resources']
     ecmp_utils.configure_vxlan_switch(
         data['duthost'],
