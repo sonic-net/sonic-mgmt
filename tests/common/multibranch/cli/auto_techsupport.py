@@ -117,7 +117,7 @@ class AutoTechSupportCliDefault:
         """
         with allure.step('Parsing "show auto-techsupport history" output'):
             result_dict = {}
-            regexp = r'(sonic_dump_.*)\s+(\w+|\w+\W\w+)\s+(\w+)\s+(\w+\.\d+\.\d+\.core\.gz)'
+            regexp = r'(sonic_dump_.*)\s+(\w+|\w+\W\w+|\w+\W\w+\W\w+)\s+(\w+)\s+(\w+\.\d+\.\d+\.core\.gz)'
             cmd_output = self.show_auto_techsupport_history()
 
             dump_name_index = 0
