@@ -25,14 +25,16 @@ TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 REBOOT_CASE_TIMEOUT = 1800
 
+
 class AdvancedReboot:
-    '''
+    """
     AdvancedReboot is used to perform reboot dut while running preboot/inboot operations
 
     This class collects information about the current testbed. This information is used by test cases to build
-    inboot/preboot list. The class transfers number of configuration files to the dut/ptf in preparation for reboot test.
+    inboot/preboot list. The class transfers number of config files to the dut/ptf in preparation for reboot test.
     Test cases can trigger test start utilizing runRebootTestcase API.
-    '''
+    """
+
     def __init__(self, request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
         '''
         Class constructor.
@@ -43,9 +45,10 @@ class AdvancedReboot:
         @param tbinfo: fixture provides information about testbed
         @param kwargs: extra parameters including reboot type
         '''
-        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or 'fast-reboot' in kwargs['rebootType'] or 'service-warm-restart' in kwargs['rebootType']) , (
+        assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or
+                                           'fast-reboot' in kwargs['rebootType'] or
+                                           'service-warm-restart' in kwargs['rebootType']), \
             "Please set rebootType var."
-        )
 
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             # Fast and Warm-reboot procedure now test if "docker exec" works.
@@ -81,8 +84,8 @@ class AdvancedReboot:
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer" in kwargs else None
-	self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
-	self.__dict__.update(kwargs)
+        self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
+        self.__dict__.update(kwargs)
         self.__extractTestParam()
         self.rebootData = {}
         self.hostMaxLen = 0
@@ -117,11 +120,11 @@ class AdvancedReboot:
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
             if self.kvmTest:
-                self.rebootLimit = 200 # Default reboot limit for kvm
-	    elif 'warm-reboot' in self.rebootType:
+                self.rebootLimit = 200  # Default reboot limit for kvm
+            elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
             else:
-                self.rebootLimit = 30 # Default reboot limit for physical devices
+                self.rebootLimit = 30  # Default reboot limit for physical devices
 
     def getHostMaxLen(self):
         '''
@@ -178,7 +181,8 @@ class AdvancedReboot:
             vlan_name = list(vlan_table.keys())[0]
             vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
         self.rebootData['vlan_mac'] = vlan_mac
-        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'], self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
+                                                  self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
@@ -285,8 +289,8 @@ class AdvancedReboot:
         Handle Mellanox DUT reboot when upgrading from SONiC-OS-201803 to SONiC-OS-201811
         '''
         if self.newSonicImage is not None and \
-           self.rebootType == 'fast-reboot' and \
-           isMellanoxDevice(self.duthost):
+                self.rebootType == 'fast-reboot' and \
+                isMellanoxDevice(self.duthost):
             logger.info('Handle Mellanox platform')
             nextImage = self.duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
             if 'SONiC-OS-201803' in self.currentImage and 'SONiC-OS-201811' in nextImage:
@@ -357,7 +361,8 @@ class AdvancedReboot:
 
             local_image_path = '/tmp/{}.gz'.format(data['image_name'])
             logger.info('Downloading new docker image for {} to {}'.format(service_name, local_image_path))
-            output = self.localhost.shell('curl --silent --write-out "%{{http_code}}" {0}/{1}.gz --output {2}'.format(self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)['stdout']
+            output = self.localhost.shell('curl --silent --write-out "%{{http_code}}" {0}/{1}.gz --output {2}'.format(
+                self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)['stdout']
             if '404' not in output and os.path.exists(local_image_path):
                 temp_file = self.duthost.shell('mktemp')['stdout']
                 self.duthost.copy(src=local_image_path, dest=temp_file)
@@ -405,8 +410,7 @@ class AdvancedReboot:
             dir_name = "{}_{}".format(self.request.node.name, rebootOper)
         else:
             dir_name = self.request.node.name
-        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),\
-            "../../logs/platform_tests/")))
+        report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../logs/platform_tests/")))
         log_dir = os.path.join(report_file_dir, dir_name)
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
@@ -502,10 +506,20 @@ class AdvancedReboot:
                 with open(os.path.join(log_dir, log_file)) as reboot_log:
                     reboot_text_log_file = reboot_log.read()
                     reboot_summary = re.search(r"Summary:(\n|.)*?=========", reboot_text_log_file).group()
-                    if reboot_summary.find('Fails') == -1:  # if no fails detected- the test passed, print the summary only
+                    if reboot_summary.find('Fails') == -1:  # if no fails detected - the test passed, print the summary only
                         logger.info('\n'+reboot_summary)
                     else:
                         logger.info(reboot_text_log_file)
+
+    def acl_manager_checker(self, error_list):
+        """
+        Checking ACL manager status. It should be running after rebooting
+        """
+        logger.info("Checking ACL manager status")
+        acl_proc_count = self.duthost.command('pgrep -f -c caclmgrd', module_ignore_errors=True)['stdout']
+        if int(acl_proc_count) != 1:
+            error_list.append("Expected one ACL manager process running. Actual: {}".format(acl_proc_count))
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -547,28 +561,29 @@ class AdvancedReboot:
                 self.print_test_logs_summary(log_dir)
                 if self.advanceboot_loganalyzer:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
-                        reboot_oper=rebootOper, log_dir=log_dir)
+                                                               reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
                         logger.error("Post reboot verification failed. List of failures: {}".format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
+                self.acl_manager_checker(test_results[test_case_name])
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
             if len(self.rebootData['sadList']) > 1 and count != len(self.rebootData['sadList']):
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-            failed_list = [(testcase,failures) for testcase, failures in test_results.items() if len(failures) != 0]
-        pytest_assert(len(failed_list) == 0,\
-            "Advanced-reboot failure. Failed test: {}, failure summary:\n{}".format(self.request.node.name, failed_list))
+            failed_list = [(testcase, failures) for testcase, failures in test_results.items() if len(failures) != 0]
+        pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
+                                             "failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None,
-        prebootFiles='peer_dev_info,neigh_port_info', preboot_setup=None, postboot_setup=None):
-        '''
+    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles='peer_dev_info,neigh_port_info',
+                          preboot_setup=None, postboot_setup=None):
+        """
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
         test arguments
         @param prebootList: list of operation to run before reboot process
         @param inbootList: list of operation to run during reboot prcoess
         @param prebootFiles: preboot files
-        '''
+        """
         self.preboot_setup = preboot_setup
         self.postboot_setup = postboot_setup
         self.imageInstall(prebootList, inbootList, prebootFiles)
@@ -576,8 +591,10 @@ class AdvancedReboot:
 
     def __setupRebootOper(self, rebootOper):
         down_ports = 0
-        if "dut_lag_member_down" in str(rebootOper) or "neigh_lag_member_down" in str(rebootOper)\
-            or "vlan_port_down" in  str(rebootOper) or "neigh_vlan_member_down" in str(rebootOper):
+        if "dut_lag_member_down" in str(rebootOper) \
+                or "neigh_lag_member_down" in str(rebootOper) \
+                or "vlan_port_down" in str(rebootOper) \
+                or "neigh_vlan_member_down" in str(rebootOper):
             down_ports = int(str(rebootOper)[-1])
 
         event_counters = {
@@ -626,33 +643,33 @@ class AdvancedReboot:
         '''
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
-        params={
-            "dut_username" : self.rebootData['dut_username'],
-            "dut_password" : self.rebootData['dut_password'],
-            "dut_hostname" : self.rebootData['dut_hostname'],
-            "reboot_limit_in_seconds" : self.rebootLimit,
-            "reboot_type" : self.rebootType,
-            "other_vendor_flag" :  self.other_vendor_nos,
-            "portchannel_ports_file" : self.rebootData['portchannel_interfaces_file'],
-            "vlan_ports_file" : self.rebootData['vlan_interfaces_file'],
-            "ports_file" : self.rebootData['ports_file'],
-            "dut_mac" : self.rebootData['dut_mac'],
-            "vlan_mac" : self.rebootData['vlan_mac'],
-            "lo_prefix" : self.rebootData['lo_prefix'],
-            "default_ip_range" : self.rebootData['default_ip_range'],
-            "vlan_ip_range" : self.rebootData['vlan_ip_range'],
-            "lo_v6_prefix" : self.rebootData['lo_v6_prefix'],
-            "arista_vms" : self.rebootData['arista_vms'],
-            "nexthop_ips" : self.rebootData['nexthop_ips'],
-            "allow_vlan_flooding" : self.allowVlanFlooding,
-            "sniff_time_incr" : self.sniffTimeIncr,
-            "setup_fdb_before_test" : True,
-            "vnet" : self.vnet,
-            "vnet_pkts" : self.vnetPkts,
+        params = {
+            "dut_username": self.rebootData['dut_username'],
+            "dut_password": self.rebootData['dut_password'],
+            "dut_hostname": self.rebootData['dut_hostname'],
+            "reboot_limit_in_seconds": self.rebootLimit,
+            "reboot_type": self.rebootType,
+            "other_vendor_flag": self.other_vendor_nos,
+            "portchannel_ports_file": self.rebootData['portchannel_interfaces_file'],
+            "vlan_ports_file": self.rebootData['vlan_interfaces_file'],
+            "ports_file": self.rebootData['ports_file'],
+            "dut_mac": self.rebootData['dut_mac'],
+            "vlan_mac": self.rebootData['vlan_mac'],
+            "lo_prefix": self.rebootData['lo_prefix'],
+            "default_ip_range": self.rebootData['default_ip_range'],
+            "vlan_ip_range": self.rebootData['vlan_ip_range'],
+            "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
+            "arista_vms": self.rebootData['arista_vms'],
+            "nexthop_ips": self.rebootData['nexthop_ips'],
+            "allow_vlan_flooding": self.allowVlanFlooding,
+            "sniff_time_incr": self.sniffTimeIncr,
+            "setup_fdb_before_test": True,
+            "vnet": self.vnet,
+            "vnet_pkts": self.vnetPkts,
             "bgp_v4_v6_time_diff": self.bgpV4V6TimeDiff,
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
-            "preboot_files" : self.prebootFiles,
+            "preboot_files": self.prebootFiles,
             "alt_password": self.duthost.host.options['variable_manager']._hostvars[self.duthost.hostname].get("ansible_altpassword"),
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
@@ -666,8 +683,8 @@ class AdvancedReboot:
             # presence of routing in reboot operation indicates it is during reboot operation (inboot)
             inbootOper = rebootOper if rebootOper is not None and 'routing' in rebootOper else None
             params.update({
-                "preboot_oper" : prebootOper,
-                "inboot_oper" : inbootOper,
+                "preboot_oper": prebootOper,
+                "inboot_oper": inbootOper,
             })
         else:
             params.update({'logfile_suffix': str(rebootOper)})
@@ -675,11 +692,11 @@ class AdvancedReboot:
         self.__updateAndRestartArpResponder(rebootOper)
 
         if rebootOper is None and self.other_vendor_nos is True:
-            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case:'
-            ' Reboot from other vendor nos'.format(self.request.node.name))
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: '
+                        'Reboot from other vendor nos'.format(self.request.node.name))
         else:
-            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: {}'.format(\
-            self.request.node.name, str(rebootOper)))
+            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, '
+                        'sub-case: {}'.format(self.request.node.name, str(rebootOper)))
         result = ptf_runner(
             self.ptfhost,
             "ptftests",
@@ -708,7 +725,7 @@ class AdvancedReboot:
                 self.duthost,
                 self.localhost,
                 reboot_type=self.rebootType.replace('-reboot', ''),
-                wait = self.readyTimeout
+                wait=self.readyTimeout
             )
 
     def __restorePrevDockerImage(self):
@@ -726,7 +743,7 @@ class AdvancedReboot:
             logger.info('Restore docker image for {}'.format(service_name))
             self.duthost.shell('service {} stop'.format(service_name))
             self.duthost.shell('docker rm {}'.format(service_name))
-            image_ids = self.duthost.shell('docker images {} --format \{{\{{.ID\}}\}}'.format(data['image_name']))['stdout_lines']
+            image_ids = self.duthost.shell(r'docker images {} --format {{{{.ID}}}}'.format(data['image_name']))['stdout_lines']
             for image_id in image_ids:
                 if image_id != data['image_id']:
                     self.duthost.shell('docker rmi -f {}'.format(image_id))
@@ -738,7 +755,7 @@ class AdvancedReboot:
             self.duthost,
             self.localhost,
             reboot_type='cold',
-            wait = 300
+            wait=300
         )
 
     def tearDown(self):
@@ -767,6 +784,7 @@ class AdvancedReboot:
                 self.__restorePrevDockerImage()
         else:
             logger.info('Stay in new image')
+
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo, creds):
