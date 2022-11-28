@@ -133,7 +133,7 @@ jobs:
         value: true
 
     steps:
-      - template: get_secrets.yml
+      - template: ../../nightly/templates/get_secrets.yml
 
       - task: PythonScript@0
         displayName: Parse Testbed Info

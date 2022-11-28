@@ -143,7 +143,6 @@ jobs:
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME_FOR_SONIC }}
         LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
-        UPDATE_IMAGE: ${{ parameters.UPDATE_IMAGE }}
         PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
