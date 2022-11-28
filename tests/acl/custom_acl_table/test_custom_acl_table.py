@@ -272,12 +272,3 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
         # Verify acl counter
         pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
 
-
-
-
-
-
-
-
-
-
