@@ -120,6 +120,7 @@ def construct_url(duthosts, rand_one_dut_hostname):
         return endpoint
     return get_endpoint
 
+
 @pytest.fixture
 def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
