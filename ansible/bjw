@@ -22,6 +22,8 @@ all:
           ansible_host: 10.150.23.52
         bjw6-4:
           ansible_host: 10.150.23.53
+        bjw6-5:
+          ansible_host: 10.150.23.54
     pdu:
       hosts:
         bjw-pdu-126-134:
@@ -99,12 +101,12 @@ sonic_arista_720dt:
       ansible_host: 10.150.22.113
       model: CCS-720DT-48S
       serial: WTW22180032
-      base_mac: 2c:dd:e9:fc:df:08
+      base_mac: 2c:dd:e9:fc:dd:58
       syseeprom_info:
         "0x21": "CCS-720DT-48S"
         "0x22": "ASY062430103"
         "0x23": "WTW22180032"
-        "0x24": "2c:dd:e9:fc:df:08"
+        "0x24": "2c:dd:e9:fc:dd:58"
         "0x25": "2022/06/10 11:50:55"
         "0x26": "01"
         "0x27": "02.00"
