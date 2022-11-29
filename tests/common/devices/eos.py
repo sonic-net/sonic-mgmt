@@ -349,3 +349,12 @@ class EosHost(AnsibleHostBase):
             logger.error('Failed to get macsec status for interface "{}", exception: {}'
                          .format(interface_name, repr(e)))
             return False
+
+    def ping_dest(self, dest):
+        try:
+            command = 'ping {} repeat 5'.format(dest)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            return ' 0% packet loss' in output
+        except Exception as e:
+            logger.error('command {} failed. exception: {}'.format(command, repr(e)))
+        return False
