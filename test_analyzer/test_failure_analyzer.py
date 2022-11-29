@@ -234,7 +234,7 @@ class KustoConnector(object):
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId
         | distinct Timestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId,  TestbedName, ReproCount
         | where ReproCount >= {}
-        | sort by ReproCount
+        | sort by ReproCount, ModulePath
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"], self.config_info["branch"]["excluded_branch_setup_error"], str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
         logger.info("Query test setup failure cases:{}".format(query_str))
         return self.query(query_str)
@@ -274,12 +274,12 @@ class KustoConnector(object):
         | where BranchName has_any(ProdQualOSList)
         | where ReproCount >= {}
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
-        | sort by ReproCount, opTestCase, Result
+        | sort by ReproCount, ModulePath, opTestCase, Result
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"], self.config_info["branch"]["excluded_branch"], str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit'])
         logger.info("Query failed cases:{}".format(query_str))
         return self.query(query_str)
 
-    def query_history_results(self, testcase_name, is_module_path=False):
+    def query_history_results(self, testcase_name, module_path, is_module_path=False):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
@@ -309,7 +309,7 @@ class KustoConnector(object):
                 | where ModulePath == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"], self.config_info["branch"]["excluded_branch_setup_error"], self.config_info['threshold']['totalcase'], start_time, end_time,  testcase_name)
+                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"], self.config_info["branch"]["excluded_branch_setup_error"], self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
         else:
             query_str = '''
                 let ProdQualOSList = dynamic({});
@@ -328,10 +328,10 @@ class KustoConnector(object):
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
                 | where BranchName has_any(ProdQualOSList)
-                | where opTestCase == "{}"
+                | where opTestCase == "{}" and ModulePath == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"], self.config_info["branch"]["excluded_branch"], self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name)
+                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"], self.config_info["branch"]["excluded_branch"], self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 
@@ -649,9 +649,10 @@ class Analyzer(object):
 
         search_cases = {}
         for row in failedcases_response.primary_results[0].rows:
+            module_path = row['ModulePath']
             testcase = row['opTestCase']
             branch = row['BranchName']
-            key = testcase + "#" + branch
+            key = module_path + '.' + testcase + "#" + branch
             if testcase in search_cases:
                 continue
 
@@ -687,11 +688,19 @@ class Analyzer(object):
         """The table header looks like this, save all of these information
         project Timestamp, OSVersion, HardwareSku, TestbedName, TotalRuntime, AsicType, Platform, Topology, ReportId, UploadTimestamp, Asic, TopologyType, RunDate, BuildId, TestbedSponsor, Feature, TestCase, ModulePath, FilePath, StartLine, Runtime, Result, Summary, StartTime, EndTime, FullTestPath, opTestCase
         """
-        items = test_case_branch.split("#")
-        testcase = items[0]
-        branch = items[1]
-        response = self.kusto_connector.query_history_results(
-            testcase, is_module_path)
+        if is_module_path:
+            items = test_case_branch.split("#")
+            module_path = items[0]
+            branch = items[1]
+            response = self.kusto_connector.query_history_results(
+                None, module_path, True)
+        else:
+            items = test_case_branch.split("#")
+            testcase = items[0].split('.')[-1]
+            module_path = items[0][:-len(testcase)-1]
+            branch = items[1]
+            response = self.kusto_connector.query_history_results(
+                testcase, module_path, False)
         case_df = dataframe_from_result_table(response.primary_results[0])
         case_branch_df = case_df[case_df['BranchName'] == branch]
 
@@ -828,11 +837,16 @@ class Analyzer(object):
             'trigger_icm': False,
             'autoblame_id': ''
         }
-
-        items = case_name_branch.split("#")
-        case_name = items[0]
-        branch = items[1]
-        module_path = history_testcases[case_name_branch]['module_path']
+        if is_module_path:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
 
         kusto_row_data['testcase'] = case_name
         kusto_row_data['branch'] = branch.lower()
@@ -916,10 +930,17 @@ class Analyzer(object):
         kusto_table = []
         regression_success_rate_threshold = self.config_info[
             "threshold"]["regression_success_rate_percent"]
-        items = case_name_branch.split("#")
-        case_name = items[0]
-        branch = items[1]
-        module_path = history_testcases[case_name_branch]['module_path']
+        if is_module_path:
+            items = case_name_branch.split("#")
+            module_path = items[0]
+            case_name = module_path
+            branch = items[1]
+        else:
+            items = case_name_branch.split("#")
+            case_name = items[0].split('.')[-1]
+            module_path = items[0][:-len(case_name)-1]
+            branch = items[1]
+
         if "internal" in branch or "master" in branch:
             internal_version = True
         else:
@@ -934,7 +955,7 @@ class Analyzer(object):
             kusto_row_data['failure_level_info']['is_full_failure'] = True
             kusto_row_data['trigger_icm'] = True
             if is_module_path:
-                kusto_row_data['subject'] = "[" + case_name + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
             else:
                 kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
             kusto_table.append(kusto_row_data)
@@ -944,7 +965,7 @@ class Analyzer(object):
             # kusto_row_data['failure_level_info']['is_regression'] = True
             kusto_row_data['trigger_icm'] = True
             if is_module_path:
-                kusto_row_data['subject'] = "[" + case_name + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
             else:
                 kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
             kusto_table.append(kusto_row_data)
@@ -969,7 +990,7 @@ class Analyzer(object):
                         # kusto_row_data['failure_level_info']['is_regression'] = True
                         kusto_row_data['trigger_icm'] = True
                         if is_module_path:
-                            kusto_row_data['subject'] = "[" + case_name + "][" + branch + "]"
+                            kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
                         else:
                             kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
                         kusto_table.append(kusto_row_data)
@@ -993,7 +1014,7 @@ class Analyzer(object):
                     # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                     new_kusto_row_data_asic['trigger_icm'] = True
                     if is_module_path:
-                        new_kusto_row_data_asic['subject'] = "[" + case_name + "][" + branch + "][" + asic + "]"
+                        new_kusto_row_data_asic['subject'] = "[" + module_path + "][" + branch + "][" + asic + "]"
                     else:
                         new_kusto_row_data_asic['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "][" + asic + "]"
                     kusto_table.append(new_kusto_row_data_asic)
@@ -1029,7 +1050,7 @@ class Analyzer(object):
                         # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku['trigger_icm'] = True
                         if is_module_path:
-                            new_kusto_row_data_hwsku['subject'] = "[" + case_name + "][" + branch + "][" + asic + "][" + hwsku + "]"
+                            new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + branch + "][" + asic + "][" + hwsku + "]"
                         else:
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + case_name + \
                                     "][" + branch + "][" + asic + "][" + hwsku + "]"
