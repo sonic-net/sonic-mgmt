@@ -273,6 +273,8 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, con
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
+    if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
+        pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
 
     ptfhost = common_setup_teardown
 
@@ -293,6 +295,9 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts, con
                 test_lags = [ dut_lag ]
 
             for lag_name in test_lags:
+                # specific LAG interface from t0-56-po2vlan topo, which can't be tested
+                if lag_name == 'PortChannel201':
+                    continue
                 if testcase in [ "single_lag",  "lacp_rate" ]:
                     try:
                         lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
@@ -449,7 +454,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                 # Retrieve lag_facts after no shutdown interface
                 duthost.no_shutdown(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
-                pytest_assert(wait_until(15, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                     "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
     finally:
         # Recover interfaces in case of failure
@@ -505,5 +510,5 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
             # 5 No shutdown this port to check if status is up
             duthost.no_shutdown(po_intf)
             # Sometimes, it has to wait seconds for booting up interface
-            pytest_assert(wait_until(15, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+            pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                 "{} member {}'s admin_status or oper_status in state_db is not up.".format(lag_name, po_intf))

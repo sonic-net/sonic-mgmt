@@ -32,6 +32,10 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - wan-pub
+          - wan-4link
+          - wan-pub-cisco
+          - wan-2dut
       children:
         server_1:
     lab:
@@ -258,6 +262,7 @@ vm_host_1:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
       ansible_user: use_own_value
+      vm_host_user: use_own_value
 
 vms_1:
   hosts:

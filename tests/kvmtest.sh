@@ -105,7 +105,7 @@ test_t0() {
     tgname=1vlan
     if [ x$section == x"part-1" ]; then
       tests="\
-      arp/test_arp_dualtor.py \
+      arp/test_arp_extended.py \
       arp/test_neighbor_mac.py \
       arp/test_neighbor_mac_noptf.py\
       bgp/test_bgp_fact.py \
@@ -202,7 +202,7 @@ test_t0_sonic() {
     tgname=t0-sonic
     tests="\
       bgp/test_bgp_fact.py \
-      macsec/test_macsec.py"
+      macsec"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
@@ -269,25 +269,32 @@ test_multi_asic_t1_lag() {
     tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer
+    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -c "$tests" -p logs/$tgname
     popd
 }
 
 test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
-    bgp/test_bgp_fact.py"
+    bgp/test_bgp_fact.py \
+    snmp/test_snmp_default_route.py \
+    snmp/test_snmp_loopback.py \
+    snmp/test_snmp_pfc_counters.py \
+    snmp/test_snmp_queue.py \
+    tacacs/test_accounting.py \
+    tacacs/test_authorization.py \
+    tacacs/test_jit_user.py \
+    tacacs/test_ro_user.py \
+    tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e --disable_loganalyzer -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
     popd
 }
 
 test_dualtor(){
     tgname=dualtor
-    tests="arp/test_arp_dualtor.py"
+    tests="arp/test_arp_extended.py"
 #    dualtor/test_ipinip.py \
 #    dualtor/test_orch_stress.py \
 #    dualtor/test_orchagent_active_tor_downstream.py \
@@ -334,7 +341,7 @@ popd
 
 export ANSIBLE_LIBRARY=$SONIC_MGMT_DIR/ansible/library/
 
-# workaround for issue https://github.com/Azure/sonic-mgmt/issues/1659
+# workaround for issue https://github.com/sonic-net/sonic-mgmt/issues/1659
 export ANSIBLE_KEEP_REMOTE_FILES=1
 export GIT_USER_NAME=$GIT_USER_NAME
 export GIT_API_TOKEN=$GIT_API_TOKEN
