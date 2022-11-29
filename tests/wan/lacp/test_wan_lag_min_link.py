@@ -31,9 +31,7 @@ def get_target_pcs(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
     all_pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"])
                for pair in peer_ip_pc_pair]
-    if len(all_pcs) < 2:
-        pytest.skip(
-            "Skip test due to no enough port channel in current topology, at least 2 port channels needed.")
+    pytest_assert(len(all_pcs) > 1, "At least 2 port channels needed")
 
     # generate output pc tuples, fill in members,
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
@@ -41,9 +39,7 @@ def get_target_pcs(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
                for pair in all_pcs
                if pair[2] in dut_mg_facts['minigraph_portchannels']
                and len(dut_mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
-    if len(out_pcs) < 1:
-        pytest.skip(
-            "Skip test due to there is no enough port channel with at least 2 members exists in current topology.")
+    pytest_assert(len(out_pcs) > 0, "One port channel with at least 2 members needed.")
 
     out_pc = random.sample(out_pcs, k=1)[0]
     selected_pcs = random.sample(all_pcs, k=2)
