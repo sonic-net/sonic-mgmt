@@ -244,7 +244,6 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
     5. Verify the packets are egressed to uplinks 
     6. Verify the counter of expected rule increases as expected
     """
-    return
     router_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     
