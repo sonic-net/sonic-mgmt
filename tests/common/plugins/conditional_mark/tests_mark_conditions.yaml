@@ -987,3 +987,14 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
     reason: "RIF MAC taking precedence over VRF MAC"
     conditions:
       - "asic_type in ['barefoot']"
+
+#######################################
+#####           wan_lacp          #####
+#######################################
+wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
+  skip:
+    reason: "Skip test due to there isn't enough port channel or members exists in current topology."
+    conditions_logical_operator: OR
+    conditions:
+      - "len(minigraph_portchannels) < 2"
+      - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
