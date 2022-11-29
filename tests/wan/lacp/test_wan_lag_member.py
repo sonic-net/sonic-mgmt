@@ -6,7 +6,6 @@ import traceback
 import sys
 
 from tests.common.utilities import wait
-
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
