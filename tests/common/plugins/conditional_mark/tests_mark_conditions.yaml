@@ -978,3 +978,12 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+#######################################
+#####           vrf_attr          #####
+#######################################
+vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
+  skip:
+    reason: "RIF MAC taking precedence over VRF MAC"
+    conditions:
+      - "asic_type in ['barefoot']"

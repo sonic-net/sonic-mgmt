@@ -597,6 +597,13 @@
         file: path=/etc/sonic/running_golden_config.json
               state=absent
 
+      - name: remove running golden config files for all the asics if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config{{ item }}.json
+              state=absent
+        with_sequence: start=0 end={{ num_asics - 1 }}
+        when: num_asics > 1
+
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
