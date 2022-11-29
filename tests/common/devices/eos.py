@@ -351,6 +351,12 @@ class EosHost(AnsibleHostBase):
             return False
 
     def ping_dest(self, dest):
+        """
+        Check if ping to dest IP sucess or not
+
+        Returns: True or False
+        """
+
         try:
             command = 'ping {} repeat 5'.format(dest)
             output = self.eos_command(commands=[command])['stdout'][0]
