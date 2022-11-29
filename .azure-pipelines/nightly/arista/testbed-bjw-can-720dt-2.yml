@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 10 * * 5"
+  - cron: "0 14 * * 6"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202205
     always: true
 
 variables:
@@ -18,35 +18,41 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-dual-t0-7050-3
+    default: testbed-bjw-can-720dt-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
+    default: $(BJW_IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
-
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
+    default: $(BJW_SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
+
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--no_dscp_uniform"
+    displayName: "Extra pytest params"
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "platform_tests/test_cont_warm_reboot.py"
+    default: "autorestart/test_container_autorestart.py \
+              platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Skip Scripts"
 
-  - name: TESTBED_SPECIFIC
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+  - name: AGENT_POOL
     type: string
-    default: '-S "span sub_port_interfaces dualtor_io platform_tests dualtor qos pc generic_config_updater acl drop_packets snmp"'
-    displayName: Testbed specific
+    default: nightly-bjw
+    displayName: "Agent pool"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -54,6 +60,7 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}

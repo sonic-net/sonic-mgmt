@@ -40,7 +40,7 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "dualtor/test_orch_stress.py"
+    default: ""
     displayName: "Skip Scripts"
 
   - name: TESTBED_SPECIFIC

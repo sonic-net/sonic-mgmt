@@ -462,7 +462,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-03" Proxy="admin" StartDevice="console-197" StartPort="27"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-04" Proxy="admin" StartDevice="console-197" StartPort="38"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-01" Proxy="admin" StartDevice="console-197" StartPort="6"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-05" Proxy="admin" StartDevice="console-197" StartPort="6"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-05" Proxy="admin" StartDevice="console-197" StartPort="7"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-06" Proxy="admin" StartDevice="console-197" StartPort="19"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>

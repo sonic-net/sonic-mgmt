@@ -4243,6 +4243,18 @@ vms_bjw_6:
       ansible_host: 172.16.190.68
     VM56037:
       ansible_host: 172.16.190.69
+    VM65038:
+      ansible_host: 172.16.190.70
+    VM65039:
+      ansible_host: 172.16.190.71
+    VM65040:
+      ansible_host: 172.16.190.72
+    VM65041:
+      ansible_host: 172.16.190.73
+    VM65042:
+      ansible_host: 172.16.190.74
+    VM65043:
+      ansible_host: 172.16.190.75
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
