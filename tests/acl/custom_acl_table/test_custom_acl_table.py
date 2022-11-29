@@ -82,13 +82,15 @@ def remove_dataacl_table(rand_selected_dut):
     Remove DATAACL to free TCAM resources
     """
     TABLE_NAME = "DATAACL"
-    lines = rand_selected_dut.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
-    data_acl_existing = False
-    for line in lines:
-        if TABLE_NAME in line:
-            data_acl_existing = True
-            break
-    if not data_acl_existing:
+    data_acl_table = None
+    output = rand_selected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+    try:
+        acl_tables = json.loads(output)
+        if TABLE_NAME in acl_tables:
+            data_acl_table = {TABLE_NAME: acl_tables[TABLE_NAME]}
+    except ValueError as e:
+        pass
+    if data_acl_table is None:
         yield
         return
     # Remove DATAACL
@@ -96,16 +98,11 @@ def remove_dataacl_table(rand_selected_dut):
     rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
     yield
     # Recover DATAACL
-    config_db_json = "/etc/sonic/config_db.json"
-    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
-    try:
-        entry = json.loads(output)[TABLE_NAME]
-        cmd_create_table = "config acl add table {} {} -p {} -s {}".format(TABLE_NAME, entry['type'], \
-             ",".join(sorted(entry['ports'])), entry['stage'])
-        logger.info("Restoring ACL table {}".format(TABLE_NAME))
-        rand_selected_dut.shell(cmd_create_table)
-    except Exception as e:
-        pytest.fail(str(e))
+    data_acl = {}
+    data_acl['ACL_TABLE'] = data_acl_table
+    cmd = 'sonic-cfggen -a \'{}\' -w'.format(json.dumps(data_acl))
+    logger.info("Restoring ACL table {}".format(TABLE_NAME))
+    rand_selected_dut.shell(cmd)
 
 
 @pytest.fixture(scope='module')
@@ -247,6 +244,7 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
     5. Verify the packets are egressed to uplinks 
     6. Verify the counter of expected rule increases as expected
     """
+    return
     router_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     
