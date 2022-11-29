@@ -230,6 +230,7 @@ class KustoConnector(object):
                                                             $left.Result == $right.Result
         | extend BranchName = tostring(split(OSVersion, '.')[0])
         | where not(BranchName has_any(ExcludeBranchList))
+        | where BranchName has_any(ProdQualOSList)
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId
         | distinct Timestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId,  TestbedName, ReproCount
         | where ReproCount >= {}
@@ -270,6 +271,7 @@ class KustoConnector(object):
                                                             $left.Result == $right.Result
         | extend BranchName = tostring(split(OSVersion, '.')[0])
         | where not(BranchName has_any(ExcludeBranchList))
+        | where BranchName has_any(ProdQualOSList)
         | where ReproCount >= {}
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
         | sort by ReproCount, opTestCase, Result
@@ -303,6 +305,7 @@ class KustoConnector(object):
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
+                | where BranchName has_any(ProdQualOSList)
                 | where ModulePath == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
@@ -324,6 +327,7 @@ class KustoConnector(object):
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
+                | where BranchName has_any(ProdQualOSList)
                 | where opTestCase == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
