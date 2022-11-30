@@ -17,7 +17,7 @@ class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
@@ -64,9 +64,9 @@ class snmpPduController(PduControllerBase):
         Define Oids based on the PDU Type
         """
         # MIB OIDs for 'APC Web/SNMP Management PDU'
-        APC_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.4.4.2.1"
-        APC_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1"
-        APC_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1"
+        APC_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.2"
+        APC_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1.4"
+        APC_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.4"
         # MIB OID for 'Sentry Switched CDU'
         SENTRY_PORT_NAME_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.3"
         SENTRY_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.3.2.3.1.5"
@@ -96,6 +96,8 @@ class snmpPduController(PduControllerBase):
             self.PORT_NAME_BASE_OID      = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID   = APC_PORT_CONTROL_BASE_OID
+            self.has_lanes = False
+            self.max_lanes = 1
         elif self.pduType == "SENTRY":
             self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
