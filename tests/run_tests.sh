@@ -330,7 +330,7 @@ function run_individual_tests()
             fi
         else
             # rc 10 means pre-test sanity check failed, rc 12 means boths pre-test and post-test sanity check failed
-            if [ ${ret_code} -eq 10 ] || [${ret_code} -eq 12 ]; then
+            if [ ${ret_code} -eq 10 ] || [ ${ret_code} -eq 12 ]; then
                 echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
                 return ${ret_code}
             fi
