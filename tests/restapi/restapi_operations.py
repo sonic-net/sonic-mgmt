@@ -205,3 +205,12 @@ class Restapi:
             pytest_assert(r.status_code == 200)
         else:
             logger.error("Malformed URL for "+path+"!")
+
+    def post_config_tunnel_decap(self, construct_url, params):
+        path = API_VERSION+'/config/tunnel/decap/vxlan'
+        url = construct_url(path)
+        if url:
+            return self.request(POST, url,params)
+        else:
+            logger.error("Malformed URL for "+path+"!")
+
