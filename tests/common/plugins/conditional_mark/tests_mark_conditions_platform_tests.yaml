@@ -791,12 +791,9 @@ platform_tests/broadcom:
 platform_tests/broadcom/test_ser.py:
   skip:
     reason: "platform does not support test_ser"
+    conditions_logical_operator: "OR"
     conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6218
-  skip:
-    reason: "test_ser is only supported for Broadcom"
-    conditions:
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type not in ['broadcom']"
 
 #######################################
