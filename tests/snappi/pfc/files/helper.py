@@ -38,7 +38,7 @@ def run_pfc_test(api,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause,
-                 headroom_test_result=None):
+                 headroom_test_params=None):
     """
     Run a PFC test
     Args:
@@ -55,7 +55,8 @@ def run_pfc_test(api,
         bg_prio_list (list): priorities of background flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
-        headroom_test_result (bool): if the associated pfc pause quanta results in no packet drop
+        headroom_test_params (array): 2 element array if the associated pfc pause quanta 
+                                    results in no packet drop [pfc_delay, headroom_result]
     Returns:
         N/A
     """
@@ -75,7 +76,7 @@ def run_pfc_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     """ Rate percent must be an integer """
-    if headroom_test_result is None:
+    if headroom_test_params is None:
         test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
         bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
     else:
@@ -128,7 +129,7 @@ def run_pfc_test(api,
                      speed_gbps=speed_gbps,
                      test_flow_pause=test_traffic_pause,
                      tolerance=TOLERANCE_THRESHOLD,
-                     headroom_test_result=headroom_test_result)
+                     headroom_test_params=headroom_test_params)
 
 
 sec_to_nanosec = lambda x: x * 1e9
@@ -378,7 +379,7 @@ def __verify_results(rows,
                      speed_gbps,
                      test_flow_pause,
                      tolerance,
-                     headroom_test_result=None):
+                     headroom_test_params=None):
     """
     Verify if we get expected experiment results
     Args:
@@ -393,7 +394,8 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
-        headroom_test_result (bool): if the associated pfc pause quanta results in no packet drop
+        headroom_test_params (array): 2 element array if the associated pfc pause quanta 
+                                    results in no packet drop [pfc_delay, headroom_result]
     Returns:
         N/A
     """
@@ -402,9 +404,8 @@ def __verify_results(rows,
     pause_flow_row = next(row for row in rows if row.name == pause_flow_name)
     tx_frames = pause_flow_row.frames_tx
     rx_frames = pause_flow_row.frames_rx
-    if headroom_test_result is None or headroom_test_result:
-        pytest_assert(tx_frames > 0 and rx_frames == 0,
-                  'All the pause frames should be dropped')
+    pytest_assert(tx_frames > 0 and rx_frames == 0,
+                'All the pause frames should be dropped')
 
     """ Check background flows """
     for row in rows:
@@ -452,6 +453,11 @@ def __verify_results(rows,
         tx_bytes_total = tx_frames_total * data_pkt_size
         dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
 
-        pytest_assert(tx_bytes_total < dut_buffer_size,
-                      'Total TX bytes {} should be smaller than DUT buffer size {}'.\
-                      format(tx_bytes_total, dut_buffer_size))
+        if headroom_test_params is None or headroom_test_params[1]:
+            pytest_assert(tx_bytes_total < dut_buffer_size,
+                        'Total TX bytes {} should be smaller than DUT buffer size {}'.\
+                        format(tx_bytes_total, dut_buffer_size))
+        elif not headroom_test_params[1]:
+            pytest_assert(tx_bytes_total > dut_buffer_size,
+                        'Total TX bytes {} should exceed DUT buffer size {}'.\
+                        format(tx_bytes_total, dut_buffer_size))
