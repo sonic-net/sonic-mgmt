@@ -406,10 +406,11 @@ def parser_YmlFile(fileName):
 
 
 class Testbeds_auto_recovery(object):
-    def __init__(self, verbose = False, debug_mode = False, sanity_check = False, golden_image = False):
+    def __init__(self, verbose = False, debug_mode = False, sanity_check = False, golden_image = False, agent_pool = 'nightly'):
         self.verbose = verbose
         self.debug_mode = debug_mode
         self.sanity_check = sanity_check
+        self.agent_pool = agent_pool
         self.unhealthy_testbeds_count = 0
         self.unhealthy_testbeds = {}
         self.unhealthy_testbeds_ToCusto = {}
@@ -448,6 +449,14 @@ class Testbeds_auto_recovery(object):
 
         for testbedTmp in testbedName_list:
             testbed = testbedTmp.strip()
+
+            if (self.agent_pool == 'nightly-bjw' and '-bjw-' not in testbed) \
+                or (self.agent_pool == 'nightly-svc' and 'svc' not in testbed) \
+                or (self.agent_pool == 'nightly' and (('-bjw-' in testbed) or ('svc' in testbed))):
+
+                logger.error("testbed {} agent pool {} mismatch ".format(testbed, self.agent_pool))
+                continue
+
             # get testbed's DUT, IP, console
             dut, console, ip = get_testbed_info(testbed)
             if dut == None and console == None and ip == None:
@@ -477,7 +486,7 @@ class Testbeds_auto_recovery(object):
         self.current_step = AUTO_RECOVERY_RC.COLLECT_UNHEALTHY_TESTBED
         logger.info("collect unhealthy testbeds ")
 
-        # query unhealthy testbeds table
+        # query unhealthy testbeds table, nightly pipeline build failed table
         self.kusto_checker = create_kusto_checker()
         currentUnhealthyTable = self.kusto_checker.query_unhealthy_testbeds(self.collect_unhealthy_table_age)
         if self.verbose :
@@ -497,7 +506,7 @@ class Testbeds_auto_recovery(object):
                 logger.info("unhealthy testbeds: {} ".format(unhealthy_testbeds_table[testbed]))
 
 
-        # query autoRecovery table
+        # query autoRecovery table, find out testbeds which have not completed auto recover sequence 
         if self.kusto_checker == None:
             self.kusto_checker = create_kusto_checker()
         currentAutoRecoveryTable = self.kusto_checker.query_autoRecovery_testbeds(self.collect_autoRecovery_table_age)
@@ -527,13 +536,21 @@ class Testbeds_auto_recovery(object):
         # move testbeds which priority is not 0 to unhealthy testbeds dict
         for testbed in autoRecovery_testbeds_list[:]:
             if autoRecovery_testbeds[testbed]['Priority'] != 0:
-                autoRecovery_testbeds_list.remove(testbed)
+
+                if (self.agent_pool == 'nightly-bjw' and '-bjw-' not in testbed) \
+                    or (self.agent_pool == 'nightly-svc' and 'svc' not in testbed) \
+                    or (self.agent_pool == 'nightly' and (('-bjw-' in testbed) or ('svc' in testbed))):
+
+                    logger.error("testbed {} agent pool {} mismatch ".format(testbed, self.agent_pool))
+                    continue
 
                 # get testbed's DUT, IP, console
                 dut, console, ip = get_testbed_info(testbed)
                 if dut == None and console == None and ip == None:
                     logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
                     continue
+
+                autoRecovery_testbeds_list.remove(testbed)
 
                 self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : autoRecovery_testbeds[testbed]['UTCTimestamp'],
                                                     'TestbedName'   : autoRecovery_testbeds[testbed]['TestbedName'],
@@ -576,6 +593,13 @@ class Testbeds_auto_recovery(object):
                 dut, console, ip = get_testbed_info(testbed)
                 if dut == None and console == None and ip == None:
                     logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
+                    continue
+
+                if (self.agent_pool == 'nightly-bjw' and '-bjw-' not in testbed) \
+                    or (self.agent_pool == 'nightly-svc' and 'svc' not in testbed) \
+                    or (self.agent_pool == 'nightly' and (('-bjw-' in testbed) or ('svc' in testbed))):
+
+                    logger.error("testbed {} agent pool {} mismatch ".format(testbed, self.agent_pool))
                     continue
 
                 self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : unhealthy_testbeds_table[testbed]['UTCTimestamp'],
@@ -953,6 +977,10 @@ class Testbeds_auto_recovery(object):
             if self.verbose :
                 logger.info("trigger testbed {} build {} start ".format(testbed, pipeline_id))
 
+            if self.agent_pool != 'nightly' and self.agent_pool != 'nightly-bjw' and self.agent_pool != 'nightly-svc' :
+                raise RuntimeError('agent pool {} ERROR!!! testbed {} pipeline_id {} '.format(self.agent_pool, testbed, pipeline_id))
+                return
+
             if pipeline_id == self.trigger_redeploy_id:
                 for DutName in self.unhealthy_testbeds[testbed]['DutName']:
                     # cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + self.unhealthy_testbeds[testbed]['DutName'][0].split("-", 1)[0] + " -a run --cmd 'show version' -l " + self.unhealthy_testbeds[testbed]['DutName']
@@ -965,7 +993,8 @@ class Testbeds_auto_recovery(object):
                     "templateParameters" : {
                         "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
                         "RUN_STOP_TOPO_VMS" : 'false',
-                        "RUN_START_TOPO_VMS" : 'false'
+                        "RUN_START_TOPO_VMS" : 'false',
+                        "AGENT_POOL" : self.agent_pool
                     }
                 }
             elif pipeline_id == self.trigger_sanitycheck_id:
@@ -974,18 +1003,20 @@ class Testbeds_auto_recovery(object):
                     image_url = self.upgradeImageUrl[testbed]
 
                 if image_url != None:
-                    logger.info("testbed {} upgrade image url {} ".format(testbed, image_url))
+                    logger.info("testbed {} upgrade image url {} agent_pool {} ".format(testbed, image_url, self.agent_pool))
                     payload = {
                         "templateParameters" : {
                             "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
-                            "IMAGE_URL" : image_url
+                            "IMAGE_URL" : image_url,
+                            "AGENT_POOL" : self.agent_pool
                         }
                     }
                 else:
-                    logger.warning("WARNING testbed {} upgrade image url is None ".format(testbed))
+                    logger.warning("WARNING testbed {} upgrade image url is None, agent_pool {} ".format(testbed, self.agent_pool))
                     payload = {
                         "templateParameters" : {
                             "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
+                            "AGENT_POOL" : self.agent_pool
                         }
                     }
             else:
@@ -1236,10 +1267,16 @@ if __name__ == '__main__':
         required=False
     )
 
-    args = parser.parse_args()
-    logger.info("verbose {} debug mode {} sanity check {} testbedName {} golden_image {}".format(args.verbose, args.debug, args.sanity_check, args.testbedName, args.golden_image))
+    parser.add_argument(
+        '-p', '--agent_pool', help='input agent pool; nightly,nightly-svc,nightly-bjw', type=str,
+        choices = ['nightly', 'nightly-svc', 'nightly-bjw'],
+        required=True, default='nightly'
+    )
 
-    autoRecovery = Testbeds_auto_recovery(verbose = args.verbose, debug_mode = args.debug, sanity_check = args.sanity_check, golden_image = args.golden_image)
+    args = parser.parse_args()
+    logger.info("verbose {} debug mode {} sanity check {} testbedName {} golden_image {} agent_pool {}".format(args.verbose, args.debug, args.sanity_check, args.testbedName, args.golden_image, args.agent_pool))
+
+    autoRecovery = Testbeds_auto_recovery(verbose = args.verbose, debug_mode = args.debug, sanity_check = args.sanity_check, golden_image = args.golden_image, agent_pool = args.agent_pool)
     autoRecovery.start_time = time.time()
 
     # collect unhealthy testbeds
