@@ -210,6 +210,7 @@ class KustoConnector(object):
         let ResultFilterList = dynamic(["failure", "error"]);
         let ExcludeTestbedList = dynamic({});
         let ExcludeBranchList = dynamic({});
+        let ExcludeHwSkuList = dynamic({});
         let timeBefore = {};
         let totalcase_threshod = {};
         FlatTestSummaryView
@@ -219,6 +220,7 @@ class KustoConnector(object):
         | where OSVersion has_any(ProdQualOSList)
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
+        | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where Summary contains "test setup failure"
         | where FullTestPath !contains "platform_tests"
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
@@ -235,7 +237,10 @@ class KustoConnector(object):
         | distinct Timestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId,  TestbedName, ReproCount
         | where ReproCount >= {}
         | sort by ReproCount, ModulePath
-        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"], self.config_info["branch"]["excluded_branch_setup_error"], str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
+        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
+            self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
+            str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'],
+            start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
         logger.info("Query test setup failure cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -253,6 +258,7 @@ class KustoConnector(object):
         let ResultFilterList = dynamic(["failure", "error"]);
         let ExcludeTestbedList = dynamic({});
         let ExcludeBranchList = dynamic({});
+        let ExcludeHwSkuList = dynamic({});
         let timeBefore = {};
         let totalcase_threshod = {};
         FlatTestSummaryView
@@ -262,6 +268,7 @@ class KustoConnector(object):
         | where OSVersion has_any(ProdQualOSList)
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
+        | where not (HardwareSku has_any(ExcludeHwSkuList))
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner LatestTestCaseRunFailure(timeBefore, ProdQualOSList, ResultFilterList)
@@ -275,7 +282,10 @@ class KustoConnector(object):
         | where ReproCount >= {}
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
         | sort by ReproCount, ModulePath, opTestCase, Result
-        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"], self.config_info["branch"]["excluded_branch"], str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit'])
+        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
+            self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+            str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'],
+            start_time, end_time, self.config_info['threshold']['repro_count_limit'])
         logger.info("Query failed cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -294,6 +304,7 @@ class KustoConnector(object):
                 let ResultFilterList = dynamic(["failure", "error"]);
                 let ExcludeTestbedList = dynamic({});
                 let ExcludeBranchList = dynamic({});
+                let ExcludeHwSkuList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
                 | where Timestamp > datetime({}) and Timestamp <= datetime({})
@@ -302,6 +313,7 @@ class KustoConnector(object):
                 | where OSVersion has_any(ProdQualOSList)
                 | where Result !in ("skipped")
                 | where not(TestbedName has_any(ExcludeTestbedList))
+                | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
@@ -309,13 +321,16 @@ class KustoConnector(object):
                 | where ModulePath == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"], self.config_info["branch"]["excluded_branch_setup_error"], self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
+                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
+                    self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
+                    self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
         else:
             query_str = '''
                 let ProdQualOSList = dynamic({});
                 let ResultFilterList = dynamic(["failure", "error"]);
                 let ExcludeTestbedList = dynamic({});
                 let ExcludeBranchList = dynamic({});
+                let ExcludeHwSkuList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
                 | where Timestamp > datetime({}) and Timestamp <= datetime({})
@@ -324,6 +339,7 @@ class KustoConnector(object):
                 | where OSVersion has_any(ProdQualOSList)
                 | where Result !in ("skipped")
                 | where not(TestbedName has_any(ExcludeTestbedList))
+                | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
@@ -331,7 +347,9 @@ class KustoConnector(object):
                 | where opTestCase == "{}" and ModulePath == "{}"
                 | order by StartTimeUTC desc
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"], self.config_info["branch"]["excluded_branch"], self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
+                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
+                    self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+                    self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 
