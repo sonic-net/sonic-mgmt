@@ -443,6 +443,10 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
+            
+            if headroom_test_params is not None and not headroom_test_params[1]:
+                tolerance = 0.5
+
             pytest_assert(abs(deviation) < tolerance,
                           '{} should receive {} packets (actual {})'.
                           format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
