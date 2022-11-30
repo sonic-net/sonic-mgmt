@@ -1,38 +1,33 @@
-#-----------------------------------
+# -----------------------------------
 # A set of traffic-tests for checking LAGs functionality.
-#-----------------------------------
-
-import random
-import time
-import logging
-import ptf.packet as scapy
-import socket
-import ptf.dataplane as dataplane
-
-from ptf.testutils import *
-from ptf.mask import Mask
-import ipaddress
-
-import os
-import logging
-import unittest
+# -----------------------------------
 
 import ptf
 from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.dataplane as dataplane
-import ptf.testutils as testutils
-from router_utils import *
-import pprint
-from scapy.all import rdpcap
+import ptf.packet as scapy
+import ptf.dataplane as dataplane   # noqa F811
 
-class LagMembersTrafficTest(BaseTest,RouterUtility):
+import ptf.testutils as testutils
+from ptf.testutils import simple_icmp_packet
+from ptf.testutils import send_packet
+from ptf.testutils import verify_packet
+from ptf.testutils import simple_eth_packet
+from ptf.testutils import send
+from ptf.testutils import verify_packet_any_port
+from ptf.mask import Mask
+
+from router_utils import RouterUtility
+
+
+class LagMembersTrafficTest(BaseTest, RouterUtility):
     '''
-    @ summary: run traffic from <src_iface> to <dst_addr>. All packets should arrive to <check_pkts_iface>.
+    @ summary: run traffic from <src_iface> to <dst_addr>.
+               All packets should arrive to <check_pkts_iface>.
 
     @ param: dst_addr   -   destination address of the traffic (usually LAG interface IP)
     @ param: src_iface  -   interface, where traffic is sent from
-    @ param: check_pkts_iface   -   where packets should arrive (because usually one of LAG members is being DOWN in test purposes).
+    @ param: check_pkts_iface   -   where packets should arrive
+                                    (because usually one of LAG members is being DOWN in test purposes).
     @ param: num_of_pkts        -   amount of traffic to send
     @ param: dut_mac        -   DUT MAC address
     '''
@@ -75,7 +70,8 @@ class LagMembersTrafficTest(BaseTest,RouterUtility):
             verify_packet(self, masked_exp_pkt, self.check_pkts_iface)
             i += 1
 
-class LacpTimingTest(BaseTest,RouterUtility):
+
+class LacpTimingTest(BaseTest, RouterUtility):
     '''
     @ summary: Verify LACP packets arrive with proper packet timing.
 
@@ -99,20 +95,22 @@ class LacpTimingTest(BaseTest,RouterUtility):
     def getMedianInterval(self, masked_exp_pkt):
         intervals = []
         # Verify two LACP packets.
-        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+        (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(
+            port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
         last_pkt_time = round(float(last_pkt_time), 2)
 
         for i in range(0, self.interval_count):
-            (rcv_device, rcv_port, rcv_pkt, curr_pkt_time) = self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+            (rcv_device, rcv_port, rcv_pkt, curr_pkt_time) = \
+                self.dataplane.poll(port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
 
             # Check the packet received.
-            self.assertTrue(rcv_pkt != None, "Failed to receive LACP packet\n")
+            self.assertTrue(rcv_pkt is not None, "Failed to receive LACP packet\n")
 
             # Get current packet timing
             curr_pkt_time = round(float(curr_pkt_time), 2)
 
-            interval   = curr_pkt_time - last_pkt_time
-            intervals += [ interval ]
+            interval = curr_pkt_time - last_pkt_time
+            intervals += [interval]
 
             last_pkt_time = curr_pkt_time
 
@@ -120,7 +118,6 @@ class LacpTimingTest(BaseTest,RouterUtility):
         intervals.sort()
         current_pkt_timing = intervals[self.interval_count / 2]
         return current_pkt_timing
-
 
     def runTest(self):
 
@@ -143,8 +140,8 @@ class LacpTimingTest(BaseTest,RouterUtility):
 
         # Ignore fields with value unknown
         masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         masked_exp_pkt.set_do_not_care(14 * 8, 110 * 8)
 
         # Flush packets in dataplane
@@ -152,9 +149,12 @@ class LacpTimingTest(BaseTest,RouterUtility):
 
         # Check that packet timing matches the expected value.
         current_pkt_timing = self.getMedianInterval(masked_exp_pkt)
-        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" % (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))
+        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: \
+                        %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" %
+                        (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))
 
-class LagMemberTrafficTest(BaseTest,RouterUtility):
+
+class LagMemberTrafficTest(BaseTest, RouterUtility):
     '''
     @ summary: Verify traiffic in lag is okay.
 
@@ -178,17 +178,17 @@ class LagMemberTrafficTest(BaseTest,RouterUtility):
         return int(''.join([i for i in port_name if i.isdigit()]))
 
     def build_icmp_packet(self, vlan_id, src_ip, dst_ip, src_mac, dst_mac,
-                            ttl=64, icmp_type=8):
+                          ttl=64, icmp_type=8):
         pkt = testutils.simple_icmp_packet(pktlen=100 if vlan_id == 0 else 104,
-                                    eth_dst=dst_mac,
-                                    eth_src=src_mac,
-                                    dl_vlan_enable=False if vlan_id == 0 else True,
-                                    vlan_vid=vlan_id,
-                                    vlan_pcp=0,
-                                    ip_src=src_ip,
-                                    ip_dst=dst_ip,
-                                    ip_ttl=ttl,
-                                    icmp_type=icmp_type)
+                                           eth_dst=dst_mac,
+                                           eth_src=src_mac,
+                                           dl_vlan_enable=False if vlan_id == 0 else True,
+                                           vlan_vid=vlan_id,
+                                           vlan_pcp=0,
+                                           ip_src=src_ip,
+                                           ip_dst=dst_ip,
+                                           ip_ttl=ttl,
+                                           icmp_type=icmp_type)
         return pkt
 
     def get_mask_pkt(self, pkt):
@@ -214,28 +214,33 @@ class LagMemberTrafficTest(BaseTest,RouterUtility):
             src_ip = self.ptf_lag['ip'].split('/')[0]
             dst_ip = self.dut_vlan['ip'].split('/')[0]
 
-            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac, src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
-            exp_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac, src_ip=dst_ip, dst_ip=src_ip, icmp_type=0)
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac,
+                                              src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
+            exp_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac,
+                                             src_ip=dst_ip, dst_ip=src_ip, icmp_type=0)
             masked_exp_pkt = self.get_mask_pkt(exp_pkt)
             self.send_and_verify_packets(send_pkt, masked_exp_pkt, port_behind_lag, self.lag_ports)
 
     def run_ptf_to_ptf_traffic_test(self):
         '''
-        @summary: send icmp request packet from port behind lag to port not behind lag in ptf, and verify packet arrive successfully.
+        @summary: send icmp request packet from port behind lag to port not behind lag in ptf,
+                  and verify packet arrive successfully.
         '''
         for src_port in self.lag_ports:
-            dst_port = [ src_port ]
-            src_port = [ self.port_not_behind_lag['port_id'] ]
+            dst_port = [src_port]
+            src_port = [self.port_not_behind_lag['port_id']]
             src_mac = self.dataplane.get_mac(0, src_port[0])
             dst_mac = self.dataplane.get_mac(0, dst_port[0])
-            dst_ip=self.ptf_lag['ip'].split('/')[0]
-            src_ip=self.port_not_behind_lag['ip'].split('/')[0]
+            dst_ip = self.ptf_lag['ip'].split('/')[0]
+            src_ip = self.port_not_behind_lag['ip'].split('/')[0]
 
-            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac, src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac,
+                                              src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
             masked_exp_pkt = self.get_mask_pkt(send_pkt)
             self.send_and_verify_packets(send_pkt, masked_exp_pkt, src_port[0], self.lag_ports)
 
-            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac, src_ip=dst_ip, dst_ip=src_ip, icmp_type=8)
+            send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac,
+                                              src_ip=dst_ip, dst_ip=src_ip, icmp_type=8)
             masked_exp_pkt = self.get_mask_pkt(send_pkt)
             self.send_and_verify_packets(send_pkt, masked_exp_pkt, self.lag_ports[0], src_port)
 
@@ -246,7 +251,7 @@ class LagMemberTrafficTest(BaseTest,RouterUtility):
         self.ptf_lag = self.test_params['ptf_lag']
         self.port_not_behind_lag = self.test_params['port_not_behind_lag']
         port_behind_lag_list = self.ptf_lag['port_list']
-        self.lag_ports = [ self.get_port_number(i) for i in port_behind_lag_list ]
+        self.lag_ports = [self.get_port_number(i) for i in port_behind_lag_list]
 
         self.run_ptf_to_dut_traffic_test()
         self.run_ptf_to_ptf_traffic_test()

@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 from io import BytesIO
+from ast import literal_eval
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -161,6 +162,10 @@ class InterruptableThread(threading.Thread):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
 
+    def set_exit_handler(self, exit_handler):
+        """Add exit handler callback that will be called when the thread eixts."""
+        self.exit_handler = exit_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -172,6 +177,9 @@ class InterruptableThread(threading.Thread):
             self._e = sys.exc_info()
             if getattr(self, "error_handler", None) is not None:
                 self.error_handler(*self._e)
+
+        if getattr(self, "exit_handler", None) is not None:
+            self.exit_handler()
 
     def join(self, timeout=None, suppress_exception=False):
         """
@@ -495,13 +503,16 @@ def dump_scapy_packet_show_output(packet):
         sys.stdout = _stdout
 
 
-def compose_dict_from_cli(fields_list):
-    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+def compose_dict_from_cli(str_output):
+    """Convert the output of sonic-db-cli <DB> HGETALL command from string to
+       dict object containing the field, key pairs of the database table content
 
     Args:
-        fields_list: A list of lines, the output of redis-cli hgetall command
+        str_output: String with output of cli sonic-db-cli <DB> HGETALL <key>
+    Returns:
+        dict: dict object containing the field, key pairs of the database table content
     """
-    return dict(zip(fields_list[0::2], fields_list[1::2]))
+    return literal_eval(str_output)
 
 
 def get_intf_by_sub_intf(sub_intf, vlan_id=None):
@@ -661,3 +672,17 @@ def update_environ(*remove, **update):
         env.update(to_restore)
         for k in to_removed:
             env.pop(k)
+
+
+def get_image_type(duthost):
+    """get the SONiC image type
+        It might be public/microsoft/...or any other type.
+        Different vendors can define their different types by checking the specific information from the build image.
+    Args:
+        duthost: AnsibleHost instance for DUT
+    Returns:
+        The returned image type string will be used as a key of map DEFAULT_SSH_CONNECT_PARAMS defined in
+        tests/common/constants.py for looking up default credential for this type of image.
+    """
+
+    return "public"
