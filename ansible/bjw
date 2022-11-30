@@ -97,7 +97,7 @@ sonic_arista_720dt:
         "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
         "0x2F": "WTW22180040"
         "0xFE": "0xdeadbeef"
-    bjw-can-720dt-2:    # TODO: fix values
+    bjw-can-720dt-2:
       ansible_host: 10.150.22.113
       model: CCS-720DT-48S
       serial: WTW22180032
@@ -107,7 +107,7 @@ sonic_arista_720dt:
         "0x22": "ASY062430103"
         "0x23": "WTW22180032"
         "0x24": "2c:dd:e9:fc:dd:58"
-        "0x25": "2022/06/10 11:50:55"
+        "0x25": "2022/06/10 11:19:51"
         "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_720dt_48s"
