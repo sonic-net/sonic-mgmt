@@ -79,21 +79,6 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
 
-    if reboot_type is not None:
-        logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
-
-        if "201811" in dut.os_version or "201911" in dut.os_version:
-            logging.info("Skip check reboot-cause history for version before 202012")
-        else:
-            logger.info("Check reboot-cause history")
-            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
-                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
-        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
-            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
-            return
-
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
@@ -124,6 +109,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("Check sysfs")
         check_sysfs(dut)
 
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logging.info("Skip check reboot-cause history for version before 202012")
+        else:
+            logger.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
 
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """
