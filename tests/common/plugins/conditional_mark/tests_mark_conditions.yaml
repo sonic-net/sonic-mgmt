@@ -987,3 +987,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
     reason: "RIF MAC taking precedence over VRF MAC"
     conditions:
       - "asic_type in ['barefoot']"
+
+#######################################
+#####          cutsom_acl         #####
+#######################################
+acl/custom_acl_table/test_custom_acl_table.py:
+  skip:
+    reason: "Custom ACL not supported on older releases"
+    conditions:
+      - "release in ['201811', '201911', '202012']"

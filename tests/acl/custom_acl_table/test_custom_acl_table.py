@@ -8,7 +8,6 @@ import ptf.packet as scapy
 
 
 import ptf.testutils as testutils
-from tests.common.utilities import skip_release
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
@@ -28,11 +27,6 @@ ACL_RULE_DST_FILE = "/tmp/acl_rules.json"
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
-
-
-@pytest.fixture(scope='module', autouse=True)
-def check_release(rand_selected_dut):
-    skip_release(rand_selected_dut, ["201811", "201911", "202012"])
 
 
 @pytest.fixture(scope='module')
