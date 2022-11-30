@@ -47,7 +47,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 
 
 @pytest.fixture(scope='module')
-def vlan_ping_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     """
     Setup:      Collecting vm_host_info, ptfhost_info
     Teardown:   Removing all added ipv4 and ipv6 neighbors
