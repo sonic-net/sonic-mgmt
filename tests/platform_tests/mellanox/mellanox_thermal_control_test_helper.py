@@ -64,6 +64,12 @@ THERMAL_NAMING_RULE = {
     "cpu_ambient": {
         "name": "Ambient CPU Board Temp",
         "temperature": "cpu_amb"
+    },
+    "sodimm": {
+        "name": "SODIMM {} Temp",
+        "temperature": "sodimm{}_temp_input",
+        "high_threshold":  "sodimm{}_temp_max",
+        "high_critical_threshold": "sodimm{}_temp_crit"
     }
 }
 
@@ -917,6 +923,12 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
         platform_data = get_platform_data(self.mock_helper.dut)
         thermal_dict = platform_data["thermals"]
         for category, content in thermal_dict.items():
+            # TODO: temp local solution, since the "sodimm" is only supported in master,
+            #  need to check if the branch is master or not
+            if category == "sodimm":
+                skip, _ = check_skip_release(self.dut, ["202205"])
+                if skip:
+                    continue
             number = int(content['number'])
             naming_rule = THERMAL_NAMING_RULE[category]
             if 'start' in content:
