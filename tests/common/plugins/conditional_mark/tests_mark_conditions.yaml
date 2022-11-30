@@ -92,6 +92,12 @@ bgp/test_bgp_gr_helper.py:
     conditions:
       - "'t2' in topo_name"
 
+bgp/test_bgp_speaker.py:
+  skip:
+    reason: "Not supported on topology backend."
+    conditions:
+      - "'backend' in topo_name"
+
 #######################################
 #####            cacl             #####
 #######################################
