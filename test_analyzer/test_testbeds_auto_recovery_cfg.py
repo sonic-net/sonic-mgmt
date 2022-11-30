@@ -1,15 +1,9 @@
 
 skip_testbeds_list = [
-    'msvc1-dual-t0-7050-2',
     'azd',
-    'bjw',
-    'vms21-t1-8102-01',
-    'vms21-t1-8101-02',
     '3164',
-    'testbed',
     '-t2-',
     'svc'
-    # re.compile('')
 ]
 
 

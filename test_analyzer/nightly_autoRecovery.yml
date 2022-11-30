@@ -22,7 +22,7 @@ parameters:
 stages:
   - stage: AutoRecovery
     jobs:
-      - job: AutoRecovery
+      - job: AutoRecovery_starlab
         pool: nightly
         timeoutInMinutes: 180
         variables:
@@ -48,11 +48,103 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt              
 
+                echo 'AGENT_POOL nightly' 
+
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 test_testbeds_auto_recovery.py -v -s -g
+                    python3 test_testbeds_auto_recovery.py -v -s -g -p 'nightly'
                 else
                     echo "skip do sanity check"
-                    python3 test_testbeds_auto_recovery.py -v -g
+                    python3 test_testbeds_auto_recovery.py -v -g -p 'nightly'
+                fi
+                
+            env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)
+
+      - job: AutoRecovery_bjwlab
+        pool: nightly-bjw
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: NIGHTLY_HAWK
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run auto recovery script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt              
+
+                echo 'AGENT_POOL nightly-bjw' 
+ 
+                if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
+                    python3 test_testbeds_auto_recovery.py -v -s -g -p 'nightly-bjw'
+                else
+                    echo "skip do sanity check"
+                    python3 test_testbeds_auto_recovery.py -v -g -p 'nightly-bjw'
+                fi
+                
+            env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)
+
+      - job: AutoRecovery_svc
+        pool: nightly-svc
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: NIGHTLY_HAWK
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run auto recovery script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt              
+
+                echo 'AGENT_POOL nightly-svc' 
+ 
+                if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
+                    python3 test_testbeds_auto_recovery.py -v -s -g -p 'nightly-svc'
+                else
+                    echo "skip do sanity check"
+                    python3 test_testbeds_auto_recovery.py -v -g -p 'nightly-svc'
                 fi
                 
             env:

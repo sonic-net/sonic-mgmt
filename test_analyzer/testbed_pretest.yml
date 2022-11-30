@@ -33,9 +33,19 @@ parameters:
   #   default: $(SAITHRIFT_BRCM_201911)
   #   displayName: "py_saithrift URL"
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+      - nightly-bjw
+    displayName: "Agent pool"
+
 stages:
   - template: nightly_pretest.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       # PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}

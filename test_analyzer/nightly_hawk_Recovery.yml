@@ -23,11 +23,10 @@ parameters:
     type: string
     displayName: "testbeds name for recover"
 
-
 stages:
   - stage: AutoRecovery
     jobs:
-      - job: AutoRecovery
+      - job: AutoRecovery_Starlab
         pool: nightly
         timeoutInMinutes: 180
         variables:
@@ -53,13 +52,106 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt              
 
-                echo 'testbeds name' 
+                echo 'nightly pool, testbeds name' 
                 echo '${{ parameters.TESTBEDS_NAME }}'
+
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 test_testbeds_auto_recovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}'
+                    python3 test_testbeds_auto_recovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly'
                 else
                     echo "skip do sanity check"
-                    python3 test_testbeds_auto_recovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}'
+                    python3 test_testbeds_auto_recovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly'
+                fi
+                
+            env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)
+
+      - job: AutoRecovery_bjwLab
+        pool: nightly-bjw
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: NIGHTLY_HAWK
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run auto recovery script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt              
+
+                echo 'bjw pool, testbeds name' 
+                echo '${{ parameters.TESTBEDS_NAME }}'
+
+                if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
+                    python3 test_testbeds_auto_recovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}'  -p 'nightly-bjw'
+                else
+                    echo "skip do sanity check"
+                    python3 test_testbeds_auto_recovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-bjw'
+                fi
+                
+            env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)
+
+      - job: AutoRecovery_svc
+        pool: nightly-svc
+        timeoutInMinutes: 180
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: NIGHTLY_HAWK
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run auto recovery script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt              
+
+                echo 'svc pool, testbeds name' 
+                echo '${{ parameters.TESTBEDS_NAME }}'
+
+                if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
+                    python3 test_testbeds_auto_recovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc'
+                else
+                    echo "skip do sanity check"
+                    python3 test_testbeds_auto_recovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc'
                 fi
                 
             env:
