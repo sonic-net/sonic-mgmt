@@ -399,7 +399,8 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0',
+                                         'x86_64-arista_720dt_48s']:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
