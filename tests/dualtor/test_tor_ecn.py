@@ -72,12 +72,12 @@ def setup_dualtor_tor_standby(
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
-@pytest.fixture(scope="function")
+
 def build_encapsulated_ip_packet(
+    inner_dscp,
     rand_selected_interface, 
     ptfadapter, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor
+    rand_selected_dut
 ):
     """
     Build the encapsulated packet to be sent from T1 to ToR.
@@ -95,7 +95,6 @@ def build_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_dscp = random.choice([3, 4, 2, 6]) #lossy queue is 3 or 4 or 2 or 6.
     inner_ttl = random.choice(range(3, 65))
     inner_ecn = random.choice(range(0,3))
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
@@ -121,12 +120,12 @@ def build_encapsulated_ip_packet(
 
     return packet
 
-@pytest.fixture(scope="function")
+
 def build_non_encapsulated_ip_packet(
+    dscp,
     rand_selected_interface, 
     ptfadapter, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor
+    rand_selected_dut
 ):
     """
     Build the regular (non encapsulated) packet to be sent from T1 to ToR.
@@ -144,7 +143,6 @@ def build_non_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    dscp = random.choice([3, 4, 2, 6]) #lossy queue is 3 or 4 or 2 or 6.
     ttl = random.choice(range(3, 65))
     ecn = random.choice(range(0,3))
     logging.info("DSCP: {0:06b}, ECN: {1:02b}".format(dscp, ecn))
@@ -248,10 +246,10 @@ def verify_ecn_on_received_packet(
     else:
         logging.info("the expected ECN: {0:02b} matching with received ECN: {0:02b}".format(exp_ecn, rec_ecn))
 
+@pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6]) #lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_decap_on_active(
-    ptfhost, setup_dualtor_tor_active,
-    build_encapsulated_ip_packet, request,
-    rand_selected_interface, ptfadapter,
+    inner_dscp, ptfhost, setup_dualtor_tor_active,
+    request, rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor, 
     duthosts, rand_one_dut_hostname
 ):
@@ -259,7 +257,7 @@ def test_dscp_to_queue_during_decap_on_active(
     Test if DSCP to Q mapping for inner header is matching with outer header during decap on active
     """
     tor = rand_selected_dut
-    encapsulated_packet = build_encapsulated_ip_packet
+    encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface, ptfadapter, rand_selected_dut)
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
@@ -304,9 +302,10 @@ def write_standby(rand_selected_dut):
     except:
         pytest.skip('file {} not found'.format(file))
 
+@pytest.mark.parametrize("dscp", [3, 4, 2, 6]) #lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_encap_on_standby(
+    dscp,
     setup_dualtor_tor_standby,
-    build_non_encapsulated_ip_packet,
     rand_selected_interface, ptfadapter,
     tbinfo, 
     rand_selected_dut, 
@@ -321,7 +320,7 @@ def test_dscp_to_queue_during_encap_on_standby(
     write_standby()
 
     tor = rand_selected_dut
-    non_encapsulated_packet = build_non_encapsulated_ip_packet
+    non_encapsulated_packet = build_non_encapsulated_ip_packet(dscp, rand_selected_interface, ptfadapter, rand_selected_dut)
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
@@ -337,17 +336,17 @@ def test_dscp_to_queue_during_encap_on_standby(
     with tunnel_traffic_monitor(tor, existing=True, packet_count=PACKET_NUM):
        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=PACKET_NUM)
 
+@pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6]) #lossless queue is 3 or 4 or 2 or 6.
 def test_ecn_during_decap_on_active(
-    ptfhost, setup_dualtor_tor_active,
-    build_encapsulated_ip_packet, request,
-    rand_selected_interface, ptfadapter,
+    inner_dscp, ptfhost, setup_dualtor_tor_active,
+    request, rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor
 ):
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
     """
     tor = rand_selected_dut
-    encapsulated_packet = build_encapsulated_ip_packet
+    encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface, ptfadapter, rand_selected_dut)
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
@@ -366,9 +365,10 @@ def test_ecn_during_decap_on_active(
         tor.shell("portstat -j")
         verify_ecn_on_received_packet(ptfadapter, exp_pkt, exp_ptf_port_index, exp_ecn)
 
+@pytest.mark.parametrize("dscp", [3, 4, 2, 6]) #lossless queue is 3 or 4 or 2 or 6.
 def test_ecn_during_encap_on_standby(
+    dscp,
     setup_dualtor_tor_standby,
-    build_non_encapsulated_ip_packet,
     rand_selected_interface, ptfadapter,
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,
     write_standby
@@ -379,7 +379,7 @@ def test_ecn_during_encap_on_standby(
     write_standby()
 
     tor = rand_selected_dut
-    non_encapsulated_packet = build_non_encapsulated_ip_packet
+    non_encapsulated_packet = build_non_encapsulated_ip_packet(dscp, rand_selected_interface, ptfadapter, rand_selected_dut)
     iface, _ = rand_selected_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
