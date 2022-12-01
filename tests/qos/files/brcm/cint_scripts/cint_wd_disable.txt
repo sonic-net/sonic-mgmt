@@ -1,0 +1,16 @@
+
+int disable_credit_wd(void)
+{
+    int rv;
+    rv = bcm_fabric_control_set(0, bcmFabricWatchdogQueueEnable, BCM_FABRIC_WATCHDOG_QUEUE_DISABLE);
+    if(rv == 0)
+    {
+      printf("Disabling Credit Watchdog is Successful\n");
+    }
+    else {
+      printf("Disabling Credit Watchdog is UnSuccessful\n");
+    }
+    return rv;
+}
+disable_credit_wd();
+exit;

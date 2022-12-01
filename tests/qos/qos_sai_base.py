@@ -25,7 +25,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker
 from tests.common.errors import RunAnsibleModuleFail
 from tests.conftest import add_route_to_ptf_setup, add_route_to_ptf_cleanup
-from tests.conftest import pytest_configure
+from tests.conftest import add_route_to_ptf_setup, add_route_to_ptf_cleanup
 
 logger = logging.getLogger(__name__)
 
@@ -459,19 +459,19 @@ class QosSaiBase(QosBase):
                     new_creds = creds
                 for duthost in get_src_dst_asic_and_duts["all_duts"]:
                     docker.swap_syncd(duthost, new_creds)
-                add_route_to_ptf_setup(duthosts, tbinfo, request)
+            add_route_to_ptf_setup(duthosts, tbinfo, request)
             yield
         finally:
             if swapSyncd:
                 for duthost in get_src_dst_asic_and_duts["all_duts"]:
                     docker.restore_default_syncd(duthost, new_creds)
-                add_route_to_ptf_cleanup(duthosts,tbinfo, request)
+            add_route_to_ptf_cleanup(duthosts,tbinfo, request)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
-                    params=("single_asic","multi_dut"))
+                    params=("single_asic", "single_dut_multi_asic", "multi_dut"))
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host):
         test_port_selection_criteria = request.param
-        logger.info("test_port_selection_criteria is {}".format(request.param))
+        logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
         src_dut_index = 0
         dst_dut_index = 0
         src_asic_index = 0
@@ -1059,6 +1059,7 @@ class QosSaiBase(QosBase):
             {"docker": src_asic.get_docker_name("bgp"), "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "radvd"}
+            {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
         dst_services = []
         if src_asic != dst_asic:
@@ -1069,6 +1070,7 @@ class QosSaiBase(QosBase):
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
                 {"docker": dst_asic.get_docker_name("swss"), "service": "radvd"},
+                {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"},
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']

@@ -1633,9 +1633,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     src_asic = get_src_dst_asic_and_duts['src_asic']
     dst_asic = get_src_dst_asic_and_duts['dst_asic']
 
-    src_dut = get_src_dst_asic_and_duts['src_dut']
-    src_dut_ip = src_dut.host.options['inventory_manager'].get_host(src_dut.hostname).vars['ansible_host']
-    src_server = "{}:{}".format(src_dut_ip, src_asic.get_rpc_port_ssh_tunnel())
+    src_server = "{}:{}".format(src_asic.sonichost.facts['dut_ip_ptfnet_add'], src_asic.get_rpc_port_ssh_tunnel())
 
     duthost = all_duts[0]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -1665,9 +1663,9 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
 
     # Add dst server info if src and dst asic are different
     if src_asic != dst_asic:
-        dst_dut = get_src_dst_asic_and_duts['dst_dut']
-        dst_dut_ip = dst_dut.host.options['inventory_manager'].get_host(dst_dut.hostname).vars['ansible_host']
-        rtn_dict["basicParams"]["dst_server"] = "{}:{}".format(dst_dut_ip, dst_asic.get_rpc_port_ssh_tunnel())
+
+        rtn_dict["basicParams"]["dst_server"] = "{}:{}".format(dst_asic.sonichost.facts['dut_ip_ptfnet_add'],
+                                                               dst_asic.get_rpc_port_ssh_tunnel())
 
     if 'platform_asic' in duthost.facts:
         rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
@@ -1677,7 +1675,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
 
 @ pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host, creds):   # noqa F811
+                    ptf_portmap_file, lower_tor_host):  # noqa F811
     """
         Prepares DUT host test params
 
@@ -1702,11 +1700,9 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         "hwsku": mgFacts["minigraph_hwsku"],
         "basicParams": {
             "router_mac": duthost.facts["router_mac"],
-            # for our lab network use ip in ptf subnet as server ip
-            # "server": duthost.host.options['inventory_manager'].get_host(
-            #             duthost.hostname
-            #         ).vars['ansible_host'],
-            "server" : duthost.facts['dut_ip_ptfnet_add'],
+            "server": duthost.host.options['inventory_manager'].get_host(
+                        duthost.hostname
+                    ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
             "sonic_version": duthost.os_version,

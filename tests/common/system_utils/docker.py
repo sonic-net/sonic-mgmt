@@ -86,6 +86,33 @@ def download_image(duthost, registry, image_name, image_version="latest"):
         logger.error("Error detail:\n{}".format(repr(e)))
         raise RuntimeError(error_message)
 
+def download_image_local(duthost):
+    """Attempts to download the specified file from location.
+
+        Args:
+            duthost (SonicHost): The target device.
+            image_name (str): The name of the image to download.
+            image_version (str): The version of the image to download.
+        """
+
+    version_out = duthost.shell("cat /etc/sonic/sonic_version.yml | grep build_version")['stdout']
+    ver = version_out.split(".")[1].split('-')
+    pipeline = ver[0]
+    branch_name = "-".join(ver[1:-1])
+    swapfile = "docker-syncd-brcm-dnx-rpc.gz"
+    local_file_path = '/' + swapfile
+    url = "http://152.148.153.8/files/sonic/build/{}/{}/{}".format(branch_name, pipeline, swapfile)
+
+    try:
+        output = duthost.shell('curl --silent -O {} --output {}'.format(url, local_file_path))['rc']
+        if output == 0:
+            duthost.command('docker load -i ./{}'.format(swapfile))
+    except RunAnsibleModuleFail as e:
+        error_message = ("Unable to load the image.Please verify that your DNS server is reachable.")
+        logger.error(error_message)
+        logger.error("Error detail:\n{}".format(repr(e)))
+        raise RuntimeError(error_message)
+
 
 def tag_image(duthost, tag, image_name, image_version="latest"):
     """Applies the specified tag to a Docker image on the duthost.
@@ -153,6 +180,9 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
             docker_rpc_image,
             'latest'
         )
+    elif "Nokia" in duthost.facts.get("hwsku"):
+        download_image_local(duthost)
+        tag_image(duthost, docker_syncd_name, docker_rpc_image, 'latest')
     else:
         registry = load_docker_registry_info(duthost, creds)
         download_image(duthost, registry, docker_rpc_image, duthost.os_version)
