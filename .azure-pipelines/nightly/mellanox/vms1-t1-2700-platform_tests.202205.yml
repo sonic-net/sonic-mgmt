@@ -35,7 +35,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
 stages:
