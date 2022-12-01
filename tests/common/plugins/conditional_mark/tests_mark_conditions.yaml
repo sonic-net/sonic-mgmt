@@ -32,9 +32,9 @@ bfd/test_bfd.py:
 #######################################
 bgp/test_bgp_speaker.py:
   skip:
-    reason: "M0 topo does not support test_bgp_speaker"
+    reason: "M0/backend topo does not support test_bgp_speaker"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 't0-backend']"
 
 #######################################
 #####            cacl             #####
