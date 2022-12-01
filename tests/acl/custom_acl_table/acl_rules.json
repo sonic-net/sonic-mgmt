@@ -12,10 +12,20 @@
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9996"
         },
+        "CUSTOM_TABLE|RULE_5": {
+            "L4_SRC_PORT": "8080",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9995"
+        },
         "CUSTOM_TABLE|RULE_6": {
             "L4_DST_PORT": "8080",
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9994"
+        },
+        "CUSTOM_TABLE|RULE_7": {
+            "L4_SRC_PORT_RANGE": "8081-8090",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9993"
         },
         "CUSTOM_TABLE|RULE_8": {
             "L4_DST_PORT_RANGE": "8081-8090",

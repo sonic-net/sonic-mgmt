@@ -157,8 +157,6 @@ def build_testing_pkts(router_mac):
     Generate packet for IO test
     """
     # The IPs and ports must be exactly the same with rules defined in acl_rules.json
-    SRC_IP = "192.168.0.2"
-    SRC_IPV6 = "fc02:1000::2"
     DST_IP = "103.23.2.1"
     DST_IPV6 = "103:23:2:1::1"
     SRC_PORT = 8080
@@ -177,15 +175,22 @@ def build_testing_pkts(router_mac):
     test_packets['RULE_4'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
                                                           ipv6_dst=DST_IPV6)
-
-
+    # Verify matching source port (IPV4)
+    test_packets['RULE_5'] = testutils.simple_tcp_packet(eth_dst=router_mac,
+                                                        ip_src='192.168.0.3',
+                                                        ip_dst='1.1.1.1',
+                                                        tcp_sport=SRC_PORT)
     # Verify matching destination port (IPV6)
     test_packets['RULE_6'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
                                                           ipv6_dst='103:23:2:1::2',
                                                           tcp_dport=DST_PORT)
-
-    # Verify matching destination port (IPV6)
+     # Verify matching source port range (IPV4)
+    test_packets['RULE_7'] = testutils.simple_tcp_packet(eth_dst=router_mac,
+                                                        ip_src='192.168.0.3',
+                                                        ip_dst='1.1.1.1',
+                                                        tcp_sport=SRC_RANGE_PORT)
+    # Verify matching destination port range (IPV6)
     test_packets['RULE_8'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
                                                           ipv6_dst='103:23:2:1::2',
