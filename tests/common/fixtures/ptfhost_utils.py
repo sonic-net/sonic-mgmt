@@ -514,18 +514,21 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
 
-    asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
         if str(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
+        asic_idx = 0
+        dut_port = None
 
         if len(dut_intf_map.keys()) == 2:
             # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
             # Packet sent from this ptf port will only be accepted by the active side DUT
-            # DualToR DUTs use same special Vlan interface MAC address
+            # DualToR DUTs use same special Vlan interface MAC addres
             target_dut_indexes = list(map(int, active_dut_map[ptf_port]))
+            target_dut_port = int(list(dut_intf_map.values())[0])
+            target_hostname = duthosts[target_dut_indexes[0]].hostname
             ports_map[ptf_port] = {
                 'target_dut': target_dut_indexes,
                 'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']
@@ -538,26 +541,32 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
-            dut_port = None
-            if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
-                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+            target_hostname = duthosts[target_dut_index].hostname
+
+            if len(duts_minigraph_facts[target_hostname]) > 1:
+                # Dealing with multi-asic target dut
+                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[target_hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
-                        for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
-                            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
-                                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
-                                dut_port = a_dut_port
-                        break
+
             ports_map[ptf_port] = {
                 'target_dut': [target_dut_index],
                 'target_dest_mac': router_mac,
                 'target_src_mac': [router_mac],
-                'dut_port': dut_port,
                 'asic_idx': asic_idx
             }
+
+        _, asic_mg_facts = duts_minigraph_facts[target_hostname][asic_idx]
+        for a_dut_port, a_dut_port_index in asic_mg_facts['minigraph_port_indices'].items():
+            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                dut_port = a_dut_port
+                break
+
+        ports_map[ptf_port]['dut_port'] = dut_port
 
     logger.debug('ptf_test_port_map={}'.format(json.dumps(ports_map, indent=2)))
 
