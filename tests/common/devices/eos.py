@@ -370,7 +370,6 @@ class EosHost(AnsibleHostBase):
 
         Returns: True or False
         """
-
         try:
             command = 'ping {} repeat 5'.format(dest)
             output = self.eos_command(commands=[command])['stdout'][0]
