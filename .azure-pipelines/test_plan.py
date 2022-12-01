@@ -337,7 +337,7 @@ if __name__ == "__main__":
         dest="azp_access_token",
         default="",
         required=False,
-        help="A special variable that carries the security token used by the running build"
+        help="Token to download the artifacts of Azure Pipelines"
     )
     parser_create.add_argument(
         "--azp-repo-access-token",
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         dest="azp_repo_access_token",
         default="",
         required=False,
-        help="Authorization token to access internal repo"
+        help="Token to download the repo from Azure DevOps"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
