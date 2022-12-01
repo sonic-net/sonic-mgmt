@@ -52,6 +52,12 @@ parameters:
     displayName: "JOB CONFIG"
     default: "--disable_loganalyzer --sai_port_config=port_config.ini"
 
+  #Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly-bjw
+
 stages:
 - stage: RunSAITest
   jobs:
@@ -64,3 +70,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_REPO: ${{ parameters.SAI_REPO }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
