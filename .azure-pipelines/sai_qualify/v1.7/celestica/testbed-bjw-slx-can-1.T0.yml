@@ -21,6 +21,11 @@ parameters:
     displayName: "Testbed Name"
     default: testbed-bjw-slx-can-1
 
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI v1.7 Nightly Test - T0"
+
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_202012_BJ)
@@ -64,6 +69,7 @@ stages:
   - template: ../../templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      LOCK_TESTBED_REASON: ${{ parameters.LOCK_TESTBED_REASON }}
       ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
       ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
