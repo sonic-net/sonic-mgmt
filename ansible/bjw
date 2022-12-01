@@ -24,6 +24,8 @@ all:
           ansible_host: 10.150.23.53
         bjw6-5:
           ansible_host: 10.150.23.54
+        bjw6-6:
+          ansible_host: 10.150.23.55
     pdu:
       hosts:
         bjw-pdu-126-134:
@@ -207,12 +209,11 @@ sonic_nokia_7215:
         "0x23": "NK222413040"
         "0x24": "AC:8F:F8:6A:5D:FD"
         "0x25": "06/11/2022 14:11:28"
-        # "0x27": "D05115"
         "0x28": "armhf-nokia_ixs7215_52x-r0"
         "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.1"
         "0x2A": "64"
         "0x2F": "CSM9W00FRA"
-        "0xFD": ""
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
         "0xFE": "0xF02FB771"
 
 server:

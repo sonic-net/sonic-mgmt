@@ -285,7 +285,6 @@ bjw-can-7215-1,Ethernet50,bjw-can-7060-fanout-1,Ethernet29/3,10000,483,Access
 bjw-can-7215-1,Ethernet51,bjw-can-7060-fanout-1,Ethernet29/4,10000,484,Access
 bjw-can-7260-root-1,Ethernet4/1,bjw-can-7060-fanout-1,Ethernet32/1,100000,"249-252,316,348,380,429-432,481-484",Trunk
 bjw-can-7260-root-1,Ethernet5/1,bjw-can-7215-3,Ethernet48,10000,201-248,Trunk
-bjw-can-7260-root-1,Ethernet5/2,bjw-can-7215-2,Ethernet48,10000,433-480,Trunk
 bjw-can-7260-root-1,Ethernet5/3,bjw-can-7215-4,Ethernet48,10000,381-428,Trunk
 bjw-can-7260-root-1,Ethernet66,bjw-can-z9332f-1,Ethernet256,10000,253-284,Trunk
 bjw-can-7260-root-1,Ethernet6/1,bjw-slx-can-2,etp32,100000,285-315,Trunk
@@ -296,3 +295,4 @@ bjw-can-7260-root-1,Ethernet8/1,bjw-can-serv-3,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet9/1,bjw-can-serv-4,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet10/1,bjw-can-serv-5,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet11/1,bjw-can-serv-6,ens4f1,100000,,Trunk
+bjw-can-7260-root-1,Ethernet31/1,bjw-can-7215-2,Ethernet48,10000,433-480,Trunk

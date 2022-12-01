@@ -311,7 +311,6 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet29/4" StartDevice="bjw-can-7215-1" StartPort="Ethernet51"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet32/1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet4/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-3" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/1"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-2" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/2"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-4" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet5/3"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-z9332f-1" EndPort="Ethernet256" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet66"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-slx-can-2" EndPort="etp32" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet6/1"/>
@@ -322,6 +321,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-4" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet9/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-5" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet10/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-6" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet11/1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-2" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet31/1"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -331,7 +331,6 @@
     <DevicesL2Info Hostname="bjw-can-7260-root-1">
       <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids="249-252,316,348,380,429-432,481-484"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="201-248"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet5/2" vlanids="433-480"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/3" vlanids="381-428"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet66" vlanids="253-284"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="285-315"/>
@@ -342,6 +341,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet10/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="433-480"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7060-fanout-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.30/23"/>
