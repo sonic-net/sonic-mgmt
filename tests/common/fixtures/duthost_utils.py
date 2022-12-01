@@ -448,8 +448,8 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope='module')
-def dut_qos_maps(rand_selected_front_end_dut):
+@pytest.fixture(scope='class')
+def dut_qos_maps(get_src_dst_asic_and_duts):
     """
     A module level fixture to get QoS map from DUT host.
     Return a dict
@@ -466,32 +466,32 @@ def dut_qos_maps(rand_selected_front_end_dut):
     or an empty dict if failed to parse the output
     """
     maps = {}
+    dut = get_src_dst_asic_and_duts['src_dut']
     try:
-        if rand_selected_front_end_dut.is_multi_asic:
+        if dut.is_multi_asic:
             sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
         else:
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
-        port_qos_map_data = rand_selected_front_end_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['port_qos_map'] = json.loads(port_qos_map_data) if port_qos_map_data else None
+        port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['port_qos_map'] = json.loads(port_qos_map) if port_qos_map else None
+
         # dscp_to_tc_map
-        dscp_to_tc_map_data = rand_selected_front_end_dut.shell(
-            "{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map_data) if dscp_to_tc_map_data else None
+        dscp_to_tc_map = dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map) if dscp_to_tc_map else None
+
         # tc_to_queue_map
-        tc_to_queue_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map_data) if tc_to_queue_map_data else None
+        tc_to_queue_map = dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map) if tc_to_queue_map else None
+
         # tc_to_priority_group_map
-        tc_to_priority_group_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_priority_group_map'] = json.loads(
-            tc_to_priority_group_map_data) if tc_to_priority_group_map_data else None
+        tc_to_priority_group_map = dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_priority_group_map'] = json.loads(tc_to_priority_group_map) if tc_to_priority_group_map else None
+
         # tc_to_dscp_map
-        tc_to_dscp_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map_data) if tc_to_dscp_map_data else None
+        tc_to_dscp_map = dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map) if tc_to_dscp_map else None
     except Exception as e:
         logger.error("Got exception: " + repr(e))
     return maps
