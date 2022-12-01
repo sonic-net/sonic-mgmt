@@ -95,7 +95,7 @@ class TestPlanManager(object):
                 },
                 "secrets": {
                     "azp_access_token": kwargs["azp_access_token"],
-                    "sonic_mgmt_int_access_token": kwargs["sonic_mgmt_int_access_token"],
+                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
                 }
             },
             "priority": 10,
@@ -337,15 +337,15 @@ if __name__ == "__main__":
         dest="azp_access_token",
         default="",
         required=False,
-        help="Authorization token to access internal resource (azure pipeline)"
+        help="A special variable that carries the security token used by the running build"
     )
     parser_create.add_argument(
-        "--sonic-mgmt-int-access-token",
+        "--azp-repo-access-token",
         type=str,
-        dest="sonic_mgmt_int_access_token",
+        dest="azp_repo_access_token",
         default="",
         required=False,
-        help="Authorization token to access sonic-mgmt-int resource"
+        help="Authorization token to access internal repo"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -457,7 +457,7 @@ if __name__ == "__main__":
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
                 azp_access_token=args.azp_access_token,
-                sonic_mgmt_int_access_token=args.sonic_mgmt_int_access_token
+                azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
