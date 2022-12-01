@@ -1,18 +1,38 @@
-from conftest import *
-from sai_infra import *
-from cases_warmreboot import *
+import pytest
+import logging
+
+from cases_warmreboot import WARM_REBOOT_TEST_CASE
+from conftest import get_sai_test_container_name
+from conftest import saiserver_warmboot_config
+from conftest import stop_and_rm_sai_test_container
+from sai_infra import run_case_from_ptf
+from sai_infra import store_test_result
+from sai_infra import *  # noqa: F403 F401
+from conftest import *  # noqa: F403 F401
 
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("ptf")
+    pytest.mark.topology("ptf"),
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
-@pytest.mark.parametrize("ptf_sai_test_case", TEST_CASE)
+@pytest.mark.parametrize("ptf_sai_test_case", WARM_REBOOT_TEST_CASE)
 def test_sai(
-    sai_testbed, sai_test_env_check, creds, duthost, localhost, ptfhost, ptf_sai_test_case, request, create_sai_test_interface_param):
+            sai_testbed,
+            sai_test_env_check,
+            creds,
+            duthost,
+            localhost,
+            ptfhost,
+            ptf_sai_test_case,
+            request,
+            create_sai_test_interface_param,
+            start_warm_reboot_watcher):
     """
     Trigger warm reboot test here.
 
@@ -26,31 +46,20 @@ def test_sai(
         request: Pytest request.
         create_sai_test_interface_param: Testbed switch interface
     """
-    Test_failed = False
-    for stage in WARM_TEST_STAGES:
-        if Test_failed:
-            break
-        if stage == WARM_TEST_STARTING:
-            check_test_env_with_retry(creds, duthost, ptfhost, request, create_sai_test_interface_param)
-        logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
-        dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-        try:
-            sai_test_interface_para = create_sai_test_interface_param
-            run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request, stage)
-            if stage == WARM_TEST_SETUP:
-                #Prepare for start in next round
-                saiserver_warmboot_config(duthost, "start")                
-                warm_reboot(duthost, localhost)        
-            if stage == WARM_TEST_POST:
-                saiserver_warmboot_config(duthost, "restore")
-        except BaseException as e:
-            Test_failed = True
-            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))               
-            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
-            pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
-        finally:
-            store_test_result(ptfhost)
-
-    if not Test_failed:        
-        if request.config.option.always_stop_sai_test_container:
-            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
+    test_fail = False
+    logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
+    dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    try:
+        sai_test_interface_para = create_sai_test_interface_param
+        run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request)
+    except BaseException as e:
+        logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))
+        test_fail = True
+        pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
+    finally:
+        if test_fail or request.config.option.always_stop_sai_test_container:
+            stop_and_rm_sai_test_container(
+                duthost, get_sai_test_container_name(request))
+        store_test_result(ptfhost)
+        saiserver_warmboot_config(duthost, "restore")
+        saiserver_warmboot_config(duthost, "init")

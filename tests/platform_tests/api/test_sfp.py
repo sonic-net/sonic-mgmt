@@ -94,6 +94,18 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
+    # some new keys added for QSFP-DD in 202205 or later branch
+    EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS = ['active_firmware',
+                                           'host_lane_count',
+                                           'media_lane_count',
+                                           'cmis_rev',
+                                           'host_lane_assignment_option',
+                                           'inactive_firmware',
+                                           'media_interface_technology',
+                                           'media_interface_code',
+                                           'host_electrical_interface',
+                                           'media_lane_assignment_option']
+
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
     # using their own custom parsers, they do not yet provide these
@@ -161,20 +173,18 @@ class TestSfpApi(PlatformApiTestBase):
                 if compliance_code == "Passive Cable":
                    return False
             else:
-                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code")
-                if compliance_code == "40GBASE-CR4":
+                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
+                if "CR" in compliance_code:
                    return False
-                if compliance_code == "Extended":
-                    extended_code = spec_compliance_dict.get("Extended Specification Compliance")
-                    if "CR" in extended_code:
-                        return False
+                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
+                if "CR" in extended_code:
+                   return False
         return True
 
-    def is_xcvr_resettable(self, xcvr_info_dict):
+    def is_xcvr_resettable(self, request, xcvr_info_dict):
+        not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
-        if xcvr_type == "SFP":
-            return False
-        return True
+        return xcvr_type not in not_resettable_xcvr_type
 
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
@@ -257,11 +267,18 @@ class TestSfpApi(PlatformApiTestBase):
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
-                        EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
                             self.EXPECTED_XCVR_INFO_KEYS]
-                        self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
+                        #self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
+                    else:
 
-                    missing_keys = set(self.EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
+                        if info_dict["type_abbrv_name"] == "QSFP-DD":
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
+                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
+                                                           ["active_apsel_hostlane{}".format(i) for i in range(1, info_dict['host_lane_count'] + 1)]
+                        else:
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
+                    missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} info does not contain field: '{}'".format(i, key))
 
@@ -272,7 +289,7 @@ class TestSfpApi(PlatformApiTestBase):
                         elif info_dict[key] == "N/A":
                             logger.warning("test_get_transceiver_info: Transceiver {} info value for '{}' is 'N/A'. Vendor needs to add support.".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
+                    unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
                         #hardware_rev is applicable only for QSFP-DD
                         if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
@@ -469,7 +486,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_reset(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_reset(self, request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -480,7 +497,7 @@ class TestSfpApi(PlatformApiTestBase):
                continue
 
             ret = sfp.reset(platform_api_conn, i)
-            if self.is_xcvr_resettable(info_dict):
+            if self.is_xcvr_resettable(request, info_dict):
                self.expect(ret is True, "Failed to reset transceiver {}".format(i))
             else:
                self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
@@ -525,11 +542,19 @@ class TestSfpApi(PlatformApiTestBase):
                 logger.warning("test_tx_disable_channel: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
-            # Test all TX disable combinations for a four-channel transceiver (i.e., 0x0 through 0xF)
+            if info_dict["type_abbrv_name"] == "QSFP-DD" or info_dict["type_abbrv_name"] == "OSFP-8X":
+                # Test all channels for a eight-channel transceiver
+                all_channel_mask = 0xFF
+                expected_mask = 0x80
+            else:
+                # Test all channels for a four-channel transceiver
+                all_channel_mask = 0XF
+                expected_mask = 0x8
+
             # We iterate in reverse here so that we end with 0x0 (no channels disabled)
-            for expected_mask in range(0xF, 0x0, -1):
+            while expected_mask >= 0:
                 # Enable TX on all channels
-                ret = sfp.tx_disable_channel(platform_api_conn, i, 0xF, False)
+                ret = sfp.tx_disable_channel(platform_api_conn, i, all_channel_mask, False)
                 self.expect(ret is True, "Failed to enable TX on all channels for transceiver {}".format(i))
 
                 ret = sfp.tx_disable_channel(platform_api_conn, i, expected_mask, True)
@@ -538,6 +563,11 @@ class TestSfpApi(PlatformApiTestBase):
                 tx_disable_chan_mask = sfp.get_tx_disable_channel(platform_api_conn, i)
                 if self.expect(tx_disable_chan_mask is not None, "Unable to retrieve transceiver {} TX disabled channel data".format(i)):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
+
+                if expected_mask == 0:
+                    break
+                else:
+                    expected_mask = expected_mask >> 1
         self.assert_expectations()
 
     def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
