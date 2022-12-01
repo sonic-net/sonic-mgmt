@@ -50,8 +50,8 @@ def dut_dscp_tc_queue_maps(duthost):
         maps['tc_to_queue_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
         # tc_to_dscp_map
         maps['tc_to_dscp_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
-    except:
-        pass
+    except Exception as e:
+        logging.error("Failed to retrieve map on {}, exception {}".format(duthost.hostname, repr(e)))
     return maps
 
 def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
@@ -71,8 +71,8 @@ def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
         tc_id = map['dscp_to_tc_map'][dscp_to_tc_map_name][str(dscp)]
         # Load tc_to_queue_map
         queue_id = map['tc_to_queue_map'][tc_to_queue_map_name][str(tc_id)]
-    except:
-        logging.error("Failed to retrieve queue id for dscp {} on {}".format(dscp, duthost.hostname))
+    except Exception as e:
+        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}".format(dscp, duthost.hostname, repr(e)))
         return
     return int(queue_id)
 
