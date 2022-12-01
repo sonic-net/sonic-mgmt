@@ -57,7 +57,7 @@ DEFAULT_SRC_IP = {
 # This needs to be addressed before we can enable the v6 tests for T0
 DOWNSTREAM_DST_IP = {
     "ipv4": "192.168.0.253",
-    "ipv6": "20c0:a800::2"
+    "ipv6": "20c0:a800::14"
 }
 DOWNSTREAM_IP_TO_ALLOW = {
     "ipv4": "192.168.0.252",
@@ -72,15 +72,15 @@ DOWNSTREAM_IP_PORT_MAP = {}
 
 UPSTREAM_DST_IP = {
     "ipv4": "194.50.16.1",
-    "ipv6": "20c1:d180::2"
+    "ipv6": "20c1:d180::11"
 }
 UPSTREAM_IP_TO_ALLOW = {
     "ipv4": "193.191.32.1",
-    "ipv6": "20c1:cb50::1"
+    "ipv6": "20c1:cb50::12"
 }
 UPSTREAM_IP_TO_BLOCK = {
     "ipv4": "193.221.112.1",
-    "ipv6": "20c1:e2f0::9"
+    "ipv6": "20c1:e2f0::13"
 }
 
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
