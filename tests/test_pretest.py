@@ -173,7 +173,8 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
 
 
 def collect_dut_lossless_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return []
@@ -192,7 +193,8 @@ def collect_dut_lossless_prio(dut):
 
 
 def collect_dut_all_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return []
