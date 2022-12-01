@@ -68,22 +68,6 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_lo
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6660
 
-dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6661
-
-dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6661
-
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-standby]:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
