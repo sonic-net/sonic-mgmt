@@ -39,7 +39,7 @@ def setup_counterpoll_interval(rand_selected_dut):
     time.sleep(10)
     yield
     # Restore default value 10 seconds
-    rand_selected_dut.shell('counterpoll acl interval 1000')
+    rand_selected_dut.shell('counterpoll acl interval 10000')
 
 
 def clear_acl_counter(dut):
@@ -58,13 +58,10 @@ def read_acl_counter(dut, rule_name):
     """
     cmd = 'aclshow -a -r {}'.format(rule_name)
     time.sleep(2)
-    output = dut.shell(cmd)['stdout_lines']
-    for line in output:
-        fields = line.split()
-        if len(fields) != 5:
-            continue
-        if fields[0] == rule_name:
-            return int(fields[3])
+    counters = dut.show_and_parse(cmd)
+    for counter in counters:
+        if counter['RULE NAME'] == rule_name:
+            return counter['PACKETS COUNT']
     
     return 0
 
@@ -262,4 +259,3 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
         acl_counter = read_acl_counter(rand_selected_dut, rule)
         # Verify acl counter
         pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
-
