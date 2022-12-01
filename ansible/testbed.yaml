@@ -1410,7 +1410,7 @@
   server: server_26
   vm_base: VM26000
   dut:
-    - str2-7804-lc3-1
+    - str2-7804-lc5-1
     - str2-7804-lc6-1
     - str2-7804-lc7-1
     - str2-7804-sup-1

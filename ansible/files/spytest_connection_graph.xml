@@ -98,6 +98,7 @@
       <Device Hostname="str2-7215-acs-1" HwSku="Nokia-7215" Type="DevSonic"/>
       <Device Hostname="str2-7804-sup-1" HwSku="Arista-7808R3A-FM" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc3-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
+      <Device Hostname="str2-7804-lc5-1" HwSku="Arista-7800R3A-36DM2-C72" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc6-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc7-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
       <Device Hostname="str2-8800-sup-1" HwSku="8800-RP-O" Type="DevSonic"/>
@@ -1955,38 +1956,38 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet58/1" StartDevice="str2-7804-lc6-1" StartPort="Ethernet100"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet59/1" StartDevice="str2-7804-lc6-1" StartPort="Ethernet104"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet60/1" StartDevice="str2-7804-lc6-1" StartPort="Ethernet108"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet1/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet2/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet3/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet4/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet5/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet6/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet7/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet8/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet9/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet10/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet11/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet12/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet13/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet14/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet52"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet15/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet16/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet60"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet17/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet18/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet68"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet19/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet20/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet76"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet21/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet22/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet84"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet23/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet88"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet24/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet92"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet25/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet26/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet100"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet27/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet28/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet108"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet29/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet30/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet116"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet31/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet32/1" StartDevice="str2-7804-lc3-1" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet1/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet2/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet3/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet4/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet5/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet6/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet7/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet8/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet9/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet10/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet11/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet12/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet13/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet14/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet15/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet16/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet17/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet18/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet19/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet20/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet21/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet22/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet23/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet24/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet25/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet26/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet27/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet28/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet29/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet30/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet31/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-22" EndPort="Ethernet32/1" StartDevice="str2-7804-lc5-1" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-24" EndPort="Ethernet1/1" StartDevice="str2-8102-01" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-24" EndPort="Ethernet2/1" StartDevice="str2-8102-01" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-24" EndPort="Ethernet3/1" StartDevice="str2-8102-01" StartPort="Ethernet8"/>
@@ -6104,6 +6105,9 @@
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7804-lc3-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.15/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str2-7804-lc5-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.27/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7804-lc6-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.16/23"/>
