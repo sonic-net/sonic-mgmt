@@ -94,7 +94,8 @@ class TestPlanManager(object):
                     "vm_type": kwargs["vm_type"]
                 },
                 "secrets": {
-                    "azp_access_token": kwargs["access_token"]
+                    "azp_access_token": kwargs["azp_access_token"],
+                    "sonic_mgmt_int_access_token": kwargs["sonic_mgmt_int_access_token"],
                 }
             },
             "priority": 10,
@@ -331,12 +332,20 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--access-token",
+        "--azp-access-token",
         type=str,
-        dest="access_token",
+        dest="azp_access_token",
         default="",
         required=False,
-        help="Authorization token to access internal resource (image, etc)"
+        help="Authorization token to access internal resource (azure pipeline)"
+    )
+    parser_create.add_argument(
+        "--sonic-mgmt-int-access-token",
+        type=str,
+        dest="sonic_mgmt_int_access_token",
+        default="",
+        required=False,
+        help="Authorization token to access sonic-mgmt-int resource"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -447,7 +456,8 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
-                access_token=args.access_token
+                azp_access_token=args.azp_access_token,
+                sonic_mgmt_int_access_token=args.sonic_mgmt_int_access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
