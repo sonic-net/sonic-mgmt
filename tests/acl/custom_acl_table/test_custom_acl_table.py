@@ -60,9 +60,9 @@ def read_acl_counter(dut, rule_name):
     time.sleep(2)
     counters = dut.show_and_parse(cmd)
     for counter in counters:
-        if counter['RULE NAME'] == rule_name:
-            return counter['PACKETS COUNT']
-    
+        if counter['rule name'] == rule_name:
+            return int(counter['packets count'])
+
     return 0
 
 
@@ -119,12 +119,12 @@ def setup_custom_acl_table(rand_selected_dut):
         logger.error("ACL table creation failed, attempting to clean-up...")
         rand_selected_dut.shell(cmd_remove_table)
         raise err
-    
+
     yield
     logger.info("Removing ACL table and custom type")
     # Remove ACL table
     rand_selected_dut.shell(cmd_remove_table)
-    # Remove custom type 
+    # Remove custom type
     rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|CUSTOM_TYPE\'")
 
 
@@ -167,38 +167,24 @@ def build_testing_pkts(router_mac):
     DST_RANGE_PORT = 8085
 
     test_packets = {}
-    # Verify matching source IP and protocol
-    test_packets['RULE_1'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                        ip_src=SRC_IP,
-                                                        ip_dst='1.1.1.1')
+
     # Verify matching destination IP and protocol
     test_packets['RULE_2'] = testutils.simple_tcp_packet(eth_dst=router_mac,
                                                         ip_src='192.168.0.3',
                                                         ip_dst=DST_IP)
-    # Verify matching IPV6 source and next header
-    test_packets['RULE_3'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
-                                                          ipv6_src=SRC_IPV6,
-                                                          ipv6_dst='103:23:2:1::2')
+
     # Verify matching IPV6 destination and next header
     test_packets['RULE_4'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
                                                           ipv6_dst=DST_IPV6)
-    
-    # Verify matching source port (IPV4)
-    test_packets['RULE_5'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                        ip_src='192.168.0.3',
-                                                        ip_dst='1.1.1.1',
-                                                        tcp_sport=SRC_PORT)
+
+
     # Verify matching destination port (IPV6)
     test_packets['RULE_6'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
                                                           ipv6_dst='103:23:2:1::2',
                                                           tcp_dport=DST_PORT)
-    # Verify matching source port range (IPV4)
-    test_packets['RULE_7'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                        ip_src='192.168.0.3',
-                                                        ip_dst='1.1.1.1',
-                                                        tcp_sport=SRC_RANGE_PORT)
+
     # Verify matching destination port (IPV6)
     test_packets['RULE_8'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                           ipv6_src='fc02:1000::3',
@@ -232,12 +218,12 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
     2. Create an ingress ACL table with the custom type
     3. Toggle all ports to active if the test is running on dual-tor
     4. Ingress packets from vlan port
-    5. Verify the packets are egressed to uplinks 
+    5. Verify the packets are egressed to uplinks
     6. Verify the counter of expected rule increases as expected
     """
     router_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    
+
     # Selected the first vlan port as source port
     src_port = list(mg_facts['minigraph_vlans'].values())[0]['members'][0]
     src_port_indice = mg_facts['minigraph_ptf_indices'][src_port]
@@ -246,7 +232,7 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
     for _, v in mg_facts['minigraph_portchannels'].iteritems():
         for member in v['members']:
             dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-    
+
     test_pkts = build_testing_pkts(router_mac)
     for rule, pkt in test_pkts.items():
         logger.info("Testing ACL rule {}".format(rule))
