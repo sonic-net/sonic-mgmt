@@ -1,0 +1,41 @@
+# This job is for inspecting the nightly test pipelines to figure out how many rounds of nightly tests should
+# be performed for each testbed.
+
+name: UpdateTbshareTestbed_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+resources:
+  repositories:
+  - repository: tbshare
+    type: github
+    name: wangxin/tbshare
+    endpoint: xiwang5
+
+variables:
+  - group: TBSHARE_SECRETS
+
+stages:
+  - stage: Update
+    jobs:
+      - job: Update
+        timeoutInMinutes: 30
+        variables:
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - checkout: self
+          - checkout: tbshare
+
+          - script: |
+              pip install -r tbshare/requirements.txt
+            displayName: Install dependencies
+
+          - script: |
+              python3 ./tbshare/api/storage.py update -t ./sonic-mgmt-int/ansible/testbed.yaml
+            displayName: Update tbshare
+            env:
+              CONNECTION_STRING: $(CONNECTION_STRING)
+              FLASK_SECRET_KEY: $(FLASK_SECRET_KEY)
