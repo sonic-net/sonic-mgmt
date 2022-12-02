@@ -95,7 +95,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
             downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
             downstream_ports_namespace.add(neigh['namespace'])
 
-    if 't1' in topo or 'm0' in topo:
+    if 't1' in topo:
         # Set of downstream ports only Namespace
         downstream_only_namespace = downstream_ports_namespace.difference(upstream_ports_namespace)
         # Set of upstream ports only Namespace
