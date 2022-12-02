@@ -105,7 +105,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 
 def get_topo_type(topo_name):
-    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mx)')
+    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -930,7 +930,7 @@ def main():
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
-        elif topo_type == "m0":
+        elif topo_type in ['m0', 'mc0']:
             fib_m0(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         elif topo_type == "mx":
