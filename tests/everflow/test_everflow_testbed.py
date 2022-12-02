@@ -15,7 +15,7 @@ from everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DS
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx")
+    pytest.mark.topology("t0", "t1", "m0")
 ]
 
 
