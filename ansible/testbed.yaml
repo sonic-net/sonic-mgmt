@@ -1720,7 +1720,7 @@
 
 - conf-name: testbed-bjw-can-720dt-2
   group-name: bjw6-5
-  topo: m0
+  topo: mx
   ptf_image_name: docker-ptf
   ptf: bjw6-5
   ptf_ip: 10.150.23.54/23
