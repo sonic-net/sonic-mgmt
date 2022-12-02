@@ -43,6 +43,20 @@ DEFAULT_SERVER_IP = "192.168.0.3"
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
+# Describe upstream neighbor of dut in different topos
+UPSTREAM_NEIGHBOR_MAP = {
+    "t0": "t1",
+    "t1": "t2",
+    "m0": "m1"
+}
+# Describe downstream neighbor of dut in different topos
+DOWNSTREAM_NEIGHBOR_MAP = {
+    "t0": "server",
+    "t1": "t0",
+    "m0": "mx"
+}
+# Topo that downstream neighbor of DUT are servers
+DOWNSTREAM_SERVER_TOPO = ["t0"]
 
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
@@ -60,74 +74,45 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     topo = tbinfo['topo']['name']
 
-    # {namespace: [server ports]}
-    server_ports_namespace_map = defaultdict(list)
-    # {namespace: [T1 ports]}
-    t1_ports_namespace_map = defaultdict(list)
-    # { namespace : [tor ports] }
-    tor_ports_namespace_map = defaultdict(list)
-    # { namespace : [spine ports] }
-    spine_ports_namespace_map = defaultdict(list)
-
-    # { set of namespace server ports belong }
-    server_ports_namespace = set()
-    # { set of namespace t1 ports belong}
-    t1_ports_namespace = set()
-    # { set of namespace tor ports belongs }
-    tor_ports_namespace = set()
-    # { set of namespace spine ports belongs }
-    spine_ports_namespace = set()
-
+    upstream_ports_namespace_map = defaultdict(list)
+    downstream_ports_namespace_map = defaultdict(list)
+    upstream_ports_namespace = set()
+    downstream_ports_namespace = set()
 
     # Gather test facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     switch_capability_facts = duthost.switch_capabilities_facts()["ansible_facts"]
     acl_capability_facts = duthost.acl_capabilities_facts()["ansible_facts"]
 
+    topo_type = tbinfo["topo"]["type"]
     # Get the list of T0/T2 ports
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
-        if "t1" in topo:
-            # Get the list of T0/T2 ports
-            if "t0" in neigh["name"].lower():
-                # Add Tor ports to namespace
-                tor_ports_namespace_map[neigh['namespace']].append(dut_port)
-                tor_ports_namespace.add(neigh['namespace'])
-            elif "t2" in neigh["name"].lower():
-                # Add Spine ports to namespace
-                spine_ports_namespace_map[neigh['namespace']].append(dut_port)
-                spine_ports_namespace.add(neigh['namespace'])
-        elif "t0" in topo:
-            # Get the list of Server/T1 ports
-            if "server" in neigh["name"].lower():
-                # Add Server ports to namespace
-                server_ports_namespace_map[neigh['namespace']].append(dut_port)
-                server_ports_namespace.add(neigh['namespace'])
-            elif "t1" in neigh["name"].lower():
-                # Add T1 ports to namespace
-                t1_ports_namespace_map[neigh['namespace']].append(dut_port)
-                t1_ports_namespace.add(neigh['namespace'])
-        else:
-            # Todo: Support dualtor testbed
-            pytest.skip("Unsupported topo")
+        pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
+        if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
+            upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
+            upstream_ports_namespace.add(neigh['namespace'])
+        elif DOWNSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
+            downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
+            downstream_ports_namespace.add(neigh['namespace'])
 
     if 't1' in topo:
-        # Set of TOR ports only Namespace 
-        tor_only_namespace = tor_ports_namespace.difference(spine_ports_namespace)
-        # Set of Spine ports only Namespace 
-        spine_only_namespace = spine_ports_namespace.difference(tor_ports_namespace)
-        # Randomly choose from TOR_only Namespace if present else just use first one 
-        tor_namespace = random.choice(tuple(tor_only_namespace)) if tor_only_namespace else tuple(tor_ports_namespace)[0]
-        # Randomly choose from Spine_only Namespace if present else just use first one 
-        spine_namespace = random.choice(tuple(spine_only_namespace)) if spine_only_namespace else tuple(spine_ports_namespace)[0]
-        tor_ports = tor_ports_namespace_map[tor_namespace]
-        spine_ports = spine_ports_namespace_map[spine_namespace]
-
+        # Set of downstream ports only Namespace
+        downstream_only_namespace = downstream_ports_namespace.difference(upstream_ports_namespace)
+        # Set of upstream ports only Namespace
+        upstream_only_namespace = upstream_ports_namespace.difference(downstream_ports_namespace)
+        # Randomly choose from downstream_only Namespace if present else just use first one
+        downstream_namespace = random.choice(tuple(downstream_only_namespace)) \
+            if downstream_only_namespace else tuple(downstream_ports_namespace)[0]
+        # Randomly choose from upstream_only Namespace if present else just use first one
+        upstream_namespace = random.choice(tuple(upstream_only_namespace)) \
+            if upstream_only_namespace else tuple(upstream_ports_namespace)[0]
     else:
-        # Use the default namespace for Server and T1
-        server_namespace = tuple(server_ports_namespace)[0]
-        t1_namespace = tuple(t1_ports_namespace)[0]
-        server_ports = server_ports_namespace_map[server_namespace]
-        t1_ports = t1_ports_namespace_map[t1_namespace]
+        # Use the default namespace
+        downstream_namespace = tuple(downstream_ports_namespace)[0]
+        upstream_namespace = tuple(upstream_ports_namespace)[0]
+
+    downstream_ports = downstream_ports_namespace_map[downstream_namespace]
+    upstream_ports = upstream_ports_namespace_map[upstream_namespace]
 
     switch_capabilities = switch_capability_facts["switch_capabilities"]["switch"]
     acl_capabilities = acl_capability_facts["acl_capabilities"]
@@ -186,7 +171,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                             out_port_exclude_list.append(lag_member)
 
                 out_port_ptf_id_list.append(ptf_port_id)
-    
+
     setup_information = {
         "router_mac": duthost.facts["router_mac"],
         "test_mirror_v4": test_mirror_v4,
@@ -205,89 +190,60 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
             if k in mg_facts["minigraph_ports"]
         },
         # { ptf_port_id : namespace }
-        "port_index_namespace_map" : {
+        "port_index_namespace_map": {
            v: mg_facts["minigraph_neighbors"][k]['namespace']
            for k, v in mg_facts["minigraph_ptf_indices"].items()
            if k in mg_facts["minigraph_ports"]
         }
     }
 
-    if 't0' in topo:
-        # Downstream traffic (T0 -> Server)
-        server_dest_ports = []
-        server_dest_ports_ptf_id = []
-        get_port_info(server_ports, server_dest_ports, server_dest_ports_ptf_id, None)
+    # Downstream traffic
+    downstream_dest_ports = []
+    downstream_dest_ports_ptf_id = []
+    downstream_dest_lag_name = None if topo_type in DOWNSTREAM_SERVER_TOPO else []
+    get_port_info(downstream_ports, downstream_dest_ports, downstream_dest_ports_ptf_id, downstream_dest_lag_name)
 
-        # Upstream traffic (Server -> T0)
-        t1_dest_ports = []
-        t1_dest_ports_ptf_id = []
-        t1_dest_lag_name = []
-        get_port_info(t1_ports, t1_dest_ports, t1_dest_ports_ptf_id, t1_dest_lag_name)
+    # Upstream traffic
+    upstream_dest_ports = []
+    upstream_dest_ports_ptf_id = []
+    upstream_dest_lag_name = []
+    get_port_info(upstream_ports, upstream_dest_ports, upstream_dest_ports_ptf_id, upstream_dest_lag_name)
 
+    setup_information.update(
+        {
+            "topo": topo_type,
+            DOWN_STREAM: {
+                "src_port": upstream_ports[0],
+                "src_port_lag_name": upstream_dest_lag_name[0],
+                "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][upstream_ports[0]]),
+                # For T0 topo, downstream traffic ingress from the first portchannel,
+                # and mirror packet egress from other portchannels
+                "dest_port": upstream_dest_ports[1:] \
+                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports,
+                "dest_port_ptf_id": upstream_dest_ports_ptf_id[1:] \
+                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports_ptf_id,
+                "dest_port_lag_name": upstream_dest_lag_name[1:] \
+                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name,
+                "namespace": downstream_namespace
+            },
+            UP_STREAM: {
+                "src_port": downstream_ports[0],
+                # DUT whose downstream are servers doesn't have lag connect to server
+                "src_port_lag_name": "Not Applicable" \
+                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name[0],
+                "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][downstream_ports[0]]),
+                "dest_port": upstream_dest_ports,
+                "dest_port_ptf_id": upstream_dest_ports_ptf_id,
+                "dest_port_lag_name": upstream_dest_lag_name,
+                "namespace": upstream_namespace
+            },
+        }
+    )
+
+    if topo_type in DOWNSTREAM_SERVER_TOPO:
         setup_information.update(
             {
-                "topo": "t0",
-                "server_ports": server_ports,
-                "server_dest_ports_ptf_id": server_dest_ports_ptf_id,
-                "t1_ports": t1_ports,
-                DOWN_STREAM: {
-                    "src_port": t1_ports[0],
-                    "src_port_lag_name":t1_dest_lag_name[0],
-                    "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][t1_ports[0]]),
-                    # Downstream traffic ingress from the first portchannel,
-                    # and mirror packet egress from other portchannels
-                    "dest_port": t1_dest_ports[1:],
-                    "dest_port_ptf_id": t1_dest_ports_ptf_id[1:],
-                    "dest_port_lag_name": t1_dest_lag_name[1:],
-                    "namespace": server_namespace
-                },
-                UP_STREAM: {
-                    "src_port": server_ports[0],
-                    "src_port_lag_name":"Not Applicable",
-                    "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][server_ports[0]]),
-                    "dest_port": t1_dest_ports,
-                    "dest_port_ptf_id": t1_dest_ports_ptf_id,
-                    "dest_port_lag_name": t1_dest_lag_name,
-                    "namespace": t1_namespace
-                },
-            }
-        )
-    elif 't1' in topo:
-        # Downstream traffic (T1 -> T0)
-        tor_dest_ports = []
-        tor_dest_ports_ptf_id = []
-        tor_dest_lag_name = []
-        get_port_info(tor_ports, tor_dest_ports, tor_dest_ports_ptf_id, tor_dest_lag_name)
-        
-        # Upstream traffic (T0 -> T1)
-        spine_dest_ports = []
-        spine_dest_ports_ptf_id = []
-        spine_dest_lag_name = []
-        get_port_info(spine_ports, spine_dest_ports, spine_dest_ports_ptf_id, spine_dest_lag_name)
-
-        setup_information.update(
-            {
-                "topo": "t1",
-                "tor_ports": tor_ports,
-                "spine_ports": spine_ports,
-                DOWN_STREAM: {
-                    "src_port": spine_ports[0],
-                    "src_port_lag_name":spine_dest_lag_name[0],
-                    "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][spine_ports[0]]),
-                    "dest_port": tor_dest_ports,
-                    "dest_port_ptf_id": tor_dest_ports_ptf_id,
-                    "dest_port_lag_name": tor_dest_lag_name,
-                    "namespace": tor_namespace
-                    },
-                UP_STREAM: {
-                    "src_port": tor_ports[0],
-                    "src_port_lag_name":tor_dest_lag_name[0],
-                    "src_port_ptf_id": str(mg_facts["minigraph_ptf_indices"][tor_ports[0]]),
-                    "dest_port": spine_dest_ports,
-                    "dest_port_ptf_id": spine_dest_ports_ptf_id,
-                    "dest_port_lag_name": spine_dest_lag_name,
-                    "namespace": spine_namespace
-                }
+                "server_dest_ports_ptf_id": downstream_dest_ports_ptf_id
             }
         )
 
