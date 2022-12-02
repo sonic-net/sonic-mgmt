@@ -66,7 +66,7 @@ stages:
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -78,7 +78,7 @@ stages:
 
   - job: t0_2vlans_testbedv2
     displayName: "kvmtest-t0-2vlans by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -140,7 +140,7 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    timeoutInMinutes: 600
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -187,7 +187,7 @@ stages:
 
   - job: sonic_t0_testbedv2
     displayName: "kvmtest-t0-sonic by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -219,7 +219,7 @@ stages:
 
   - job: dualtor_testbedv2
     displayName: "kvmtest-dualtor-t0 by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -248,7 +248,7 @@ stages:
 
   - job: multi_asic_testbedv2
     displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:
@@ -262,7 +262,7 @@ stages:
 
   - job: wan_testbedv2
     displayName: "kvmtest-wan by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     steps:

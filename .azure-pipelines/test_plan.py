@@ -153,7 +153,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -164,7 +164,6 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("Max polling time: {} seconds".format(timeout))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
@@ -172,7 +171,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (time.time() - start_time) < timeout:
+        while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
@@ -381,7 +380,7 @@ if __name__ == "__main__":
         "--timeout",
         type=int,
         required=False,
-        default=36000,
+        default=-1,
         dest="timeout",
         help="Max polling time. Default 36000 seconds (10 hours)."
     )
