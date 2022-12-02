@@ -189,7 +189,7 @@ stages:
     displayName: "kvmtest-t0-sonic by TestbedV2"
     timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
@@ -264,7 +264,7 @@ stages:
     displayName: "kvmtest-wan by TestbedV2"
     timeoutInMinutes: 1080
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
