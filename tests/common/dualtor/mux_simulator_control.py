@@ -167,7 +167,7 @@ def _post(server_url, data):
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = requests.post(server_url, json=data, headers=headers)
+        resp = requests.post(server_url, json=data, headers=headers, timeout=10)
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:

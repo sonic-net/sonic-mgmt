@@ -202,7 +202,7 @@ test_t0_sonic() {
     tgname=t0-sonic
     tests="\
       bgp/test_bgp_fact.py \
-      macsec/test_macsec.py"
+      macsec"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -e "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
@@ -269,8 +269,7 @@ test_multi_asic_t1_lag() {
     tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer
+    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -c "$tests" -p logs/$tgname
     popd
 }
 
@@ -289,7 +288,7 @@ test_multi_asic_t1_lag_pr() {
     tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
     popd
 }
 

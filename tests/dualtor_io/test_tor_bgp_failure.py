@@ -168,13 +168,20 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
             action=lambda: shutdown_bgp_sessions(upper_tor_host)
         )
 
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host,
-        expected_standby_health="unhealthy",
-        cable_type=cable_type
-    )
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
+            cable_type=cable_type
+        )
 
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby

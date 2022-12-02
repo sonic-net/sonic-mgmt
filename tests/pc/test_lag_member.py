@@ -223,6 +223,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
         ATTR_PORT_NOT_BEHIND_LAG: {}
     }
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
+    src_vlan_members.pop('PortChannel201', None) # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     # Get the port correspondence between DUT and PTF
     port_index_map = cfg_facts["port_index_map"]
     port_speed, ports_num = most_common_port_speed
@@ -290,6 +291,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
 
         # Get count of available port in vlan
         count = 0
+        members.pop('PortChannel201', None)  # specific LAG interface from t0-56-po2vlan topo, which can't be tested
         for vlan_member in members:
             if port_status[vlan_member].get("admin_status", "down") != "up":
                 continue
@@ -351,6 +353,7 @@ def most_common_port_speed(duthost):
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(duthost.facts["hwsku"], DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
     src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
+    src_vlan_members.pop('PortChannel201', None) # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     all_ports_speeds = [port_status[port_name]['speed'] for port_name in src_vlan_members]
     port_speed, ports_num = Counter(all_ports_speeds).most_common(1)[0]
     return port_speed, ports_num

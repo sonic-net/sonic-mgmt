@@ -29,9 +29,22 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
+    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cisco-8102. Skipping the test"
     conditions:
       - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+
+bfd/test_bfd.py::test_bfd_basic:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
+bfd/test_bfd.py::test_bfd_scale:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
 
 #######################################
 #####            bgp              #####
@@ -60,12 +73,6 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
-bgp/test_bgp_speaker.py:
-  skip:
-    reason: "M0 topo does not support test_bgp_speaker"
-    conditions:
-      - "topo_name in ['m0']"
-
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
     reason: "Test is flaky and causing PR test to fail unnecessarily"
@@ -84,6 +91,12 @@ bgp/test_bgp_gr_helper.py:
     reason: 'bgp graceful restarted is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+bgp/test_bgp_speaker.py:
+  skip:
+    reason: "Not supported on topology backend."
+    conditions:
+      - "'backend' in topo_name"
 
 #######################################
 #####            cacl             #####
@@ -137,7 +150,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0']"
+      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0', 'mx']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   xfail:
@@ -150,9 +163,9 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 #######################################
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
-    reason: "Unsupported topology, expected to run only on 'T0*' or 'M0' topology"
+    reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
     conditions:
-      - "'t0' not in topo_name and 'm0' not in topo_name"
+      - "'t0' not in topo_name and topo_name not in ['m0', 'mx']"
 
 #######################################
 #####            decap            #####
@@ -202,18 +215,76 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
 #######################################
 drop_packets:
   skip:
-    reason: "M0 topo does not support drop_packets"
+    reason: "M0/MX topo does not support drop_packets"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor/test_orch_stress.py:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_active_tor_downstream.py:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_mac_move.py:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_t1_link_recovered:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_bgp_recovered:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config and dualtor."
+    conditions:
+      - "(topo_type not in ['t0'])"
+
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_remove_neighbor_downstream_standby:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
   xfail:
     reason: "Image issue on Boradcom platforms, but not consistently failing"
     conditions:
       - "asic_type in ['broadcom']"
+
+dualtor/test_standby_tor_upstream_mux_toggle.py:
+  skip:
+    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    conditions:
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
 #######################################
 #####         dut_console         #####
@@ -261,12 +332,6 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
-everflow:
-  skip:
-    reason: "Skipping everflow tests. Unsupported topology."
-    conditions:
-      - "'backend' in topo_name or topo_name in ['m0']"
-
 everflow/test_everflow_per_interface.py:
   skip:
     reason: "Skip running on dualtor testbed."
@@ -287,7 +352,7 @@ fdb/test_fdb_mac_expire.py:
   skip:
     reason: "Not supported on this DUT topology."
     conditions:
-      - "topo_type not in ['t0', 'm0']"
+      - "topo_type not in ['t0', 'm0', 'mx']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -297,12 +362,6 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
-
-generic_config_updater/test_bgp_speaker.py:
-  skip:
-    reason: "M0 topo does not support test_bgp_speaker"
-    conditions:
-      - "topo_name in ['m0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -333,9 +392,9 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
   skip:
-    reason: "M0 topo does not support TestShowPriorityGroup"
+    reason: "M0/MX topo does not support TestShowPriorityGroup"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -353,9 +412,9 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue:
   skip:
-    reason: "M0 topo does not support TestShowQueue"
+    reason: "M0/MX topo does not support TestShowQueue"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####            ip               #####
@@ -385,13 +444,13 @@ ipfwd/test_dip_sip.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 't1', 't2', 'm0']"
+      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx']"
 
 ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0']"
+      - "topo_type not in ['t0', 'm0', 'mx']"
   xfail:
     reason: "Dualtor do not support now, need to fix in buildimage."
     conditions:
@@ -439,9 +498,9 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0 topo does not support mvrf"
+    reason: "M0/MX topo does not support mvrf"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####           nat               #####
@@ -535,9 +594,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on m0 or dual tor testbed."
+    reason: "Pfcwd tests skipped on m0/mx or dual tor testbed."
     conditions:
-      - "'dualtor' in topo_name or topo_name in ['m0']"
+      - "'dualtor' in topo_name or topo_name in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -595,9 +654,9 @@ platform_tests/test_auto_negotiation.py:
 #######################################
 qos:
   skip:
-    reason: "M0 topo does not support qos"
+    reason: "M0/MX topo does not support qos"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 qos/test_buffer_traditional.py:
   skip:
@@ -672,7 +731,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32'] and asic_type not in ['mellanox']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark[None]:
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
@@ -711,6 +770,12 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi_vxlan_ecmp.py:
+  skip:
+    reason: "Only supported on cisco 8102"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####           route             #####
 #######################################
@@ -726,12 +791,6 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
   skip:
     reason: "Test case may fail due to a known issue"
     conditions: https://github.com/sonic-net/sonic-buildimage/issues/4930
-
-route/test_route_perf.py:
-  skip:
-    reason: "M0 topo does not support test_route_perf"
-    conditions:
-      - "topo_name in ['m0']"
 
 #######################################
 #####      show_techsupport       #####
@@ -761,9 +820,9 @@ snmp/test_snmp_lldp.py:
 
 snmp/test_snmp_pfc_counters.py:
   skip:
-    reason: "M0 topo does not support test_snmp_pfc_counters"
+    reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
-      - "topo_name in ['m0']"
+      - "topo_name in ['m0', 'mx']"
 
 snmp/test_snmp_phy_entity.py::test_psu_info:
   skip:
@@ -773,13 +832,9 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node"
+    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue"
     conditions:
-      - "is_supervisor"
-  skip:
-    reason: "M0 topo does not support test_snmp_queue"
-    conditions:
-      - "topo_name in ['m0']"
+      - "is_supervisor or topo_name in ['m0']"
 
 #######################################
 #####            span             #####
@@ -807,7 +862,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot','innovium']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -935,3 +990,23 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+#######################################
+#####           vrf_attr          #####
+#######################################
+vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
+  skip:
+    reason: "RIF MAC taking precedence over VRF MAC"
+    conditions:
+      - "asic_type in ['barefoot']"
+
+#######################################
+#####           wan_lacp          #####
+#######################################
+wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
+  skip:
+    reason: "Skip test due to there isn't enough port channel or members exists in current topology."
+    conditions_logical_operator: OR
+    conditions:
+      - "len(minigraph_portchannels) < 2"
+      - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
