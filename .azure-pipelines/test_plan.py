@@ -164,7 +164,6 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("Max polling time: {} seconds".format(timeout))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
