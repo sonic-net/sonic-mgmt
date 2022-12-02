@@ -93,6 +93,10 @@ class TestPlanManager(object):
                     "num_asic": kwargs["num_asic"],
                     "vm_type": kwargs["vm_type"]
                 },
+                "secrets": {
+                    "azp_access_token": kwargs["azp_access_token"],
+                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
+                }
             },
             "priority": 10,
             "requester": "pull request"
@@ -327,6 +331,22 @@ if __name__ == "__main__":
         required=False,
         help="The asic number of dut"
     )
+    parser_create.add_argument(
+        "--azp-access-token",
+        type=str,
+        dest="azp_access_token",
+        default="",
+        required=False,
+        help="Token to download the artifacts of Azure Pipelines"
+    )
+    parser_create.add_argument(
+        "--azp-repo-access-token",
+        type=str,
+        dest="azp_repo_access_token",
+        default="",
+        required=False,
+        help="Token to download the repo from Azure DevOps"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -436,6 +456,8 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
+                azp_access_token=args.azp_access_token,
+                azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
