@@ -453,6 +453,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         vendor = duthost.facts["asic_type"]
         hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        everflow_tolerance = 10
+        if vendor == 'innovium':
+            everflow_tolerance = 11
+
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
@@ -517,7 +521,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                cir="100",
                                cbs="100",
                                send_time="10",
-                               tolerance="10")
+                               tolerance=everflow_tolerance)
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
