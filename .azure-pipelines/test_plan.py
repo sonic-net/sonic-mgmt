@@ -153,7 +153,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
+    def poll(self, test_plan_id, interval=60, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -164,7 +164,6 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("Max polling time: {} seconds".format(timeout))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
@@ -172,7 +171,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (time.time() - start_time) < timeout:
+        while True:
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
@@ -212,10 +211,6 @@ class TestPlanManager(object):
                 print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
                       .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
                 time.sleep(interval)
-
-        else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
 
 
 if __name__ == "__main__":
@@ -377,14 +372,6 @@ if __name__ == "__main__":
         dest="interval",
         help="Polling interval. Default 60 seconds."
     )
-    parser_poll.add_argument(
-        "--timeout",
-        type=int,
-        required=False,
-        default=36000,
-        dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
-    )
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -460,7 +447,7 @@ if __name__ == "__main__":
                 azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
+            tp.poll(args.test_plan_id, args.interval, args.expected_states)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
