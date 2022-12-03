@@ -146,7 +146,7 @@ def run_pfcwd_multi_node_test(api,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
                      tolerance=TOLERANCE_THRESHOLD,
-                     duthost=duthost))
+                     duthost=duthost)
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
@@ -534,7 +534,7 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
-        duthost(Object): The duthost ansible object.
+        duthost (obj): AnsibleHost object for dut.
 
     Returns:
         N/A
@@ -569,12 +569,11 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
-            """ but not for cisco-8000 platforms """
-            conditional = (src_port_id == pause_port_id or dst_port_id == pause_port_id)
+            ports_to_check = [dst_port_id, src_port_id]
             if is_cisco_device(duthost):
-                conditional = (dst_port_id == pause_port_id)
-            if trigger_pfcwd and conditional:
+                ports_to_check = [dst_port_id]
+            if trigger_pfcwd and pause_port_id in ports_to_check:
+                """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
 
