@@ -926,39 +926,6 @@ vlan/test_vlan_ping.py:
       - "asic_type in ['broadcom']"
 
 #######################################
-#####             voq             #####
-#######################################
-voq/test_voq_ipfwd.py:
-  skip:
-    reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
-    conditions:
-      - "not any('T1' in value['name'] for key, value in minigraph_neighbors.items())"
-
-voq/test_voq_ipfwd.py::test_host_route_table_bgp:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric"
-    conditions:
-      - "len(BGP_VOQ_CHASSIS_NEIGHBOR) == 0"
-
-voq/test_voq_ipfwd.py::test_host_route_table_inband_addr:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric."
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_nbr.py::TestGratArp::test_gratarp_macchange:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
-
-voq/test_voq_nbr.py::test_neighbor_hw_mac_change:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
-
-#######################################
 #####             vrf             #####
 #######################################
 vrf/test_vrf.py::TestVrfAclRedirect:
