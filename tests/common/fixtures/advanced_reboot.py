@@ -737,12 +737,15 @@ class AdvancedReboot:
                 wait=self.readyTimeout
             )
 
+    def disable_service_warmrestart(self):
+        for service in self.service_list:
+            self.duthost.shell('sudo config warm_restart disable {}'.format(service))
+
     def __restorePrevDockerImage(self):
         """Restore previous docker image.
         """
         for service_name, data in self.service_data.items():
             if data['image_path_on_dut'] is None:
-                self.duthost.shell('sudo config warm_restart disable {}'.format(service_name))
                 continue
 
             #  We don't use sonic-installer rollback-docker CLI here because:
@@ -786,13 +789,15 @@ class AdvancedReboot:
             logger.info('Run the post reboot check script')
             self.__runScript([self.postRebootCheckScript], self.duthost)
 
-        if not self.stayInTargetImage:
-            logger.info('Restoring previous image')
-            if self.rebootType != 'service-warm-restart':
-                self.__restorePrevImage()
-            else:
+        if self.rebootType != 'service-warm-restart' and not self.stayInTargetImage:
+            self.__restorePrevImage()
+
+        if self.rebootType == 'service-warm-restart':
+            self.disable_service_warmrestart()
+            if not self.stayInTargetImage:
                 self.__restorePrevDockerImage()
-        else:
+        
+        if self.stayInTargetImage:
             logger.info('Stay in new image')
 
 
