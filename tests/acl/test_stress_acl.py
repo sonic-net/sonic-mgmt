@@ -11,7 +11,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 LOOP_TIMES_LEVEL_MAP = {
-    'debug': 10,
+    'debug': 100,
     'basic': 500,
     'confident': 5000
 }
@@ -90,7 +90,7 @@ def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_funct
                             IP_STRESS_ACL L3")
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = 'debug'
+        normalized_level = 'basic'
     loop_time = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     with open(STRESS_ACL_BASH_TEMPLATE, 'r') as f:
