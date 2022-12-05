@@ -552,21 +552,42 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
+    if duthost.facts["asic_type"] == "marvell":
+        vlan_mem_del_cmd = "config vlan member del 1000 Ethernet1"
+        vlan_mem_add_cmd =  "config vlan member add 1000 Ethernet1 -u"
+        if ip_ver == "4":
+           ptf_ip_add_cmd = "ifconfig eth1 {}/24 up".format(nexthop)
+           ptf_ip_rm_cmd = "ifconfig eth1 0 up"
+           ptfhost.shell(ptf_ip_add_cmd)
+           ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
+           ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+           nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+           nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+        else:
+           ptf_ip_add_cmd = "ifconfig eth1 inet6 add {}/96".format(nexthop)
+           ptf_ip_rm_cmd = "ifconfig eth1 inet6 del {}/96".format(nexthop)
+           ptfhost.shell(ptf_ip_add_cmd)
+           ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
+           ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+           nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
+           nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
+        asichost.shell(vlan_mem_del_cmd)
+        asichost.shell(ip_add_cmd)
+    else:
+        nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-    nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
+        nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-
     # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
                             crm_stats_ipv{ip_ver}_nexthop_used \
@@ -574,7 +595,6 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 .format(db_cli=asichost.sonic_db_cli,
                                         ip_ver=ip_ver)
     crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
-
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
@@ -589,7 +609,10 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        asichost.shell(vlan_mem_add_cmd)
+        ptfhost.shell(ptf_ip_rm_cmd)
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
                                    crm_stats_nexthop_available)
     pytest_assert(crm_stats_checker,
