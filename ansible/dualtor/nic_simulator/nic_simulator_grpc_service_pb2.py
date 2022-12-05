@@ -16,31 +16,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=br'\n nic_simulator_grpc_service.proto\"-\n'
-                br'\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\r\n\x05state\x18\x02 '
-                br'\x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\r\n\x05state\x18\x02 '
-                br'\x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\r\n\x05state\x18\x02 '
-                br'\x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\r\n\x05state\x18\x02 '
-                br'\x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 '
-                br'\x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 '
-                br'\x01(\t\"A\n\x0b\x44ropRequest\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\x11\n\tdirection\x18\x02 '
-                br'\x03(\x05\x12\x0f\n\x07recover\x18\x03 '
-                br'\x01(\x08\",\n\tDropReply\x12\x0e\n\x06portid\x18\x01 '
-                br'\x03(\x05\x12\x0f\n\x07success\x18\x02 '
-                br'\x03(\x08\x32\xef\x02\n\rDualToRActive\x12=\n'
-                br'\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n'
-                br'\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n'
-                br'\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n'
-                br'\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n'
-                br'\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x12%\n'
-                br'\x07SetDrop\x12\x0c.DropRequest\x1a\n.DropReply\"\x00\x62\x06proto3'
+  serialized_pb=b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t\"A\n\x0b\x44ropRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x11\n\tdirection\x18\x02 \x03(\x05\x12\x0f\n\x07recover\x18\x03 \x01(\x08\",\n\tDropReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x0f\n\x07success\x18\x02 \x03(\x08\x32\xef\x02\n\rDualToRActive\x12=\n\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x12%\n\x07SetDrop\x12\x0c.DropRequest\x1a\n.DropReply\"\x00\x62\x06proto3'  # noqa E501
 )
 
 _ADMINREQUEST = _descriptor.Descriptor(

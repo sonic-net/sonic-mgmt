@@ -17,40 +17,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=(br'\n%nic_simulator_grpc_mgmt_service.proto\x1a '
-                 br'nic_simulator_grpc_service.proto\"R\n\x12'
-                 br'ListOfAdminRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12%\n\x0e\x61\x64'
-                 br'min_requests\x18\x02 \x03(\x0b\x32\r'
-                 br'.AdminRequest\"M\n\x10ListOfAdminReply\x12\x15\n\r'
-                 br'nic_addresses\x18\x01 \x03(\t\x12\"\n\r'
-                 br'admin_replies\x18\x02 \x03(\x0b\x32\x0b'
-                 br'.AdminReply\"^\n\x16ListOfOperationRequest\x12\x15\n\r'
-                 br'nic_addresses\x18\x01 \x03(\t\x12-\n\x12'
-                 br'operation_requests\x18\x02 \x03(\x0b\x32\x11'
-                 br'.OperationRequest\"Y\n\x14'
-                 br'ListOfOperationReply\x12\x15\n\r'
-                 br'nic_addresses\x18\x01 \x03(\t\x12*\n\x11'
-                 br'operation_replies\x18\x02 \x03(\x0b\x32\x0f'
-                 br'.OperationReply\"O\n\x11'
-                 br'ListOfDropRequest\x12\x15\n\r'
-                 br'nic_addresses\x18\x01 \x03(\t\x12#\n\r'
-                 br'drop_requests\x18\x02 \x03(\x0b\x32\x0c'
-                 br'.DropRequest\"J\n\x0fListOfDropReply\x12\x15\n\r'
-                 br'nic_addresses\x18\x01 \x03(\t\x12 \n\x0c\x64'
-                 br'rop_replies\x18\x02 \x03(\x0b\x32\n'
-                 br'.DropReply2\xa8\x02\n\x12\x44'
-                 br'ualTorMgmtService\x12I\n\x1d'
-                 br'QueryAdminForwardingPortState\x12\x13'
-                 br'.ListOfAdminRequest\x1a\x11'
-                 br'.ListOfAdminReply\"\x00\x12G\n\x1b'
-                 br'SetAdminForwardingPortState\x12\x13'
-                 br'.ListOfAdminRequest\x1a\x11'
-                 br'.ListOfAdminReply\"\x00\x12K\n\x17'
-                 br'QueryOperationPortState\x12\x17'
-                 br'.ListOfOperationRequest\x1a\x15'
-                 br'.ListOfOperationReply\"\x00\x12\x31\n\x07'
-                 br'SetDrop\x12\x12.ListOfDropRequest\x1a\x10'
-                 br'.ListOfDropReply\"\x00\x62\x06proto3'),
+  serialized_pb=b'\n%nic_simulator_grpc_mgmt_service.proto\x1a nic_simulator_grpc_service.proto\"R\n\x12ListOfAdminRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12%\n\x0e\x61\x64min_requests\x18\x02 \x03(\x0b\x32\r.AdminRequest\"M\n\x10ListOfAdminReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12\"\n\radmin_replies\x18\x02 \x03(\x0b\x32\x0b.AdminReply\"^\n\x16ListOfOperationRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12-\n\x12operation_requests\x18\x02 \x03(\x0b\x32\x11.OperationRequest\"Y\n\x14ListOfOperationReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12*\n\x11operation_replies\x18\x02 \x03(\x0b\x32\x0f.OperationReply\"O\n\x11ListOfDropRequest\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12#\n\rdrop_requests\x18\x02 \x03(\x0b\x32\x0c.DropRequest\"J\n\x0fListOfDropReply\x12\x15\n\rnic_addresses\x18\x01 \x03(\t\x12 \n\x0c\x64rop_replies\x18\x02 \x03(\x0b\x32\n.DropReply2\xa8\x02\n\x12\x44ualTorMgmtService\x12I\n\x1dQueryAdminForwardingPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12G\n\x1bSetAdminForwardingPortState\x12\x13.ListOfAdminRequest\x1a\x11.ListOfAdminReply\"\x00\x12K\n\x17QueryOperationPortState\x12\x17.ListOfOperationRequest\x1a\x15.ListOfOperationReply\"\x00\x12\x31\n\x07SetDrop\x12\x12.ListOfDropRequest\x1a\x10.ListOfDropReply\"\x00\x62\x06proto3'  # noqa E501
+  ,
   dependencies=[nic__simulator__grpc__service__pb2.DESCRIPTOR, ])
 
 _LISTOFADMINREQUEST = _descriptor.Descriptor(
