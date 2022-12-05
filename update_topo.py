@@ -28,7 +28,7 @@ if __name__=="__main__":
             topo_f = open(T0_TOPOLOGY_FILE, "w")
             yaml.safe_dump(topo, topo_f)
             topo_f.close()
-        elif sys.argv[0] == "T1":
+        elif sys.argv[1] == "T1":
             topo_f = open(T1_TOPOLOGY_FILE, "r")
             topo = yaml.safe_load(topo_f)
             topo_f.close()
