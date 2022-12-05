@@ -157,8 +157,13 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")
+    is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
+            continue
+        # Skip dhcp_relay check if dhcp_server is enabled
+        if "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
 
