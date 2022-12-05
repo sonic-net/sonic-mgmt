@@ -1,9 +1,7 @@
-import json
 import logging
-import os
 import pytest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F811
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -85,7 +83,7 @@ def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
     rand_selected_dut.shell(cmd_rm_rules)
 
 
-def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_function_conpleteness_level, 
+def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_function_conpleteness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):
 
     rand_selected_dut.shell("config acl add table -p PortChannel101,PortChannel102,PortChannel103,PortChannel104 \
