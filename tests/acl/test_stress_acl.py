@@ -1,6 +1,9 @@
 import json
 import logging
+import os
 import pytest
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -11,78 +14,101 @@ logger = logging.getLogger(__name__)
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 10,
-    'basic': 1000,
-    'confident': 10000
+    'basic': 500,
+    'confident': 5000
 }
 
 # Template json file used to test scale rules
-IP_ACL_FILE = "/tmp/acltb_test_stress_acl.json"
-IP_ACL_BASH_TEMPLATE = "acl/templates/acltb_test_stress_acl.sh"
-IP_ACL_BASH_FILE = "/tmp/acltb_test_stress_acl.sh"
-IP_ACL_BASH_LOG_FILE = "/tmp/acltb_test_stress_acl.log"
+STRESS_ACL_TABLE_TEMPLATE = "acl/templates/acltb_test_stress_acl_table.j2"
+STRESS_ACL_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_rules.j2"
+STRESS_ACL_BASH_TEMPLATE = "acl/templates/acltb_test_stress_acl.sh"
+STRESS_ACL_TABLE_JSON_FILE = "/tmp/acltb_test_stress_acl_table.json"
+STRESS_ACL_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_rules.json"
+STRESS_ACL_BASH_FILE = "/tmp/acltb_test_stress_acl.sh"
+STRESS_ACL_BASH_LOG_FILE = "/tmp/acltb_test_stress_acl.log"
+
+LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
+LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 
-def generate_acl_rule(duthost, ip_type):
-    """
-    Generate acl rule with template json file
-    """
-    rules_data = {}
-    ip_acl_entry = {}
+@pytest.fixture(scope='module')
+def setup_stress_acl_table(rand_selected_dut):
+    # Define a custom table type CUSTOM_TYPE by loading a json configuration
+    rand_selected_dut.template(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE)
+    rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
+    # Create an ACL table and bind to Vlan1000 interface
+    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p PortChannel101"
+    cmd_remove_table = "config acl remove table STRESS_ACL"
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
+    loganalyzer.load_common_config()
 
-    ip_type == "ipv4"
-    acl_entry = {}
-    acl_entry[1] = {
-                    "actions": {
-                        "config": {
-                            "forwarding-action": "ACCEPT"
-                        }
-                    },
-                    "config": {
-                        "sequence-id": 1
-                    },
-                    "ip": {
-                        "config": {
-                            "source-ip-address": "20.0.0.1/32"
-                        }
-                    }
-                }
-    ip_acl_entry.update(acl_entry)
-    rules_data['acl'] = {
-        "acl-sets": {
-            "acl-set": {
-                "IP_STRESS_ACL": {
-                    "acl-entries": {
-                        "acl-entry": ip_acl_entry
-                    }
-                }
-            }
-        }
-    }
+    try:
+        logger.info("Creating ACL table STRESS_ACL with type L3")
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+        # Ignore any other errors to reduce noise
+        loganalyzer.ignore_regex = [r".*"]
+        with loganalyzer:
+            rand_selected_dut.shell(cmd_create_table)
+    except LogAnalyzerError as err:
+        # Cleanup Config DB if table creation failed
+        logger.error("ACL table creation failed, attempting to clean-up...")
+        rand_selected_dut.shell(cmd_remove_table)
+        raise err
 
-    duthost.copy(content=json.dumps(rules_data, indent=4), dest=IP_ACL_FILE)
+    yield
+    logger.info("Removing ACL table STRESS_ACL")
+    # Remove ACL table
+    rand_selected_dut.shell(cmd_remove_table)
 
 
-def test_acl_add_del_stress(duthosts, rand_one_dut_hostname, get_function_conpleteness_level):
-    duthost = duthosts[rand_one_dut_hostname]
-    generate_acl_rule(duthost, "ipv4")
-    duthost.shell("config acl add table -p PortChannel101,PortChannel102,PortChannel103,PortChannel104 \
-                  IP_STRESS_ACL L3")
+@pytest.fixture(scope='module')
+def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
+    # Copy and load acl rules
+    rand_selected_dut.template(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE)
+    cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
+    cmd_rm_rules = "acl-loader delete STRESS_ACL"
+
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
+    loganalyzer.match_regex = [LOG_EXPECT_ACL_RULE_FAILED_RE]
+    try:
+        logger.info("Creating ACL rules in STRESS_ACL")
+        with loganalyzer:
+            rand_selected_dut.shell(cmd_add_rules)
+    except LogAnalyzerError as err:
+        # Cleanup Config DB if failed
+        logger.error("ACL rule creation failed, attempting to clean-up...")
+        rand_selected_dut.shell(cmd_rm_rules)
+        raise err
+    yield
+    # Remove testing rules
+    logger.info("Removing testing ACL rules")
+    rand_selected_dut.shell(cmd_rm_rules)
+
+
+def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_function_conpleteness_level, 
+                            toggle_all_simulator_ports_to_rand_selected_tor):
+
+    rand_selected_dut.shell("config acl add table -p PortChannel101,PortChannel102,PortChannel103,PortChannel104 \
+                            IP_STRESS_ACL L3")
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
     loop_time = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
-    with open(IP_ACL_BASH_TEMPLATE, 'r') as f:
+    with open(STRESS_ACL_BASH_TEMPLATE, 'r') as f:
         file_data = ""
         for line in f:
             if "loop_times=" in line:
                 line = "loop_times={}\n".format(loop_time)
             file_data += line
-    with open(IP_ACL_BASH_TEMPLATE, 'w') as f:
+    with open(STRESS_ACL_BASH_TEMPLATE, 'w') as f:
         f.write(file_data)
 
-    duthost.template(src=IP_ACL_BASH_TEMPLATE, dest=IP_ACL_BASH_FILE)
-    duthost.shell("bash {} > {}".format(IP_ACL_BASH_FILE, IP_ACL_BASH_LOG_FILE))
-    duthost.fetch(src=IP_ACL_BASH_LOG_FILE, dest="logs/")
+    rand_selected_dut.template(src=STRESS_ACL_BASH_TEMPLATE, dest=STRESS_ACL_BASH_FILE)
+    rand_selected_dut.shell("bash {} > {}".format(STRESS_ACL_BASH_FILE, STRESS_ACL_BASH_LOG_FILE))
+    rand_selected_dut.fetch(src=STRESS_ACL_BASH_LOG_FILE, dest="logs/")
+
+    cmd_remove_table = "config acl remove table STRESS_ACL"
+    rand_selected_dut.shell(cmd_remove_table)
 
     logger.info("End")
