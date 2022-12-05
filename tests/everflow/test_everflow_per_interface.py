@@ -44,7 +44,7 @@ def skip_if_not_supported(tbinfo, duts_to_test, ip_ver):
 
     asic_type = rand_selected_dut.facts["asic_type"]
     asic_subtype = rand_selected_dut.facts.get("platform_asic", "")
-    unsupported_platforms = ["mellanox", "marvell", "cisco-8000", "broadcom"]
+    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
