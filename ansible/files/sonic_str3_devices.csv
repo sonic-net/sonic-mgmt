@@ -8,6 +8,7 @@ str3-7260cx3-acs-fan-04,10.3.146.10/23,Arista-7260CX3,FanoutLeaf,
 str3-8102-01,10.3.146.120/23,Cisco-8102-C64,DevSonic,
 str3-8102-05,10.3.146.121/23,Cisco-8102-C64,DevSonic,
 str3-8102-06,10.3.146.78/23,Cisco-8102-C64,DevSonic,
+str3-8101-32fh-01,10.3.146.189/23,Cisco-8101-T32,DevSonic,
 pdu-90,10.3.155.90,Sentry,Pdu,snmp
 pdu-91,10.3.155.91,Sentry,Pdu,snmp
 pdu-115,10.3.155.115,Sentry,Pdu,snmp
@@ -17,3 +18,5 @@ pdu-122,10.3.155.122,Sentry,Pdu,snmp
 pdu-123,10.3.155.123,Sentry,Pdu,snmp
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh
+str3-z9332f-01,10.3.146.248/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
+str3-z9332f-04,10.3.146.230/23,DellEMC-Z9332f-O32,FanoutLeafSonic,

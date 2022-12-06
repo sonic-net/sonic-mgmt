@@ -18,6 +18,8 @@ all:
           ansible_host: 10.64.246.5
         vms61-2:
           ansible_host: 10.64.247.36
+        vms61-3:
+          ansible_host: 10.64.246.148
     pdu:
       hosts:
         pdu-90:
@@ -52,6 +54,12 @@ fanout:
       ansible_host: 10.3.146.32
     str3-7260cx3-acs-fan-04:
       ansible_host: 10.3.146.10
+    str3-z9332f-01:
+      ansible_host: 10.3.146.248
+      os: sonic
+    str3-z9332f-04:
+      ansible_host: 10.3.146.230
+      os: sonic
 
 sonic:
   vars:
@@ -115,6 +123,29 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0xA3746C27"
+
+sonic_cisco_8101:
+  vars:
+    hwsku: Cisco-8101-T32
+    iface_speed: 100000
+  hosts:
+    str3-8101-32fh-01:
+      ansible_host: 10.3.146.189
+      model: 8101-32FH-O
+      serial: FLM2634071J
+      base_mac: 04:A7:41:54:F2:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM2634071J"
+        "0x24": "04:A7:41:54:F2:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x66350FBA"
 
 server:
   hosts:

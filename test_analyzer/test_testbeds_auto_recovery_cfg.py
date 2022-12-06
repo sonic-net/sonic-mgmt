@@ -42,7 +42,6 @@ golden_image_url = {
     'vms11-t0-on-4'          : '$(GOLDEN_IMAGE_BRCM_202012)',                  # Dell
     'vms13-5-t1-lag'         : '$(GOLDEN_IMAGE_BRCM_202012)',                  # Dell
     'vms21-t0-z9332f-02'     : '$(GOLDEN_IMAGE_BRCM_202012)',                  # Dell
-    'vms21-t1-z9332f-01'     : '$(GOLDEN_IMAGE_BRCM_202012)',                  # Dell
     'vms1-8'                 : '$(GOLDEN_IMAGE_MLNX_202012)',                  # Mellanox
     'vms1-t1-2700'           : '$(GOLDEN_IMAGE_MLNX_202012)',                  # Mellanox
     'vms2-2-t0-2700'         : '$(GOLDEN_IMAGE_MLNX_202012)',                  # Mellanox

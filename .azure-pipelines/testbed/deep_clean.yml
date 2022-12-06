@@ -124,7 +124,6 @@ parameters:
           - vms21-t0-dx010-7
           - vms21-t0-z9332f-02
           - vms21-t1-2700-2
-          - vms21-t1-z9332f-01
       server_24:
         vm_type: ceos
         pool: nightly
@@ -158,6 +157,7 @@ parameters:
         testbeds:
           - vms61-dual-t0-8102
           - vms61-t0-8102-01
+          - vms61-t1-8101-01
       server_svc_1:
         vm_type: ceos
         pool: nightly-svc

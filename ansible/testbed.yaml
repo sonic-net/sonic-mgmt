@@ -1006,18 +1006,18 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms21-t1-8101-01
-  group-name: vms21-4
+- conf-name: vms61-t1-8101-01
+  group-name: vms61-3
   topo: t1-lag
   ptf_image_name: docker-ptf
-  ptf: vms21-4
+  ptf: vms61-3
   ptf_ip: 10.64.246.148/23
   ptf_ipv6:
-  server: server_21
-  vm_base: VM21032
+  server: server_61
+  vm_base: VM61032
   dut:
-    - str2-8101-32fh-01
-  inv_name: str2
+    - str3-8101-32fh-01
+  inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
 

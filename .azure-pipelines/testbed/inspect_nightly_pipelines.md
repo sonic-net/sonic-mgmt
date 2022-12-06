@@ -34,7 +34,6 @@ For each run, a python script is called to gather the expected runs data. The sc
   { "testbed": "vms7-t1-s6100", "timestamp": "2022-01-10 04:00:00" },
   { "testbed": "vms11-t0-on-4", "timestamp": "2022-01-10 04:00:00" },
   { "testbed": "vms21-t0-z9332f-02", "timestamp": "2022-01-10 01:00:00" },
-  { "testbed": "vms21-t1-z9332f-01", "timestamp": "2022-01-10 02:00:00" },
   { "testbed": "vms1-8", "timestamp": "2022-01-10 02:00:00" },
   { "testbed": "vms2-4-t0-2700", "timestamp": "2022-01-10 06:00:00" },
   { "testbed": "vms7-t0-4600c-2", "timestamp": "2022-01-10 14:00:00" },

@@ -261,9 +261,6 @@ fanout:
       ansible_host: 10.3.146.32
     str2-7260-26:
       ansible_host: 10.3.146.160
-    str2-z9332f-04:
-      ansible_host: 10.3.146.230
-      os: sonic
     str2-z9332f-03:
       ansible_host: 10.3.146.229
       os: sonic
@@ -272,9 +269,6 @@ fanout:
       os: sonic
     str2-z9332f-05:
       ansible_host: 10.3.146.228
-      os: sonic
-    str2-z9332f-01:
-      ansible_host: 10.3.146.248
       os: sonic
     str2-7260cx3-acs-fan-17:
       ansible_host: 10.3.146.77
@@ -1671,26 +1665,9 @@ sonic_cisco_8102:
 
 sonic_cisco_8101:
   vars:
-    hwsku: 32x400Gb
+    hwsku: Cisco-8101-T32
     iface_speed: 100000
   hosts:
-    str2-8101-32fh-01:
-      ansible_host: 10.3.146.189
-      model: 8101-32FH-O
-      serial: FLM2634071J
-      base_mac: 04:A7:41:54:F2:00
-      syseeprom_info:
-        "0x21": "8101-32FH-O"
-        "0x22": "477691"
-        "0x23": "FLM2634071J"
-        "0x24": "04:A7:41:54:F2:00"
-        "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r0"
-        "0x2A": "512"
-        "0x2B": "Cisco"
-        "0x2C": "US"
-        "0x2D": "Cisco"
-        "0xFE": "0x66350FBA"
     str2-8101-32fh-02:
       ansible_host: 10.3.146.179
       model: 8101-32FH-O
@@ -1737,31 +1714,6 @@ sonic_dell_z9332f:
         "0x2F": "2FRXCW2"
         "0xFD": ""
         "0xFE": "0x8DDCF4AB"
-      pdu_host: pdu-111
-    str2-z9332f-01:
-      ansible_host: 10.3.146.248
-      hwsku: DellEMC-Z9332f-O32
-      model: 04CN21
-      serial: 9DRXCW2
-      base_mac: C8:F7:50:ED:7C:C1
-      syseeprom_info:
-        "0x21": "Z9332F-ON"
-        "0x22": "04CN21"
-        "0x23": "TH04CN21CET0004K0214"
-        "0x24": "C8:F7:50:ED:7C:C1"
-        "0x25": "05/13/2020 01:43:36"
-        "0x26": "1"
-        "0x27": "A01"
-        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
-        "0x29": "2021.03.05.0.0.5"
-        "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
-        "0x2D": "Dell EMC"
-        "0x2E": "0.5.1"
-        "0x2F": "9DRXCW2"
-        "0xFD": ""
-        "0xFE": "0x8D29EEBB"
       pdu_host: pdu-111
 
 sonic_appliance:

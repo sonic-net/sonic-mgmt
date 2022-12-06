@@ -16,3 +16,9 @@ pdu-90,7,str3-8102-05,PSU1
 pdu-91,7,str3-8102-05,PSU2
 pdu-90,4,str3-8102-06,PSU1
 pdu-91,4,str3-8102-06,PSU2
+pdu-110,36,str3-8101-32fh-01,PSU1
+pdu-111,36,str3-8101-32fh-01,PSU2
+pdu-111,38,str3-z9332f-01,PSU1
+pdu-111,40,str3-z9332f-01,PSU2
+pdu-111,41,str3-z9332f-04,PSU1
+pdu-111,47,str3-z9332f-04,PSU2
