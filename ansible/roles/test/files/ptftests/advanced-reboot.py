@@ -1559,12 +1559,15 @@ class ReloadTest(BaseTest):
         """
         This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.vlan_mac):
+        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and
+            (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
+            # for dualtor, t1->server rcvd pkt will have src MAC as dut_mac, and server->t1 rcvd pkt will have src MAC as vlan_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
-        elif packet[scapyall.Ether].dst == self.vlan_mac:
+        elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
             # This is a sent packet.
+            # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
         else:
             return False
@@ -1630,14 +1633,18 @@ class ReloadTest(BaseTest):
             missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
-                if packet[scapyall.Ether].dst == self.vlan_mac:
+                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
+                    # for dualtor both MACs are needed:
+                    #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
-                if packet[scapyall.Ether].src == self.vlan_mac:
+                if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
                     # This is a received packet.
+                    # for dualtor both MACs are needed:
+                    #   t1->server rcvd pkt will have src MAC as dut_mac, and server->t1 rcvd pkt will have src MAC as vlan_mac
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0 :   # From vlan to T1.
