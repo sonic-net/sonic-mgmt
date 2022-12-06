@@ -1368,7 +1368,7 @@ sonic_arista_sup:
         "0x26": "01"
         "0x27": "01.0a"
         "0x28": "x86_64-arista_7800_sup"
-        "0x2A": 65535
+        "0x2A": "0xffff"
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
