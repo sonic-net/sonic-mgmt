@@ -27,11 +27,6 @@ parameters:
     default: $(IMAGE_MARVELL_202205)
     displayName: "Image URL"
 
-  - name: PREV_IMAGE_URL
-    type: string
-    default: $(IMAGE_MARVELL_202012)
-    displayName: "Previous Image URL"
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
