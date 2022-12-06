@@ -94,7 +94,8 @@ class TestPlanManager(object):
                     "vm_type": kwargs["vm_type"]
                 },
                 "secrets": {
-                    "azp_access_token": kwargs["access_token"]
+                    "azp_access_token": kwargs["azp_access_token"],
+                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
                 }
             },
             "priority": 10,
@@ -152,7 +153,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -163,7 +164,6 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("Max polling time: {} seconds".format(timeout))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
@@ -171,7 +171,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (time.time() - start_time) < timeout:
+        while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
@@ -331,12 +331,20 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--access-token",
+        "--azp-access-token",
         type=str,
-        dest="access_token",
+        dest="azp_access_token",
         default="",
         required=False,
-        help="Authorization token to access internal resource (image, etc)"
+        help="Token to download the artifacts of Azure Pipelines"
+    )
+    parser_create.add_argument(
+        "--azp-repo-access-token",
+        type=str,
+        dest="azp_repo_access_token",
+        default="",
+        required=False,
+        help="Token to download the repo from Azure DevOps"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -372,7 +380,7 @@ if __name__ == "__main__":
         "--timeout",
         type=int,
         required=False,
-        default=36000,
+        default=-1,
         dest="timeout",
         help="Max polling time. Default 36000 seconds (10 hours)."
     )
@@ -447,7 +455,8 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
-                access_token=args.access_token
+                azp_access_token=args.azp_access_token,
+                azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)

@@ -382,7 +382,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
     5. Verify regular traffic can trigger PFC at expected queue
     """
     toggle_mux_to_host(rand_selected_dut)
-
+    # Delay 5 seconds between each test run
+    time.sleep(5)
     test_params = dict()
     test_params.update({
             "src_port_id": dut_config["lag_port_ptf_id"],
