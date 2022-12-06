@@ -115,17 +115,29 @@ def remove_acl_table(duthost):
     duthost.shell_cmds(cmds=cmds)
 
 
+def get_neighbor_ports(mg_facts, neighbor_name):
+    neighbor_ports = []
+    for key, value in mg_facts["minigraph_neighbors"].items():
+        if neighbor_name in value["name"]:
+            neighbor_ports.append(key)
+    return neighbor_ports
+
+
 @pytest.fixture(scope="module")
 def create_acl_table(rand_selected_dut, tbinfo):
     """
     Create two ACL tables on DUT for testing.
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    # Get the list of LAGs
-    port_channels = ",".join(mg_facts["minigraph_portchannels"].keys())
+    if tbinfo["topo"]["type"] == "mx":
+        neighbor_ports = get_neighbor_ports(mg_facts, "M0")
+        ports = ",".join(neighbor_ports)
+    else:
+        # Get the list of LAGs
+        ports = ",".join(mg_facts["minigraph_portchannels"].keys())
     cmds = [
-        "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, port_channels),
-        "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, port_channels)
+        "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, ports),
+        "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, ports)
     ]
     logger.info("Creating ACL table for testing")
     loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="null_route_helper")
@@ -231,13 +243,17 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
     rx_port = ptf_port_info['port']
     router_mac = rand_selected_dut.facts["router_mac"]
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    portchannel_members = []
-    for _, v in mg_facts["minigraph_portchannels"].items():
-        portchannel_members += v['members']
+    if tbinfo["topo"]["type"] == "mx":
+        neighbor_ports = get_neighbor_ports(mg_facts, "M0")
+        ptf_interfaces = [mg_facts['minigraph_ptf_indices'][port] for port in neighbor_ports]
+    else:
+        portchannel_members = []
+        for _, v in mg_facts["minigraph_portchannels"].items():
+            portchannel_members += v['members']
 
-    ptf_t1_interfaces = []
-    for port in portchannel_members:
-        ptf_t1_interfaces.append(mg_facts['minigraph_ptf_indices'][port])
+        ptf_interfaces = []
+        for port in portchannel_members:
+            ptf_interfaces.append(mg_facts['minigraph_ptf_indices'][port])
 
     # Run testing as defined in TEST_DATA
     for test_item in TEST_DATA:
@@ -252,4 +268,4 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
             time.sleep(1)
 
-        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_t1_interfaces), rx_port, expected_result)
+        send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces), rx_port, expected_result)
