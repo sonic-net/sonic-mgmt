@@ -806,35 +806,11 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
-snmp/test_snmp_interfaces.py::test_snmp_interfaces:
-  skip:
-    reason: "Interfaces not present on supervisor node."
-    conditions:
-      - "is_supervisor"
-
-snmp/test_snmp_lldp.py:
-  skip:
-    reason: "LLDP not supported on supervisor node."
-    conditions:
-      - "is_supervisor"
-
-snmp/test_snmp_pfc_counters.py:
-  skip:
-    reason: "M0/MX topo does not support test_snmp_pfc_counters"
-    conditions:
-      - "topo_name in ['m0', 'mx']"
-
-snmp/test_snmp_phy_entity.py::test_psu_info:
-  skip:
-    reason: "Not supported on non supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue"
+    reason:  "M0 topo does not support test_snmp_queue"
     conditions:
-      - "is_supervisor or topo_name in ['m0']"
+      - "topo_name in ['m0']"
 
 #######################################
 #####            span             #####
