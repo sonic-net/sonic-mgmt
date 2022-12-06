@@ -2615,7 +2615,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
                 cell_occupancy = (packet_length + cell_size - 1) // cell_size
-                pkts_num_trig_egr_drp /= cell_occupancy
+                pkts_num_trig_egr_drp //= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
                 # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
                 # due to not sending enough packets.
