@@ -66,6 +66,7 @@ sonic:
     mgmt_subnet_mask_length: 23
   children:
     sonic_cisco_8102:
+    sonic_cisco_8101:
 
 sonic_cisco_8102:
   vars:
