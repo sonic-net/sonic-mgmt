@@ -136,15 +136,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
     reason: "On Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
     conditions:
       - "asic_type in ['cisco-8000']"
-      
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_presence:
   xfail:
@@ -187,6 +178,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
+  #test_set_fans_speed requires get_speed_tolerance to be implemented
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
+  #using RPM rather than thermalctld checking tolerance on percentages
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   xfail:
