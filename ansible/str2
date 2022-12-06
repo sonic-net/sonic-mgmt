@@ -1019,6 +1019,7 @@ sonic_arista_lc_100G:
       hwsku: Arista-7800R3-48CQM2-C48
       sonic_hwsku: Arista-7800R3-48CQM2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cqm2_lc
+      model: 7800R3-48CQM2-LC
       slot_num: slot6
       switchids: [6]
       voq_inband_ip: [3.3.3.4/32]
@@ -1079,7 +1080,8 @@ sonic_arista_lc_400G:
     str2-7804-lc5-1:
       hwsku: Arista-7800R3A-36DM2-C36
       sonic_hwsku: Arista-7800R3A-36DM2-C36
-      sonic_hw_platform:  x86_64-arista_7800r3a_36dm2_lc
+      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
+      model: 7800R3A-36DM2-LC
       slot_num: slot5
       switchids: [2,4]
       voq_inband_ip: [3.3.3.2/32,3.3.3.3/32]
@@ -1087,8 +1089,20 @@ sonic_arista_lc_400G:
       loopback4096_ip: [192.0.0.2/32,192.0.0.3/32]
       loopback4096_ipv6: [2603:10e2:400::2/128,2603:10e2:400::3/128]
       serial: SGD21190878
-      base_mac:  2c:dd:e9:6c:cc:7d
+      base_mac: 2c:dd:e9:6c:cb:5c
       ansible_host: 10.3.147.27
+      syseeprom_info:
+        "0x21": "7800R3A-36DM2-LC"
+        "0x22": "ASY061080103"
+        "0x23": "SGD21190878"
+        "0x24": "2c:dd:e9:6c:cb:5c"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "2a.00"
+        "0x28": "x86_64-arista_7800r3a_36dm2_lc"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.0-20523815"
+        "0x2F": "SGD21190878"
 
 
 sonic_cisco_lc_100G:
@@ -1359,7 +1373,7 @@ sonic_arista_sup:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.1.4-14169220"
-        "0xFE": 3735928559
+        "0xFE": "0xdeadbeef"
       skip_modules:
           'line-cards':
             - LINE-CARD1
