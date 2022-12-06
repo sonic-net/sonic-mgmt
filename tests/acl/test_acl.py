@@ -287,7 +287,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             if namespace:
                 acl_table_ports[''] += port
 
-    if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+    if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
         for k, v in port_channels.iteritems():
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
