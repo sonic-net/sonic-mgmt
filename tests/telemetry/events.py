@@ -4,10 +4,6 @@ import json
 import os
 import sys
 
-from pkg_resources import parse_version
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
-
 pytestmark = [
     pytest.mark.topology('any')
 ]
