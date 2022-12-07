@@ -98,5 +98,5 @@ def do_test_events(duthost, localhost):
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith(".py"):
             module = __import__(file[:len(file)-3])
-            module.test_event(duthost, localhost, run_cmd, DATA_DIR)
+            module.test_event(duthost, localhost, run_cmd, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
