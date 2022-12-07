@@ -515,14 +515,6 @@
         become: true
         shell: config load_minigraph -y
 
-      - name: config static route for trex traffic passthrough
-        become: true
-        command: "{{ item }}"
-        with_items:
-          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
-          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
-        when: topo == "wan-3link-tg"
-
       - name: Wait for switch to become reachable again
         become: false
         local_action: wait_for
@@ -534,6 +526,14 @@
           delay: 10
           timeout: 600
         changed_when: false
+
+      - name: config static route for trex traffic passthrough
+        become: true
+        command: "{{ item }}"
+        with_items:
+          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
+          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
+        when: topo == "wan-3link-tg"
 
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
