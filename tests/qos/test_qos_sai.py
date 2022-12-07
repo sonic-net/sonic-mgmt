@@ -923,9 +923,11 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        # Only run this test when separated DSCP_TO_TC_MAP is defined
+        # Only run this test on T1 testbed when separated DSCP_TO_TC_MAP is defined
         if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1383,7 +1385,9 @@ class TestQosSai(QosSaiBase):
         """
         if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
-
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
+            
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         if direction == "downstream":
