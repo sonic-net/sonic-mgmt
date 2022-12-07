@@ -113,6 +113,8 @@ def get_topo_type(topo_name):
     if topo_type in ['dualtor', 'mgmttor']:
         # set dualtor/mgmttor topology type to 't0' to avoid adding it in each test script.
         topo_type = 't0'
+    if topo_type in ['mc0']:
+        topo_type = 'm0'
     return topo_type
 
 
@@ -930,7 +932,7 @@ def main():
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
-        elif topo_type in ['m0', 'mc0']:
+        elif topo_type == 'm0':
             fib_m0(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         elif topo_type == "mx":

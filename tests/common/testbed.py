@@ -269,6 +269,8 @@ class TestbedInfo(object):
         if tb_type in ['mgmttor', 'dualtor']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
+        if tb_type in ['mc0']:
+            tb_type = 'm0'
         return tb_type
 
     def _parse_dut_port_index(self, port):
