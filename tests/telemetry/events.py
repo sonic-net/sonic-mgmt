@@ -28,7 +28,7 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert op_file != "" and yang_file != "", "op_file path or yang_file name not provided"
     cmd = "python /tmp/validate_yang_events.py -f {} -y {}".format(op_file, yang_file)
     ret = duthost.shell(cmd)
-    assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
+    assert ret["rc"] == 0 and ret["stdout"] == "0", "Yang validation failed for {}".format(yang_file)
 
 
 def run_cmd(localhost, params={}, op_file="", filter_event="", event_cnt=0, timeout=0):
