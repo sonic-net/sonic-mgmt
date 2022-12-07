@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
-    ret = duthost.shell("sudo config bgp shutdown all")
+    ret = duthost.shell("config bgp shutdown all")
     assert ret["rc"] == 0, "Failing to shutdown"
 
-    ret = duthost.shell("sudo config bgp startup all")
+    ret = duthost.shell("config bgp startup all")
     assert ret["rc"] == 0, "Failing to startup"
 
     op_file = os.path.join(data_dir, "bgp_state.json")
@@ -19,9 +19,11 @@ def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
             filter_event="sonic-events-bgp:bgp-state",
             event_cnt=1, timeout=10)
 
-    d = {}
-    with open(op_file, "r") as s:
-        d = json.load(s)
+    data = ""
+    with open(op_file, "r") as f:
+        data = f.read()
+    logger.info("op_file contains: ({})".format(data))
+    event_json = json.loads(data)
     logger.info("events received: ({})".format(json.dumps(d, indent=4)))
     assert len(d) > 0, "Failed to receive bgp-state event"
     duthost.copy(src=op_file, dest="/tmp/bgp_state.json")
