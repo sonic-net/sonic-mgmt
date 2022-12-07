@@ -48,7 +48,6 @@ stages:
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
