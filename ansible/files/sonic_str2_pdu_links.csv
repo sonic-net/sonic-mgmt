@@ -208,3 +208,9 @@ pdu-118,46,str2-bluefield-01,PSU1
 pdu-119,18,str2-bluefield-01,PSU2
 pdu-119,5,str2-bluefield-02,PSU1
 pdu-119,17,str2-bluefield-02,PSU2
+pdu-108,45,str2-8800-sup-3,PSU1
+pdu-108,46,str2-8800-sup-3,PSU2
+pdu-109,24,str2-8800-sup-3,PSU3
+pdu-108,47,str2-8800-sup-3,PSU4
+pdu-109,46,str2-8800-sup-3,PSU5
+pdu-109,47,str2-8800-sup-3,PSU6

@@ -55,7 +55,7 @@
       <Device Hostname="str2-n3164-acs-1" HwSku="Nexus-3164" Type="DevSonic"/>
       <Device Hostname="str2-z9332f-03" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-z9332f-02" HwSku="DellEMC-Z9332f-M-O16C64" Type="FanoutLeafSonic"/>
-      <Device Hostname="str2-z9332f-05" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
+      <Device Hostname="str2-z9332f-05" HwSku="DellEMC-Z9332f-M-O16C64" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-7260-26" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str2-7260cx3-d09-u04" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str2-7260cx3-d09-u02" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
@@ -173,6 +173,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-7260cx3-02" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet35/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-7260cx3-acs-fan-16" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet36/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-z9332f-03" EndPort="Ethernet257" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet37/1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str2-z9332f-05" EndPort="Ethernet257" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet66"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-18" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet39/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-19" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet40/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-20" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet41/1"/>
@@ -2992,8 +2993,8 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet8/1" vlanids="3328-3375"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet35/1" vlanids="3380-3411,3412-3439"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet36/1" vlanids="3532-3635"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet38/1" vlanids="3644-3724"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet37/1" vlanids="3725-3756"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet37/1" vlanids="3652-3724"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet66" vlanids="3644-3651"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet39/1" vlanids="3757-3868"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet40/1" vlanids="3877-3988"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet41/1" vlanids="2000-2034,1035-1065"/>
@@ -6313,6 +6314,7 @@
       <DeviceConsoleInfo Hostname="console-194" HwSku="Cisco" ManagementIp="10.3.145.194" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-199" HwSku="Cisco" ManagementIp="10.3.145.199" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-185" HwSku="Cisco" ManagementIp="10.3.145.185" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-01" Proxy="sonic" StartDevice="console-212" StartPort="18"/>
@@ -6357,6 +6359,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-a7280cr3-3" Proxy="admin" StartDevice="console-212" StartPort="41"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-pikez-acs-1" Proxy="admin" StartDevice="console-182" StartPort="18"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-5" Proxy="admin" StartDevice="console-182" StartPort="16"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8101-32fh-02" Proxy="admin" StartDevice="console-185" StartPort="32"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>
@@ -6567,8 +6570,8 @@
       <PowerControlLinkInfo EndDevice="str2-8102-03" EndPort="PSU2" StartDevice="pdu-123" StartPort="2"/>
       <PowerControlLinkInfo EndDevice="str2-8102-04" EndPort="PSU1" StartDevice="pdu-122" StartPort="1"/>
       <PowerControlLinkInfo EndDevice="str2-8102-04" EndPort="PSU2" StartDevice="pdu-123" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str2-8101-32fh-02" EndPort="PSU1" StartDevice="pdu-111" StartPort="42"/>
-      <PowerControlLinkInfo EndDevice="str2-8101-32fh-02" EndPort="PSU2" StartDevice="pdu-110" StartPort="42"/>
+      <PowerControlLinkInfo EndDevice="str2-8101-32fh-02" EndPort="PSU1" StartDevice="pdu-110" StartPort="42"/>
+      <PowerControlLinkInfo EndDevice="str2-8101-32fh-02" EndPort="PSU2" StartDevice="pdu-111" StartPort="42"/>
       <PowerControlLinkInfo EndDevice="str2-dx010-acs-2" EndPort="PSU1" StartDevice="pdu-120" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="str2-dx010-acs-2" EndPort="PSU2" StartDevice="pdu-119" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-16" EndPort="PSU1" StartDevice="pdu-117" StartPort="7"/>
@@ -6582,12 +6585,12 @@
       <PowerControlLinkInfo EndDevice="str2-acs-serv-27" EndPort="PSU1" StartDevice="pdu-122" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-28" EndPort="PSU1" StartDevice="pdu-123" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str2-acs-serv-29" EndPort="PSU1" StartDevice="pdu-123" StartPort="25"/>
-      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU1" StartDevice="pdu-111" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU1" StartDevice="pdu-111" StartPort="24"/>
       <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU2" StartDevice="pdu-111" StartPort="23"/>
-      <PowerControlLinkInfo EndDevice="str2-7250-lc1-1" EndPort="PSU1" StartDevice="pdu-111" StartPort="24"/>
-      <PowerControlLinkInfo EndDevice="str2-7250-lc1-1" EndPort="PSU2" StartDevice="pdu-111" StartPort="18"/>
-      <PowerControlLinkInfo EndDevice="str2-7250-lc2-1" EndPort="PSU1" StartDevice="pdu-111" StartPort="19"/>
-      <PowerControlLinkInfo EndDevice="str2-7250-lc2-1" EndPort="PSU2" StartDevice="pdu-111" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU3" StartDevice="pdu-110" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU4" StartDevice="pdu-111" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU5" StartDevice="pdu-111" StartPort="19"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU6" StartDevice="pdu-111" StartPort="20"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u19" EndPort="PSU1" StartDevice="pdu-109" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u19" EndPort="PSU2" StartDevice="pdu-110" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u21" EndPort="PSU1" StartDevice="pdu-109" StartPort="27"/>
@@ -6604,6 +6607,12 @@
       <PowerControlLinkInfo EndDevice="str2-bluefield-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU1" StartDevice="pdu-119" StartPort="5"/>
       <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU2" StartDevice="pdu-119" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU1" StartDevice="pdu-108" StartPort="45"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU2" StartDevice="pdu-108" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU3" StartDevice="pdu-109" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU4" StartDevice="pdu-108" StartPort="47"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU5" StartDevice="pdu-109" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU6" StartDevice="pdu-109" StartPort="47"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>
