@@ -56,7 +56,10 @@ def do_init(duthost):
     global CMD_PREFIX, GNMI_CLI_BIN
 
     for i in [BASE_DIR, DATA_DIR]:
-        os.mkdir(i)
+        try:
+            os.mkdir(i)
+        except OSError as e:
+            pass
 
     duthost.shell("docker cp telemetry:/usr/sbin/gnmi_cli /tmp")
     ret = duthost.fetch(src="/tmp/gnmi_cli", dest=DATA_DIR)
