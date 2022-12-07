@@ -168,6 +168,7 @@ test_t0() {
       generic_config_updater/test_portchannel_interface.py \
       generic_config_updater/test_syslog.py \
       generic_config_updater/test_vlan_interface.py \
+      override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py \
@@ -241,6 +242,7 @@ test_t1_lag() {
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
+    override_config_table/test_override_config_table.py \
     pc/test_lag_2.py \
     platform_tests/test_cpu_memory_usage.py \
     process_monitoring/test_critical_process_monitoring.py \
@@ -269,8 +271,7 @@ test_multi_asic_t1_lag() {
     tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    # TODO: Remove disable of loganaler and sanity check once multi-asic testbed is stable.
-    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -u -c "$tests" -p logs/$tgname -e --disable_loganalyzer
+    ./run_tests.sh $MULTI_ASIC_CLI_OPTIONS -c "$tests" -p logs/$tgname
     popd
 }
 
@@ -289,7 +290,7 @@ test_multi_asic_t1_lag_pr() {
     tacacs/test_rw_user.py"
 
     pushd $SONIC_MGMT_DIR/tests
-    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname -u
+    ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
     popd
 }
 

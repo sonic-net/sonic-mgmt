@@ -29,9 +29,22 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
+    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cisco-8102. Skipping the test"
     conditions:
       - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+
+bfd/test_bfd.py::test_bfd_basic:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
+bfd/test_bfd.py::test_bfd_scale:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
 
 #######################################
 #####            bgp              #####
@@ -78,6 +91,12 @@ bgp/test_bgp_gr_helper.py:
     reason: 'bgp graceful restarted is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+bgp/test_bgp_speaker.py:
+  skip:
+    reason: "Not supported on topology backend."
+    conditions:
+      - "'backend' in topo_name"
 
 #######################################
 #####            cacl             #####
@@ -751,6 +770,12 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi_vxlan_ecmp.py:
+  skip:
+    reason: "Only supported on cisco 8102"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####           route             #####
 #######################################
@@ -837,7 +862,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot','innovium']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
@@ -965,3 +990,23 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+#######################################
+#####           vrf_attr          #####
+#######################################
+vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
+  skip:
+    reason: "RIF MAC taking precedence over VRF MAC"
+    conditions:
+      - "asic_type in ['barefoot']"
+
+#######################################
+#####           wan_lacp          #####
+#######################################
+wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
+  skip:
+    reason: "Skip test due to there isn't enough port channel or members exists in current topology."
+    conditions_logical_operator: OR
+    conditions:
+      - "len(minigraph_portchannels) < 2"
+      - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"

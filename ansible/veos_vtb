@@ -36,6 +36,7 @@ all:
           - wan-4link
           - wan-pub-cisco
           - wan-2dut
+          - wan-3link-tg
       children:
         server_1:
     lab:

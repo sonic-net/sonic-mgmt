@@ -157,8 +157,16 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")
+    try:
+        is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
+    except KeyError:
+        is_dhcp_server_enable = None
     for feature_name, state in features_dict.items():
         if 'enabled' not in state:
+            continue
+        # Skip dhcp_relay check if dhcp_server is enabled
+        if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
 
@@ -294,3 +302,8 @@ def test_generate_running_golden_config(duthosts):
     """
     for duthost in duthosts:
         duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                asic_ns = 'asic{}'.format(asic_index)
+                duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                              format(asic_ns, asic_index))
