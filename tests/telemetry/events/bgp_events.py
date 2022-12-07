@@ -1,8 +1,11 @@
 #! /usr/bin/env python3
 
 import json
+import logging
+import os
 
 logger = logging.getLogger(__name__)
+
 
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     ret = duthost.shell("sudo config bgp shutdown all")
@@ -12,7 +15,7 @@ def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     assert ret["rc"] == 0, "Failing to startup"
 
     op_file = os.path.join(data_dir, "bgp_state.json")
-    run_cmd(localhost, [ "heartbeat=5"], op_file=op_file,
+    run_cmd(localhost, ["heartbeat=5"], op_file=op_file,
             filter_event="sonic-events-bgp:bgp-state",
             event_cnt=1, timeout=10)
 

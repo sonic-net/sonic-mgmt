@@ -8,7 +8,7 @@ from glob import glob
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers = [
+    handlers=[
         logging.FileHandler("debug.log"),
         logging.StreamHandler(sys.stdout)
     ]
@@ -21,6 +21,7 @@ FAILED_VALIDATION_ERROR = -3
 INVALID_YANG_ERROR = -4
 YANG_LOAD_SUCCESS = 0
 YANG_VALIDATION_SUCCESS = 0
+
 
 class YangValidator:
     def __init__(self, file, yangModule):
@@ -60,8 +61,7 @@ class YangValidator:
             data_json = "{\"" + self.yangModule + ":" + self.yangModule + "\":" + data_json + "}"
 
             try:
-                node = self.ctx.parse_data_mem(data_json, ly.LYD_JSON, \
-                    ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
+                self.ctx.parse_data_mem(data_json, ly.LYD_JSON, ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
                 return FAILED_VALIDATION_ERROR
@@ -69,9 +69,10 @@ class YangValidator:
         logging.info("Libyang validation for {} passed successfully".format(self.yangModule))
         return YANG_VALIDATION_SUCCESS
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--file", nargs='?', const='', default='', help="File containing event json for validation")
+    parser.add_argument("-f", "--file", nargs='?', const='', default='', help="File containing event json")
     parser.add_argument("-y", "--yang", nargs='?', const='', default='', help="YANG file name")
     args = parser.parse_args()
     if args.file == '' or args.yang == '':
@@ -79,6 +80,7 @@ def main():
         return NO_FILE_ERROR
     validator = YangValidator(args.file, args.yang)
     return validator.validateJSON()
+
 
 if __name__ == "__main__":
     main()
