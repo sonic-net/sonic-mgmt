@@ -932,7 +932,7 @@ def main():
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
-        elif topo_type == 'm0':
+        elif topo_type == "m0":
             fib_m0(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
         elif topo_type == "mx":
