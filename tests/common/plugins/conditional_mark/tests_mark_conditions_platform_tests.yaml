@@ -934,12 +934,6 @@ platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
 #######################################
 #####        test_reboot.py       #####
 #######################################
-platform_tests/test_reboot.py:
-  skip:
-    reason: "Skip reboot test for Celestica"
-    conditions:
-      - "hwsku in ['Celestica-E1031-T48S4']"
-
 platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
     reason: "case failed and waiting for fix"
@@ -995,13 +989,9 @@ platform_tests/test_reboot.py::test_warm_reboot:
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
-    reason: "Skip watchdog reboot test for Wistron"
+    reason: "Skip watchdog reboot test for Wistron / Nokia 7215"
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
-  skip:
-    reason: "Skip watchdog reboot test for m0/mx"
-    conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
