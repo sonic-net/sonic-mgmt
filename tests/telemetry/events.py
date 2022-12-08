@@ -27,8 +27,9 @@ GNMI_CLI_BIN = None
 def validate_yang(duthost, op_file="", yang_file=""):
     assert op_file != "" and yang_file != "", "op_file path or yang_file name not provided"
     cmd = "python /tmp/validate_yang_events.py -f {} -y {}".format(op_file, yang_file)
+    logger.info("Performing yang validation on {} for {}".format(op_file, yang_file))
     ret = duthost.shell(cmd)
-    assert ret["rc"] == 0 and ret["stdout"] == "0", "Yang validation failed for {}".format(yang_file)
+    assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
 def run_cmd(localhost, params={}, op_file="", filter_event="", event_cnt=0, timeout=0):
@@ -75,8 +76,8 @@ def do_init(duthost):
 
 def check_heartbeat(duthost, localhost):
     op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
-    run_cmd(localhost, ["heartbeat=2"], op_file=op_file,
-            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=10)
+    run_cmd(localhost, ["heartbeat=2", "usecache=false"], op_file=op_file,
+            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=20)
     d = {}
     with open(op_file, "r") as s:
         d = json.load(s)
@@ -92,7 +93,7 @@ def do_test_events(duthost, localhost):
     # skip_201911_and_older(duthost)
     do_init(duthost)
 
-    # check_heartbeat(duthost, localhost)
+    check_heartbeat(duthost, localhost)
 
     # Load all events test code and run
     for file in os.listdir(EVENTS_TESTS_PATH):

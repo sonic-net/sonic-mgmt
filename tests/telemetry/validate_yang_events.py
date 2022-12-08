@@ -15,12 +15,9 @@ logging.basicConfig(
 )
 
 YANG_DIR = "/usr/local/yang-models/"
-NO_FILE_ERROR = -1
-INVALID_FILE_ERROR = -2
-FAILED_VALIDATION_ERROR = -3
-INVALID_YANG_ERROR = -4
-YANG_LOAD_SUCCESS = 0
-YANG_VALIDATION_SUCCESS = 0
+NO_FILE_ERROR = "No file provided for validation"
+INVALID_FILE_ERROR = "Invalid or empty json file"
+INVALID_YANG_ERROR = "Could not load module from yang file"
 
 
 class YangValidator:
@@ -36,10 +33,10 @@ class YangValidator:
                 module = self.ctx.parse_module_path(file, ly.LYS_IN_YANG)
                 if module is None:
                     logging.info("Could not load module from file {}".format(file))
+                    raise Exception(INVALID_YANG_ERROR)
         except Exception as e:
             logging.info("Exception thrown: {}".format(e))
-            return INVALID_YANG_ERROR
-        return YANG_LOAD_SUCCESS
+            return e
 
     def validateJSON(self):
         if(self.loadYangModels() < 0):
@@ -50,11 +47,11 @@ class YangValidator:
                 data = json.load(f)
         except Exception as e:
             logging.info("Exception thrown: {}".format(e))
-            return INVALID_FILE_ERROR
+            raise e
 
         if data is None:
             logging.info("Invalid file, empty json file.")
-            return INVALID_FILE_ERROR
+            raise Exception(INVALID_FILE_ERROR)
 
         for element in data:
             data_json = json.dumps(element, indent=2)
@@ -64,10 +61,9 @@ class YangValidator:
                 self.ctx.parse_data_mem(data_json, ly.LYD_JSON, ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
-                return FAILED_VALIDATION_ERROR
+                raise e
         
         logging.info("Libyang validation for {} passed successfully".format(self.yangModule))
-        return YANG_VALIDATION_SUCCESS
 
 
 def main():
@@ -77,9 +73,9 @@ def main():
     args = parser.parse_args()
     if args.file == '' or args.yang == '':
         logging.info("No file or yang name provided, please provide valid file path using -f and yang file using -y")
-        return NO_FILE_ERROR
+        raise Exception(NO_FILE_ERROR)
     validator = YangValidator(args.file, args.yang)
-    return validator.validateJSON()
+    validator.validateJSON()
 
 
 if __name__ == "__main__":
