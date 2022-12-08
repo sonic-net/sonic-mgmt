@@ -76,13 +76,14 @@ def do_init(duthost):
 
 def check_heartbeat(duthost, localhost):
     op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
-    run_cmd(localhost, ["heartbeat=2", "usecache=false"], op_file=op_file,
-            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=20)
-    d = {}
-    with open(op_file, "r") as s:
-        d = json.load(s)
-    logger.info("events received: ({})".format(json.dumps(d, indent=4)))
-    assert len(d) > 0, "Failed to check heartbeat"
+    logger.info("Validating sonic-events-eventd:heartbeat is working")
+    run_cmd(localhost, ["heartbeat=2"], op_file=op_file,
+            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=60)
+    data = {}
+    with open(op_file, "r") as f:
+        data = json.load(f)
+    logger.info("events received: ({})".format(json.dumps(data, indent=4)))
+    assert len(data) > 0, "Failed to check heartbeat"
 
 
 def do_test_events(duthost, localhost):
