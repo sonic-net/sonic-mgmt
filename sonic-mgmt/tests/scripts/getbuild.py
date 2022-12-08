@@ -166,7 +166,7 @@ def main():
                         default=1,
                         help='Specifiy number of asics')
     parser.add_argument('--url_prefix', metavar='url_prefix', type=str, default='mssonic/build', help='url prefix')
-    parser.add_argument('--access_token', metavar='access_token', type=str, default='', help='access token')
+    parser.add_argument('--access_token', metavar='access_token', type=str, default='', nargs='?', const='', required=False, help='access token')
 
     args = parser.parse_args()
 

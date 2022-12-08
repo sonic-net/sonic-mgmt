@@ -349,3 +349,31 @@ class EosHost(AnsibleHostBase):
             logger.error('Failed to get macsec status for interface "{}", exception: {}'
                          .format(interface_name, repr(e)))
             return False
+
+    def rm_member_from_channel_grp(self, interface_name, channel_group):
+        out = self.eos_config(
+            lines=['no channel-group {} mode active'.format(channel_group)],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Remove interface {} from channel_group {}'.format(interface_name, channel_group))
+        return out
+
+    def add_member_to_channel_grp(self, interface_name, channel_group):
+        out = self.eos_config(
+            lines=['channel-group {} mode active'.format(channel_group)],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Add interface {} to channel_group {}'.format(interface_name, channel_group))
+        return out
+
+    def ping_dest(self, dest):
+        """
+        Check if ping to dest IP sucess or not
+
+        Returns: True or False
+        """
+        try:
+            command = 'ping {} repeat 5'.format(dest)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            return ' 0% packet loss' in output
+        except Exception as e:
+            logger.error('command {} failed. exception: {}'.format(command, repr(e)))
+        return False

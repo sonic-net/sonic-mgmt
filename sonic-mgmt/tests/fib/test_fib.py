@@ -78,6 +78,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    switch_type = duthosts[0].facts.get('switch_type')
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
@@ -106,7 +107,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
             "testbed_mtu": mtu,
             "test_balancing": test_balancing,
             "ignore_ttl": ignore_ttl,
-            "single_fib_for_duts": single_fib_for_duts
+            "single_fib_for_duts": single_fib_for_duts,
+            "switch_type": switch_type
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -171,6 +173,10 @@ def hash_keys(duthost):
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
     if duthost.facts['asic_type'] in ["innovium"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    # removing ip-proto from hash_keys for Cisco-8000 Distributed Chassis
+    if duthost.facts['platform'] in ['x86_64-8800_rp_o-r0', 'x86_64-88_lc0_36fh_mo-r0', 'x86_64-8800_lc_48h_o-r0']:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -276,6 +282,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
+    switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -301,7 +308,8 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
                 "dst_ip_range": ",".join(dst_ip_range),
                 "vlan_ids": VLANIDS,
                 "ignore_ttl":ignore_ttl,
-                "single_fib_for_duts": single_fib_for_duts
+                "single_fib_for_duts": single_fib_for_duts,
+                "switch_type": switch_type
                 },
         log_file=log_file,
         qlen=PTF_QLEN,

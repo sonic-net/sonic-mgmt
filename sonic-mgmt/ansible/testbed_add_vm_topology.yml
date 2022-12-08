@@ -157,3 +157,10 @@
     - { role: eos, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "veos" or vm_type == "ceos" ) } # If the vm_type is eos based, role eos will be executed in any case, and when will evaluate with every task
     - { role: sonic, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vsonic" ) } # If the vm_type is sonic based, role sonic will be executed in any case, and when will evaluate with every task
     - { role: cisco, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vcisco" ) } # If the vm_type is cisco based, role cisco will be executed in any case, and when will evaluate with every task
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  tasks:
+  - name: Integrated traffic generator
+    include_tasks: testbed_integrate_traffic_generator.yml
+    when: topo == "wan-3link-tg"

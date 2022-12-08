@@ -376,10 +376,10 @@ def overwrite_script_to_backup_logs(duthost, reboot_type, bgpd_log):
     # find the anchor string inside fast/warm-reboot script
     rebooting_log_line = "debug.*Rebooting with.*to.*"
     # Create a backup log command to be inserted right after the anchor string defined above
-    backup_log_cmds ="cp /var/log/syslog /host/syslog.99;" +\
-        "cp /var/log/swss/sairedis.rec /host/sairedis.rec.99;" +\
-        "cp /var/log/swss/swss.rec /host/swss.rec.99;" +\
-            "cp {} /host/bgpd.log.99".format(bgpd_log)
+    backup_log_cmds ="cat /var/log/syslog.1 /var/log/syslog > /host/syslog.99 || true;" +\
+        "cat /var/log/swss/sairedis.rec.1 /var/log/swss/sairedis.rec > /host/sairedis.rec.99 || true;" +\
+        "cat /var/log/swss/swss.rec.1 /var/log/swss/swss.rec > /host/swss.rec.99 || true;" +\
+            "cat {}.1 {} > /host/bgpd.log.99 || true".format(bgpd_log, bgpd_log)
     # Do find-and-replace on fast/warm-reboot script to insert the backup_log_cmds string
     insert_backup_command = "sed -i '/{}/a {}' {}".format(rebooting_log_line, backup_log_cmds, reboot_script_path)
     duthost.shell(insert_backup_command)
@@ -415,8 +415,8 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
     hwsku = duthost.facts["hwsku"]
-    log_filesystem = duthost.shell("df -h | grep '/var/log'")['stdout']
-    logs_in_tmpfs = True if log_filesystem and "tmpfs" in log_filesystem else False
+    logs_in_tmpfs = list()
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_advanced_reboot_{}".format(test_name))
     base_os_version = list()
 
@@ -440,9 +440,11 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             loganalyzer.additional_files = ['/var/log/swss/sairedis.rec', '/var/log/bgpd.log']
 
     def pre_reboot_analysis():
+        log_filesystem = duthost.shell("df --output=fstype -h /var/log")['stdout']
+        logs_in_tmpfs.append(True if (log_filesystem and "tmpfs" in log_filesystem) else False)
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
-        if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
+        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] == True):
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -464,7 +466,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
-        if hwsku in SMALL_DISK_SKUS or logs_in_tmpfs:
+        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] == True):
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                     "mv /host/swss.rec.99 /var/log/swss/; " +\

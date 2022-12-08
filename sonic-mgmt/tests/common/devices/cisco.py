@@ -132,6 +132,22 @@ class CiscoHost(AnsibleHostBase):
         return self.no_shutdown(intf_str)
 
     @adapt_interface_name
+    def rm_member_from_channel_grp(self, interface_name, channel_group):
+        out = self.config(
+            lines=['no bundle id {} mode active'.format(channel_group)],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Rm interface {} from bundle-ethernet {}'.format(interface_name, channel_group))
+        return out
+
+    @adapt_interface_name
+    def add_member_to_channel_grp(self, interface_name, channel_group):
+        out = self.config(
+            lines=['bundle id {} mode active'.format(channel_group)],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Add interface {} to bundle-ethernet {}'.format(interface_name, channel_group))
+        return out
+
+    @adapt_interface_name
     def check_intf_link_state(self, interface_name):
         show_int_result = self.commands(
             commands=['show interfaces %s' % interface_name])

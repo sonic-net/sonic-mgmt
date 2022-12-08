@@ -4,7 +4,6 @@ import ipaddress
 import logging
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.plugins import ptfadapter
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
     Performs addition or deletion of static entries of ipv4 and v6 neighbors in DUT based on 'oper' parameter
     """
     for member in dic.itervalues():
-        if ip_version == "4" or "both":
+        if ip_version in ["4", "both"]:
             if oper == "add":
                 logger.debug("adding ipv4 static arp entry for ip %s on DUT" % (member['ipv4']))
                 duthost.shell("sudo arp -s {0} {1}".format(member['ipv4'], member['mac']))
@@ -29,7 +28,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             else:
                 logger.debug("unknown operation")
 
-        elif ip_version == "6" or "both":
+        if ip_version in ["6", "both"]:
             if oper == "add":
                 logger.debug("adding ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell(
@@ -38,7 +37,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             elif oper == "del":
                 logger.debug("deleting ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell("sudo ip -6 neigh del {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
-                                                                                    member['Vlanid']))
+                                                                                       member['Vlanid']))
             else:
                 logger.debug("unknown operation")
 
@@ -49,8 +48,8 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 @pytest.fixture(scope='module')
 def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     """
-    Setup:      adds ipv4 and ipv6 address on ptf hosts and routes for VM
-    Teardown:   deletes ipv4 and ipv6 address on ptf hosts and removes routes to VM. Also removes residual static arp entries from tests
+    Setup:      Collecting vm_host_info, ptfhost_info
+    Teardown:   Removing all added ipv4 and ipv6 neighbors
     """
     vm_host_info = {}
 
@@ -81,7 +80,10 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
             for intf in mg_facts['minigraph_portchannel_interfaces']:
                 if intf['peer_addr'] == str(vm_host_info['ipv4']):
                     portchannel = intf['attachto']
-                    vm_host_info['port_index'] = mg_facts['minigraph_ptf_indices'][mg_facts['minigraph_portchannels'][portchannel]['members'][0]]
+                    ifaces_list = []
+                    for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
+                        ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
+                    vm_host_info['port_index_list'] = ifaces_list
                     break
             break
 
@@ -104,14 +106,14 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
 
     # selecting 2 random vlan members of DUT
     # Remove portchannel in vlan member list
-    filter_vlan_member_list = [member for member in my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys() if member in mg_facts['minigraph_ptf_indices']]
+    filter_vlan_member_list = [member for member in my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys()
+                               if member in mg_facts['minigraph_ptf_indices']]
     rand_vlan_member_list = random.sample(filter_vlan_member_list, 2)
     exclude_ip = []
     exclude_ip.extend(
         [ipaddress.IPv4Interface(ip4).network.network_address, ipaddress.IPv4Interface(ip4).network.broadcast_address,
          vlan_ip_address_v4]
     )
-
     # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
     ips_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip]
     for member in rand_vlan_member_list:
@@ -119,15 +121,21 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
         ip_in_vlan = ips_in_vlan[0 if len(ptfhost_info.keys()) == 0 else -1]
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
-        ptfhost_info[member]["port_index"] = mg_facts['minigraph_ptf_indices'][member]
+        ptfhost_info[member]["port_index_list"] = [mg_facts['minigraph_ptf_indices'][member]]
         ptfhost_info[member]["mac"] = (ptfhost.shell(
             "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
-                "port_index"]))['stdout']
+                "port_index_list"][0]))['stdout']
         ptfhost_info[member]["ipv4"] = str(ip_in_vlan)
         ptfhost_info[member]["ipv6"] = str(
-            ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index"]])
+            ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index_list"][0]])
 
-    return vm_host_info, ptfhost_info
+    yield vm_host_info, ptfhost_info
+
+    logger.info("Removing all added ipv4 and ipv6 neighbors")
+    neigh_list = duthost.shell("sudo ip neigh | grep PERMANENT")["stdout_lines"]
+    for neigh in neigh_list:
+        cmd = neigh.split(" PERMANENT")[0]
+        duthost.shell("sudo ip neigh del {}".format(cmd))
 
 
 def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
@@ -140,11 +148,11 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
                                              ip_src=str(src_port['ipv4']),
                                              ip_dst=str(dst_port['ipv4']), ip_ttl=63)
     for i in range(5):
-        testutils.send_packet(ptfadapter, src_port['port_index'], pkt)
-        testutils.verify_packet(ptfadapter, exptd_pkt, dst_port['port_index'])
+        testutils.send_packet(ptfadapter, src_port['port_index_list'][0], pkt)
+        testutils.verify_packet_any_port(ptfadapter, exptd_pkt, dst_port['port_index_list'])
 
 
-def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
+def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter):
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """

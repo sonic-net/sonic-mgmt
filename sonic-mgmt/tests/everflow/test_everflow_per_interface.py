@@ -44,6 +44,8 @@ def build_candidate_ports(duthost, tbinfo):
     unselected_ports = {}
     if tbinfo['topo']['type'] == 't0':
         candidate_neigh_name = 'Server'
+    elif tbinfo['topo']['type'] == 'm0':
+        candidate_neigh_name = 'MX'
     else:
         candidate_neigh_name = 'T0'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -152,6 +154,8 @@ def get_uplink_ports(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if 't0' == tbinfo['topo']['type']:
         neigh_name = 'T1'
+    elif 'm0' == tbinfo['topo']['type']:
+        neigh_name = 'M1'
     else:
         neigh_name = 'T2'
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
