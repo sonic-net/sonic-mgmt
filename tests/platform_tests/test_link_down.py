@@ -15,7 +15,7 @@ from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.reboot import *
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
@@ -108,11 +108,11 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
         if up:
             # Make sure interfaces are up on fanout hosts
             pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, ports),
-                            "Interface(s) on {} is still down after {}sec".format(hostname, MAX_TIME_TO_REBOOT))
+                         "Interface(s) on {} is still down after {}sec".format(hostname, MAX_TIME_TO_REBOOT))
         else:
             # Check every interfaces are down on this host every 5 sec until device boots up
             pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, ports),
-                            "Interface(s) on {} is still up after {}sec".format(hostname, MAX_TIME_TO_REBOOT))                            
+                         "Interface(s) on {} is still up after {}sec".format(hostname, MAX_TIME_TO_REBOOT))                            
     return True
 
 
@@ -162,7 +162,8 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
+    assert rebooted, "Device {} did not reboot".format(hostname)
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
@@ -193,4 +194,5 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
+    assert rebooted, "Device {} did not reboot".format(hostname)
