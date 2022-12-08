@@ -542,7 +542,7 @@
 
 - conf-name: testbed-str-e1031-acs-1
   group-name: vms11-7
-  topo: t0-52
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: vms11-7
   ptf_ip: 10.64.246.42/23
