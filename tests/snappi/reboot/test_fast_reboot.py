@@ -24,7 +24,8 @@ def test_reboot(cvg_api,
     Steps:
     1) Create 2 servers and a T1 device with dual stack BGP
     2) Configure LAG for the T1 Device
-    3) Send Traffic from Server1 to Server2, server2 to Server1, T1 to Server1, T1 to server2, Server1 to T1 and Server2 to T1
+    3) Send Traffic from Server1 to Server2, server2 to Server1, T1 to Server1, T1 to server2,
+       Server1 to T1 and Server2 to T1
     4) Make sure there is no loss observed while sending trafic
     5) Reboot the dut with fast-reboot command
     6) Make sure after reboot the traffic has converged
