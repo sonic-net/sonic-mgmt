@@ -7,11 +7,13 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list
+from tests.common.cisco_data import is_cisco_device
 
 from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 from files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
+
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_all_to_all(ixia_api,
@@ -21,6 +23,7 @@ def test_pfcwd_all_to_all(ixia_api,
                           duthosts,
                           rand_one_dut_hostname,
                           rand_one_dut_portname_oper_up,
+                          setup_cgm_alpha_cisco,
                           rand_one_dut_lossless_prio,
                           lossy_prio_list,
                           prio_dscp_map,
