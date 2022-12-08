@@ -100,25 +100,19 @@ class EosHost(AnsibleHostBase):
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
 
-
     def is_intf_status_down(self, ports):
-        """
-            Args: 
-                ports(set): all ports that connected to current fanout(self)
-            Return:
-                True: if all ports are down
-                False: if any port is up
-        """
         show_int_result = self.eos_command(commands=['show interface status'])
-        for i in range(len(show_int_result['stdout_lines'][0])):
+        for output_line in show_int_result['stdout_lines'][0]:
             """ 
+            Note: 
             (Pdb) output_line
             u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4    
-            (Pdb) output_line.split(' ')[0]
+            output_line.split(' ')[0] will give 1st element of every line of 'show int status' output
+            e.g.
+            (Pdb) show_int_result['stdout_lines'][0][1].split(' ')[0]
             u'Et1/1'
             """
-            output_line = show_int_result['stdout_lines'][0][i]
-            output_port = output_line.split(' ')[0].replace('Et','Ethernet')
+            output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Note that here we have to check for 'notconnect',
@@ -130,7 +124,6 @@ class EosHost(AnsibleHostBase):
                     logging.info("Interface %s is up" % (output_port))
                     return False
         return True
-
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
