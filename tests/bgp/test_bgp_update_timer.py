@@ -86,11 +86,19 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if 'ToRRouter' in dut_type:
+    if  dut_type in ['ToRRouter', 'SpineRouter']:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
 
+    logging.info(
+        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn0["neighbor_addr"].split("/")[0], conn0_ns, dut_asn,
+                conn0["local_addr"].split("/")[0], neigh_type))
+    logging.info(
+        "pseudoswitch1 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn1["neighbor_addr"].split("/")[0], conn1_ns, dut_asn,
+                conn1["local_addr"].split("/")[0], neigh_type))
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
