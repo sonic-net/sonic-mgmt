@@ -1438,23 +1438,22 @@
   auto_recover: 'True'
   comment: v-saidia
 
-
-- conf-name: vms29-t2-8800-1
-  group-name: vms29-1
+- conf-name: vms61-t2-8800-1
+  group-name: vms_61
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: vms29-1
-  ptf_ip: 10.64.246.244/23
+  ptf: vms61-4
+  ptf_ip: 10.64.246.37/23
   ptf_ipv6:
-  server: server_29
-  vm_base: VM29000
+  server: server_61
+  vm_base: VM61056
   dut:
-    - str2-8800-lc1-1
-    - str2-8800-lc2-1
-    - str2-8800-lc3-1
-    - str2-8800-sup-1
+    - str3-8800-lc1-1
+    - str3-8800-lc2-1
+    - str3-8800-lc3-1
+    - str3-8800-sup-1
 
-  inv_name: str2
+  inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
 
