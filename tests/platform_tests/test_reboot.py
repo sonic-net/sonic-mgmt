@@ -129,6 +129,8 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
 
 
@@ -276,6 +278,8 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     @summary: This test case is to perform 3 cold reboot in a row
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     ls_starting_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     for i in range(3):
         reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)

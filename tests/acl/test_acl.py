@@ -1102,6 +1102,8 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
+        if dut.is_supervisor_node and dut.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+            pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
         reboot(dut, localhost, wait=240)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":

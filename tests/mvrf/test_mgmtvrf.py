@@ -263,6 +263,8 @@ class TestReboot():
     @pytest.mark.disable_loganalyzer
     def test_reboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds):
         duthost = duthosts[rand_one_dut_hostname]
+        if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+            pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")

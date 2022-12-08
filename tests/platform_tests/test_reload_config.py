@@ -79,7 +79,8 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     @summary: This test case is to test various system checks in config reload
     """
     duthost = duthosts[rand_one_dut_hostname]
-
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     if not config_force_option_supported(duthost):
         return
 

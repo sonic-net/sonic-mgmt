@@ -118,6 +118,8 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     skip_release(duthost, ["201911", "201811"])
 
     dutip = duthost.mgmt_ip

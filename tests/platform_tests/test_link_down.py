@@ -143,6 +143,8 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
         pytest.skip("Skip single-host dut for this test")
 
     duthost = duthosts[enum_supervisor_dut_hostname]
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     hostname = duthost.hostname
     # Before test, check all interfaces and services are up on all linecards
     check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
@@ -173,6 +175,8 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
                                     duts_running_config_facts, conn_graph_facts, 
                                     fanouthosts, xcvr_skip_list, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     hostname = duthost.hostname
 
     # Before test, check all interfaces and services are up
