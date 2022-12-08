@@ -170,6 +170,21 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
       ansible_host: 10.3.147.78
+      serial: FOC2525NB83
+      base_mac: 34:73:2D:29:B8:D0
+      model: '8800-LC-48H'
+      syseeprom_info:
+        "0x21": "8800-LC-48H-O"
+        "0x22": "1A9134"
+        "0x23": "FOC2525NB83"
+        "0x24": "34:73:2D:29:B8:D0"
+        "0x26": "1"
+        "0x28": "x86_64-8800_lc_48h_o-r1"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x5E0A43DC"
     str3-8800-lc2-1:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -178,6 +193,21 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
       loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
       ansible_host: 10.3.147.97
+      serial: FOC2420NC30
+      base_mac: AC:7A:56:71:EB:70
+      model: '8800-LC-48H'
+      syseeprom_info:
+        "0x21": "8800-LC-48H-O"
+        "0x22": "1A5235"
+        "0x23": "FOC2420NC30"
+        "0x24": "AC:7A:56:71:EB:70"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xD5AEB5BE"
     str3-8800-lc3-1:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -186,6 +216,21 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.147.98
+      serial: FOC2425NC97
+      base_mac: 3C:13:CC:83:34:E0
+      model: '8800-LC-48H'
+      syseeprom_info:
+        "0x21": "8800-LC-48H-O"
+        "0x22": "1A5235"
+        "0x23": "FOC2425NC97"
+        "0x24": "3C:13:CC:83:34:E0"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x21244D4B"
 
 sonic_cisco_sup:
   vars:
@@ -199,8 +244,23 @@ sonic_cisco_sup:
     str3-8800-sup-1:
       ansible_host: 10.3.147.95
       hwsku: 8800-RP-O
+      model: '8800-RP'
       num_asics: 16
       asic_name: Q100
+      serial: FOC2428P4F3
+      base_mac: 80:2D:BF:A5:C1:00
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1A4841"
+        "0x23": "FOC2428P4F3"
+        "0x24": "80:2D:BF:A5:C1:00"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp_o-r1"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x1026B8C6"
       skip_modules:
           'line-cards':
             - LINE-CARD3
@@ -214,6 +274,20 @@ sonic_cisco_sup:
             - FABRIC-CARD7
           'supervisor':
             - SUPERVISOR1
+          'psus':
+            - psu2.0
+            - psu2.1
+            - psu2.2
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+      asics_present: [0,1,2,3,4,5,6,7,8,9]
 server:
   hosts:
     str3-acs-serv-61:
