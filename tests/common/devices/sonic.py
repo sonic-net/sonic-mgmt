@@ -2137,6 +2137,17 @@ Totals               6450                 6449
         json_info = json.loads(commond_output["stdout"])
         return json_info
 
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.command("show interface status {}".format(interface_name))
-        return 'down' in show_int_result['stdout_lines'][2].lower()
+    def is_intf_status_down(self, ports):
+        show_int_result = self.command("show interface status")
+        for output_line in show_int_result['stdout_lines']:
+            output_port = output_line.split(' ')[0]
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                # Either oper or admin status 'down' means link down
+                if 'down' in output_line:
+                    logging.info("Interface %s is down" % (output_port))
+                    continue
+                else:
+                    logging.info("Interface %s is up" % (output_port))
+                    return False
+        return True
