@@ -108,11 +108,11 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
         if up:
             # Make sure interfaces are up on fanout hosts
             pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, ports),
-                         "Interface(s) on {} is still down after {}sec".format(hostname, MAX_TIME_TO_REBOOT))
+                          "Interface(s) on {} is still down after {}sec".format(hostname, MAX_TIME_TO_REBOOT))
         else:
             # Check every interfaces are down on this host every 5 sec until device boots up
             pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, ports),
-                         "Interface(s) on {} is still up after {}sec".format(hostname, MAX_TIME_TO_REBOOT))                            
+                          "Interface(s) on {} is still up after {}sec".format(hostname, MAX_TIME_TO_REBOOT))                            
     return True
 
 
