@@ -30,12 +30,15 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 
 @pytest.fixture(scope='module')
-def setup_stress_acl_table(rand_selected_dut):
+def setup_stress_acl_table(rand_selected_dut, tbinfo):
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    pc = list(mg_facts['minigraph_portchannels'].keys())[0]
+
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
     rand_selected_dut.template(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE)
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Create an ACL table and bind to Vlan1000 interface
-    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p PortChannel101"
+    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(pc)
     cmd_remove_table = "config acl remove table STRESS_ACL"
     loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
     loganalyzer.load_common_config()
@@ -86,8 +89,6 @@ def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
 def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_function_conpleteness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
 
-    rand_selected_dut.shell("config acl add table -p PortChannel101,PortChannel102,PortChannel103,PortChannel104 \
-                            IP_STRESS_ACL L3")
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
         normalized_level = 'basic'
