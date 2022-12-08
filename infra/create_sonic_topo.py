@@ -571,6 +571,11 @@ def add_vEOS_cfg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
     chan.send('./testbed-cli.sh -t testbed.csv -m veos add-topo docker-ptf password.txt\n')
     chan.settimeout(180)
     buff = ''
@@ -653,6 +658,11 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
+
+    chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
 
     chan.send('cd /data/tests \n')
     time.sleep(3)
