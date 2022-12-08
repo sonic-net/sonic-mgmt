@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     op_file = os.path.join(data_dir, "bgp_state.json")
 
-    gnmiThread = Thread(target=listenForBGP, args=(localhost, run_cmd, op_file,))
-    shutdownThread = Thread(target=shutdownBGP, args=(duthost,))
+    gnmiThread = Thread(target=listenForBGPState, args=(localhost, run_cmd, op_file,))
+    shutdownThread = Thread(target=shutdownBGPNeighbors, args=(duthost,))
 
     gnmiThread.start()
     shutdownThread.start()
@@ -36,7 +36,7 @@ def listenForBGPState(localhost, run_cmd, op_file):
             event_cnt=1, timeout=20)
 
 
-def shutdownBGP(duthost):
+def shutdownBGPNeighbors(duthost):
     logger.info("Starting to shutdown bgp")
     ret = duthost.shell("config bgp shutdown all")
     assert ret["rc"] == 0, "Failing to shutdown"
