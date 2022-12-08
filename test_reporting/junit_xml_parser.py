@@ -41,6 +41,7 @@ MAXIMUM_XML_SIZE = 20e7  # 20MB
 MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
 
 # Fields found in the testsuite/root section of the JUnit XML file.
+TESTSUITES_TAG = "testsuites"
 TESTSUITE_TAG = "testsuite"
 REQUIRED_TESTSUITE_ATTRIBUTES = {
     ("time", float),
@@ -232,20 +233,26 @@ def _validate_junit_xml(root):
 
 
 def _validate_test_summary(root):
-    if root.tag != TESTSUITE_TAG:
-        raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found on root element")
+    if root.tag == TESTSUITES_TAG:
+        testsuit_element = root.find(TESTSUITE_TAG)
+        if not testsuit_element:
+            raise JUnitXMLValidationError(f"{TESTSUITE_TAG} tag not found")
+    elif root.tag == TESTSUITE_TAG:
+        testsuit_element = root
+    else:
+        raise JUnitXMLValidationError(f"Either {TESTSUITES_TAG} or {TESTSUITE_TAG} tag are not found on root element")
 
     for xml_field, expected_type in REQUIRED_TESTSUITE_ATTRIBUTES:
-        if xml_field not in root.keys():
+        if xml_field not in testsuit_element.keys():
             raise JUnitXMLValidationError(f"{xml_field} not found in <{TESTSUITE_TAG}> element")
 
         try:
-            expected_type(root.get(xml_field))
+            expected_type(testsuit_element.get(xml_field))
         except Exception as e:
             raise JUnitXMLValidationError(
                 f"invalid type for {xml_field} in {TESTSUITE_TAG}> element: "
                 f"expected a number, received "
-                f'"{root.get(xml_field)}"'
+                f'"{testsuit_element.get(xml_field)}"'
             ) from e
 
 
@@ -347,6 +354,9 @@ def parse_test_result(roots):
         return
 
     for root in roots:
+        if root.tag == TESTSUITES_TAG:
+            root = root.find(TESTSUITE_TAG)
+
         test_result_json["test_metadata"] = _update_test_metadata(test_result_json["test_metadata"],
                                                                   _parse_test_metadata(root))
         test_cases = _parse_test_cases(root)
