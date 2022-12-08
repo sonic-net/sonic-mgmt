@@ -41,6 +41,7 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - m0
+          - mc0
           - mx
       children:
         server_1:
