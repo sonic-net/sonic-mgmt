@@ -352,7 +352,7 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req,):
         responses = ping_loopback_if(cvg_api, ping_req)
         if not found_lb_state and responses[-1].result in "success":
             loopback_up_start_timer = time.time()
-            found_lb_state = True
+            #found_lb_state = True
             logger.info('!!!!!!! 2. loopback up end time {} !!!!!!'.format(loopback_up_start_timer))
             break
 
