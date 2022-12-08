@@ -111,6 +111,7 @@ all:
           - dualtor-mixed-120
           - appliance
           - m0
+          - mc0
           - mx
 
 vm_host_1:

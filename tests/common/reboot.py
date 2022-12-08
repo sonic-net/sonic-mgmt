@@ -22,6 +22,9 @@ REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
+REBOOT_TYPE_CPU = "cpu"
+REBOOT_TYPE_BIOS = "bios"
+REBOOT_TYPE_ASIC = "asic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -87,6 +90,24 @@ reboot_ctrl_dict = {
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
+    REBOOT_TYPE_CPU: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "CPU",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_BIOS: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "BIOS",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_ASIC: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "ASIC",
+        "test_reboot_cause_only": True
+    }
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
@@ -187,7 +208,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool = ThreadPool()
     hostname = duthost.hostname
     try:
-        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
         if timeout == 0:
             timeout = reboot_ctrl['timeout']
@@ -199,7 +220,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
-    
+
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
@@ -222,7 +243,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool.terminate()
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+        format(hostname)
 
 
 def get_reboot_cause(dut):
@@ -232,7 +254,7 @@ def get_reboot_cause(dut):
     """
     logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
-    cause  = output['stdout']
+    cause = output['stdout']
 
     for type, ctrl in reboot_ctrl_dict.items():
         if re.search(ctrl['cause'], cause):
@@ -282,13 +304,13 @@ def sync_reboot_history_queue_with_dut(dut):
             dut_reboot_history_queue = dut.show_and_parse("show reboot-cause history")
             dut_reboot_history_received = True
             break
-        except Exception as e:
+        except Exception:
             e_type, e_value, e_traceback = sys.exc_info()
             logging.info("Exception type: %s" % e_type.__name__)
             logging.info("Exception message: %s" % e_value)
-            logging.info("Backing off for %d seconds before retrying", ((retry_count+1) * RETRY_BACKOFF_TIME))
+            logging.info("Backing off for %d seconds before retrying", ((retry_count + 1) * RETRY_BACKOFF_TIME))
 
-            time.sleep(((retry_count+1) * RETRY_BACKOFF_TIME))
+            time.sleep(((retry_count + 1) * RETRY_BACKOFF_TIME))
             continue
 
     # If retry logic did not yield reboot cause history from DUT,
@@ -349,21 +371,26 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logging.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
-            logging.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".format(
-                REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
+            logging.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
+                          format(REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
             return False
 
-    logging.info("Verify reboot-cause output are sorted in reverse chronological order" )
+    logging.info("Verify reboot-cause output are sorted in reverse chronological order")
     reboot_type_history_len = len(reboot_type_history_queue)
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
-                logging.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".format(reboot_type))
+                logging.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
+                             format(reboot_type))
                 continue
-            logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" % (index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]))
-            if not re.search(reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]):
+            logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
+                         (index, reboot_ctrl_dict[reboot_type]["cause"],
+                          reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+            if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
+                             reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
                 logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
-                    index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index]["cause"]))
+                    index, reboot_ctrl_dict[reboot_type]["cause"],
+                    reboot_cause_history_got[reboot_type_history_len - index]["cause"]))
                 return False
         return True
     logging.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
