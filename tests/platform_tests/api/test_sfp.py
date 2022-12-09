@@ -1,6 +1,7 @@
 import ast
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
@@ -735,6 +736,7 @@ class TestSfpApi(PlatformApiTestBase):
             for state in [True, False]:
                 ret = sfp.set_power_override(platform_api_conn, i, True, state)
                 self.expect(ret is True, "Failed to {} power override for transceiver {}".format("enable" if state is True else "disable", i))
+                time.sleep(0.1)
                 power_override = sfp.get_power_override(platform_api_conn, i)
                 if self.expect(power_override is not None, "Unable to retrieve transceiver {} power override data".format(i)):
                     self.expect(power_override is True, "Transceiver {} power override data is incorrect".format(i))
@@ -747,6 +749,7 @@ class TestSfpApi(PlatformApiTestBase):
                 platform_api_conn, i, power_override_bit_value_pretest, None)
             self.expect(ret is True, "Failed to restore power_override bit to {} for transceiver {}".format(
                 power_override_bit_value_pretest, i))
+            time.sleep(0.1)
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None,
                            "Unable to retrieve transceiver {} power override data".format(i)):
