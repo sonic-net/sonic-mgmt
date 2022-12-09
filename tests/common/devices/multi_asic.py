@@ -69,13 +69,14 @@ class MultiAsicSonicHost(object):
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
-        # Update the asic service based on feature table state and asic flag
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-            if config_facts['FEATURE'][service]['state'] == "disabled":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+        if self.sonichost.is_supervisor_node():
+            # Update the asic service based on feature table state and asic flag
+            config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+            for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
+                if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                if config_facts['FEATURE'][service]['state'] == "disabled":
+                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         for asic in active_asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
