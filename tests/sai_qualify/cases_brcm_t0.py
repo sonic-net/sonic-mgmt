@@ -98,6 +98,8 @@ TEST_CASE = [
         "sai_route_test.RouteDiffPrefixAddThenDeleteShorterV6Test",
         "sai_route_test.RouteDiffPrefixAddThenDeleteLongerV4Test",
         "sai_route_test.RouteDiffPrefixAddThenDeleteLongerV6Test",
+        "sai_route_test.SviMacMoveV4Test",
+        "sai_route_test.SviMacMoveV6Test",
         "sai_ecmp_test.EcmpHashFieldSportTestV4",
         "sai_ecmp_test.EcmpHashFieldSportTestV6",
         "sai_ecmp_test.EcmpHashFieldDportTestV4",
