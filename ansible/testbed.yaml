@@ -1439,7 +1439,7 @@
   comment: v-saidia
 
 - conf-name: vms61-t2-8800-1
-  group-name: vms_61
+  group-name: vms61-4
   topo: t2
   ptf_image_name: docker-ptf
   ptf: vms61-4
