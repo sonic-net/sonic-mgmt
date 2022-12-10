@@ -401,11 +401,15 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 or exp_pkt is None:
             return ret
         pkt = scapy.Ether(ret.packet)
-        if pkt[scapy.Ether].type != 0x88e5:
-            if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                return ret
-            else:
-                continue
+        if pkt.haslayer(scapy.Ether):
+            if pkt[scapy.Ether].type != 0x88e5:
+                if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                    return ret
+                else:
+                    continue
+        else:
+            continue
+
         macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
         if macsec_info:
             encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
