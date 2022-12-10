@@ -28,8 +28,7 @@ resources:
     ref: ${{ parameters.BRCMSAI_BRANCH }}
     endpoint: acs-saibcm
 variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
+  - template: ../../templates/template_variables.yml
 
 stages:
 - stage: Build_Publish_BCMSAI

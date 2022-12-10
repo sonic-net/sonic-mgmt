@@ -14,10 +14,7 @@ resources:
           - '*'
 
 variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
-  - group: SAI_SAITHRIFT_URLS
-  - group: SAI_IMAGE_URLS
+  - template: ../../templates/template_variables.yml
 
 parameters:
   - name: LOCK_TESTBED_REASON

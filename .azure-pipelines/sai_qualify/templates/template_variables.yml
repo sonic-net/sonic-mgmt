@@ -1,0 +1,5 @@
+variables:
+- group: SONIC_IMAGE_URLS
+- group: SAITHRIFT_URLS
+- group: SAI_IMAGE_URLS
+- group: SAI_SAITHRIFT_URLS

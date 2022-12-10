@@ -27,9 +27,6 @@ resources:
     name: One/Networking-acs-saibcm
     ref: ${{ parameters.BRCMSAI_BRANCH }}
     endpoint: acs-saibcm
-variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
 
 stages:
 - stage: Build_Publish_BCMSAI
