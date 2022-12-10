@@ -71,6 +71,8 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     downstream_ports_namespace_map = defaultdict(list)
     upstream_ports_namespace = set()
     downstream_ports_namespace = set()
+    upstream_neigh_namespace_map = defaultdict(set)
+    downstream_neigh_namespace_map = defaultdict(set)
 
     mg_facts_list = []
 
@@ -95,16 +97,19 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
             if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
+                upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
+
             elif DOWNSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
                 downstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 downstream_ports_namespace.add(neigh['namespace'])
+                downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
 
-    for ns, dut_port_list in upstream_ports_namespace_map.items():
-        if len(dut_port_list) < 2:
+    for ns, neigh_set in upstream_neigh_namespace_map.items():
+        if len(neigh_set) < 2:
             upstream_ports_namespace.remove(ns)
     
-    for ns, dut_port_list in downstream_ports_namespace_map.items():
-        if len(dut_port_list) < 2:
+    for ns, neigh_set in downstream_neigh_namespace_map.items():
+        if len(neigh_set) < 2:
             downstream_ports_namespace.remove(ns)
 
     if not upstream_ports_namespace or not downstream_ports_namespace:

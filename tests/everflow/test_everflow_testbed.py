@@ -69,7 +69,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     DEFAULT_DST_IP = "30.0.0.1"
     MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3"]
 
-    @pytest.fixture(params=[UP_STREAM])
+    @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request):
         """
         This fixture parametrize  dest_port_type and can perform action based
