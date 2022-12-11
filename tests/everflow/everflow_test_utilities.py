@@ -176,12 +176,13 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
         test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in upstream_switch_capabilities["ACL_ACTIONS|INGRESS"] and \
                                             "MIRROR_EGRESS_ACTION" in downstream_switch_capabilities["ACL_ACTIONS|INGRESS"]
 #
-#    # NOTE: Disable egress mirror test on broadcom platform even SAI claim EGRESS MIRRORING is supported
-#    # There is a known issue in SAI 7.1 for XGS that SAI claims the capability of EGRESS MIRRORING incorrectly.
-#    # Hence we override the capability query with below logic. Please remove it after the issue is fixed.
-#    if duthost.facts["asic_type"] == "broadcom" and duthost.facts.get("platform_asic") != 'broadcom-dnx':
-#        test_egress_mirror_on_egress_acl = False
-#        test_egress_mirror_on_ingress_acl = False
+    # NOTE: Disable egress mirror test on broadcom platform even SAI claim EGRESS MIRRORING is supported
+    # There is a known issue in SAI 7.1 for XGS that SAI claims the capability of EGRESS MIRRORING incorrectly.
+    # Hence we override the capability query with below logic. Please remove it after the issue is fixed.
+    if (downStreamDutHost.facts["asic_type"] == "broadcom" or upStreamDutHost.facts["asic_type"] == "broadcom") and \
+       (downStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx' and upStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx'):
+        test_egress_mirror_on_egress_acl = False
+        test_egress_mirror_on_ingress_acl = False
 
     # Collects a list of interfaces, their port number for PTF, and the LAGs they are members of,
     # if applicable.
@@ -237,7 +238,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     upstream_dest_ports = []
     upstream_dest_ports_ptf_id = []
     upstream_dest_lag_name = []
-    get_port_info(upstream_ports, upstream_dest_ports, upstream_dest_ports_ptf_id, upstream_dest_lag_name, mg_facts_list[1])
+    get_port_info(upstream_ports, upstream_dest_ports, upstream_dest_ports_ptf_id, upstream_dest_lag_name, mg_facts_list[1] if len(mg_facts_list) == 2 else mg_facts_list[0])
 
     setup_information.update(
         {
@@ -249,7 +250,9 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
                 "egress_router_mac": downstream_router_mac,
                 "src_port": upstream_ports[0],
                 "src_port_lag_name": upstream_dest_lag_name[0],
-                "src_port_ptf_id": str(mg_facts_list[1]["minigraph_ptf_indices"][upstream_ports[0]]),
+                "src_port_ptf_id": str(mg_facts_list[1]["minigraph_ptf_indices"][upstream_ports[0]]) \
+                                   if len(mg_facts_list) == 2 else \
+                                   str(mg_facts_list[0]["minigraph_ptf_indices"][upstream_ports[0]]),
                 # For T0 topo, downstream traffic ingress from the first portchannel,
                 # and mirror packet egress from other portchannels
                 "dest_port": upstream_dest_ports[1:] \

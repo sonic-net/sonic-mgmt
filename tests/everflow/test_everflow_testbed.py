@@ -501,6 +501,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             # Add MIRROR_DSCP table for test
             table_name = "EVERFLOW_DSCP"
             table_type = "MIRROR_DSCP"
+            bind_interface_namespace = setup_info[dest_port_type]["everflow_namespace"]
             rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
             tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
             if setup_info['topo'] == 't0' and self.acl_stage() == "egress":
@@ -516,7 +517,6 @@ class EverflowIPv4Tests(BaseEverflowTest):
             # Temp change for multi-asic to create acl table in host and namespace
             # Will be removed once CLI is command is enahnced to work across all namespaces.
             self.apply_acl_table_config(everflow_dut, table_name, table_type, config_method, [bind_interface])
-            bind_interface_namespace = self._get_port_namespace(setup_info, int(rx_port_ptf_id), dest_port_type)
             if bind_interface_namespace:
                 self.apply_acl_table_config(everflow_dut, table_name, table_type, config_method, [bind_interface], bind_interface_namespace) 
             # Add rule to match on DSCP
