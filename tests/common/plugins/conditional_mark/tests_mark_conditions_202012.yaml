@@ -38,11 +38,6 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
       - "release in ['202012']"
       - "'dualtor' not in topo_name"
 
-dualtor/test_tor_ecn.py:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
 
 dualtor_io/test_normal_op.py:
   xfail:
