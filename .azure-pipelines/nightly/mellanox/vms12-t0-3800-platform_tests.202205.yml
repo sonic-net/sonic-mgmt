@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 12 * * 0,2,4"
+  - cron: "0 4 * * 2,4"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal-202205
     always: true
 
 variables:
@@ -18,20 +18,26 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms6-t0-7060
+    default: vms12-t0-3800
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_201911)
+    default: $(IMAGE_MLNX_202205)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_201911)
+    default: $(SAITHRIFT_MLNX_202205)
     displayName: "py_saithrift URL"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
+    displayName: Testbed specific
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -39,3 +45,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

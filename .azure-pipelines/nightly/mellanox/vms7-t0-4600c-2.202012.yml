@@ -3,6 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
   - cron: "0 14 * * 0,4"
     displayName: Nightly Scheduler
@@ -33,27 +40,29 @@ parameters:
     default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
 
-  # Test timeout
-  - name: NIGHTLY_TEST_TIMEOUT
-    type: number
-    default: 1920    # minutes, totally 32 hours
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    displayName: Testbed specific
 
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
     displayName: "Skip Scripts"
 
-  # Split platform_tests into another testbed
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "platform_tests"'
-    displayName: Testbed specific
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1920
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}

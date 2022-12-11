@@ -33,6 +33,7 @@ parameters:
     default: $(SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
     default: '-I "platform_tests copp show_techport acl everflow drop_packets"'

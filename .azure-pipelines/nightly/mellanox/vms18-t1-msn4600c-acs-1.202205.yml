@@ -18,31 +18,32 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: testbed-bjw-can-2700-1
+    default: vms18-t1-msn4600c-acs-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MLNX_202205)
+    default: $(IMAGE_MLNX_202205)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(BJW_SAITHRIFT_MLNX_202205)
+    default: $(SAITHRIFT_MLNX_202205)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
-  - name: AGENT_POOL
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
     type: string
-    default: nightly-bjw
-    displayName: "Agent pool"
+    default: "platform_tests/test_auto_negotiation.py"
+    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -51,4 +52,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
