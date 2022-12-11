@@ -68,8 +68,7 @@ NEXTHOP_PREFIX = 100
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
-    pytest.mark.sanity_check(post_check=True)
+    pytest.mark.topology("t1", "t1-64-lag", "t1-lag")
 ]
 
 def create_vxlan_tunnel(duthost, minigraph_data, af, tunnel_name=None, src_ip=None):

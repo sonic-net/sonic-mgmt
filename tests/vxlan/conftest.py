@@ -90,6 +90,15 @@ def pytest_addoption(parser):
         help="Expected base VXLAN UDP src port mask"
     )
 
+    # BFD options
+    vxlan_group.addoption(
+        "--bfd",
+        action="store",
+        default=True,
+        type=bool,
+        help="BFD Status"
+    )
+
     # ECMP options
     vxlan_group.addoption(
         "--total_number_of_endpoints",
