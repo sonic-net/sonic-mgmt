@@ -121,6 +121,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+            ".*ERR pmon#python3.*Expected to get redis type 2 got type 3, err: NON-STRING-REPLY.*",
         ],
         'swss' : swss_syncd_teamd_regex,
         'syncd' : swss_syncd_teamd_regex,
