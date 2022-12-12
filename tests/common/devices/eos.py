@@ -363,3 +363,17 @@ class EosHost(AnsibleHostBase):
             parents=['interface {}'.format(interface_name)])
         logging.info('Add interface {} to channel_group {}'.format(interface_name, channel_group))
         return out
+
+    def ping_dest(self, dest):
+        """
+        Check if ping to dest IP sucess or not
+
+        Returns: True or False
+        """
+        try:
+            command = 'ping {} repeat 5'.format(dest)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            return ' 0% packet loss' in output
+        except Exception as e:
+            logger.error('command {} failed. exception: {}'.format(command, repr(e)))
+        return False

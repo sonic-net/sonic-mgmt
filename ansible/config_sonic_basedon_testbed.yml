@@ -193,7 +193,7 @@
   - name: gather hwsku for LeafRouter that supports dualtor deployment
     set_fact:
       hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
-  
+
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
@@ -526,6 +526,14 @@
           delay: 10
           timeout: 600
         changed_when: false
+
+      - name: config static route for trex traffic passthrough
+        become: true
+        command: "{{ item }}"
+        with_items:
+          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
+          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
+        when: topo == "wan-3link-tg"
 
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
