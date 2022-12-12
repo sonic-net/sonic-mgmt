@@ -76,6 +76,13 @@ class BgpModule(object):
         """
             Main method of the class
         """
+
+        # Check if bgp is enabled as a feature, and if not return facts with empty bgp_neighbors.
+        rc, self.out, err = self.module.run_command("show feature status bgp", executable='/bin/bash', use_unsafe_shell=True)
+        regex_bgp = re.compile(r'bgp\s+disabled')
+        if regex_bgp.search(self.out):
+            self.module.exit_json(ansible_facts=self.facts)
+
         for instance in self.instances:
             self.collect_data('summary', instance)
             self.parse_summary()
