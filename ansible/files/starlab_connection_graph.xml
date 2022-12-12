@@ -2170,7 +2170,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-16" EndPort="Ethernet61/1" StartDevice="str-sn3800-01" StartPort="Ethernet240"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-16" EndPort="Ethernet62/1" StartDevice="str-sn3800-01" StartPort="Ethernet244"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-16" EndPort="Ethernet63/1" StartDevice="str-sn3800-01" StartPort="Ethernet248"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-17" EndPort="Ethernet32/1" StartDevice="str-sn3800-01" StartPort="Ethernet252"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-17" EndPort="Ethernet61/1" StartDevice="str-sn3800-01" StartPort="Ethernet252"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-17" EndPort="Ethernet3/1" StartDevice="str-msn4600c-acs-02" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-17" EndPort="Ethernet4/1" StartDevice="str-msn4600c-acs-02" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str-7260cx3-64-17" EndPort="Ethernet5/1" StartDevice="str-msn4600c-acs-02" StartPort="Ethernet8"/>
@@ -3233,7 +3233,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="2179"/>
       <InterfaceVlan mode="Access" portname="Ethernet60/1" vlanids="2180"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="2185"/>
-      <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="2684"/>
+      <InterfaceVlan mode="Access" portname="Ethernet61/1" vlanids="2684"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="3757"/>
       <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="3758"/>
       <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="3759"/>

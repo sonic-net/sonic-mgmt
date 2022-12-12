@@ -2060,7 +2060,7 @@ str-sn3800-01,Ethernet236,str-7260cx3-64-16,Ethernet60/1,100000,2680,Access
 str-sn3800-01,Ethernet240,str-7260cx3-64-16,Ethernet61/1,100000,2681,Access
 str-sn3800-01,Ethernet244,str-7260cx3-64-16,Ethernet62/1,100000,2682,Access
 str-sn3800-01,Ethernet248,str-7260cx3-64-16,Ethernet63/1,100000,2683,Access
-str-sn3800-01,Ethernet252,str-7260cx3-64-17,Ethernet32/1,100000,2684,Access
+str-sn3800-01,Ethernet252,str-7260cx3-64-17,Ethernet61/1,100000,2684,Access
 str-msn4600c-acs-02,Ethernet0,str-7260cx3-64-17,Ethernet3/1,100000,3757,Access
 str-msn4600c-acs-02,Ethernet4,str-7260cx3-64-17,Ethernet4/1,100000,3758,Access
 str-msn4600c-acs-02,Ethernet8,str-7260cx3-64-17,Ethernet5/1,100000,3759,Access
