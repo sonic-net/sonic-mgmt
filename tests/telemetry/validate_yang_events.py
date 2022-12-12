@@ -39,9 +39,7 @@ class YangValidator:
             return e
 
     def validateJSON(self):
-        if(self.loadYangModels() < 0):
-            return INVALID_YANG_ERROR
-
+        self.loadYangModels()
         try:
             with open(self.file, 'r') as f:
                 data = json.load(f)
