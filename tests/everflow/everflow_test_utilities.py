@@ -913,7 +913,8 @@ class BaseEverflowTest(object):
             "session_prefixes": session_prefixes
         }
 
-    def _get_tx_port_id_list(self, tx_ports):
+    @staticmethod
+    def _get_tx_port_id_list(tx_ports):
         tx_port_ids = []
         for port in tx_ports:
             members = port.split(',')

@@ -36,7 +36,7 @@ def skip_if_not_supported(tbinfo, setup_info, ip_ver):
     is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'	
     pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
-def build_candidate_ports(duthost, tbinfo):
+def build_candidate_ports(duthost, tbinfo, ns):
     """
     Build candidate ports for testing
     """
@@ -52,13 +52,19 @@ def build_candidate_ports(duthost, tbinfo):
         candidate_neigh_name = 'T1'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
+    i = 0
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
+        if neigh['namespace'] != ns:
+            continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
-        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4:
+
+        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4 and i % 2:
             candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
     
+        i = i + 1
+
     logger.info("Candidate testing ports are {}".format(candidate_ports))
     return candidate_ports, unselected_ports
     
@@ -84,12 +90,33 @@ def apply_mirror_session(setup_info):
     logger.info("Removing mirror session from DUT")
     BaseEverflowTest.remove_mirror_config(setup_info[UP_STREAM]['everflow_dut'], EVERFLOW_SESSION_NAME)
 
+@pytest.fixture(scope='module')
+def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session):
+    """
+    Setup the route for mirror session destination ip and update monitor port list.
+    Remove the route as part of cleanup.
+    """
+    namespace = setup_info[UP_STREAM]['remote_namespace']
+    tx_port = setup_info[UP_STREAM]["dest_port"][0]
+    dest_port_ptf_id_list = [setup_info[UP_STREAM]["dest_port_ptf_id"][0]]
+    remote_dut = setup_info[UP_STREAM]['remote_dut']
+    remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"", namespace))
+    peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
+    everflow_utils.add_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
+    time.sleep(5)
+
+    yield (apply_mirror_session, BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)) 
+
+    everflow_utils.remove_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
+    remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"", namespace))
+
+
 @pytest.fixture(scope='module', params=['ipv4', 'ipv6'])
 def ip_ver(request):
     return request.param
 
 @pytest.fixture(scope='module')
-def apply_acl_rule(setup_info, tbinfo, apply_mirror_session, ip_ver):
+def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):
     """
     Apply ACL rule for matching input_ports
     """
@@ -99,10 +126,11 @@ def apply_acl_rule(setup_info, tbinfo, apply_mirror_session, ip_ver):
     # Skip if EVERFLOW table doesn't exist
     pytest_require(len(output) > 2, "Skip test since {} dosen't exist".format(table_name))
     mg_facts =  setup_info[UP_STREAM]['remote_dut'].get_extended_minigraph_facts(tbinfo)
-    mirror_session_info = apply_mirror_session    
+    mirror_session_info, monitor_port_ptf_ids = setup_mirror_session_dest_ip_route 
     # Build testing port list
-    candidate_ports, unselected_ports = build_candidate_ports(setup_info[UP_STREAM]['everflow_dut'], tbinfo)
+    candidate_ports, unselected_ports = build_candidate_ports(setup_info[UP_STREAM]['everflow_dut'], tbinfo, setup_info[UP_STREAM]['everflow_namespace'])
     pytest_require(len(candidate_ports) >= 1, "Not sufficient ports for testing")
+    pytest_require(len(unselected_ports) >= 1, "Not sufficient ports for testing")
 
     # Copy and apply ACL rule
     config_vars = build_acl_rule_vars(candidate_ports, ip_ver)
@@ -118,6 +146,7 @@ def apply_acl_rule(setup_info, tbinfo, apply_mirror_session, ip_ver):
         "candidate_ports": candidate_ports,
         "unselected_ports": unselected_ports,
         "mirror_session_info": mirror_session_info,
+        "monitor_port_ptf_ids": monitor_port_ptf_ids
     }
     
     yield ret
@@ -131,29 +160,16 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
             eth_dst=router_mac
         )
-    exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup, duthost, UP_STREAM, packet, False)
+
+    dec_ttl = 0
+
+    if 't2' in  setup['topo']:
+        dec_ttl = 1
+    elif duthost.is_multi_asic:
+        dec_ttl = 2
+
+    exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup, duthost, UP_STREAM, packet, dec_ttl)
     return packet, exp_packet
-
-
-def get_uplink_ports(duthost, tbinfo):
-    """The collector IP is a destination reachable by default. 
-    So we need to collect the uplink ports to do a packet capture
-    """
-    uplink_ports = []
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    if 't0' == tbinfo['topo']['type']:
-        neigh_name = 'T1'
-    elif 'm0' == tbinfo['topo']['type']:
-        neigh_name = 'M1'
-    elif 't1' == tbinfo['topo']['type']:
-        neigh_name = 'T2'
-    else:
-        neigh_name = 'T3'
-    for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
-        ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
-        if neigh_name in neigh['name']:
-            uplink_ports.append(ptf_idx)
-    return uplink_ports
 
 
 def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_ports, exp_recv):
@@ -172,7 +188,7 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo):
     everflow_config = apply_acl_rule
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'], everflow_config['mirror_session_info'], 
                                                  setup_info[UP_STREAM]['ingress_router_mac'], setup_info)
-    uplink_ports = get_uplink_ports(setup_info[UP_STREAM]['remote_dut'], tbinfo)
+    uplink_ports = everflow_config["monitor_port_ptf_ids"]
 
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
     for port, ptf_idx in everflow_config['candidate_ports'].items():

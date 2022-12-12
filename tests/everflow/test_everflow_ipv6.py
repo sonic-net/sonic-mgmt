@@ -53,7 +53,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"", namespace))
         peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
         everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][0], peer_ip, namespace)
-        EverflowIPv6Tests.tx_port_ids = self._get_tx_port_id_list(dest_port_ptf_id_list)
+        EverflowIPv6Tests.tx_port_ids = BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)
         EverflowIPv6Tests.rx_port_ptf_id = rx_port_id
         time.sleep(5)
 
