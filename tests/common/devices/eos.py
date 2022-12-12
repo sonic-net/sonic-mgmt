@@ -115,13 +115,14 @@ class EosHost(AnsibleHostBase):
             output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
             # Only care about port that connect to current DUT
             if output_port in ports:
-                # Note that here we have to check for 'notconnect',
-                # as 'connected' will be in both 'notconnect' and 'connected'
                 if 'notconnect' in output_line:
-                    logging.info("Interface %s is down" % (output_port))
+                    logging.info("Interface %s is down on %s" % (output_port, self.hostname))
                     continue
+                if 'connected' in output_line:
+                    logging.info("Interface %s is up on %s" % (output_port, self.hostname))
+                    return False
                 else:
-                    logging.info("Interface %s is up" % (output_port))
+                    logging.info("Please check status for interface %s on %s, it's neither down/up" % (output_port,  self.hostname))
                     return False
         return True
 
