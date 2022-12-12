@@ -198,7 +198,7 @@ def start_sai_test_container(duthost, creds, request,
 
 
 @pytest.fixture(scope="module")
-def prepare_ptf_server(ptfhost, duthost, request):
+def prepare_ptf_server(ptfhost, duthost, tbinfo, enum_asic_index, request):
     """
     Prepare the PTF Server.
 
@@ -214,24 +214,30 @@ def prepare_ptf_server(ptfhost, duthost, request):
     else:
         if not request.config.option.sai_test_skip_setup_env:
             update_saithrift_ptf(request, ptfhost)
-            __create_sai_port_map_file(ptfhost, duthost)
+            __create_sai_port_map_file(
+                ptfhost, duthost, tbinfo, enum_asic_index)
     yield
     if not request.config.option.sai_test_keep_test_env:
         __delete_sai_port_map_file(ptfhost)
 
 
 @pytest.fixture(scope="module")
-def create_sai_test_interface_param(duthost):
+def create_sai_test_interface_param(duthost, tbinfo, enum_asic_index):
     """
     Create port interface list.
 
     Args:
         duthost (SonicHost): The target device.
     """
-    port_numbers = len(__create_sai_test_interface_info(duthost))
+    port_numbers = len(
+        __get_dut_minigraph_interface_info(
+            duthost, tbinfo, enum_asic_index))
     logger.info("Creating {} port interface list".format(port_numbers))
     interfaces_list = []
 
+    # Todo, check if we need to use the order for generate the PTF port maps
+    # Todo, sample of the order in __create_sai_port_map_file
+    # now, we ordered them by port name and map to the natural index number
     for port_number in range(port_numbers):
         interface_tmp = "\'0-{0}@eth{0}\'".format(port_number)
         interfaces_list.append(interface_tmp)
@@ -803,16 +809,21 @@ def get_sai_running_vendor_id(duthost):
     return vendor_id
 
 
-def __create_sai_port_map_file(ptfhost, duthost):
+def __create_sai_port_map_file(ptfhost, duthost, tbinfo, enum_asic_index):
     """
     Create port mapping file on PTF server.
 
     Args:
         ptfhost (AnsibleHost): The PTF server.
         duthost (SonicHost): The target device.
+        tbinfo: (Testbedinfo): Tested info
+        enum_asic_index: the asic index, which is used in multi asic device
     """
 
-    intfInfo = __create_sai_test_interface_info(duthost)
+    intfInfo = __get_dut_minigraph_interface_info(
+        duthost, tbinfo, enum_asic_index)
+    # Todo, check if we need to use the order for generate the PTF port maps
+    # now, we ordered them by port name
     portList = natsorted(
         [port for port in intfInfo if port.startswith('Ethernet')])
 
@@ -854,16 +865,39 @@ def update_saithrift_ptf(request, ptfhost):
     logging.info("Python saithrift package installed successfully")
 
 
-def __create_sai_test_interface_info(duthost):
+def __get_dut_interface_stat_info(duthost):
     """
-        Create sai test interface info
+        Create dut interface status info.
+        This method will run Command: show interface status
 
         Args:
             duthost (SonicHost): The target device.
     """
     logger.info(
-        "Creating {0} for SAI test on PTF server."
-        .format(PORT_MAP_FILE_PATH))
+        "Get host interface status on dut: {0}."
+        .format(duthost.hostname))
     intfInfo = duthost.show_interface(
         command="status")['ansible_facts']['int_status']
     return intfInfo
+
+
+def __get_dut_minigraph_interface_info(duthost, tbinfo, enum_asic_index):
+    """
+        Create dut interface status info.
+        This method will run Command: show interface status
+
+        Args:
+            duthost (SonicHost): The target device.
+            tbinfo: (Testbedinfo): Tested info
+            enum_asic_index: the asic index, which is used in multi asic device
+    """
+    logger.info(
+        "Get host minigraph info for dut: {0}."
+        .format(duthost.hostname))
+    asic_host = duthost.asic_instance(enum_asic_index)
+    mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
+    # the interface info can be get from many keys
+    # like minigraph_ports and minigraph_port_name_to_alias_map
+    # Here use the minigraph_ports(with more info) to get the information
+    # Todo: Generate the ptf to dut port mapping
+    return mg_facts['minigraph_ports']
