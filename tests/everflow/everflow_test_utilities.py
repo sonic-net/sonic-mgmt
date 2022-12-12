@@ -15,6 +15,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import find_t2_duthost_on_role
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -292,34 +293,12 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
 
     return setup_information
 
-
-def find_host_role(duthosts, role, tbinfo):
-    role_set = False
-
-    for duthost in duthosts:
-        if role_set:
-            break
-        if duthost.is_supervisor_node():
-            continue
-
-        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
-            if namespace == '':
-                continue
-            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
-            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-                if role in neighbor["name"]:
-                    role_host = duthost
-                    role_set = True
-    return role_host
-
-
 def get_t2_duthost(duthosts, tbinfo):
     """
     Generate setup information dictionary for T2 topologies.
     """
-    t3_duthost = find_host_role(duthosts, "T3", tbinfo)
-    t1_duthost = find_host_role(duthosts, "T1", tbinfo)
+    t3_duthost = find_t2_duthost_on_role(duthosts, "T3", tbinfo)
+    t1_duthost = find_t2_duthost_on_role(duthosts, "T1", tbinfo)
     return t1_duthost, t3_duthost
 
 

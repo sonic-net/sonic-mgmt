@@ -686,3 +686,23 @@ def get_image_type(duthost):
     """
 
     return "public"
+
+def find_t2_duthost_on_role(duthosts, role, tbinfo):
+    role_set = False
+
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
+            if namespace == '':
+                continue
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+                if role in neighbor["name"]:
+                    role_host = duthost
+                    role_set = True
+    return role_host
