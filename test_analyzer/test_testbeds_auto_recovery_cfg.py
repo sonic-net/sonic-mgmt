@@ -2,8 +2,7 @@
 skip_testbeds_list = [
     'azd',
     '3164',
-    '-t2-',
-    'svc'
+    '-t2-'
 ]
 
 
@@ -60,5 +59,7 @@ golden_image_url = {
     'vms21-t0-7215-acs-3'    : '$(GOLDEN_IMAGE_MARVELL_202012)',               # Nokia
     'vms29-t2-7250-1'        : None,                                           # Nokia
     'vms29-t2-7250-2'        : None,                                           # Nokia 
-    'vms20-t0-ixia-2'        : '$(GOLDEN_IMAGE_BRCM_ABOOT_202012_SLIM)'        # Rdma
+    'vms20-t0-ixia-2'        : '$(GOLDEN_IMAGE_BRCM_ABOOT_202012_SLIM)',       # Rdma
+    'vmsvc1-dual-t0-7050-1'  : '$(GOLDEN_IMAGE_BRCM_ABOOT_202012)',            # Arista
+    'vmsvc1-dual-t0-7050-2'  : '$(GOLDEN_IMAGE_BRCM_ABOOT_202012)'             # Arista
 }

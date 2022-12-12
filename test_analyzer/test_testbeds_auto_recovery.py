@@ -686,7 +686,11 @@ class Testbeds_auto_recovery(object):
                 for DutName in self.unhealthy_testbeds[testbed]['DutName']: 
                     # python2 ./../ansible/devutils -i ./../ansible/str -a pdu_on -l str-sn3800-01
                     # cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + self.unhealthy_testbeds[testbed]['DutName'].split("-", 1)[0] + " -a pdu_off -l " + self.unhealthy_testbeds[testbed]['DutName']
-                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + DutName.split("-", 1)[0] + " -a pdu_off -l " + DutName
+                    inventory = DutName.split("-", 1)[0]
+                    if 'svc' in inventory:
+                        inventory = 'strsvc'
+
+                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + inventory + " -a pdu_off -l " + DutName
                     if self.verbose :
                         logger.info("power off {} CMD: {}".format(self.unhealthy_testbeds[testbed]['TestbedName'], cmd_line))
                     if not self.debug_mode :
@@ -698,7 +702,11 @@ class Testbeds_auto_recovery(object):
             if testbed in self.need_powercycle_testbeds :
                 for DutName in self.unhealthy_testbeds[testbed]['DutName']: 
                     # cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + self.unhealthy_testbeds[testbed]['DutName'].split("-", 1)[0] + " -a pdu_on -l " + self.unhealthy_testbeds[testbed]['DutName']
-                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + DutName.split("-", 1)[0] + " -a pdu_on -l " + DutName
+                    inventory = DutName.split("-", 1)[0]
+                    if 'svc' in inventory:
+                        inventory = 'strsvc'
+
+                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + inventory + " -a pdu_on -l " + DutName
                     if self.verbose :
                         logger.info("power on  {} CMD: {}".format(self.unhealthy_testbeds[testbed]['TestbedName'], cmd_line))
                     if not self.debug_mode :
@@ -984,7 +992,10 @@ class Testbeds_auto_recovery(object):
             if pipeline_id == self.trigger_redeploy_id:
                 for DutName in self.unhealthy_testbeds[testbed]['DutName']:
                     # cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + self.unhealthy_testbeds[testbed]['DutName'][0].split("-", 1)[0] + " -a run --cmd 'show version' -l " + self.unhealthy_testbeds[testbed]['DutName']
-                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + DutName.split("-", 1)[0] + " -a run --cmd 'show version' -l " + DutName
+                    inventory = DutName.split("-", 1)[0]
+                    if 'svc' in inventory:
+                        inventory = 'strsvc'
+                    cmd_line = "python2 ./../ansible/devutils -i ./../ansible/" + inventory + " -a run --cmd 'show version' -l " + DutName
                     if self.verbose :
                         logger.info("testbeds {} show version CMD: {}".format(self.unhealthy_testbeds[testbed]['TestbedName'], cmd_line))
                     os.system(cmd_line)
