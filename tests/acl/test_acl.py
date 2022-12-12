@@ -20,6 +20,7 @@ from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,8 @@ def get_t2_info(duthosts, tbinfo):
                                                                              defaultdict(list), defaultdict(list))
 
         for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
-            if namespace == '':
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
                 continue
             asic_id = duthost.get_asic_id_from_namespace(namespace)
             router_mac = duthost.asic_instance(asic_id).get_router_mac()
@@ -287,7 +288,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
             if namespace:
                 acl_table_ports[''] += port
 
-    if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
+    if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
         for k, v in port_channels.iteritems():
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
