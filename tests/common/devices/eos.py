@@ -122,7 +122,7 @@ class EosHost(AnsibleHostBase):
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
                     return False
                 else:
-                    logging.info("Please check status for interface {} on {}, it's neither down/up".format(output_port,  self.hostname))
+                    logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
                     return False
         return True
 
