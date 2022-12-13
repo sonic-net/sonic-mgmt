@@ -1331,29 +1331,28 @@ def pytest_generate_tests(metafunc):        # noqa E302
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
 
+    def format_portautoneg_test_id(param):
+        speeds = param['speeds'] if 'speeds' in param else [param['speed']]
+        return "{}|{}|{}".format(param['dutname'], param['port'], ','.join(speeds))
+
     if "enum_dut_portname_module_fixture" in metafunc.fixturenames or \
             "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
         autoneg_tests_data = get_autoneg_tests_data()
         if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-            def format_id(param):
-                return "{}|{}|{}".format(param['dutname'], param['port'], ','.join(param['speeds']))
             metafunc.parametrize(
                 "enum_dut_portname_module_fixture",
                 autoneg_tests_data,
                 scope="module",
-                ids=format_id,
+                ids=format_portautoneg_test_id,
                 indirect=True
             )
 
         if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
-            def format_id(param):
-                return "{}|{}|{}".format(param['dutname'], param['port'], param['speed'])
-
             metafunc.parametrize(
                 "enum_speed_per_dutport_fixture",
                 parametrise_per_supported_port_speed(autoneg_tests_data),
                 scope="module",
-                ids=format_id,
+                ids=format_portautoneg_test_id,
                 indirect=True
             )
 
