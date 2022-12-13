@@ -286,6 +286,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
                False otherwise
     """
     duthost = rand_selected_dut
+    duthost.shell("swssloglevel -l INFO -c orchagent")
     pt_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
 
     proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
