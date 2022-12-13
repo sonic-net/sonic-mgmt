@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +10,8 @@ logger = logging.getLogger(__name__)
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     op_file = os.path.join(data_dir, "bgp_state.json")
 
-    gnmiProcess = Process(target=listenForBGPStateEvents, args=(localhost, run_cmd, op_file,))
-    shutdownProcess = Process(target=shutdownBGPNeighbors, args=(duthost,))
-
-    gnmiProcess.start()
-    shutdownProcess.start()
-
-    gnmiProcess.join()
-    shutdownProcess.join()
+    shutdownBGPNeighbors(duthost)
+    listenForBGPStateEvents(localhost, run_cmd, op_file)
 
     data = {}
     with open(op_file, "r") as f:
@@ -31,7 +24,7 @@ def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
 
 def listenForBGPStateEvents(localhost, run_cmd, op_file):
     logger.info("Starting to listen for bgp-state events")
-    run_cmd(localhost, ["heartbeat=5", "usecache=false"], op_file=op_file,
+    run_cmd(localhost, ["heartbeat=5"], op_file=op_file,
             filter_event="sonic-events-bgp:bgp-state",
             event_cnt=1, timeout=20)
 
