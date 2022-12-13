@@ -5,6 +5,7 @@ from jinja2 import Template
 from os import path
 from time import sleep
 from tests.common.helpers.assertions import pytest_assert
+from constants import TEMPLATE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -84,17 +85,19 @@ def copy_dut_config_files(duthost):
     duthost.copy(src="./dash/files/dash_basic_config_del.json", dest="/var/tmp/dash_basic_config_del.json")
 
 
-def apply_dut_config_files(duthost):
+def apply_swssconfig_file(duthost, file_path):
     """
-    Applies config files that are stored on the given DUT
+    Copies config file from the DUT host to the SWSS docker and applies them with swssconfig
 
     Args:
         duthost: DUT host object
+        file: Path to config file on the host
     """
     logger.info("Applying config files on DUT")
+    file_name = path.basename(file_path)
 
-    duthost.shell("docker cp /var/tmp/dash_basic_config_set.json  swss:/dash_basic_config_set.json")
-    duthost.shell("docker exec swss sh -c \"swssconfig /dash_basic_config_set.json\"")
+    duthost.shell("docker cp {}  swss:/{}".format(file_path, file_name))
+    duthost.shell("docker exec swss sh -c \"swssconfig /{}\"".format(file_name))
     sleep(3)
 
 

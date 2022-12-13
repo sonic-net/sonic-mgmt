@@ -1,10 +1,12 @@
 
 import logging
-import yaml
 
 import pytest
 
-from os import path
+from ipaddress import ip_interface 
+from constants import *
+from dash_utils import render_template_to_host, apply_swssconfig_file
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,10 @@ def skip_config(request):
     return request.config.getoption("--skip_config")
 
 @pytest.fixture(scope="module")
+def config_facts(duthost):
+    return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+@pytest.fixture(scope="module")
 def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Fixture to get minigraph facts
@@ -48,3 +54,57 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
 
     return duthost.get_extended_minigraph_facts(tbinfo)
+
+def get_intf_from_ip(local_ip, config_facts):
+    for intf, config in config_facts["INTERFACE"].items():
+        intf_ip = ip_interface(config.keys()[0])
+        if str(intf_ip.ip) == local_ip:
+            return intf, intf_ip
+
+
+@pytest.fixture(scope="module")
+def dash_config_info(duthost, config_facts, ptfadapter, minigraph_facts):
+    dash_info = {
+        VM_VNI: 4321,
+        VNET1_VNI: 1000,
+        VNET2_VNI: 2000,
+        REMOTE_CA_IP: "20.2.2.2",
+        LOCAL_CA_IP: "11.1.1.1",
+        REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
+        LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
+        REMOTE_CA_PREFIX: "20.2.2.0/24",
+    }
+    loopback_intf_ip = ip_interface(config_facts["LOOPBACK_INTERFACE"].values()[0].keys()[0])
+    dash_info[LOOPBACK_IP] = str(loopback_intf_ip.ip)
+    dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
+
+    neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    for neigh_ip, config in config_facts["BGP_NEIGHBOR"].items():
+        # Pick the first two BGP neighbor IPs since these should already be
+        # learned on the DUT
+        if ip_interface(neigh_ip).version == 4:
+            if LOCAL_PA_IP not in dash_info:
+                dash_info[LOCAL_PA_IP] = neigh_ip
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+            elif REMOTE_PA_IP not in dash_info:
+                dash_info[REMOTE_PA_IP] = neigh_ip
+                intf, intf_ip = get_intf_from_ip(config['local_addr'], config_facts)
+                dash_info[REMOTE_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                dash_info[REMOTE_PA_PREFIX] = str(intf_ip.network)
+                break
+
+    logger.info("Testing with config {}".format(dash_info))
+    return dash_info
+
+
+@pytest.fixture(scope="module")
+def apply_vnet_configs(skip_config, duthost, dash_config_info):
+    if skip_config:
+        return
+    render_template_to_host("dash_basic_config.j2", duthost, "/tmp/dash_basic_config_gen.json", dash_config_info, op="SET")
+    apply_swssconfig_file(duthost, "/tmp/dash_basic_config_gen.json")
+    return
+
