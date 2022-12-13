@@ -1917,4 +1917,4 @@ class Test_VxLAN_entropy(Test_VxLAN):
 
 @pytest.fixture
 def skip_for_non_t1lag(tbinfo):
-    pytest_require(tbinfo["topo"]["name"] == 't1-lag', "Test is intented for t1-lag")
+    pytest_require("lag" in tbinfo["topo"]["name"], "Test is intented for t1-lag")
