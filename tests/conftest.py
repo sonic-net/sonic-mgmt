@@ -1872,9 +1872,6 @@ def core_dump_and_config_check(duthosts, request):
                 pre_running_config = duts_data[duthost.hostname]["pre_running_config"][cfg_context]
                 cur_running_config = duts_data[duthost.hostname]["cur_running_config"][cfg_context]
 
-                pre_running_config_keys = set(pre_running_config.keys())
-                cur_running_config_keys = set(cur_running_config.keys())
-
                 # Remove ignored keys from base config
                 for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
                     fields = exclude_key.split('|')
@@ -1883,17 +1880,20 @@ def core_dump_and_config_check(duthosts, request):
                     _remove_entry(fields[0], fields[1], pre_running_config)
                     _remove_entry(fields[0], fields[1], cur_running_config)
 
+                pre_running_config_keys = set(pre_running_config.keys())
+                cur_running_config_keys = set(cur_running_config.keys())
+
                 # Check if there are extra keys in pre running config
                 pre_config_extra_keys = list(
                     pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
                 for key in pre_config_extra_keys:
-                    pre_only_config[duthost.hostname].update({key: pre_running_config[key]})
+                    pre_only_config[duthost.hostname][cfg_context].update({key: pre_running_config[key]})
 
                 # Check if there are extra keys in cur running config
                 cur_config_extra_keys = list(
                     cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
                 for key in cur_config_extra_keys:
-                    cur_only_config[duthost.hostname].update({key: cur_running_config[key]})
+                    cur_only_config[duthost.hostname][cfg_context].update({key: cur_running_config[key]})
 
                 # Get common keys in pre running config and cur running config
                 common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
