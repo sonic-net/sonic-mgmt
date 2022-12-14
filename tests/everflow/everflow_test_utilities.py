@@ -15,7 +15,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import find_t2_duthost_on_role
+from tests.common.utilities import find_duthost_on_role
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -297,8 +297,8 @@ def get_t2_duthost(duthosts, tbinfo):
     """
     Generate setup information dictionary for T2 topologies.
     """
-    t3_duthost = find_t2_duthost_on_role(duthosts, "T3", tbinfo)
-    t1_duthost = find_t2_duthost_on_role(duthosts, "T1", tbinfo)
+    t3_duthost = find_duthost_on_role(duthosts, "T3", tbinfo)
+    t1_duthost = find_duthost_on_role(duthosts, "T1", tbinfo)
     return t1_duthost, t3_duthost
 
 
