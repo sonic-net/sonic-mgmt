@@ -619,13 +619,6 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
-platform_tests/broadcom/test_ser.py::test_ser:
-  skip:
-    reason: "platform does not support test_ser"
-    conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6218
-
 platform_tests/daemon/test_chassisd.py:
   skip:
     reason: "chassisd platform daemon introduced in 202106"
