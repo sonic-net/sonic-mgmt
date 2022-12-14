@@ -23,6 +23,8 @@ stages:
     jobs:
       - job: AnnounceRoutes
         pool: ${{ parameters.AGENT_POOL }}
+        variables:
+          - group: TBSHARE_SECRETS
         timeoutInMinutes: 30
         variables:
           - name: skipComponentGovernanceDetection

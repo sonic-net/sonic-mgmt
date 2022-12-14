@@ -196,7 +196,7 @@ parameters:
     displayName: "sonic-mgmt repo"
     type: string
     default: "sonic-net"
-  
+
   - name: MGMT_BRANCH
     displayName: "sonic-mgmt branch"
     type: string
@@ -483,7 +483,7 @@ jobs:
 
             pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify
             echo "Install SAI_Qualify requirements"
-            cat requirements.txt       
+            cat requirements.txt
             pip3 install -r requirements.txt
             pip install -r requirements.txt
             popd
@@ -751,7 +751,7 @@ jobs:
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            
+
             if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
             then
               pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \

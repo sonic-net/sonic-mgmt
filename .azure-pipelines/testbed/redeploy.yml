@@ -75,7 +75,9 @@ stages:
         pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 120
         variables:
-          skipComponentGovernanceDetection: true
+          - group: TBSHARE_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
 
         steps:
 
