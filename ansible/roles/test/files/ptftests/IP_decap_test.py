@@ -2,7 +2,7 @@
 Description:    This file contains the decapasulation test for SONIC, to test decapsulation of IPv4 with double and
                 triple encapsulated packets
 
-                Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode
@@ -97,14 +97,15 @@ class DecapPacketTest(BaseTest):
         self.ttl_mode = self.test_params.get('ttl_mode')
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
-
+        self.asic_type = self.test_params.get('asic_type')
         # multi asic platforms have internal routing hops
         # this param will be used to set the correct ttl values for inner packet
         # this value is zero for single asic platform
         self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
         if self.max_internal_hops:
             self.TTL_RANGE = list(range(self.max_internal_hops + 1, 63))
-
+        if self.asic_type == "marvell":
+            fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
             self.fibs.append(fib.Fib(fib_info_file))
@@ -312,7 +313,6 @@ class DecapPacketTest(BaseTest):
         @outer_ttl: TTL for the outer layer
         @inner_ttl: TTL for the inner layer
         '''
-
         pkt, exp_pkt = self.create_encap_packet(dst_ip, src_port, dut_index, outer_pkt_type, triple_encap, outer_ttl, inner_ttl)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -323,7 +323,6 @@ class DecapPacketTest(BaseTest):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
         inner_pkt_type = 'ipv4' if ipaddress.ip_address(unicode(dst_ip)).version == 4 else 'ipv6'
 

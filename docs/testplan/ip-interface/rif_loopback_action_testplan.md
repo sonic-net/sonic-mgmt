@@ -37,7 +37,7 @@ RIF loopback action is a feature which allows user to change the way router hand
 
 ### Scope
 
-The test is to verify the loopback action can be configured, and the loopback traffic can be forwarded/droppped as expect according to the action configured on the ip interface.   
+The test is to verify the loopback action can be configured, and the loopback traffic can be forwarded/droppped as expect according to the action configured on the ip interface.
 
 ### Scale / Performance
 
@@ -64,15 +64,15 @@ config interface ip loopback-action Po10.10 drop
 #### Show
 The following command can be used to show loopback action:
 ```
-show ip interfaces loopback-action 
+show ip interfaces loopback-action
 ```
 Example:
 ```
 show ip interfaces loopback-action
-Interface     Action      
-------------  ----------  
-Ethernet248   drop     
-Vlan100       forward     
+Interface     Action
+------------  ----------
+Ethernet248   drop
+Vlan100       forward
 PortChannel1  drop
 Ethernet0.10  drop
 Po10.10       drop
@@ -115,12 +115,12 @@ The test will be supported on any topology
 ## Test cases
 
 ### Test cases #1 - Verify the loopback action can be configured and worked as expect,the interface type will cover all the 5 types of ip interface.
-1. Verify the default action with sending traffic: 
+1. Verify the default action with sending traffic:
    - Verify the traffic will be forwarded as expected.
    - The RIF TX_ERR counter will not increase as expected
 2. Configure the loopback action to drop on the interface with cli command
 3. Verify the the loopback action is configured correctly with show cli command.
-4. Send traffic to do the validation: 
+4. Send traffic to do the validation:
    - Verify the traffic will be dropped as expected.
    - The RIF TX_ERR counter will increase as expected
 5. Change it back to forward
@@ -128,13 +128,13 @@ The test will be supported on any topology
 7. Send traffic to do the validation
    - Verify the traffic will be forwarded as expected.
    - The RIF TX_ERR counter will not increase.
-   
+
 ### Test cases #2 - Disable/Enable the interface and check if the loopback action still work, the interface type will cover all types of ip interface except vlan interface.
 1. Configure the loopback action on the interface, some to drop, some to forward.
 2. Disable the interfaces
 3. Enable the interfaces back
 4. Verify the loopback action is not changed with show cli command.
-5. Send traffic to do the validation: 
+5. Send traffic to do the validation:
    - Verify the traffic will be dropped/forwarded as expected.
    - The RIF TX_ERR counter will increase on the interface that the loopback action is configured to drop
    - The RIF TX_ERR counter will not increase on the interface that the loopback action is configured to forward
@@ -144,8 +144,7 @@ The test will be supported on any topology
 2. Config save -y
 3. Do reboot(config reload/reboot/fast-reboot/warm-reboot)
 4. Verify the loopback action is saved correctly with show cli command.
-5. Send traffic to do the validation: 
+5. Send traffic to do the validation:
    - Verify the traffic will be dropped as expected.
    - The RIF TX_ERR counter will increase on the interface that the loopback action is configured to drop
    - The RIF TX_ERR counter will not increase on the interface that the loopback action is configured to forward
-

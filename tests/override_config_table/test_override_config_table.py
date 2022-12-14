@@ -14,6 +14,7 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -58,7 +59,7 @@ def get_running_config(duthost):
 
 def reload_minigraph_with_golden_config(duthost, json_data):
     duthost.copy(content=json.dumps(json_data, indent=4), dest=GOLDEN_CONFIG)
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, override_config=True)
 
 
 @pytest.fixture(scope="module")
@@ -175,7 +176,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     current_config = get_running_config(duthost)
     pytest_assert(
         current_config.get('SYSLOG_SERVER', None) is None,
-        "Empty table removal fail: {}".format(current_config['SYSLOG_SERVER'])
+        "Empty table removal fail: {}".format(current_config)
     )
 
 
@@ -187,3 +188,4 @@ def test_load_minigraph_with_golden_config(duthost, setup_env):
     load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
+    load_minigraph_with_golden_empty_table_removal(duthost)

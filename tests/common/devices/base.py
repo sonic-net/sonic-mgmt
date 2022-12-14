@@ -8,9 +8,9 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
-# HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
+# HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
-# Detailed root cause analysis of the issue: https://github.com/Azure/sonic-mgmt/issues/1941#issuecomment-670434790
+# Detailed root cause analysis of the issue: https://github.com/sonic-net/sonic-mgmt/issues/1941#issuecomment-670434790
 # Before calling callback function of plugins to return ansible module result, ansible calls the
 # ansible.executor.task_result.TaskResult.clean_copy method to remove some keys like 'failed' and 'skipped' in the
 # result dict. The keys to be removed are defined in module variable ansible.executor.task_result._IGNORE. The trick
@@ -58,12 +58,12 @@ class AnsibleHostBase(object):
         verbose = complex_args.pop('verbose', True)
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
-                .format(filename, function_name, line_number, self.hostname,
-                        self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"
+                          .format(filename, function_name, line_number, self.hostname,
+                                  self.module_name, json.dumps(module_args), json.dumps(complex_args)))
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} executing..."\
-                .format(filename, function_name, line_number, self.hostname, self.module_name))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} executing..."
+                          .format(filename, function_name, line_number, self.hostname, self.module_name))
 
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
@@ -78,17 +78,19 @@ class AnsibleHostBase(object):
         res = self.module(*module_args, **complex_args)[self.hostname]
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"
+                          .format(filename, function_name, line_number,
+                                  self.hostname, self.module_name, json.dumps(res)))
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, \
-                        res.is_failed, res.get('rc', None)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}"
+                          .format(filename, function_name, line_number, self.hostname,
+                                  self.module_name, res.is_failed, res.get('rc', None)))
 
         if (res.is_failed or 'exception' in res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
+
 
 class NeighborDevice(dict):
     def __str__(self):

@@ -137,7 +137,7 @@ k8s_server_19:
 #### To create a HA Kubernetes master for Virtual DUT:
 1. Setup internal management network:
 ```
-$ git clone https://github.com/Azure/sonic-mgmt
+$ git clone https://github.com/sonic-net/sonic-mgmt
 $ cd sonic-mgmt/ansible
 $ sudo ./setup-management-network.sh
 $ sudo ./setup-br1-nat.sh <name of server's external facing port>
