@@ -12,7 +12,6 @@ REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
 MACSEC_INFO_FILE = "macsec_info.pickle"
 
 
-
 class PTFHost(AnsibleHostBase):
     """
     @summary: Class for PTF
@@ -34,7 +33,8 @@ class PTFHost(AnsibleHostBase):
 
     def create_macsec_info(self):
         macsec_info = {}
-        for port_name, injected_port_id in self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items():
+        for port_name, injected_port_id in \
+                self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items():
             try:
                 macsec_info[injected_port_id] = load_macsec_info(
                     self.duthost, port_name, force_reload=True)
