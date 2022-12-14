@@ -49,13 +49,15 @@ def get_cpu_stats(dut):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
+def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     tor_neighbors = dict()
-    tor1 = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])[0]
+    # tor1 = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])[0]
+    tor1 = natsorted(nbrhosts.keys())[0]
 
-    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    bgp_facts = duthost.bgp_facts(instance_id=enum_rand_one_frontend_asic_index)['ansible_facts']
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'] not in skip_hosts:
@@ -72,10 +74,12 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
         'neighhost': tor_neighbors[tor1],
         'neigh_asn': neigh_asn[tor1],
         'asn_dict':  neigh_asn,
-        'neighbors': tor_neighbors
+        'neighbors': tor_neighbors,
+        'namespace': namespace
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)))
+    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
+                                                          module_ignore_errors=True)))
     logger.info("Neighbor BGP Config: {}".format(
         nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
     logger.info('Setup_info: {}'.format(setup_info))
