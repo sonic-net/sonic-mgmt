@@ -668,3 +668,51 @@ def update_environ(*remove, **update):
         env.update(to_restore)
         for k in to_removed:
             env.pop(k)
+
+def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
+    """
+    @summary: utility function returns list of reboot dict containing timeout and wait
+    for each reboot type
+    @return a list of reboot dict containing timeout and wait for each reboot type
+    DUTHOST:
+        plt_reboot_dict:
+          cold:
+            timeout: 300
+            wait: 600
+          warm-reboot:
+            timeout: 300
+            wait: 600
+          acl/test_acl.py::TestAclWithReboot:
+            timeout: 300
+            wait: 600
+          platform_tests/test_reload_config.py::test_reload_configuration_checks:
+            timeout: 300
+            wait: 60
+    """
+
+    reboot_dict = dict()
+    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    if 'plt_reboot_dict' in dut_vars:
+        for key in dut_vars['plt_reboot_dict'].keys():
+            if key in tc_name:
+                for mod_id in dut_vars['plt_reboot_dict'][key].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
+        if not reboot_dict:
+            if reboot_type in dut_vars['plt_reboot_dict'].keys():
+                for mod_id in dut_vars['plt_reboot_dict'][reboot_type].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
+
+    return reboot_dict
+
+def get_image_type(duthost):
+    """get the SONiC image type
+        It might be public/microsoft/...or any other type.
+        Different vendors can define their different types by checking the specific information from the build image.
+    Args:
+        duthost: AnsibleHost instance for DUT
+    Returns:
+        The returned image type string will be used as a key of map DEFAULT_SSH_CONNECT_PARAMS defined in
+        tests/common/constants.py for looking up default credential for this type of image.
+    """
+
+    return "public"
