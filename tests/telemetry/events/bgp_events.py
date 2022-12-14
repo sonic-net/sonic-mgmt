@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from multithreading import Process
+from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 
