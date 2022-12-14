@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +10,7 @@ logger = logging.getLogger(__name__)
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     op_file = os.path.join(data_dir, "bgp_state.json")
 
-    shutdownProcess = Process(target=shutdownBGPNeighbors, args=(duthost,))
-
-    shutdownProcess.start()
-    shutdownProcess.join()
-
+    shutdownBGPNeighbors(duthost)
     listenForBGPStateEvents(localhost, run_cmd, op_file)
 
     data = {}
@@ -35,6 +30,7 @@ def listenForBGPStateEvents(localhost, run_cmd, op_file):
 
 
 def shutdownBGPNeighbors(duthost):
+    assert duthost.is_service_running("bgpcfgd", "bgp") is True and duthost.is_bgp_state_idle() is False, "bgp not runing"
     logger.info("Starting to shutdown bgp")
     ret = duthost.shell("config bgp shutdown all")
     assert ret["rc"] == 0, "Failing to shutdown"
