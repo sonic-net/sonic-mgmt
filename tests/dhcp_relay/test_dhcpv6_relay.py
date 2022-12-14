@@ -4,6 +4,8 @@ import time
 import netaddr
 import logging
 
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.utilities import skip_release
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
