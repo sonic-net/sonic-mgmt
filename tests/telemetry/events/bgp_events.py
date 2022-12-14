@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from multithreading import Process
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,11 @@ logger = logging.getLogger(__name__)
 def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
     op_file = os.path.join(data_dir, "bgp_state.json")
 
-    shutdownBGPNeighbors(duthost)
+    shutdownProcess = Process(target=shutdownBGPNeighbors, args=(duthost,))
+
+    shutdownProcess.start()
+    shutdownProcess.join()
+
     listenForBGPStateEvents(localhost, run_cmd, op_file)
 
     data = {}
