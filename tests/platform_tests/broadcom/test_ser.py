@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.broadcom,
+    pytest.mark.asic('broadcom'),
     pytest.mark.topology('any')
 ]
 
