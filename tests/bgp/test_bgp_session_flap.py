@@ -84,7 +84,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
         nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
     logger.info('Setup_info: {}'.format(setup_info))
 
-    # get baseline BGP CPU and Memory Utilization
+    #  get baseline BGP CPU and Memory Utilization
     get_cpu_stats(duthost)
 
     yield setup_info
