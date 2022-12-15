@@ -126,7 +126,7 @@ def get_new_interval(duthost, is_valid):
 def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation, field_pre_status, is_valid_config_update):
     new_interval = get_new_interval(duthost, is_valid_config_update)
 
-    operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval), "remove": ""}
+    operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
     detection_time, restoration_time = get_detection_restoration_times(duthost)
     pre_status = max(detection_time, restoration_time)
     field_pre_status_to_value_map = {"existing": "{}".format(pre_status), "nonexistent": ""}
