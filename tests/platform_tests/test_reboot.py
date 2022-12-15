@@ -265,7 +265,8 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
+    if duthost.is_supervisor_node and duthost.facts['platform'] in ['x86_64-8800_rp_o-r0']:
+        pytest.skip("Skip reboot for Supervisor card in Cisco 8000 distributed chassis")
     watchdogutil_status_result = duthost.command("watchdogutil status", module_ignore_errors=True)
     if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
