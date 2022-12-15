@@ -82,12 +82,23 @@ def collect_data(duthost):
 
     return {'keys': keys, 'data': dev_data}
 
-def wait_data(duthost):
+def wait_data(duthost, data_before_restart):
     class shared_scope:
         data_after_restart = {}
     def _collect_data():
+        result = []
         shared_scope.data_after_restart = collect_data(duthost)
-        return bool(shared_scope.data_after_restart['data'])
+        if len(shared_scope.data_after_restart['keys']) == len(data_before_restart['keys']):
+            for psu in data_before_restart['keys']:
+                psu_keys_after = len(shared_scope.data_after_restart['data'][psu].keys())
+                psu_keys_before = len(data_before_restart['data'][psu].keys())
+                if psu_keys_after != psu_keys_before:
+                    logger.info("Expected {} keys :{} Current keys {}".format(psu, psu_keys_before, psu_keys_after))
+                check = psu_keys_after == psu_keys_before
+                result.append(check)
+            return all(result)
+        else:
+            return False
     psud_pooling_interval = 60
     wait_until(psud_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
@@ -166,7 +177,7 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts, enum_sup
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
-    data_after_restart = wait_data(duthost)
+    data_after_restart = wait_data(duthost, data_before_restart)
     verify_data(data_before_restart, data_after_restart)
 
 
@@ -192,7 +203,7 @@ def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts, enum_sup
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
+    data_after_restart = wait_data(duthost, data_before_restart)
     verify_data(data_before_restart, data_after_restart)
 
 
@@ -218,5 +229,5 @@ def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts, enum_sup
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost)
+    data_after_restart = wait_data(duthost, data_before_restart)
     verify_data(data_before_restart, data_after_restart)
