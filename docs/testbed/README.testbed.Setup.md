@@ -144,7 +144,7 @@ Managing the testbed and running tests requires various dependencies to be insta
     alternatively use this script but settings will be lost on reboot
 
     ```
-    sudo bash ./sonic-mgmt/ansible/setup-management-network.sh
+    sudo -H ./sonic-mgmt/ansible/setup-management-network.sh
     ```
 4. Reboot the setup just to be sure the networking is ok
 
