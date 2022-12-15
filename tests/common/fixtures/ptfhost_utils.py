@@ -120,6 +120,10 @@ def change_mac_addresses(ptfhost):
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
+    # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
+    # socket read/write operations, so let's restart icmp_responder
+    logging.debug("restart icmp_responder after change ptf port mac addresses")
+    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
