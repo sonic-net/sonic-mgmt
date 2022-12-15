@@ -1130,6 +1130,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xE4DC0C41"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     str2-8800-lc2-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1153,6 +1166,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x58BD87C5"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     str2-8800-lc3-3:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -1176,6 +1202,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x5AFD7304"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
 sonic_cisco_lc_400G:
   vars:
     switch_type: chassis-packet
@@ -1419,7 +1458,22 @@ sonic_cisco_sup:
             - psu5.1
             - psu5.2
       asics_present: [0,1,4,5,8,9,10,11,12,13]
-
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 sonic_nokia_sup:
   vars:
     HwSku:  Nokia-IXR7250E-SUP-10

@@ -245,6 +245,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x5E0A43DC"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     str3-8800-lc2-1:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -268,6 +281,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xD5AEB5BE"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     str3-8800-lc3-1:
       hwsku: 8800-LC-48H-O
       sonic_hwsku: 8800-LC-48H-O
@@ -291,7 +317,19 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x21244D4B"
-
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
 sonic_cisco_sup:
   vars:
     HwSku:  8800-RP-O
@@ -348,6 +386,22 @@ sonic_cisco_sup:
             - psu5.1
             - psu5.2
       asics_present: [0,1,4,5,8,9,10,12,13] 
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 server:
   hosts:
     str3-acs-serv-61:
