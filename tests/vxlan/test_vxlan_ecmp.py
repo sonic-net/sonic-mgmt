@@ -656,22 +656,40 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
         duthost = self.setup['duthost']
 
+        payload_ver = ecmp_utils.get_payload_version(encap_type)
         endpoint_group_A = [
-            ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=NEXTHOP_PREFIX)
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
             for _ in range(2)
         ]
-        route1_prefix = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
-        route2_prefix = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
+        route1_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        route2_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
 
         # create route 1
-        ecmp_utils.set_routes_in_dut(duthost, {vnet: {route1_prefix: endpoint_group_A}}, ecmp_utils.get_payload_version(encap_type), 'SET', bfd=self.setup['enable_bfd'])
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route1_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
         # create route 2 with the same endpoints as route 1
-        ecmp_utils.set_routes_in_dut(duthost, {vnet: {route2_prefix: endpoint_group_A}}, ecmp_utils.get_payload_version(encap_type), 'SET', bfd=self.setup['enable_bfd'])
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
         # write info about the routes to be tested
-        self.setup[encap_type]['dest_to_nh_map'][vnet][route1_prefix] = endpoint_group_A
-        self.setup[encap_type]['dest_to_nh_map'][vnet][route2_prefix] = endpoint_group_A
+        vnet_routes = self.setup[encap_type]['dest_to_nh_map'][vnet]
+        vnet_routes[route1_prefix] = endpoint_group_A
+        vnet_routes[route2_prefix] = endpoint_group_A
 
         self.update_monitor_list(
             self.setup['enable_bfd'],
@@ -690,25 +708,50 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         duthost = self.setup['duthost']
 
         # setup route 1 and route 2 with the same endpoints
+        payload_ver = ecmp_utils.get_payload_version(encap_type)
         endpoint_group_A = [
-            ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=NEXTHOP_PREFIX)
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
             for _ in range(2)
         ]
-        route1_prefix = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
-        route2_prefix = ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX)
-        ecmp_utils.set_routes_in_dut(duthost, {vnet: {route1_prefix: endpoint_group_A}}, ecmp_utils.get_payload_version(encap_type), 'SET', bfd=self.setup['enable_bfd'])
-        ecmp_utils.set_routes_in_dut(duthost, {vnet: {route2_prefix: endpoint_group_A}}, ecmp_utils.get_payload_version(encap_type), 'SET', bfd=self.setup['enable_bfd'])
+        route1_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        route2_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route1_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
         # change route 2 endpoints to unique ones
         endpoint_group_B = [
-            ecmp_utils.get_ip_address(af=ecmp_utils.get_payload_version(encap_type), netid=NEXTHOP_PREFIX)
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
             for _ in range(2)
         ]
-        ecmp_utils.set_routes_in_dut(duthost, {vnet: {route2_prefix: endpoint_group_B}}, ecmp_utils.get_payload_version(encap_type), 'SET', bfd=self.setup['enable_bfd'])
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_B}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
-        # make sure traffic still flows via route 2 endpoints after changing endpoints from shared to unique
-        self.setup[encap_type]['dest_to_nh_map'][vnet][route1_prefix] = endpoint_group_A
-        self.setup[encap_type]['dest_to_nh_map'][vnet][route2_prefix] = endpoint_group_B
+        # make sure traffic still flows via route 2 endpoints,
+        # after changing endpoints from shared to unique
+        vnet_routes = self.setup[encap_type]['dest_to_nh_map'][vnet]
+        vnet_routes[route1_prefix] = endpoint_group_A
+        vnet_routes[route2_prefix] = endpoint_group_B
 
         self.update_monitor_list(
             self.setup['enable_bfd'],
