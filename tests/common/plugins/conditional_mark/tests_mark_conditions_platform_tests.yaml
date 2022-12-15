@@ -136,7 +136,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
     reason: "On Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
     conditions:
       - "asic_type in ['cisco-8000']"
-      
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
@@ -401,8 +401,8 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented 
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks 
+  #test_set_fans_speed requires get_speed_tolerance to be implemented
+  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
@@ -497,7 +497,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
- 
+
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
     reason: "Unsupported platform API"
@@ -787,6 +787,14 @@ platform_tests/broadcom:
     reason: "Marvell devices does not support platform_tests/broadcom"
     conditions:
       - "'marvell' in asic_type"
+
+platform_tests/broadcom/test_ser.py:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "asic_type not in ['broadcom']"
 
 #######################################
 #####  cli/test_show_platform.py  #####
