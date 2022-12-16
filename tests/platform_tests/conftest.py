@@ -9,7 +9,6 @@ from datetime import datetime
 
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS,\
     SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -33,6 +32,7 @@ def _parse_timestamp(timestamp):
     except ValueError:
         time = datetime.strptime(timestamp, FMT_SHORT)
     return time
+
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
@@ -132,7 +132,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
     for entity in TIME_SPAN_ITEMS:
         time_taken = ""
         if entity in time_spans:
-            time_taken = time_spans.get(entity,{}).get("time_span", "")
+            time_taken = time_spans.get(entity, {}).get("time_span", "")
         elif entity in kexec_offsets:
             marker_first_time = kexec_offsets.get(entity).get("timestamp", {}).get("Start")
             marker_last_time = kexec_offsets.get(entity).get("last_occurence")
@@ -147,7 +147,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
     controlplane_summary = {"downtime": "", "arp_ping": "", "lacp_session_max_wait": ""}
     if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
         max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(\
+        analyze_result.get(
             "controlplane", controlplane_summary).update(
                 {"lacp_session_max_wait": max_lacp_session_wait})
 
@@ -163,6 +163,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
     }
     return result_summary
 
+
 def get_kexec_time(duthost, messages, result):
     reboot_pattern = re.compile(r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
     reboot_time = "N/A"
@@ -177,6 +178,7 @@ def get_kexec_time(duthost, messages, result):
     result["reboot_time"] = {
         "timestamp": {"Start": reboot_time},
     }
+
 
 def analyze_log_file(duthost, messages, result, offset_from_kexec):
     service_restart_times = dict()
@@ -216,7 +218,6 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
         timestamps[status] = time
         service_restart_times.update({service_name: service_dict})
 
-    reboot_time = "N/A"
     for message in messages:
         # Get stopping to started timestamps for services (swss, bgp, etc)
         for status, pattern in service_patterns.items():
@@ -238,7 +239,8 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                         first_after_offset = fdb_aging_disable_start
                     else:
                         first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
-                    state_times = get_state_times(timestamp, state, offset_from_kexec, first_after_offset=first_after_offset)
+                    state_times = get_state_times(timestamp, state, offset_from_kexec,
+                                                  first_after_offset=first_after_offset)
                     offset_from_kexec.update(state_times)
                 else:
                     state_times = get_state_times(timestamp, state, service_restart_times)
@@ -247,20 +249,20 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
     # Calculate time that services took to stop/start
     for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
-        timings["stop_time"] = (_parse_timestamp(timestamps["Stopped"]) - \
+        timings["stop_time"] = (_parse_timestamp(timestamps["Stopped"]) -
             _parse_timestamp(timestamps["Stopping"])).total_seconds() \
                 if "Stopped" in timestamps and "Stopping" in timestamps else None
 
-        timings["start_time"] = (_parse_timestamp(timestamps["Started"]) -\
+        timings["start_time"] = (_parse_timestamp(timestamps["Started"]) -
             _parse_timestamp(timestamps["Starting"])).total_seconds() \
                 if "Started" in timestamps and "Starting" in timestamps else None
 
         if "Started" in timestamps and "Stopped" in timestamps:
-            timings["time_span"] = (_parse_timestamp(timestamps["Started"]) -\
+            timings["time_span"] = (_parse_timestamp(timestamps["Started"]) -
                 _parse_timestamp(timestamps["Stopped"])).total_seconds()
         elif "Start" in timestamps and "End" in timestamps:
             if "last_occurence" in timings:
-                timings["time_span"] = (_parse_timestamp(timings["last_occurence"]) -\
+                timings["time_span"] = (_parse_timestamp(timings["last_occurence"]) -
                     _parse_timestamp(timestamps["Start"])).total_seconds()
             else:
                 timings["time_span"] = (_parse_timestamp(timestamps["End"]) -\
