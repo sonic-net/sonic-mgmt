@@ -139,6 +139,8 @@ def remove_ip_addresses(ptfhost):
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.remove_ip_addresses()
+    # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
+    ptfhost.restart_interfaces()
 
 
 @pytest.fixture(scope="session", autouse=True)
