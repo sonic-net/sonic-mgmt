@@ -75,8 +75,9 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
 
 @pytest.fixture(scope="module")
 def check_interfaces(duthosts):
+    init_result = {"failed": False, "check_item": "interfaces"}
     def _check(*args, **kwargs):
-        result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
@@ -136,8 +137,9 @@ def check_interfaces(duthosts):
 
 @pytest.fixture(scope="module")
 def check_bgp(duthosts):
+    init_result = {"failed": False, "check_item": "bgp"}
     def _check(*args, **kwargs):
-        result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600)
+        result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
@@ -196,7 +198,14 @@ def check_bgp(duthosts):
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max(SYSTEM_STABILIZE_MAX_TIME - networking_uptime, 1)
+        if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
+            # If max_timeout is higher than 600, it will exceed parallel_run's timeout
+            # the check will be killed by parallel_run, we can't get expected results.
+            # 500 seconds is about 8 mins, bgp has enough to get up
+            max_timeout = 500
+        else:
+            max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
@@ -236,7 +245,8 @@ def _is_db_omem_over_threshold(command_output):
 @pytest.fixture(scope="module")
 def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
-        result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600)
+        init_result = {"failed": False, "check_item": "dbmemory"}
+        result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
@@ -607,7 +617,8 @@ def check_monit(duthosts):
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     def _check(*args, **kwargs):
-        result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600)
+        init_result = {"failed": False, "check_item": "monit"}
+        result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
@@ -671,13 +682,14 @@ def check_monit(duthosts):
 @pytest.fixture(scope="module")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "processes"}
         timeout = 600
         # Increase the timeout for multi-asic virtual switch DUT.
         for node in duthosts.nodes:
             if 'kvm' in node.sonichost.facts['platform'] and node.sonichost.is_multi_asic:
                 timeout = 1000
                 break
-        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout)
+        result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout, init_result=init_result)
         return result.values()
 
     @reset_ansible_local_tmp
