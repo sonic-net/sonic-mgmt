@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 CHANGE_MAC_ADDRESS_SCRIPT = "scripts/change_mac.sh"
 REMOVE_IP_ADDRESS_SCRIPT = "scripts/remove_ip.sh"
+RESTART_INTERFACE_SCRIPT = "scripts/restart_interface.sh"
 MACSEC_INFO_FILE = "macsec_info.pickle"
 
 
@@ -30,6 +31,9 @@ class PTFHost(AnsibleHostBase):
 
     def remove_ip_addresses(self):
         self.script(REMOVE_IP_ADDRESS_SCRIPT)
+
+    def restart_interfaces(self):
+        self.script(RESTART_INTERFACE_SCRIPT)
 
     def create_macsec_info(self):
         macsec_info = {}
