@@ -20,24 +20,25 @@ This test requires to change default bgp configuration.
 The test configures "as-path" feature with predefined rules. After that the test announces routes to check what path is passed from the DUT to T1.
 
 ## Test cases
-### Test case # 1 - Pre-check command
+### Test case # 1 
+- Pre-check command
 1. Run show commands to collect baseline BGP Routes on DUT
 2. Check if the command returns without error
 
-### Test case # 2 - As-path config
+- As-path config
 1. Configure route-map for as-path prepend
 2. Apply route-map to BGP peer-group
 3. Check the correct output from the command
 
-### Test case # 3 - Post-check command
+- Post-check command
 1. Run show commands to collect baseline BGP Routes on DUT
 2. Check for exitense of as-path added
 
-### Test case # 4 - Remove as-path
+- Remove as-path
 1. Remove route-map for as-path prepend
 2. Remove route-map to BGP peer-group
 3. Check all removed without error
 
-### Test case # 5 - Restore check 
+- Restore check 
 1. Run show commands to collect baseline BGP Routes on DUT
 2. Check for exitense of as-path was removed
