@@ -62,7 +62,7 @@ def do_init(duthost):
         try:
             os.mkdir(i)
         except OSError as e:
-            pass
+            logger.info("directory already exists: {}, skipping mkdir".format(e))
 
     duthost.shell("docker cp telemetry:/usr/sbin/gnmi_cli /tmp")
     ret = duthost.fetch(src="/tmp/gnmi_cli", dest=DATA_DIR)
