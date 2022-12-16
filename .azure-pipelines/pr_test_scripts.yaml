@@ -125,7 +125,6 @@ wan-pub:
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
   - arp/test_arpall.py
-  - telemetry/test_telemetry.py
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
