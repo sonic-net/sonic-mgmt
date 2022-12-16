@@ -30,7 +30,8 @@ def listenForBGPStateEvents(localhost, run_cmd, op_file):
 
 
 def shutdownBGPNeighbors(duthost):
-    assert duthost.is_service_running("bgpcfgd", "bgp") is True and duthost.is_bgp_state_idle() is False, "bgpcfgd is not running or no IPV4 neighbors configured"
+    assert duthost.is_service_running("bgpcfgd", "bgp") is True, "bgpcfgd not running"
+    assert duthost.is_bgp_state_idle() is False, "No IPV4 neighbors configured"
     logger.info("Starting to shutdown bgp")
     ret = duthost.shell("config bgp shutdown all")
     assert ret["rc"] == 0, "Failing to shutdown"

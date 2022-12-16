@@ -18,10 +18,12 @@ sys.path.append(EVENTS_TESTS_PATH)
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR    = "logs/events"
-DATA_DIR    = os.path.join(BASE_DIR, "files")
+BASE_DIR = "logs/events"
+DATA_DIR = os.path.join(BASE_DIR, "files")
 
-CMD_PREFIX_FMT = "{} -client_types=gnmi -a {}:50051 -t EVENTS -logtostderr -insecure -v 7 -streaming_type ON_CHANGE -qt s -q all"
+CMD_PREFIX_FMT = ("{} -client_types=gnmi -a {}:50051 -t EVENTS "
+                  "-logtostderr -insecure -v 7 -streaming_type ON_CHANGE "
+                  "-qt s -q all")
 CMD_PREFIX = ""
 
 GNMI_CLI_BIN = None
@@ -60,13 +62,13 @@ def run_cmd(localhost, params={}, op_file="", filter_event="", event_cnt=0, time
 def do_init(duthost):
     global CMD_PREFIX, GNMI_CLI_BIN
 
-    for i in [ BASE_DIR, DATA_DIR ]:
+    for i in [BASE_DIR, DATA_DIR]:
         os.mkdir(i)
 
     duthost.shell("docker cp telemetry:/usr/sbin/gnmi_cli /tmp")
     ret = duthost.fetch(src="/tmp/gnmi_cli", dest=DATA_DIR)
     GNMI_CLI_BIN = ret.get("dest", None)
-    assert GNMI_CLI_BIN != None, "Failing to get gnmi_cli" 
+    assert GNMI_CLI_BIN is not None, "Failing to get gnmi_cli" 
 
     os.system("chmod +x {}".format(GNMI_CLI_BIN))
     logger.info("GNMI_CLI_BIN={}".format(GNMI_CLI_BIN))
@@ -77,7 +79,9 @@ def do_init(duthost):
 
 def check_heartbeat(duthost, localhost):
     op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
-    run_cmd(localhost, [ "heartbeat=2"], op_file=op_file, filter_event="sonic-events-eventd:heartbeat", event_cnt=1, timeout=60)
+    run_cmd(localhost, ["heartbeat=2"], op_file=op_file, 
+            filter_event="sonic-events-eventd:heartbeat", event_cnt=1,
+            timeout=60)
     logger.info("run_cmd for heartbeat")
     data = {}
     with open(op_file, "r") as f:
@@ -99,7 +103,8 @@ def test_events(duthost, localhost):
     # Load all events test code and run
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith(".py"):
-            time.sleep(5) # give time to teardown prev test
+            # give time to teardown prev test
+            time.sleep(5)
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, localhost, run_cmd, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
