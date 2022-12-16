@@ -503,8 +503,11 @@ class BaseEverflowTest(object):
         """
         duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
 
+        session_info = None
+
         for duthost in duthost_set:
-            session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
+            if not session_info:
+                session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method)
 
         yield session_info
