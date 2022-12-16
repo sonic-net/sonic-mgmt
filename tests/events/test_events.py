@@ -64,7 +64,7 @@ def do_init(duthost):
     duthost.shell("docker cp telemetry:/usr/sbin/gnmi_cli /tmp")
     ret = duthost.fetch(src="/tmp/gnmi_cli", dest=DATA_DIR)
     GNMI_CLI_BIN = ret.get("dest", None)
-    assert GNMI_CLI_BIN is not None, "Failing to get gnmi_cli" 
+    assert GNMI_CLI_BIN is not None, "Failing to get gnmi_cli"
 
     os.system("chmod +x {}".format(GNMI_CLI_BIN))
     logger.info("GNMI_CLI_BIN={}".format(GNMI_CLI_BIN))
@@ -75,7 +75,7 @@ def do_init(duthost):
 
 def check_heartbeat(duthost, localhost):
     op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
-    run_cmd(localhost, ["heartbeat=2"], op_file=op_file, 
+    run_cmd(localhost, ["heartbeat=2"], op_file=op_file,
             filter_event="sonic-events-eventd:heartbeat", event_cnt=1,
             timeout=60)
     logger.info("run_cmd for heartbeat")
@@ -90,9 +90,9 @@ def test_events(duthost, localhost):
     """
     Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
-    logger.info('Start events testing')                                   
+    logger.info('Start events testing')
     # skip_201911_and_older(duthost)
-    do_init(duthost) 
+    do_init(duthost)
 
     check_heartbeat(duthost, localhost)
 
