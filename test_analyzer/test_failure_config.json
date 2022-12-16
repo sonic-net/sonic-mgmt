@@ -2,8 +2,8 @@
     "worker_number": 10,
     "run_timeout": 3600,
     "testbeds": {
-        "excluded_testbed_keywords": ["ixia", "bjw", "t2", "3132", "e1031", "8102", "s6100", "s6000"],
-        "excluded_testbed_keywords_setup_error": ["ixia", "bjw", "t2", "3132", "e1031", "8102", "s6100", "s6000"],
+        "excluded_testbed_keywords": ["ixia", "t2", "3132", "e1031", "8102", "s6100", "s6000"],
+        "excluded_testbed_keywords_setup_error": ["ixia", "t2", "3132", "e1031", "8102", "s6100", "s6000"],
         "included_testbeds": ["vms21-dual-t0-7050-3", "vms21-dual-t0-7260"]
     },
     "hwsku": {
@@ -23,7 +23,7 @@
     "threshold": {
         "duration_days": 7,
         "repro_count_limit": 2,
-        "repro_count_limit_setup_error": 3,
+        "repro_count_limit_setup_error": 2,
         "totalcase": 100,
         "history_days": 30,
         "previous_days": 7,
