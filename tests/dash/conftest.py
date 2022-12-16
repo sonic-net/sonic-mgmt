@@ -1,4 +1,3 @@
-
 import logging
 
 import pytest
@@ -58,12 +57,14 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
 def get_intf_from_ip(local_ip, config_facts):
     for intf, config in config_facts["INTERFACE"].items():
         intf_ip = ip_interface(config.keys()[0])
-        if str(intf_ip.ip) == local_ip:
-            return intf, intf_ip
+        for ip in config:
+            intf_ip = ip_interface(ip)
+            if str(intf_ip.ip) == local_ip:
+                return intf, intf_ip
 
 
 @pytest.fixture(scope="module")
-def dash_config_info(duthost, config_facts, ptfadapter, minigraph_facts):
+def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info = {
         VM_VNI: 4321,
         VNET1_VNI: 1000,
@@ -107,4 +108,3 @@ def apply_vnet_configs(skip_config, duthost, dash_config_info):
     render_template_to_host("dash_basic_config.j2", duthost, "/tmp/dash_basic_config_gen.json", dash_config_info, op="SET")
     apply_swssconfig_file(duthost, "/tmp/dash_basic_config_gen.json")
     return
-

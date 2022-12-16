@@ -1,10 +1,9 @@
-import json
 import logging
-
-from jinja2 import Template
 from os import path
 from time import sleep
-from tests.common.helpers.assertions import pytest_assert
+
+from jinja2 import Template
+
 from constants import TEMPLATE_DIR
 
 logger = logging.getLogger(__name__)
@@ -68,23 +67,6 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
     host.copy(content=rendered, dest=dest_file)
 
 
-def copy_dut_config_files(duthost):
-    """
-    Copy DASH config files and copy them to DUT
-
-    Note:
-        Does not actually apply any of these new configs
-
-    Args
-        duthost: DUT host object
-    """
-
-    logger.info("Generating config files and copying to DUT")
-
-    duthost.copy(src="./dash/files/dash_basic_config_set.json", dest="/var/tmp/dash_basic_config_set.json")
-    duthost.copy(src="./dash/files/dash_basic_config_del.json", dest="/var/tmp/dash_basic_config_del.json")
-
-
 def apply_swssconfig_file(duthost, file_path):
     """
     Copies config file from the DUT host to the SWSS docker and applies them with swssconfig
@@ -98,18 +80,4 @@ def apply_swssconfig_file(duthost, file_path):
 
     duthost.shell("docker cp {}  swss:/{}".format(file_path, file_name))
     duthost.shell("docker exec swss sh -c \"swssconfig /{}\"".format(file_name))
-    sleep(3)
-
-
-def remove_dut_config_files(duthost):
-    """
-    Removes config files that are stored on the given DUT
-
-    Args:
-        duthost: DUT host object
-    """
-    logger.info("Removing config files on DUT")
-
-    duthost.shell("docker cp /var/tmp/dash_basic_config_del.json  swss:/dash_basic_config_del.json")
-    duthost.shell("docker exec swss sh -c \"swssconfig /dash_basic_config_del.json\"")
     sleep(3)
