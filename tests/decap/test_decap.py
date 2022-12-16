@@ -76,6 +76,8 @@ def loopback_ips(duthosts, duts_running_config_facts):
     lo_ips = []
     lo_ipv6s = []
     for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
         cfg_facts = duts_running_config_facts[duthost.hostname]
         lo_ip = None
         lo_ipv6 = None
@@ -179,7 +181,7 @@ def set_mux_random(tbinfo, mux_server_url):
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mux_random, supported_ttl_dscp_params, ip_ver, loopback_ips,
                duts_running_config_facts, duts_minigraph_facts):
     setup_info = setup_teardown
-
+    asic_type = duthosts[0].facts["asic_type"]
     ecn_mode = "copy_from_outer"
     ttl_mode = supported_ttl_dscp_params['ttl']
     dscp_mode = supported_ttl_dscp_params['dscp']
@@ -213,6 +215,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url, set_mu
                             "lo_ipv6s": setup_info["lo_ipv6s"],
                             "ttl_mode": ttl_mode,
                             "dscp_mode": dscp_mode,
+                            "asic_type": asic_type,
                             "ignore_ttl": setup_info["ignore_ttl"],
                             "max_internal_hops": setup_info["max_internal_hops"],
                             "fib_info_files": setup_info["fib_info_files"],

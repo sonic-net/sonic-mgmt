@@ -168,7 +168,7 @@ The T2 type topology has variations:
 
 ### M0 type topology
 
-The M0 type topology is to simulate a SONiC DUT running as a Management ToR Router device. For this type of topology, a set of DUT ports are connected to VMs simulating upstream M1 (Management Leaf Router) neighbors. Another set of the ports are connected to a PTF docker simulating downstream servers. Rest of the ports are connected to VMs simulating downstream Mx (BMC Management Router) neighbors.
+The M0/MC0 topology is to simulate a SONiC DUT running as a Management ToR Router device. For this type of topology, a set of DUT ports are connected to VMs simulating upstream M1 (Management Leaf Router) neighbors. Another set of the ports are connected to a PTF docker simulating downstream servers. Rest of the ports are connected to VMs simulating downstream Mx (BMC Management Router) neighbors.
 
 **The PTF docker also has injected ports connected to the open vSwitch bridges interconnecting VMs and DUT ports. The injected ports can be used for both injecting packets to DUT and sniffing packets from DUT. Details of the injected ports will be explained in later sections.**
 
@@ -526,6 +526,10 @@ After wan-pub testbed is deployed, internal of the wan-pub topology looks like b
 
 ![](./img/testbed-wan-pub-vssetup.png)
 
+After wan-pub with cisco neighbor testbed is deployed, internal of the wan-pub topology looks like below:
+
+![](./img/testbed-wan-pub-cisco.png)
+
 Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
 
 ```yaml
@@ -546,6 +550,11 @@ Assume a wan-xlink topology testbed uses KVM based SONiC DUT is defined as below
 After wan-xlink testbed is deployed, internal of the wan-xlink topology looks like below:
 
 ![](./img/testbed-wan-xlink-vssetup.png)
+
+After wan-xlink with cisco neighbor testbed is deployed, internal of the wan-xlink topology looks like below:
+
+![](./img/testbed-wan-xlink-cisco.png)
+
 
 Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as below in `testbed.yaml`:
 
@@ -568,3 +577,7 @@ Assume a wan-xdut-xdut topology testbed uses KVM based SONiC DUT is defined as b
 After wan-xdut testbed is deployed, internal of the wan-xdut topology looks like below:
 
 ![](./img/testbed-wan-xdut-xlink-vssetup.png)
+
+After wan-xdut with cisco neighbor testbed is deployed, internal of the wan-xdut topology looks like below:
+
+![](./img/testbed-wan-xdut-xlink-cisco.png)

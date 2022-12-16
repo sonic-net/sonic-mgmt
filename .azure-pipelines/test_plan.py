@@ -49,7 +49,8 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None, common_extra_params="", **kwargs):
+               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -78,8 +79,7 @@ class TestPlanManager(object):
                     "scripts_exclude": []
                 },
                 "common_params": common_params,
-                "specified_params": {
-                },
+                "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
             "extra_params": {
@@ -89,11 +89,19 @@ class TestPlanManager(object):
                 "kvm_build_id": kvm_build_id,
                 "dump_kvm_if_fail": True,
                 "mgmt_branch": kwargs["mgmt_branch"],
+                "testbed": {
+                    "num_asic": kwargs["num_asic"],
+                    "vm_type": kwargs["vm_type"]
+                },
+                "secrets": {
+                    "azp_access_token": kwargs["azp_access_token"],
+                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
+                }
             },
             "priority": 10,
             "requester": "pull request"
         })
-
+        print('Creating test plan with payload: {}'.format(payload))
         headers = {
             "Authorization": "Bearer {}".format(self.token),
             "scheduler-site": "PRTest",
@@ -145,7 +153,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=36000, expected_states=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_states=""):
         '''
         The states of testplan can be described as below:
                                                                 |-- FAILED
@@ -156,7 +164,6 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("Max polling time: {} seconds".format(timeout))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
@@ -164,7 +171,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (time.time() - start_time) < timeout:
+        while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
@@ -291,6 +298,22 @@ if __name__ == "__main__":
         help="Branch of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
+        "--vm-type",
+        type=str,
+        dest="vm_type",
+        default="ceos",
+        required=False,
+        help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--specified-params",
+        type=str,
+        dest="specified_params",
+        default="{}",
+        required=False,
+        help="Test module specified params"
+    )
+    parser_create.add_argument(
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
@@ -298,6 +321,30 @@ if __name__ == "__main__":
         nargs='*',
         required=False,
         help="Run test common extra params"
+    )
+    parser_create.add_argument(
+        "--num-asic",
+        type=int,
+        dest="num_asic",
+        default=1,
+        required=False,
+        help="The asic number of dut"
+    )
+    parser_create.add_argument(
+        "--azp-access-token",
+        type=str,
+        dest="azp_access_token",
+        default="",
+        required=False,
+        help="Token to download the artifacts of Azure Pipelines"
+    )
+    parser_create.add_argument(
+        "--azp-repo-access-token",
+        type=str,
+        dest="azp_repo_access_token",
+        default="",
+        required=False,
+        help="Token to download the repo from Azure DevOps"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -333,7 +380,7 @@ if __name__ == "__main__":
         "--timeout",
         type=int,
         required=False,
-        default=36000,
+        default=-1,
         dest="timeout",
         help="Max polling time. Default 36000 seconds (10 hours)."
     )
@@ -404,7 +451,12 @@ if __name__ == "__main__":
                 scripts=get_test_scripts(args.test_set),
                 output=args.output,
                 mgmt_branch=args.mgmt_branch,
-                common_extra_params=args.common_extra_params
+                common_extra_params=args.common_extra_params,
+                num_asic=args.num_asic,
+                specified_params=args.specified_params,
+                vm_type=args.vm_type,
+                azp_access_token=args.azp_access_token,
+                azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)

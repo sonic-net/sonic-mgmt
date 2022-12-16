@@ -9,10 +9,11 @@ import time
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import mux_server_url   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -44,7 +45,7 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
     stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     duthost.shell(start_pcap)
@@ -68,13 +69,15 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
     conn0_ns = DEFAULT_NAMESPACE if "namespace" not in conn0.keys() else conn0["namespace"]
     conn1_ns = DEFAULT_NAMESPACE if "namespace" not in conn1.keys() else conn1["namespace"]
-    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} started on different asics!".format(conn0_ns, conn1_ns))
+    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} \
+                  started on different asics!".format(conn0_ns, conn1_ns))
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
@@ -83,11 +86,19 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if 'ToRRouter' in dut_type:
+    if  dut_type in ['ToRRouter', 'SpineRouter']:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
 
+    logging.info(
+        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn0["neighbor_addr"].split("/")[0], conn0_ns, dut_asn,
+                conn0["local_addr"].split("/")[0], neigh_type))
+    logging.info(
+        "pseudoswitch1 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn1["neighbor_addr"].split("/")[0], conn1_ns, dut_asn,
+                conn1["local_addr"].split("/")[0], neigh_type))
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
@@ -146,7 +157,7 @@ def constants(is_quagga, setup_interfaces):
 
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          toggle_all_simulator_ports_to_rand_selected_tor_m):
+                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
@@ -199,6 +210,16 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         else:
             return False
 
+    def is_neighbor_sessions_established(duthost, neighbors):
+        is_established = True
+
+        # handle both multi-sic and single-asic
+        bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
+        for neighbor in neighbors:
+            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+
+        return is_established
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
@@ -206,16 +227,9 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         n0.start_session()
         n1.start_session()
 
-        # sleep till new sessions are steady
-        time.sleep(60)
-
         # ensure new sessions are ready
-        # handle both multi-sic and single-asic
-        bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
-        assert n0.ip in bgp_facts["bgp_neighbors"]
-        assert n1.ip in bgp_facts["bgp_neighbors"]
-        assert bgp_facts["bgp_neighbors"][n0.ip]["state"] == "established"
-        assert bgp_facts["bgp_neighbors"][n1.ip]["state"] == "established"
+        if not wait_until(90, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+            pytest.fail("Could not establish bgp sessions")
 
         announce_intervals = []
         withdraw_intervals = []
@@ -229,6 +243,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
 
             with tempfile.NamedTemporaryFile() as tmp_pcap:
                 duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
+                duthost.file(path=bgp_pcap, state="absent")
                 bgp_updates = bgp_update_packets(tmp_pcap.name)
 
             announce_from_n0_to_dut = []
