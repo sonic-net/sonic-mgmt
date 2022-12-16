@@ -21,10 +21,10 @@ bjw-pdu-126-135,41,bjw-slx-can-1,PSU1
 bjw-pdu-126-134,41,bjw-slx-can-1,PSU2
 bjw-pdu-126-135,39,bjw-slx-can-2,PSU1
 bjw-pdu-126-134,39,bjw-slx-can-2,PSU2
-bjw-pdu-126-135,37,bjw-slx-can-3,PSU1
-bjw-pdu-126-134,37,bjw-slx-can-3,PSU2
-bjw-pdu-126-135,36,bjw-slx-can-4,PSU1
-bjw-pdu-126-134,36,bjw-slx-can-4,PSU2
+bjw-pdu-126-137,23,bjw-slx-can-3,PSU1
+bjw-pdu-126-136,23,bjw-slx-can-3,PSU2
+bjw-pdu-126-137,22,bjw-slx-can-4,PSU1
+bjw-pdu-126-136,22,bjw-slx-can-4,PSU2
 bjw-pdu-126-135,11,bjw-can-slx-5,PSU1
 bjw-pdu-126-134,11,bjw-can-slx-5,PSU2
 bjw-pdu-126-135,19,bjw-can-7215-1,PSU1

@@ -3,13 +3,13 @@
     <Devices>
       <Device Hostname="bjw-can-7260-root-1" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
       <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-slx-can-4" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-7215-2" HwSku="Nokia-7215" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-7215-3" HwSku="Nokia-7215" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-7215-4" HwSku="Nokia-7215" Type="FanoutLeaf"/>
+      <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-slx-can-4" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-2" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-3" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-4" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
       <Device Hostname="bjw-can-serv-1" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-2" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-3" HwSku="TestServ" Type="Server"/>
@@ -744,6 +744,8 @@
     <DevicesPowerControlInfo>
       <DevicePowerControlInfo Hostname="bjw-pdu-126-134" HwSku="Vertiv" ManagementIp="10.150.126.134" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="bjw-pdu-126-135" HwSku="Vertiv" ManagementIp="10.150.126.135" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-136" HwSku="Vertiv" ManagementIp="10.150.126.136" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-137" HwSku="Vertiv" ManagementIp="10.150.126.137" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="bjw-e1031-can-1" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="1"/>
@@ -768,10 +770,10 @@
       <PowerControlLinkInfo EndDevice="bjw-slx-can-1" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="41"/>
       <PowerControlLinkInfo EndDevice="bjw-slx-can-2" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="39"/>
       <PowerControlLinkInfo EndDevice="bjw-slx-can-2" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="39"/>
-      <PowerControlLinkInfo EndDevice="bjw-slx-can-3" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="37"/>
-      <PowerControlLinkInfo EndDevice="bjw-slx-can-3" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="37"/>
-      <PowerControlLinkInfo EndDevice="bjw-slx-can-4" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="36"/>
-      <PowerControlLinkInfo EndDevice="bjw-slx-can-4" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="36"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-3" EndPort="PSU1" StartDevice="bjw-pdu-126-137" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-3" EndPort="PSU2" StartDevice="bjw-pdu-126-136" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-4" EndPort="PSU1" StartDevice="bjw-pdu-126-137" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="bjw-slx-can-4" EndPort="PSU2" StartDevice="bjw-pdu-126-136" StartPort="22"/>
       <PowerControlLinkInfo EndDevice="bjw-can-slx-5" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="bjw-can-slx-5" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7215-1" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="19"/>

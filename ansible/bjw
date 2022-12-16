@@ -26,6 +26,8 @@ all:
           ansible_host: 10.150.23.54
         bjw6-6:
           ansible_host: 10.150.23.55
+        bjw6-7:
+          ansible_host: 10.150.23.56
     pdu:
       hosts:
         bjw-pdu-126-134:
@@ -33,6 +35,12 @@ all:
           protocol: snmp
         bjw-pdu-126-135:
           ansible_host: 10.150.126.135
+          protocol: snmp
+        bjw-pdu-126-136:
+          ansible_host: 10.150.126.136
+          protocol: snmp
+        bjw-pdu-126-137:
+          ansible_host: 10.150.126.137
           protocol: snmp
 
 fanout:
@@ -148,6 +156,28 @@ sonic_celestica_dx010:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0xD8A8FAEE"
+    bjw-slx-can-3:
+      ansible_host: 10.150.22.106
+      model: R0872-F0020-01
+      serial: DX010B2F019723BY200005
+      base_mac: 00:E0:EC:E7:6A:68
+      syseeprom_info:
+        "0x21": "DX010"
+        "0x22": "R0872-F0020-01"
+        "0x23": "DX010B2F019723BY200005"
+        "0x24": "00:E0:EC:E7:6A:68"
+        "0x25": "08/30/2019 22:40:59"
+        "0x26": "1"
+        "0x27": "Seastone"
+        "0x28": "RANGELEY"
+        "0x29": "2014.08"
+        "0x2A": "131"
+        "0x2B": "CELESTICA"
+        "0x2C": "THA"
+        "0x2D": "Celestica"
+        "0x2E": "1.1.1"
+        "0x2F": "LB"
+        "0xFE": "0x7F82BDBB"
 
 sonic_intel_ec9516:
   vars:
