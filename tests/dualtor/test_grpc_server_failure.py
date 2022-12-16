@@ -5,15 +5,15 @@ import pytest
 import random
 import time
 
-from tests.common.dualtor.dual_tor_common import active_active_ports                        # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports                            # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                              # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                              # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                  # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                  # lgtm[py/unused-import]
 from tests.common.dualtor.icmp_responder_control import pause_icmp_responder
 from tests.common.dualtor.nic_simulator_control import ForwardingState
-from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator        # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import toggle_active_active_simulator_ports # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                          # lgtm[py/unused-import]
+from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator            # lgtm[py/unused-import]
+from tests.common.dualtor.nic_simulator_control import toggle_active_active_simulator_ports     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # lgtm[py/unused-import]
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -43,7 +43,7 @@ def test_mux_ports(active_active_ports):
         pytest.skip("Skip as no 'active-active' mux ports available")
     test_ports = random.sample(active_active_ports, min(len(active_active_ports), TEST_COUNT))
     logging.info("Select ports %s to test", test_ports)
-    return random.sample(active_active_ports, TEST_COUNT)
+    return test_ports
 
 
 @pytest.fixture(params=[ForwardingState.ACTIVE, ForwardingState.STANDBY])
@@ -65,7 +65,7 @@ def setup_test_ports(init_port_state, mux_status_from_nic_simulator, pause_icmp_
         logging.debug("Mux status from nic_simulator:\n%s", mux_status)
         for port in mux_status:
             if ((mux_status[port][ActiveActivePortID.UPPER_TOR] != upper_tor_forwarding_state) or
-                (mux_status[port][ActiveActivePortID.LOWER_TOR] != lower_tor_forwarding_state)):
+                    (mux_status[port][ActiveActivePortID.LOWER_TOR] != lower_tor_forwarding_state)):
                 logging.debug("Port %s mux status is not expected", port)
                 return False
         return True
@@ -75,7 +75,8 @@ def setup_test_ports(init_port_state, mux_status_from_nic_simulator, pause_icmp_
 
     pytest_assert(
         wait_until(60, 5, 0, check_forwarding_state, test_mux_ports, init_port_state, init_port_state),
-        "failed to toggle ports %s to %s" % (test_mux_ports, "active" if init_port_state == ForwardingState.ACTIVE else "standby")
+        "failed to set ports %s initial state to %s" %
+        (test_mux_ports, "active" if init_port_state == ForwardingState.ACTIVE else "standby")
     )
 
     return test_mux_ports
@@ -96,7 +97,6 @@ def test_grpc_server_failure(
         3.2 verify SONiC does request extra toggles to recover via the last switchover time from show mux status
         3.3 verify the mux status from nic_simulator
     """
-
 
     def get_mux_status(duthost, mux_ports):
         all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]

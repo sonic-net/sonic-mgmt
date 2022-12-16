@@ -14,8 +14,6 @@ def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):
     ptf_port_index = mg_facts['minigraph_ptf_indices']
     ptf_ports = {k: ("eth%s" % v) for k, v in ptf_port_index.items()}
 
-    paused_ports = set()
-
     def _pause_icmp_respond(mux_ports):
         if not mux_ports:
             return
@@ -23,7 +21,7 @@ def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):
         icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
         if "RUNNING" not in icmp_responder_status:
             raise RuntimeError("icmp_responder not running in ptf")
-    
+
         for mux_port in mux_ports:
             if mux_port not in mux_config:
                 raise ValueError("port %s is not configured as mux port" % mux_port)
@@ -31,7 +29,6 @@ def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):
         pause_dict = {}
         for mux_port in mux_ports:
             ptf_port = ptf_ports[mux_port]
-            paused_ports.add(ptf_port)
             pause_dict[ptf_port] = True
 
         pause_message = json.dumps(pause_dict)
