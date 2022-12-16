@@ -482,7 +482,7 @@ class MultiAsicSonicHost(object):
         """
         bgp_neigh = {}
         for asic in self.asics:
-            if asic.get_docker_name("bgp") not  in self.critical_services:
+            if asic.get_docker_name("bgp") not in self.critical_services:
                 continue
             bgp_info = asic.bgp_facts()
             bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
@@ -501,7 +501,7 @@ class MultiAsicSonicHost(object):
         bgp_neigh = {}
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
-            if asic.get_docker_name("bgp") not  in self.critical_services:
+            if asic.get_docker_name("bgp") not in self.critical_services:
                 continue
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
             for k, v in bgp_info.items():
@@ -522,7 +522,7 @@ class MultiAsicSonicHost(object):
         neigh_ok = []
 
         for asic in self.asics:
-            if asic.get_docker_name("bgp") not  in self.critical_services:
+            if asic.get_docker_name("bgp") not in self.critical_services:
                 continue
             bgp_facts = asic.bgp_facts()['ansible_facts']
             for k, v in bgp_facts['bgp_neighbors'].items():
@@ -544,7 +544,7 @@ class MultiAsicSonicHost(object):
         @param state: target state
         """
         for asic in self.asics:
-            if asic.get_docker_name("bgp") not  in self.critical_services:
+            if asic.get_docker_name("bgp") not in self.critical_services:
                 continue
             if asic.namespace in bgp_neighbors:
                 neigh_ips = [k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state]
