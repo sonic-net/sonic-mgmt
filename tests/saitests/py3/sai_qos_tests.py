@@ -952,9 +952,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
-        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+        recv_counters_base, _ = sai_thrift_read_port_counters(
             self.client, port_list[src_port_id])
-        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+        xmit_counters_base, _ = sai_thrift_read_port_counters(
             self.client, port_list[dst_port_id])
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -974,8 +974,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW.
-            # And apply this behavior to all Arista device using Broadcom ASIC.
-            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            # And apply dynamically compensation to all device using Broadcom ASIC.
+            if 'broadcom' in asic_type.lower() or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
@@ -997,20 +997,23 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if ('arista' in hwsku.lower() and 'broadcom' in asic_type.lower()) or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_counters, queue_counters = sai_thrift_read_port_counters(
-                    self.client, port_list[dst_port_id])
-                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - \
-                    xmit_counters_base[TRANSMITTED_PKTS]
-                send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out)
-                sys.stderr.write('Send {} packets as leakout compensation'.format(actual_pkts_num_leak_out))
-                time.sleep(8)
+            if 'broadcom' in asic_type.lower() or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                counters_base = xmit_counters_base
+                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+                while actual_pkts_num_leak_out > 0:
+                    send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out)
+                    sys.stderr.write('Dynamically compensate {} packets, because of leakout\n'.format(actual_pkts_num_leak_out))
+                    counters_base = xmit_counters
+                    xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                    actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+                    time.sleep(8)
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
             sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
@@ -1030,9 +1033,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
             test_stage = 'after send a few packets to trigger PFC'
             sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
@@ -1053,9 +1056,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
             test_stage = 'after send packets short of ingress drop'
             sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
@@ -1075,9 +1078,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
             sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\txmit_counters {}\n\txmit_counters_base {}\n'.format(test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
@@ -1526,7 +1529,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
-        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+        recv_counters_base, _ = sai_thrift_read_port_counters(
             self.client, port_list[src_port_id]
         )
 
@@ -1605,14 +1608,15 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             # send packets to dst port 1, occupying the "xon"
-            xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters_base, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id]
             )
 
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
-            # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            # actual leakout by sending packets and reading actual leakout from HW.
+            # And apply dynamically compensation to all device using Broadcom ASIC.
+            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 pkts_num_leak_out = 0
 
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -1636,15 +1640,19 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
                 )
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_counters, queue_counters = sai_thrift_read_port_counters(
-                    self.client, port_list[dst_port_id])
-                actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] - \
-                    xmit_counters_base[TRANSMITTED_PKTS]
-                send_packet(self, src_port_id, pkt, actual_port_leak_out)
+            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                counters_base = xmit_counters_base
+                actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+                while actual_port_leak_out > 0:
+                    send_packet(self, src_port_id, pkt, actual_port_leak_out)
+                    sys.stderr.write('Dynamically compensate {} packets to dst port 1, because of leakout\n'.format(actual_port_leak_out))
+                    counters_base = xmit_counters
+                    xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+                    actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
 
             # send packets to dst port 2, occupying the shared buffer
-            xmit_2_counters_base, queue_counters = sai_thrift_read_port_counters(
+            xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_2_id]
             )
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -1668,11 +1676,19 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      hysteresis) // cell_occupancy + margin - 1
                 )
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                send_packet(self, src_port_id, pkt2, actual_port_leak_out)
+            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                xmit_2_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+                counters_base = xmit_2_counters_base
+                actual_port_2_leak_out = xmit_2_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+                while actual_port_2_leak_out > 0:
+                    send_packet(self, src_port_id, pkt2, actual_port_2_leak_out)
+                    sys.stderr.write('Dynamically compensate {} packets to dst port 2, because of leakout\n'.format(actual_port_2_leak_out))
+                    counters_base = xmit_2_counters
+                    xmit_2_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
+                    actual_port_2_leak_out = xmit_2_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
 
             # send 1 packet to dst port 3, triggering PFC
-            xmit_3_counters_base, queue_counters = sai_thrift_read_port_counters(
+            xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id]
             )
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -1685,20 +1701,28 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                send_packet(self, src_port_id, pkt3, actual_port_leak_out)
+            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+                xmit_3_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
+                counters_base = xmit_3_counters_base
+                actual_port_3_leak_out = xmit_3_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+                while actual_port_3_leak_out > 0:
+                    send_packet(self, src_port_id, pkt3, actual_port_3_leak_out)
+                    sys.stderr.write('Dynamically compensate {} packets to dst port 3, because of leakout\n'.format(actual_port_3_leak_out))
+                    counters_base = xmit_3_counters
+                    xmit_3_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
+                    actual_port_3_leak_out = xmit_3_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
-            xmit_2_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_2_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_2_id])
-            xmit_3_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id])
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
@@ -1718,13 +1742,13 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
-            xmit_2_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_2_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_2_id])
-            xmit_3_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id])
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg])
@@ -1743,7 +1767,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
             # get new base counter values at recv ports
             # queue counters value is not of our interest here
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
             for cntr in ingress_counters:
                 assert(recv_counters[cntr] == recv_counters_base[cntr])
@@ -1752,13 +1776,13 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(30)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
-            recv_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[src_port_id])
-            xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id])
-            xmit_2_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_2_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_2_id])
-            xmit_3_counters, queue_counters = sai_thrift_read_port_counters(
+            xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_3_id])
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg])
