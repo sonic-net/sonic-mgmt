@@ -1462,6 +1462,22 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
+            '''
+            Send various numbers of pkts to each dst port to occupy PG buffer, as below:
+                                                                                                          shared buffer theshold
+                                                                         xon offset                            |
+                                                                             |                                 |
+            PG config:                                                       +                                 +
+            -----------------------------------------------------------------*---------------------------------*----------------------
+            pkts in each port:                                          +                                            +
+                                                                        |                                            |
+            |<--- pkts_num_trig_pfc - pkts_num_dismiss_pfc - margin --->|                                            |
+                                 in dst port 1                          |                                            |
+                                                                        |<---   pkts_num_dismiss_pfc + margin*2  --->|
+                                                                                         in dst port 2               |
+                                                                                                                     |<--- X pkts --->|
+                                                                                                                       in dst port 3
+            '''
             # send packets to dst port 1, occupying the "xon"
             xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
                 self.client, port_list[dst_port_id]
@@ -1487,7 +1503,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(
                     self, src_port_id, pkt,
-                    pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis
+                    pkts_num_leak_out + pkts_num_trig_pfc - pkts_num_dismiss_pfc - hysteresis - margin
                 )
 
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -1513,7 +1529,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(
                     self, src_port_id, pkt2,
-                    pkts_num_leak_out + margin + pkts_num_dismiss_pfc - 1 + hysteresis
+                    pkts_num_leak_out + margin * 2 + pkts_num_dismiss_pfc - 1 + hysteresis
                 )
 
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
