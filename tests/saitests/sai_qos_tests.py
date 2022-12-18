@@ -1446,6 +1446,16 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             packet_length = 64
 
+        pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
+        pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
+            pkt_dst_mac2 = def_vlan_mac
+            pkt_dst_mac3 = def_vlan_mac
+
         pkt = construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,
@@ -1460,7 +1470,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         )
 
         # create packet
-        pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
         pkt2 = construct_ip_pkt(packet_length,
                                 pkt_dst_mac2,
                                 src_port_mac,
@@ -1475,7 +1484,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         )
 
         # create packet
-        pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
         pkt3 = construct_ip_pkt(packet_length,
                                 pkt_dst_mac3,
                                 src_port_mac,
