@@ -1734,7 +1734,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out)
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
-                sys.stderr.write('send_packet(src_port_id, pkt2, ({} + 1)\n'.format(pkts_num_leak_out))
+                sys.stderr.write('send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out))
 
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
                 send_packet(self, src_port_id, pkt3, actual_port_leak_out)
