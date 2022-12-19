@@ -37,16 +37,16 @@ In this experiment, we need to create three traffic items:
 
 This experiment needs the following five steps:
 
-- Start test data traffic and background data traffic simultaneously.
+- Start the PFC pause storm to fully block the test priorities at the switch.
 
-- After a fixed duration (e.g., 3 second), start the PFC pause storm to fully block the test priorities at the switch.
+- After a fixed duration (e.g., 1 second), start test data traffic and background data traffic simultaneously.
 
-- Stop PFC pause storm after a fixed duration (eg. 10 second)
+- After a fixed duration (e.g., 5 seconds), stop test data traffic and background data traffic.
 
-- Immediately after (eg. + 2 seconds) stopping the pause storm, stop test data traffic and background data traffic.
-
-- Check if the IXIA rx port receives (1) all the sent frames of background data traffic (which should not be impacted by PFC), and (2) non-zero number of frames of test data traffic (PFC pause storm was triggered after traffic flow was started). 
+- Check if the IXIA rx port receives (1) all the sent frames of background data traffic (which should not be impacted by PFC), and (2) zero frames of test data traffic (PFC pause storm was triggered after traffic flow was started). 
 
 - Then, check if (1) the total number of transmitted bytes of test data traffic is smaller than the switch shared buffer size for no pfc response delay added, or very small pfc response delay values, 
 
-- And also check if the total number of transmitted bytes of test data traffic is (2) greater than the switch shared buffer size for higher pfc response delay values since the headroom limit would be exceeded. The exact values for the pfc delay response times is dependent on the switch. 
+- And also check if the total number of transmitted bytes of test data traffic is (2) greater than the switch shared buffer size for higher pfc response delay values since the headroom limit would be exceeded. The exact values for the pfc delay response times is dependent on the switch.
+
+- Stop PFC pause storm
