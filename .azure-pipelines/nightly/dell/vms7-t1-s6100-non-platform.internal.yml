@@ -3,19 +3,12 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-resources:
-  repositories:
-  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
-    type: git
-    name: sonic-metadata
-    ref: master
-
 schedules:
-  - cron: "0 4 * * 0"
+  - cron: "0 4 * * 1"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -25,32 +18,26 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms18-t1-msn4600c-acs-1
+    default: vms7-t1-s6100
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202012)
+    default: $(IMAGE_BRCM_INTERNAL)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_202012)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'
     displayName: Testbed specific
-
-  # Custom skip scripts
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "platform_tests/test_auto_negotiation.py"
-    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -59,4 +46,3 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}

@@ -33,6 +33,7 @@ parameters:
     default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
     default: '-I "platform_tests generic_config_updater"'

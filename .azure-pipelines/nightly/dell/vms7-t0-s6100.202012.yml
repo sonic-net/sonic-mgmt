@@ -3,6 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
   - cron: "0 4 * * 0,2,4"
     displayName: Nightly Scheduler
@@ -33,10 +40,30 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "platform_tests generic_config_updater"'
+    displayName: Testbed specific
+
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/test_reboot.py::test_watchdog_reboot"
     displayName: "Skip Scripts"
+
+  - name: CROSS_BRANCH_BASE_URL
+    type: string
+    default: $(IMAGE_BRCM_201811)
+    displayName: "Cross-branch base-image URL"
+
+  - name: TEST_CROSS_BRANCH_UPGRADE
+    default: true
+    type: boolean
+
+  - name: TEST_IN_BRANCH_UPGRADE
+    default: true
+    type: boolean
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -44,4 +71,8 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      CROSS_BRANCH_BASE_URL: ${{ parameters.CROSS_BRANCH_BASE_URL }}
+      TEST_CROSS_BRANCH_UPGRADE: ${{ parameters.TEST_CROSS_BRANCH_UPGRADE }}
+      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}

@@ -33,6 +33,12 @@ parameters:
     default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'
+    displayName: Testbed specific
+
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
     default: false
@@ -44,3 +50,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

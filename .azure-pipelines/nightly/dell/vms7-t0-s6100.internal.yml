@@ -33,6 +33,13 @@ parameters:
     default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "platform_tests generic_config_updater"'
+    displayName: Testbed specific
+
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/test_reboot.py::test_watchdog_reboot"
@@ -44,4 +51,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
