@@ -3,8 +3,15 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 12 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -33,9 +40,16 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "platform_tests generic_config_updater"'
+    displayName: Testbed specific
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

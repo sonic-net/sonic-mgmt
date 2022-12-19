@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 11 * * 4"
+  - cron: "0 10 * * 4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,6 +27,12 @@ parameters:
     default: $(IMAGE_BRCM_202205)
     displayName: "Image URL"
 
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
+
   - name: ALWAYS_POWER_CYCLE_DUTS
     type: boolean
     default: true
@@ -35,18 +41,12 @@ parameters:
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
-    default: false
-
-  # Test Parameters
-  - name: PY_SAITHRIFT_URL
-    type: string
-    default: $(SAITHRIFT_BRCM_202205)
-    displayName: "py_saithrift URL"
+    default: false"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests"'
+    default: '-S "platform_tests generic_config_updater"'
     displayName: Testbed specific
 
 stages:
@@ -55,6 +55,6 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

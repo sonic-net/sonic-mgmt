@@ -80,6 +80,9 @@ parameters:
         AGENT_POOL = yaml_file_info[branch]['AGENT_POOL']
         CROSS_BRANCH_BASE_URL = yaml_file_info[branch]['CROSS_BRANCH_BASE_URL']
         TEST_IN_BRANCH_UPGRADE = yaml_file_info[branch]['TEST_IN_BRANCH_UPGRADE']
+        ALWAYS_POWER_CYCLE_DUTS = yaml_file_info[branch]['ALWAYS_POWER_CYCLE_DUTS']
+        ENABLE_DATAACL = yaml_file_info[branch]['ENABLE_DATAACL']
+        SKIP_TEST_RESULTS_UPLOADING = yaml_file_info[branch]['SKIP_TEST_RESULTS_UPLOADING']
 
         STATE_PATTERN = '''
 stages:
@@ -88,6 +91,24 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}'''
+
+        if ALWAYS_POWER_CYCLE_DUTS == 'TRUE':
+            POWER_CYCLE_PATTERN = '''
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: true
+    displayName: "Always power cycle DUTs"\n'''
+            file_content += POWER_CYCLE_PATTERN
+            STATE_PATTERN += "\n      ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}"
+
+        if ENABLE_DATAACL == 'FALSE':
+            DATAACL_PATTERN = '''
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false"\n'''
+            file_content += DATAACL_PATTERN
+            STATE_PATTERN += "\n      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}"
 
         if TESTBED_SPECIFIC:
             SPECIFIC_PATTERN = '''
@@ -124,7 +145,7 @@ stages:
       CROSS_BRANCH_BASE_URL: ${{ parameters.CROSS_BRANCH_BASE_URL }}
       TEST_CROSS_BRANCH_UPGRADE: ${{ parameters.TEST_CROSS_BRANCH_UPGRADE }}'''
 
-        if TEST_IN_BRANCH_UPGRADE:
+        if TEST_IN_BRANCH_UPGRADE == 'TRUE':
             TEST_IN_BRANCH_UPGRADE_PATTERN = '''
   - name: TEST_IN_BRANCH_UPGRADE
     default: true
@@ -149,6 +170,17 @@ stages:
     displayName: "Agent pool"\n'''.format(AGENT_POOL)
             file_content += AGENT_PATTERN
             STATE_PATTERN += "\n      AGENT_POOL: ${{ parameters.AGENT_POOL }}"
+
+        if SKIP_TEST_RESULTS_UPLOADING == 'FALSE':
+            SKIP_UPLOADING_PATTERN = '''
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"\n'''
+            file_content += SKIP_UPLOADING_PATTERN
+            STATE_PATTERN += "\n      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}"
+
+
 
         file_content += STATE_PATTERN + "\n"
         vender = yaml_file_info[branch]['vendor']
@@ -175,6 +207,9 @@ def generate_yaml_files(data_df):
         NIGHTLY_TEST_TIMEOUT = ''
         CROSS_BRANCH_BASE_URL = ''
         TEST_IN_BRANCH_UPGRADE = ''
+        ALWAYS_POWER_CYCLE_DUTS = ''
+        ENABLE_DATAACL = ''
+        SKIP_TEST_RESULTS_UPLOADING = ''
         for day_index in range(3, 10):
             day_key = keys[day_index]
             if row[day_key] != '':
@@ -207,7 +242,13 @@ def generate_yaml_files(data_df):
             if key.upper() == "CROSS_BRANCH_BASE_URL":
                 CROSS_BRANCH_BASE_URL = row[key]
             if key.upper() == "TEST_IN_BRANCH_UPGRADE":
-                TEST_IN_BRANCH_UPGRADE = row[key]
+                TEST_IN_BRANCH_UPGRADE = row[key].upper()
+            if key.upper() == "ALWAYS_POWER_CYCLE_DUTS":
+                ALWAYS_POWER_CYCLE_DUTS = row[key].upper()
+            if key.upper() == "ENABLE_DATAACL":
+                ENABLE_DATAACL = row[key].upper()
+            if key.upper() == "SKIP_TEST_RESULTS_UPLOADING":
+                SKIP_TEST_RESULTS_UPLOADING = row[key].upper()
 
         for branch in yaml_file_info:
             branch_alias = branch
@@ -231,6 +272,9 @@ def generate_yaml_files(data_df):
             yaml_file_info[branch]['AGENT_POOL'] = AGENT_POOL
             yaml_file_info[branch]['CROSS_BRANCH_BASE_URL'] = CROSS_BRANCH_BASE_URL
             yaml_file_info[branch]['TEST_IN_BRANCH_UPGRADE'] = TEST_IN_BRANCH_UPGRADE
+            yaml_file_info[branch]['ALWAYS_POWER_CYCLE_DUTS'] = ALWAYS_POWER_CYCLE_DUTS
+            yaml_file_info[branch]['ENABLE_DATAACL'] = ENABLE_DATAACL
+            yaml_file_info[branch]['SKIP_TEST_RESULTS_UPLOADING'] = SKIP_TEST_RESULTS_UPLOADING
 
             if 'bjw' in AGENT_POOL:
                 IMAGE_URL_PREFIX = "BJW_IMAGE_"
