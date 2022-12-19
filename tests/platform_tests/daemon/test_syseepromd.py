@@ -1,14 +1,17 @@
 """
 Check daemon status inside PMON container. Each daemon status is checked under the conditions below in this script:
-* Daemon Running Status
+* Daemon Running Status 
 * Daemon Stop status
 * Daemon Restart status
 
 This script is to cover the test case in the SONiC platform daemon and service test plan:
-https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
+https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
+import re
 import time
+
+from datetime import datetime
 
 import pytest
 
@@ -76,12 +79,12 @@ def collect_data(duthost):
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-
+    
     return {'keys': keys, 'data': dev_data}
-
+    
 def wait_data(duthost):
     class shared_scope:
         data_after_restart = {}
@@ -118,7 +121,7 @@ def test_pmon_syseepromd_running_status(duthosts, rand_one_dut_hostname, data_be
 
 def test_pmon_syseepromd_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
     """
-    @summary: This test case is to check the syseepromd stopped and restarted status
+    @summary: This test case is to check the syseepromd stopped and restarted status 
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -147,10 +150,9 @@ def test_pmon_syseepromd_stop_and_start_status(check_daemon_status, duthosts, ra
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-
+    
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart,
-                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
+    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
 def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -176,8 +178,7 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts, ra
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart,
-                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
+    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
 def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -204,5 +205,4 @@ def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts, ra
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
-    pytest_assert(data_after_restart == data_before_restart,
-                  'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'.format(data_after_restart, data_before_restart))
+    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')

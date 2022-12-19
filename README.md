@@ -1,16 +1,14 @@
 # Software for Open Networking in the Cloud - SONiC
 
-# sonic-mgmt
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/sonic-net/sonic-mgmt.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/sonic-net/sonic-mgmt/context:python)
-
-### Description
+# Description
 Management and automation code used for SONiC testbed deployment, tests and reporting.
 
-# Contribution guide
-Please read the [contributor guide](https://github.com/sonic-net/SONiC/wiki/Becoming-a-contributor) for more details on how to contribute.
+# CII Best Practices
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3933/badge)](https://bestpractices.coreinfrastructure.org/projects/3933)
 
-All contributors must sign an [Individual Contributor License Agreement (ICLA)](https://docs.linuxfoundation.org/lfx/easycla/v2-current/contributors/individual-contributor) before contributions can be accepted. Visit [EasyCLA - Linux Foundation](https://docs.linuxfoundation.org/lfx/easycla) for more details.
+# Contribution guide
+All contributors must sign a contribution license agreement before contributions can be accepted.
+[How to become a contributer](https://github.com/Azure/SONiC/wiki/Becoming-a-contributor)
 
 ### GitHub Workflow
 
@@ -45,4 +43,4 @@ For example:
 * Use issues to keep track of what is going on
 
 # Documentation
-For more details on each component and the directory structure, please read [docs/README.md](docs/README.md)
+[Documentation](docs/README.md)

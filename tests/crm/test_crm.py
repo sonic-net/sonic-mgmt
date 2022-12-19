@@ -552,39 +552,21 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, \
-    crm_interface, ip_ver, nexthop, ptfhost):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] == "marvell":
-        if ip_ver == "4":
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
-            nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
-        else:
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
-            nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
-        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
-        asichost.shell(ip_add_cmd)
-    else:
-        nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
+    nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd,
+                            .format(ip_cmd=asichost.ip_cmd, 
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-        nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
+    nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd,
+                            .format(ip_cmd=asichost.ip_cmd, 
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
+
     # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
                             crm_stats_ipv{ip_ver}_nexthop_used \
@@ -592,6 +574,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 .format(db_cli=asichost.sonic_db_cli,
                                         ip_ver=ip_ver)
     crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
+
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
@@ -606,10 +589,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] == "marvell":
-        asichost.shell(ip_remove_cmd)
-        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)  
-        ptfhost.remove_ip_addresses() 
+
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
                                    crm_stats_nexthop_available)
     pytest_assert(crm_stats_checker,
@@ -940,7 +920,8 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
 def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
-
+    if "t0" not in tbinfo["topo"]["name"].lower():
+        pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']

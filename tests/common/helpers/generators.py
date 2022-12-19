@@ -16,9 +16,10 @@ def generate_ips(num, prefix, exclude_ips):
     generated_ips = []
     for available_ip in available_ips:
         if available_ip not in exclude_ips:
-            generated_ips.append(str(available_ip))
+            generated_ips.append(str(available_ip) + '/' + str(prefix.prefixlen))
         if len(generated_ips) == num:
             break
+
     return generated_ips
 
 

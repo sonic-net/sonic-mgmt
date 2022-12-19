@@ -479,9 +479,10 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, skip_
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo):
+def partial_ptf_runner(request, ptfhost, tbinfo, dut_facts):
     def _partial_ptf_runner(testname, **kwargs):
         params = {'testbed_type': tbinfo['topo']['name'],
+                  'router_macs': [dut_facts['router_mac']],
                   'ptf_test_port_map': PTF_TEST_PORT_MAP
                   }
         params.update(kwargs)
@@ -529,8 +530,7 @@ def ptf_test_port_map(tbinfo, duthosts, mg_facts, ptfhost, rand_one_dut_hostname
             target_mac = duthost.facts['router_mac']
         ptf_test_port_map[str(port)] = {
             'target_dut': 0,
-            'target_dest_mac': target_mac,
-            'target_src_mac': duthost.facts['router_mac']
+            'target_mac': target_mac
         }
     ptfhost.copy(content=json.dumps(ptf_test_port_map), dest=PTF_TEST_PORT_MAP)
 
@@ -1506,7 +1506,6 @@ class TestVrfDeletion():
         gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         duthost.shell("config vrf del Vrf1")
-        time.sleep(5)
 
         # -------- Testing ----------
         yield

@@ -4,10 +4,13 @@ Check daemon status inside PMON container. Each daemon status is checked under t
 * Daemon Stop status
 * Daemon Restart status
 This script is to cover the test case in the SONiC platform daemon and service test plan:
-https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
+https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
+import re
 import time
+
+from datetime import datetime
 
 import pytest
 
@@ -72,20 +75,17 @@ def collect_data(duthost):
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
     return {'keys': keys, 'data': dev_data}
 
-def wait_data(duthost, expected_key_count):
+def wait_data(duthost):
     class shared_scope:
         data_after_restart = {}
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)
-        data_key_found = len(shared_scope.data_after_restart['data'])
-        if data_key_found != 0:
-            logger.info("Expected Chassisd data count :{}, Current Chassisd data count {}".format(expected_key_count, data_key_found))
-        return data_key_found == expected_key_count
+        return bool(shared_scope.data_after_restart['data'])
     pooling_interval = 60
     wait_until(pooling_interval, 10, 20, _collect_data)
     return shared_scope.data_after_restart
@@ -149,7 +149,7 @@ def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts, enum
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
-    data_after_restart = wait_data(duthost,len(data_before_restart['data']))
+    data_after_restart = wait_data(duthost)
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
@@ -173,7 +173,7 @@ def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, enum
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost,len(data_before_restart['data']))
+    data_after_restart = wait_data(duthost)
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 
 
@@ -197,5 +197,5 @@ def test_pmon_chassisd_kill_and_start_status(check_daemon_status, duthosts, enum
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost,len(data_before_restart['data']))
+    data_after_restart = wait_data(duthost)
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')

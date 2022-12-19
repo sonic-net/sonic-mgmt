@@ -22,8 +22,7 @@ from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),
-    pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)

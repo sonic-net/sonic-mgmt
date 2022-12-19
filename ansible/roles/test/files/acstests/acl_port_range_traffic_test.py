@@ -1,10 +1,11 @@
-import ptf.packet as scapy  # noqa F401
-import ptf.dataplane as dataplane   # noqa F401
+import sys
+import ptf.packet as scapy
+import ptf.dataplane as dataplane
 import acs_base_test
+from ptf.base_tests import BaseTest
 import ptf.testutils as testutils
-from ptf.testutils import send
+from ptf.testutils import *
 import scapy.all as scapy2
-
 
 class SendTCP(acs_base_test.ACSDataplaneTest):
     def runTest(self):
@@ -14,7 +15,7 @@ class SendTCP(acs_base_test.ACSDataplaneTest):
         # get L4 port number
         port_number = testutils.test_params_get("port_number")
         port = port_number["port_number"]
-        pkt /= scapy2.TCP(sport=int(port))
+        pkt /= scapy2.TCP(sport = int(port))
         pkt /= ("badabadaboom")
 
         # get packets number

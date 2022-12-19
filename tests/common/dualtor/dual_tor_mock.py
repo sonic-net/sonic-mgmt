@@ -8,10 +8,10 @@ from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 __all__ = [
+    'require_mocked_dualtor',
     'apply_active_state_to_orchagent',
     'apply_dual_tor_neigh_entries',
     'apply_dual_tor_peer_switch_route',
@@ -136,6 +136,12 @@ def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
 
 def is_mocked_dualtor(tbinfo):
     return 'dualtor' not in tbinfo['topo']['name']
+
+
+@pytest.fixture
+def require_mocked_dualtor(tbinfo):
+    pytest_require(is_t0_mocked_dualtor(tbinfo), "This testcase is designed for "
+        "single tor testbed with mock dualtor config. Skip this testcase on real dualtor testbed")
 
 
 def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
@@ -343,8 +349,8 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         # We actually need to restart syncd only, but restarting syncd will also trigger swss
         # being restarted, and it costs more time than restarting swss
         logger.info("Restarting swss service to regenerate config.bcm")
-        dut.shell('systemctl reset-failed swss; systemctl restart swss')
-        wait_critical_processes(dut)
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
 
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
@@ -352,8 +358,23 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     if restart_swss:
         # Restart swss on TH2 or TD3 platform to apply changes
         logger.info("Restarting swss service")
-        dut.shell('systemctl reset-failed swss; systemctl restart swss')
-        wait_critical_processes(dut)
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
+
+    yield
+    logger.info("Removing peer switch table")
+
+    cmds=['redis-cli -n 4 DEL "{}"'.format(peer_switch_key),
+          'redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
+          'redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
+    dut.shell_cmds(cmds=cmds)
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to remove changes
+        logger.info("Restarting swss service")
+        dut.shell('systemctl restart swss')
+        time.sleep(120)
+        
+    return
 
 
 @pytest.fixture(scope='module')
@@ -448,4 +469,4 @@ def cleanup_mocked_configs(duthost, tbinfo):
 
     if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
-        config_reload(duthost, config_source="minigraph", safe_reload=True)
+        config_reload(duthost, config_source="minigraph")

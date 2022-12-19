@@ -29,7 +29,7 @@ resources:
   repositories:
   - repository: sonic-mgmt
     type: github
-    name: sonic-net/sonic-mgmt
+    name: Azure/sonic-mgmt
     endpoint: build
 
 stages:

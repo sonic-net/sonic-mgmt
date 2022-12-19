@@ -8,7 +8,6 @@ import requests
 
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                             # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
@@ -31,8 +30,6 @@ __all__ = [
     'toggle_simulator_port_to_upper_tor',
     'toggle_simulator_port_to_lower_tor',
     'toggle_all_simulator_ports',
-    'check_mux_status',
-    'validate_check_result',
     ]
 
 logger = logging.getLogger(__name__)
@@ -167,7 +164,7 @@ def _post(server_url, data):
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = requests.post(server_url, json=data, headers=headers, timeout=10)
+        resp = requests.post(server_url, json=data, headers=headers)
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
@@ -408,33 +405,6 @@ def _are_muxcables_active(duthost):
         return True
 
 
-def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo):
-    """Helper function to toggle all ports to active on the target DUT."""
-    logging.info("Toggling mux cable to {}".format(target_dut_hostname))
-    duthost = duthosts[target_dut_hostname]
-    dut_index = tbinfo['duts'].index(target_dut_hostname)
-    if dut_index == 0:
-        data = {"active_side": UPPER_TOR}
-    else:
-        data = {"active_side": LOWER_TOR}
-
-    # Allow retry for mux cable toggling
-    is_toggle_done = False
-    for attempt in range(1, 4):
-        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
-            attempt,
-            data['active_side']
-        ))
-        _post(mux_server_url, data)
-        time.sleep(5)
-        if _are_muxcables_active(duthost):
-            is_toggle_done = True
-            break
-
-    if not is_toggle_done and not utilities.wait_until(60, 10, 0, _are_muxcables_active, duthost):        
-        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
-
-
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
     """
@@ -446,12 +416,30 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
+    logger.info("Toggling mux cable to {}".format(rand_one_dut_hostname))
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": UPPER_TOR}
+    else:
+        data = {"active_side": LOWER_TOR}
 
-    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
+    # Allow retry for mux cable toggling
+    for attempt in range(1, 4):
+        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
+            attempt,
+            data['active_side']
+        ))
+        _post(mux_server_url, data)
+        time.sleep(5)
+        if _are_muxcables_active(duthost):
+            break
+    else:
+        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(rand_one_dut_hostname))
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_rand_unselected_tor(mux_server_url, tbinfo, rand_one_dut_hostname):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
@@ -461,8 +449,13 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": LOWER_TOR}
+    else:
+        data = {"active_side": UPPER_TOR}
 
-    _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
+    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to the randomly unselected tor, the counterpart of {}".format(rand_one_dut_hostname))
 
 
 @pytest.fixture
@@ -494,7 +487,26 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
 
-    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
+    logger.info("Toggling mux cable to {}".format(rand_one_dut_hostname))
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_index = tbinfo['duts'].index(rand_one_dut_hostname)
+    if dut_index == 0:
+        data = {"active_side": UPPER_TOR}
+    else:
+        data = {"active_side": LOWER_TOR}
+
+    # Allow retry for mux cable toggling
+    for attempt in range(1, 4):
+        logger.info('attempt={}, toggle active side of all muxcables to {} from mux simulator'.format(
+            attempt,
+            data['active_side']
+        ))
+        _post(mux_server_url, data)
+        utilities.wait(5, 'Wait for DUT muxcable status to update after toggled from mux simulator')
+        if _are_muxcables_active(duthost):
+            break
+    else:
+        pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(rand_one_dut_hostname))
 
     yield
 
@@ -503,7 +515,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo):
     """
     A function level fixture to toggle all ports to a random side.
     """
@@ -534,10 +546,6 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
         # get mapping from port indices to mux status
         simulator_port_mux_status = {int(k.split('-')[-1]):v for k,v in simulator_mux_status.items()}
         for intf in upper_tor_mux_status['MUX_CABLE']:
-
-            if mux_config[intf]["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
-                continue
-
             intf_index = port_indices[intf]
             if intf_index not in simulator_port_mux_status:
                 logging.warn("No mux status for interface %s from mux simulator", intf)
@@ -567,7 +575,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
     pytest_assert(
-        utilities.wait_until(120, 5, 0, _check_mux_status_consistency),
+        utilities.wait_until(30, 5, 0, _check_mux_status_consistency),
         "Mux status is inconsistent between the DUTs and mux simulator after toggle"
     )
 
@@ -656,63 +664,3 @@ def get_mux_status(url):
         return _get(url(interface_name=interface_name))
 
     return _get_mux_status
-
-def check_mux_status(duthosts, active_side):
-    """Verify that status of muxcables are expected
-    This function runs "show muxcable status --json" on both ToRs. Before call this function, active side of all
-    mux cables must be toggled to one side of the ToR. Active side ToR should be indicated in argument "active_side".
-    This function will ensure that on one ToR, all the mux cables are active. On the other ToR, all the mux cable
-    should be standby.
-    Args:
-        duthosts (list): List of duthost objects
-        active_side (str): Active side of all mux cables, either UPPER_TOR or LOWER_TOR
-    Returns:
-        bool: True if check passed. Otherwise, return False.
-    """
-    if active_side == UPPER_TOR:
-        mux_active_dut = duthosts[0]
-        mux_standby_dut = duthosts[1]
-    else:
-        mux_active_dut = duthosts[1]
-        mux_standby_dut = duthosts[0]
-
-    active_side_muxstatus = json.loads(mux_active_dut.shell("show muxcable status --json")['stdout'])
-    standby_side_muxstatus = json.loads(mux_standby_dut.shell("show muxcable status --json")['stdout'])
-
-    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active']
-    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby']
-
-    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active']
-    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby']
-
-    if len(active_side_active_muxcables) > 0 and \
-        len(active_side_standby_muxcables) == 0 and \
-        len(standby_side_active_muxcables) == 0 and \
-        len(standby_side_standby_muxcables) > 0 and \
-        set(active_side_active_muxcables) == set(standby_side_standby_muxcables):
-        logger.info('Check mux status on DUTs passed')
-        return True
-    else:
-        logger.info('Unexpected mux status. active_side={}'.format(active_side))
-        logger.info('Active side active muxcables: {}'.format(active_side_active_muxcables))
-        logger.info('Active side standby muxcables: {}'.format(active_side_standby_muxcables))
-        logger.info('Standby side active muxcables: {}'.format(standby_side_active_muxcables))
-        logger.info('Standby side standby muxcables: {}'.format(standby_side_standby_muxcables))
-        logger.info('Check mux status on DUTs failed')
-        return False
-
-def validate_check_result(check_result, duthosts, get_mux_status):
-    """If check_result is False, collect some log and fail the test.
-    Args:
-        check_result (bool): Check result
-        duthosts (list): List of duthost objects.
-    """
-    if not check_result:
-        duthosts.shell('show muxcable config')
-        duthosts.shell('show muxcable status')
-        simulator_muxstatus = get_mux_status()
-        if simulator_muxstatus is not None:
-            logger.info('Mux status from mux simulator: {}'.format(json.dumps(simulator_muxstatus)))
-        else:
-            logger.error('Failed to get mux status from mux simulator')
-        pytest.fail('Toggle mux from simulator test failed')

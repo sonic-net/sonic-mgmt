@@ -24,7 +24,7 @@ class TestMemoryExhaustion:
     """
 
     @pytest.fixture(autouse=True)
-    def tearDown(self, duthost, localhost, pdu_controller):
+    def teardown(self, duthost, localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.

@@ -15,8 +15,8 @@ resources:
   repositories:
   - repository: sonic-mgmt
     type: github
-    name: sonic-net/sonic-mgmt
-    endpoint: sonic-net
+    name: Azure/sonic-mgmt
+    endpoint: build
 
 parameters:
 - name: iterations

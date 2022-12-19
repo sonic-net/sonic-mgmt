@@ -2,78 +2,14 @@
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
                "ACS-MSN2010", "ACS-SN2201"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
-SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8",
-               "Mellanox-SN4600C-C64"]
-SPC4_HWSKUS = ["ACS-SN5600"]
-SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS
+SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64"]
+SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS
 
 PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
 ]
 SWITCH_MODELS = {
-    "x86_64-nvidia_sn5600-r0": {
-        "chip_type": "spectrum4",
-        "reboot": {
-            "cold_reboot": True,
-            "fast_reboot": True,
-            "warm_reboot": True
-        },
-        "fans": {
-            "number": 4,
-            "hot_swappable": True
-        },
-        "psus": {
-            "number": 2,
-            "hot_swappable": True,
-            "capabilities": PSU_CAPABILITIES[0]
-        },
-        "cpu_pack": {
-            "number": 1
-        },
-        "cpu_cores": {
-            "number": 6
-        },
-        "ports": {
-            "number": 64
-        },
-        "thermals": {
-            "cpu_core": {
-                "start": 0,
-                "number": 6
-            },
-            "module": {
-                "start": 1,
-                "number": 64
-            },
-            "psu": {
-                "start": 1,
-                "number": 2
-            },
-            "cpu_pack": {
-                "number": 1
-            },
-            "cpu_ambient": {
-                "number": 1
-            },
-            "asic_ambient": {
-                "number": 1
-            },
-            "port_ambient": {
-                "number": 1
-            },
-            "fan_ambient": {
-                "number": 1
-            },
-            "pch": {
-                "number": 1
-            },
-            "sodimm": {
-                "start": 1,
-                "number": 2
-            }
-        }
-    },
     "x86_64-nvidia_sn2201-r0": {
         "chip_type": "spectrum1",
         "reboot": {
@@ -126,10 +62,6 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
-            },
-            "sodimm": {
-                "start": 1,
-                "number": 1
             }
         }
     },
@@ -181,10 +113,6 @@ SWITCH_MODELS = {
                 "number": 1
             },
             "fan_ambient": {
-                "number": 1
-            },
-            "sodimm": {
-                "start": 1,
                 "number": 1
             }
         }
@@ -287,10 +215,6 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
-            },
-            "sodimm": {
-                "start": 1,
-                "number": 1
             }
         }
     },
@@ -335,10 +259,6 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
-            },
-            "sodimm": {
-                "start": 1,
-                "number": 2
             }
         }
     },
@@ -382,10 +302,6 @@ SWITCH_MODELS = {
                 "number": 1
             },
             "fan_ambient": {
-                "number": 1
-            },
-            "sodimm": {
-                "start": 1,
                 "number": 1
             }
         }
