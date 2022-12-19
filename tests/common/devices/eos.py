@@ -13,6 +13,12 @@ def _raise_err(msg):
     raise Exception(msg)
 
 
+FEC_MAP = {
+    'fc': 'fire-code',
+    'rs': 'reed-solomon'
+}
+
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -271,7 +277,13 @@ class EosHost(AnsibleHostBase):
         return v[:-1] + '000'
 
     def _has_cli_cmd_failed(self, cmd_output_obj):
-        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
+        err_out = False
+        if 'stdout' in cmd_output_obj:
+            stdout = cmd_output_obj['stdout']
+            msg = stdout[-1] if type(stdout) == list else stdout
+            err_out = 'Cannot advertise' in msg
+
+        return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
 
     def set_speed(self, interface_name, speed):
 
@@ -283,9 +295,15 @@ class EosHost(AnsibleHostBase):
 
         speed_mode = 'auto' if self.get_auto_negotiation_mode(interface_name) else 'forced'
         speed = speed[:-3] + 'gfull'
-        out = self.host.eos_config(
-                lines=['speed {} {}'.format(speed_mode, speed)],
-                parents='interface %s' % interface_name)[self.hostname]
+
+        out = self.host.eos_command(commands=[
+            'conf',
+            'interface %s' % interface_name,
+            {
+                'command': 'speed {} {}'.format(speed_mode, speed),
+                'prompt': ['Do you wish to proceed with this command'],
+                'answer': ['y']}
+            ])[self.hostname]
         logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
         return not self._has_cli_cmd_failed(out)
 
@@ -349,6 +367,26 @@ class EosHost(AnsibleHostBase):
             logger.error('Failed to get macsec status for interface "{}", exception: {}'
                          .format(interface_name, repr(e)))
             return False
+
+    def _append_port_fec(self, interface_name, mode):
+        def _exec(cmd):
+            self.host.eos_command(commands=[
+                'conf',
+                'interface %s' % interface_name,
+                cmd
+            ])
+
+        if mode:
+            _exec('error-correction encoding ' + FEC_MAP[mode])
+        else:
+            _exec('no error-correction encoding')
+
+    def set_port_fec(self, interface_name, mode):
+        # reset FEC
+        self._append_port_fec(interface_name, None)
+
+        if mode:
+            self._append_port_fec(interface_name, mode)
 
     def rm_member_from_channel_grp(self, interface_name, channel_group):
         out = self.eos_config(
