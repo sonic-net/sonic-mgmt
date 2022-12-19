@@ -1365,6 +1365,48 @@ Totals               6450                 6449
             feature_status[r[0]] = r[1]
         return feature_status, True
 
+    def aspath_config(self, as_path, bgp_num, counter):
+
+        if counter == 0:
+            command_list = ['vtysh -c "config" -c "route-map TEST permit 10" -c "set as-path prepend {}" -c "exit" -c "router bgp {}" -c "address-family ipv4 unicast" -c "neighbor PEER_V4 route-map TEST in" -c "end"'.format(as_path, bgp_num)]
+        
+        if counter == 1:
+            command_list = ['vtysh -c "config" -c "no route-map TEST permit 10" -c "router bgp {}" -c "address-family ipv4 unicast" -c "no neighbor PEER_V4 route-map TEST in" -c "end"'.format(bgp_num)]
+        
+        for cmd in command_list:
+            command_output = self.shell(cmd, module_ignore_errors=True)
+
+            if len(command_output["stdout_lines"]) != 0:
+                logger.error("Error configuring route-map for AS-path prepend")
+                return False
+
+        logger.info("Configured route-map for AS-path prepend")
+        return True
+
+    def get_show(self,duthost, ipadd, as_path, counter):
+
+        dut_route = duthost.get_route(ipadd)
+        features_stdout = dut_route['paths']
+        lines = features_stdout[0:]
+
+        for x in lines:
+            result = x["aspath"]["string"].encode('UTF-8')
+            
+            if as_path != result[0:len(as_path)] and counter == 0:
+                logger.info("Check passed")
+                return True
+
+            if as_path == result[0:len(as_path)] and counter == 1:
+                logger.info("Configured route-map for AS-path prepend matches")
+                return True
+            
+        if counter == 1:
+            logger.error("Configured route-map for AS-path prepend does not match")
+
+        if counter == 0:
+            logger.error("Check failed")
+        return False
+
     def _parse_column_positions(self, sep_line, sep_char='-'):
         """Parse the position of each columns in the command output
 
@@ -2137,34 +2179,6 @@ Totals               6450                 6449
         json_info = json.loads(commond_output["stdout"])
         return json_info
 
-    def get_port_fec(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
-        assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
-
-    def set_port_fec(self, portname, state):
-        if not state:
-            state = 'none'
-        res = self.shell('sudo config interface fec {} {}'.format(portname, state))
-        return res['rc'] == 0
-
-    def count_portlanes(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
-        assert_exit_non_zero(out)
-        lanes = out["stdout_lines"][0].split(',')
-        return len(lanes)
-
-    def get_sfp_type(self, portname):
-        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
-        assert_exit_non_zero(out)
-        sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
-        return sfp_type
-
     def is_intf_status_down(self, interface_name):
         show_int_result = self.command("show interface status {}".format(interface_name))
         return 'down' in show_int_result['stdout_lines'][2].lower()
-
-
-def assert_exit_non_zero(shell_output):
-    if shell_output['rc'] != 0:
-        raise Exception(shell_output['stderr'])
