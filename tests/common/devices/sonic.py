@@ -955,7 +955,7 @@ class SonicHost(AnsibleHostBase):
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
-        uptime_text = self.command("</proc/uptime awk '{print $1}'")["stdout"]
+        uptime_text = self.command("awk '{print $1}' /proc/uptime")["stdout"]
         return timedelta(seconds=float(uptime_text))
 
     def get_networking_uptime(self):
