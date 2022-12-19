@@ -20,18 +20,21 @@ Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tes
 Arista	vms6-t0-7060.2	vms6-t0-7060		202012-SLIM		202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12				IMAGE_BRCM_ABOOT_201811	TRUE			
 Arista	vms6-t1-7060	vms6-t1-7060	201911	202012-SLIM	201911	202012-SLIM	202012-SLIM	202012-SLIM			Full	0 12								
 Arista	vms20-t0-7050cx3-1	vms20-t0-7050cx3-1	202012	internal	master	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 10								
-Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2	202012	internal	master	internal	202012	master		-I "platform_tests generic_config_updater"'	Non-platform	0 2								
-Arista	vms20-t1-7050cx3-3-platform	vms20-t1-7050cx3-3			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 10								
-Arista	vms20-t1-7050cx3-3-non-platform	vms20-t1-7050cx3-3	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10								
+Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2	202012				202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 3					TRUE			
+Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2		internal	master	internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 3								
+Arista	vms20-t1-7050cx3-3-platform	vms20-t1-7050cx3-3			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 11								
+Arista	vms20-t1-7050cx3-3-non-platform	vms20-t1-7050cx3-3	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 11								
 Arista	vms7-t0-7260-2	vms7-t0-7260-2	202012	internal	202012	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10								
-Arista	vms24-t0-7260-2	vms24-t0-7260-2	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 2				IMAGE_BRCM_ABOOT_201811	TRUE			
-Arista	vms24-t0-7260-2	vms24-t0-7260-2		internal		internal		master		-I "platform_tests generic_config_updater"'	Platform	0 2								
-Arista	vms2-t1-7260-7	vms2-t1-7260-7	202205	internal	202205	internal	201911	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10								FALSE
-Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 2						TRUE	FALSE	
+Arista	vms24-t0-7260-2	vms24-t0-7260-2	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 4				IMAGE_BRCM_ABOOT_201811	TRUE			
+Arista	vms24-t0-7260-2	vms24-t0-7260-2		internal		internal		master		-I "platform_tests generic_config_updater"'	Platform	0 4								
+Arista	vms2-t1-7260-7	vms2-t1-7260-7	202205	internal	202205	internal	201911	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE
+Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE	FALSE	
 Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE	
-Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 10						TRUE	FALSE	
-Celestica	vms20-t1-dx010-6	vms20-t1-dx010-6	202205	internal	202205	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 10						TRUE	FALSE	
-Dell	vms7-t0-s6100	vms7-t0-s6100	202012	internal	202012	internal	202012	master		-I "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"						
-Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012	internal	202012	internal	202012	master		-S "platform_tests generic_config_updater"'	Non-platform	0 12								
+Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE	
+Celestica	vms20-t1-dx010-6	vms20-t1-dx010-6	202205	internal	202205	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 15						TRUE	FALSE	
+Dell	vms7-t0-s6100	vms7-t0-s6100	202012		202012		202012			-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"		IMAGE_BRCM_201811	TRUE			
+Dell	vms7-t0-s6100	vms7-t0-s6100		internal		internal		master		-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"						
+Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012		202012		202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 12				IMAGE_BRCM_201811	TRUE			
+Dell	vms7-t0-s6100-4	vms7-t0-s6100-4		internal		internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 12								
 Dell	vms7-t1-s6100-platform	vms7-t1-s6100			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 4								
 Dell	vms7-t1-s6100-non-platform	vms7-t1-s6100	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 4								
