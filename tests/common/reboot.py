@@ -225,7 +225,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
 
-    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+    uptime_before_reboot = duthost.get_uptime()
+    reboot_res, _ = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
     # if wait_for_ssh flag is False, do not wait for dut to boot up
@@ -247,10 +248,11 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
-    dut_uptime = duthost.get_up_time()
-    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
-        format(hostname)
+    uptime_after_reboot = duthost.get_uptime()
+    logger.info('DUT {} uptime before reboot: {} minutes, uptime after reboot: {} minutes'.format(hostname,
+                                                                                                  uptime_before_reboot,
+                                                                                                  uptime_after_reboot))
+    assert uptime_before_reboot > uptime_after_reboot, "Device {} did not reboot".format(hostname)
 
 
 def get_reboot_cause(dut):
