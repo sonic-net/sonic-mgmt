@@ -346,6 +346,14 @@ if __name__ == "__main__":
         required=False,
         help="Token to download the repo from Azure DevOps"
     )
+    parser_create.add_argument(
+        "--azp-pr-id",
+        type=str,
+        dest="azp_pr_id",
+        default="",
+        required=False,
+        help="Pullrequest ID from Azure Pipelines"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -422,7 +430,7 @@ if __name__ == "__main__":
             env["client_secret"])
 
         if args.action == "create":
-            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
+            pr_id = args.azp_pr_id if args.azp_pr_id else os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
             reason = os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
