@@ -736,6 +736,10 @@ def sai_thrift_read_port_counters(client, port):
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IN_DROPPED_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_OUT_DROPPED_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_IN_UCAST_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS)
+    port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_QLEN)
 
     counters_results = []
     counters_results = client.sai_thrift_get_port_stats(
