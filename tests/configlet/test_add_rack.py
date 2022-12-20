@@ -63,7 +63,7 @@ def configure_dut(duthosts, rand_one_dut_hostname):
         log_info("configure_dut fixture DONE for {}".format(rand_one_dut_hostname))
 
 
-
+@pytest.mark.disable_loganalyzer
 def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
