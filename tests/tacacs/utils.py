@@ -87,7 +87,7 @@ def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be
         link_path_regex = re.escape(path_to_be_fix)
 
     target_path_regex = re.escape(target_path)
-    ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
+    ptfhost.shell("sed -i 's|{0}|{1}|g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
 
 def get_ld_path(duthost):
     """
