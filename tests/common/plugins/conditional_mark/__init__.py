@@ -210,7 +210,7 @@ def find_longest_matches(nodeid, conditions):
                 longest_matches.append(condition)
     return longest_matches
 
-def update_issue_status(condition_str):
+def update_issue_status(condition_str, session):
     """Replace issue URL with 'True' or 'False' based on its active state.
 
     If there is an issue URL is found, this function will try to query state of the issue and replace the URL
@@ -220,6 +220,7 @@ def update_issue_status(condition_str):
 
     Args:
         condition_str (str): Condition string that may contain issue URLs.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         str: New condition string with issue URLs already replaced with 'True' or 'False'.
@@ -229,11 +230,17 @@ def update_issue_status(condition_str):
         logger.debug('No issue specified in condition')
         return condition_str
 
-    results = check_issues(issues)
+    issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+
+    unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
+    if unknown_issues:
+        results = check_issues(unknown_issues)
+        issue_status_cache.update(results)
+        session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
     for issue_url in issues:
-        if issue_url in results:
-            replace_str = str(results[issue_url])
+        if issue_url in issue_status_cache:
+            replace_str = str(issue_status_cache[issue_url])
         else:
             # Consider the issue as active anyway if unable to get issue state
             replace_str = 'True'
@@ -242,7 +249,7 @@ def update_issue_status(condition_str):
     return condition_str
 
 
-def evaluate_condition(condition, basic_facts):
+def evaluate_condition(condition, basic_facts, session):
     """Evaluate a condition string based on supplied basic facts.
 
     Args:
@@ -250,6 +257,7 @@ def evaluate_condition(condition, basic_facts):
             string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition string evaluation result.
@@ -257,7 +265,7 @@ def evaluate_condition(condition, basic_facts):
     if condition is None or condition.strip() == '':
         return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
-    condition_str = update_issue_status(condition)
+    condition_str = update_issue_status(condition, session)
     try:
         return bool(eval(condition_str, basic_facts))
     except Exception as e:
@@ -267,7 +275,7 @@ def evaluate_condition(condition, basic_facts):
         return False
 
 
-def evaluate_conditions(conditions, basic_facts):
+def evaluate_conditions(conditions, basic_facts, session):
     """Evaluate all the condition strings.
 
     Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND logical operation
@@ -277,6 +285,7 @@ def evaluate_conditions(conditions, basic_facts):
         conditions (str or list): Condition string or list of condition strings.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition strings evaluation result.
@@ -284,11 +293,11 @@ def evaluate_conditions(conditions, basic_facts):
     if isinstance(conditions, list):
         # Apply 'AND' operation to list of conditions
         # Personally, I think it makes more sense to apply 'AND' logical operation to a list of conditions.
-        return all([evaluate_condition(c, basic_facts) for c in conditions])
+        return all([evaluate_condition(c, basic_facts, session) for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
-        return evaluate_condition(conditions, basic_facts)
+        return evaluate_condition(conditions, basic_facts, session)
 
 
 def pytest_collection(session):
@@ -347,18 +356,25 @@ def pytest_collection_modifyitems(session, config, items):
                 for mark_name, mark_details in match.values()[0].items():
 
                     add_mark = False
-                    mark_conditions = mark_details.get('conditions', None)
-                    if not mark_conditions:
-                        # Unconditionally add mark
+                    if not mark_details:
                         add_mark = True
                     else:
-                        add_mark = evaluate_conditions(mark_conditions, basic_facts)
+                        mark_conditions = mark_details.get('conditions', None)
+                        if not mark_conditions:
+                            # Unconditionally add mark
+                            add_mark = True
+                        else:
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts, session)
 
                     if add_mark:
-                        reason = mark_details.get('reason', '')
+                        reason = ''
+                        if mark_details:
+                            reason = mark_details.get('reason', '')
 
                         if mark_name == 'xfail':
-                            strict = mark_details.get('strict', False)
+                            strict = False
+                            if mark_details:
+                                strict = mark_details.get('strict', False)
                             mark = getattr(pytest.mark, mark_name)(reason=reason, strict=strict)
                             # To generate xfail property in the report xml file
                             item.user_properties.append(('xfail', strict))

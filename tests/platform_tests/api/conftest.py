@@ -1,5 +1,4 @@
 import os
-import time
 import pytest
 import httplib
 
@@ -10,6 +9,7 @@ SERVER_PORT = 8000
 
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
 
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
@@ -22,20 +22,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
                              delay=1,
                              timeout=5,
                              module_ignore_errors=True)
-    if 'exception' in res:
-        # TODO: Remove this check once we no longer need to support Python 2
-        if request.cls.__name__ == "TestSfpApi" and duthost.facts.get("asic_type") == "mellanox" \
-                and duthost.sonic_release in ['202012', '202106']:
-            # On Mellanox platform, the SFP APIs are not migrated to python3 yet,
-            # thus we have to make it as an exception here.
-            py3_platform_api_available = False
-        else:
-            res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
-            py3_platform_api_available = not res['failed']
+    if res['failed'] is True:
+
+        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
+        py3_platform_api_available = not res['failed']
 
         supervisor_conf = [
             '[program:platform_api_server]',
-            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available else '2', SERVER_PORT),
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
+                                                                                     else '2', SERVER_PORT),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
@@ -60,7 +55,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker exec -i pmon supervisorctl update')
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
-        assert 'exception' not in res
+        assert res['failed'] is False
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -100,12 +95,12 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
     finally:
         conn.close()
 
+
 @pytest.fixture(autouse=True)
 def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost,
-                                  marker_prefix="platformapi_test")
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="platformapi_test")
     marker = loganalyzer.init()
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])

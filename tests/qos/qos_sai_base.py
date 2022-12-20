@@ -8,9 +8,11 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/un
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,dualtor_ports
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import check_qos_db_fv_reference_with_table
+from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, dut_test_params):
+    def dutTestParams(self, dut_test_params, tbinfo):
         """
             Prepares DUT host test params
             Returns:
@@ -59,6 +61,19 @@ class QosBase:
         # update router mac
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
+
+        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+        if "dualtor" in tbinfo["topo"]["name"]:
+            dut_test_params["basicParams"]["is_dualtor"] = True
+            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                default_vlan_name = vlan_cfgs['default_vlan_config']
+                if default_vlan_name:
+                    for vlan in vlan_cfgs[default_vlan_name].values():
+                        if 'mac' in vlan and vlan['mac']:
+                            dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                            break
 
         yield dut_test_params
 
@@ -89,6 +104,8 @@ class QosBase:
                           "remote",
                           "-t",
                           ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                          "--qlen",
+                          "10000",
                           "--disable-ipv6",
                           "--disable-vxlan",
                           "--disable-geneve",
@@ -466,8 +483,8 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
-        self, request, duthosts, rand_one_dut_hostname, tbinfo,
-        enum_frontend_asic_index, lower_tor_host, dualtor_ports
+        self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+        enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -483,12 +500,18 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = lower_tor_host
         else:
-            duthost = duthosts[rand_one_dut_hostname]
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dutLagInterfaces = []
         dutPortIps = {}
         testPortIps = {}
+        uplinkPortIds = []
+        uplinkPortIps = []
+        uplinkPortNames = []
+        downlinkPortIds = []
+        downlinkPortIps = []
+        downlinkPortNames = []
 
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
@@ -536,12 +559,13 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
                     if "." in iface:
-                        iface, vlan_id = iface.split(".")
-                    portIndex = mgFacts["minigraph_ptf_indices"][iface]
+                        portName, vlan_id = iface.split(".")
+                    portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
@@ -553,6 +577,18 @@ class QosSaiBase(QosBase):
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
                     dutPortIps.update({portIndex: portIpMap})
+                # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
+                # we also need to test them separately
+                if use_separated_upkink_dscp_tc_map:
+                    neighName = mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
+                    if 't0' in neighName:
+                        downlinkPortIds.append(portIndex)
+                        downlinkPortIps.append(addr["peer_ipv4"])
+                        downlinkPortNames.append(portName)
+                    elif 't2' in neighName:
+                        uplinkPortIds.append(portIndex)
+                        uplinkPortIps.append(addr["peer_ipv4"])
+                        uplinkPortNames.append(portName)
 
             testPortIds = sorted(dutPortIps.keys())
         else:
@@ -603,6 +639,19 @@ class QosSaiBase(QosBase):
             testPortIds = dualTorPortIndexes
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
+        # Update the uplink/downlink ports to testPorts
+        testPorts.update({
+            "uplink_port_ids": uplinkPortIds,
+            "uplink_port_ips": uplinkPortIps,
+            "uplink_port_names": uplinkPortNames,
+            "downlink_port_ids": downlinkPortIds,
+            "downlink_port_ips": downlinkPortIps,
+            "downlink_port_names": downlinkPortNames
+            })
+        dutinterfaces = {}
+        for port, index in mgFacts["minigraph_ptf_indices"].items():
+            if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
+                dutinterfaces[index] = port
         yield {
             "dutInterfaces" : {
                 index: port for port, index in mgFacts["minigraph_ptf_indices"].items()
@@ -711,6 +760,25 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
+        """ Stop mux container for dual ToR """
+        if 'dualtor' in tbinfo['topo']['name']:
+            file = "/usr/local/bin/write_standby.py"
+            backup_file = "/usr/local/bin/write_standby.py.bkup"
+            toggle_all_simulator_ports(LOWER_TOR)
+            check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+            validate_check_result(check_result, duthosts, get_mux_status)
+
+            try:
+                duthost.shell("ls %s" % file)
+                duthost.shell("sudo cp {} {}".format(file,backup_file))
+                duthost.shell("sudo rm {}".format(file))
+                duthost.shell("sudo touch {}".format(file))
+            except:
+                pytest.skip('file {} not found'.format(file))
+
+            duthost_upper.shell('sudo config feature state mux disabled')
+            duthost.shell('sudo config feature state mux disabled')
+
         services = [
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
@@ -725,23 +793,6 @@ class QosSaiBase(QosBase):
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="stop", **service)
-
-        """ Stop mux container for dual ToR """
-        if 'dualtor' in tbinfo['topo']['name']:
-            file = "/usr/local/bin/write_standby.py"
-            backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR)
-
-            try:
-                duthost.shell("ls %s" % file)
-                duthost.shell("sudo cp {} {}".format(file,backup_file))
-                duthost.shell("sudo rm {}".format(file))
-                duthost.shell("sudo touch {}".format(file))
-            except:
-                pytest.skip('file {} not found'.format(file))
-
-            duthost_upper.shell('sudo config feature state mux disabled')
-            duthost.shell('sudo config feature state mux disabled')
 
         yield
 
@@ -834,6 +885,19 @@ class QosSaiBase(QosBase):
             duthost.command("docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+    def dutArpProxyConfig(self, duthost):
+        # so far, only record ARP proxy config to logging for debug purpose
+        vlanInterface = {}
+        try:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:
+            logger.info('Failed to read vlan interface config')
+        if not vlanInterface:
+            return
+        for key, value in vlanInterface.items():
+            if 'proxy_arp' in value:
+                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
@@ -876,6 +940,8 @@ class QosSaiBase(QosBase):
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
         dutTopo = dutConfig["dutTopo"]
+
+        self.dutArpProxyConfig(duthost)
 
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))

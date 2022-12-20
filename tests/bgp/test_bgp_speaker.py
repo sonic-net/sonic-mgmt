@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
 ]
 

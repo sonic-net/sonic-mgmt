@@ -17,7 +17,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -92,7 +92,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
-                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] == 'LeafRouter':
+                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in ['LeafRouter', 'MgmtLeafRouter']:
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
@@ -206,15 +206,15 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
                 assert False, "Wrong DHCP setup on Dual ToR testbeds"
 
             yield testing_mode, duthost, 'dual_testbed'
-    elif tbinfo['topo']['name'] == 't0-56-po2vlan':
+    elif tbinfo['topo']['name'] in ('t0-54-po2vlan', 't0-56-po2vlan'):
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist and subtype_value == 'DualToR':
-                assert False, "Wrong DHCP setup on t0-56-vlan2po testbeds"
+                assert False, "Wrong DHCP setup on po2vlan testbeds"
 
             yield testing_mode, duthost, 'single_testbed'
 
         if testing_mode == DUAL_TOR_MODE:
-            pytest.skip("skip DUAL_TOR_MODE tests on t0-56-vlan2po testbeds")
+            pytest.skip("skip DUAL_TOR_MODE tests on po2vlan testbeds")
     else:
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist:
@@ -274,7 +274,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
@@ -326,7 +326,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
@@ -389,7 +389,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
@@ -425,7 +425,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
@@ -460,7 +460,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'][0]),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),

@@ -3,6 +3,7 @@ import logging
 import pytest
 import random
 
+from ipaddress import ip_address
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *
 from tests.common.dualtor.dual_tor_utils import dualtor_info
@@ -19,6 +20,8 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -53,10 +56,16 @@ def testbed_setup(ip_version, ptfhost, rand_selected_dut, rand_unselected_dut, t
     return test_port, server_ip, ip_version
 
 
+def neighbor_reachable(duthost, neighbor_ip):
+    neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    ip_version = 'v4' if ip_address(neighbor_ip).version == 4 else 'v6'
+    neigh_status = neigh_table[ip_version][neighbor_ip]['state'].lower()
+    return "reachable" in neigh_status or "permanent" in neigh_status
+
+
 def test_active_tor_remove_neighbor_downstream_active(
     conn_graph_facts, ptfadapter, ptfhost, testbed_setup,
-    rand_selected_dut, tbinfo,
-    require_mocked_dualtor, set_crm_polling_interval,
+    rand_selected_dut, tbinfo, set_crm_polling_interval,
     tunnel_traffic_monitor, vmhost
 ):
     """
@@ -70,7 +79,7 @@ def test_active_tor_remove_neighbor_downstream_active(
     @contextlib.contextmanager
     def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4")
+        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4" or "ipv6")
         try:
             ptfhost.shell("supervisorctl stop arp_responder")
             # stop garp_service since there is no equivalent in production
@@ -106,6 +115,8 @@ def test_active_tor_remove_neighbor_downstream_active(
         remove_neighbor_ct = remove_neighbor(ptfhost, tor, server_ip, ip_version, removed_neighbor)
         with crm_neighbor_checker(tor, ip_version, expect_change=ip_version == "ipv6"), remove_neighbor_ct, tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
+        # wait up to a minute for the neighbor entry to become reachable due to performance limitation on some testbeds/lab servers
+        pytest_assert(wait_until(60, 5, 0, lambda: neighbor_reachable(tor, server_ip)))
 
         logging.info("send traffic to server %s after neighbor entry is restored", server_ip)
         server_traffic_monitor = ServerTrafficMonitor(
@@ -127,8 +138,7 @@ def test_active_tor_remove_neighbor_downstream_active(
 
 def test_downstream_ecmp_nexthops(
     ptfadapter, rand_selected_dut, tbinfo,
-    require_mocked_dualtor, toggle_all_simulator_ports,
-    tor_mux_intfs, ip_version
+    toggle_all_simulator_ports, tor_mux_intfs, ip_version
     ):
     nexthops_count = 4
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)

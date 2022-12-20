@@ -172,6 +172,15 @@
       restart_pmon: no
     when: "'dualtor' in topo"
 
+  - name: gather hwsku for LeafRouter that supports dualtor deployment
+    set_fact:
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+  
+  - name: enable tunnel_qos_remap for T1 in dualtor deployment
+    set_fact:
+      enable_tunnel_qos_remap: true
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1)"
+
   - name: set default vm file path
     set_fact:
       vm_file: veos
@@ -370,7 +379,7 @@
         pause:
           seconds: 60
     become: true
-    when: proxy_env is defined
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
@@ -510,9 +519,21 @@
         shell: config save -y
         when: save is defined and save|bool == true
 
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
+
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
         ignore_errors: true
+
+      # In pr https://github.com/sonic-net/sonic-buildimage/pull/12109, it decrease the sshd timeout
+      # which may cause timeout when executing `generate_dump -s yesterday`.
+      # Increase this time during deploying minigraph
+      - name: Reset sshd timeout
+        become: True
+        shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true

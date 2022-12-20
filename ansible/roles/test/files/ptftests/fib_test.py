@@ -309,7 +309,8 @@ class FibTest(BaseTest):
                                 format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
+            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            return (None, None)
     #---------------------------------------------------------------------
 
     def check_ipv6_route(self, src_port, dst_ip_addr, dst_port_list):
@@ -388,7 +389,8 @@ class FibTest(BaseTest):
                                 format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            return verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
+            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            return (None, None)
 
     def check_within_expected_range(self, actual, expected):
         '''

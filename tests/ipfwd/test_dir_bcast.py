@@ -5,12 +5,12 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    support_testbed_types = frozenset(['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116'])
+    support_testbed_types = frozenset(['t0', 't0-16', 't0-52', 't0-56', 't0-64', 't0-64-32', 't0-116', 'm0'])
     testbed_type = tbinfo['topo']['name']
     if testbed_type not in support_testbed_types:
         pytest.skip("Not support given test bed type %s" % testbed_type)

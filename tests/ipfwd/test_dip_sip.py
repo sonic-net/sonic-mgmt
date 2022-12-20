@@ -11,7 +11,7 @@ WAIT_EXPECTED_PACKET_TIMEOUT = 5
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2')
+    pytest.mark.topology('t0', 't1', 't2', 'm0')
 ]
 
 @pytest.fixture(scope="module", autouse="True")
@@ -83,7 +83,7 @@ def run_test_ipv4(ptfadapter, facts):
 
 def test_dip_sip(tbinfo, ptfadapter, gather_facts, enum_frontend_asic_index):
     topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t0', 't1', 't2'):
+    if topo_type not in ('t0', 't1', 't2', 'm0'):
         pytest.skip("Unsupported topology")
 
     ptfadapter.reinit()

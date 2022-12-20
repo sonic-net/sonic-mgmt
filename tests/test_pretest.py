@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
@@ -251,6 +252,14 @@ def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
 
     dut = duthosts[enum_dut_hostname]
     dut.command('pfcwd stop')
+
+
+def test_generate_running_golden_config(duthosts):
+    """
+    Generate running golden config after pre test.
+    """
+    for duthost in duthosts:
+        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
 
 """
     Separator for internal pretests.

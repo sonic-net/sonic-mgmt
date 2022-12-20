@@ -31,7 +31,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     yield
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
@@ -65,6 +65,14 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
         Fifth, systemd would fire an error message:"ERR systemd[1]: Failed to start SNMP/TEAMD container." since
         SNMP/TEAMD container hits the limitation of restart. route_check.py also wrote an error message into syslog.
 
+        Sixth, after a process is killed, its network resources are not immediately released. So it might take some time
+        for the ports to be available again. The problem might be more pronounced with weak devices. So we expect some
+        failures with listening or binding to a socket. When encountering this problem, the process will be repeated
+        and it typically resolves by itself. So we skip "Unable to initialize team socket" in teamsyncd and "Failed to
+        bind socket" in dhcprelay.
+
+        Also invalid OID is more of a warning. So we skip messages with keyword "invalid OID".
+
     """
     swss_syncd_teamd_regex = [
             ".*ERR swss[0-9]*#orchagent.*removeLag.*",
@@ -75,27 +83,45 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: invalid OIDs in fdb notifications.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid "
+            "OIDs.*",
+            ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for "
+            "bridge port type port.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
+            ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
+            ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed attribs dispatch.*",
+            ".*ERR syncd[0-9]*#SDK.*Failed command read at communication channel: Connection reset by peer.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
             # Known issue, captured here: https://github.com/Azure/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
+            ".*ERR teamd[0-9]*#teamsyncd.*readData.*Unable to initialize team socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
+            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* "
+            "after [0-9]+ retries",
         ]
     ignore_regex_dict = {
         'common' : [
             ".*ERR monit.*",
-            ".*ERR systemd.*Failed to start .* container*",
+            ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
+            ".*ERR wrong number of arguments for 'hset' command: Input/output error.*"
         ],
         'pmon' : [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+            ".*ERR pmon#python3.*Expected to get redis type 2 got type 3, err: NON-STRING-REPLY.*",
         ],
         'swss' : swss_syncd_teamd_regex,
         'syncd' : swss_syncd_teamd_regex,

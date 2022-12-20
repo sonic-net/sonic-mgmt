@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan')
+    pytest.mark.topology('t0', 'm0')
 ]
 
 logger = logging.getLogger(__name__)
@@ -221,9 +221,10 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
-        if "t0" not in tbinfo["topo"]["type"]:
+        topo_type = tbinfo["topo"]["type"]
+        if "t0" not in topo_type and "m0" not in topo_type:
             pytest.skip(
-                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(tbinfo["topo"]["type"])
+                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(topo_type)
             )
 
         fdbAgingTime = request.config.getoption('--fdb_aging_time')

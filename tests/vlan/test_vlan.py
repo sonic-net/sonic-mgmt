@@ -16,6 +16,7 @@ from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_lis
 from tests.common.fixtures.duthost_utils import utils_create_test_vlans
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +45,14 @@ def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):
     # Below ip prefix overlaps with 192.168.0.1/21, and need to skip:
     # 192.168.0.1/24, 192.168.1.1/24, 192.168.2.1/24, 192.168.3.1/24,
     # 192.168.4.1/24, 192.168.5.1/24, 192.168.6.1/24, 192.168.7.1/24
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         vlan_intfs_dict = utils_vlan_intfs_dict_add(vlan_intfs_dict, 2)
     return vlan_intfs_dict
 
 
 @pytest.fixture(scope="module")
 def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils_vlan_ports_list, vlan_intfs_dict, pc_num=PORTCHANNELS_TEST_NUM):
-    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+    if tbinfo['topo']['name'] in ('t0-54-po2vlan', 't0-56-po2vlan'):
         return utils_vlan_ports_list
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
@@ -96,6 +97,27 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
 
     return work_vlan_ports_list
 
+@pytest.fixture(scope="module")
+def acl_rule_cleanup(duthost, tbinfo):
+    """Cleanup all the existing DATAACL rules"""
+    # remove all rules under the ACL_RULE table
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete')
+
+    yield
+
+@pytest.fixture(scope="module")
+def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
+   """ Remove the DATAACL table prior to the test and recreate it at the end"""
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+
+   yield
+
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+       # rebind with new set of ports
+       bind_acl_table(duthost, tbinfo)
 
 def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
     cmds = []
@@ -152,11 +174,11 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts, setup_acl_table):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
-        if tbinfo['topo']['name'] != 't0-56-po2vlan':
+        if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
             portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
 
             shutdown_portchannels(duthost, portchannel_interfaces)
@@ -175,6 +197,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_po
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
             populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
+            bind_acl_table(duthost, tbinfo)
+            apply_acl_rules(duthost, tbinfo)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
@@ -186,7 +210,7 @@ def tearDown(duthost, tbinfo):
 
     logger.info("VLAN test ending ...")
 
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         config_reload(duthost)
 
 
