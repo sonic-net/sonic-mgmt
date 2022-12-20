@@ -311,7 +311,7 @@ class TestPlanManager(object):
                         print("Current status is {}".format(step_status))
                         return
                 else:
-                    raise Exception("Unexpected status.")
+                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
 
             # compate to sonic-buildimage
             elif expected_states:
