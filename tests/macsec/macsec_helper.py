@@ -395,29 +395,34 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         ret = __origin_dp_poll(
             test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
         timeout -= time.time() - start_time
+        # Since we call __origin_dp_poll with exp_pkt=None, it should only ever fail if no packets are received at all. In this case, continue normally
+        # until we exceed the timeout value provided to macsec_dp_poll.
+        if isinstance(ret, test.dataplane.PollFailure):
+            if timeout <= 0:
+                break
+            else:
+                continue
         # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
-        if ret.device != 0 \
-            or isinstance(ret, test.dataplane.PollFailure) \
-                or exp_pkt is None:
+        if ret.device != 0 or exp_pkt is None:
             return ret
         pkt = scapy.Ether(ret.packet)
         if pkt.haslayer(scapy.Ether):
             if pkt[scapy.Ether].type != 0x88e5:
                 if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret
-                else:
-                    continue
-        else:
-            continue
-
-        macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
-        if macsec_info:
-            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
-            force_reload[ret.port] = False
-            pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
-                                send_sci, 0, xpn_en, ssci, salt)
-            if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                return ret
+            else:
+                macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+                if macsec_info:
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
+                    force_reload[ret.port] = False
+                    pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                                        send_sci, 0, xpn_en, ssci, salt)
+                    if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                        return ret
+        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
+        # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
+        # If we don't find a matching packet (either with or without MACsec decoding), we need to manually store the packet we received.
+        # Later if we return a PollFailure, we can provide the received packets to emulate the behavior of __origin_dp_poll.
         recent_packets.append(pkt)
         packet_count += 1
         if timeout <= 0:
