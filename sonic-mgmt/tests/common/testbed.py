@@ -260,7 +260,7 @@ class TestbedInfo(object):
 
 
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mx|appliance)')
+        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|appliance)')
         match = pattern.match(topo_name)
         if match == None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))
@@ -269,6 +269,8 @@ class TestbedInfo(object):
         if tb_type in ['mgmttor', 'dualtor']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
+        if tb_type in ['mc0']:
+            tb_type = 'm0'
         return tb_type
 
     def _parse_dut_port_index(self, port):

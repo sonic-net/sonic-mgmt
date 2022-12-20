@@ -1330,8 +1330,32 @@ def pytest_generate_tests(metafunc):        # noqa E302
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
-    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", parametrise_autoneg_tests(), scope="module")
+
+    def format_portautoneg_test_id(param):
+        speeds = param['speeds'] if 'speeds' in param else [param['speed']]
+        return "{}|{}|{}".format(param['dutname'], param['port'], ','.join(speeds))
+
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames or \
+            "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+        autoneg_tests_data = get_autoneg_tests_data()
+        if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+            metafunc.parametrize(
+                "enum_dut_portname_module_fixture",
+                autoneg_tests_data,
+                scope="module",
+                ids=format_portautoneg_test_id,
+                indirect=True
+            )
+
+        if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+            metafunc.parametrize(
+                "enum_speed_per_dutport_fixture",
+                parametrise_per_supported_port_speed(autoneg_tests_data),
+                scope="module",
+                ids=format_portautoneg_test_id,
+                indirect=True
+            )
+
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -1355,22 +1379,29 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
 
 
-def parametrise_autoneg_tests():
+def get_autoneg_tests_data():
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
+    if not os.path.exists(filepath):
+        logger.warning('Autoneg tests datafile is missing: {}. " \
+            "Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
+        return [{'dutname': 'unknown', 'port': 'unknown', 'speeds': ['unknown']}]
     data = {}
-    try:
-        with open(filepath) as yf:
-            data = json.load(yf)
-    except IOError:
-        logger.warning('Cannot find a datafile for autoneg tests at {}. '
-                       'Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
-        return []
+    with open(filepath) as yf:
+        data = json.load(yf)
 
-    def limit_ports(ports):
-        return random.sample(ports, min(3, len(ports)))
+    return [
+        {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']}
+        for dutname, ports in data.items()
+        for dutport, portinfo in ports.items()
+    ]
 
-    return [encode_dut_port_name(dutname, dutport) for dutname in data for dutport in limit_ports(data[dutname])]
+
+def parametrise_per_supported_port_speed(data):
+    return [
+        {'dutname': conn_info['dutname'], 'port': conn_info['port'], 'speed': speed}
+        for conn_info in data for speed in conn_info['speeds']
+    ]
 
 
 # Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
@@ -1851,13 +1882,15 @@ def core_dump_and_config_check(duthosts, request):
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
-            #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
-            #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture
+            # to account for the lower performance of the ICMP responder/mux simulator,
+            # compared to real servers and mux cables. It's appropriate to persist this change
+            # since the testbed will always be using the ICMP responder and mux simulator.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
             EXCLUDE_CONFIG_KEY_NAMES = [
                 'MUX_LINKMGR|LINK_PROBER'
             ]
-            
+
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
                     config[table_name].pop(key_name)

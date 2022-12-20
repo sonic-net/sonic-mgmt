@@ -60,7 +60,7 @@ def neighbor_reachable(duthost, neighbor_ip):
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
     ip_version = 'v4' if ip_address(neighbor_ip).version == 4 else 'v6'
     neigh_status = neigh_table[ip_version][neighbor_ip]['state'].lower()
-    return "reachable" in neigh_status
+    return "reachable" in neigh_status or "permanent" in neigh_status
 
 
 def test_active_tor_remove_neighbor_downstream_active(
@@ -79,7 +79,7 @@ def test_active_tor_remove_neighbor_downstream_active(
     @contextlib.contextmanager
     def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4")
+        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4" or "ipv6")
         try:
             ptfhost.shell("supervisorctl stop arp_responder")
             # stop garp_service since there is no equivalent in production

@@ -8,6 +8,9 @@ from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),

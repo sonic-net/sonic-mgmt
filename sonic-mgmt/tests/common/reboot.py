@@ -3,9 +3,10 @@ import time
 import re
 import logging
 import sys
+import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
-from .utilities import wait_until
+from .utilities import wait_until, get_plt_reboot_ctrl
 
 logger = logging.getLogger(__name__)
 
@@ -208,12 +209,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool = ThreadPool()
     hostname = duthost.hostname
     try:
+        tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, reboot_type)
         reboot_ctrl = reboot_ctrl_dict[reboot_type]
         reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
         if timeout == 0:
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
+        if plt_reboot_ctrl:
+            wait = plt_reboot_ctrl['wait']
+            timeout = plt_reboot_ctrl['timeout']
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
     except KeyError:
