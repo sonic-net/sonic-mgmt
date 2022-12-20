@@ -30,7 +30,7 @@
 - name: Collect DUTs vlans
   set_fact:
     dev_vlans: "{{ dev_vlans|default([]) + item.value }}"
-  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | dict2items }}"
+  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | default ({}) | dict2items }}"
 
 - name: Find the root fanout switch
   set_fact:
