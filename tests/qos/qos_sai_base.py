@@ -894,6 +894,19 @@ class QosSaiBase(QosBase):
             duthost.command("docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+    def dutArpProxyConfig(self, duthost):
+        # so far, only record ARP proxy config to logging for debug purpose
+        vlanInterface = {}
+        try:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:
+            logger.info('Failed to read vlan interface config')
+        if not vlanInterface:
+            return
+        for key, value in vlanInterface.items():
+            if 'proxy_arp' in value:
+                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
@@ -936,6 +949,8 @@ class QosSaiBase(QosBase):
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
         dutTopo = dutConfig["dutTopo"]
+
+        self.dutArpProxyConfig(duthost)
 
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
