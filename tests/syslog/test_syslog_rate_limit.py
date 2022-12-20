@@ -112,7 +112,6 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
         logger.info('Start syslog rate limit test for container {}'.format(service_name))
         if item['state'] in ['disabled', 'always_disabled']:
             logger.info('Container {} is {}'.format(service_name, item['state']))
-            verify_config_rate_limit_fail(rand_selected_dut, service_name)
             continue
 
         support_syslog_rate_limit = config_db.hget_key_value('FEATURE|{}'.format(service_name),
