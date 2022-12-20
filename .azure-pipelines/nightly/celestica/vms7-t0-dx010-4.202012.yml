@@ -48,7 +48,7 @@ parameters:
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
-    default: false"
+    default: false
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC

@@ -106,7 +106,7 @@ stages:
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
-    default: false"\n'''
+    default: false\n'''
             file_content += DATAACL_PATTERN
             STATE_PATTERN += "\n      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}"
 
