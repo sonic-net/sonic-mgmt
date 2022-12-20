@@ -37,7 +37,7 @@ import defusedxml.ElementTree as ET
 
 TEST_REPORT_CLIENT_VERSION = (1, 1, 0)
 REPORT_LIST = list()
-REPORT_LIST.append("Script Name, Total, Pass, Fail, Skip, Error, XFail, Time")
+REPORT_LIST.append("Script Name, Total, Pass, Fail, Error, Skip, XFail, Time")
 
 MAXIMUM_XML_SIZE = 20e7  # 20MB
 MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
@@ -45,6 +45,7 @@ MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
 # Fields found in the testsuite/root section of the JUnit XML file.
 TESTSUITES_TAG = "testsuites"
 TESTSUITE_TAG = "testsuite"
+
 REQUIRED_TESTSUITE_ATTRIBUTES = {
     ("time", float),
     ("tests", int),
@@ -369,7 +370,7 @@ def parse_test_result(roots):
         test_cases = _parse_test_cases(root)
         test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
         test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                _extract_test_summary(test_cases))
+                                                                _extract_test_summary(test_cases,root))
 
     return test_result_json
 
@@ -382,7 +383,7 @@ def _parse_test_summary(root):
     return test_result_summary
 
 
-def _extract_test_summary(test_cases):
+def _extract_test_summary(test_cases, root):
     test_result_summary = defaultdict(int)
     test_result_summary["tests"] = 0
     test_result_summary["failures"] = 0
@@ -390,6 +391,34 @@ def _extract_test_summary(test_cases):
     test_result_summary["errors"] = 0
     test_result_summary["time"] = 0
     test_result_summary["xfails"] = 0
+
+    test_case_result = defaultdict(list)
+    test_case_error_count = {}
+    testcase_xfail_dict = {}
+    test_pass_teardown_fail_count = 0
+    test_error_teardown_error_count = 0
+
+    # Get test case record results based on test case name from json
+    # For example {'test_sanity': ['failure', 'error'], 'test_rate_limit_interval': ['failure', 'error'], 'test_max_limit[techsupport]': ['error'], 'test_max_limit[core]': ['success']}
+    for _, cases in test_cases.items():
+        for case in cases:
+            test_case_result[case["name"]].append(case.get("result"))
+
+    # Get error count and xfail records w.r.t test case name for all test cases
+    # For example {'test_sanity': 1, 'test_rate_limit_interval': 1, 'test_max_limit[techsupport]': 2, 'test_max_limit[core]': 2, 'test_techsupport[acl-ixre-egl-board27]': 0}
+    # For example {'test_ntp_long_jump_enabled': 'Empty', 'test_ntp_long_jump_disabled': 'True', 'test_ntp': 'Empty'}
+    for test_case in root.findall("testcase"):
+        error_element = test_case.findall("error")
+        test_case_error_count[test_case.get("name")] = len(error_element)
+        properties_element = test_case.find(PROPERTIES_TAG)
+        if properties_element:
+            for prop in properties_element.iterfind(PROPERTY_TAG):
+                if prop.get("name") == "xfail":
+                    testcase_xfail_dict[test_case.get("name")] = prop.get("value")
+                    break
+                else:
+                    testcase_xfail_dict[test_case.get("name")] = "Empty"
+
     case = None
     for _, cases in test_cases.items():
         for case in cases:
@@ -397,28 +426,55 @@ def _extract_test_summary(test_cases):
             # The result field is unique per test case, either error or failure.
             # xfails is the counter for all kinds of xfail results (include success/failure/error/skipped)
             test_result_summary["tests"] += 1
-            test_result_summary["failures"] += case["result"] == "failure" or case["result"] == "error"
             test_result_summary["skipped"] += case["result"] == "skipped"
-            test_result_summary["errors"] += case["error"]
             test_result_summary["time"] += float(case["time"])
-            test_result_summary["xfails"] += \
-                case["result"] == "xfail_failure" or case["result"] == \
-                "xfail_error" or case["result"] == "xfail_skipped" or case["result"] == "xfail_success"
+
+            # Get failure and error count
+            # For the same test case, having failure and error
+            if len(test_case_result.get(case["name"])) >1 and case["result"] == "failure":
+                test_result_summary["failures"] += case["result"] == "failure"
+            else:
+                test_result_summary["failures"] += case["result"] == "failure"
+
+            if len(test_case_result.get(case["name"])) >1 and case["result"] == "error":
+                test_result_summary["errors"] += case["result"] == "error"
+            else:
+                test_result_summary["errors"] += case["error"] or case["result"] == "error"
+
+            # Get count of test cases where the test case is passed but error in tear-down
+            if case["summary"] == "test teardown failure" and  len(test_case_result.get(case["name"])) == 1 and test_case_error_count[case["name"]]  == 1:
+                test_pass_teardown_fail_count +=1
+
+            # Get count of test cases where same test case has two errors, on on test setup and one one teardown
+            if len(test_case_result.get(case["name"])) == 1 and test_case_error_count[case["name"]] >1:
+                test_result_summary["errors"] += 1
+                test_error_teardown_error_count += 1
+
+            # Get xfail count
+            if testcase_xfail_dict.get(case["name"]) == "True":
+                test_result_summary["xfails"] += case["result"] == "xfail_failure" or \
+                                             case["result"] == "xfail_error" or \
+                                             case["result"] == "xfail_skipped" or \
+                                             case["result"] == "xfail_success"
+            elif testcase_xfail_dict.get(case["name"]) == "False":
+                test_result_summary["skipped"] += case["result"] == "xfail_skipped"
 
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
     total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) \
-          + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
-    passed = int(test_result_summary["tests"]) - int(total)
+          + int(test_result_summary["errors"]) + int(test_result_summary["xfails"]) - int(test_error_teardown_error_count)
+    passed = int(test_result_summary["tests"]) - int(total) + int(test_pass_teardown_fail_count)
     passed = max(0, passed)
     if case is None:
         return test_result_summary
     name = case['file']
     name = name.split('/')
+
     REPORT_LIST.append("{}, {}, {}, {}, {}, {}, {}, {}".
                          format(name[0], test_result_summary["tests"],
                          passed, test_result_summary["failures"],
-                         test_result_summary["skipped"], test_result_summary["errors"],
+                         test_result_summary["errors"], test_result_summary["skipped"],
                          test_result_summary["xfails"], test_result_summary["time"]))
+
     return test_result_summary
 
 
