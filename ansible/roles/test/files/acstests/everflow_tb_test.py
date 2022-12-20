@@ -16,6 +16,7 @@ import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+import macsec
 
 
 def reportResults(test_name):

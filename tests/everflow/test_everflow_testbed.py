@@ -58,7 +58,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                    params=params,
                    socket_recv_size=DEFAULT_PTF_SOCKET_RCV_SIZE,
                    qlen=DEFAULT_PTF_QLEN,
-                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
+                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
+                   is_python3=True)
 
     return _partial_ptf_runner
 

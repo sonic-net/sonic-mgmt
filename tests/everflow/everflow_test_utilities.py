@@ -16,6 +16,7 @@ from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 import json
+import tests.macsec.macsec_helper
 
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
@@ -779,7 +780,8 @@ class BaseEverflowTest(object):
         return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
-        return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
+        candidate_ports = set(setup["port_index_map"].keys()) - set(macsec_helper.__macsec_infos.keys())
+        return setup["port_index_map"][random.choice(list(candidate_ports))]
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")
