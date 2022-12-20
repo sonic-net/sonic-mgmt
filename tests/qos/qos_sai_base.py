@@ -522,6 +522,7 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = mgFacts["minigraph_interfaces"]
 
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -533,6 +534,19 @@ class QosSaiBase(QosBase):
                         dutPortIps.update({portIndex: portIpMap})
                         if intf in dualtor_ports:
                             dualTorPortIndexes.append(portIndex)
+                    # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
+                    # we also need to test them separately
+                    # for mellanox device, we run it on t1 topo mocked by ptf32 topo
+                    if use_separated_upkink_dscp_tc_map and isMellanoxDevice(duthost):
+                        neighName = mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
+                        if 't0' in neighName:
+                            downlinkPortIds.append(portIndex)
+                            downlinkPortIps.append(portConfig["peer_addr"])
+                            downlinkPortNames.append(intf)
+                        elif 't2' in neighName:
+                            uplinkPortIds.append(portIndex)
+                            uplinkPortIps.append(portConfig["peer_addr"])
+                            uplinkPortNames.append(intf)
 
             testPortIps = self.__assignTestPortIps(mgFacts)
 
