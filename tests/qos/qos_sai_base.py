@@ -896,14 +896,17 @@ class QosSaiBase(QosBase):
         asicConfig = {}
         # Only support to get brcm asic info, so far
         if 'broadcom' in asic.lower():
-            output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
-            logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
-            for line in output['stdout'].replace('\r', '\n').split('\n'):
-                if line:
-                    m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
-                    if m:
-                        asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
-                        break
+            try:
+                output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
+                logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
+                for line in output['stdout'].replace('\r', '\n').split('\n'):
+                    if line:
+                        m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
+                        if m:
+                            asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
+                            break
+            except:
+                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP register')
         return asicConfig
 
     @pytest.fixture(scope='class', autouse=True)
