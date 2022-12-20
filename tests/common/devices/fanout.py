@@ -184,3 +184,6 @@ class FanoutHost(object):
             False: if any interface is up
         """
         return self.host.is_intf_status_down(ports)
+
+    def set_port_fec(self, interface_name, mode):
+        self.host.set_port_fec(interface_name, mode)
