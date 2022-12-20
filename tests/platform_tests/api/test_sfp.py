@@ -151,6 +151,15 @@ class TestSfpApi(PlatformApiTestBase):
         'txpowerlowalarm'
     ]
 
+    EXPECTED_REFACTOR_XCVR_THRESHOLD_INFO_KEYS = [
+        'lasertemphighwarning',
+        'lasertemplowwarning',
+        'lasertemplowalarm',
+        'lasertemphighalarm'
+    ]
+
+    XCVR_REFACTOR_OS_VERSIONS = ['2205', '202205', 'master']
+
     chassis_facts = None
     duthost_vars = None
 
@@ -323,9 +332,16 @@ class TestSfpApi(PlatformApiTestBase):
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
+            xcvr_info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if self.expect(thold_info_dict is not None, "Unable to retrieve transceiver {} threshold info".format(i)):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
                     actual_keys = thold_info_dict.keys()
+
+                    for version in self.XCVR_REFACTOR_OS_VERSIONS:
+                        if version in duthost.os_version:
+                            # Using new xcvrd refactored API, expect more fields
+                            if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD":
+                                self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS.extend(self.EXPECTED_REFACTOR_XCVR_THRESHOLD_INFO_KEYS)
 
                     missing_keys = set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS) - set(actual_keys)
                     for key in missing_keys:
@@ -430,8 +446,14 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
             tx_bias = sfp.get_tx_bias(platform_api_conn, i)
             if self.expect(tx_bias is not None, "Unable to retrieve transceiver {} TX bias data".format(i)):
-                self.expect(isinstance(tx_bias, list) and (all(isinstance(item, float) for item in tx_bias)),
+                for version in self.XCVR_REFACTOR_OS_VERSIONS:
+                    if version in duthost.os_version:
+                        self.expect((isinstance(item, float) for item in tx_bias),
                             "Transceiver {} TX bias data appears incorrect".format(i))
+                        break
+                    else:
+                        self.expect(isinstance(tx_bias, list) and (all(isinstance(item, float) for item in tx_bias)),
+                                "Transceiver {} TX bias data appears incorrect".format(i))
         self.assert_expectations()
 
     def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
