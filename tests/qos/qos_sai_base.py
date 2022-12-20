@@ -1020,6 +1020,37 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"]
             )
             qosParams = qpm.run()
+
+        elif 'broadcom' in duthost.facts['asic_type'].lower():
+            bufferConfig = self.dutBufferConfig(duthost)
+            pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
+            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+            asicConfig = self.dutAsicConfig(duthost.facts['asic_type'], duthost)
+
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                       dutAsic,
+                                                       portSpeedCableLength,
+                                                       dutConfig,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       sharedHeadroomPoolSize,
+                                                       dutConfig["dualTor"],
+                                                       dutTopo,
+                                                       bufferConfig,
+                                                       asicConfig,
+                                                       tbinfo["topo"]["name"])
+            qosParams = qpm.run()
+
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
