@@ -35,7 +35,7 @@ def test_toggle_mux_from_simulator(duthosts, active_side, toggle_all_simulator_p
     logger.info('Toggle mux active side from mux simulator')
     toggle_all_simulator_ports(active_side)
 
-    check_result = wait_until(60, 5, 2, check_mux_status, duthosts, active_side)
+    check_result = wait_until(400, 5, 2, check_mux_status, duthosts, active_side)
 
     validate_check_result(check_result, duthosts, get_mux_status)
 
