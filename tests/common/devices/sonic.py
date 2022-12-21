@@ -8,7 +8,7 @@ import socket
 import time
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
@@ -955,7 +955,8 @@ class SonicHost(AnsibleHostBase):
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
-        return self.get_now_time() - self.get_up_time()
+        uptime_text = self.command("awk '{print $1}' /proc/uptime")["stdout"]
+        return timedelta(seconds=float(uptime_text))
 
     def get_networking_uptime(self):
         start_time = self.get_service_props("networking", props=["ExecMainStartTimestamp", ])

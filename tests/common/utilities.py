@@ -726,3 +726,19 @@ def get_image_type(duthost):
         return "microsoft"
 
     return "public"
+
+def find_duthost_on_role(duthosts, role, tbinfo):
+    role_set = False
+
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            if role in neighbor["name"]:
+                role_host = duthost
+                role_set = True
+    return role_host
