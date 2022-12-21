@@ -505,8 +505,8 @@ class TestShowQueue():
     @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
     def test_show_queue_watermark(self, setup, setup_config_mode, queues, supported_queues):
         """
-        Checks whether 'show queue watermark [multicast|unicast|all]'
-        lists the interface names as per the configured naming mode
+        Checks whether 'show queue watermark [multicast|unicast|all]' lists
+        the interface names as per the configured naming mode
         """
         if queues.upper() not in supported_queues:
             pytest.skip("Unsupported queue type")
