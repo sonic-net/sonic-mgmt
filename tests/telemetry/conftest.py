@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
 
+
 @pytest.fixture(scope="module")
 def gnxi_path(ptfhost):
     """

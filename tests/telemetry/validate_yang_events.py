@@ -8,7 +8,7 @@ from glob import glob
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers = [
+    handlers=[
         logging.FileHandler("debug.log"),
         logging.StreamHandler(sys.stdout)
     ]
@@ -18,6 +18,7 @@ YANG_DIR = "/usr/local/yang-models/"
 NO_FILE_ERROR = "No file provided for validation"
 INVALID_FILE_ERROR = "Could not load module from yang file"
 INVALID_YANG_ERROR = "Invalid file, empty json file"
+
 
 class YangValidator:
     def __init__(self, file, yangModule):
@@ -54,19 +55,19 @@ class YangValidator:
         for element in data:
             data_json = json.dumps(element, indent=2)
             data_json = "{\"" + self.yangModule + ":" + self.yangModule + "\":" + data_json + "}"
-            logging.info("CURRENT JSON_DATA: {}".format(data_json))
 
             try:
-                node = self.ctx.parse_data_mem(data_json, ly.LYD_JSON, \
-                    ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
+                self.ctx.parse_data_mem(data_json, ly.LYD_JSON,
+                        ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
                 raise e
         logging.info("Libyang validation for {} passed successfully".format(self.yangModule))
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--file", nargs='?', const='', default='', help="File containing event json for validation")
+    parser.add_argument("-f", "--file", nargs='?', const='', default='', help="File containing event json")
     parser.add_argument("-y", "--yang", nargs='?', const='', default='', help="YANG file name")
     args = parser.parse_args()
     if args.file == '' or args.yang == '':
@@ -74,6 +75,7 @@ def main():
         raise Exception(NO_FILE_ERROR)
     validator = YangValidator(args.file, args.yang)
     validator.validateJSON()
+
 
 if __name__ == "__main__":
     main()

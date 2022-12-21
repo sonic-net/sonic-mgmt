@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def test_event(duthost, localhost, run_cmd, data_dir, validate_yang):
 
 def listenForBGPStateEvents(localhost, run_cmd, op_file):
     logger.info("Starting to listen for bgp event")
-    run_cmd(localhost, [ "heartbeat=5"], op_file=op_file,
+    run_cmd(localhost, ["heartbeat=5"], op_file=op_file,
             filter_event="sonic-events-bgp:bgp-state",
             event_cnt=1, timeout=20)
 
