@@ -41,10 +41,9 @@
         testbed_file: testbed.csv
       when: testbed_file is not defined
 
-    - name: Transfer port speed config file
-      synchronize:
-        src: files/sonic_lab_links.csv
-        dest: /tmp/sonic_lab_links.csv
+    - name: Copy port speed config file
+      copy: src=files/sonic_lab_links.csv
+            dest=/tmp/sonic_lab_links.csv
       delegate_to: localhost
 
     - name: Gathering testbed information
