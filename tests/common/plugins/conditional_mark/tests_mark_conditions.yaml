@@ -635,7 +635,8 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
     reason: "platform does not support sfp reset"
     conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
+      - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
 platform_tests/test_auto_negotiation.py:
   skip:
