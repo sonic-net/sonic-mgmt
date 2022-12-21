@@ -30,6 +30,9 @@ all:
         pdu-91:
           ansible_host: 10.3.155.91
           protocol: snmp
+        pdu-92:
+          ansible_host: 10.3.155.92
+          protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
           protocol: snmp
@@ -73,6 +76,8 @@ sonic:
   children:
     sonic_cisco_8102:
     sonic_cisco_8101:
+    sonic_cisco_8101_C64:
+    sonic_cisco_8101_C48T8:
     sonic_cisco_lc_100G:
     sonic_cisco_sup:
 
@@ -155,6 +160,52 @@ sonic_cisco_8101:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x66350FBA"
+
+sonic_cisco_8101_C64:
+  vars:
+    hwsku: Cisco-8101-C64
+    iface_speed: 100000
+  hosts:
+    str3-8101-01:
+      ansible_host: 10.3.146.194
+      model: 8101-32FH-O
+      serial: FLM263405R6
+      base_mac: DC:05:39:C2:94:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM263405R6"
+        "0x24": "DC:05:39:C2:94:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r2"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x42D92D54"
+
+sonic_cisco_8101_C48T8:
+  vars:
+    hwsku: Cisco-8101-C48T8
+    iface_speed: 100000
+  hosts:
+    str3-8101-02:
+      ansible_host: 10.3.146.191
+      model: 8101-32FH-O
+      serial: FLM26400HE3
+      base_mac: 98:A2:C0:26:EA:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM26400HE3"
+        "0x24": "98:A2:C0:26:EA:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r2"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x5FFB8963"
 
 sonic_cisco_lc_100G:
   vars:

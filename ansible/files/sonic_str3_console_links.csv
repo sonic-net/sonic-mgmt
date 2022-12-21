@@ -7,5 +7,10 @@ console-197,6,str3-8102-01,ssh,admin
 console-197,7,str3-8102-05,ssh,admin
 console-197,19,str3-8102-06,ssh,admin
 console-185,31,str3-8101-32fh-01,ssh,admin
+console-197,23,str3-8101-01,ssh,admin
+console-197,20,str3-8101-02,ssh,admin
+console-197,25,str3-8101-fanout-01,ssh,admin
+console-197,22,str3-8101-fanout-02,ssh,admin
+console-197,21,str3-8101-fanout-03,ssh,admin
 console-199,9,str3-z9332f-01,ssh,admin
 console-199,10,str3-z9332f-04,ssh,admin

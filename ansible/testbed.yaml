@@ -1021,6 +1021,36 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms61-t1-8101-02
+  group-name: vms61-5
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms61-5
+  ptf_ip: 10.64.247.37/23
+  ptf_ipv6:
+  server: server_61
+  vm_base: VM61128
+  dut:
+    - str3-8101-01
+  inv_name: str3
+  auto_recover: 'True'
+  comment: shengkaiwang
+
+- conf-name: vms61-t1-8101-03
+  group-name: vms61-6
+  topo: t1-56-lag
+  ptf_image_name: docker-ptf
+  ptf: vms61-6
+  ptf_ip: 10.64.247.38/23
+  ptf_ipv6:
+  server: server_61
+  vm_base: VM61152
+  dut:
+    - str3-8101-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: shengkaiwang
+
 - conf-name: vms21-t1-8101-02
   group-name: vms21-5
   topo: t1-lag
