@@ -1472,6 +1472,7 @@ sonic_nokia_sup:
             - PSU10
             - PSU11
             - PSU12
+      asics_present: [0,1,2,3,4,5]
 
     str2-7250-sup-2:
       ansible_host: 10.3.147.131
@@ -1511,7 +1512,7 @@ sonic_nokia_sup:
             - PSU10
             - PSU11
             - PSU12
-
+      asics_present: [0,1,2,3,4,5]
 
 sonic_nokia_7215:
   vars:
