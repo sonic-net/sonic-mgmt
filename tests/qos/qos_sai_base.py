@@ -57,7 +57,7 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params):
+    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params, tbinfo):
         """
             Prepares DUT host test params
             Returns:
@@ -66,6 +66,19 @@ class QosBase:
         # update router mac
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
+
+        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+        if "dualtor" in tbinfo["topo"]["name"]:
+            dut_test_params["basicParams"]["is_dualtor"] = True
+            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                default_vlan_name = vlan_cfgs['default_vlan_config']
+                if default_vlan_name:
+                    for vlan in vlan_cfgs[default_vlan_name].values():
+                        if 'mac' in vlan and vlan['mac']:
+                            dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                            break
 
         yield dut_test_params
 
@@ -895,6 +908,19 @@ class QosSaiBase(QosBase):
             duthost.command("docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+    def dutArpProxyConfig(self, duthost):
+        # so far, only record ARP proxy config to logging for debug purpose
+        vlanInterface = {}
+        try:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:
+            logger.info('Failed to read vlan interface config')
+        if not vlanInterface:
+            return
+        for key, value in vlanInterface.items():
+            if 'proxy_arp' in value:
+                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+
     def dutBufferConfig(self, duthost):
         bufferConfig = {}
         try:
@@ -965,6 +991,8 @@ class QosSaiBase(QosBase):
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
         dutTopo = dutConfig["dutTopo"]
+
+        self.dutArpProxyConfig(duthost)
 
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
