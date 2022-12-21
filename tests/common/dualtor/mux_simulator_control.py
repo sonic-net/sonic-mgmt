@@ -676,14 +676,17 @@ def check_mux_status(duthosts, active_side):
         mux_active_dut = duthosts[1]
         mux_standby_dut = duthosts[0]
 
+    dualtor_intf_config = json.loads(mux_active_dut.shell("show muxcable config --json")['stdout'])
+    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items() if 'cable_type' not in muxcable_config['SERVER'] or muxcable_config['SERVER']['cable_type'] == 'active-standby']
+
     active_side_muxstatus = json.loads(mux_active_dut.shell("show muxcable status --json")['stdout'])
     standby_side_muxstatus = json.loads(mux_standby_dut.shell("show muxcable status --json")['stdout'])
 
-    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active']
-    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby']
+    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
+    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby'and intf in active_standby_ports]
 
-    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active']
-    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby']
+    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
+    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby'and intf in active_standby_ports]
 
     if len(active_side_active_muxcables) > 0 and \
         len(active_side_standby_muxcables) == 0 and \
@@ -691,8 +694,13 @@ def check_mux_status(duthosts, active_side):
         len(standby_side_standby_muxcables) > 0 and \
         set(active_side_active_muxcables) == set(standby_side_standby_muxcables):
         logger.info('Check mux status on DUTs passed')
+        logger.info('Active side active muxcables: {}'.format(active_side_active_muxcables))
+        logger.info('Active side standby muxcables: {}'.format(active_side_standby_muxcables))
+        logger.info('Standby side active muxcables: {}'.format(standby_side_active_muxcables))
+        logger.info('Standby side standby muxcables: {}'.format(standby_side_standby_muxcables))
         return True
     else:
+        logger.info('Active-Standby cables: {}'.format(active_standby_ports))
         logger.info('Unexpected mux status. active_side={}'.format(active_side))
         logger.info('Active side active muxcables: {}'.format(active_side_active_muxcables))
         logger.info('Active side standby muxcables: {}'.format(active_side_standby_muxcables))
