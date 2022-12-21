@@ -49,4 +49,6 @@ This experiment needs the following five steps:
 
 - And also check if the total number of transmitted bytes of test data traffic is (2) greater than the switch shared buffer size for higher pfc response delay values since the headroom limit would be exceeded. The exact values for the pfc delay response times is dependent on the switch.
 
+- Lastly, check if (1) the number of dropped packets on the egress port (for the specific priority(s)) equals zero when the PFC headroom is not exceeded and (2) is greater than zero when the PFC headroom is exceeded.
+
 - Stop PFC pause storm
