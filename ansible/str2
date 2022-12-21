@@ -550,21 +550,21 @@ sonic_arista:
     str2-7050cx3-acs-02:
       ansible_host: 10.3.146.187
       hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
-      serial: JPE20424995
-      base_mac: 94:8e:d3:04:bf:d8
+      model: DCS-7050CX3-32S
+      serial: JPE21041573
+      base_mac: 94:8e:d3:99:57:b8
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S-SSD"
-        "0x22": "ASY0323106A0"
-        "0x23": "JPE20424995"
-        "0x24": "94:8e:d3:04:bf:d8"
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288205A0"
+        "0x23": "JPE21041573"
+        "0x24": "94:8e:d3:99:57:b8"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32s"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPE20424995"
+        "0x2E": "Aboot-norcal6-6.1.10-14653765"
+        "0x2F": "JPE21041573"
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       hwsku: Arista-7050CX3-32S-C32
