@@ -44,7 +44,7 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list)
 
 
-def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
+def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
     """
     Perform the specified type of reboot and check platform status.
     @param localhost: The Localhost object.
@@ -66,7 +66,19 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
-    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
+    try:
+        check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
+    except Exception as e:
+        logging.error("Failing due to {}".format(e))
+        raise e
+    finally:
+        # If supervisor node is rebooted in chassis, linecards also will reboot.
+        # Check if all linecards are back up.
+        if dut.is_supervisor_node():
+            for host in duthosts:
+                if host != dut:
+                    logging.info("checking if {} critical services are up".format(host.hostname))
+                    wait_critical_processes(host)
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type = None):
@@ -129,7 +141,7 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_COLD)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
@@ -146,7 +158,7 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_SOFT)
 
 
 def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
@@ -159,7 +171,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_FAST)
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
@@ -179,7 +191,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
         if "disabled" in issu_capability:
             pytest.skip("ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_WARM)
 
 
 def _power_off_reboot_helper(kwargs):
@@ -245,7 +257,7 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
             poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, REBOOT_TYPE_POWEROFF,
                              _power_off_reboot_helper, poweroff_reboot_kwargs)
     except Exception as e:
         logging.debug("Restore power after test failure")
@@ -268,7 +280,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
         pytest.skip("Watchdog is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, REBOOT_TYPE_WATCHDOG)
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
@@ -278,7 +290,7 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ls_starting_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     for i in range(3):
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, duthosts, reboot_type=REBOOT_TYPE_COLD)
     ls_ending_out = set(duthost.shell("ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     pytest_assert(ls_ending_out == ls_starting_out,
             "Console devices have changed: expected console devices: {}, got: {}".format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
