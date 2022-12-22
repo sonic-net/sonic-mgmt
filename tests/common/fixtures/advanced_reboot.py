@@ -35,7 +35,7 @@ class AdvancedReboot:
     Test cases can trigger test start utilizing runRebootTestcase API.
     """
 
-    def __init__(self, request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
+    def __init__(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
         """
         Class constructor.
         @param request: pytest request object
@@ -76,6 +76,7 @@ class AdvancedReboot:
             self.kvmTest = False
 
         self.request = request
+        self.duthosts = duthosts
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
@@ -598,6 +599,10 @@ class AdvancedReboot:
         return self.runRebootTest()
 
     def __setupRebootOper(self, rebootOper):
+        if "dualtor" in self.getTestbedType():
+            for device in self.duthosts:
+                device.shell("config mux mode manual all")
+
         down_ports = 0
         if "dut_lag_member_down" in str(rebootOper) \
                 or "neigh_lag_member_down" in str(rebootOper) \
@@ -640,6 +645,10 @@ class AdvancedReboot:
             rebootOper.verify()
 
     def __revertRebootOper(self, rebootOper):
+        if "dualtor" in self.getTestbedType():
+            for device in self.duthosts:
+                device.shell("config mux mode auto all")
+
         if isinstance(rebootOper, SadOperation):
             logger.info('Running revert handler for reboot operation {}'.format(rebootOper))
             rebootOper.revert()
@@ -820,7 +829,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         API that returns instances of AdvancedReboot class
         """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 
