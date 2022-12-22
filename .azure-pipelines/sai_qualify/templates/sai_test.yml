@@ -749,6 +749,9 @@ jobs:
             --py_saithrift_url=${PY_SAITHRIFT_URL} \
             ${CONFIG_PARAMS}"
 
+            export PYTEST_ADDOPTS+=" --sai_origin_version=$(sai_origin_version)"
+            export PYTEST_ADDOPTS+=" --sai_upgrade_version=$(sai_updated_version)"
+
 
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
