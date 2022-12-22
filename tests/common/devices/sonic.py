@@ -34,11 +34,12 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
-
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
@@ -72,6 +73,8 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+            self.DEFAULT_ASIC_SERVICES.append("macsec")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
@@ -183,6 +186,7 @@ class SonicHost(AnsibleHostBase):
         facts["modular_chassis"] = self._get_modular_chassis()
         facts["mgmt_interface"] = self._get_mgmt_interface()
         facts["switch_type"] = self._get_switch_type()
+        facts["router_type"] = self._get_router_type()
         asics_present = self.get_asics_present_from_inventory()
         facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
 
@@ -251,13 +255,20 @@ class SonicHost(AnsibleHostBase):
     def _get_router_mac(self):
         return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
             "utf-8").lower()
-   
+
     def _get_switch_type(self):
        try:
            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0].encode().decode(
                   "utf-8").lower()
        except Exception:
            return ''
+
+    def _get_router_type(self):
+        try:
+            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.type'")["stdout_lines"][0] \
+                .encode().decode("utf-8").lower()
+        except Exception:
+            return ''
 
     def _get_platform_info(self):
         """
@@ -680,17 +691,17 @@ class SonicHost(AnsibleHostBase):
     def get_crm_resources_for_masic(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command on multi-asic dut and parse its output
-        """      
+        """
         # Construct mapping of {'ASIC0' : {"main_resources": {}, "acl_resources": [], "table_resources": []}, ...}
-        # Here we leave value as empty and overwrite it at the end of each ASIC table  
+        # Here we leave value as empty and overwrite it at the end of each ASIC table
         multi_result = dict()
         for n in range(self.num_asics()):
             ns = "asic" + str(n)
             multi_result[ns] = {"main_resources": {}, "acl_resources": [], "table_resources": []}
-        
+
         output = self.command("crm show resources all")["stdout_lines"]
         current_table = 0   # Totally 3 tables in the command output
-        asic = None       
+        asic = None
         for line in output:
             if len(line.strip()) == 0 or "---" in line:
                 continue
@@ -699,7 +710,7 @@ class SonicHost(AnsibleHostBase):
             # Switch table type when 'ASIC0' comes again
             if "ASIC0" in line:
                 current_table += 1
-                continue  
+                continue
             if current_table == 1:      # content of first table, main resources
                 fields = line.split()
                 if len(fields) == 3:
@@ -715,8 +726,8 @@ class SonicHost(AnsibleHostBase):
                     multi_result[asic]["table_resources"].append({"table_id": fields[0], "resource_name": fields[1],
                         "used_count": int(fields[2]), "available_count": int(fields[3])})
         return multi_result[namespace]
-    
-    
+
+
     def get_crm_resources(self, namespace = DEFAULT_NAMESPACE):
         """
         @summary: Run the "crm show resources all" command and parse its output
@@ -1537,7 +1548,7 @@ Totals               6450                 6449
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
             asic = "td2"
-        elif ("Broadcom Limited Device b870" in output or 
+        elif ("Broadcom Limited Device b870" in output or
                 "Broadcom Inc. and subsidiaries Device b870" in output):
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
