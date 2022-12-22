@@ -51,7 +51,7 @@ def setup_telemetry_forpyclient(duthost):
         Restart telemetry process
     """
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
-            module_ignore_errors=False)['stdout_lines']
+                                    module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
@@ -63,23 +63,25 @@ def setup_telemetry_forpyclient(duthost):
 
 def restore_telemetry_forpyclient(duthost, default_client_auth):
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
-            module_ignore_errors=False)['stdout_lines']
+                                    module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth != default_client_auth:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" {}'.format(default_client_auth),
-                module_ignore_errors=False)
+                      module_ignore_errors=False)
         duthost.service(name="telemetry", state="restarted")
 
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
-        subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-        intervalms=0, update_count=3):
+                        subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
+                        intervalms=0, update_count=3):
     """ Generate the py_gnmicli command line based on the given params.
     """
-    cmdFormat = 'python '+ gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
+    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
-        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(subscribe_mode,
-                submode, intervalms, update_count)
+        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(
+                subscribe_mode,
+                submode, intervalms,
+                update_count)
     return cmd

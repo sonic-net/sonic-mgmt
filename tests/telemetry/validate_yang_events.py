@@ -58,7 +58,7 @@ class YangValidator:
 
             try:
                 self.ctx.parse_data_mem(data_json, ly.LYD_JSON,
-                        ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
+                                        ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
                 raise e

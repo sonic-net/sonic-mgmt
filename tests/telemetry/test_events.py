@@ -3,7 +3,6 @@ import pytest
 import json
 import os
 import sys
-import time
 
 from telemetry_utils import skip_201911_and_older
 
@@ -111,7 +110,6 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     # Load all events test code and run
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith(".py"):
-            time.sleep(5)  # give time to teardown prev test
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, localhost, run_cmd, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
