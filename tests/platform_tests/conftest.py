@@ -501,6 +501,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
             elif "sairedis.rec" in key:
                 sairedis_rec_messages = messages
 
+        # analyze_sairedis_rec() use information from syslog and must be called after analyzing syslog
         analyze_log_file(duthost, syslog_messages, analyze_result, offset_from_kexec)
         analyze_log_file(duthost, bgpd_log_messages, analyze_result, offset_from_kexec)
         analyze_sairedis_rec(sairedis_rec_messages, analyze_result, offset_from_kexec)
