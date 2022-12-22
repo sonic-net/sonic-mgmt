@@ -14,7 +14,12 @@ from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import get_interface_server_map
 from tests.common.dualtor.dual_tor_utils import check_nexthops_balance
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 

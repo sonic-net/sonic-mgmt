@@ -8,7 +8,7 @@ import socket
 import time
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
@@ -955,7 +955,8 @@ class SonicHost(AnsibleHostBase):
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
-        return self.get_now_time() - self.get_up_time()
+        uptime_text = self.command("awk '{print $1}' /proc/uptime")["stdout"]
+        return timedelta(seconds=float(uptime_text))
 
     def get_networking_uptime(self):
         start_time = self.get_service_props("networking", props=["ExecMainStartTimestamp", ])
@@ -2137,6 +2138,34 @@ Totals               6450                 6449
         json_info = json.loads(commond_output["stdout"])
         return json_info
 
+    def get_port_fec(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
+        assert_exit_non_zero(out)
+        return out["stdout_lines"][0]
+
+    def set_port_fec(self, portname, state):
+        if not state:
+            state = 'none'
+        res = self.shell('sudo config interface fec {} {}'.format(portname, state))
+        return res['rc'] == 0
+
+    def count_portlanes(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+        assert_exit_non_zero(out)
+        lanes = out["stdout_lines"][0].split(',')
+        return len(lanes)
+
+    def get_sfp_type(self, portname):
+        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+        assert_exit_non_zero(out)
+        sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
+        return sfp_type
+
     def is_intf_status_down(self, interface_name):
         show_int_result = self.command("show interface status {}".format(interface_name))
         return 'down' in show_int_result['stdout_lines'][2].lower()
+
+
+def assert_exit_non_zero(shell_output):
+    if shell_output['rc'] != 0:
+        raise Exception(shell_output['stderr'])
