@@ -318,9 +318,6 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
         "PORTCHANNEL_INTERFACE",
         "INTERFACE"
     ]
-    incl_mgmt_if_branch = ['201911', '202012', '202111', '202205']
-    if any(branch in duthost.os_version for branch in incl_mgmt_if_branch):
-        INTERFACE_TABLE_NAME_LIST.append("MGMT_INTERFACE")
 
     # Gather device configuration facts
     namespace = duthost.get_namespace_from_asic_id(asic_index)
