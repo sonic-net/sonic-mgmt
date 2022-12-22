@@ -164,6 +164,10 @@ parameters:
     default: true
 
  # Deploy SAI SDK
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: internal
+
   - name: DEPLOY_SAI_SDK
     type: boolean
     default: false
@@ -606,7 +610,7 @@ jobs:
         condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())
         inputs:
           source: specific
-          project: internal
+          project: ${{ parameters.ARTIFACT_PROJECT }}
           pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
           artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
           # runVersion: 'latestFromBranch'
@@ -744,6 +748,9 @@ jobs:
             --sai_test_report_dir=${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} \
             --py_saithrift_url=${PY_SAITHRIFT_URL} \
             ${CONFIG_PARAMS}"
+
+            export PYTEST_ADDOPTS+=" --sai_origin_version=$(sai_origin_version)"
+            export PYTEST_ADDOPTS+=" --sai_upgrade_version=$(sai_updated_version)"
 
 
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
