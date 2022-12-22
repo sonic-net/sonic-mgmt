@@ -27,7 +27,7 @@ def test_pfc_single_lossless_headroom(snappi_api,
                                         enum_dut_lossless_prio,
                                         all_prio_list,
                                         prio_dscp_map,
-                                        pfc_pause_quanta_values):
+                                        pfc_pause_delay_values):
     """
     Test headroom capacity for DUT for a single lossless priority
 
@@ -42,15 +42,15 @@ def test_pfc_single_lossless_headroom(snappi_api,
         enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        pfc_pause_quanta_values (pytest fixture): dictionary of pfc_delay values, 
+        pfc_pause_delay_values (pytest fixture): dictionary of pfc pause delay values, 
                                                   and delay responses e.g. {1:True, 2:False}
 
     Returns:
         N/A
     """
 
-    pytest_require(pfc_pause_quanta_values is not None, 
-                    "Skip this testcase since pause quanta values have not been configured yet")
+    pytest_require(pfc_pause_delay_values is not None, 
+                    "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
@@ -65,15 +65,16 @@ def test_pfc_single_lossless_headroom(snappi_api,
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
-    """ Modify pfc pause quanta """
+    """ Modify pfc pause delay value """
     l1_config = testbed_config.layer1[0]
-    pytest_require(len(l1_config.port_names) > 2,
+    pytest_require(len(l1_config.port_names) > 1,
                    "Skip this testcase since only one Rx and Tx port have been configured")
     pfc = l1_config.flow_control.ieee_802_1qbb
 
-    for pause_quanta, headroom_test_result in pfc_pause_quanta_values.items():
-        pfc.pfc_delay = pause_quanta
-        headroom_test_params = [pause_quanta, headroom_test_result]
+    for pfc_pause_delay, headroom_test_result in pfc_pause_delay_values.items():
+        pfc.pfc_delay = pfc_pause_delay
+        headroom_test_params = [pfc_pause_delay, headroom_test_result]
+        duthost.command("sonic-clear queuecounters")
 
         run_pfc_test(api=snappi_api,
                     testbed_config=testbed_config,
@@ -101,7 +102,7 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
                                        lossless_prio_list,
                                        lossy_prio_list,
                                        prio_dscp_map,
-                                       pfc_pause_quanta_values):
+                                       pfc_pause_delay_values):
     """
     Test headroom capacity for DUT for multiple lossless priorities
 
@@ -116,15 +117,15 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        pfc_pause_quanta_values (pytest fixture): dictionary of pfc_delay values, 
+        pfc_pause_delay_values (pytest fixture): dictionary of pfc pause delay values, 
                                                   and delay responses e.g. {1:True, 2:False}
 
     Returns:
         N/A
     """
 
-    pytest_require(pfc_pause_quanta_values is not None, 
-                    "Skip this testcase since pause quanta values have not been configured yet")
+    pytest_require(pfc_pause_delay_values is not None, 
+                    "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
@@ -137,13 +138,14 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
 
     """ Modify pfc pause quanta """
     l1_config = testbed_config.layer1[0]
-    pytest_require(len(l1_config.port_names) > 2,
+    pytest_require(len(l1_config.port_names) > 1,
                    "Skip this testcase since only one Rx and Tx port have been configured")
     pfc = l1_config.flow_control.ieee_802_1qbb
 
-    for pause_quanta, headroom_test_result in pfc_pause_quanta_values.items():
-        pfc.pfc_delay = pause_quanta
-        headroom_test_params = [pause_quanta, headroom_test_result]
+    for pfc_pause_delay, headroom_test_result in pfc_pause_delay_values.items():
+        pfc.pfc_delay = pfc_pause_delay
+        headroom_test_params = [pfc_pause_delay, headroom_test_result]
+        duthost.command("sonic-clear queuecounters")
 
         run_pfc_test(api=snappi_api,
                     testbed_config=testbed_config,

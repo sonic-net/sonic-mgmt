@@ -14,8 +14,7 @@ in .csv format etc.
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network, IPv6Address
-from random import getrandbits
+
 
 def increment_ip_address(ip, incr=1):
     """
@@ -75,16 +74,16 @@ def get_vlan_subnet(host_ans):
     return gw_addr + '/' + str(prefix_len)
 
 
-def get_egress_lossless_buffer_size(host_ans):
+def get_lossless_buffer_size(host_ans, is_ingress):
     """
-    Get egress lossless buffer size of a switch
-
+    Get ingress/egress lossless buffer size of a switch
     Args:
         host_ans: Ansible host instance of the device
-
+        is_ingress: Whether to get the ingress or egress pool size
     Returns:
         total switch buffer size in byte (int)
     """
+    type_str = "ingress" if is_ingress else "egress"
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
@@ -92,13 +91,65 @@ def get_egress_lossless_buffer_size(host_ans):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'egress_lossless_pool'
+    profile_name = type_str + '_lossless_pool'
 
     if profile_name not in buffer_pools.keys():
         return None
 
-    egress_lossless_pool = buffer_pools[profile_name]
-    return int(egress_lossless_pool['size'])
+    pool = buffer_pools[profile_name]
+    return int(pool['size'])
+
+
+def get_egress_lossless_buffer_size(host_ans):
+    """
+    Get egress lossless buffer size of a switch
+    Args:
+        host_ans: Ansible host instance of the device
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    return get_lossless_buffer_size(host_ans, False)
+
+
+def get_ingress_lossless_buffer_size(host_ans):
+    """
+    Get ingress lossless buffer size of a switch
+    Args:
+        host_ans: Ansible host instance of the device
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    return get_lossless_buffer_size(host_ans, True)
+
+
+def get_port_prio_dropped_packets(duthost, phys_intf, prio):
+    """
+    Get number of packets dropped on a specific priority 
+    of a physical interface
+    Args:
+        host_ans: Ansible host instance of the device
+        phys_intf (str): Name of physical interface ex. Ethernet4
+        prio (int): Priority group to check ex. 4 
+    Returns:
+        total number of dropped packets (int)
+    """
+    oid_cmd = "sonic-db-cli " \
+    "COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    oid_out = duthost.command(oid_cmd)
+    oid_str = str(oid_out["stdout_lines"][0] or 1)
+
+    if oid_str == "1":
+        return None
+
+    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + \
+    " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    out = duthost.command(cmd)
+    dropped_packets = int(out["stdout_lines"][0] or -1)
+
+    if dropped_packets == -1:
+        return None
+    
+    return dropped_packets
 
 
 def get_addrs_in_subnet(subnet, number_of_ip):
@@ -177,6 +228,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     """
 
     device_conn = conn_data['device_conn']
+
     if dut_hostname not in device_conn:
         return None
 
@@ -655,25 +707,3 @@ def enable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
-    """
-    Get N IPv6 addresses in a subnet.
-    Args:
-        subnet (str): IPv6 subnet, e.g., '2001::1/64'
-        number_of_ip (int): Number of IP addresses to get
-    Return:
-        Return n IPv6 addresses in this subnet in a list.
-    """
-
-    subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
-
-    return ipv6_list

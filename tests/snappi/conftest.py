@@ -79,28 +79,26 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def pfc_pause_quanta_values(duthosts, rand_one_dut_hostname):
+def pfc_pause_delay_values(duthosts, rand_one_dut_hostname):
     """
-    Retrieves a dictionary of pfc pause quantas for the headroom test
+    Retrieves a dictionary of pfc pause delay values for the headroom test
     Args:
-        duthosts (pytest fixture) : list of DUTs
-        rand_one_dut_hostname (pytest fixture): DUT hostname
+        duthost (Ansible host instance): device under test
     Returns:
-        pfc_pause_quanta_values: Mapped from pfc pause quanta to whether
+        pfc_pause_delay_values: Mapped from pfc pause quanta to whether
                                 the headroom test will fail or not
                                 E.g. {1:True, 2:False, 3:False}
     """
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts['platform']
-    pfc_pause_quanta_values = {}
+    pfc_pause_delay_values = {}
     if '8102' in platform:
-        pfc_pause_quanta_values[1] = True
-        pfc_pause_quanta_values[2] = True
-        pfc_pause_quanta_values[3] = False
+        pfc_pause_delay_values[0] = True
+        pfc_pause_delay_values[1023] = True
     elif '7050cx3' in platform:
-        pfc_pause_quanta_values[1] = True
-        pfc_pause_quanta_values[2] = False
+        pfc_pause_delay_values[0] = True
+        pfc_pause_delay_values[200] = False
     else:
-        pfc_pause_quanta_values = None
+        pfc_pause_delay_values = None
     
-    return pfc_pause_quanta_values
+    return pfc_pause_delay_values

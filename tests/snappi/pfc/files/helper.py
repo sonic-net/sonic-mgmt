@@ -1,23 +1,26 @@
 import time
 import logging
+import uuid
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
+    get_egress_lossless_buffer_size, get_ingress_lossless_buffer_size,\
+    get_port_prio_dropped_packets, stop_pfcwd, disable_packet_aging
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
 logger = logging.getLogger(__name__)
 
+unique_end = None
+flow_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
-TEST_FLOW_SINGLE_RATE_PERCENT = 75
+TEST_FLOW_SINGLE_RATE_PERCENT = 95
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
-BG_FLOW_SINGLE_RATE_PERCENT = 75
 DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
@@ -76,12 +79,20 @@ def run_pfc_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     """ Rate percent must be an integer """
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
     if headroom_test_params is None:
         test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-        bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
     else:
-        test_flow_rate_percent = TEST_FLOW_SINGLE_RATE_PERCENT
-        bg_flow_rate_percent = BG_FLOW_SINGLE_RATE_PERCENT
+        test_flow_rate_percent = int(TEST_FLOW_SINGLE_RATE_PERCENT)
+
+    if headroom_test_params is None:
+        unique_name_required = False
+    else:
+        global DATA_FLOW_DURATION_SEC
+        DATA_FLOW_DURATION_SEC = 10
+        global DATA_FLOW_DELAY_SEC
+        DATA_FLOW_DELAY_SEC = 2
+        unique_name_required = True
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -99,7 +110,8 @@ def run_pfc_test(api,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  unique_name_required=unique_name_required)
 
     flows = testbed_config.flows
 
@@ -132,7 +144,8 @@ def run_pfc_test(api,
                      headroom_test_params=headroom_test_params)
 
 
-sec_to_nanosec = lambda x: x * 1e9
+def sec_to_nanosec(sec):
+    return sec * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -150,7 +163,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_flow_delay_sec,
                   data_pkt_size,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  unique_name_required):
     """
     Generate configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
@@ -171,6 +185,7 @@ def __gen_traffic(testbed_config,
         data_flow_delay_sec (int): start delay of data flows in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        unique_name_required (bool): are unique names needed when naming flows
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
@@ -190,6 +205,16 @@ def __gen_traffic(testbed_config,
     tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
 
+    """ Instantiate peer ports in flow_port_config
+    flow_port_config: a list of two dictionaries of tx and rx ports on the peer side, 
+    and the associated test priorities ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+    """
+    global flow_port_config
+    tx_dict = {str(tx_port_config.peer_port):[]}
+    rx_dict = {str(rx_port_config.peer_port):[]}
+    flow_port_config.append(tx_dict)
+    flow_port_config.append(rx_dict)
+
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
        tx_port_config.prefix_len == rx_port_config.prefix_len:
@@ -197,15 +222,25 @@ def __gen_traffic(testbed_config,
         rx_mac = rx_port_config.mac
     else:
         rx_mac = tx_port_config.gateway_mac
-
+    
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
     data_flow_delay_nanosec = sec_to_nanosec(data_flow_delay_sec)
 
+    if unique_name_required:
+        global unique_end
+        unique_end = int(uuid.uuid4().int % 1e4)
+
+    
+
     """ Test flows """
     for prio in test_flow_prio_list:
-        test_flow = testbed_config.flows.flow(
-            name='{} Prio {}'.format(test_flow_name, prio))[-1]
+        if unique_name_required:
+            test_flow = testbed_config.flows.flow(
+                name='{} Prio {}_uuid_{}'.format(test_flow_name, prio, unique_end))[-1]
+        else:
+            test_flow = testbed_config.flows.flow(
+                name='{} Prio {}'.format(test_flow_name, prio))[-1]
         test_flow.tx_rx.port.tx_name = tx_port_name
         test_flow.tx_rx.port.rx_name = rx_port_name
 
@@ -229,10 +264,18 @@ def __gen_traffic(testbed_config,
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
 
+        """ Set flow port config values """
+        flow_port_config[0][str(tx_port_config.peer_port)].append(int(prio))
+        flow_port_config[1][str(rx_port_config.peer_port)].append(int(prio))
+
     """ Background flows """
     for prio in bg_flow_prio_list:
-        bg_flow = testbed_config.flows.flow(
-            name='{} Prio {}'.format(bg_flow_name, prio))[-1]
+        if unique_name_required:
+            bg_flow = testbed_config.flows.flow(
+                name='{} Prio {}_uuid_{}'.format(bg_flow_name, prio, unique_end))[-1]
+        else:
+            bg_flow = testbed_config.flows.flow(
+                name='{} Prio {}'.format(bg_flow_name, prio))[-1]
         bg_flow.tx_rx.port.tx_name = tx_port_name
         bg_flow.tx_rx.port.rx_name = rx_port_name
 
@@ -257,7 +300,10 @@ def __gen_traffic(testbed_config,
         bg_flow.metrics.loss = True
 
     """ Pause storm """
-    pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
+    if unique_name_required:
+        pause_flow = testbed_config.flows.flow(name='{}_uuid_{}'.format(pause_flow_name, unique_end))[-1]
+    else:
+        pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[rx_port_id].name
     pause_flow.tx_rx.port.rx_name = testbed_config.ports[tx_port_id].name
 
@@ -395,13 +441,18 @@ def __verify_results(rows,
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
         headroom_test_params (array): 2 element array if the associated pfc pause quanta 
-                                    results in no packet drop [pfc_delay, headroom_result]
+            results in no packet drop [pfc_delay, headroom_result]
+        
     Returns:
         N/A
     """
 
     """ All the pause frames should be dropped """
-    pause_flow_row = next(row for row in rows if row.name == pause_flow_name)
+    if headroom_test_params is None:
+        PF_NAME = pause_flow_name
+    else:
+        PF_NAME = '{}_uuid_{}'.format(pause_flow_name, unique_end)
+    pause_flow_row = next(row for row in rows if row.name == PF_NAME)
     tx_frames = pause_flow_row.frames_tx
     rx_frames = pause_flow_row.frames_rx
     pytest_assert(tx_frames > 0 and rx_frames == 0,
@@ -415,15 +466,21 @@ def __verify_results(rows,
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
 
-        pytest_assert(tx_frames == rx_frames,
-                      '{} should not have any dropped packet'.format(row.name))
-
         exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
-            * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
+                * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
-        pytest_assert(abs(deviation) < tolerance,
-                      '{} should receive {} packets (actual {})'.
-                      format(row.name, exp_bg_flow_rx_pkts, rx_frames))
+
+        if headroom_test_params is None:
+            pytest_assert(tx_frames == rx_frames,
+                        '{} should not have any dropped packet'.format(row.name))
+
+            pytest_assert(abs(deviation) < tolerance,
+                        '{} should receive {} packets (actual {})'.
+                        format(row.name, exp_bg_flow_rx_pkts, rx_frames))
+        else:
+            pytest_assert(tx_frames >= rx_frames,
+                        '{} should drop some packets due to congestion'.format(row.name))
+    
 
     """ Check test flows """
     for row in rows:
@@ -443,10 +500,6 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
-            
-            if headroom_test_params is not None and not headroom_test_params[1]:
-                tolerance = 0.5
-
             pytest_assert(abs(deviation) < tolerance,
                           '{} should receive {} packets (actual {})'.
                           format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
@@ -455,13 +508,39 @@ def __verify_results(rows,
         """ In-flight TX bytes of test flows should be held by switch buffer """
         tx_frames_total = sum(row.frames_tx for row in rows if test_flow_name in row.name)
         tx_bytes_total = tx_frames_total * data_pkt_size
-        dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
+        if '8102' in duthost.facts['platform']:
+            dut_buffer_size = get_ingress_lossless_buffer_size(host_ans=duthost)
+        else:
+            dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
 
-        if headroom_test_params is None or headroom_test_params[1]:
-            pytest_assert(tx_bytes_total < dut_buffer_size,
-                        'Total TX bytes {} should be smaller than DUT buffer size {}'.\
-                        format(tx_bytes_total, dut_buffer_size))
-        elif not headroom_test_params[1]:
+        if headroom_test_params is None:
+            exceeds_headroom = False
+        elif headroom_test_params[1]:
+            exceeds_headroom = False
+        else:
+            exceeds_headroom = True
+
+        global flow_port_config
+
+        if exceeds_headroom:
             pytest_assert(tx_bytes_total > dut_buffer_size,
                         'Total TX bytes {} should exceed DUT buffer size {}'.\
                         format(tx_bytes_total, dut_buffer_size))
+            
+            for peer_port, prios in flow_port_config[0].items():
+                for prio in prios:
+                    dropped_packets = get_port_prio_dropped_packets(duthost, peer_port, prio)
+                    pytest_assert(dropped_packets > 0,
+                        'Total TX dropped packets {} should be more than 0'.\
+                        format(dropped_packets))
+        else:
+            pytest_assert(tx_bytes_total < dut_buffer_size,
+                        'Total TX bytes {} should be smaller than DUT buffer size {}'.\
+                        format(tx_bytes_total, dut_buffer_size))
+            
+            for peer_port, prios in flow_port_config[0].items():
+                for prio in prios:
+                    dropped_packets = get_port_prio_dropped_packets(duthost, peer_port, prio)
+                    pytest_assert(dropped_packets == 0,
+                        'Total TX dropped packets {} should be 0'.\
+                        format(dropped_packets))
