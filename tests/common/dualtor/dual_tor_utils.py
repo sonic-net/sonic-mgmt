@@ -1355,6 +1355,20 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
 
+
+def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
+    '''
+    Temporarily modify linkmgrd probe interval
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
+    cmds = []
+    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms))
+    duthosts.shell_cmds(cmds=cmds)
+
+
 @pytest.fixture(scope='module')
 def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     # Fetch dual ToR ports
