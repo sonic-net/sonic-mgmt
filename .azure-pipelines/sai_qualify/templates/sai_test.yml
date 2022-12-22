@@ -164,6 +164,10 @@ parameters:
     default: true
 
  # Deploy SAI SDK
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: internal
+
   - name: DEPLOY_SAI_SDK
     type: boolean
     default: false
@@ -606,7 +610,7 @@ jobs:
         condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())
         inputs:
           source: specific
-          project: internal
+          project: ${{ parameters.ARTIFACT_PROJECT }}
           pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
           artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
           # runVersion: 'latestFromBranch'
