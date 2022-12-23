@@ -83,7 +83,7 @@ def dynamically_compensate_leakout(thrift_client, counter_checker, check_port, c
         sys.stderr.write('Compensate {} packets to port {}\n'.format(leakout_num, compensate_port))
         prev = curr
         curr, _ = counter_checker(thrift_client, check_port)
-        leakout_num = curr[check_field] - base[check_field]
+        leakout_num = curr[check_field] - prev[check_field]
         retry += 1
 
 
