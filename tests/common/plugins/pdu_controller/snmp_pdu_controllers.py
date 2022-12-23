@@ -40,6 +40,7 @@ class snmpPduController(PduControllerBase):
         if errorIndication:
             logging.error("Failed to get pdu controller type, exception: " + str(errorIndication))
         for oid, val in varBinds:
+            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if current_oid == SYSDESCR:
@@ -145,6 +146,7 @@ class snmpPduController(PduControllerBase):
         else:
             for varBinds in varTable:
                 for oid, val in varBinds:
+                    oid = oid.getOid() if hasattr(oid, 'getoid') else oid
                     current_oid = oid.prettyPrint()
                     port_oid = current_oid.replace(pdu_port_base, '')
                     label = val.prettyPrint().lower()
@@ -253,6 +255,7 @@ class snmpPduController(PduControllerBase):
             logging.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
+            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
@@ -271,6 +274,7 @@ class snmpPduController(PduControllerBase):
             logging.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
+            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
