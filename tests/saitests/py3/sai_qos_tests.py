@@ -1652,7 +1652,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 )
 
             if check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 40)
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 40)
 
             # send packets to dst port 2, occupying the shared buffer
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
@@ -1680,7 +1680,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 )
 
             if check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_2_id], TRANSMITTED_PKTS, xmit_2_counters_base, self, src_port_id, pkt2, 40)
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_2_id], TRANSMITTED_PKTS, xmit_2_counters_base, self, src_port_id, pkt2, 40)
 
             # send 1 packet to dst port 3, triggering PFC
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
@@ -1697,7 +1697,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
             if check_leackout_compensation_support(asic_type, hwsku):
-                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_3_id], TRANSMITTED_PKTS, xmit_3_counters_base, self, src_port_id, pkt3, 40)
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_3_id], TRANSMITTED_PKTS, xmit_3_counters_base, self, src_port_id, pkt3, 40)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
