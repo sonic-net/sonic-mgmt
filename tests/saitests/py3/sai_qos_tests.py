@@ -67,6 +67,26 @@ ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
 
 
+def check_leackout_compensation_support(asic, hwsku):
+    if 'broadcom' in asic.lower() or hwsku in ['Arista-7050CX3-32S-D48C8', 'Arista-7050CX3-32S-C32', 'DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32']:
+        return True
+    return False
+
+
+def dynamically_compensate_leakout(thrift_client, counter_checker, check_port, check_field, base, ptf_test, compensate_port, compensate_pkt, max_retry):
+    prev = base
+    curr, _ = counter_checker(thrift_client, check_port)
+    leakout_num = curr[check_field] - prev[check_field]
+    retry = 0
+    while leakout_num > 0 and retry < max_retry:
+        send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
+        sys.stderr.write('Compensate {} packets to port {}\n'.format(leakout_num, compensate_port))
+        prev = curr
+        curr, _ = counter_checker(thrift_client, check_port)
+        leakout_num = curr[check_field] - base[check_field]
+        retry += 1
+
+
 def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, **kwargs):
     ecn = kwargs.get('ecn', 1)
     ip_id = kwargs.get('ip_id', None)
@@ -975,7 +995,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW.
             # And apply dynamically compensation to all device using Broadcom ASIC.
-            if 'broadcom' in asic_type.lower() or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
@@ -997,17 +1017,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            if 'broadcom' in asic_type.lower() or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                counters_base = xmit_counters_base
-                actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
-                while actual_pkts_num_leak_out > 0:
-                    send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out)
-                    sys.stderr.write('Dynamically compensate {} packets, because of leakout\n'.format(actual_pkts_num_leak_out))
-                    counters_base = xmit_counters
-                    xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                    actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
-                    time.sleep(8)
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 10)
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
@@ -1616,7 +1627,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW.
             # And apply dynamically compensation to all device using Broadcom ASIC.
-            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -1640,16 +1651,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
                 )
 
-            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                counters_base = xmit_counters_base
-                actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
-                while actual_port_leak_out > 0:
-                    send_packet(self, src_port_id, pkt, actual_port_leak_out)
-                    sys.stderr.write('Dynamically compensate {} packets to dst port 1, because of leakout\n'.format(actual_port_leak_out))
-                    counters_base = xmit_counters
-                    xmit_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
-                    actual_port_leak_out = xmit_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 40)
 
             # send packets to dst port 2, occupying the shared buffer
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
@@ -1676,16 +1679,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      hysteresis) // cell_occupancy + margin - 1
                 )
 
-            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_2_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-                counters_base = xmit_2_counters_base
-                actual_port_2_leak_out = xmit_2_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
-                while actual_port_2_leak_out > 0:
-                    send_packet(self, src_port_id, pkt2, actual_port_2_leak_out)
-                    sys.stderr.write('Dynamically compensate {} packets to dst port 2, because of leakout\n'.format(actual_port_2_leak_out))
-                    counters_base = xmit_2_counters
-                    xmit_2_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_2_id])
-                    actual_port_2_leak_out = xmit_2_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_2_id], TRANSMITTED_PKTS, xmit_2_counters_base, self, src_port_id, pkt2, 40)
 
             # send 1 packet to dst port 3, triggering PFC
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
@@ -1701,16 +1696,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
 
-            if 'broadcom' in asic_type.lower() or hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
-                xmit_3_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
-                counters_base = xmit_3_counters_base
-                actual_port_3_leak_out = xmit_3_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
-                while actual_port_3_leak_out > 0:
-                    send_packet(self, src_port_id, pkt3, actual_port_3_leak_out)
-                    sys.stderr.write('Dynamically compensate {} packets to dst port 3, because of leakout\n'.format(actual_port_3_leak_out))
-                    counters_base = xmit_3_counters
-                    xmit_3_counters, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_3_id])
-                    actual_port_3_leak_out = xmit_3_counters[TRANSMITTED_PKTS] - counters_base[TRANSMITTED_PKTS]
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters_dbg, port_list[dst_port_3_id], TRANSMITTED_PKTS, xmit_3_counters_base, self, src_port_id, pkt3, 40)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
