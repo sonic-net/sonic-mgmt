@@ -151,7 +151,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 
     assert(wait_until(60, 15, 0, _check_routes))
 
-def run_static_route_test(duthost, unselected_duthost, hostptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
+def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, ipv6=False, config_reload_test=False):
     is_dual_tor = False
     if 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None:
         is_dual_tor = True

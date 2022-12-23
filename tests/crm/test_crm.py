@@ -328,7 +328,7 @@ def configure_nexthop_groups(amount, interface, asichost, test_name):
     ip_addr_list = generate_neighbors(amount + 1, "4")
     ip_addr_list = " ".join([str(item) for item in ip_addr_list[1:]])
     # Store CLI command to delete all created neighbors if test case will fail
-    RESTORE_CMDS[test_name].append(del_template.render(iface=interface, 
+    RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
                                                         neigh_ip_list=ip_addr_list,
                                                         namespace=asichost.namespace))
     logger.info("Configuring {} nexthop groups".format(amount))
@@ -457,13 +457,13 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     # Get NH IP
     cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
             | grep -v fe80".format(ip_cmd = asichost.ip_cmd,
-                                    ip_ver=ip_ver, 
+                                    ip_ver=ip_ver,
                                     crm_intf=crm_interface[0])
     out = duthost.shell(cmd)
     pytest_assert(out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
     nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
 
-    # Add IPv[4/6] routes 
+    # Add IPv[4/6] routes
     # Cisco platforms need an upward of 10 routes for crm_stats_ipv4_route_available to decrement
     if is_cisco_device(duthost) and ip_ver == '4':
         total_routes = 10
@@ -473,14 +473,14 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         route_add = route_add_cmd.format(asichost.ip_cmd, i, nh_ip)
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
-    
+
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new "crm_stats_ipv[4/6]_route" used and available counter value
     new_crm_stats_route_used, new_crm_stats_route_available = get_crm_stats(get_route_stats, duthost)
     logging.info(" new_crm_stats_route_used {}, new_crm_stats_route_available{} ".format( new_crm_stats_route_used, new_crm_stats_route_available))
-    
+
 
     # Verify "crm_stats_ipv[4/6]_route_used" counter was incremented
     if not (new_crm_stats_route_used - crm_stats_route_used == total_routes):
@@ -542,21 +542,39 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, \
+    crm_interface, ip_ver, nexthop, ptfhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
+    if duthost.facts["asic_type"] == "marvell":
+        if ip_ver == "4":
+            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
+            ptfhost.set_dev_up_or_down('eth1', 'is_up')
+            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
+            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+            nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+            nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+        else:
+            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
+            ptfhost.set_dev_up_or_down('eth1', 'is_up')
+            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
+            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+            nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
+            nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
+        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+        asichost.shell(ip_add_cmd)
+    else:
+        nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-    nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
+        nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-
     # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
                             crm_stats_ipv{ip_ver}_nexthop_used \
@@ -564,12 +582,29 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 .format(db_cli=asichost.sonic_db_cli,
                                         ip_ver=ip_ver)
     crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
-
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
-    # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    logger.info("original crm_stats_nexthop_used is: {}, original crm_stats_nexthop_available is {}".format(
+        crm_stats_nexthop_used, crm_stats_nexthop_available))
+    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used + 1,
+                                   crm_stats_nexthop_available - 1, ">=", "<=")
+    if not crm_stats_checker:
+        RESTORE_CMDS["test_crm_nexthop"].append(nexthop_del_cmd)
+    pytest_assert(crm_stats_checker,
+                  "\"crm_stats_ipv{}_nexthop_used\" counter was not incremented or "
+                  "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
+    # Remove nexthop
+    asichost.shell(nexthop_del_cmd)
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
+        ptfhost.remove_ip_addresses()
+    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
+                                   crm_stats_nexthop_available)
+    pytest_assert(crm_stats_checker,
+                  "\"crm_stats_ipv{}_nexthop_used\" counter was not decremented or "
+                  "\"crm_stats_ipv{}_nexthop_available\" counter was not incremented".format(ip_ver, ip_ver))
 
     # Get new "crm_stats_ipv[4/6]_nexthop" used and available counter value
     new_crm_stats_nexthop_used, new_crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
@@ -679,7 +714,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     if used_percent < 1:
         #  Add 3k neighbors instead of 1 percentage for Cisco-8000 devices
         neighbours_num = CISCO_8000_ADD_NEIGHBORS if is_cisco_device(duthost) else get_entries_num(new_crm_stats_neighbor_used, new_crm_stats_neighbor_available)
-        
+
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver, asichost=asichost,
             test_name="test_crm_neighbor")
@@ -703,7 +738,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     nhg_del_template="""
         %s
         ip -4 {{ns_prefix}} route del 3.3.3.0/24 dev {{iface}}
-        ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}   
+        ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}
         ip {{ns_prefix}} neigh del 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh del 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
         ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
@@ -729,7 +764,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
                                 crm_stats_nexthop_group_member_available" \
                                     .format(asichost.sonic_db_cli)
 
-    
+
     # Get "crm_stats_nexthop_group_[member]" used and available counter value
     get_nexthop_group_stats = get_group_member_stats if group_member else get_group_stats
     get_nexthop_group_another_stats = get_group_stats if group_member else get_group_member_stats
@@ -810,7 +845,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
-    
+
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
@@ -1001,19 +1036,19 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
 
     # Verify "crm_stats_fdb_entry_used" counter was incremented
-    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
+    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
     # Hence, the used counter can increase by more than 1.
     if is_cisco_device(duthost):
         pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used >= 1, \
             "Counter 'crm_stats_fdb_entry_used' was not incremented")
-    else: 
+    else:
         pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used == 1, \
             "Counter 'crm_stats_fdb_entry_used' was not incremented")
-        
-    # Verify "crm_stats_fdb_entry_available" counter was decremented   
-    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
+
+    # Verify "crm_stats_fdb_entry_available" counter was decremented
+    # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
     # Hence, the available counter can decrease by more than 1.
-    if is_cisco_device(duthost): 
+    if is_cisco_device(duthost):
         pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available >= 1, \
             "Counter 'crm_stats_fdb_entry_available' was not decremented")
     else:
@@ -1044,7 +1079,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
 
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
-    # Timeout for asyc fdb clear 
+    # Timeout for asyc fdb clear
     FDB_CLEAR_TIMEOUT = 10
     while FDB_CLEAR_TIMEOUT > 0:
         # Get new "crm_stats_fdb_entry" used and available counter value
