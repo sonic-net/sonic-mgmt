@@ -68,7 +68,7 @@ DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
 
 
 def check_leackout_compensation_support(asic, hwsku):
-    if 'broadcom' in asic.lower() or hwsku in ['Arista-7050CX3-32S-D48C8', 'Arista-7050CX3-32S-C32', 'DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32']:
+    if 'broadcom' in asic.lower():
         return True
     return False
 
