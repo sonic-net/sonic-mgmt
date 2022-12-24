@@ -24,7 +24,7 @@ def check_path_exists(duthost, path):
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val is not None:
+    if 'fw_pkg_name' in metafunc.fixturenames:
         metafunc.parametrize('fw_pkg_name', [val], scope="module")
 
 
