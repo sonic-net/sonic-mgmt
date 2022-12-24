@@ -1662,6 +1662,23 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                    dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
+            '''
+            Send various numbers of pkts to each dst port to occupy PG buffer, as below:
+
+                                                                                                          shared buffer theshold
+                                                                         xon offset                            |
+                                                                             |                                 |
+            PG config:                                                       +                                 +
+            -----------------------------------------------------------------*---------------------------------*----------------------
+            pkts in each port:                                          +                                            +
+                                                                        |                                            |
+            |<--- pkts_num_trig_pfc - pkts_num_dismiss_pfc - margin --->|                                            |
+                                 in dst port 1                          |                                            |
+                                                                        |<---   pkts_num_dismiss_pfc + margin*2  --->|
+                                                                                         in dst port 2               |
+                                                                                                                     |<--- X pkts --->|
+                                                                                                                       in dst port 3
+            '''
             # send packets to dst port 1, occupying the "xon"
 
             step_id += 1
@@ -1697,7 +1714,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_leak_out + pkts_num_trig_pfc -
-                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
+                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - margin
                 )
                 sys.stderr.write('send_packet(src_port_id, pkt, ({} + {} - {} - {}) // {})\n'.format(pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_dismiss_pfc, hysteresis, cell_occupancy))
 
@@ -1730,7 +1747,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                     hysteresis) // cell_occupancy + margin - 1
+                     hysteresis) // cell_occupancy + margin * 2 - 1
                 )
                 sys.stderr.write('send_packet(src_port_id, pkt2, ({} + {} + {}) // {} + {} - 1)\n'.format(pkts_num_leak_out, pkts_num_dismiss_pfc, hysteresis, cell_occupancy, margin))
 
