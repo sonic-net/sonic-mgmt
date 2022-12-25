@@ -6,6 +6,13 @@ import os
 import argparse
 from lxml import etree
 
+try:
+    from ansible.module_utils.port_utils import get_port_alias_to_name_map
+except ImportError:
+    # Add parent dir for using outside Ansible
+    sys.path.append('..')
+    from module_utils.port_utils import get_port_alias_to_name_map
+
 DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
 DEFAULT_LINKCSV = 'sonic_lab_links.csv'
 DEFAULT_CONSOLECSV = 'sonic_lab_console_links.csv'
@@ -25,7 +32,7 @@ class LabGraph(object):
 
     def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         #TODO:make generated xml file name as parameters in the future to make it more flexible
-        self.devices = []
+        self.devices = {}
         self.links =  []
         self.consoles =  []
         self.pdus =  []
@@ -41,6 +48,18 @@ class LabGraph(object):
         self.csgroot = etree.Element('ConsoleGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
+    def translate_port_name(self, device_hostname, device_port):
+        """
+        If device_port is port alias, return the corresponding port name.
+        Otherwise, return as is.
+        """
+        devtype = self.devices[device_hostname]['Type'].lower()
+        if devtype == 'devsonic' or 'fanout' in devtype:
+            hwsku = self.devices[device_hostname]['HwSku']
+            port_alias_to_name, _, _ = get_port_alias_to_name_map(hwsku)
+            return port_alias_to_name.get(device_port, device_port)
+        return device_port
+
     def read_devices(self):
         with open(self.devcsv) as csv_dev:
             csv_devices = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_dev))
@@ -49,7 +68,7 @@ class LabGraph(object):
             cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
             for row in csv_devices:
                 attrs = {}
-                self.devices.append(row)
+                self.devices[row['Hostname']] = row
                 devtype=row['Type'].lower()
                 if 'pdu' in devtype:
                     for  key in row:
@@ -70,6 +89,8 @@ class LabGraph(object):
             csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
             links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
             for link in csv_links:
+                link['StartPort'] = self.translate_port_name(link['StartDevice'], link['StartPort'])
+                link['EndPort'] = self.translate_port_name(link['EndDevice'], link['EndPort'])
                 attrs = {}
                 for key in link:
                     if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
@@ -104,10 +125,9 @@ class LabGraph(object):
                 self.pdus.append(pdu_link)
 
     def generate_dpg(self):
-        for dev in self.devices:
-            hostname = dev.get('Hostname', '')
-            managementip = dev.get('ManagementIp', '')
-            devtype = dev['Type'].lower()
+        for hostname in self.devices:
+            managementip = self.devices[hostname].get('ManagementIp', '')
+            devtype = self.devices[hostname]['Type'].lower()
             if not hostname:
                 continue
             if devtype in ('server', 'devsonic'):
