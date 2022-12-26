@@ -48,7 +48,7 @@ class LabGraph(object):
         self.csgroot = etree.Element('ConsoleGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
-    def translate_port_name(self, device_hostname, device_port):
+    def translate_port_alias(self, device_hostname, device_port):
         """
         If device_port is port alias, return the corresponding port name.
         Otherwise, return as is.
@@ -89,8 +89,8 @@ class LabGraph(object):
             csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
             links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
             for link in csv_links:
-                link['StartPort'] = self.translate_port_name(link['StartDevice'], link['StartPort'])
-                link['EndPort'] = self.translate_port_name(link['EndDevice'], link['EndPort'])
+                link['StartPort'] = self.translate_port_alias(link['StartDevice'], link['StartPort'])
+                link['EndPort'] = self.translate_port_alias(link['EndDevice'], link['EndPort'])
                 attrs = {}
                 for key in link:
                     if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
