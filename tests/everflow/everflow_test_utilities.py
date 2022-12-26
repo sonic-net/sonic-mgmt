@@ -96,7 +96,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                 # Add Spine ports to namespace
                 spine_ports_namespace_map[neigh['namespace']].append(dut_port)
                 spine_ports_namespace.add(neigh['namespace'])
-        elif "t0" in topo:
+        elif "t0" in topo or "dualtor" in topo:
             # Get the list of Server/T1 ports
             if "server" in neigh["name"].lower():
                 # Add Server ports to namespace
@@ -107,7 +107,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                 t1_ports_namespace_map[neigh['namespace']].append(dut_port)
                 t1_ports_namespace.add(neigh['namespace'])
         else:
-            # Todo: Support dualtor testbed
             pytest.skip("Unsupported topo")
 
     if 't1' in topo:
@@ -205,7 +204,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
         }
     }
 
-    if 't0' in topo:
+    if 't0' in topo or 'dualtor' in topo:
         # Downstream traffic (T0 -> Server)
         server_dest_ports = []
         server_dest_ports_ptf_id = []
@@ -245,6 +244,14 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
                 },
             }
         )
+        # Update the dest MAC for dualtor testbed
+        if 'dualtor' in topo:
+            vlan_name = mg_facts['minigraph_vlans'].keys()[0]
+            vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+            setup_information.update({
+                "vlan_mac": vlan_mac,
+                "dualtor": True
+                })
     elif 't1' in topo:
         # Downstream traffic (T1 -> T0)
         tor_dest_ports = []
@@ -408,18 +415,6 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", autouse=True)
-    def skip_on_dualtor(self, tbinfo):
-        """
-        Skip dualtor topo for now
-        """
-        if 'dualtor' in tbinfo['topo']['name']:
-            pytest.skip("Dualtor testbed is not supported yet")
-        
-        self.is_t0 = False
-        if 't0' in tbinfo['topo']['name']:
-            self.is_t0 = True
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
@@ -655,7 +650,11 @@ class BaseEverflowTest(object):
                                       expect_recv=True,
                                       valid_across_namespace=True):
         if not src_port:
-            src_port = self._get_random_src_port(setup)
+            src_port_name, src_port = self._get_random_src_port(setup)
+        if setup.get('dualtor', False) and src_port_name in setup['server_ports']:
+            # If the src port is VLAN port, we need to update the dst_mac in testing packet to VLAN MAC
+            mirror_packet = mirror_packet.copy()
+            mirror_packet.dst = setup.get('vlan_mac')
 
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
@@ -816,7 +815,8 @@ class BaseEverflowTest(object):
         return setup["port_index_namespace_map"][port]
 
     def _get_random_src_port(self, setup):
-        return setup["port_index_map"][random.choice(setup["port_index_map"].keys())]
+        random_port_name = random.choice(setup["port_index_map"].keys())
+        return random_port_name, setup["port_index_map"][random_port_name]
 
     def _get_monitor_port(self, setup, mirror_session, duthost):
         mirror_output = duthost.command("show mirror_session")

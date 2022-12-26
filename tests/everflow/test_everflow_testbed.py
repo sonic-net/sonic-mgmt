@@ -13,6 +13,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology("t0", "t1")
@@ -33,7 +34,7 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
     to execute the ptf_runner.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    def _partial_ptf_runner(setup_info, session_info, acl_stage, mirror_type,  expect_receive = True, test_name = None, **kwargs):
+    def _partial_ptf_runner(setup_info, session_info, acl_stage, mirror_type, direction=DOWN_STREAM, expect_receive=True, test_name=None, **kwargs):
         # Some of the arguments are fixed for each Everflow test case and defined here.
         # Arguments specific to each Everflow test case are passed in by each test via _partial_ptf_runner.
         # Arguments are passed in dictionary format via kwargs within each test case.
@@ -50,6 +51,13 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost):
                   'expect_received' : expect_receive,
                   'check_ttl' : 'True' if not duthost.is_multi_asic else 'False' }
         params.update(kwargs)
+        
+        if direction == UP_STREAM and 'vlan_mac' in setup_info and 't0' == setup_info.get('topo'):
+            # The dest MAC for dualtor should be VLAN
+            params.update({
+                            'vlan_mac': setup_info['vlan_mac'],
+                            'dualtor_upstream': True
+                            })
 
         ptf_runner(host=ptfhost,
                    testdir="acstests",
@@ -112,7 +120,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
 
-    def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_basic_forwarding(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """
         Verify basic forwarding scenarios for the Everflow feature.
 
@@ -198,7 +206,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
         duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"", setup_info[dest_port_type]["namespace"]))
 
-    def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_neighbor_mac_change(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
         duthost = duthosts[rand_one_dut_hostname]
         # Add a route to the mirror session destination IP
@@ -255,7 +263,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
     
-    def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         duthost = duthosts[rand_one_dut_hostname]
         # Create two ECMP next hops
@@ -337,7 +345,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_used_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
 
         # Remaining Scenario not applicable for this topology
@@ -432,13 +440,15 @@ class EverflowIPv4Tests(BaseEverflowTest):
     
     def test_everflow_dscp_with_policer(
             self,
-            duthost,
+            duthosts,
+            rand_one_dut_hostname,
             setup_info,
             policer_mirror_session,
             dest_port_type,
             partial_ptf_runner,
             config_method,
-            tbinfo
+            tbinfo,
+            toggle_all_simulator_ports_to_rand_selected_tor
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
         This tests single rate three color policer mode and specifically checks CIR value
@@ -450,7 +460,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # NOTE: This is important to add since for the Policer test case regular packets
         # and mirror packets can go to same interface, which causes tail drop of
         # police packets and impacts test case cir/cbs calculation.
-
+        duthost = duthosts[rand_one_dut_hostname]
         vendor = duthost.facts["asic_type"]
         hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
@@ -508,6 +518,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                policer_mirror_session,
                                self.acl_stage(),
                                self.mirror_type(),
+                               direction=dest_port_type,
                                expect_receive=True,
                                test_name="everflow_policer_test.EverflowPolicerTest",
                                src_port=rx_port_ptf_id,
@@ -534,20 +545,24 @@ class EverflowIPv4Tests(BaseEverflowTest):
         tx_port_ids = self._get_tx_port_id_list(tx_ports)
         target_ip = "30.0.0.10"
         default_ip = self.DEFAULT_DST_IP
+        dst_mac = setup["router_mac"]
         if 't0' == setup['topo'] and direction == DOWN_STREAM:
             target_ip = TARGET_SERVER_IP
             default_ip = DEFAULT_SERVER_IP
+        # The dst MAC for upstream traffic should be vlan MAC on dualtor
+        if 't0' == setup['topo'] and direction == UP_STREAM and 'vlan_mac' in setup:
+            dst_mac = setup['vlan_mac']
 
         pkt_dict = {
-            "(src ip)": self._base_tcp_packet(ptfadapter, setup, src_ip="20.0.0.10", dst_ip=default_ip),
-            "(dst ip)": self._base_tcp_packet(ptfadapter, setup, dst_ip=target_ip),
-            "(l4 src port)": self._base_tcp_packet(ptfadapter, setup, sport=0x1235, dst_ip=default_ip),
-            "(l4 dst port)": self._base_tcp_packet(ptfadapter, setup, dport=0x1235, dst_ip=default_ip),
-            "(ip protocol)": self._base_tcp_packet(ptfadapter, setup, ip_protocol=0x7E, dst_ip=default_ip),
-            "(tcp flags)": self._base_tcp_packet(ptfadapter, setup, flags=0x12, dst_ip=default_ip),
-            "(l4 src range)": self._base_tcp_packet(ptfadapter, setup, sport=4675, dst_ip=default_ip),
-            "(l4 dst range)": self._base_tcp_packet(ptfadapter, setup, dport=4675, dst_ip=default_ip),
-            "(dscp)": self._base_tcp_packet(ptfadapter, setup, dscp=51, dst_ip=default_ip)
+            "(src ip)": self._base_tcp_packet(ptfadapter, setup, src_ip="20.0.0.10", dst_ip=default_ip, dst_mac=dst_mac),
+            "(dst ip)": self._base_tcp_packet(ptfadapter, setup, dst_ip=target_ip, dst_mac=dst_mac),
+            "(l4 src port)": self._base_tcp_packet(ptfadapter, setup, sport=0x1235, dst_ip=default_ip, dst_mac=dst_mac),
+            "(l4 dst port)": self._base_tcp_packet(ptfadapter, setup, dport=0x1235, dst_ip=default_ip, dst_mac=dst_mac),
+            "(ip protocol)": self._base_tcp_packet(ptfadapter, setup, ip_protocol=0x7E, dst_ip=default_ip, dst_mac=dst_mac),
+            "(tcp flags)": self._base_tcp_packet(ptfadapter, setup, flags=0x12, dst_ip=default_ip, dst_mac=dst_mac),
+            "(l4 src range)": self._base_tcp_packet(ptfadapter, setup, sport=4675, dst_ip=default_ip, dst_mac=dst_mac),
+            "(l4 dst range)": self._base_tcp_packet(ptfadapter, setup, dport=4675, dst_ip=default_ip, dst_mac=dst_mac),
+            "(dscp)": self._base_tcp_packet(ptfadapter, setup, dscp=51, dst_ip=default_ip, dst_mac=dst_mac)
         }
 
         for description, pkt in pkt_dict.items():
@@ -574,11 +589,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         dscp=None,
         sport=0x1234,
         dport=0x50,
-        flags=0x10
+        flags=0x10,
+        dst_mac=None,
     ):
         pkt = testutils.simple_tcp_packet(
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=setup["router_mac"],
+            eth_dst=dst_mac if dst_mac is not None else setup["router_mac"],
             ip_src=src_ip,
             ip_dst=dst_ip,
             ip_ttl=64,

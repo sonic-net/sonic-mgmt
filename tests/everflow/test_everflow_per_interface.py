@@ -9,6 +9,7 @@ import everflow_test_utilities as everflow_utils
 from everflow_test_utilities import BaseEverflowTest
 from everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE
 from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
@@ -27,9 +28,6 @@ logger = logging.getLogger(__file__)
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
-
     asic_type = rand_selected_dut.facts["asic_type"]
     unsupported_platforms = ["mellanox", "marvell", "barefoot", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
@@ -135,10 +133,10 @@ def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     BaseEverflowTest.remove_acl_rule_config(rand_selected_dut, table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac):
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, dst_mac=None):
     packet = testutils.simple_tcp_packet(
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=router_mac
+            eth_dst=dst_mac if dst_mac is not None else router_mac
         )
     setup = {}
     setup["router_mac"] = router_mac
@@ -172,12 +170,22 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, tbinfo):
+def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
     everflow_config = apply_acl_rule
-    packet, exp_packet = generate_testing_packet(ptfadapter, rand_selected_dut, everflow_config['mirror_session_info'], rand_selected_dut.facts["router_mac"])
+    dst_mac = None
+    if 'dualtor' in tbinfo['topo']['name']:
+        # The server facing ports are selected as src_port, so the dst_mac should be VLAN MAC on dualtor
+        mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+        vlan_name = mg_facts['minigraph_vlans'].keys()[0]
+        dst_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
+    packet, exp_packet = generate_testing_packet(ptfadapter=ptfadapter,
+                                                 duthost=rand_selected_dut,
+                                                 mirror_session_info=everflow_config['mirror_session_info'],
+                                                 router_mac=rand_selected_dut.facts["router_mac"],
+                                                 dst_mac=dst_mac)
     uplink_ports = get_uplink_ports(rand_selected_dut, tbinfo)
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
     for port, ptf_idx in everflow_config['candidate_ports'].items():
