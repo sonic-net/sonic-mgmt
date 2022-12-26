@@ -376,7 +376,8 @@ class OVSBridge(object):
         "downstream_lower_tor_flow",
         "upstream_nic_flow",
         "upstream_icmp_flow",
-        "upstream_arp_flow"
+        "upstream_arp_flow",
+        "upstream_icmpv6_flow"
     )
 
     def __init__(self, bridge_name):
@@ -449,9 +450,11 @@ class OVSBridge(object):
         self.upstream_icmp_flow = self._add_flow(self.ptf_port, packet_filter="icmp", output_ports=[self.lower_tor_port, self.upper_tor_port], priority=8, upstream=True)
         # upstream arp packet from ptf port should be directed to both ToRs
         self.upstream_arp_flow = self._add_flow(self.ptf_port, packet_filter="arp", output_ports=[self.lower_tor_port, self.upper_tor_port], priority=7, upstream=True)
+        # upstream ipv6 icmp packet from ptf port should be directed to both ToRs
+        self.upstream_icmpv6_flow = self._add_flow(self.ptf_port, packet_filter="ipv6,nw_proto=58", output_ports=[self.lower_tor_port, self.upper_tor_port], priority=6, upstream=True)
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(1, self.upper_tor_port, self.lower_tor_port)
-        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=6)
+        self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=5)
 
     def _get_ports(self):
         result = OVSCommand.ovs_vsctl_list_ports(self.bridge_name)
@@ -536,6 +539,10 @@ class OVSBridge(object):
                     if self.upstream_arp_flow.get_drop(portid):
                         self.upstream_arp_flow.set_drop(portid=portid, recover=recover)
                         OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_arp_flow)
+                    # recover upstream icmpv6 traffic from ptf
+                    if self.upstream_icmpv6_flow.get_drop(portid):
+                        self.upstream_icmpv6_flow.set_drop(portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_icmpv6_flow)
 
                     forwarding_state = forwarding_state_getter()
                     if forwarding_state == ForwardingState.STANDBY:
@@ -561,6 +568,10 @@ class OVSBridge(object):
                         if not self.upstream_arp_flow.get_drop(portid):
                             self.upstream_arp_flow.set_drop(portid)
                             OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_arp_flow)
+                        # drop upstream icmpv6 traffic from ptf
+                        if not self.upstream_icmpv6_flow.get_drop(portid):
+                            self.upstream_icmpv6_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(self.bridge_name, self.upstream_icmpv6_flow)
 
                         forwarding_state = forwarding_state_getter()
                         # use set forwarding state to standby to simulator link drop
