@@ -24,10 +24,10 @@ LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
 
 class LabGraph(object):
 
-    """ 
+    """
     This is used to create "graph" file of lab for all connections and vlan info from csv file
     We(both engineer and lab technician) maintian and modify the csv file to keep track of the lab
-    infrastucture for Sonic development and testing environment. 
+    infrastucture for Sonic development and testing environment.
     """
 
     def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
@@ -83,7 +83,7 @@ class LabGraph(object):
                         if key.lower() != 'managementip' and key.lower() !='protocol':
                             attrs[key]=row[key].decode('utf-8')
                     etree.SubElement(devices_root, 'Device', attrs)
- 
+
     def read_links(self):
         with open(self.linkcsv) as csv_file:
             csv_links = csv.DictReader(filter(lambda row: row[0]!='#' and len(row.strip())!=0, csv_file))
@@ -97,7 +97,7 @@ class LabGraph(object):
                         attrs[key]=link[key].decode('utf-8')
                 etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
                 self.links.append(link)
- 
+
     def read_consolelinks(self):
         if not os.path.exists(self.conscsv):
             return
