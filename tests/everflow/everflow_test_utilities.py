@@ -651,10 +651,10 @@ class BaseEverflowTest(object):
                                       valid_across_namespace=True):
         if not src_port:
             src_port_name, src_port = self._get_random_src_port(setup)
-        if setup.get('dualtor', False) and src_port_name in setup['server_ports']:
-            # If the src port is VLAN port, we need to update the dst_mac in testing packet to VLAN MAC
-            mirror_packet = mirror_packet.copy()
-            mirror_packet.dst = setup.get('vlan_mac')
+            if setup.get('dualtor', False) and src_port_name in setup['server_ports']:
+                # If the src port is VLAN port, we need to update the dst_mac in testing packet to VLAN MAC
+                mirror_packet = mirror_packet.copy()
+                mirror_packet.dst = setup.get('vlan_mac')
 
         if not dest_ports:
             dest_ports = [self._get_monitor_port(setup, mirror_session, duthost)]
