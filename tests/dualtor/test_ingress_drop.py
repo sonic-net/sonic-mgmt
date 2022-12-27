@@ -22,7 +22,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("dualtor-mixed")
+    pytest.mark.topology("dualtor")
 ]
 
 
