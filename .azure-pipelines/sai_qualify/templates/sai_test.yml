@@ -447,7 +447,7 @@ jobs:
 
       - task: Bash@3
         displayName: Prepare testing env
-        condition: ${{ parameters.PREPARE_SAI_TB }}
+        condition: and(${{ parameters.PREPARE_SAI_TB }}, succeeded())
         inputs:
           targetType: 'inline'
           script: |
@@ -583,7 +583,7 @@ jobs:
           OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
 
       - task: Bash@3
-        condition: ${{ parameters.PTF_DEPLOY_VSCODE }}
+        condition: and(${{ parameters.PTF_DEPLOY_VSCODE }}, succeeded())
         inputs:
           targetType: 'inline'
           script: |
@@ -853,7 +853,7 @@ jobs:
 
       - task: Bash@3
         displayName: Restore SAI Testbed
-        condition: ${{ parameters.RECOVER_TB }}
+        condition: and(${{ parameters.RECOVER_TB }}, succeeded())
         inputs:
           targetType: 'inline'
           script: |
@@ -908,7 +908,7 @@ jobs:
 
       - task: Bash@3
         displayName: Recover Testbed
-        condition: ${{ parameters.RECOVER_TB }}
+        condition: and(${{ parameters.RECOVER_TB }}, succeeded())
         inputs:
           targetType: 'inline'
           script: |
@@ -924,7 +924,7 @@ jobs:
 
       - task: Bash@3
         displayName: Recover Minigraph
-        condition: ${{ parameters.RECOVER_TB }}
+        condition: and(${{ parameters.RECOVER_TB }}, succeeded())
         inputs:
           targetType: 'inline'
           script: |
