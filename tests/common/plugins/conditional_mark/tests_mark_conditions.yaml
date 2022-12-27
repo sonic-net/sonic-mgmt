@@ -563,7 +563,7 @@ pc/test_po_voq.py:
   skip:
     reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0"
+      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
