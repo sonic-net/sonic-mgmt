@@ -69,6 +69,15 @@ fanout:
     str3-z9332f-04:
       ansible_host: 10.3.146.230
       os: sonic
+    str3-8101-fanout-01:
+      ansible_host: 10.3.146.195
+      os: sonic
+    str3-8101-fanout-02:
+      ansible_host: 10.3.146.193
+      os: sonic
+    str3-8101-fanout-03:
+      ansible_host: 10.3.146.192
+      os: sonic
 
 sonic:
   vars:
