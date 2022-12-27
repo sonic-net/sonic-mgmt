@@ -91,7 +91,7 @@ def setup_mux(
 
 
 @pytest.fixture
-def test_port(cable_type, active_active_ports, active_standby_ports):
+def selected_mux_port(cable_type, active_active_ports, active_standby_ports):
     all_ports = []
     if cable_type == CableType.active_active:
         all_ports = active_active_ports
@@ -102,7 +102,7 @@ def test_port(cable_type, active_active_ports, active_standby_ports):
 
 
 @pytest.mark.enable_active_active
-def test_ingress_drop_acl(cable_type, ptfadapter, setup_mux, tbinfo, test_port, upper_tor_host):
+def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_port, upper_tor_host):
     """
     Aims to verify if orchagent installs ingress drop ACL when the port comes to standby.
 
@@ -127,6 +127,6 @@ def test_ingress_drop_acl(cable_type, ptfadapter, setup_mux, tbinfo, test_port, 
     server_ip = "10.10.0.100"
 
     if cable_type == CableType.active_active:
-        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, test_port, server_ip, pkt_num=10, drop=False)
+        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port, server_ip, pkt_num=10, drop=False)
     elif cable_type == CableType.active_standby:
-        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, test_port, server_ip, pkt_num=10, drop=True)
+        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port, server_ip, pkt_num=10, drop=True)
