@@ -9,9 +9,9 @@
       <Device Hostname="str3-7260cx3-acs-fan-04" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str2-7260cx3-acs-fan-23" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str2-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8102-C64" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8102-C64" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8102-C64" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
       <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str3-8102-05" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str3-8102-06" HwSku="Cisco-8102-C64" Type="DevSonic"/>
@@ -35,9 +35,9 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-01" EndPort="etp34" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet9/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet11/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp63" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp63" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp63" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62 StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet1/1" StartDevice="str3-8102-01" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet2/1" StartDevice="str3-8102-01" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet3/1" StartDevice="str3-8102-01" StartPort="Ethernet8"/>
