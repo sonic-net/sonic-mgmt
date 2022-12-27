@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import pytest
 import re
@@ -568,6 +569,7 @@ class QosSaiBase(QosBase):
             for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
+                    portName = iface
                     if "." in iface:
                         portName, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
