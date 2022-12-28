@@ -111,3 +111,14 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder')
+
+
+def pytest_configure(config):
+
+    config.addinivalue_line(
+        "markers", "enable_active_active: mark test to run with 'active_active' ports"
+    )
+
+    config.addinivalue_line(
+        "markers", "skip_active_standby: mark test to skip running with 'active_standby' ports"
+    )
