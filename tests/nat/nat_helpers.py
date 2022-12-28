@@ -834,7 +834,8 @@ def generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, 
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=network_data.outer_ports)
 
 
-def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False, icmp_id_start=None, icmp_id_end=None):
+def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False,
+                                     icmp_id_start=None, icmp_id_end=None):
     """
     Generates ICMP traffic and checks that traffic is translated due to NAT types/rules.
 
@@ -854,7 +855,8 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
     # Create packet to send
     pkt = create_packet(network_data.eth_dst, network_data.eth_src, network_data.ip_dst, network_data.ip_src, protocol_type)
     # Define expected packet(ICMP request)
-    exp_pkt_request = create_packet(network_data.eth_dst, network_data.eth_src, network_data.exp_dst_ip, network_data.exp_src_ip, protocol_type)
+    exp_pkt_request = create_packet(network_data.eth_dst, network_data.eth_src, network_data.exp_dst_ip,
+                                    network_data.exp_src_ip, protocol_type)
     # Reverse source and destination IPs for reply
     exp_dst_ip = get_src_ip(setup_info, direction, interface_type,
                             nat_type=nat_type, second_port=second_port)
