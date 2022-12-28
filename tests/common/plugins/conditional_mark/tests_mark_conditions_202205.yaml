@@ -332,38 +332,6 @@ route/test_static_route.py::test_static_route_ecmp:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6669
 
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6670
-
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[techsupport]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6670
-
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_interval:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6670
-
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6670
-
 snmp/test_snmp_phy_entity.py::test_fan_info:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"

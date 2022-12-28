@@ -61,7 +61,7 @@ def expected_dhcp_rules_for_standby(duthost_dualtor):
     return expected_dhcp_rules
 
 @pytest.fixture(scope="module")
-def docker_network(duthosts, enum_rand_one_per_hwsku_hostname):
+def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index):
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command("docker inspect bridge")
