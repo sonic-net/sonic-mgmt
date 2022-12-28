@@ -316,7 +316,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
