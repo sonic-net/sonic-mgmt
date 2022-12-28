@@ -109,9 +109,9 @@ def pytest_addoption(parser):
                      default=None, type=str,
                      help="SAI test port config file to map \
                      the relationship between lanes and interface.")
-    parser.addoption("--always_stop_sai_test_container",
+    parser.addoption("--skip_stop_sai_test_container",
                      action="store_true",
-                     help="If always stop the container after one \
+                     help="If skip stop the container after one \
                      test or not, true or false.")
     parser.addoption("--sai_origin_version", action="store", default=None,
                      type=str, help="SAI SDK originla version before upgrade.")
