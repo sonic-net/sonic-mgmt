@@ -813,7 +813,7 @@ jobs:
 
       - task: PythonScript@0
         displayName: Publish SAI test results and generate builder id
-        condition: and(${{ parameters.RUN_TEST }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+        condition: and(${{ parameters.RUN_TEST }}, or(eq(variables.IMG_UPGRADE_SUCC, 'succ'), eq(${{ parameters.UPDATE_IMAGE }}, false)))
         inputs:
           scriptSource: 'inline'
           script: |
