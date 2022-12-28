@@ -284,5 +284,3 @@ configuration:
         prefixes:
           - 200.0.1.0/26
         asn: 64700
-
-
