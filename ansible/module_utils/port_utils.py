@@ -217,7 +217,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
         elif hwsku in ["8800-LC-48H-O", "88-LC0-36FH-MO"]:
             for i in range(0, 48, 1):
-                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
         elif hwsku in ["msft_multi_asic_vs"]:
             for i in range(1,65):
                 port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
