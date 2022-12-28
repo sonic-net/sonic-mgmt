@@ -104,6 +104,20 @@ def restart_nic_simulator(nic_simulator_info, vmhost):
     return lambda: _restart_nic_simulator(vmhost, vmset_name)
 
 
+@pytest.fixture(scope="module")
+def stop_nic_simulator(nic_simulator_info, vmhost):
+    """Fixture to stop nic_simulator service on the VM server host."""
+
+    def _stop_nic_simulator(vmhost, vmset_name):
+        if vmset_name is not None:
+            vmhost.command("systemctl stop nic-simulator-%s" % vmset_name)
+
+    _, _, vmset_name = nic_simulator_info
+    yield lambda: _stop_nic_simulator(vmhost, vmset_name)
+
+    _restart_nic_simulator(vmhost, vmset_name)
+
+
 @pytest.fixture(scope="session")
 def nic_simulator_channel(nic_simulator_info):
     """Setup connection to the nic_simulator."""
