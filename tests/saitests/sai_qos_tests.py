@@ -1858,7 +1858,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def show_port_counter(self, rx_base, tx_base, banner):
-        port_counter_indexes = self.pgs
+        port_counter_indexes = [pg for pg in self.pgs]
         port_counter_indexes += self.ingress_counters
         port_counter_indexes += self.egress_counters
         port_counter_indexes += [TRANSMITTED_PKTS, RECEIVED_PKTS, RECEIVED_NON_UC_PKTS, TRANSMITTED_NON_UC_PKTS, EGRESS_PORT_QLEN]
@@ -1980,7 +1980,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print >> sys.stderr, "PFC triggered"
             sys.stderr.flush()
 
-            upper_bound = 2
+            upper_bound = 2 * margin + 1
             if self.wm_multiplier:
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
                 print >> sys.stderr, "Actual headroom pool watermark value to start: %d" % hdrm_pool_wm
@@ -2061,17 +2061,18 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
             print >> sys.stderr, "pg hdrm filled"
             if self.wm_multiplier:
-               # assert hdrm pool wm still remains the same
-               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                   self.client, self.buf_pool_roid)
-               if 'innovium' not in self.asic_type:
-                   assert(expected_wm <= hdrm_pool_wm)
-               assert(hdrm_pool_wm <= upper_bound_wm)
-               # at this point headroom pool should be full. send few more packets to continue causing drops
-               print >> sys.stderr, "overflow headroom pool"
-               send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
-               hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
-               assert(hdrm_pool_wm <= self.max_headroom)
+                # assert hdrm pool wm still remains the same
+                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
+                    self.client, self.buf_pool_roid)
+                sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(hdrm_pool_wm, upper_bound_wm))
+                if 'innovium' not in self.asic_type:
+                    assert(expected_wm <= hdrm_pool_wm)
+                assert(hdrm_pool_wm <= upper_bound_wm)
+                # at this point headroom pool should be full. send few more packets to continue causing drops
+                print >> sys.stderr, "overflow headroom pool"
+                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
+                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(self.client, self.buf_pool_roid)
+                assert(hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:
