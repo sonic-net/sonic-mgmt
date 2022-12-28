@@ -190,8 +190,14 @@ class QosParamBroadcom(object):
             avaiable_shared_buffer_cells = 0
             if ingress_lossless_pool['mode'] == 'dynamic':
                 '''
-                when (shared buffer - x) * alpha >= x, still have available buffer for imcomming packets
-                x : used share buffer
+                dynamic threshold:
+                    Memory can be allocated from shared buffer for pgi  for port p if
+                        Alpha * free buffer > Bp,i
+                    Bp,i: Buffer allocated for pgi of ingress port p
+
+                Considering one port one pg scenario, above formula is simplized as:
+                    alpha * (shared buffer - x) > x
+                    x indicate used share buffer
 
                 +------------+----------+-------+
                 | dynamic_th | register | alpha |
@@ -353,10 +359,10 @@ class QosParamBroadcom(object):
                 profile.update({"margin": headroom_margin})
             else:
                 headroom_margin = profile['margin']
-    
-            if 'pkts_num_hdrm_partial' not in profile or profile['pkts_num_hdrm_partial'] != headroom_cells - headroom_margin:
-                logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_partial"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_partial", -1), headroom_cells - headroom_margin))
-                profile.update({"pkts_num_hdrm_partial": headroom_cells - headroom_margin})
+
+            if 'pkts_num_hdrm_partial' not in profile or profile['pkts_num_hdrm_partial'] != headroom_cells - headroom_margin * 2:
+                logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_partial"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_partial", -1), headroom_cells - headroom_margin * 2))
+                profile.update({"pkts_num_hdrm_partial": headroom_cells - headroom_margin * 2})
 
             if ingress_lossless_pool['mode'] == 'dynamic':
                 logger.info('Update qos_params[{}][{}]["dynamic_threshold"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("dynamic_threshold", False), True))
