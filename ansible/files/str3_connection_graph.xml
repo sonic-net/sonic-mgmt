@@ -37,7 +37,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62 StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet1/1" StartDevice="str3-8102-01" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet2/1" StartDevice="str3-8102-01" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet3/1" StartDevice="str3-8102-01" StartPort="Ethernet8"/>
@@ -837,7 +837,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.195/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-01">
-      <InterfaceVlan mode="Trunk" portname="etp63" vlanids="801-864"/>
+      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="801-864"/>
       <InterfaceVlan mode="Access" portname="etp1" vlanids="801"/>
       <InterfaceVlan mode="Access" portname="etp2" vlanids="802"/>
       <InterfaceVlan mode="Access" portname="etp3" vlanids="803"/>
@@ -851,7 +851,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.193/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-02">
-      <InterfaceVlan mode="Trunk" portname="etp63" vlanids="673-736"/>
+      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="673-736"/>
       <InterfaceVlan mode="Access" portname="etp1" vlanids="673"/>
       <InterfaceVlan mode="Access" portname="etp2" vlanids="674"/>
       <InterfaceVlan mode="Access" portname="etp3" vlanids="675"/>
@@ -917,7 +917,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.192/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-03">
-      <InterfaceVlan mode="Trunk" portname="etp63" vlanids="737-800"/>
+      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="737-800"/>
       <InterfaceVlan mode="Access" portname="etp1" vlanids="737"/>
       <InterfaceVlan mode="Access" portname="etp2" vlanids="738"/>
       <InterfaceVlan mode="Access" portname="etp3" vlanids="739"/>
