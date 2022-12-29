@@ -6,6 +6,12 @@ from tests.common import config_reload
 
 FILE_DIR = "mx/config"
 CONFIG_FILE = "dhcp_server_vlan_conf.json"
+IGNORE_REG_LIST = [
+    ".*Failed to get port by bridge port.*",
+    ".*that doesn't map to a port index.*",
+    ".*Calculated address.*",
+    ".*removeVlan: Failed to remove ref count.*"
+]
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -29,6 +35,13 @@ def remove_all_vlans(duthost):
 
             duthost.remove_vlan(vlan_id)
 
+    yield
+
+
+@pytest.fixture(scope="function", autouse=True)
+def log_analyzer_setup(duthost, loganalyzer):
+    if loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
     yield
 
 
