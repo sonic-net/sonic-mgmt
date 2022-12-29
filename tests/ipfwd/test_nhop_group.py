@@ -16,6 +16,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -189,16 +190,11 @@ def get_crm_info(duthost, asic):
     get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
                        " crm_stats_nexthop_group_used"
                        " crm_stats_nexthop_group_available").format(asic.sonic_db_cli)
+    pytest_assert(wait_until(25, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) >= 2)),
+                  get_group_stats)
 
-    retry = 5
-    while retry > 0:
-        result = duthost.command(get_group_stats)
-        pytest_assert(result["rc"] == 0, get_group_stats)
-        if len(result["stdout_lines"]) < 2:
-            retry -= 1
-            time.sleep(5)
-        else:
-            break
+    result = duthost.command(get_group_stats)
+    pytest_assert(result["rc"] == 0 or len(result["stdout_lines"]) < 2, get_group_stats)
 
     crm_info = {
         "used": int(result["stdout_lines"][0]),
