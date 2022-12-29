@@ -337,6 +337,7 @@ def get_testbed_info(testbed):
         if not hosts:
             logger.error('testbed {} dut {} No matching hosts'.format(testbed, dut))
             raise RuntimeError('Can not find DUT {} information for testbed {} '.format(dut, testbed))
+        # logger.info("testbed {} DUT {} hosts {} ".format(testbed, dut, hosts))
         get_conn_graph_facts(hosts)
         get_info = False
         for hostname, vars in hosts.items():
@@ -536,7 +537,6 @@ class Testbeds_auto_recovery(object):
         # move testbeds which priority is not 0 to unhealthy testbeds dict
         for testbed in autoRecovery_testbeds_list[:]:
             if autoRecovery_testbeds[testbed]['Priority'] != 0:
-
                 if (self.agent_pool == 'nightly-bjw' and '-bjw-' not in testbed) \
                     or (self.agent_pool == 'nightly-svc' and 'svc' not in testbed) \
                     or (self.agent_pool == 'nightly' and (('-bjw-' in testbed) or ('svc' in testbed))):
@@ -589,18 +589,20 @@ class Testbeds_auto_recovery(object):
             # ignore the one which already in auto recovery table and priority is 0
             if testbed not in autoRecovery_testbeds_list and testbed not in self.unhealthy_testbeds.keys():
 
-                # get testbed's DUT, IP, console
-                dut, console, ip = get_testbed_info(testbed)
-                if dut == None and console == None and ip == None:
-                    logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
-                    continue
-
                 if (self.agent_pool == 'nightly-bjw' and '-bjw-' not in testbed) \
                     or (self.agent_pool == 'nightly-svc' and 'svc' not in testbed) \
                     or (self.agent_pool == 'nightly' and (('-bjw-' in testbed) or ('svc' in testbed))):
 
                     logger.error("testbed {} agent pool {} mismatch ".format(testbed, self.agent_pool))
                     continue
+
+                # get testbed's DUT, IP, console
+                dut, console, ip = get_testbed_info(testbed)
+                if dut == None and console == None and ip == None:
+                    logger.error("ERROR cannot get the information of testbed {} ".format(testbed))
+                    continue
+
+
 
                 self.unhealthy_testbeds[testbed] = {'UTCTimestamp'  : unhealthy_testbeds_table[testbed]['UTCTimestamp'],
                                                     'TestbedName'   : unhealthy_testbeds_table[testbed]['TestbedName'],
