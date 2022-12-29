@@ -105,7 +105,7 @@ class FanoutHost(object):
             host_port is a encoded string of <host name>|<port name>,
             e.g. sample_host|Ethernet0.
         """
-        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
@@ -172,3 +172,9 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
+
+    def set_port_fec(self, interface_name, mode):
+        self.host.set_port_fec(interface_name, mode)
+
+    def is_intf_status_down(self, interface_name):
+        return self.host.is_intf_status_down(interface_name)

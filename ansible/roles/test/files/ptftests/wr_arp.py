@@ -65,7 +65,7 @@ class ArpTest(BaseTest):
 
     def dut_exec_cmd(self, cmd):
         self.log("Executing cmd='{}'".format(cmd))
-        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=30)
+        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=120)
         self.log("return_code={}, stdout={}, stderr={}".format(return_code, stdout, stderr))
 
         if return_code == 0:

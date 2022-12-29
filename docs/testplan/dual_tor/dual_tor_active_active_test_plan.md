@@ -1,7 +1,7 @@
 # active-active ToR test plan
 
 ## overview
-Active-active ToRs is an enhancement to the current [dual-tor](https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_test_hld.md) implementation to further utilize the ToRs bandwidth resources. While a dualtor setup uses a smart cable(mux cable) to select a active ToR to use, the active-active ToRs setup could use both ToRs(as they are both active) with the leverage of the server NiC. The server NiC has two ports. Each port is connected to one of the ToRs by regular cable., if both ToRs are active, the server could send/receive packets via either of them. If either ToR experiences a failure(link failure or ToR down), the server NiC will get notification from the ToRs to choose the links to the remainining active ToRs to use. On the server side, the server NiC exposes a single bandwidth-doubled network adapter to the server host, so all host applications are agnostic to the fact that the single network adapter is implemented with two physical uplinks.
+Active-active ToRs is an enhancement to the current [dual-tor](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_test_hld.md) implementation to further utilize the ToRs bandwidth resources. While a dualtor setup uses a smart cable(mux cable) to select a active ToR to use, the active-active ToRs setup could use both ToRs(as they are both active) with the leverage of the server NiC. The server NiC has two ports. Each port is connected to one of the ToRs by regular cable., if both ToRs are active, the server could send/receive packets via either of them. If either ToR experiences a failure(link failure or ToR down), the server NiC will get notification from the ToRs to choose the links to the remainining active ToRs to use. On the server side, the server NiC exposes a single bandwidth-doubled network adapter to the server host, so all host applications are agnostic to the fact that the single network adapter is implemented with two physical uplinks.
 
 ## scope
 The scope of the test plan is to verify correct end-to-end operation of a running active-active ToRs setup with fully functioning configuration:
@@ -10,7 +10,7 @@ The scope of the test plan is to verify correct end-to-end operation of a runnin
 
 The following are out of scope for this test plan:
 * the server NiC operation
-* Individual component behavior(i.e. the CLI commands) 
+* Individual component behavior(i.e. the CLI commands)
 
 ## testbed setup
 The active-active testbed setup is similar to dualtor testbed setup.

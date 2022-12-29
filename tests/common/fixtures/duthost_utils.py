@@ -4,9 +4,11 @@ import itertools
 import collections
 import ipaddress
 import time
+import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
+from netaddr import valid_ipv4
 
 
 logger = logging.getLogger(__name__)
@@ -251,7 +253,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # address could be IPV6 and IPV4, only need IPV4 here
-            if addr.find(':') == -1:
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
@@ -318,7 +320,12 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     Returns:
         VLAN info dict with original VLAN info
         Example:
-            {1000: {'ip':'192.168.0.1/21', 'orig': True}}
+            "Vlan1000": {
+                "fc02:1000::1/64": {},
+                "grat_arp": "enabled",
+                "proxy_arp": "enabled",
+                "192.168.0.1/21": {}
+            }
     '''
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -326,7 +333,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     for k, v in cfg_facts['VLAN'].items():
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            if addr.find(':') == -1:
+            # NOTE: here only returning IPv4.
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
@@ -412,3 +420,100 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope='module')
+def dut_qos_maps(rand_selected_dut):
+    """
+    A module level fixture to get QoS map from DUT host.
+    Return a dict
+    {
+        "dscp_to_tc_map": {
+            "0":"1",
+            ...
+        },
+        "tc_to_queue_map": {
+            "0":"0"
+        },
+        ...
+    }
+    or an empty dict if failed to parse the output
+    """
+    maps = {}
+    try:
+        # port_qos_map
+        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        # dscp_to_tc_map
+        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        # tc_to_queue_map
+        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        # tc_to_priority_group_map
+        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_PRIORITY_GROUP_MAP'")['stdout'])
+        # tc_to_dscp_map
+        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
+    except:
+        pass
+    return maps
+
+
+def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+    """
+    A helper function to check if separated DSCP_TO_TC_MAP is applied to
+    downlink/unlink ports.
+    """
+    dscp_to_tc_map_names = set()
+    for port_name, qos_map in dut_qos_maps['port_qos_map'].iteritems():
+        if port_name == "global":
+            continue
+        dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
+        if len(dscp_to_tc_map_names) > 1:
+            return True
+    return False
+
+
+def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
+    """
+    Helper function to calculate DSCP to PG map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = dut_qos_maps['port_qos_map']
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name]
+        # Load tc_to_pg_map
+        tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
+        # Calculate dscp to pg map
+        dscp_to_pg_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
+        return dscp_to_pg_map
+    except:
+        logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
+        return {}
+
+
+def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
+    """
+    Helper function to calculate DSCP to Queue map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = dut_qos_maps['port_qos_map']
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
+        # Load tc_to_queue_map
+        tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
+        # Calculate dscp to queue map
+        dscp_to_queue_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
+        return dscp_to_queue_map
+    except:
+        logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
+        return {}

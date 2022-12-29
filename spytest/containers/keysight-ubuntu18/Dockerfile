@@ -30,15 +30,15 @@ WORKDIR /keysight
 
 RUN pip install --no-cache-dir -r ./spytest.txt
 
-# https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.10/IxNetworkAPI9.10.2007.7Linux64.bin.tgz
-RUN bash ./IxNetworkAPI9.10.2007.7Linux64.bin -i silent
+# https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.20-Update2/IxNetworkAPI9.20.2201.70Linux64.bin.tgz
+RUN bash ./IxNetworkAPI9.20.2201.71Linux64.bin -i silent
 
-RUN pip install --no-cache-dir -r /opt/ixia/ixnetwork/9.10.2007.7/lib/PythonApi/requirements.txt
+RUN pip install --no-cache-dir -r /opt/ixia/ixnetwork/9.20.2201.71/lib/PythonApi/requirements.txt
 
 ENV SCID_TGEN_PATH=/opt
 ENV SCID_TCL85_BIN=/opt
-ENV IXNETWORK_VERSION=9.10.2007.7
-ENV HLAPI_VERSION=9.10.2007.43
+ENV IXNETWORK_VERSION=9.20.2201.71
+ENV HLAPI_VERSION=9.20.2201.38
 
 LABEL author="Mircea Dan Gheorghe"
 LABEL version="1.0"

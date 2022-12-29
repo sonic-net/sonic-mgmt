@@ -7,6 +7,8 @@ from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type 
 from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
 from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
@@ -33,7 +35,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     memory_threshold = 60
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
-    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0') or is_asan:
+    if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0', 'x86_64-cel_e1031-r0') or is_asan:
         memory_threshold = 90
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80
@@ -41,12 +43,17 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     # is correlated with the number of ports. So we ignore the check of CPU for sx_sdk
     if duthost.facts["asic_type"] == 'mellanox':
         high_cpu_consume_procs['sx_sdk'] = 90
+    num_cpu = int(duthost.command('nproc --all')['stdout_lines'][0])
+    cpu_threshold = cpu_threshold * num_cpu
     return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
 def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Wait until all critical services is fully started
+    pytest_assert(wait_until(360, 20, 0, duthost.critical_services_fully_started),
+                             "All critical services must be fully started!{}".format(duthost.critical_services))
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     monit_results = duthost.monit_process(iterations=24)['monit_results']
 
@@ -93,8 +100,23 @@ def counterpoll_cpu_threshold(duthosts, request):
     return counterpoll_cpu_usage_threshold
 
 
+@pytest.fixture
+def disable_pfcwd(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Disable PFCWD before testing, and start_default after testing
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pfcwd_status = duthost.shell("sonic-db-cli CONFIG_DB hget \'DEVICE_METADATA|localhost\' \'default_pfcwd_status\'")['stdout']
+    if pfcwd_status != 'enable':
+        yield
+        return
+    duthost.shell('pfcwd stop')
+    yield
+    duthost.shell('pfcwd start_default')
+
+
 def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname,
-                                      setup_thresholds, restore_counter_poll, counterpoll_type, counterpoll_cpu_threshold):
+                                      setup_thresholds, restore_counter_poll, counterpoll_type, counterpoll_cpu_threshold, disable_pfcwd):
     """Check DUT memory usage and process cpu usage are within threshold.
     Disable all counterpoll types except tested one
     Collect memory and CPUs usage for 60 secs
@@ -205,7 +227,7 @@ def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter,
     if proc['cpu_percent'] >= cpu_threshold:
         logging.debug("process %s(%d) cpu usage exceeds %d%%.",
                       proc['name'], proc['pid'], cpu_threshold)
-        outstanding_procs[proc['pid']] = proc['name']
+        outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
 
 

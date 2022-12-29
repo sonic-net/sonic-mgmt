@@ -10,7 +10,7 @@ from datetime import datetime
 from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
 from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
-    VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI
+    VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, setup_lag_config, config_pbh_lag
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +23,16 @@ pytestmark = [
 @pytest.mark.dynamic_config
 class TestDynamicInnerHashingLag():
 
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_dynamic_pbh(self, request):
+    @pytest.fixture(scope="module", autouse=True)
+    def setup_dynamic_pbh(self, duthost, lag_port_map, lag_ip_map):
         with allure.step('Add required LAG config'):
-            request.getfixturevalue("remove_lag_acl_dependency")
-            request.getfixturevalue("config_lag_ports")
+            setup_lag_config(duthost, lag_port_map, lag_ip_map)
         with allure.step('Config Dynamic PBH'):
-            request.getfixturevalue("config_pbh_table_lag")
-            request.getfixturevalue("config_hash_fields")
-            request.getfixturevalue("config_hash")
-            request.getfixturevalue("config_rules")
+            config_pbh_lag(duthost, lag_port_map)
 
     def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
-                           vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups):
+                           vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups,
+                           get_function_completeness_level):
         logging.info("Executing dynamic inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
@@ -46,8 +43,14 @@ class TestDynamicInnerHashingLag():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            balancing_test_times = 120
-            balancing_range = 0.3
+            normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+            
+            if normalize_level == 'thorough':
+                balancing_test_times = 120
+                balancing_range = 0.3
+            else:
+                balancing_test_times = 20
+                balancing_range = 0.5
 
             ptf_runner(ptfhost,
                        "ptftests",
@@ -70,7 +73,8 @@ class TestDynamicInnerHashingLag():
                                "symmetric_hashing": symmetric_hashing},
                        log_file=log_file,
                        qlen=PTF_QLEN,
-                       socket_recv_size=16384)
+                       socket_recv_size=16384,
+                       is_python3=True)
 
         retry_call(check_pbh_counters,
                    fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times,
