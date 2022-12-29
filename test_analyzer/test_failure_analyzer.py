@@ -431,7 +431,6 @@ class Analyzer(object):
         failed_testcases_list = list(failed_testcases.keys())
         for failed_testcase in failed_testcases_list:
             waiting_list.append((failed_testcase, False))
-
         logger.info(
             "=============== Analyze active IcM ================")
         active_icm_list, count_dict = self.analyze_active_icm()
@@ -452,6 +451,7 @@ class Analyzer(object):
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config_info['worker_number']) as executor:
             for (test_case_branch, is_module_path) in waiting_list:
                 # Start the load operations and mark each future with test case name
+                logger.info("Start analysising test_case_branch={}, is_module_path={}".format(test_case_branch, is_module_path))
                 future_to_testcase = {executor.submit(
                     self.analysis_process, test_case_branch, is_module_path): test_case_branch}
                 for future in concurrent.futures.as_completed(future_to_testcase):
@@ -490,15 +490,22 @@ class Analyzer(object):
                             if 'everflow' in items[0]:
                                 if count_dict['everflow_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
                                     logger.info("There are already 10 IcMs for everflow, inhibit this one avoid generating so many similar cases.")
-                                    break_flag = True
                                     kusto_data = kusto_data[:idx]
+                                    logger.info("kusto_data={}".format(kusto_data))
                                     break
                                 else:
                                     count_dict['everflow_count'] += 1
+                            if 'qos_sai' in items[0]:
+                                if count_dict['qos_sai_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
+                                    logger.info("There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
+                                    kusto_data = kusto_data[:idx]
+                                    logger.info("kusto_data={}".format(kusto_data))
+                                    break
+                                else:
+                                    count_dict['qos_sai_count'] += 1
                             if 'acl' in items[0]:
                                 if count_dict['acl_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
                                     logger.info("There are already 10 IcMs for acl, inhibit this one avoid generating so many similar cases.")
-                                    break_flag = True
                                     kusto_data = kusto_data[:idx]
                                     break
                                 else:
@@ -605,6 +612,7 @@ class Analyzer(object):
         for icm_title in print_list:
             logger.info("{}".format(icm_title))
         everflow_count = 0
+        qos_sai_count = 0
         acl_count = 0
         for active_icm_title in active_icm_list:
             if active_icm_title.startswith(ICM_PREFIX):
@@ -614,11 +622,14 @@ class Analyzer(object):
             items = subtitle.split('.')
             if 'everflow' in items[0]:
                 everflow_count += 1
+            if 'test_qos_sai' in items[1]:
+                qos_sai_count += 1
             if 'acl' in items[0]:
                 acl_count += 1
 
         count_dict = {
                 'everflow_count': everflow_count,
+                'qos_sai_count': qos_sai_count,
                 'acl_count': acl_count
                 }
         logger.info("count for active IcM:{}".format(count_dict))
@@ -1062,7 +1073,7 @@ class Analyzer(object):
                 asic_case_df = history_case_branch_df[history_case_branch_df['AsicType'] == asic]
                 for hwsku_pass_rate in result["success_rate"]:
                     hwsku = hwsku_pass_rate.split(":")[0].strip()
-                    success_rate = asic_pass_rate.split(":")[1].strip()
+                    success_rate = hwsku_pass_rate.split(":")[1].strip()
                     hwsku_df = asic_case_df[asic_case_df['HardwareSku'] == hwsku]
                     latest_row = hwsku_df.iloc[0]
                     oldest_result = latest_row['Result']
