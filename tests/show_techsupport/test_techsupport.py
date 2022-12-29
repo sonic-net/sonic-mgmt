@@ -203,35 +203,39 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     :param mirror_config: mirror_config fixture
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logger.info("Adding mirror_session to DUT")
-    acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
-    extra_vars = {
-        'acl_table_name':  EVERFLOW_TABLE_NAME,
-    }
-    logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-
-    duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
-    duthost.command('config mirror_session add {} {} {} {} {} {} {}'
-    .format(SESSION_INFO['name'], SESSION_INFO['src_ip'], neighbor_ip,
-     SESSION_INFO['dscp'], SESSION_INFO['ttl'], SESSION_INFO['gre'], SESSION_INFO['queue']))
-
-    logger.info('Loading acl mirror rules ...')
-    load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
-    duthost.command('{}'.format(load_rule_cmd))
-
-    try:
+    if duthost.facts['asic_type'] == "marvell":
+        logger.info("Mirroring not supported on Marvell asics")
         yield
-    finally:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
-        loganalyzer.load_common_config()
+    else:
+        logger.info("Adding mirror_session to DUT")
+        acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
+        extra_vars = {
+            'acl_table_name':  EVERFLOW_TABLE_NAME,
+        }
+        logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
+        duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+
+        duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
+        duthost.command('config mirror_session add {} {} {} {} {} {} {}'
+        .format(SESSION_INFO['name'], SESSION_INFO['src_ip'], neighbor_ip,
+         SESSION_INFO['dscp'], SESSION_INFO['ttl'], SESSION_INFO['gre'], SESSION_INFO['queue']))
+
+        logger.info('Loading acl mirror rules ...')
+        load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
+        duthost.command('{}'.format(load_rule_cmd))
 
         try:
-            loganalyzer.expect_regex = [LOG_EXCEPT_MIRROR_SESSION_REMOVE]
-            with loganalyzer:
-                teardown_mirroring(duthost, mirror_setup['dut_tmp_dir'])
-        except LogAnalyzerError as err:
-            raise err
+            yield
+        finally:
+            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+            loganalyzer.load_common_config()
+
+            try:
+                loganalyzer.expect_regex = [LOG_EXCEPT_MIRROR_SESSION_REMOVE]
+                with loganalyzer:
+                    teardown_mirroring(duthost, mirror_setup['dut_tmp_dir'])
+            except LogAnalyzerError as err:
+                raise err
 
 
 def teardown_mirroring(dut, tmp_path):
