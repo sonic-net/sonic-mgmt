@@ -105,7 +105,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 
 def get_topo_type(topo_name):
-    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mx)')
+    pattern = re.compile(r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -113,6 +113,8 @@ def get_topo_type(topo_name):
     if topo_type in ['dualtor', 'mgmttor']:
         # set dualtor/mgmttor topology type to 't0' to avoid adding it in each test script.
         topo_type = 't0'
+    if topo_type in ['mc0']:
+        topo_type = 'm0'
     return topo_type
 
 

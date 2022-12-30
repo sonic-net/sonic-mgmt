@@ -240,6 +240,7 @@ class IpinIPTunnelTest(BaseTest):
         # Step 2. verify packet is received from IPinIP tunnel and check balance
         for hash_key in self.hash_key_list:
             self.logger.info("Verifying traffic balance for hash key {}".format(hash_key))
+            pkt_distribution = {}
             for port in self.ptf_portchannel_indices.keys():
                 pkt_distribution[port] = 0
             # For thorough completeness level, verify PACKET_NUM packets

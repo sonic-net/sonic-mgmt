@@ -86,7 +86,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile, tbinfo
+        ingressLosslessProfile, egressLosslessProfile
     ):
         """
             Test QoS SAI XOFF limits
@@ -146,19 +146,6 @@ class TestQosSai(QosSaiBase):
 
         if 'cell_size' in qosConfig[xoffProfile].keys():
             testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
-
-        if "dualtor" in tbinfo["topo"]["name"]:
-            testParams["is_dualtor"] = True
-            if tbinfo["topo"]["type"] == 't0':
-                testParams["is_t0"] = True
-            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-                default_vlan_name = vlan_cfgs['default_vlan_config']
-                if default_vlan_name:
-                    for vlan in vlan_cfgs[default_vlan_name].values():
-                        if 'mac' in vlan and vlan['mac']:
-                            testParams["def_vlan_mac"] = vlan['mac']
-                            break
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
@@ -923,9 +910,11 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        # Only run this test when separated DSCP_TO_TC_MAP is defined
+        # Only run this test on T1 testbed when separated DSCP_TO_TC_MAP is defined
         if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1383,7 +1372,9 @@ class TestQosSai(QosSaiBase):
         """
         if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
-
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
+            
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         if direction == "downstream":
