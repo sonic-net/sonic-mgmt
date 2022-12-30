@@ -59,7 +59,6 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
     yield dut_vars
 
 
-@pytest.mark.usefixtures(backup_and_restore_config_db)
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
                                              backup_and_restore_config_db):
     """
