@@ -67,7 +67,7 @@ def test_red_accuracy(request,
 
     if cisco_platform:
         original_ecn_markings = get_markings_dut(duthost)
-        setup_markings_dut(duthost, localhost, dequeue = True, latency = False)
+        setup_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
 
     try:
         ip_pkts_list = run_ecn_test(api=ixia_api,
@@ -80,8 +80,8 @@ def test_red_accuracy(request,
                                 kmin=kmin,
                                 kmax=kmax,
                                 pmax=pmax,
-                                pkt_size=pkt_size,
-                                pkt_cnt=pkt_cnt,
+                                data_pkt_size=pkt_size,
+                                data_pkt_cnt=pkt_cnt,
                                 lossless_prio=lossless_prio,
                                 prio_dscp_map=prio_dscp_map,
                                 iters=iters)
