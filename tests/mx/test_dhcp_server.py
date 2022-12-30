@@ -10,7 +10,7 @@ from ptf.mask import Mask
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
-from mx_utils import create_vlan, remove_vlan
+from mx_utils import create_vlan, remove_vlan, get_vlan_config
 
 pytestmark = [
     pytest.mark.topology('mx'),
@@ -192,20 +192,6 @@ def dhcp_mac_change_test(duthost, ptfhost, vlan_config, ptf_index_port, ptfadapt
     finally:
         # restore mac
         change_mac(ptfhost, ptf_port_name, mac_before)
-
-
-def get_vlan_config(vlan_configs, vlan_number):
-    """
-    Get vlan_config by number of vlans
-    """
-    vlan_config = None
-    for config in vlan_configs:
-        if len(config.keys()) == vlan_number:
-            vlan_config = config
-            break
-
-    pytest_require(vlan_config is not None, "Can't get {} vlan config".format(vlan_number))
-    return vlan_config
 
 
 def create_dhcp_offer_ack_packet(eth_client, eth_server, ip_server, ip_dst, netmask_client, lease_time,

@@ -1,3 +1,6 @@
+from tests.common.helpers.assertions import pytest_require
+
+
 def create_vlan(duthost, vlan_config, dut_port_map):
     """
     Create vlans by vlan_config
@@ -25,3 +28,16 @@ def remove_vlan(duthost, vlan_config, dut_port_map):
             duthost.del_member_from_vlan(vlan_id, dut_port_map[member])
 
         duthost.remove_vlan(vlan_id)
+
+
+def get_vlan_config(vlan_configs, vlan_number):
+    """
+    Get vlan_config by number of vlans
+    """
+    vlan_config = None
+    for config in vlan_configs:
+        if len(config.keys()) == vlan_number:
+            vlan_config = config
+            break
+    pytest_require(vlan_config is not None, "Can't get {} vlan config".format(vlan_number))
+    return vlan_config

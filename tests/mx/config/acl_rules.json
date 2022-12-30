@@ -1,0 +1,97 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "bmc_acl_northbound": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "source-ip-address": "172.17.0.200/30"
+                                    }
+                                }
+                            },
+                            "2": {
+                                "config": {
+                                    "sequence-id": 2
+                                },
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "destination-ip-address": "172.17.0.200/30"
+                                    }
+                                }
+                            },
+                            "3": {
+                                "config": {
+                                    "sequence-id": 3
+                                },
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "destination-ip-address": "172.17.0.62/32"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "config": {
+                                    "sequence-id": 4
+                                },
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "destination-ip-address": "172.17.0.126/32"
+                                    }
+                                }
+                            },
+                            "5": {
+                                "config": {
+                                    "sequence-id": 5
+                                },
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "destination-ip-address": "172.17.0.182/32"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "config": {
+                        "name": "bmc_acl_northbound"
+                    }
+                }
+            }
+        }
+    }
+}
