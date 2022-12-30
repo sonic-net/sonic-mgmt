@@ -5,6 +5,7 @@ import operator
 import pytest
 import re
 
+from functools import reduce
 from ptf import mask, testutils
 from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
@@ -24,9 +25,10 @@ def derive_queue_id_from_dscp(dscp):
             Rest       1
     """
 
-    dscp_to_queue = { 8 : 0, 5 : 2, 3 : 3, 4 : 4, 46  : 5,  48 : 6}
+    dscp_to_queue = {8: 0, 5: 2, 3: 3, 4: 4, 46: 5, 48: 6}
 
     return dscp_to_queue.get(dscp, 1)
+
 
 def queue_stats_check(dut, exp_queue):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
@@ -45,9 +47,11 @@ def queue_stats_check(dut, exp_queue):
         for line in result:
             rec_queue = int(line.split()[1][2])
             if rec_queue != exp_queue:
-                logging.debug("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
+                logging.debug("the expected Queue : {} not matching with received Queue : {}"
+                              .format(exp_queue, rec_queue))
             else:
-                logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+                logging.info("the expected Queue : {} matching with received Queue : {}"
+                             .format(exp_queue, rec_queue))
                 return True
     else:
         logging.debug("Could not find queue counter matches.")
@@ -139,7 +143,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
-            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {1:02b}".format(outer_ecn, inner_ecn))
             check_res = []
             if outer_dscp != inner_dscp:
                 check_res.append("outer packet DSCP not same as inner packet DSCP")
@@ -171,7 +175,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("no expect counter in the expected queue %s" % exp_queue)
             return " ,".join(check_res)
 
-        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None, check_items=("ttl", "tos", "queue")):
+        def __init__(self, standby_tor, active_tor=None, existing=True,
+                     inner_packet=None, check_items=("ttl", "tos", "queue")):
             """
             Init the tunnel traffic monitor.
 
@@ -201,7 +206,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.inner_packet = None
             if self.existing:
                 self.inner_packet = inner_packet
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
+                                                     inner_packet=self.inner_packet)
             self.rec_pkt = None
             self.check_items = check_items
 
