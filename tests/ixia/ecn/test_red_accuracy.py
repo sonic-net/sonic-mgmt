@@ -2,28 +2,37 @@ import pytest
 import collections
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
-from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
+from tests.common.fixtures.conn_graph_facts import (  # noqa: F401
+    conn_graph_facts,
+    fanout_graph_facts)
+from tests.common.ixia.ixia_fixtures import (   # noqa: F401
+    ixia_api_serv_ip,
+    ixia_api_serv_port,
+    ixia_api_serv_user,
+    ixia_api_serv_passwd,
+    ixia_api,
+    ixia_testbed_config)
+from tests.common.ixia.qos_fixtures import (   # noqa: F401
+    prio_dscp_map,
+    lossless_prio_list)
 
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 def test_red_accuracy(request,
-                      ixia_api,
-                      ixia_testbed_config,
-                      conn_graph_facts,
-                      fanout_graph_facts,
+                      ixia_api,    # noqa: F811
+                      ixia_testbed_config,    # noqa: F811
+                      conn_graph_facts,    # noqa: F811
+                      fanout_graph_facts,    # noqa: F811
                       duthosts,
                       localhost,
                       rand_one_dut_hostname,
                       rand_one_dut_portname_oper_up,
                       rand_one_dut_lossless_prio,
-                      prio_dscp_map):
+                      prio_dscp_map):   # noqa: F811
     """
     Measure RED/ECN marking accuracy of the device under test (DUT).
     Dump queue length vs. ECN marking probability results into a file.
@@ -31,13 +40,16 @@ def test_red_accuracy(request,
     Args:
         request (pytest fixture): pytest request object
         ixia_api (pytest fixture): IXIA session
-        ixia_testbed_config (pytest fixture): testbed configuration information
+        ixia_testbed_config (pytest fixture): testbed configuration
+            information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
-        rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
+        rand_one_dut_portname_oper_up (str): name of port to test,
+            e.g., 's6100-1|Ethernet0'
+        rand_one_dut_lossless_prio (str): name of lossless priority to test,
+            e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
@@ -67,28 +79,34 @@ def test_red_accuracy(request,
 
     if cisco_platform:
         original_ecn_markings = get_markings_dut(duthost)
-        setup_markings_dut(duthost, localhost, ecn_dequeue_marking = True, ecn_latency_marking = False)
+        setup_markings_dut(
+            duthost,
+            localhost,
+            ecn_dequeue_marking=True,
+            ecn_latency_marking=False)
 
     try:
         ip_pkts_list = run_ecn_test(api=ixia_api,
-                                testbed_config=testbed_config,
-                                port_config_list=port_config_list,
-                                conn_data=conn_graph_facts,
-                                fanout_data=fanout_graph_facts,
-                                duthost=duthost,
-                                dut_port=dut_port,
-                                kmin=kmin,
-                                kmax=kmax,
-                                pmax=pmax,
-                                data_pkt_size=pkt_size,
-                                data_pkt_cnt=pkt_cnt,
-                                lossless_prio=lossless_prio,
-                                prio_dscp_map=prio_dscp_map,
-                                iters=iters)
+                                    testbed_config=testbed_config,
+                                    port_config_list=port_config_list,
+                                    conn_data=conn_graph_facts,
+                                    fanout_data=fanout_graph_facts,
+                                    duthost=duthost,
+                                    dut_port=dut_port,
+                                    kmin=kmin,
+                                    kmax=kmax,
+                                    pmax=pmax,
+                                    data_pkt_size=pkt_size,
+                                    data_pkt_cnt=pkt_cnt,
+                                    lossless_prio=lossless_prio,
+                                    prio_dscp_map=prio_dscp_map,
+                                    iters=iters)
 
         """ Check if we capture packets of all the rounds """
-        pytest_assert(len(ip_pkts_list) == iters,
-                      'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list), iters))
+        pytest_assert(
+            len(ip_pkts_list) == iters,
+            'Only capture {}/{} rounds of packets'.format(
+                len(ip_pkts_list), iters))
 
         queue_mark_cnt = {}
         for i in range(pkt_cnt):
@@ -98,8 +116,10 @@ def test_red_accuracy(request,
         for i in range(iters):
             ip_pkts = ip_pkts_list[i]
             """ Check if we capture all the packets in each round """
-            pytest_assert(len(ip_pkts) == pkt_cnt,
-                          'Only capture {}/{} packets in round {}'.format(len(ip_pkts), pkt_cnt, i))
+            pytest_assert(
+                len(ip_pkts) == pkt_cnt,
+                'Only capture {}/{} packets in round {}'.format(
+                    len(ip_pkts), pkt_cnt, i))
 
             for j in range(pkt_cnt):
                 ip_pkt = ip_pkts[j]
@@ -109,7 +129,8 @@ def test_red_accuracy(request,
                     queue_mark_cnt[queue_len] += 1
 
         """ Dump queue length vs. ECN marking probability into a file """
-        queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
+        queue_mark_cnt = collections.OrderedDict(
+            sorted(queue_mark_cnt.items()))
         f = open(result_file_name, 'w')
         for queue, mark_cnt in queue_mark_cnt.iteritems():
             f.write('{} {}\n'.format(queue, float(mark_cnt)/iters))
@@ -117,4 +138,3 @@ def test_red_accuracy(request,
     finally:
         if cisco_platform:
             setup_markings_dut(duthost, localhost, **original_ecn_markings)
-
