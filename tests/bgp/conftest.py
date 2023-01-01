@@ -389,6 +389,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     conn["namespace"] = mg_facts['minigraph_neighbors'][intf]['namespace']
                 else:
                     conn["namespace"] = DEFAULT_NAMESPACE
+
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
@@ -444,9 +445,9 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
-    elif tbinfo["topo"]["type"] in ["t0", "m0"]:
+    elif tbinfo["topo"]["type"] in ["t0"]:
         setup_func = _setup_interfaces_t0
-    elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m0"]):
         setup_func = _setup_interfaces_t1_or_t2
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
