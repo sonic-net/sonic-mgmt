@@ -329,15 +329,6 @@ ecmp/test_fgnhg.py:
       - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6558
 
-#######################################
-#####         everflow            #####
-#######################################
-everflow/test_everflow_per_interface.py:
-  skip:
-    reason: "Skip running on dualtor testbed."
-    conditions:
-      - "'dualtor' in topo_name"
-
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
     strict: True
