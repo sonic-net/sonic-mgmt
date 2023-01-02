@@ -290,6 +290,12 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
                 "server_dest_ports_ptf_id": downstream_dest_ports_ptf_id
             }
         )
+    # Update the VLAN MAC for dualtor testbed. The VLAN MAC will be used as dst MAC in upstream traffic
+    if 'dualtor' in topo:
+        vlan_name = mg_facts_list[0]['minigraph_vlans'].keys()[0]
+        vlan_mac = downStreamDutHost.get_dut_iface_mac(vlan_name)
+        setup_information.update({"dualtor": True})
+        setup_information[UP_STREAM]['ingress_router_mac'] = vlan_mac
 
     return setup_information
 
@@ -316,7 +322,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo or 'm0' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
@@ -459,18 +465,6 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", autouse=True)
-    def skip_on_dualtor(self, tbinfo):
-        """
-        Skip dualtor topo for now
-        """
-        if 'dualtor' in tbinfo['topo']['name']:
-            pytest.skip("Dualtor testbed is not supported yet")
-        
-        self.is_t0 = False
-        if 't0' in tbinfo['topo']['name']:
-            self.is_t0 = True
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
