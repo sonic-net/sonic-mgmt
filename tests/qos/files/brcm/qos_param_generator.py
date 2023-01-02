@@ -3,7 +3,7 @@ generate and update qos params for brcm platform
 '''
 
 import logging
-import math
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -157,6 +157,9 @@ class QosParamBroadcom(object):
             if hdrm_profile not in self.qos_params[self.speed_cable_len]:
                 self.create_default_headroom_pool_size_parameter(hdrm_profile)
 
+        for pg_profile in ["wm_pg_shared_lossless", "wm_pg_shared_lossy"]:
+            if pg_profile not in self.qos_params[self.speed_cable_len]:
+                self.create_default_pg_shared_watermark_parameter(pg_profile)
 
         for profile in ["xoff_1", "xoff_2", "xon_1", "xon_2"]:
             default_margin = 4
@@ -368,4 +371,16 @@ class QosParamBroadcom(object):
                 logger.info('Update qos_params[{}][{}]["dynamic_threshold"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("dynamic_threshold", False), True))
                 profile.update({"dynamic_threshold": True})
 
+
+        for pg_profile in ["wm_pg_shared_lossless"]:
+            profile = self.qos_params[self.speed_cable_len][pg_profile]
+            if "pkts_num_trig_pfc" not in profile or profile["pkts_num_trig_pfc"] != pg_min_cells + avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_pfc"], pg_min_cells + avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_pfc": pg_min_cells + avaiable_shared_buffer_cells})
+
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != pg_min_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_fill_min"], pg_min_cells))
+                profile.update({"pkts_num_fill_min": pg_min_cells})
 
