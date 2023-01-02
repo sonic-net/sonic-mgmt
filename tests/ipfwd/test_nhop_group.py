@@ -16,6 +16,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -60,15 +61,15 @@ class IPRoutes:
                     ip_nhop_str += "nexthop via {} ".format(ip)
 
                 ip_cmd = "{} {}".format(ip_route, ip_nhop_str)
-                fn.write(ip_cmd+ "\n")
+                fn.write(ip_cmd + "\n")
 
         fn.close()
         # copy file to DUT and run it on DUT
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
-           "IP add failed on duthost:{}".format(self.filename)
+            "IP add failed on duthost:{}".format(self.filename)
         )
 
     def delete_routes(self):
@@ -85,12 +86,12 @@ class IPRoutes:
                 fn.write(ip_route + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
             os.remove(self.filename)
-        except:
+        except:  # noqa: E722
             pass
 
 
@@ -115,14 +116,13 @@ class Arp:
 
         # create a list of IP-MAC bindings
         for i in range(11, count+11):
-            moff1 = "{0:x}".format(i/255)
-            moff2 = "{0:x}".format(i%255)
+            moff1 = "{0:x}".format(i / 255)
+            moff2 = "{0:x}".format(i % 255)
 
             self.ip_mac_list.append(IP_MAC(
                 "{}".format(ip + i),
                 "{}:{}:{}".format(mac, moff1.zfill(2), moff2.zfill(2))
             ))
-
 
     def arps_add(self):
         """
@@ -143,7 +143,7 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
@@ -162,12 +162,12 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
             os.remove(self.filename)
-        except:
+        except:  # noqa: E722
             pass
 
     def clean_up(self):
@@ -179,7 +179,7 @@ class Arp:
         logging.info("IF ADDR DEL {}".format(ip_iface))
         try:
             self.asic.command(ip_iface)
-        except:
+        except:  # noqa: E722
             pass
 
 
@@ -188,11 +188,13 @@ def get_crm_info(duthost, asic):
     get CRM info
     """
     get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
-        " crm_stats_nexthop_group_used"
-        " crm_stats_nexthop_group_available").format(asic.sonic_db_cli)
+                       " crm_stats_nexthop_group_used"
+                       " crm_stats_nexthop_group_available").format(asic.sonic_db_cli)
+    pytest_assert(wait_until(25, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) >= 2)),
+                  get_group_stats)
 
     result = duthost.command(get_group_stats)
-    pytest_assert(result["rc"] == 0, get_group_stats)
+    pytest_assert(result["rc"] == 0 or len(result["stdout_lines"]) < 2, get_group_stats)
 
     crm_info = {
         "used": int(result["stdout_lines"][0]),
@@ -269,6 +271,7 @@ def loganalyzer_ignore_regex_list():
     ]
     return ignore
 
+
 def build_pkt(dest_mac, ip_addr, ttl):
     pkt = testutils.simple_tcp_packet(
           eth_dst=dest_mac,
@@ -339,12 +342,12 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
 
     # find out MAX NHOP group count supported on the platform
     result = asic.run_redis_cmd(
-        argv = ["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"]
+        argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"]
     )
     it = iter(result)
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
-    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
+    max_nhop = nhop_group_limit if max_nhop is None else int(max_nhop)
     if is_cisco_device(duthost) or is_innovium_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available"]
@@ -374,9 +377,6 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
 
     ip_prefix = ipaddr.IPAddress("192.168.0.0")
-
-    # list of all IPs available to generate a nexthop group
-    ip_list = arplist.ip_mac_list
 
     crm_before = get_crm_info(duthost, asic)
 
@@ -422,7 +422,9 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
             )
         )
 
-def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter, gather_facts, enum_rand_one_frontend_asic_index):
+
+def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter, gather_facts,
+                                            enum_rand_one_frontend_asic_index):
     """
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
@@ -430,13 +432,13 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     result = asic.run_redis_cmd(
-        argv = ["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"]
+        argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"]
     )
     it = iter(result)
     switch_capability = dict(zip(it, it))
 
     result = asic.run_redis_cmd(
-            argv = ["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"]
+        argv=["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"]
     )
 
     it = iter(result)
@@ -444,7 +446,8 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
 
     order_ecmp_capability = switch_capability.get("ORDERED_ECMP_CAPABLE")
     order_ecmp_configured = switch_table.get("ordered_ecmp")
-    pytest_assert(order_ecmp_capability == order_ecmp_configured, "Order Ecmp Feature configured and capability not same")
+    pytest_assert(order_ecmp_capability == order_ecmp_configured,
+                  "Order Ecmp Feature configured and capability not same")
 
     if order_ecmp_configured == "false":
         pytest.skip("Order ECMP is not configured so skipping the test-case")
@@ -468,8 +471,8 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
 
     recvd_pkt_result = defaultdict(int)
 
-    rtr_mac= asic.get_router_mac()
-    
+    rtr_mac = asic.get_router_mac()
+
     pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl)
 
     for x in range(2):
@@ -490,45 +493,49 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
 
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
-            (_ , recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=gather_facts['src_port_ids'])
-            
+            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter,
+                                                             pkt=exp_pkt, ports=gather_facts['src_port_ids'])
+
             assert recv_pkt
 
             # Make sure routing is done
-            pytest_assert(Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
-            pytest_assert(Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
-            pytest_assert(Ether(recv_pkt).dst.lower() in neighbor_mac, "Routed Packet Destination Mac not valid neighbor entry")
+            pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
+            pytest_assert(scapy.Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
+            pytest_assert(scapy.Ether(recv_pkt).dst.lower() in neighbor_mac,
+                          "Routed Packet Destination Mac not valid neighbor entry")
             # Add the receive port index and reviced dest mac (Nexthop identify property) to the dictionary
-            recvd_pkt_result[Ether(recv_pkt).dst] += 1
+            recvd_pkt_result[scapy.Ether(recv_pkt).dst] += 1
         finally:
             nhop.delete_routes()
             arplist.clean_up()
 
     # make sure we should have only one element in dict.
     pytest_assert(len(recvd_pkt_result.keys()) == 1, "Error Same flow recevied on different nexthop")
-    neighbor_ip_selected = original_ip_mac_list[neighbor_mac.index(Ether(recv_pkt).dst.lower())][0]
+    neighbor_ip_selected = original_ip_mac_list[neighbor_mac.index(scapy.Ether(recv_pkt).dst.lower())][0]
 
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
-    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = { "th": "172.16.0.16" , "tl7": "172.16.0.13"}
+    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = {"th": "172.16.0.16", "tl7": "172.16.0.13"}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     dutAsic = None
-    for asic,nbr_ip in SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items():
+    for asic, nbr_ip in SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items():
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
         if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
             dutAsic = asic
             break
 
     if not dutAsic:
-        # Vendor need to update SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP . To do this we need to run the test case 1st time
-        # and see the neighbor picked by flow (pkt) sent above. Once that is determine update the map SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP 
-        pytest.xfail("ASIC to flow mapping is not define. Please read above comment to update map with the given ASIC to flow map")
+        # Vendor need to update SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.
+        # To do this we need to run the test case 1st time and see the neighbor picked by flow (pkt) sent above.
+        # Once that is determine update the map SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP
+        pytest.xfail("ASIC to flow mapping is not define. "
+                     "Please read above comment to update map with the given ASIC to flow map")
         return
 
     pytest_assert(dutAsic, "Please add ASIC in the above list and update the asic to neighbor mapping")
