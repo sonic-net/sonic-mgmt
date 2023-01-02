@@ -13,6 +13,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory   # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")
@@ -49,7 +50,13 @@ def partial_ptf_runner(request, ptfhost):
                   'expect_received' : expect_receive,
                   'check_ttl' : 'False' if setup_info[direction]['everflow_dut'].is_multi_asic or "t2" in setup_info["topo"] else 'True' }
         params.update(kwargs)
-
+        # On dualtor testbed, the dst_mac for upstream traffic is vlan MAC, while the src_mac for mirrored traffic is router MAC
+        if setup_info.get('dualtor', False) and (direction == UP_STREAM):
+            params.update({
+                'dualtor_upstream': True,
+                'router_mac': setup_info[direction]['egress_router_mac'],
+                'vlan_mac': setup_info[direction]['ingress_router_mac']
+            })
         ptf_runner(host=ptfhost,
                    testdir="acstests",
                    platform_dir="ptftests",
@@ -114,7 +121,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,
-                                       dest_port_type, ptfadapter, tbinfo):
+                                       dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """
         Verify basic forwarding scenarios for the Everflow feature.
 
@@ -204,7 +211,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"", setup_info[dest_port_type]["remote_namespace"]))
 
-    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
@@ -264,7 +271,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
     
-    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         
 
@@ -350,7 +357,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
+    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
       
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
@@ -452,7 +459,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type,
             partial_ptf_runner,
             config_method,
-            tbinfo
+            tbinfo,
+            toggle_all_simulator_ports_to_rand_selected_tor
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
         This tests single rate three color policer mode and specifically checks CIR value
