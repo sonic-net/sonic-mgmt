@@ -527,6 +527,33 @@
           timeout: 600
         changed_when: false
 
+      - name: Sync DUT system time with NTP server
+        block:
+          - name: Wait for ntp.service restart after reload minigraph
+            shell: systemctl is-active ntp.service
+            register: status
+            until: status.stdout.find('inactive') == -1
+            delay: 10
+            retries: 30
+
+          - name: Stop ntp.service on DUT
+            become: true
+            command: systemctl stop ntp.service
+
+          - name: Sync DUT system time with NTP server
+            become: True
+            command: ntpd -gq
+            async: 300
+            poll: 10
+
+          - name: Start ntp.service on DUT
+            become: true
+            command:  systemctl start ntp.service
+            register: result
+            retries: 3
+            delay: 10
+            until: result is not failed
+
       - name: config static route for trex traffic passthrough
         become: true
         command: "{{ item }}"
