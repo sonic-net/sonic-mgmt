@@ -2153,7 +2153,7 @@ Totals               6450                 6449
                     return False
         return True
         
-     def links_status_up(self, ports):
+    def links_status_up(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
             output_port = output_line.split(' ')[0]
