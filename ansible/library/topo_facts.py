@@ -206,7 +206,6 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['ipv6mask'][dut_index] = ip_mask if ip_mask else '128'
         return vmconfig
 
-
     def get_topo_config(self, topo_name, hwsku, testbed_name, asics_present, card_type):
         CLET_SUFFIX = "-clet"
 
