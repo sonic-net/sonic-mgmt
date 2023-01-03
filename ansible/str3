@@ -306,7 +306,7 @@ sonic_cisco_sup:
       hwsku: 8800-RP-O
       model: '8800-RP'
       num_asics: 16
-      asic_name: Q100
+      asic_name: Q200
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
       syseeprom_info:
@@ -347,7 +347,7 @@ sonic_cisco_sup:
             - psu5.0
             - psu5.1
             - psu5.2
-      asics_present: [0,1,2,3,4,5,6,7,8,9]
+      asics_present: [0,1,4,5,8,9,10,12,13] 
 server:
   hosts:
     str3-acs-serv-61:
