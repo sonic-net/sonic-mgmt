@@ -80,7 +80,7 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
     return fanout_and_ports
     
 
-def is_link_down(fanout, ports):
+def links_down(fanout, ports):
     """
         Input:
             ports: set of ports on this fanout
@@ -88,16 +88,16 @@ def is_link_down(fanout, ports):
             True: if all ports are down
             False: if any port is up
     """
-    return fanout.is_intf_status_down(ports)
+    return fanout.links_status_down(ports)
 
 
-def is_link_up(fanout, ports):
+def links_up(fanout, ports):
     """
         Returns:
             True: if all ports are up
             False: if any port is down
     """
-    return not fanout.is_intf_status_down(ports)
+    return not fanout.links_status_down(ports)
 
 
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
@@ -107,11 +107,11 @@ def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
         # If fanout is not healthy, or links not in expected state, following errors will be thrown
         if up:
             # Make sure interfaces are up on fanout hosts
-            pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_up, fanout, ports),
+            pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, links_up, fanout, ports),
                           "Interface(s) on {} is still down after {}sec".format(hostname, MAX_TIME_TO_REBOOT))
         else:
             # Check every interfaces are down on this host every 5 sec until device boots up
-            pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, is_link_down, fanout, ports),
+            pytest_assert(wait_until(MAX_TIME_TO_REBOOT, 5, 0, links_down, fanout, ports),
                           "Interface(s) on {} is still up after {}sec".format(hostname, MAX_TIME_TO_REBOOT))                            
     return True
 
