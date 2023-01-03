@@ -34,7 +34,7 @@ def pytest_runtest_teardown(item, nextitem):
 
         test_name = item.function.func_name
         duthosts = item.funcargs['duthosts']
-        hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
+        hostname = item.funcargs['enum_upstream_dut_hostname']
         dut = None
         if duthosts and hostname: # unable to test hostname in duthosts
             dut = duthosts[hostname]
@@ -68,8 +68,8 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def crm_thresholds(duthosts, enum_upstream_dut_hostname):
+    duthost = duthosts[enum_upstream_dut_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
         "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
@@ -85,9 +85,9 @@ def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_frontend_asic_index):
+def crm_interface(duthosts, enum_upstream_dut_hostname, tbinfo, enum_frontend_asic_index):
     """ Return tuple of two DUT interfaces """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
@@ -132,9 +132,9 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                                                                                           asichost.asic_index))
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def set_polling_interval(duthosts, enum_upstream_dut_hostname):
     """ Set CRM polling interval to 1 second """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_upstream_dut_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))

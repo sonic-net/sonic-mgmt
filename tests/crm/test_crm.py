@@ -60,7 +60,7 @@ NS_PREFIX_TEMPLATE="""
     {% endif %}"""
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(enum_upstream_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution.
 
     We don't have control over the order events are received by orchagent, so it is
@@ -69,7 +69,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     removed.
 
     Args:
-        enum_rand_one_per_hwsku_frontend_hostname: Fixture to randomly pick a frontend DUT from the testbed
+        enum_upstream_dut_hostname: Fixture to randomly pick a frontend DUT from the testbed
         loganalyzer: Loganalyzer utility fixture
 
     """
@@ -78,8 +78,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     ]
 
     if loganalyzer:  # Skip if loganalyzer is disabled
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
-
+        loganalyzer[enum_upstream_dut_hostname].ignore_regex.extend(ignoreRegex)
 
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
@@ -457,8 +456,8 @@ def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
                                                                 ("6", "{} -6 route add 2001:{}::/126 via {}",
                                                                 "{} -6 route del 2001:{}::/126 via {}")],
                                                                 ids=["ipv4", "ipv6"])
-def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_crm_route(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index, crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
 
@@ -608,9 +607,9 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, \
+def test_crm_nexthop(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index, \
     crm_interface, ip_ver, nexthop, ptfhost):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
     if duthost.facts["asic_type"] == "marvell":
@@ -693,8 +692,8 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
-def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,  crm_interface, ip_ver, neighbor,host):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_crm_neighbor(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index,  crm_interface, ip_ver, neighbor,host):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
     neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -760,8 +759,8 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
 
 
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
-def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, group_member, network):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_crm_nexthop_group(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index, crm_interface, group_member, network):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
 
     nhg_del_template="""
@@ -852,7 +851,6 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
             asichost=asichost, test_name="test_crm_nexthop_group")
-
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
@@ -870,8 +868,8 @@ def recreate_acl_table(duthost, ports):
     duthost.shell_cmds(cmds=cmds)
 
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_acl_entry(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index, collector, tbinfo):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
 
@@ -949,8 +947,8 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                                    crm_stats_acl_entry_available, "==", ">=")
 
 
-def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index, collector):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_acl_counter(duthosts, enum_upstream_dut_hostname,enum_frontend_asic_index, collector):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
 
@@ -1023,8 +1021,8 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
 
 
 @pytest.mark.usefixtures('disable_fdb_aging')
-def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def test_crm_fdb_entry(duthosts, enum_upstream_dut_hostname, enum_frontend_asic_index, tbinfo):
+    duthost = duthosts[enum_upstream_dut_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
 
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
