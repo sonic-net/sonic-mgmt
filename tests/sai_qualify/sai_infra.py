@@ -24,6 +24,7 @@ from conftest import SAI_TEST_REPORT_DIR_ON_PTF
 from conftest import prepare_sai_test_container
 from conftest import reload_dut_config
 from conftest import revert_sai_test_container
+from conftest import saiserver_warmboot_config
 from conftest import stop_and_rm_sai_test_container
 from conftest import stop_dockers
 from conftest import SAI_TEST_CONMUN_CASE_DIR_ON_PTF
@@ -233,14 +234,22 @@ def run_case_from_ptf(duthost,
         test_para += " \"--test-params=thrift_server='{}';\
             port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(
             dut_ip, request.config.option.sai_port_config_file)
-    elif request.config.option.enable_warmboot_test:
-        test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
+    elif request.config.option.enable_ptf_warmboot_test:
+        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';\
             port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
-            dut_ip, request.config.option.sai_port_config_file,  WARM_TEST_ARGS)
-
+            dut_ip,
+            request.config.option.sai_port_config_file,
+            WARM_TEST_ARGS)
+    elif request.config.option.enable_t0_warmboot_test:
+        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
+        test_para += " \"--test-params=thrift_server='{}';\
+            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
+            dut_ip,
+            request.config.option.sai_port_config_file,
+            WARM_TEST_ARGS)
     else:  # for old community test
-        test_para = " --test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
+        test_para = "--test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
             SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
             dut_ip,
             PORT_MAP_FILE_PATH)
@@ -365,10 +374,11 @@ def delete_sai_test_cases(ptfhost, request):
     """
     logger.info("Delete SAI tests cases")
     if request.config.option.enable_ptf_sai_test \
-       or request.config.option.enable_warmboot_test:
+       or request.config.option.enable_ptf_warmboot_test:
         ptfhost.file(path="{0}".format(
             SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF), state="absent")
-    if request.config.option.enable_sai_test:
+    if request.config.option.enable_sai_test \
+       or request.config.option.enable_warmboot_test:
         ptfhost.file(path="{0}".format(
             SAI_TEST_SAI_CASE_DIR_ON_PTF), state="absent")
     else:
