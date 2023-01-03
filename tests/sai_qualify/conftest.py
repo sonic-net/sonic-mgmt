@@ -98,9 +98,13 @@ def pytest_addoption(parser):
     parser.addoption("--enable_ptf_sai_test", action="store_true",
                      help="Trigger PTF-SAI test. If enable PTF-SAI \
                      testing or not, true or false.")
-    parser.addoption("--enable_warmboot_test", action="store_true",
+    parser.addoption("--enable_t0_warmboot_test", action="store_true",
                      default=False,
-                     help="Trigger WARMBOOT test. If enable WARMBOOT \
+                     help="Trigger T0-WARMBOOT test. If enable WARMBOOT \
+                     testing or not, true or false.")
+    parser.addoption("--enable_ptf_warmboot_test", action="store_true",
+                     default=False,
+                     help="Trigger PTF-SAI-WARMBOOT test. If enable WARMBOOT \
                      testing or not, true or false.")
     parser.addoption("--enable_sai_test", action="store_true",
                      help="Trigger SAI test. If enable SAI T0 \
@@ -109,9 +113,9 @@ def pytest_addoption(parser):
                      default=None, type=str,
                      help="SAI test port config file to map \
                      the relationship between lanes and interface.")
-    parser.addoption("--skip_stop_sai_test_container",
+    parser.addoption("--always_stop_sai_test_container",
                      action="store_true",
-                     help="If skip stop the container after one \
+                     help="If always stop the container after one \
                      test or not, true or false.")
     parser.addoption("--sai_origin_version", action="store", default=None,
                      type=str, help="SAI SDK originla version before upgrade.")
@@ -268,7 +272,8 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
         logger.info("Prepare saiserver with command: {}".format(cmd))
         duthost.shell(cmd)
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "init")
             duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
             duthost.shell(
@@ -290,7 +295,8 @@ def revert_sai_test_container(duthost, creds, container_name, request):
         __restore_default_syncd(duthost, creds)
     else:
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "restore")
         __remove_saiserver_deploy(duthost, creds, request)
 
@@ -317,14 +323,16 @@ def get_sai_thrift_version(request):
 
     In current implementation, it will use v2 saithrift when:
         enable_ptf_sai_test
-        enable_warmboot_test
+        enable_t0_warmboot_test
+        enable_ptf_warmboot_test
         enable_sai_test
 
     Args:
         request: Pytest request.
     """
     if request.config.option.enable_ptf_sai_test \
-       or request.config.option.enable_warmboot_test \
+       or request.config.option.enable_t0_warmboot_test \
+       or request.config.option.enable_ptf_warmboot_test \
        or request.config.option.enable_sai_test:
         return "v2"
     else:
@@ -377,6 +385,7 @@ def stop_and_rm_sai_test_container(duthost, container_name):
         container_name: The container name for sai testing on DUT.
     """
     logger.info("Stopping the container '{}'...".format(container_name))
+    # duthost.shell("docker stop " + container_name)
     duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
     duthost.delete_container(container_name)
 
@@ -646,9 +655,10 @@ def saiserver_warmboot_config(duthost, operation):
     """
     Saiserver warmboot mode.
     Change the sai.profile
+
         Args:
-            duthost (AnsibleHost): device under test
-            operation: init|start|restore
+        duthost (AnsibleHost): device under test
+        operation: init|start|restore
     """
     logger.info("config warmboot {}".format(operation))
     duthost.command(
