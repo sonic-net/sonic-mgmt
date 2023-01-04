@@ -2161,12 +2161,12 @@ Totals               6450                 6449
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
                 # for SONiC OS, oper/admin status could only be up/down, so only 2 conditions here
-                if 'down' in output_line:
-                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                    return False
-                else:
+                if 'up' in output_line:
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
                     continue
+                else:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    return False                 
         return True   
 
     def get_port_fec(self, portname):
