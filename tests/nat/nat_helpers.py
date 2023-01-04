@@ -890,8 +890,9 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
     pkt_filter.filter_pkt_in_buffer()
     pkt_dict = convert_pkt_to_dict(pkt_filter.received_pkt)
     # Verify icmp_id in arrived packet
-    if icmp_id_start != None:
-        pytest_assert(int(pkt_dict['ICMP']['id']) in range(icmp_id_start, icmp_id_end+1), "icmp_id: {} not in pool range".format(pkt_dict['ICMP']['id']))
+    if icmp_id_start is not None:
+        pytest_assert(int(pkt_dict['ICMP']['id']) in range(icmp_id_start, icmp_id_end+1),
+                      "icmp_id: {} not in pool range".format(pkt_dict['ICMP']['id']))
     # Verify ICMP reply packets arrive on inner ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt_reply, ports=network_data.inner_ports)
 
