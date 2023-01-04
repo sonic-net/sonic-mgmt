@@ -175,22 +175,18 @@ class FanoutHost(object):
 
     def links_status_down(self, ports):
         """Get interface status
-
         Args:
             ports (set): Interfaces on one fanout
-
         Returns:
             True: if all interfaces are down
             False: if any interface is up
         """
         return self.host.links_status_down(ports)
-        
-     def links_status_up(self, ports):
-        """Get interface status
 
+    def links_status_up(self, ports):
+        """Get interface status
         Args:
             ports (set): Interfaces on one fanout
-
         Returns:
             True: if all interfaces are up
             False: if any interface is down
