@@ -104,8 +104,13 @@ def load_minigraph_with_golden_empty_input(duthost):
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     current_config = get_running_config(duthost)
-    pytest_assert(initial_config == current_config,
-                  "Running config differs.")
+    for table in initial_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
+        pytest_assert(
+            initial_config[table] == current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
