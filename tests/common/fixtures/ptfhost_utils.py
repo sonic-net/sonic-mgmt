@@ -120,6 +120,10 @@ def change_mac_addresses(ptfhost):
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
+    # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
+    # socket read/write operations, so let's restart icmp_responder
+    logging.debug("restart icmp_responder after change ptf port mac addresses")
+    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -139,6 +143,8 @@ def remove_ip_addresses(ptfhost):
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.remove_ip_addresses()
+    # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
+    ptfhost.restart_interfaces()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -160,8 +166,7 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
-@pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+def _ptf_portmap_file(duthost, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -173,7 +178,6 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
     portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -189,7 +193,24 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
-    yield "/root/{}".format(portMapFile.split('/')[-1])
+    return "/root/{}".format(portMapFile.split('/')[-1])
+
+
+@pytest.fixture(scope='class')
+def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+    """
+    A class level fixture that calls _ptf_portmap_file
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    yield _ptf_portmap_file(duthost, ptfhost, tbinfo)
+
+
+@pytest.fixture(scope='module')
+def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
+    """
+    A module level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
 icmp_responder_session_started = False
@@ -277,20 +298,69 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
+@pytest.fixture
+def pause_garp_service(ptfhost):
+    """
+    Temporarily pause GARP service on PTF for one test method
+
+    `run_garp_service` is module scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when garp_service is already running on the PTF
+    """
+    needs_resume = False
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.warning("GARP service not present on PTF")
+    elif 'RUNNING' in res['stdout']:
+        needs_resume = True
+        ptfhost.shell("supervisorctl stop garp_service")
+    else:
+        logger.warning("GARP service already stopped on PTF")
+
+    yield
+
+    if needs_resume:
+        ptfhost.shell("supervisorctl start garp_service")
+
+
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
+        vlans = config_facts['VLAN']
+        vlan_intfs = config_facts['VLAN_INTERFACE']
+        dut_mac = ''
+        for vlan_details in vlans.values():
+            if 'dualtor' in tbinfo['topo']['name']:
+                dut_mac = vlan_details['mac'].lower()
+            else:
+                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+            break
+
+        dst_ipv6 = ''
+        for intf_details in vlan_intfs.values():
+            for key in intf_details.keys():
+                try:
+                    intf_ip = ip_interface(key)
+                    if intf_ip.version == 6:
+                        dst_ipv6 = intf_ip.ip
+                        break
+                except ValueError:
+                    continue
+            break
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
             # For mocked dualtor testbed
             mux_cable_table = {}
-            server_ipv4_base_addr, _ = request.getfixturevalue('mock_server_base_ip_addr')
+            server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
                 server_ipv4 = str(server_ipv4_base_addr + i)
+                server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
                 mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
+                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -300,9 +370,13 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         for vlan_intf, config in mux_cable_table.items():
             ptf_port_index = ptf_indices[vlan_intf]
             server_ip = ip_interface(config['server_ipv4']).ip
+            server_ipv6 = ip_interface(config['server_ipv6']).ip
 
             garp_config[ptf_port_index] = {
-                                            'target_ip': '{}'.format(server_ip)
+                                            'dut_mac': '{}'.format(dut_mac),
+                                            'dst_ipv6': '{}'.format(dst_ipv6),
+                                            'target_ip': '{}'.format(server_ip),
+                                            'target_ipv6': '{}'.format(server_ipv6)
                                         }
 
         ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, GARP_SERVICE_PY), dest=OPT_DIR)
@@ -344,7 +418,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-    
+
     asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():

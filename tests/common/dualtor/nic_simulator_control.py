@@ -6,15 +6,15 @@ import collections
 import logging
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                     # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                     # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_active_ports            # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                     # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                     # noqa F401
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports            # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports_config     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
-from tests.common.dualtor.dual_tor_common import cable_type
-from tests.common.dualtor.dual_tor_common import CableType
 
 
 __all__ = [
@@ -28,7 +28,8 @@ __all__ = [
     "toggle_active_all_ports_both_tors",
     "set_drop_active_active",
     "TrafficDirection",
-    "ForwardingState"
+    "ForwardingState",
+    "toggle_active_active_simulator_ports"
 ]
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,31 @@ class ForwardingState(object):
     """Forwarding state."""
     ACTIVE = True
     STANDBY = False
+
+
+def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+    kwargs["timeout"] = timeout
+    for i in range(retries - 1):
+        try:
+            response = func(*args, **kwargs)
+        except grpc.RpcError as e:
+            # first retries - 1 tries errors are all ignored
+            logging.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
+        else:
+            return response
+
+    try:
+        response = func(*args, **kwargs)
+    except grpc.RpcError as e:
+        logging.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
+        if not ignore_errors:
+            raise
+
+    return response
 
 
 @pytest.fixture(scope="session")
@@ -76,29 +102,33 @@ def restart_nic_simulator(nic_simulator_info, vmhost):
     return lambda: _restart_nic_simulator(vmhost, vmset_name)
 
 
+@pytest.fixture(scope="module")
+def stop_nic_simulator(nic_simulator_info, vmhost):
+    """Fixture to stop nic_simulator service on the VM server host."""
+
+    def _stop_nic_simulator(vmhost, vmset_name):
+        if vmset_name is not None:
+            vmhost.command("systemctl stop nic-simulator-%s" % vmset_name)
+
+    _, _, vmset_name = nic_simulator_info
+    yield lambda: _stop_nic_simulator(vmhost, vmset_name)
+
+    _restart_nic_simulator(vmhost, vmset_name)
+
+
 @pytest.fixture(scope="session")
 def nic_simulator_channel(nic_simulator_info):
     """Setup connection to the nic_simulator."""
-    channel = []
     server_ip, server_port, _ = nic_simulator_info
     server_url = "%s:%s" % (server_ip, server_port)
 
     def _setup_grpc_channel_to_nic_simulator():
-        if channel:
-            return channel[0]
-
         if server_ip is None:
             return None
 
         # temporarily disable HTTP proxies
         with utilities.update_environ("http_proxy", "https_proxy"):
-            _channel = grpc.insecure_channel(server_url)
-            try:
-                grpc.channel_ready_future(_channel).result(timeout=2)
-            except grpc.FutureTimeoutError as e:
-                raise RuntimeError("Failed to establish connection to nic_simulator %s, error(%r)" % (server_url, e))
-            channel.append(_channel)
-            return _channel
+            return grpc.insecure_channel(server_url)
 
     return _setup_grpc_channel_to_nic_simulator
 
@@ -107,39 +137,29 @@ def nic_simulator_channel(nic_simulator_info):
 def nic_simulator_client(nic_simulator_channel):
     """Setup mgmt client stub to the nic_simulator."""
     channel = nic_simulator_channel()
-    stub = []
 
     def _setup_grpc_client_stub():
-        if stub:
-            return stub[0]
-
         if channel is None:
             return None
 
-        _stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
-        stub.append(_stub)
-        return _stub
+        return nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
 
     return _setup_grpc_client_stub
 
 
 @pytest.fixture(scope="session")
-def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbinfo):
+def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_ports_config, tbinfo):   # noqa F811
     """Get mux status from the nic simulator."""
-    active_active_ports = {}
-    for port, config in mux_config.items():
-        if config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
-            config["SERVER"]["soc_ipv4"] = config["SERVER"]["soc_ipv4"].split("/")[0]
-            active_active_ports[port] = config
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_index_map = mg_facts["minigraph_ptf_indices"]
-    admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[0, 1], state=[True, True]) for _ in range(len(active_active_ports))]
+    admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[0, 1], state=[True, True])
+                      for _ in range(len(active_active_ports_config))]
 
     def _get_mux_status(ports=None):
         if ports is None:
-            ports = active_active_ports.keys()
-        elif isinstance(ports, collections.Iterable):
+            ports = active_active_ports_config.keys()
+        elif isinstance(ports, list) or isinstance(ports, tuple):
             ports = list(ports)
         else:
             ports = [str(ports)]
@@ -148,12 +168,12 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, mux_config, tbi
         if client_stub is None:
             return {}
 
-        nic_addresses = [active_active_ports[port]["SERVER"]["soc_ipv4"] for port in ports]
+        nic_addresses = [active_active_ports_config[port]["SERVER"]["soc_ipv4"].split("/")[0] for port in ports]
         request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
             nic_addresses=nic_addresses,
             admin_requests=admin_requests[:len(nic_addresses)]
         )
-        reply = client_stub.QueryAdminForwardingPortState(request)
+        reply = call_grpc(client_stub.QueryAdminForwardingPortState, [request])
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
@@ -202,7 +222,7 @@ def _toggle_cmd(dut, intfs, state):
 
 
 @pytest.fixture
-def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):
+def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):       # noqa F811
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
 
     if cable_type == CableType.active_active:
@@ -222,44 +242,99 @@ class TrafficDirection(object):
 
 
 @pytest.fixture
-def set_drop_active_active(mux_config, nic_simulator_client):
+def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     """Return a helper function to simulator link drop for active-active ports."""
-    drop_intfs = set()
+    _interface_names = []
+    _nic_addresses = []
+    _portids = []
+    _directions = []
 
-    def _call_set_drop_nic_simulator(nic_address, portid, direction, recover=False):
-        drop_request = nic_simulator_grpc_service_pb2.DropRequest(
-            portid=[portid],
-            direction=[direction],
-            recover=recover
-        )
+    def _call_set_drop_nic_simulator(nic_addresses, portids, directions, recover=False):
+        drop_requests = []
+        for portid, direction in zip(portids, directions):
+            drop_request = nic_simulator_grpc_service_pb2.DropRequest(
+                portid=[portid],
+                direction=[direction],
+                recover=recover
+            )
+            drop_requests.append(drop_request)
+
         request = nic_simulator_grpc_mgmt_service_pb2.ListOfDropRequest(
-            nic_addresses=[nic_address],
-            drop_requests=[drop_request]
+            nic_addresses=list(nic_addresses),
+            drop_requests=drop_requests
         )
         client_stub = nic_simulator_client()
-        client_stub.SetDrop(request)
+        call_grpc(client_stub.SetDrop, [request])
 
-    def _set_drop_active_active(interface_name, portid, direction):
+    def _set_drop_active_active(interface_names, portids, directions):
         """
         Simulate link drop on a mux link.
 
-        @param interface_name: interface name
-        @param portid: 1 for upper ToR, 0 for lower ToR
-        @param direction: 0 for downstream, 1 for upstream
+        @param interface_names: list of interface names
+        @param portids: list of portids, 1 for upper ToR, 0 for lower ToR
+        @param directions: list of directions 0 for downstream, 1 for upstream
         """
-        nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
-        logging.debug(
-            "Set drop on port %s, mux server %s, portid %s, direction %s",
-            interface_name, nic_address, portid, direction
-        )
-        drop_intfs.add((interface_name, nic_address, portid, direction))
-        _call_set_drop_nic_simulator(nic_address, portid, direction)
+        nic_addresses = []
+        for interface_name, portid, direction in zip(interface_names, portids, directions):
+            nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
+            logging.debug(
+                "Set drop on port %s, mux server %s, portid %s, direction %s",
+                interface_name, nic_address, portid, direction
+            )
+            nic_addresses.append(nic_address)
+
+        _interface_names.extend(interface_names)
+        _nic_addresses.extend(nic_addresses)
+        _portids.extend(portids)
+        _directions.extend(directions)
+
+        _call_set_drop_nic_simulator(nic_addresses, portids, directions)
 
     yield _set_drop_active_active
 
-    for (interface_name, nic_address, portid, direction) in drop_intfs:
+    for (interface_name, nic_address, portid, _) in zip(_interface_names, _nic_addresses, _portids, _directions):
         logging.debug(
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
-        _call_set_drop_nic_simulator(nic_address, portid, direction, recover=True)
+        _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
+
+
+@pytest.fixture(scope="function")
+def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulator_client):     # noqa F811
+    """Toggle nic_simulator forwarding state."""
+
+    def _toggle_active_active_simulator_ports(mux_ports, portid, state):
+        logging.info("Toggle simulator ports %s to %s", mux_ports, state)
+        if not mux_ports:
+            return
+
+        client_stub = nic_simulator_client()
+        if client_stub is None:
+            return {}
+
+        if portid not in (ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR):
+            raise ValueError(
+                "Unsupported portid, please use %s for upper ToR, %s for lower ToR" %
+                (ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR)
+            )
+        for mux_port in mux_ports:
+            if mux_port not in active_active_ports_config:
+                raise ValueError("mux port %s is not of cable type 'active-active'" % mux_port)
+
+        nic_addresses = [active_active_ports_config[port]["SERVER"]["soc_ipv4"].split("/")[0] for port in mux_ports]
+        admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[portid], state=[state])
+                          for _ in nic_addresses]
+        request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
+            nic_addresses=nic_addresses,
+            admin_requests=admin_requests
+        )
+
+        reply = call_grpc(client_stub.SetAdminForwardingPortState, [request])
+
+        for mux_port, port_status in zip(mux_ports, reply.admin_replies):
+            status = dict(zip(port_status.portid, port_status.state))
+            if status[portid] != state:
+                raise ValueError("failed to toggle port %s, portid %s, state %s" % (mux_port, portid, state))
+
+    return _toggle_active_active_simulator_ports

@@ -139,9 +139,10 @@ class ReloadTest(BaseTest):
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
         self.check_param('dut_mac', '', required=True)
+        self.check_param('vlan_mac', '', required=True)
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
-        self.check_param('lo_prefix', '10.1.0.32/32', required=False)
+        self.check_param('lo_prefix', '', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
@@ -567,6 +568,8 @@ class ReloadTest(BaseTest):
         if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
+        self.vlan_mac = self.test_params['vlan_mac']
+        self.lo_prefix = self.test_params['lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -601,6 +604,7 @@ class ReloadTest(BaseTest):
         self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
         self.log("DUT reboot limit in seconds: %s" % self.limit)
         self.log("DUT mac address: %s" % self.dut_mac)
+        self.log("DUT vlan mac address: %s" % self.vlan_mac)
 
         self.log("From server src addr: %s" % self.from_server_src_addr)
         self.log("From server src port: %s" % self.from_server_src_port)
@@ -726,8 +730,8 @@ class ReloadTest(BaseTest):
 
     def generate_from_vlan(self):
         packet = simple_tcp_packet(
-                      eth_dst=self.dut_mac,
                       eth_src=self.from_server_src_mac,
+                      eth_dst=self.vlan_mac,
                       ip_src=self.from_server_src_addr,
                       ip_dst=self.from_server_dst_addr,
                       tcp_dport=5000
@@ -747,17 +751,17 @@ class ReloadTest(BaseTest):
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
-        dut_lo_ipv4 = self.test_params['lo_prefix'].split('/')[0]
+        dut_lo_ipv4 = self.lo_prefix.split('/')[0]
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
-                                        eth_dst=self.dut_mac,
+                                        eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
             self.ping_dut_packets.append((src_port, str(packet)))
 
-        exp_packet = simple_icmp_packet(eth_src=self.dut_mac,
+        exp_packet = simple_icmp_packet(eth_src=self.vlan_mac,
                                         ip_src=dut_lo_ipv4,
                                         icmp_type='echo-reply')
 
@@ -765,7 +769,7 @@ class ReloadTest(BaseTest):
                                     ip_src=self.from_server_src_addr,
                                     ip_dst=dut_lo_ipv4)
 
-        self.ping_dut_exp_packet  = Mask(exp_packet)
+        self.ping_dut_exp_packet = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
@@ -1327,8 +1331,13 @@ class ReloadTest(BaseTest):
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        if self.reboot_type != 'service-warm-restart':
+        if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
             stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+
+        elif self.test_params['other_vendor_flag'] is True:
+            ignore_db_integrity_check = " -d"
+            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type + ignore_db_integrity_check, timeout=30)
+
         else:
             self.restart_service()
             return
@@ -1550,12 +1559,15 @@ class ReloadTest(BaseTest):
         """
         This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
+        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
+        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
+            # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
-        elif packet[scapyall.Ether].dst == self.dut_mac:
+        elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
             # This is a sent packet.
+            # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
         else:
             return False
@@ -1621,14 +1633,18 @@ class ReloadTest(BaseTest):
             missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
-                if packet[scapyall.Ether].dst == self.dut_mac:
+                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
+                    # for dualtor both MACs are needed:
+                    #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
-                if packet[scapyall.Ether].src == self.dut_mac:
+                if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
                     # This is a received packet.
+                    # for dualtor both MACs are needed:
+                    #   t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0 :   # From vlan to T1.
@@ -1643,6 +1659,8 @@ class ReloadTest(BaseTest):
                     continue
                 if received_payload - prev_payload > 1:
                     # Packets in a row are missing, a disruption.
+                    self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
+                        received_payload, prev_payload, sent_counter, received_counter))
                     lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
                     disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
                     # Add disrupt to the dict:
@@ -1753,7 +1771,7 @@ class ReloadTest(BaseTest):
                 up_time = None
 
             if elapsed > warm_up_timeout_secs:
-                raise Exception("Control plane didn't come up within warm up timeout")
+                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(ctrlplane, dataplane))
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of
@@ -1964,6 +1982,11 @@ class ReloadTest(BaseTest):
                 testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+
+        if self.vlan_mac != self.dut_mac:
+            # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
+            # icmp_responder will also generate a response for this ICMP req, ignore that reply
+            total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts
 
         self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 

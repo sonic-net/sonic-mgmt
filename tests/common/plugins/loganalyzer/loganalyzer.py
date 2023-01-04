@@ -32,10 +32,11 @@ class DisableLogrotateCronContext:
         """
         Disable logrotate cron task / systemd timer and make sure the running logrotate is stopped.
         """
-        # Disable logrotate systemd timer
-        self.ansible_host.command("systemctl stop logrotate.timer")
-        # Disable logrotate cron task
-        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
+        # Disable logrotate systemd timer by best effort. The reason is that logrotate.timer service is not
+        # available in older version like 201911.
+        self.ansible_host.command("systemctl stop logrotate.timer", module_ignore_errors=True)
+        # Disable logrotate cron task. Bullseye-based images will not have this file, so ignore any errors.
+        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate", module_ignore_errors=True)
         logging.debug("Waiting for logrotate from previous cron task or systemd timer run to finish")
         # Wait for logrotate from previous cron task run to finish
         end = time.time() + 60
@@ -55,10 +56,11 @@ class DisableLogrotateCronContext:
         """
         Restore logrotate cron task and systemd timer.
         """
-        # Enable logrotate cron task back
-        self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
-        # Enable logrotate systemd timer
-        self.ansible_host.command("systemctl start logrotate.timer")
+        # Enable logrotate cron task back. Bullseye-based images will not have this file, so ignore any errors.
+        self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate", module_ignore_errors=True)
+        # Enable logrotate systemd timer by best effort. The reason is that logrotate.timer service is not
+        # available in older version like 201911.
+        self.ansible_host.command("systemctl start logrotate.timer", module_ignore_errors=True)
 
 
 class LogAnalyzerError(Exception):

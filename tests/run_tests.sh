@@ -130,7 +130,7 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignores=$(python -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
+    ignores=$(python -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
@@ -143,18 +143,18 @@ function setup_test_options()
     fi
     # Ignore the scripts specified in $SKIP_SCRIPTS
     if [[ x"${TEST_INPUT_ORDER}" == x"True" ]]; then
-        TEST_CASES=$(python -c "print '\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())])")
+        TEST_CASES=$(python -c "print('\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())]))")
     else
-        TEST_CASES=$(python -c "print '\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split()))" | sort)
+        TEST_CASES=$(python -c "print('\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split())))" | sort)
     fi
 
     # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
     FINAL_CASES=""
-    includes=$(python -c "print '|'.join('''$INCLUDE_FOLDERS'''.split())")
+    includes=$(python -c "print('|'.join('''$INCLUDE_FOLDERS'''.split()))")
     for test_case in ${TEST_CASES}; do
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
-    TEST_CASES=$(python -c "print '\n'.join('''${FINAL_CASES}'''.split())")
+    TEST_CASES=$(python -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
 
     if [[ -z $TEST_CASES ]]; then
         echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
@@ -301,8 +301,22 @@ function run_individual_tests()
         fi
 
         echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-        ret_code=$?
+        USE_PY3=0
+        for i in `cat python3_test_files.txt`
+        do
+            USE_PY3=`expr match ${test_script} ${i}`
+            [[ ${USE_PY3} != 0 ]] && break
+        done
+        if [ ${USE_PY3} != 0 ]; then
+            echo Activate Python3 venv
+            source /var/AzDevOps/env-python3/bin/activate
+        fi
+            pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            ret_code=$?
+        if [ ${USE_PY3} != 0 ]; then
+            echo Deactivate Python3 venv
+            deactivate
+        fi
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
@@ -315,7 +329,8 @@ function run_individual_tests()
                 rm -f ${LOG_PATH}/${test_dir}/${test_name}.log
             fi
         else
-            if [ ${ret_code} -eq 10 ]; then     # rc 10 means sanity check failed
+            # rc 10 means pre-test sanity check failed, rc 12 means boths pre-test and post-test sanity check failed
+            if [ ${ret_code} -eq 10 ] || [ ${ret_code} -eq 12 ]; then
                 echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
                 return ${ret_code}
             fi

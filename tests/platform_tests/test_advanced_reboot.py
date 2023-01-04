@@ -8,10 +8,15 @@ from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.skip_check_dut_health
 ]
+logger = logging.getLogger()
 
 def pytest_generate_tests(metafunc):
     input_sad_cases = metafunc.config.getoption("sad_case_list")
@@ -32,7 +37,7 @@ def pytest_generate_tests(metafunc):
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
-    Fast reboot test case is run using advacned reboot test fixture
+    Fast reboot test case is run using advanced reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
@@ -41,6 +46,22 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
         advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
 
+
+@pytest.mark.usefixtures('get_advanced_reboot')
+def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request, get_advanced_reboot, verify_dut_health,
+    advanceboot_loganalyzer, capture_interface_counters):
+    '''
+    Fast reboot test from other vendor case is run using advanced reboot test fixture
+
+    @param request: Spytest commandline argument
+    @param get_advanced_reboot: advanced reboot test fixture
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    advancedReboot = get_advanced_reboot(rebootType='fast-reboot', other_vendor_nos = True,\
+    advanceboot_loganalyzer=advanceboot_loganalyzer)
+    # Before rebooting, we will flush all unnecessary databases, to mimic reboot from other vendor.
+    flush_dbs(duthost)
+    advancedReboot.runRebootTestcase()
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
@@ -129,3 +150,18 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     add_fail_step_to_reboot('warm-reboot')
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
+
+def flush_dbs(duthost):
+    """
+    This Function will flush all unnecessary databases, to mimic reboot from other vendor
+    """
+    logger.info('Flushing databases from switch')
+    db_dic = { 0: 'Application DB',
+                        1: 'ASIC DB',
+                        2: 'Counters DB',
+                        5: 'Flex Counters DB',
+                        6: 'State DB'
+               }
+    for db in db_dic.keys():
+        duthost.shell('redis-cli -n {} flushdb'.format(db))
+
