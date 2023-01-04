@@ -27,6 +27,7 @@ def protocol_type(request):
     """
     return request.param
 
+
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the NAT tests.
@@ -37,6 +38,7 @@ def pytest_addoption(parser):
         default=False,
         help="Enable NAT feature on DUT",
     )
+
 
 @pytest.fixture(scope='module')
 def config_nat_feature_enabled(request, duthost):
@@ -60,7 +62,8 @@ def teardown(duthost):
     """
     yield
     # Teardown after test finished
-    shutdown_cmds = ["sudo config nat remove {}".format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
+    shutdown_cmds = ["sudo config nat remove {}"
+                     .format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
     exec_command(duthost, shutdown_cmds)
     # Clear all enries
     duthost.command("sudo sonic-clear nat translations")
@@ -100,7 +103,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
         interfaces_nat_zone[rif] = {'interface_name': rif,
                                     "global_interface_name": '{}_INTERFACE'.format(
                                         (rif.encode()).translate(None, '0123456789').upper())
-                                   }
+                                    }
         if rif in inner_zone_interfaces:
             interfaces_nat_zone[rif]['zone_id'] = 0
         elif rif in outer_zone_interfaces:
@@ -118,8 +121,10 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                          "indices_to_ports_config": indices_to_ports_config,
                          "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
                          "config_portchannels": config_portchannels,
-                         "pch_ips": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'.format(port_channel_1_name)]['ipv4']['address']},
-                         "pch_masks": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'.format(port_channel_1_name)]['ipv4']['netmask']},
+                         "pch_ips": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'
+                                     .format(port_channel_1_name)]['ipv4']['address']},
+                         "pch_masks": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'
+                                       .format(port_channel_1_name)]['ipv4']['netmask']},
                          "outer_vrf": ["red"],
                          "inner_vrf": ["blue", "yellow"],
                          interface_type: {"vrf_conf": SETUP_CONF[interface_type]["vrf"],
@@ -133,8 +138,8 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                                           "public_ip": public_ip,
                                           "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address'],
                                           "acl_subnet": SETUP_CONF[interface_type]["acl_subnet"]
-                                         }
-                        }
+                                          }
+                         }
     try:
         # Setup interfaces on PTF container
         conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type)
@@ -146,7 +151,8 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type, teardown=True)
 
 
-def nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT, udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT):
+def nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT,
+                      udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT):
     """
     sets DUT's global NAT configuration;
     """
