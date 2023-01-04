@@ -329,6 +329,15 @@ ecmp/test_fgnhg.py:
       - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6558
 
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_per_interface.py:
+  skip:
+    reason: "Skip running on unsupported platforms."
+    conditions:
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
     strict: True
