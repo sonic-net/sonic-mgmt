@@ -55,12 +55,14 @@ def run_bgp_convergence_performance(cvg_api,
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
 
-def run_bgp_scalability_16k_v4_routes(cvg_api,
-                                        duthost,
-                                        localhost,
-                                        tgen_ports,
-                                        multipath,
-                                        ipv4_routes,):
+def run_bgp_scalability_v4_v6(cvg_api,
+                                duthost,
+                                localhost,
+                                tgen_ports,
+                                multipath,
+                                ipv4_routes,
+                                ipv6_routes,
+                                ipv6_prefix,):
     """
     Run Remote link failover test
 
@@ -70,188 +72,36 @@ def run_bgp_scalability_16k_v4_routes(cvg_api,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
         ipv4_routes: no of ipv4 routes
+        ipv6_routes: no of ipv6 routes
+        ipv6_prefix: ipv6 prefix length
     """
-    port_count = multipath+1
-    ipv6_routes=1
-    ipv6_prefix=64
-    flag=1
-    """ Create bgp config on dut """
-    duthost_bgp_scalability_config(duthost,
-                                    tgen_ports,
-                                    port_count,)
 
+    port_count = multipath+1
+
+    if ipv4_routes == 0 and  ipv6_routes == 0:
+        assert False, "Both v4 and v6 route counts can't be zero"
+    elif ipv4_routes !=0 and  ipv6_routes !=0:
+        dual_stack_flag = 1
+    else:
+        dual_stack_flag = 0
+                    
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         port_count,
                                         ipv4_routes,
                                         ipv6_routes,
                                         ipv6_prefix,
-                                        flag,)
+                                        dual_stack_flag,)
 
-    """
-        Run the BGP Scalability test
-    """
-    get_bgp_scalability_result(cvg_api, localhost,
-                                tgen_bgp_config,flag, duthost)
-
-def run_bgp_scalability_8k_v6_routes(cvg_api,
-                                    duthost,
-                                    localhost,
-                                    tgen_ports,
-                                    multipath,
-                                    ipv6_routes,
-                                    ipv6_prefix,):
-    """
-    Run Remote link failover test
-
-    Args:
-        cvg_api (pytest fixture): snappi API
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        multipath: ecmp value for BGP config
-        ipv4_routes: no of ipv4 routes
-    """
-    port_count = multipath+1
-    ipv4_routes=1
-    flag=2
-    """ Create bgp config on dut
-    duthost_bgp_scalability_config(duthost,
-                                    tgen_ports,
-                                    port_count,)
-    """
-    """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        port_count,
-                                        ipv4_routes,
-                                        ipv6_routes,
-                                        ipv6_prefix,
-                                        flag,)
-
+    if ipv4_routes + ipv6_routes > 16000:
+        flag = 1
+    else:
+        flag = 0
     """
         Run the BGP Scalability test
     """
     get_bgp_scalability_result(cvg_api, localhost,
                                  tgen_bgp_config,flag, duthost)
-
-def run_bgp_scalability_256_v6_routes(cvg_api,
-                                    duthost,
-                                    localhost,
-                                    tgen_ports,
-                                    multipath,
-                                    ipv6_routes,
-                                    ipv6_prefix,):
-    """
-    Run Remote link failover test
-
-    Args:
-        cvg_api (pytest fixture): snappi API
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        multipath: ecmp value for BGP config
-        ipv4_routes: no of ipv4 routes
-    """
-    port_count = multipath+1
-    ipv4_routes=1
-    flag=3
-    """ Create bgp config on dut 
-    duthost_bgp_scalability_config(duthost,
-                                    tgen_ports,
-                                    port_count,)
-    """
-    """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        port_count,
-                                        ipv4_routes,
-                                        ipv6_routes,
-                                        ipv6_prefix,
-                                        flag,)
-
-    """
-        Run the BGP Scalability test
-    """
-    get_bgp_scalability_result(cvg_api, localhost,
-                                 tgen_bgp_config,flag, duthost)
-
-def run_bgp_scalability_8kv4_4kv6_routes(cvg_api,
-                                        duthost,
-                                        localhost,
-                                        tgen_ports,
-                                        multipath,
-                                        ipv4_routes,
-                                        ipv6_routes,):
-    """
-    Run Remote link failover test
-
-    Args:
-        cvg_api (pytest fixture): snappi API
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        multipath: ecmp value for BGP config
-        ipv4_routes: no of ipv4 routes
-    """
-    port_count = multipath+1
-    ipv6_prefix=64
-    flag=4
-    """ Create bgp config on dut
-    duthost_bgp_scalability_config(duthost,
-                                    tgen_ports,
-                                    port_count,)
-    """
-    """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        port_count,
-                                        ipv4_routes,
-                                        ipv6_routes,
-                                        ipv6_prefix,
-                                        flag,)
-
-    """
-        Run the BGP Scalability test
-    """
-    get_bgp_scalability_result(cvg_api, localhost,
-                                 tgen_bgp_config,flag, duthost)
-
-def run_bgp_scalability_100kv4_25kv6_routes(cvg_api,
-                                            duthost,
-                                            localhost,
-                                            tgen_ports,
-                                            multipath,
-                                            ipv4_routes,
-                                            ipv6_routes,):
-    """
-    Run Remote link failover test
-
-    Args:
-        cvg_api (pytest fixture): snappi API
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        multipath: ecmp value for BGP config
-        ipv4_routes: no of ipv4 routes
-    """
-    port_count = multipath+1
-    ipv6_prefix=64
-    flag=5
-    """ Create bgp config on dut
-    duthost_bgp_scalability_config(duthost,
-                                    tgen_ports,
-                                    port_count,)
-    """
-    """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        port_count,
-                                        ipv4_routes,
-                                        ipv6_routes,
-                                        ipv6_prefix,
-                                        flag,)
-
-    """
-        Run the BGP Scalability test
-    """
-    get_bgp_scalability_result(cvg_api, localhost,
-                                 tgen_bgp_config,flag, duthost)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
 def duthost_bgp_3port_config(duthost,
                        tgen_ports,
@@ -311,7 +161,7 @@ def duthost_bgp_3port_config(duthost,
     duthost.shell("sudo config reload -y \n")
     wait(TIMEOUT+20,"For Config to reload \n")
 
-def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
+def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     """
     Configures BGP on the DUT with N-1 ecmp
     Args:
@@ -319,6 +169,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, port_count):
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
     """
     global temp_tg_port
+    port_count = multipath+1
     duthost.command('sudo crm config polling interval 30')
     duthost.command('sudo crm config thresholds ipv4 route high 85')
     duthost.command('sudo crm config thresholds ipv4 route low 70')
@@ -376,7 +227,7 @@ def __tgen_bgp_config(cvg_api,
                       v4_routes,
                       v6_routes,
                       v6_prefix,
-                      flag,):
+                      dual_stack_flag,):
     """
     Creating  BGP config on TGEN
 
@@ -386,7 +237,7 @@ def __tgen_bgp_config(cvg_api,
         v4_routes: no of v4 routes 
         v6_routes: no of v6 routes
         v6_prefix: IPv6 prefix value
-        flag: notation for the test step
+        dual_stack_flag: notation for dual or single stack
     """
     conv_config = cvg_api.convergence_config()
     cvg_api.enable_scaling(True)
@@ -477,7 +328,7 @@ def __tgen_bgp_config(cvg_api,
     bgpv6_peer.peer_address = temp_tg_port[2]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
-    route_range2.addresses.add(address='3000::1', prefix=64, count=v6_routes)
+    route_range2.addresses.add(address='3000::1', prefix=v6_prefix, count=v6_routes)
     as_path = route_range2.as_path
     as_path_segment = as_path.segments.add()
     as_path_segment.type = as_path_segment.AS_SEQ
@@ -491,15 +342,15 @@ def __tgen_bgp_config(cvg_api,
         flow1.metrics.enable = True
         flow1.metrics.loss = True
 
-    if flag == 1:
-        createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 100)
-    elif flag == 2 or flag == 3:
-        createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 100)
-    elif flag == 4 or flag == 5:
+    if dual_stack_flag == 1:
         createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 50)
         createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 50)
     else:
-        logger.info("Wrong flag value")
+        if v4_routes == 0:
+            createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 100)
+        elif v6_routes == 0:
+            createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 100)
+
     return conv_config
 
 
@@ -773,8 +624,6 @@ def stop_traffic(cvg_api):
     cvg_api.set_state(cs)
     wait(TIMEOUT-20, "For Protocols To STOP")
 
-def check_dut_syslog(cvg_api,duthost):
-    dut
 def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
     """
     Cleaning up dut config at the end of the test
@@ -805,8 +654,8 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
         logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
         logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
         logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
-        if flag == 5:
-            assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for 100k routes"
+        if flag == 1:
+            assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for greater than 16k routes"
             logger.info('PASSED : {}% Loss observerd in traffic item for 100k routes and {}'.format(float(flow_stats[0].loss),msg))
         else:
             assert  float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
