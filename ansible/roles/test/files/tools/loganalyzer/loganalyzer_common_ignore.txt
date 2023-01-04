@@ -162,3 +162,6 @@ r, ".* ERR .*echo_receive: last:errno=.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/16110065
 r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/16703529
+r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"
