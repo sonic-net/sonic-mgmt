@@ -25,7 +25,7 @@ from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import ptf.testutils as testutils
 from device_connection import DeviceConnection
-from tests.ptftests.utilities import parse_show
+from utilities import parse_show
 import ipaddress
 
 
@@ -402,6 +402,10 @@ class ArpTest(BaseTest):
 
             test_non_broadcast_reply_thread.join(timeout=self.how_long)
 
+            wr_state = self.get_warm_restart_state()
+            if wr_state is not False:
+                self.assertTrue(False, "CPA quit before warm reboot finished")
+
             if test_non_broadcast_reply_thread.isAlive():
                 self.log("Timed out waiting for test_non_broadcast_reply_thread")
                 self.assertTrue(False, "Timed out waiting for test_non_broadcast_reply_thread")
@@ -477,7 +481,7 @@ class ArpTest(BaseTest):
 
     def check_neighbor_advertise_vxlan(self):
         output, _, _ = self.dut_connection.execCommand('show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME))
-        result = parse_show(output)
+        result = parse_show(self, output)
         if len(result) == 0:
             self.assertTrue(False, "vxlan tunnel {} not exists".format(self.VXLAN_TUNNEL_NAME))
 
@@ -487,3 +491,12 @@ class ArpTest(BaseTest):
         if len(output) == 0:
             return None
         return output[0]
+
+    def get_warm_restart_state(self):
+        output, _, _ = self.dut_connection.execCommand(
+            "sonic-db-cli STATE_DB hget 'WARM_RESTART_ENABLE_TABLE|system' enable")
+
+        if len(output) == 0:
+            self.assertTrue(False, "Failed to get warm restart state {}".format(output))
+
+        return True if "true" in output else False
