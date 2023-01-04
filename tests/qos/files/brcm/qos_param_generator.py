@@ -145,6 +145,11 @@ class QosParamBroadcom(object):
         logger.info('Clone default PG shared watermark parameters from qos_params[{}] to qos_params[{}][{}]'.format(pg_profile, self.speed_cable_len, pg_profile))
 
 
+    def create_default_queue_shared_watermark_parameter(self, que_profile):
+        self.qos_params[self.speed_cable_len][que_profile] = self.qos_params[que_profile]
+        logger.info('Clone default queue shared watermark parameters from qos_params[{}] to qos_params[{}][{}]'.format(que_profile, self.speed_cable_len, que_profile))
+
+
     def prepare_default_parameters(self):
         if self.speed_cable_len not in self.qos_params:
             self.create_default_speed_cable_length_parameter()
@@ -161,6 +166,10 @@ class QosParamBroadcom(object):
             if pg_profile not in self.qos_params[self.speed_cable_len]:
                 self.create_default_pg_shared_watermark_parameter(pg_profile)
 
+        for que_profile in ['wm_q_shared_lossless', 'wm_q_shared_lossy']:
+            if que_profile not in self.qos_params[self.speed_cable_len]:
+                self.create_default_queue_shared_watermark_parameter(que_profile)
+
         for profile in ["xoff_1", "xoff_2", "xon_1", "xon_2"]:
             default_margin = 4
             if 'pkts_num_margin' not in self.qos_params[self.speed_cable_len][profile] or self.qos_params[self.speed_cable_len][profile]['pkts_num_margin'] < default_margin:
@@ -174,87 +183,75 @@ class QosParamBroadcom(object):
             return (int(bytes) + self.cell_size - 1) // self.cell_size
 
         def extract_profile_name(fullname):
-            '''
-            profile name string pattern in branch internal-202012:
-                "Ethernet112|2-4":
-                {
-                    "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
-                },
-            profile name string pattern in branch internal:
-                "Ethernet112|2-4":
-                {
-                    "profile": "egress_lossless_profile"
-                },
-            '''
+            # profile name string pattern in branch internal-202012:
+            #     "Ethernet112|2-4":
+            #     {
+            #         "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+            #     },
+            #
+            # profile name string pattern in branch internal:
+            #     "Ethernet112|2-4":
+            #     {
+            #         "profile": "egress_lossless_profile"
+            #     },
             fn = fullname.split('|')[-1] if fullname else None
             return fn[:-1] if bool(fn) and fn[-1] == ']' else fn
 
-        def calc_avaiable_shared_buffer(shared_buffer_cells, ingress_lossless_pool):
+        def calc_avaiable_shared_buffer(shared_buffer_cells, buffer_pool, buffer_profile):
             avaiable_shared_buffer_cells = 0
-            if ingress_lossless_pool['mode'] == 'dynamic':
-                '''
-                dynamic threshold:
-                    Memory can be allocated from shared buffer for pgi  for port p if
-                        Alpha * free buffer > Bp,i
-                    Bp,i: Buffer allocated for pgi of ingress port p
-
-                Considering one port one pg scenario, above formula is simplized as:
-                    alpha * (shared buffer - x) > x
-                    x indicate used share buffer
-
-                +------------+----------+-------+
-                | dynamic_th | register | alpha |
-                +------------+----------+-------+
-                |     -7     |    0     | 1/128 |
-                |     -6     |    1     | 1/64  |
-                |     -5     |    2     | 1/32  |
-                |     -4     |    3     | 1/16  |
-                |     -3     |    4     | 1/8   |
-                |     -2     |    5     | 1/4   |
-                |     -1     |    6     | 1/2   |
-                |      0     |    7     | 1     |
-                |      1     |    8     | 2     |
-                |      2     |    9     | 4     |
-                |      3     |    10    | 8     |
-                +------------+----------+-------+
-                '''
-                alpha = int(self.ingressLosslessProfile['dynamic_th'])
+            if buffer_pool['mode'] == 'dynamic':
+                # dynamic threshold:
+                #     Memory can be allocated from shared buffer for pgi  for port p if
+                #         Alpha * free buffer > Bp,i
+                #     Bp,i: Buffer allocated for pgi of ingress port p
+                # 
+                # Considering one port one pg scenario, above formula is simplized as:
+                #     alpha * (shared buffer - x) > x
+                #     x indicate used share buffer
+                # 
+                # +------------+----------+-------+
+                # | dynamic_th | register | alpha |
+                # +------------+----------+-------+
+                # |     -7     |    0     | 1/128 |
+                # |     -6     |    1     | 1/64  |
+                # |     -5     |    2     | 1/32  |
+                # |     -4     |    3     | 1/16  |
+                # |     -3     |    4     | 1/8   |
+                # |     -2     |    5     | 1/4   |
+                # |     -1     |    6     | 1/2   |
+                # |      0     |    7     | 1     |
+                # |      1     |    8     | 2     |
+                # |      2     |    9     | 4     |
+                # |      3     |    10    | 8     |
+                # +------------+----------+-------+
+                th = int(buffer_profile['dynamic_th'])
                 x = 0
-                if alpha < 0:
-                    alpha *= -1
-                    x = shared_buffer_cells // (2 ** alpha + 1)
+                if th < 0:
+                    th *= -1
+                    x = shared_buffer_cells // (2 ** th + 1)
                 else:
-                    x = shared_buffer_cells * (2 ** alpha) // (2 ** alpha + 1)
+                    x = shared_buffer_cells * (2 ** th) // (2 ** th + 1)
                 avaiable_shared_buffer_cells = x
             else:
                 assert False, 'TODO: so far, not support to calculate avaiable shared buffer for static mode'
             return avaiable_shared_buffer_cells
 
-        '''
-        calculate PG min
-        PG min = particular pg_lossless_profile.size
-        '''
-        pg_min_cells = byte_to_cell(self.ingressLosslessProfile['size'])
 
+        # calculate ingress PG min
+        ingress_pg_min_cells = byte_to_cell(self.ingressLosslessProfile['size'])
+
+        # calculate ingress shared buffer
         ingress_lossless_pool = self.bufferConfig['BUFFER_POOL']['ingress_lossless_pool']
-        shared_buffer_cells = 0
+        # th/th2/th3's shared buffer = ingress_lossless_pool.size / xpe_count
+        ingress_shared_buffer_cells = byte_to_cell(ingress_lossless_pool['size']) // self.xpe_count
+        debug_message = 'shared_buffer = ingress_lossless_pool.size (bytes {}|cells {} // {})'.format(ingress_lossless_pool['size'], byte_to_cell(ingress_lossless_pool['size']), self.xpe_count)
 
-        '''
-        calculate total shared buffer
-        '''
-        if self.asic_type in ['th', 'th2', 'th3']:
-            '''
-            th/th2/th3's shared buffer = ingress_lossless_pool.size / xpe_count
-            '''
-            shared_buffer_cells = byte_to_cell(ingress_lossless_pool['size']) // self.xpe_count
-        else:
-            '''
-            td2/td3's shared buffer = ingress_lossless_pool.size
-                                    - ingress_lossless_pool.xoff
-                                    - (egress_lossless_profile.size * total egress lossless queue number)
-                                    - (egress_lossy_profile.size * total egress lossy queue number)
-                                    - (pg_lossless_profile.size * total lossless buffer pg number)
-            '''
+        if self.asic_type in ['td2', 'td3']:
+            # td2/td3's shared buffer = ingress_lossless_pool.size
+            #                         - ingress_lossless_pool.xoff
+            #                         - (egress_lossless_profile.size * total egress lossless queue number)
+            #                         - (egress_lossy_profile.size * total egress lossy queue number)
+            #                         - (pg_lossless_profile.size * total lossless buffer pg number)
             egress_profiles = {}
             egress_profiles['egress_lossless_profile'] = self.bufferConfig['BUFFER_PROFILE']['egress_lossless_profile']
             egress_profiles['egress_lossy_profile'] = self.bufferConfig['BUFFER_PROFILE']['egress_lossy_profile']
@@ -263,21 +260,20 @@ class QosParamBroadcom(object):
                 if re.search('pg_lossless_(.*)_profile', prof_name):
                     pg_lossless_profiles[prof_name] = prof_value
 
-            shared_buffer_cells = byte_to_cell(ingress_lossless_pool['size']) - byte_to_cell(ingress_lossless_pool.get('xoff', 0))
-            debug_message = 'shared_buffer = ingress_lossless_pool.size (bytes {}|cells {})'.format(ingress_lossless_pool['size'], byte_to_cell(ingress_lossless_pool['size']))
+            ingress_shared_buffer_cells -= byte_to_cell(ingress_lossless_pool.get('xoff', 0))
             debug_message += '\n              - ingress_lossless_pool.xoff (bytes {}|cells {})'.format(ingress_lossless_pool.get('xoff', 0), byte_to_cell(ingress_lossless_pool.get('xoff', 0)))
             for que_name, que_profile in self.bufferConfig['BUFFER_QUEUE'].items():
                 que_profile_name = extract_profile_name(que_profile['profile'])
                 m = re.match('Ethernet\d+\|(\d)-(\d)', que_name)
                 if m:
                     que_num = int(m.group(2)) - int(m.group(1)) + 1
-                    shared_buffer_cells -= byte_to_cell(egress_profiles[que_profile_name]['size']) * que_num
+                    ingress_shared_buffer_cells -= byte_to_cell(egress_profiles[que_profile_name]['size']) * que_num
                     debug_message += '\n              - que_name ({}): egress_profile.size (bytes {}|cells {}) * que_num ({})'.format(que_name, egress_profiles[que_profile_name]['size'], byte_to_cell(egress_profiles[que_profile_name]['size']), que_num)
                 else:
                     m = re.match('Ethernet\d+\|\d', que_name)
                     if m and que_profile_name in egress_profiles:
                         que_num = 1
-                        shared_buffer_cells -= byte_to_cell(egress_profiles[que_profile_name]['size']) * que_num
+                        ingress_shared_buffer_cells -= byte_to_cell(egress_profiles[que_profile_name]['size']) * que_num
                         debug_message += '\n              - que_name ({}): egress_profile.size (bytes {}|cells {}) * que_num ({})'.format(que_name, egress_profiles[que_profile_name]['size'], byte_to_cell(egress_profiles[que_profile_name]['size']), que_num)
 
             for pg_name, pg_profile in self.bufferConfig['BUFFER_PG'].items():
@@ -285,72 +281,95 @@ class QosParamBroadcom(object):
                 m = re.match('Ethernet\d+\|(\d)-(\d)', pg_name)
                 if m:
                     pg_num = int(m.group(2)) - int(m.group(1)) + 1
-                    shared_buffer_cells -= byte_to_cell(
+                    ingress_shared_buffer_cells -= byte_to_cell(
                         pg_lossless_profiles[pg_profile_name]['size']) * pg_num
                     debug_message += '\n              - pg_name ({}): pg_lossless_profile.size (bytes {}|cells {}) * pg_num ({})'.format(pg_name, pg_lossless_profiles[pg_profile_name]['size'], byte_to_cell(pg_lossless_profiles[pg_profile_name]['size']), pg_num)
                 else:
                     m = re.match('Ethernet\d+\|\d', pg_name)
                     if m and pg_profile_name in pg_lossless_profiles:
                         pg_num = 1
-                        shared_buffer_cells -= byte_to_cell(pg_lossless_profiles[pg_profile_name]['size']) * pg_num
+                        ingress_shared_buffer_cells -= byte_to_cell(pg_lossless_profiles[pg_profile_name]['size']) * pg_num
                         debug_message += '\n              - pg_name ({}): pg_lossless_profile.size (bytes {}|cells {}) * pg_num ({})'.format(pg_name, pg_lossless_profiles[pg_profile_name]['size'], byte_to_cell(pg_lossless_profiles[pg_profile_name]['size']), pg_num)
 
-            if self.verbose:
-                logger.info('debug message:\n{}'.format(debug_message))
+        if self.verbose:
+            logger.info('debug message:\n{}'.format(debug_message))
 
-        '''
-        calculate avaiable shared buffer
-        '''
-        avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(shared_buffer_cells, ingress_lossless_pool)
+        # calculate ingress avaiable shared buffer
+        ingress_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(ingress_shared_buffer_cells, ingress_lossless_pool, self.ingressLosslessProfile)
 
         headroom_cells = byte_to_cell(self.ingressLosslessProfile['xoff'])
         pg_reset_offset_cells = byte_to_cell(self.ingressLosslessProfile['xon_offset'])
         if self.asic_type == 'td2':
             # According to test on td2 ASIC, PG min equal half of pg_reset_offset
             # hardcode here now, do more investigation later, and then refact it
-            pg_min_cells = pg_reset_offset_cells // 2
+            ingress_pg_min_cells = pg_reset_offset_cells // 2
 
-        logger.info('Calculation result: pg_min_cells {}, avaiable_shared_buffer_cells {}, shared_buffer_cells(calc) {}, headroom_cells {}, pg_reset_offset_cells {}'.format(
-            pg_min_cells, avaiable_shared_buffer_cells, shared_buffer_cells, headroom_cells, pg_reset_offset_cells))
+        logger.info('Ingress calculation: ingress_pg_min_cells {}, ingress_avaiable_shared_buffer_cells {}, ingress_shared_buffer_cells(calc) {}, headroom_cells {}, pg_reset_offset_cells {}'.format(
+            ingress_pg_min_cells, ingress_avaiable_shared_buffer_cells, ingress_shared_buffer_cells, headroom_cells, pg_reset_offset_cells))
 
-        '''
-        workaround for brcm dual tor
-        '''
-        # if 'shared_limit_sp0' in self.asicConfig and 'dualtor' in self.testbedTopologyName and self.asic_type.lower() in ['td2', 'td3']:
-        if 'shared_limit_sp0' in self.asicConfig and shared_buffer_cells != self.asicConfig['shared_limit_sp0']:
-            avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(self.asicConfig['shared_limit_sp0'], ingress_lossless_pool)
-            logger.info('Workaround calculation result: pg_min_cells {}, avaiable_shared_buffer_cells {}, shared_buffer_cells(reg) {}, headroom_cells {}, pg_reset_offset_cells {}'.format(
-                pg_min_cells, avaiable_shared_buffer_cells, self.asicConfig['shared_limit_sp0'], headroom_cells, pg_reset_offset_cells))
+        # workaround for inaccureate ingress shared buffer capacity
+        if 'ingress_shared_limit_sp0' in self.asicConfig and ingress_shared_buffer_cells != self.asicConfig['ingress_shared_limit_sp0']:
+            ingress_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(self.asicConfig['ingress_shared_limit_sp0'], ingress_lossless_pool, self.ingressLosslessProfile)
+            logger.info('Workaround ingress calculation: ingress_pg_min_cells {}, ingress_avaiable_shared_buffer_cells {}, ingress_shared_buffer_cells(reg) {}, headroom_cells {}, pg_reset_offset_cells {}'.format(
+                ingress_pg_min_cells, ingress_avaiable_shared_buffer_cells, self.asicConfig['ingress_shared_limit_sp0'], headroom_cells, pg_reset_offset_cells))
+
+        # calculate egress lossy que min
+        egress_lossy_que_min_cells = byte_to_cell(self.egressLossyProfile['size'])
+
+        # calculate egress lossy shared buffer
+        egress_lossy_pool = self.bufferConfig['BUFFER_POOL']['egress_lossy_pool']
+        egress_lossy_shared_buffer_cells = byte_to_cell(egress_lossy_pool['size']) // self.xpe_count
+
+        # calculate egress lossy avaiable shared buffer
+        egress_lossy_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(egress_lossy_shared_buffer_cells, egress_lossy_pool, self.egressLossyProfile)
+        logger.info('Egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(calc) {},'.format(
+            egress_lossy_que_min_cells, egress_lossy_avaiable_shared_buffer_cells, egress_lossy_shared_buffer_cells))
+
+        # workaround for inaccureate egress lossy shared buffer capacity
+        # egress lossy pool size is smaller than egress lossless pool
+        egress_shared_limit_sp0 = self.asicConfig.get('egress_shared_limit_sp0', 0)
+        egress_shared_limit_sp1 = self.asicConfig.get('egress_shared_limit_sp1', 0)
+        egress_lossy_shared_limit_sp = egress_shared_limit_sp0
+        if egress_lossy_shared_limit_sp == 0:
+            egress_lossy_shared_limit_sp = egress_shared_limit_sp1
+        elif 0 < egress_shared_limit_sp1 < egress_lossy_shared_limit_sp:
+            egress_lossy_shared_limit_sp = egress_shared_limit_sp1
+        if egress_lossy_shared_limit_sp > 0 and ingress_shared_buffer_cells != egress_lossy_shared_limit_sp:
+            egress_lossy_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(egress_lossy_shared_limit_sp, egress_lossy_pool, self.egressLossyProfile)
+            logger.info('Workaround egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(reg) {},'.format(
+                egress_lossy_que_min_cells, egress_lossy_avaiable_shared_buffer_cells, egress_lossy_shared_limit_sp))
 
         # todo breakout case
         for xoff_profile in ["xoff_1", "xoff_2"]:
-            if self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_pfc"] != pg_min_cells + avaiable_shared_buffer_cells:
+            profile = self.qos_params[self.speed_cable_len][xoff_profile]
+            if profile["pkts_num_trig_pfc"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(
-                    self.speed_cable_len, xoff_profile, self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_pfc"], pg_min_cells + avaiable_shared_buffer_cells))
-                self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_pfc"] = pg_min_cells + avaiable_shared_buffer_cells
-            if self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_ingr_drp"] != pg_min_cells + avaiable_shared_buffer_cells + headroom_cells:
+                    self.speed_cable_len, xoff_profile, profile["pkts_num_trig_pfc"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+                profile["pkts_num_trig_pfc"] = ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells
+            if profile["pkts_num_trig_ingr_drp"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_ingr_drp"] from {} to {}'.format(
-                    self.speed_cable_len, xoff_profile, self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_ingr_drp"], pg_min_cells + avaiable_shared_buffer_cells + headroom_cells))
-                self.qos_params[self.speed_cable_len][xoff_profile]["pkts_num_trig_ingr_drp"] = pg_min_cells + avaiable_shared_buffer_cells + headroom_cells
+                    self.speed_cable_len, xoff_profile, profile["pkts_num_trig_ingr_drp"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells))
+                profile["pkts_num_trig_ingr_drp"] = ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells
 
         for xon_profile in ["xon_1", "xon_2"]:
-            if self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_trig_pfc"] != pg_min_cells + avaiable_shared_buffer_cells:
+            profile = self.qos_params[self.speed_cable_len][xon_profile]
+            if profile["pkts_num_trig_pfc"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(
-                    self.speed_cable_len, xon_profile, self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_trig_pfc"], pg_min_cells + avaiable_shared_buffer_cells))
-                self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_trig_pfc"] = pg_min_cells + avaiable_shared_buffer_cells
-            if self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_dismiss_pfc"] != pg_reset_offset_cells:
+                    self.speed_cable_len, xon_profile, profile["pkts_num_trig_pfc"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+                profile["pkts_num_trig_pfc"] = ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells
+            if profile["pkts_num_dismiss_pfc"] != pg_reset_offset_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_dismiss_pfc"] from {} to {}'.format(
-                    self.speed_cable_len, xon_profile, self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_dismiss_pfc"], pg_reset_offset_cells))
-                self.qos_params[self.speed_cable_len][xon_profile]["pkts_num_dismiss_pfc"] = pg_reset_offset_cells
+                    self.speed_cable_len, xon_profile, profile["pkts_num_dismiss_pfc"], pg_reset_offset_cells))
+                profile["pkts_num_dismiss_pfc"] = pg_reset_offset_cells
 
         for hdrm_profile in ['hdrm_pool_size']:
             if hdrm_profile not in self.qos_params[self.speed_cable_len]:
                 continue
 
             profile = self.qos_params[self.speed_cable_len][hdrm_profile]
-            if 'pkts_num_trig_pfc' not in profile or profile['pkts_num_trig_pfc'] != pg_min_cells + avaiable_shared_buffer_cells:
-                logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_trig_pfc", -1), pg_min_cells + avaiable_shared_buffer_cells))
-                profile.update({"pkts_num_trig_pfc": pg_min_cells + avaiable_shared_buffer_cells})
+            if 'pkts_num_trig_pfc' not in profile or profile['pkts_num_trig_pfc'] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_trig_pfc", -1), ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_pfc": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells})
 
             if 'pkts_num_hdrm_full' not in profile or profile['pkts_num_hdrm_full'] != headroom_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_full"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_full", -1), headroom_cells))
@@ -374,13 +393,62 @@ class QosParamBroadcom(object):
 
         for pg_profile in ["wm_pg_shared_lossless"]:
             profile = self.qos_params[self.speed_cable_len][pg_profile]
-            if "pkts_num_trig_pfc" not in profile or profile["pkts_num_trig_pfc"] != pg_min_cells + avaiable_shared_buffer_cells:
+            if "pkts_num_trig_pfc" not in profile or profile["pkts_num_trig_pfc"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(
-                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_pfc"], pg_min_cells + avaiable_shared_buffer_cells))
-                profile.update({"pkts_num_trig_pfc": pg_min_cells + avaiable_shared_buffer_cells})
+                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_pfc"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_pfc": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells})
 
-            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != pg_min_cells:
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != ingress_pg_min_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
-                    self.speed_cable_len, pg_profile, profile["pkts_num_fill_min"], pg_min_cells))
-                profile.update({"pkts_num_fill_min": pg_min_cells})
+                    self.speed_cable_len, pg_profile, profile["pkts_num_fill_min"], ingress_pg_min_cells))
+                profile.update({"pkts_num_fill_min": ingress_pg_min_cells})
+
+        for pg_profile in ["wm_pg_shared_lossy"]:
+            profile = self.qos_params[self.speed_cable_len][pg_profile]
+
+            default_margin = 4
+            if 'pkts_num_margin' not in profile or profile['pkts_num_margin'] < default_margin:
+                logger.info('Update qos_params[{}][{}]["pkts_num_margin"] from {} to {}'.format(self.speed_cable_len, pg_profile, profile.get("pkts_num_margin", -1), default_margin))
+                profile.update({"pkts_num_margin": default_margin})
+
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != 0:
+                logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_fill_min"], 0))
+                profile.update({"pkts_num_fill_min": 0})
+
+            if "pkts_num_trig_egr_drp" not in profile or profile["pkts_num_trig_egr_drp"] != egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_egr_drp"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_egr_drp"], egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_egr_drp": egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells})
+
+
+        for que_profile in ["wm_q_shared_lossless"]:
+            profile = self.qos_params[self.speed_cable_len][que_profile]
+            if "pkts_num_trig_ingr_drp" not in profile or profile["pkts_num_trig_ingr_drp"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_ingr_drp"] from {} to {}'.format(
+                    self.speed_cable_len, que_profile, profile["pkts_num_trig_ingr_drp"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells))
+                profile.update({"pkts_num_trig_ingr_drp": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells})
+
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != 0:
+                logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
+                    self.speed_cable_len, que_profile, profile["pkts_num_fill_min"], 0))
+                profile.update({"pkts_num_fill_min": 0})
+
+        for que_profile in ["wm_q_shared_lossy"]:
+            profile = self.qos_params[self.speed_cable_len][que_profile]
+
+            default_margin = 8
+            if 'pkts_num_margin' not in profile or profile['pkts_num_margin'] < default_margin:
+                logger.info('Update qos_params[{}][{}]["pkts_num_margin"] from {} to {}'.format(self.speed_cable_len, que_profile, profile.get("pkts_num_margin", -1), default_margin))
+                profile.update({"pkts_num_margin": default_margin})
+
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != egress_lossy_que_min_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
+                    self.speed_cable_len, que_profile, profile["pkts_num_fill_min"], egress_lossy_que_min_cells))
+                profile.update({"pkts_num_fill_min": egress_lossy_que_min_cells})
+
+            if "pkts_num_trig_egr_drp" not in profile or profile["pkts_num_trig_egr_drp"] != egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_egr_drp"] from {} to {}'.format(
+                    self.speed_cable_len, que_profile, profile.get("pkts_num_trig_egr_drp", -1), egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_egr_drp": egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells})
 
