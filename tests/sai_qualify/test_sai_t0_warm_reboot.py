@@ -21,7 +21,7 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("ptf_sai_test_case", WARM_REBOOT_T0_TEST_CASE)
+@pytest.mark.parametrize("sai_test_case", WARM_REBOOT_T0_TEST_CASE)
 def test_sai(
             sai_testbed,
             sai_test_env_check,
@@ -29,7 +29,7 @@ def test_sai(
             duthost,
             localhost,
             ptfhost,
-            ptf_sai_test_case,
+            sai_test_case,
             request,
             create_sai_test_interface_param,
             start_warm_reboot_watcher):
@@ -51,11 +51,11 @@ def test_sai(
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     try:
         sai_test_interface_para = create_sai_test_interface_param
-        run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request)
+        run_case_from_ptf(duthost, dut_ip, ptfhost, sai_test_case, sai_test_interface_para, request)
     except BaseException as e:
-        logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))
+        logger.info("Test case [{}] failed, failed as {}.".format(sai_test_case, e))
         test_fail = True
-        pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
+        pytest.fail("Test case [{}] failed".format(sai_test_case), e)
     finally:
         if test_fail or request.config.option.always_stop_sai_test_container:
             stop_and_rm_sai_test_container(
