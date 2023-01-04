@@ -49,6 +49,7 @@ UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
     "t1": "t2",
     "m0": "m1",
+    "mx": "m0",
     "t2": "t3"
 }
 # Describe downstream neighbor of dut in different topos
@@ -56,6 +57,7 @@ DOWNSTREAM_NEIGHBOR_MAP = {
     "t0": "server",
     "t1": "t0",
     "m0": "mx",
+    "mx": "server",
     "t2": "t1"
 }
 # Topo that downstream neighbor of DUT are servers
@@ -322,7 +324,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo or 'm0' in topo or 'dualtor' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
