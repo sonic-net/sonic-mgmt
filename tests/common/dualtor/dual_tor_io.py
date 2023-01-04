@@ -38,7 +38,7 @@ class DualTorIO:
     """Class to conduct IO over ports in `active-standby` mode."""
 
     def __init__(self, activehost, standbyhost, ptfhost, ptfadapter, tbinfo,
-                io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
+                 io_ready, tor_vlan_port=None, send_interval=0.01, cable_type=CableType.active_standby):
         self.tor_pc_intf = None
         self.tor_vlan_intf = tor_vlan_port
         self.duthost = activehost
@@ -64,8 +64,8 @@ class DualTorIO:
         test_network = ipaddress.ip_address(
             mg_facts['minigraph_vlan_interfaces'][VLAN_INDEX]['addr']) +\
             (1 << (32 - prefix_len))
-        self.default_ip_range = str(ipaddress.ip_interface(unicode(
-            str(test_network) + '/{0}'.format(prefix_len))).network)
+        self.default_ip_range = str(ipaddress.ip_interface((str(test_network) + '/{0}'.format(prefix_len))
+                                                           .encode().decode()).network)
         self.src_addr, mask = self.default_ip_range.split('/')
         self.n_hosts = 2**(32 - int(mask))
 
@@ -106,8 +106,7 @@ class DualTorIO:
             self.send_interval = send_interval
         # How many packets to be sent by sender thread
         logger.info("Using send interval {}".format(self.send_interval))
-        self.packets_to_send = min(int(self.time_to_listen /
-            (self.send_interval * 2)), 45000)
+        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval * 2)), 45000)
         self.packets_sent_per_server = dict()
 
         if self.tor_vlan_intf:
@@ -243,17 +242,10 @@ class DualTorIO:
             server_ip_list = self.ptf_intf_to_server_ip_map.values()
 
         logger.info("-"*20 + "T1 to server packet" + "-"*20)
-        logger.info("PTF source intf: {}"
-                    .format('random' if random_source else ptf_t1_src_intf)
-                   )
-        logger.info("Ethernet address: dst: {} src: {}"
-                    .format(eth_dst, 'random' if random_source else eth_src)
-                   )
-        logger.info("IP address: dst: {} src: random"
-                    .format('all' if len(server_ip_list) > 1
-                                  else server_ip_list[0]
-                           )
-                   )
+        logger.info("PTF source intf: {}".format('random' if random_source else ptf_t1_src_intf))
+        logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, 'random' if random_source else eth_src))
+        logger.info("IP address: dst: {} src: random".format('all' if len(server_ip_list) > 1
+                                                             else server_ip_list[0]))
         logger.info("TCP port: dst: {}".format(TCP_DST_PORT))
         logger.info("DUT mac: {}".format(self.dut_mac))
         logger.info("VLAN mac: {}".format(self.vlan_mac))
@@ -334,8 +326,7 @@ class DualTorIO:
             )
         )
         logger.info("TCP port: dst: {} src: 1234".format(TCP_DST_PORT))
-        logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac,
-            self.standby_mac))
+        logger.info("Active ToR MAC: {}, Standby ToR MAC: {}".format(self.active_mac, self.standby_mac))
         logger.info("VLAN MAC: {}".format(self.vlan_mac))
         logger.info("-"*50)
 
@@ -365,7 +356,8 @@ class DualTorIO:
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
                 packet[scapyall.IP].src = server_ip
-                packet[scapyall.IP].dst = dst_ips[vlan_intf] if self.cable_type == CableType.active_active else self.random_host_ip()
+                packet[scapyall.IP].dst = dst_ips[vlan_intf] \
+                    if self.cable_type == CableType.active_active else self.random_host_ip()
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
@@ -442,8 +434,8 @@ class DualTorIO:
         # tapped to VMs and on the backplane interface. This will result in
         # packet duplication and fail the test. Below change is to add capture
         # filter to filter out all the packets destined to the PTF backplane interface.
-        output = self.ptfhost.shell('cat /sys/class/net/backplane/address',\
-            module_ignore_errors=True)
+        output = self.ptfhost.shell('cat /sys/class/net/backplane/address',
+                                    module_ignore_errors=True)
         if not output['failed']:
             ptf_bp_mac = output['stdout']
             self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
@@ -467,8 +459,8 @@ class DualTorIO:
         # The pcap write might take some time, add some waiting here.
         if not wait_until(30, 5, 0, self._is_ptf_sniffer_stopped):
             raise RuntimeError("Could not stop ptf sniffer.")
-        logger.info("Sniffer finished running after {}".\
-            format(str(datetime.datetime.now() - self.sniffer_start)))
+        logger.info("Sniffer finished running after {}".
+                    format(str(datetime.datetime.now() - self.sniffer_start)))
 
     def fetch_captured_packets(self):
         """Fetch the captured packet file generated by the ptf sniffer."""
@@ -538,17 +530,16 @@ class DualTorIO:
             return None
 
         # Filter out packets:
-        filtered_packets = [ pkt for pkt in self.all_packets if
-            scapyall.TCP in pkt and
-            not scapyall.ICMP in pkt and
-            pkt[scapyall.TCP].sport == 1234 and
-            pkt[scapyall.TCP].dport == TCP_DST_PORT and
-            self.check_tcp_payload(pkt) and
-            (
-                pkt[scapyall.Ether].dst == self.sent_pkt_dst_mac or
-                pkt[scapyall.Ether].src in self.received_pkt_src_mac
-            )
-        ]
+        filtered_packets = [pkt for pkt in self.all_packets if
+                            scapyall.TCP in pkt and
+                            scapyall.ICMP not in pkt and
+                            pkt[scapyall.TCP].sport == 1234 and
+                            pkt[scapyall.TCP].dport == TCP_DST_PORT and
+                            self.check_tcp_payload(pkt) and
+                            (
+                                pkt[scapyall.Ether].dst == self.sent_pkt_dst_mac or
+                                pkt[scapyall.Ether].src in self.received_pkt_src_mac
+                            )]
         logger.info("Number of filtered packets captured: {}".format(len(filtered_packets)))
         if not filtered_packets or len(filtered_packets) == 0:
             logger.error("Sniffer failed to capture any traffic")
@@ -565,8 +556,7 @@ class DualTorIO:
         # (in case of duplicates)
         for server in server_to_packet_map.keys():
             server_to_packet_map[server].sort(
-                key=lambda packet: (int(str(packet[scapyall.TCP].payload)
-                                        .replace('X','')),
+                key=lambda packet: (int(str(packet[scapyall.TCP].payload).replace('X', '')),
                                     packet.time)
             )
 
@@ -583,7 +573,6 @@ class DualTorIO:
             logger.info("Server {} results:\n{}"
                         .format(server_ip, json.dumps(result, indent=4)))
             self.test_results[server_ip] = result
-
 
     def examine_each_packet(self, server_ip, packets):
         num_sent_packets = 0
@@ -604,7 +593,7 @@ class DualTorIO:
                 # scapy 2.4.5 will use Decimal to calulcate time, but json.dumps
                 # can't recognize Decimal, transform to float here
                 curr_time = float(packet.time)
-                curr_payload = int(str(packet[scapyall.TCP].payload).replace('X',''))
+                curr_payload = int(str(packet[scapyall.TCP].payload).replace('X', ''))
 
                 # Look back at the previous received packet to check for gaps/duplicates
                 # Only if we've already received some packets
@@ -634,7 +623,7 @@ class DualTorIO:
             # Find ranges of consecutive packets that have been duplicated
             # All packets within the same consecutive range will have the same
             # difference between the packet index and the sequence number
-            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda (i,x): i - x[0]):
+            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda i, x: i - x[0]):
                 group = map(itemgetter(1), grouper)
                 duplicate_start, duplicate_end = group[0], group[-1]
                 duplicate_dict = {
@@ -681,9 +670,8 @@ class DualTorIO:
             sequential TCP Payload
         """
         try:
-            int(str(packet[scapyall.TCP].payload).replace('X','')) in range(
+            int(str(packet[scapyall.TCP].payload).replace('X', '')) in range(
                 self.packets_to_send)
             return True
-        except Exception as err:
+        except Exception:
             return False
-

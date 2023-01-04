@@ -7,11 +7,12 @@ import uuid
 import requests
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                             # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, \
+                                           OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
 __all__ = [
     'mux_server_info',
@@ -109,7 +110,8 @@ def url(mux_server_url, duthost, tbinfo):
 
         Args:
             interface_name: a str, the name of interface
-                            If interface_name is none, the returned url contains no '/port/action' (For polling/toggling all ports)
+                            If interface_name is none, the returned url contains
+                            no '/port/action' (For polling/toggling all ports)
                             or /mux/vms/flap_counter for retrieving flap counter for all ports
                             or /mux/vms/clear_flap_counter for clearing flap counter for given ports
             action: a str, output|drop|None. If action is None, the returned url contains no '/action'
@@ -128,6 +130,7 @@ def url(mux_server_url, duthost, tbinfo):
         return mux_server_url + "/{}/{}".format(mbr_index, action)
 
     return _url
+
 
 def _get(server_url):
     """
@@ -165,13 +168,13 @@ def _post(server_url, data):
     """
     try:
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
-        logger.debug('POST {} with {}'.format(server_url, data))     # lgtm [py/clear-text-logging-sensitive-data]
+        logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         resp = requests.post(server_url, json=data, headers=headers, timeout=10)
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
-        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))  # lgtm [py/clear-text-logging-sensitive-data]
+        logger.warn("POST {} with data {} failed, err: {}".format(server_url, data, repr(e)))
 
     return False
 
@@ -182,6 +185,7 @@ def set_drop(url, recover_all_directions):
     A helper function is returned to make fixture accept arguments
     """
     drop_intfs = set()
+
     def _set_drop(interface_name, directions):
         """
         A fixture to set drop for a certain direction on a port
@@ -223,11 +227,13 @@ def set_output(url):
 
     return _set_output
 
+
 @pytest.fixture(scope='module')
 def toggle_simulator_port_to_upper_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
+
     def _toggle_simulator_port_to_upper_tor(interface_name):
         """
         A helper function to toggle y_cable simulator ports
@@ -244,11 +250,13 @@ def toggle_simulator_port_to_upper_tor(url, tbinfo):
 
     return _toggle_simulator_port_to_upper_tor
 
+
 @pytest.fixture(scope='module')
 def toggle_simulator_port_to_lower_tor(url, tbinfo):
     """
     Returns _toggle_simulator_port_to_lower_tor to make fixture accept arguments
     """
+
     def _toggle_simulator_port_to_lower_tor(interface_name):
         """
         Function to toggle a given y_cable ports to lower_tor
@@ -264,11 +272,13 @@ def toggle_simulator_port_to_lower_tor(url, tbinfo):
 
     return _toggle_simulator_port_to_lower_tor
 
+
 @pytest.fixture(scope='module')
 def recover_all_directions(url):
     """
     A function level fixture, will return _recover_all_directions to make fixture accept arguments
     """
+
     def _recover_all_directions(interface_name):
         """
         Function to recover all traffic on all directions on a certain port
@@ -279,15 +289,18 @@ def recover_all_directions(url):
         """
         server_url = url(interface_name, OUTPUT)
         data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
-        pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
+        pytest_assert(_post(server_url, data),
+                      "Failed to set output on all directions for interface {}".format(interface_name))
 
     return _recover_all_directions
+
 
 @pytest.fixture(scope='module')
 def check_simulator_read_side(url):
     """
     A function level fixture, will return _check_simulator_read_side
     """
+
     def _check_simulator_read_side(interface_name):
         """
         Retrieve the current active tor from y_cable simulator server.
@@ -312,11 +325,13 @@ def check_simulator_read_side(url):
 
     return _check_simulator_read_side
 
+
 @pytest.fixture(scope='module')
 def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side):
     """
     A function level fixture which returns a helper function
     """
+
     def _get_active_torhost(interface_name):
         active_tor_host = None
         active_side = check_simulator_read_side(interface_name)
@@ -329,6 +344,7 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
 
     return _get_active_torhost
 
+
 def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -337,6 +353,7 @@ def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
     pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
+
 
 @pytest.fixture(scope='module')
 def toggle_all_simulator_ports(mux_server_url, tbinfo):
@@ -349,7 +366,7 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to upper_tor
 
@@ -361,7 +378,7 @@ def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to lower_tor
 
@@ -431,7 +448,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             is_toggle_done = True
             break
 
-    if not is_toggle_done and not utilities.wait_until(60, 10, 0, _are_muxcables_active, duthost):        
+    if not is_toggle_done and not utilities.wait_until(60, 10, 0, _are_muxcables_active, duthost):
         pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
 
 
@@ -503,7 +520,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
     """
     A function level fixture to toggle all ports to a random side.
     """
@@ -532,7 +549,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             return False
 
         # get mapping from port indices to mux status
-        simulator_port_mux_status = {int(k.split('-')[-1]):v for k,v in simulator_mux_status.items()}
+        simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in simulator_mux_status.items()}
         for intf in upper_tor_mux_status['MUX_CABLE']:
 
             if mux_config[intf]["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
@@ -547,9 +564,11 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             upper_tor_status = upper_tor_mux_status['MUX_CABLE'][intf]['STATUS']
             lower_tor_status = lower_tor_mux_status['MUX_CABLE'][intf]['STATUS']
 
-            if upper_tor_status == 'active' and lower_tor_status == 'standby' and simulator_status['active_side'] == 'upper_tor':
+            if upper_tor_status == 'active' and lower_tor_status == 'standby' \
+                    and simulator_status['active_side'] == 'upper_tor':
                 continue
-            if upper_tor_status == 'standby' and lower_tor_status == 'active' and simulator_status['active_side'] == 'lower_tor':
+            if upper_tor_status == 'standby' and lower_tor_status == 'active' \
+                    and simulator_status['active_side'] == 'lower_tor':
                 continue
             logging.warn(
                 "For interface %s, upper tor mux status: %s, lower tor mux status: %s, simulator status: %s",
@@ -578,6 +597,7 @@ def simulator_server_down(set_drop, set_output):
     A fixture to set drop on a given mux cable
     """
     tmp_list = []
+
     def _drop_helper(interface_name):
         tmp_list.append(interface_name)
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
@@ -633,6 +653,7 @@ def simulator_clear_flap_counters(url):
     data = {"port_to_clear": "all"}
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
+
 @pytest.fixture(scope='module')
 def reset_simulator_port(url):
 
@@ -643,11 +664,13 @@ def reset_simulator_port(url):
 
     return _reset_simulator_port
 
+
 @pytest.fixture
 def reset_all_simulator_ports(url):
 
     server_url = url(action=RESET)
     pytest_assert(_post(server_url, {}))
+
 
 @pytest.fixture(scope='module')
 def get_mux_status(url):
@@ -656,6 +679,7 @@ def get_mux_status(url):
         return _get(url(interface_name=interface_name))
 
     return _get_mux_status
+
 
 def check_mux_status(duthosts, active_side):
     """Verify that status of muxcables are expected
@@ -677,22 +701,28 @@ def check_mux_status(duthosts, active_side):
         mux_standby_dut = duthosts[0]
 
     dualtor_intf_config = json.loads(mux_active_dut.shell("show muxcable config --json")['stdout'])
-    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items() if 'cable_type' not in muxcable_config['SERVER'] or muxcable_config['SERVER']['cable_type'] == 'active-standby']
+    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items()
+                            if 'cable_type' not in muxcable_config['SERVER']
+                            or muxcable_config['SERVER']['cable_type'] == 'active-standby']
 
     active_side_muxstatus = json.loads(mux_active_dut.shell("show muxcable status --json")['stdout'])
     standby_side_muxstatus = json.loads(mux_standby_dut.shell("show muxcable status --json")['stdout'])
 
-    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby'and intf in active_standby_ports]
+    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+                                    if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
+    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+                                     if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
-    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items() if muxcable['STATUS'] == 'standby'and intf in active_standby_ports]
+    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+                                     if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
+    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+                                      if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
     if len(active_side_active_muxcables) > 0 and \
-        len(active_side_standby_muxcables) == 0 and \
-        len(standby_side_active_muxcables) == 0 and \
-        len(standby_side_standby_muxcables) > 0 and \
-        set(active_side_active_muxcables) == set(standby_side_standby_muxcables):
+            len(active_side_standby_muxcables) == 0 and \
+            len(standby_side_active_muxcables) == 0 and \
+            len(standby_side_standby_muxcables) > 0 and \
+            set(active_side_active_muxcables) == set(standby_side_standby_muxcables):
         logger.info('Check mux status on DUTs passed')
         logger.info('Active side active muxcables: {}'.format(active_side_active_muxcables))
         logger.info('Active side standby muxcables: {}'.format(active_side_standby_muxcables))
@@ -708,6 +738,7 @@ def check_mux_status(duthosts, active_side):
         logger.info('Standby side standby muxcables: {}'.format(standby_side_standby_muxcables))
         logger.info('Check mux status on DUTs failed')
         return False
+
 
 def validate_check_result(check_result, duthosts, get_mux_status):
     """If check_result is False, collect some log and fail the test.

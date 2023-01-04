@@ -6,17 +6,15 @@ import collections
 import logging
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                     # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                     # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_active_ports            # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_active_ports_config     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                     # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                     # noqa F401
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports            # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports_config     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
-from tests.common.dualtor.dual_tor_common import cable_type
-from tests.common.dualtor.dual_tor_common import CableType
 
 
 __all__ = [
@@ -150,12 +148,13 @@ def nic_simulator_client(nic_simulator_channel):
 
 
 @pytest.fixture(scope="session")
-def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_ports_config, tbinfo):
+def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_ports_config, tbinfo):   # noqa F811
     """Get mux status from the nic simulator."""
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_index_map = mg_facts["minigraph_ptf_indices"]
-    admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[0, 1], state=[True, True]) for _ in range(len(active_active_ports_config))]
+    admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[0, 1], state=[True, True])
+                      for _ in range(len(active_active_ports_config))]
 
     def _get_mux_status(ports=None):
         if ports is None:
@@ -223,7 +222,7 @@ def _toggle_cmd(dut, intfs, state):
 
 
 @pytest.fixture
-def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):
+def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):       # noqa F811
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
 
     if cable_type == CableType.active_active:
@@ -243,7 +242,7 @@ class TrafficDirection(object):
 
 
 @pytest.fixture
-def set_drop_active_active(mux_config, nic_simulator_client):
+def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     """Return a helper function to simulator link drop for active-active ports."""
     _interface_names = []
     _nic_addresses = []
@@ -302,7 +301,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):
 
 
 @pytest.fixture(scope="function")
-def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulator_client):
+def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulator_client):     # noqa F811
     """Toggle nic_simulator forwarding state."""
 
     def _toggle_active_active_simulator_ports(mux_ports, portid, state):
@@ -316,15 +315,16 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
 
         if portid not in (ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR):
             raise ValueError(
-                "Unsupported portid, please use %s for upper ToR, %s for lower ToR" % \
-                    (ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR)
+                "Unsupported portid, please use %s for upper ToR, %s for lower ToR" %
+                (ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR)
             )
         for mux_port in mux_ports:
             if mux_port not in active_active_ports_config:
                 raise ValueError("mux port %s is not of cable type 'active-active'" % mux_port)
 
         nic_addresses = [active_active_ports_config[port]["SERVER"]["soc_ipv4"].split("/")[0] for port in mux_ports]
-        admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[portid], state=[state]) for _ in nic_addresses]
+        admin_requests = [nic_simulator_grpc_service_pb2.AdminRequest(portid=[portid], state=[state])
+                          for _ in nic_addresses]
         request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
             nic_addresses=nic_addresses,
             admin_requests=admin_requests

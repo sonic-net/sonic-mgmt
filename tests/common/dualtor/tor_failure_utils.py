@@ -79,7 +79,6 @@ def tor_blackhole_traffic():
 
     for duthost in torhost:
         lo_ipv4 = None
-        lo_ipv6 = None
         config_facts = duthost.config_facts(
                             host=duthost.hostname, source="running"
                        )['ansible_facts']
@@ -91,8 +90,6 @@ def tor_blackhole_traffic():
                     ip = ipaddress.ip_interface(ipstr)
                     if ip.version == 4:
                         lo_ipv4 = ip
-                    elif ip.version == 6:
-                        lo_ipv6 = ip
 
         duthost.shell("ip -4 route add 0.0.0.0/0 nexthop via {}"
                       .format(lo_ipv4.ip))
@@ -116,6 +113,7 @@ def reboot_tor(localhost, wait_for_device_reachable):
 
     for duthost in torhost:
         wait_for_device_reachable(duthost)
+
 
 @pytest.fixture
 def wait_for_device_reachable(localhost):

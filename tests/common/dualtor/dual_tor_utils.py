@@ -10,6 +10,7 @@ import os
 import ptf
 import re
 import string
+import sys
 
 from collections import defaultdict
 from datetime import datetime
@@ -26,22 +27,24 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_common import cable_type                                                     # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                           # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_active_ports                                            # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                                                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
 from tests.ptf_runner import ptf_runner
 
 
-__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
+__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs',
+           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
 
 logger = logging.getLogger(__name__)
 
 ARP_RESPONDER_PY = "arp_responder.py"
 SCRIPTS_SRC_DIR = "scripts/"
 OPT_DIR = "/opt"
+
 
 def get_tor_mux_intfs(duthost):
     return sorted(duthost.get_vlan_intfs(), key=lambda intf: int(intf.replace('Ethernet', '')))
@@ -212,6 +215,7 @@ def get_t1_active_ptf_ports(dut, tbinfo):
 
     return ptf_portchannel_intfs
 
+
 def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     """
     @summary: Get ptf port indices for PortChannels on which BGP session is up
@@ -234,7 +238,7 @@ def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     ptf_portchannel_intfs = {}
     for k, v in config_facts['PORTCHANNEL'].items():
         if k in portchannels:
-            ptf_portchannel_intfs[k]  = []
+            ptf_portchannel_intfs[k] = []
             for member in v['members']:
                 ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
 
@@ -284,6 +288,7 @@ def force_active_tor():
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
     forced_intfs = []
+
     def force_active_tor_fn(dut, intf):
         logger.info('Setting {} as active for intfs {}'.format(dut, intf))
         if type(intf) == str:
@@ -310,6 +315,7 @@ def force_standby_tor():
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
     forced_intfs = []
+
     def force_standby_tor_fn(dut, intf):
         logger.info('Setting {} as standby for intfs {}'.format(dut, intf))
         if type(intf) == str:
@@ -385,14 +391,16 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         tor_host (object): Host object for the ToR DUT.
         tor_fanouthosts (dict): Key is fanout hostname, value is fanout host object.
         tbinfo (dict): Testbed info from the tbinfo fixture.
-        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All the
-            fanout interfaces that are connected to the specified DUT interfaces will be shutdown. If dut_intfs is not
-            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT and in a VLAN.
+        dut_intfs (list, optional): List of DUT interface names,
+            for example: ['Ethernet0', 'Ethernet4']. All the
+            fanout interfaces that are connected to the specified DUT interfaces will be shutdown.
+            If dut_intfs is not specified, the function will shutdown all the fanout interfaces
+            that are connected to the tor_host DUT and in a VLAN.
             Defaults to None.
 
     Returns:
-        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down
-                                 on that host device.
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value
+            is the interfaces that were shut down on that host device.
     """
     if not dut_intfs:
         # If no interface is specified, shutdown all VLAN ports
@@ -434,7 +442,8 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
 
 @pytest.fixture
-def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
+def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
     """
     Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
@@ -467,7 +476,8 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
+def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
     """
     Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
@@ -500,7 +510,8 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 
 @pytest.fixture
-def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo, cable_type, active_active_ports, active_standby_ports):
+def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts,
+                              tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa F811
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
@@ -669,6 +680,7 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
     for eos_host, vm_intf in down_intfs:
         eos_host.no_shutdown(vm_intf)
 
+
 def _shutdown_tor_downlink_intfs(tor_host, dut_intfs=None):
     """Helper function for shutting down DUT downlink interfaces connected to fanout.
 
@@ -723,6 +735,7 @@ def shutdown_upper_tor_downlink_intfs(upper_tor_host):
 
     upper_tor_host.no_shutdown_multiple(shut_intfs)
 
+
 @pytest.fixture
 def shutdown_lower_tor_downlink_intfs(lower_tor_host):
     """
@@ -746,6 +759,7 @@ def shutdown_lower_tor_downlink_intfs(lower_tor_host):
 
     lower_tor_host.no_shutdown_multiple(shut_intfs)
 
+
 def mux_cable_server_ip(dut):
     """Function for retrieving all ip of servers connected to mux_cable
 
@@ -759,8 +773,10 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip,
-                        target_server_ipv6, target_server_port, ptf_portchannel_indices, completeness_level, check_ipv6=False):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
+                         standby_tor_ip, selected_port, target_server_ip,
+                         target_server_ipv6, target_server_port, ptf_portchannel_indices,
+                         completeness_level, check_ipv6=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -853,9 +869,9 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
         exp_tunnel_pkt.set_do_not_care_scapy(Ether, "dst")
         exp_tunnel_pkt.set_do_not_care_scapy(Ether, "src")
-        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id") # since src and dst changed, ID would change too
-        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl") # ttl in outer packet is set to 255
-        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum") # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")       # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")      # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")   # checksum would differ as the IP header is not the same
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -928,7 +944,8 @@ def random_ip(begin, end):
     return str(ipaddress.ip_address(begin) + random.randint(0, length))
 
 
-def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, ports=[], device_number=0, timeout=None, count=1):
+def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt,
+                                    ports=[], device_number=0, timeout=None, count=1):
     """
     Receive all packets on all specified ports and count how many expected packets were received.
     """
@@ -948,7 +965,7 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
             if ((result.port in ports) and
                 (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
-                ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
+                 ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
                 port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
                 packet_count += 1
                 if packet_count == count:
@@ -959,15 +976,11 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
     return port_packet_count
 
 
-def check_nexthops_balance(rand_selected_dut,
-    ptfadapter,
-    dst_server_addr,
-    tbinfo,
-    downlink_ints,
-    nexthops_count):
+def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
+                           tbinfo, downlink_ints, nexthops_count):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
-    expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
     expected_uplink_portchannels = list()
     portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
@@ -986,11 +999,11 @@ def check_nexthops_balance(rand_selected_dut,
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter,
-                                            exp_packet=exp_pkt,
-                                            exp_tunnel_pkt=exp_tunnel_pkt,
-                                            ports=all_allowed_ports,
-                                            timeout=0.1,
-                                            count=1)
+                                                         exp_packet=exp_pkt,
+                                                         exp_tunnel_pkt=exp_tunnel_pkt,
+                                                         ports=all_allowed_ports,
+                                                         timeout=0.1,
+                                                         count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
@@ -1031,7 +1044,7 @@ def check_nexthops_balance(rand_selected_dut,
                     pc))
 
 
-def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
     """
     @summary: Helper function for verifying upstream packets
     @param host: The dut host
@@ -1053,9 +1066,9 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     eth_src = ptfadapter.dataplane.get_mac(0, tx_port)
     # Generate packets from server to a random IP address, which goes default routes
     pkt = testutils.simple_ip_packet(eth_src=eth_src,
-                                    eth_dst=vlan_mac,
-                                    ip_src=server_ip,
-                                    ip_dst=random_ip)
+                                     eth_dst=vlan_mac,
+                                     ip_src=server_ip,
+                                     ip_dst=random_ip)
     # Generate packet forwarded to portchannels
     pkt_copy = pkt.copy()
     pkt_copy[Ether].src = router_mac
@@ -1082,7 +1095,8 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
         rx_ports += v
     rx_ports = [int(x.strip('eth')) for x in rx_ports]
 
-    logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    logger.info("Verifying upstream traffic. packet number = {} interface = {} \
+                server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, tx_port, pkt, count=1)
@@ -1157,7 +1171,7 @@ def get_neighbor(duthost, neighbor_addr):
     if not output:
         return {}
     output = output[0]
-    return dict(_.split() for _ in itertools.chain(*re.findall('(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
+    return dict(_.split() for _ in itertools.chain(*re.findall(r'(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
 
 
 @contextlib.contextmanager
@@ -1173,7 +1187,9 @@ def flush_neighbor(duthost, neighbor, restore=True):
     finally:
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)
-            duthost.shell("ip neighbor replace %s lladdr %s dev %s" % (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
+            duthost.shell("ip neighbor replace %s lladdr %s dev %s" %
+                          (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
+
 
 def delete_neighbor(duthost, neighbor):
     """Delete neighbor entry for server in duthost, ignore it if doesn't exist."""
@@ -1190,6 +1206,7 @@ def delete_neighbor(duthost, neighbor):
     if neighbor_details:
         return False
     return True
+
 
 @pytest.fixture(scope="function")
 def rand_selected_interface(rand_selected_dut):
@@ -1351,7 +1368,7 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
 
     cmds = []
     cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                    .format(probe_interval_ms))
+                .format(probe_interval_ms))
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
 
@@ -1413,7 +1430,8 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-    dualtor_ports_str = dut_asic.run_redis_cmd(argv = ["sonic-db-cli", "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
+    dualtor_ports_str = dut_asic.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+                                                     fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
     else:
@@ -1423,18 +1441,21 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     return dualtor_ports_set
 
+
 def is_tunnel_qos_remap_enabled(duthost):
     """
     Check whether tunnel_qos_remap is enabled or not
     """
     try:
-        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'', module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
+                                                module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
     except IndexError:
         return False
     return "enabled" == tunnel_qos_remap_status
 
+
 @pytest.fixture(scope="session")
-def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):
+def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # noqa F811
     """
     Apply standard ARP responder for dualtor testbeds
 
