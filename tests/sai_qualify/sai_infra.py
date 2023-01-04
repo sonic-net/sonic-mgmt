@@ -242,7 +242,7 @@ def run_case_from_ptf(duthost,
             request.config.option.sai_port_config_file,
             WARM_TEST_ARGS)
     elif request.config.option.enable_t0_warmboot_test:
-        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
+        test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
         test_para += " \"--test-params=thrift_server='{}';\
             port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
             dut_ip,
