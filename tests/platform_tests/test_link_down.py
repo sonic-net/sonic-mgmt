@@ -97,7 +97,7 @@ def links_up(fanout, ports):
             True: if all ports are up
             False: if any port is down
     """
-    return not fanout.links_status_down(ports)
+    return not fanout.links_status_up(ports)
 
 
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
