@@ -945,10 +945,22 @@ class QosSaiBase(QosBase):
                     if line:
                         m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
                         if m:
-                            asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
+                            asicConfig['ingress_shared_limit_sp0'] = int(m.group(1), 0)
                             break
+
+                output = duthost.shell('bcmcmd "g MMU_THDM_DB_POOL_SHARED_LIMIT"', module_ignore_errors=True)
+                logger.info('Read ASIC MMU_THDM_DB_POOL_SHARED_LIMIT register, output {}'.format(output))
+                count = 0
+                for line in output['stdout'].replace('\r', '\n').split('\n'):
+                    if line:
+                        m = re.match('MMU_THDM_DB_POOL_SHARED_LIMIT\(([01])\).*\]\=(\S+)', line)
+                        if m:
+                            asicConfig['egress_shared_limit_sp{}'.format(m.group(1))] = int(m.group(2), 0)
+                            count += 1
+                            if count == 2:
+                                break
             except:
-                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP register')
+                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP/MMU_THDM_DB_POOL_SHARED_LIMIT register')
         return asicConfig
 
     @pytest.fixture(scope='class', autouse=True)
