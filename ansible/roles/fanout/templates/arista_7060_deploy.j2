@@ -21,7 +21,7 @@ no spanning-tree vlan {{ device_vlan_range[inventory_hostname] | list | join(','
 aaa authorization exec default local
 aaa root secret 0 {{ lab_admin_pass }}
 !
-username {{ secret_group_vars["fanout"]["ansible_eos_user"] }} privilege 15 role network-admin secret 0 {{ secret_group_vars["fanout"]["ansible_eos_pass"] }}
+username admin privilege 15 role network-admin secret 0 {{ lab_admin_pass }}
 username eapi privilege 15 secret 0 {{ lab_admin_pass }}
 !
 vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
