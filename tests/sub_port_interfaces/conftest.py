@@ -1,3 +1,4 @@
+import logging
 import os
 import ipaddress
 import time
@@ -11,6 +12,7 @@ from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common import constants
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
@@ -41,6 +43,7 @@ from sub_ports_helpers import add_static_route_to_dut
 from sub_ports_helpers import remove_static_route_from_dut
 from sub_ports_helpers import update_dut_arp_table
 
+logger = logging.getLogger(__name__)
 
 def pytest_addoption(parser):
     """
@@ -107,6 +110,11 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     """
     sub_ports_config = {}
     max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
+    if is_mellanox_device(duthost) and get_chip_type(duthost) == 'spectrum1':
+        if max_numbers_of_sub_ports > 215:
+            logger.info("Maximum number of sub ports provided by user is {} not supported on SPC1, "
+                        "will be used value: 215".format(max_numbers_of_sub_ports))
+            max_numbers_of_sub_ports = 215
     vlan_ranges_dut = range(20, 60, 10)
     vlan_ranges_ptf = range(20, 60, 10)
 
