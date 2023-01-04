@@ -179,6 +179,16 @@ class PfcPauseTest(BaseTest):
             send_packet(self, self.port_src, pkt, 1)
             send_packet(self, self.port_src, pkt_bg, 1)
 
+            if self.debug:
+                dump_msg = "Iteration {}:\n port_src: {} sport: {} dport: {} dscp: {} dscp_bg: {} vlan_id: {} \n".format(x, self.port_src, sport, dport, self.dscp, self.dscp_bg, self.vlan_id)
+                log_file.write(dump_msg)
+
+                dump_msg = "Pkt:\n Hex dump: {}\n\n".format(sc.utils.hexstr(bytes(pkt)))
+                log_file.write(dump_msg)
+
+                dump_msg = "pkt_bg:\n Hex dump: {}\n\n".format(sc.utils.hexstr(bytes(pkt_bg)))
+                log_file.write(dump_msg)
+
             pkts = capture_matched_packets(self, masked_exp_pkt, self.port_dst)
 
             if self.debug:
