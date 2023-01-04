@@ -788,7 +788,7 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
 
     if expected_techsupport_files:
         # techsupport file creation may took some time after generate dump process already finished
-        assert wait_until(300, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
+        assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
     # Do validation for history
