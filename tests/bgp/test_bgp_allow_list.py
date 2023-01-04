@@ -19,14 +19,15 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+DEPLOYMENT_ID = '0'
 ALLOW_LIST = {
     'BGP_ALLOWED_PREFIXES': {
-        'DEPLOYMENT_ID|0|{}'.format(TEST_COMMUNITY): {
+        'DEPLOYMENT_ID|{}|{}'.format(DEPLOYMENT_ID, TEST_COMMUNITY): {
             'prefixes_v4': PREFIX_LISTS['ALLOWED_WITH_COMMUNITY'],
             'prefixes_v6': PREFIX_LISTS['ALLOWED_WITH_COMMUNITY_V6'],
             'default_action': ''
         },
-        'DEPLOYMENT_ID|0': {
+        'DEPLOYMENT_ID|{}'.format(DEPLOYMENT_ID): {
             'prefixes_v4': PREFIX_LISTS['ALLOWED'],
             'prefixes_v6': PREFIX_LISTS['ALLOWED_V6'],
             'default_action': ''
