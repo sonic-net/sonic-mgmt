@@ -34,7 +34,6 @@ def pytest_generate_tests(metafunc):
 
 
 ### Tetcases to verify normal reboot procedure ###
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
@@ -48,7 +47,6 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advancedReboot.runRebootTestcase()
 
 
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
