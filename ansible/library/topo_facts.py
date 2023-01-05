@@ -228,7 +228,7 @@ class ParseTestbedTopoinfo():
 
         asic_topo_filename = None
         for asic_topo_file_path in asic_topo_file_candidate_list:
-            if os.path.isfile(topo_filename):
+            if os.path.isfile(asic_topo_file_path):
                 asic_topo_filename = asic_topo_file_path
                 break
 
