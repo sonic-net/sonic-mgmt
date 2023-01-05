@@ -35,7 +35,6 @@ from conftest import WARM_TEST_ARGS
 from conftest import start_sai_test_conatiner_with_retry
 from conftest import get_sai_running_vendor_id
 from conftest import get_sai_test_container_name
-from conftest import saiserver_warmboot_config
 from conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
