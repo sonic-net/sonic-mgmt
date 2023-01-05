@@ -520,6 +520,10 @@ class TestQosSai(QosSaiBase):
         if margin:
             testParams["margin"] = margin
 
+        dynamic_threshold = qosConfig["hdrm_pool_size"].get("dynamic_threshold", False)
+        if dynamic_threshold:
+            testParams["dynamic_threshold"] = dynamic_threshold
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -644,6 +648,14 @@ class TestQosSai(QosSaiBase):
             "max_headroom": sharedHeadroomPoolSize,
             "hwsku":dutTestParams['hwsku']
         })
+
+        margin = qosConfig["hdrm_pool_size"].get("margin")
+        if margin:
+            testParams["margin"] = margin
+
+        dynamic_threshold = qosConfig["hdrm_pool_size"].get("dynamic_threshold", False)
+        if dynamic_threshold:
+            testParams["dynamic_threshold"] = dynamic_threshold
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
