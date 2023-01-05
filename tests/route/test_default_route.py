@@ -26,6 +26,8 @@ def get_upstream_neigh_type(topo):
         return 'T3'
     elif 'm0' in topo:
         return 'M1'
+    elif 'mx' in topo:
+        return 'M0'
     else:
         return None
 
