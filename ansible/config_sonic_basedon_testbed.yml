@@ -527,6 +527,27 @@
           timeout: 600
         changed_when: false
 
+      - name: Sync DUT system time with NTP server
+        block:
+          - name: Wait for ntp.service restart after reload minigraph
+            become: true
+            service: name=ntp state=started
+
+          - name: Stop ntp.service on DUT
+            become: true
+            service: name=ntp state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: ntpd -gq
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start ntp.service on DUT
+            become: true
+            service: name=ntp state=restarted enabled=true
+
       - name: config static route for trex traffic passthrough
         become: true
         command: "{{ item }}"
