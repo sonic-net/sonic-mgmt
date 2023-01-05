@@ -29,6 +29,10 @@ vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 vrf definition management
    rd 1:1
 !
+interface defaults
+   ethernet
+      shutdown
+!
 {% for intf in device_port_vlans[inventory_hostname] %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
