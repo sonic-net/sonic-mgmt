@@ -20,6 +20,9 @@ bgp_sum_textfsm = "./bgp/templates/bgp_summary.template"
 flap_threads = []
 skip_hosts = []
 
+cpuSpike = 10
+memSpike = 1.3
+
 pytestmark = [
     pytest.mark.topology('t1')
 ]
@@ -135,15 +138,15 @@ def test_bgp_single_session_flaps(setup):
     for i in range(10):
         stats.append(get_cpu_stats(setup['duthost']))
         index = len(stats) - 1
-        assert stats[index][0] < (stats[index - 1][0] + 10)
-        assert stats[index][1] < (stats[index - 1][1] + 10)
-        assert stats[index][2] < (stats[index - 1][2] + 10)
-        assert stats[index][3] < (stats[index - 1][3] * 1.3)
-        assert stats[index][4] < (stats[index - 1][4] * 1.3)
-        assert stats[index][5] < (stats[index - 1][5] * 1.3)
-        assert stats[index][6] < (stats[index - 1][6] * 1.3)
-        assert stats[index][7] < (stats[index - 1][7] * 1.3)
-        assert stats[index][8] < (stats[index - 1][8] * 1.3)
+        assert stats[index][0] < (stats[0][0] + cpuSpike)
+        assert stats[index][1] < (stats[0][1] + cpuSpike)
+        assert stats[index][2] < (stats[0][2] + cpuSpike)
+        assert stats[index][3] < (stats[0][3] * memSpike)
+        assert stats[index][4] < (stats[0][4] * memSpike)
+        assert stats[index][5] < (stats[0][5] * memSpike)
+        assert stats[index][6] < (stats[0][6] * memSpike)
+        assert stats[index][7] < (stats[0][7] * memSpike)
+        assert stats[index][8] < (stats[0][8] * memSpike)
 
         time.sleep(wait_time)
 
@@ -182,15 +185,15 @@ def test_bgp_multiple_session_flaps(setup):
     for i in range(10):
         stats.append(get_cpu_stats(setup['duthost']))
         index = len(stats) - 1
-        assert stats[index][0] < (stats[index - 1][0] + 10)
-        assert stats[index][1] < (stats[index - 1][1] + 10)
-        assert stats[index][2] < (stats[index - 1][2] + 10)
-        assert stats[index][3] < (stats[index - 1][3] * 1.3)
-        assert stats[index][4] < (stats[index - 1][4] * 1.3)
-        assert stats[index][5] < (stats[index - 1][5] * 1.3)
-        assert stats[index][6] < (stats[index - 1][6] * 1.3)
-        assert stats[index][7] < (stats[index - 1][7] * 1.3)
-        assert stats[index][8] < (stats[index - 1][8] * 1.3)
+        assert stats[index][0] < (stats[0][0] + cpuSpike)
+        assert stats[index][1] < (stats[0][1] + cpuSpike)
+        assert stats[index][2] < (stats[0][2] + cpuSpike)
+        assert stats[index][3] < (stats[0][3] * memSpike)
+        assert stats[index][4] < (stats[0][4] * memSpike)
+        assert stats[index][5] < (stats[0][5] * memSpike)
+        assert stats[index][6] < (stats[0][6] * memSpike)
+        assert stats[index][7] < (stats[0][7] * memSpike)
+        assert stats[index][8] < (stats[0][8] * memSpike)
 
         time.sleep(wait_time)
 

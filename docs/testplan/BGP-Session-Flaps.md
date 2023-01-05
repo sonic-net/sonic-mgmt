@@ -52,7 +52,8 @@ Have a single neighbor disable and enable BGP to flap the session with DUT.
 1. Gather base CPU and memory statistics from DUT
 2. Start neighbor BGP session flapping
 3. Verify no CPU or memory spikes on DUT by running show process cpu/memory
-    and ensuring the output is noticibly higher
+    and ensuring the output is noticibly higher, either 10% more cpu or 30%
+    more memory from baseline
 
 ### Test case #2 - Multiple Neighbors Flapping
 
@@ -61,4 +62,5 @@ Have all neighbors disable and enable BGP to flap their sessions with DUT.
 1. Gather base CPU and memory statistics from DUT
 2. Start all neighbor BGP sessions flapping
 3. Verify no CPU or memory spikes on DUT by running show process cpu/memory
-    and ensuring the output is noticibly higher
+    and ensuring the output is noticibly higher, either 10% more cpu or 30%
+    more memory from baseline
