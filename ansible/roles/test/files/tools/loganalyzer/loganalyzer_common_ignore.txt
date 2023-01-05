@@ -180,3 +180,6 @@ r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
 
 # Error log generated during the mx generation of dnsmasq.host file has no effect on the test results
 r, ".* Got port .* that doesn't map to a port index, skipping.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/16703529
+r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"

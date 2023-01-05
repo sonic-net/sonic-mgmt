@@ -21,7 +21,7 @@ radius_servers: []
 
 radius_passkey: testing123
 
-tacacs_servers: ['10.0.0.9', '10.0.0.8']
+tacacs_servers: ['10.0.20.9', '10.0.20.8']
 
 tacacs_passkey: testing123
 
