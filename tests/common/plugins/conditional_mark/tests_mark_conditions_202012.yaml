@@ -59,36 +59,6 @@ platform_tests/test_advanced_reboot.py:
     conditions:
       - "release in ['202012']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "test issue or image issue, to be RCA'ed"
