@@ -531,7 +531,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
-            duthost = duthosts[dut_host]
+            duthost = duthosts[str(dut_host)]
             mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]
