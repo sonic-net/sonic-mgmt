@@ -6,6 +6,7 @@ import logging
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 
@@ -17,19 +18,11 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-def get_upstream_neigh_type(topo):
-    if 't0' in topo or 'dualtor' in topo:
-        return 'T1'
-    elif 't1' in topo:
-        return 'T2'
-    elif 't2' in topo:
-        return 'T3'
-    elif 'm0' in topo:
-        return 'M1'
-    elif 'mx' in topo:
-        return 'M0'
-    else:
-        return None
+def get_upstream_neigh_type(topo_type):
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
+
+    return None
 
 def get_upstream_neigh(tb, device_neigh_metadata):
     """
@@ -38,7 +31,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)} 
     """
     upstream_neighbors = {}
-    neigh_type = get_upstream_neigh_type(tb['topo']['name'])
+    neigh_type = get_upstream_neigh_type(tb['topo']['type'])
     logging.info("testbed topo {} upstream neigh type {}".format(
         tb['topo']['name'], neigh_type))
 
@@ -72,7 +65,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     return upstream_neighbors
 
 def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
-    neigh_type = get_upstream_neigh_type(tbinfo['topo']['name'])
+    neigh_type = get_upstream_neigh_type(tbinfo['topo']['type'])
     asics = set()
     for name, asic in bgp_name_to_ns_mapping.items():
         if neigh_type not in name:
@@ -122,7 +115,7 @@ def test_default_route_set_src(duthosts, tbinfo):
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['name']) , tbinfo)
+    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     config_facts = asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -158,7 +151,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
     check if ipv6 default route nexthop address uses global address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['name']) , tbinfo)
+    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
@@ -179,7 +172,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
             "Skip this testcase since this topology {} has no default routes"\
                 .format(tbinfo['topo']['name']))
 
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['name']) , tbinfo)
+    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
     
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
