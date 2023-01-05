@@ -5,6 +5,7 @@ import os
 import sys
 
 from telemetry_utils import skip_201911_and_older
+from telemetry_utils import skip_arm_platform
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -102,6 +103,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     logger.info("Start events testing")
 
     skip_201911_and_older(duthost)
+    skip_arm_platform(duthost)
     do_init(duthost)
 
     drain_cache(duthost, localhost)

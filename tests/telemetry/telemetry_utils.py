@@ -46,6 +46,14 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
+def skip_arm_platform(duthost):
+    """ Skip the current test if DUT is arm platform.
+    """
+    platform = duthost.facts["platform"]
+    if 'arm' in platform:
+        pytest.skip("Test not supported for arm platform. Skipping the test")
+
+
 def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
         Restart telemetry process
