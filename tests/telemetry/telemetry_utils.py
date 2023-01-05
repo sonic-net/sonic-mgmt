@@ -50,8 +50,8 @@ def skip_arm_platform(duthost):
     """ Skip the current test if DUT is arm platform.
     """
     platform = duthost.facts["platform"]
-    if 'arm' in platform:
-        pytest.skip("Test not supported for arm platform. Skipping the test")
+    if 'x86_64' not in platform:
+        pytest.skip("Test not supported for current platform. Skipping the test")
 
 
 def setup_telemetry_forpyclient(duthost):
