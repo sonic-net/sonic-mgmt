@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import pytest
 import re
@@ -563,6 +564,7 @@ class QosSaiBase(QosBase):
             for iface,addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
+                    portName = iface
                     if "." in iface:
                         portName, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
@@ -717,10 +719,9 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-        self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
-        swapSyncd, enable_container_autorestart, disable_container_autorestart,
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports
-    ):
+            self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
+            swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
+            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -898,6 +899,34 @@ class QosSaiBase(QosBase):
             if 'proxy_arp' in value:
                 logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
+    def dutBufferConfig(self, duthost):
+        bufferConfig = {}
+        try:
+            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
+            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
+            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
+            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+        except Exception as err:
+            logger.info(err)
+        return bufferConfig
+
+    def dutAsicConfig(self, asic, duthost):
+        asicConfig = {}
+        # Only support to get brcm asic info, so far
+        if 'broadcom' in asic.lower():
+            try:
+                output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
+                logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
+                for line in output['stdout'].replace('\r', '\n').split('\n'):
+                    if line:
+                        m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
+                        if m:
+                            asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
+                            break
+            except:
+                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP register')
+        return asicConfig
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
@@ -960,6 +989,37 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"]
             )
             qosParams = qpm.run()
+
+        elif 'broadcom' in duthost.facts['asic_type'].lower():
+            bufferConfig = self.dutBufferConfig(duthost)
+            pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
+            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+            asicConfig = self.dutAsicConfig(duthost.facts['asic_type'], duthost)
+
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                       dutAsic,
+                                                       portSpeedCableLength,
+                                                       dutConfig,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       sharedHeadroomPoolSize,
+                                                       dutConfig["dualTor"],
+                                                       dutTopo,
+                                                       bufferConfig,
+                                                       asicConfig,
+                                                       tbinfo["topo"]["name"])
+            qosParams = qpm.run()
+
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {

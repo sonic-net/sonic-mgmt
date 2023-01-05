@@ -180,6 +180,7 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
                        + "queue_paused=%s;" % queue_paused
                        + "dut_has_mac=False;"
                        + "vlan_id=%s;" % vlan_id
+                       + "debug=%s;" % True
                        + "testbed_type=\'%s\'" % testbed_type)
 
         cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
