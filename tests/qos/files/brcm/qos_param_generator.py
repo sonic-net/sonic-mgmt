@@ -93,7 +93,7 @@ class QosParamBroadcom(object):
         return self.qos_params
 
 
-    def create_default_speed_cable_length_parameter(self):
+    def get_similar_speed_cable_length(self, must_profile=None):
 
         def compare_speed_cable_len(a, b):
             # (speed, len)
@@ -116,16 +116,28 @@ class QosParamBroadcom(object):
         for speed_len in self.qos_params.keys():
             m = re.match('(\d+)_(\d+)m', speed_len)
             if m:
-                speed_length_list.append(
-                    (int(m.group(1)), int(m.group(2))))
-        assert(len(speed_length_list) > 1), 'qos parameter has one existing speed_cable_len at least'
+                if must_profile != None and must_profile not in self.qos_params[speed_len]:
+                    continue
+                speed_length_list.append((int(m.group(1)), int(m.group(2))))
+
+        if len(speed_length_list) < 2:
+            logger.info('qos parameter must has one similar speed_cable_len at least (must_profile={})'.format(must_profile))
+            return None
+
         speed_length_list.sort(cmp=compare_speed_cable_len)
         this_index = speed_length_list.index((speed, length))
         ref_index = this_index + 1 if this_index + 1 < len(speed_length_list) else this_index - 1
-        ref_speed_len = '{}_{}m'.format(
-            speed_length_list[ref_index][0], speed_length_list[ref_index][1])
-        self.qos_params[self.speed_cable_len] = self.qos_params[ref_speed_len]
-        logger.info('Clone default speed cable length parameters from qos_params[{}] to qos_params[{}]'.format(ref_speed_len, self.speed_cable_len))
+        ref_speed_len = '{}_{}m'.format(speed_length_list[ref_index][0], speed_length_list[ref_index][1])
+        return ref_speed_len
+
+
+    def create_default_speed_cable_length_parameter(self):
+        similar_speed_len = self.get_similar_speed_cable_length()
+        if similar_speed_len != None:
+            self.qos_params[self.speed_cable_len] = self.qos_params[similar_speed_len]
+            logger.info('Clone default speed cable length parameters from qos_params[{}] to qos_params[{}]'.format(similar_speed_len, self.speed_cable_len))
+        else:
+            logger.info("qos_params don't support {} parameters".format(self.speed_cable_len))
 
 
     def create_default_xon_parameter(self, xon_profile):
@@ -150,6 +162,36 @@ class QosParamBroadcom(object):
         logger.info('Clone default queue shared watermark parameters from qos_params[{}] to qos_params[{}][{}]'.format(que_profile, self.speed_cable_len, que_profile))
 
 
+    def create_lossy_queue_parameter(self, que_profile):
+        if que_profile in self.qos_params:
+            # get default value from upper layer
+            self.qos_params[self.speed_cable_len][que_profile] = self.qos_params[que_profile]
+            logger.info('Clone default lossy queue parameters from qos_params[{}] to qos_params[{}][{}]'.format(que_profile, self.speed_cable_len, que_profile))
+        else:
+            # get default value from similar speed/length
+            similar_speed_len = self.get_similar_speed_cable_length(que_profile)
+            if similar_speed_len != None:
+                self.qos_params[self.speed_cable_len][que_profile] = self.qos_params[similar_speed_len][que_profile]
+                logger.info('Clone default lossy queue parameters from qos_params[{}][{}] to qos_params[{}][{}]'.format(similar_speed_len, que_profile, self.speed_cable_len, que_profile))
+            else:
+                logger.info("qos_params don't support lossy queue parameters")
+
+
+    def create_pg_headroom_parameter(self, pg_profile):
+        if pg_profile in self.qos_params:
+            # get default value from upper layer
+            self.qos_params[self.speed_cable_len][pg_profile] = self.qos_params[pg_profile]
+            logger.info('Clone default PG headroom parameters from qos_params[{}] to qos_params[{}][{}]'.format(pg_profile, self.speed_cable_len, pg_profile))
+        else:
+            # get default value from similar speed/length
+            similar_speed_len = self.get_similar_speed_cable_length(pg_profile)
+            if similar_speed_len != None:
+                self.qos_params[self.speed_cable_len][pg_profile] = self.qos_params[similar_speed_len][pg_profile]
+                logger.info('Clone default PG headroom parameters from qos_params[{}][{}] to qos_params[{}][{}]'.format(similar_speed_len, pg_profile, self.speed_cable_len, pg_profile))
+            else:
+                logger.info("qos_params don't support PG headroom parameters")
+
+
     def prepare_default_parameters(self):
         if self.speed_cable_len not in self.qos_params:
             self.create_default_speed_cable_length_parameter()
@@ -169,6 +211,14 @@ class QosParamBroadcom(object):
         for que_profile in ['wm_q_shared_lossless', 'wm_q_shared_lossy']:
             if que_profile not in self.qos_params[self.speed_cable_len]:
                 self.create_default_queue_shared_watermark_parameter(que_profile)
+
+        for que_profile in ['lossy_queue_1']:
+            if que_profile not in self.qos_params[self.speed_cable_len]:
+                self.create_lossy_queue_parameter(que_profile)
+
+        for pg_profile in ['wm_pg_headroom']:
+            if pg_profile not in self.qos_params[self.speed_cable_len]:
+                self.create_pg_headroom_parameter(pg_profile)
 
         for profile in ["xoff_1", "xoff_2", "xon_1", "xon_2"]:
             default_margin = 4
@@ -451,4 +501,37 @@ class QosParamBroadcom(object):
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_egr_drp"] from {} to {}'.format(
                     self.speed_cable_len, que_profile, profile.get("pkts_num_trig_egr_drp", -1), egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells))
                 profile.update({"pkts_num_trig_egr_drp": egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells})
+
+
+        for que_profile in ["lossy_queue_1"]:
+            profile = self.qos_params[self.speed_cable_len][que_profile]
+
+            default_margin = 4
+            if 'pkts_num_margin' not in profile or profile['pkts_num_margin'] < default_margin:
+                logger.info('Update qos_params[{}][{}]["pkts_num_margin"] from {} to {}'.format(self.speed_cable_len, que_profile, profile.get("pkts_num_margin", -1), default_margin))
+                profile.update({"pkts_num_margin": default_margin})
+
+            if "pkts_num_trig_egr_drp" not in profile or profile["pkts_num_trig_egr_drp"] != egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_egr_drp"] from {} to {}'.format(
+                    self.speed_cable_len, que_profile, profile.get("pkts_num_trig_egr_drp", -1), egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_egr_drp": egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells})
+
+
+        for pg_profile in ["wm_pg_headroom"]:
+            profile = self.qos_params[self.speed_cable_len][pg_profile]
+
+            default_margin = 4
+            if 'pkts_num_margin' not in profile or profile['pkts_num_margin'] < default_margin:
+                logger.info('Update qos_params[{}][{}]["pkts_num_margin"] from {} to {}'.format(self.speed_cable_len, pg_profile, profile.get("pkts_num_margin", -1), default_margin))
+                profile.update({"pkts_num_margin": default_margin})
+
+            if "pkts_num_trig_pfc" not in profile or profile["pkts_num_trig_pfc"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_pfc"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+                profile.update({"pkts_num_trig_pfc": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells})
+
+            if "pkts_num_trig_ingr_drp" not in profile or profile["pkts_num_trig_ingr_drp"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells:
+                logger.info('Update qos_params[{}][{}]["pkts_num_trig_ingr_drp"] from {} to {}'.format(
+                    self.speed_cable_len, pg_profile, profile["pkts_num_trig_ingr_drp"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells))
+                profile.update({"pkts_num_trig_ingr_drp": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells})
 

@@ -55,6 +55,12 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
 
+bgp/test_bgp_allow_list_m0_olt.py:
+  skip:
+    reason: "Only supported on m0 topo."
+    conditions:
+      - "'m0' not in topo_type"
+
 bgp/test_bgp_bbr.py:
   skip:
     reason: "Only supported on t1 topo."

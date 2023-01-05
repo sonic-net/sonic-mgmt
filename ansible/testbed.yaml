@@ -95,7 +95,7 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms1-11
-  ptf_ip: 10.3.147.19/23
+  ptf_ip: 10.64.246.44/23
   ptf_ipv6:
   server: server_1
   vm_base: VM01088
@@ -1098,7 +1098,7 @@
 
 - conf-name: vms21-dpu-01
   group-name: vms21-10
-  topo: appliance 
+  topo: appliance
   ptf_image_name: docker-ptf
   ptf: vms21-10
   ptf_ip: 10.64.247.29/23
@@ -1112,7 +1112,7 @@
 
 - conf-name: vms21-dpu-02
   group-name: vms21-11
-  topo: appliance 
+  topo: appliance
   ptf_image_name: docker-ptf
   ptf: vms21-11
   ptf_ip: 10.64.247.241/23
@@ -1686,7 +1686,7 @@
     - lab-msft-lc2-1
     - lab-msft-sup-1
   comment: Chasiss Testbed
-  
+
 - conf-name: testbed-bjw-can-720dt-1
   group-name: bjw6-1
   topo: m0
