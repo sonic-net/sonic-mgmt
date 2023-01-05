@@ -226,6 +226,10 @@ class DualTorIO:
             self.generate_from_t1_to_server()
         elif self.traffic_generator == self.generate_from_server_to_t1:
             self.generate_from_server_to_t1()
+        elif self.traffic_generator == self.generate_from_soc_to_t1:
+            self.generate_from_soc_to_t1()
+        elif self.traffic_generator == self.generate_from_t1_to_soc:
+            self.generate_from_t1_to_soc()
         else:
             logger.error("Traffic generator not provided or invalid")
             return
@@ -685,6 +689,10 @@ class DualTorIO:
         if self.traffic_generator == self.generate_from_t1_to_server:
             server_addr = packet[scapyall.IP].dst
         elif self.traffic_generator == self.generate_from_server_to_t1:
+            server_addr = packet[scapyall.IP].src
+        elif self.traffic_generator == self.generate_from_t1_to_soc:
+            server_addr = packet[scapyall.IP].dst
+        elif self.traffic_generator == self.generate_from_soc_to_t1:
             server_addr = packet[scapyall.IP].src
         return server_addr
 

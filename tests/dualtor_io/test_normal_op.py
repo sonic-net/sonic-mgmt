@@ -2,7 +2,7 @@ import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action, send_soc_to_t1_with_action, send_t1_to_soc_with_action
 from tests.common.dualtor.dual_tor_common import cable_type
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, force_active_tor, force_standby_tor
@@ -264,7 +264,7 @@ def test_normal_op_downstream_upper_tor_soc(upper_tor_host, lower_tor_host,
                             cable_type=cable_type)
 
 @pytest.mark.enable_active_active
-@pytest.mark.skip_active_standbys
+@pytest.mark.skip_active_standby
 def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,
                                       send_t1_to_soc_with_action,
                                       cable_type):
@@ -273,7 +273,7 @@ def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,
     switchover occurs
     """
     if cable_type == CableType.active_active:
-        send_t1_to_server_with_action(lower_tor_host, verify=True, stop_after=60)
+        send_t1_to_soc_with_action(lower_tor_host, verify=True, stop_after=60)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                             expected_standby_host=None,
                             cable_type=cable_type)

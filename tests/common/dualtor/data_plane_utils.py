@@ -148,7 +148,7 @@ def run_test(
         traffic_generator = tor_IO.generate_from_t1_to_server
     elif traffic_direction == "soc_to_t1":
         traffic_generator = tor_IO.generate_from_soc_to_t1
-    elif traffic_generator == "t1_to_soc":
+    elif traffic_direction == "t1_to_soc":
         traffic_generator = tor_IO.generate_from_t1_to_soc
 
     send_and_sniff = InterruptableThread(
