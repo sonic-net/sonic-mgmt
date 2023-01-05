@@ -180,13 +180,13 @@ def test_po_update_io_no_loss(
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
-    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"]) for pc in
+    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"], dut_mg_facts["minigraph_portchannels"][pc["attachto"]]['namespace']) for pc in
                        dut_mg_facts["minigraph_portchannel_interfaces"]
                        if
                        ipaddress.ip_address(pc['peer_addr']).version == 4]
     # generate pc tuples, fill in members,
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
-    pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+    pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3]) for pair in
            peer_ip_pc_pair]
 
     if len(pcs) < 2:
@@ -195,7 +195,7 @@ def test_po_update_io_no_loss(
 
     # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
     out_pcs = [
-        (pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+        (pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3]) for pair in
         peer_ip_pc_pair
         if pair[2] in mg_facts['minigraph_portchannels']
         and len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
@@ -272,7 +272,7 @@ def test_po_update_io_no_loss(
 
         # Keep sending packets, and add/del different members during that time, observe whether packets lose
         pkt = testutils.simple_ip_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=duthost.asic_instance(duthost.get_asic_id_from_namespace(in_pc[4])).get_router_mac()  ,
             eth_src=ptfadapter.dataplane.get_mac(0, in_ptf_index),
             ip_src=in_peer_ip,
             ip_dst=out_peer_ip)
