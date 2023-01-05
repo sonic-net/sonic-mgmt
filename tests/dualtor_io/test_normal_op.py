@@ -235,3 +235,45 @@ def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,
                             expected_standby_host=upper_tor_host,
                             expected_standby_health="unhealthy",
                             cable_type=cable_type)
+
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
+def test_normal_op_upstream_soc(upper_tor_host, lower_tor_host,
+                            send_soc_to_t1_with_action,
+                            cable_type):
+    """Send upstream traffic and confirm no disruption or switchover occurs"""
+    if cable_type == CableType.active_active:
+        send_soc_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
+        verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
+                          expected_standby_host=None,
+                          cable_type=cable_type)
+
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
+def test_normal_op_downstream_upper_tor_soc(upper_tor_host, lower_tor_host,
+                                     send_t1_to_soc_with_action,
+                                     cable_type):
+    """
+    Send downstream traffic to the upper ToR and confirm no disruption or
+    switchover occurs
+    """
+    if cable_type == CableType.active_active:
+        send_t1_to_soc_with_action(upper_tor_host, verify=True, stop_after=60)
+        verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
+                            expected_standby_host=None,
+                            cable_type=cable_type)
+
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standbys
+def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,
+                                      send_t1_to_soc_with_action,
+                                      cable_type):
+    """
+    Send downstream traffic to the lower ToR and confirm no disruption or
+    switchover occurs
+    """
+    if cable_type == CableType.active_active:
+        send_t1_to_server_with_action(lower_tor_host, verify=True, stop_after=60)
+        verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
+                            expected_standby_host=None,
+                            cable_type=cable_type)
