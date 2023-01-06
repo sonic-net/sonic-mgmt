@@ -24,7 +24,6 @@ from conftest import SAI_TEST_REPORT_DIR_ON_PTF
 from conftest import prepare_sai_test_container
 from conftest import reload_dut_config
 from conftest import revert_sai_test_container
-from conftest import saiserver_warmboot_config
 from conftest import stop_and_rm_sai_test_container
 from conftest import stop_dockers
 from conftest import SAI_TEST_CONMUN_CASE_DIR_ON_PTF
@@ -35,6 +34,7 @@ from conftest import WARM_TEST_ARGS
 from conftest import start_sai_test_conatiner_with_retry
 from conftest import get_sai_running_vendor_id
 from conftest import get_sai_test_container_name
+from conftest import saiserver_warmboot_config
 from conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)

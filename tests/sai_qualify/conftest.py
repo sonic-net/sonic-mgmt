@@ -655,7 +655,7 @@ def saiserver_warmboot_config(duthost, operation):
     Saiserver warmboot mode.
     Change the sai.profile
 
-        Args:
+    Args:
         duthost (AnsibleHost): device under test
         operation: init|start|restore
     """
@@ -667,14 +667,14 @@ def saiserver_warmboot_config(duthost, operation):
 
 def __copy_sai_qualify_script(duthost):
     """
-        Copys script for controlling saiserver docker,
-        sonic services, warmboot...
+    Copys script for controlling saiserver docker,
+    sonic services, warmboot...
 
-        Args:
-            duthost (AnsibleHost): device under test
+    Args:
+        duthost (AnsibleHost): device under test
 
-        Returns:
-            None
+    Returns:
+        None
     """
     duthost.shell("sudo mkdir -p " + USR_BIN_DIR)
     for script in SAI_SCRIPTS:
