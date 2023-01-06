@@ -10,6 +10,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
 def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI capabilities
