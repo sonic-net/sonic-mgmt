@@ -772,6 +772,13 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
     if topo_type in UPSTREAM_NEIGHBOR_MAP:
         return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
 
