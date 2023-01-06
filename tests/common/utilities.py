@@ -25,6 +25,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -769,3 +770,9 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
         ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
 
     return ptf_port_list
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None

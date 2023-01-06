@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import get_upstream_neigh_type
 
 
 pytestmark = [
@@ -17,12 +18,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-def get_upstream_neigh_type(topo_type):
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-
-    return None
 
 def get_upstream_neigh(tb, device_neigh_metadata):
     """
