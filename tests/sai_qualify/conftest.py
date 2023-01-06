@@ -113,9 +113,9 @@ def pytest_addoption(parser):
                      default=None, type=str,
                      help="SAI test port config file to map \
                      the relationship between lanes and interface.")
-    parser.addoption("--always_stop_sai_test_container",
+    parser.addoption("--skip_stop_sai_test_container",
                      action="store_true",
-                     help="If always stop the container after one \
+                     help="If skip stop the container after one \
                      test or not, true or false.")
     parser.addoption("--sai_origin_version", action="store", default=None,
                      type=str, help="SAI SDK originla version before upgrade.")
@@ -385,7 +385,6 @@ def stop_and_rm_sai_test_container(duthost, container_name):
         container_name: The container name for sai testing on DUT.
     """
     logger.info("Stopping the container '{}'...".format(container_name))
-    # duthost.shell("docker stop " + container_name)
     duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
     duthost.delete_container(container_name)
 

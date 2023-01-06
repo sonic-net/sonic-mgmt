@@ -377,7 +377,7 @@ def delete_sai_test_cases(ptfhost, request):
         ptfhost.file(path="{0}".format(
             SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF), state="absent")
     if request.config.option.enable_sai_test \
-       or request.config.option.enable_warmboot_test:
+       or request.config.option.enable_t0_warmboot_test:
         ptfhost.file(path="{0}".format(
             SAI_TEST_SAI_CASE_DIR_ON_PTF), state="absent")
     else:
