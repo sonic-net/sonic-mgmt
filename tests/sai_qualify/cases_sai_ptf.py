@@ -2,7 +2,6 @@
 Test cases list under ptf
 """
 TEST_CASE = [
-        #Passed
         "sairif.SviLagHostTest",
         "sairoute.routeUpdateTest",
         "sairoute.cpuForwardTest",
@@ -16,7 +15,6 @@ TEST_CASE = [
         "sainexthop.tunnelVrfTest",
         "sainexthopgroup.l3IPv4EcmpHostTest",
         "sainexthopgroup.l3IPv4EcmpLpmTest",
-        #Failed on assert error        
         "sainexthop.cpuNexthopTest",
         "sainexthop.removeNexthopTest",
         "sairoute.routeNbrColisionTest",
@@ -27,12 +25,10 @@ TEST_CASE = [
         "sairoute.dropRouteTest",
         "sairoute.routeIngressRifTest",
         "saineighbor.addHostRouteIpv4NeighborTest",
-        #Failed on packet check
         "sairoute.DirBcastForwardTest",
         "sainexthop.sviTunnelTest",
         "sainexthop.subPortTunnelTest", 
         "sainexthop.l3InterfaceTunnelTest",
-        #Failed on syntax error          
         "sainexthopgroup.l3IPv6EcmpHostPortLagTest",        
         "sainexthopgroup.l3IPv6EcmpHostTwoLagsDisabledLagMembersTest",    
         "sainexthopgroup.l3IPv4EcmpSVILagHostTest",        
@@ -42,7 +38,6 @@ TEST_CASE = [
         "sainexthopgroup.ecmpFGBasicTest",        
         "sainexthopgroup.ecmpFGGrpMemAttrTest",
         "sairoute.DirBcastGleanAndForwardTest",
-        #Skipped
         "sainexthopgroup.l3Ipv6EcmpLpmTest",
         "sainexthopgroup.ecmpFGAddDelMemTest",
         "sainexthopgroup.L3IPv4EcmpHostTwoLagsTest",
