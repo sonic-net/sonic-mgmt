@@ -239,7 +239,7 @@ class ParseTestbedTopoinfo():
             with open(topo_filename) as f:
                 topo_definition = yaml.safe_load(f)
 
-        if not os.path.isfile(asic_topo_filename):
+        if not asic_topo_filename:
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
