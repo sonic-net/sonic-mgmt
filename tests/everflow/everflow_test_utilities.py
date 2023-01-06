@@ -16,6 +16,7 @@ from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -44,20 +45,6 @@ DEFAULT_SERVER_IP = "192.168.0.3"
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
-# Describe upstream neighbor of dut in different topos
-UPSTREAM_NEIGHBOR_MAP = {
-    "t0": "t1",
-    "t1": "t2",
-    "m0": "m1",
-    "t2": "t3"
-}
-# Describe downstream neighbor of dut in different topos
-DOWNSTREAM_NEIGHBOR_MAP = {
-    "t0": "server",
-    "t1": "t0",
-    "m0": "mx",
-    "t2": "t1"
-}
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0"]
 
@@ -322,7 +309,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo or 'm0' in topo or 'dualtor' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
