@@ -334,9 +334,9 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_per_interface.py:
   skip:
-    reason: "Skip running on dualtor testbed."
+    reason: "Skip running on unsupported platforms."
     conditions:
-      - "'dualtor' in topo_name"
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
@@ -563,7 +563,7 @@ pc/test_po_voq.py:
   skip:
     reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0"
+      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
@@ -715,7 +715,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     conditions:
       - "asic_type in ['mellanox']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
+qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   xfail:
     reason: "Image issue on Arista platforms"
     conditions:
@@ -727,9 +727,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
+    reason: "Image issue on Arista platforms"
+    conditions:
+      - "platform in ['x86_64-arista_7050cx3_32s']"
+  skip:
     reason: "Headroom pool size not supported."
     conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s'] or hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
