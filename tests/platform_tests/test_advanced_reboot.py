@@ -4,6 +4,7 @@ import logging
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
@@ -33,7 +34,6 @@ def pytest_generate_tests(metafunc):
 
 
 ### Tetcases to verify normal reboot procedure ###
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
@@ -47,7 +47,6 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advancedReboot.runRebootTestcase()
 
 
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
