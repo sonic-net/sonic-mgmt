@@ -68,9 +68,11 @@ class LagTest:
         return self.duthost.lag_facts(host = self.duthost.hostname)['ansible_facts']['lag_facts']
 
     def __get_lag_intf_info(self, lag_facts, lag_name):
-        # Figure out interface informations
+        # Figure out interface information
         po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
-        intf          = list(lag_facts['lags'][lag_name]['po_config']['ports'].keys())[0]
+        # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
+        # So that convert to list explicitly.
+        intf = list(lag_facts['lags'][lag_name]['po_config']['ports'].keys())[0]
         return intf, po_interfaces
 
     def __get_lag_intf_namespace_id(self, lag_facts, lag_name):
