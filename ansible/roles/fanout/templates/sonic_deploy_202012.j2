@@ -102,31 +102,6 @@
     {% endfor %}
     },
 
-    "BUFFER_QUEUE": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}|0-2": {
-            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|3-4": {
-            "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|5-6": {
-            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
-        }{% if not loop.last %},{% endif %}
-    {% endfor %}
-    },
-
-    "BUFFER_PG": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}|0": {
-            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|3-4": {
-            "profile": "[BUFFER_PROFILE|pg_lossless_100000_300m_profile]"
-        }{% if not loop.last %},{% endif %}
-    {% endfor %}
-    },
-
     "CABLE_LENGTH": {
         "AZURE": {
     {% for alias in fanout_port_config %}
@@ -184,51 +159,6 @@
         "scheduler.1": {
             "type": "DWRR",
             "weight": "15"
-        }
-    },
-
-    "BUFFER_POOL": {
-        "egress_lossless_pool": {
-            "type": "egress",
-            "mode": "static",
-            "size": "15982720"
-        },
-        "egress_lossy_pool": {
-            "type": "egress",
-            "mode": "dynamic",
-            "size": "9243812"
-        },
-        "ingress_lossless_pool": {
-            "xoff": "4194112",
-            "type": "ingress",
-            "mode": "dynamic",
-            "size": "10875072"
-        }
-    },
-
-    "BUFFER_PROFILE": {
-        "egress_lossless_profile": {
-            "static_th": "15982720",
-            "pool": "[BUFFER_POOL|egress_lossless_pool]",
-            "size": "1518"
-        },
-        "egress_lossy_profile": {
-            "dynamic_th": "3",
-            "pool": "[BUFFER_POOL|egress_lossy_pool]",
-            "size": "1518"
-        },
-        "ingress_lossy_profile": {
-            "dynamic_th": "3",
-            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
-            "size": "0"
-        },
-        "pg_lossless_100000_300m_profile": {
-            "xon_offset": "2288",
-            "dynamic_th": "0",
-            "xon": "2288",
-            "xoff": "268736",
-            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
-            "size": "1248"
         }
     },
 
