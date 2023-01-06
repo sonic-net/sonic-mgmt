@@ -91,6 +91,23 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, localhost
     assert msg_list[0] == "\"up\"", msg_list[0]
 
 
+def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, localhost):
+    '''
+    Verify GNMI native write, incremental config for configDB
+    GNMI set request with invalid path
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    file_name = "port.txt"
+    update_list = ["/sonic-db:CONFIG_DB/PORTABC/Ethernet100/admin_status:@./%s" % (file_name)]
+
+    # GNMI set request with invalid path
+    text = "\"down\""
+    with open(file_name, 'w') as file:
+        file.write(text)
+    ret, msg = gnmi_set(duthost, localhost, [], update_list, [])
+    assert ret != 0, msg
+
+
 def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI native write, full config for configDB
