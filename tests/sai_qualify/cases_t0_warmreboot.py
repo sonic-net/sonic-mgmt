@@ -1,6 +1,6 @@
 
 """
-Test cases list under ptf/warm_boot
+Test cases list under ptf
 """
 
 WARM_REBOOT_T0_TEST_CASE = [
