@@ -15,7 +15,7 @@ def _port_alias_to_name_map_50G(all_ports, s100G_ports,):
 def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
-    port_name_to_index_map = {} 
+    port_name_to_index_map = {}
     HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
     try:
         from sonic_py_common import multi_asic
@@ -201,10 +201,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Cisco-8102-C64":
             for i in range(0, 64):
-                port_alias_to_name_map["etp%d" % (i + 1)] = "Ethernet%d" % (i * 4)
-        elif hwsku in ["8800-LC-48H-O", "88-LC0-36FH-MO"]:
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
+        elif hwsku in ["8800-LC-48H-O"]:
             for i in range(0, 48, 1):
-                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
+        elif hwsku in ["88-LC0-36FH-MO"]:
+            for i in range(0, 36, 1):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["msft_multi_asic_vs"]:
             for i in range(1,65):
                 port_alias_to_name_map["Ethernet1/%d" % i] = "Ethernet%d" % ((i - 1) * 4)
