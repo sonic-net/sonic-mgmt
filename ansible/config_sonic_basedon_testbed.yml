@@ -81,7 +81,7 @@
       asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
     when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
