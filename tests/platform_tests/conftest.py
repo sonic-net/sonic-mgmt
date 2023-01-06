@@ -396,7 +396,7 @@ def get_current_sonic_version(duthost):
 
 
 @pytest.fixture()
-def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
+def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     """
     Advance reboot log analysis.
     This fixture starts log analysis at the beginning of the test. At the end,
@@ -404,9 +404,9 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     Args:
         duthosts : List of DUT hosts
-        rand_one_dut_hostname: hostname of a randomly selected DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
     if "warm" in test_name:
         reboot_type = "warm"
@@ -551,7 +551,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
 
 @pytest.fixture()
-def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts, tbinfo):
     """
     This fixture is invoked at the test teardown for advanced-reboot SAD cases.
     If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
@@ -559,13 +559,13 @@ def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbin
     and BGP sessions that were shutdown during the test.
     """
     yield
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
 @pytest.fixture()
-def capture_interface_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def capture_interface_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logging.info("Run commands to print logs")
 
     show_counter_cmds = [
