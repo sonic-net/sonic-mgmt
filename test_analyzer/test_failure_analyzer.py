@@ -212,6 +212,7 @@ class KustoConnector(object):
         let ExcludeBranchList = dynamic({});
         let ExcludeHwSkuList = dynamic({});
         let ExcludeTopoList = dynamic({});
+        let ExcludeAsicList = dynamic({});
         let timeBefore = {};
         let totalcase_threshod = {};
         FlatTestSummaryView
@@ -223,6 +224,7 @@ class KustoConnector(object):
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where not(TopologyType has_any(ExcludeTopoList))
+        | where not(AsicType has_any(ExcludeAsicList))
         | where Summary contains "test setup failure"
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
@@ -240,7 +242,8 @@ class KustoConnector(object):
         | sort by ReproCount, ModulePath
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
             self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-            self.config_info['topo']['excluded_topo'], str(self.config_info['threshold']['duration_days']) + "d",
+            self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+            str(self.config_info['threshold']['duration_days']) + "d",
             self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
         logger.info("Query test setup failure cases:{}".format(query_str))
         return self.query(query_str)
@@ -261,6 +264,7 @@ class KustoConnector(object):
         let ExcludeBranchList = dynamic({});
         let ExcludeHwSkuList = dynamic({});
         let ExcludeTopoList = dynamic({});
+        let ExcludeAsicList = dynamic({});
         let timeBefore = {};
         let totalcase_threshod = {};
         FlatTestSummaryView
@@ -272,6 +276,7 @@ class KustoConnector(object):
         | where not(TestbedName has_any(ExcludeTestbedList))
         | where not (HardwareSku has_any(ExcludeHwSkuList))
         | where not(TopologyType has_any(ExcludeTopoList))
+        | where not(AsicType has_any(ExcludeAsicList))
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner LatestTestCaseRunFailure(timeBefore, ProdQualOSList, ResultFilterList)
@@ -286,7 +291,8 @@ class KustoConnector(object):
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
         | sort by ReproCount, ModulePath, opTestCase, Result
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
-            self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"], self.config_info['topo']['excluded_topo'],
+            self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+            self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
             str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'],
             start_time, end_time, self.config_info['threshold']['repro_count_limit'])
         logger.info("Query failed cases:{}".format(query_str))
@@ -309,6 +315,7 @@ class KustoConnector(object):
                 let ExcludeBranchList = dynamic({});
                 let ExcludeHwSkuList = dynamic({});
                 let ExcludeTopoList = dynamic({});
+                let ExcludeAsicList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
                 | where Timestamp > datetime({}) and Timestamp <= datetime({})
@@ -319,6 +326,7 @@ class KustoConnector(object):
                 | where not(TestbedName has_any(ExcludeTestbedList))
                 | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | where not(TopologyType has_any(ExcludeTopoList))
+                | where not(AsicType has_any(ExcludeAsicList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
@@ -328,7 +336,8 @@ class KustoConnector(object):
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
                 '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
                     self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-                    self.config_info['topo']['excluded_topo'], self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
+                    self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                    self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
         else:
             query_str = '''
                 let ProdQualOSList = dynamic({});
@@ -337,6 +346,7 @@ class KustoConnector(object):
                 let ExcludeBranchList = dynamic({});
                 let ExcludeHwSkuList = dynamic({});
                 let ExcludeTopoList = dynamic({});
+                let ExcludeAsicList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
                 | where Timestamp > datetime({}) and Timestamp <= datetime({})
@@ -347,6 +357,7 @@ class KustoConnector(object):
                 | where not(TestbedName has_any(ExcludeTestbedList))
                 | where not (HardwareSku has_any(ExcludeHwSkuList))
                 | where not(TopologyType has_any(ExcludeTopoList))
+                | where not(AsicType has_any(ExcludeAsicList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
@@ -356,7 +367,8 @@ class KustoConnector(object):
                 | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
                 '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
                     self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-                    self.config_info['topo']['excluded_topo'], self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
+                    self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                    self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 
@@ -431,6 +443,7 @@ class Analyzer(object):
         failed_testcases_list = list(failed_testcases.keys())
         for failed_testcase in failed_testcases_list:
             waiting_list.append((failed_testcase, False))
+        logger.info("Total failed cases: {} waiting_list={}".format(len(waiting_list), waiting_list))
         logger.info(
             "=============== Analyze active IcM ================")
         active_icm_list, count_dict = self.analyze_active_icm()
@@ -468,19 +481,56 @@ class Analyzer(object):
                         duplicated_flag = False
                         # For loop every active IcM title, avoid generating smaller level IcM for same failure
                         for icm_title in active_icm_list:
-                            if icm_title in ICM_PREFIX + icm['subject']:
+                            # For platform_test, we aggregate branches, don't trigger same IcM for different branches
+                            if 'platform_tests' in icm['module_path']:
+                                icm_branch = icm['branch']
+                                for branch_name in INCLUDED_BRANCH:
+                                    replaced_title = icm['subject'].replace(icm_branch, branch_name)
+                                    if icm_title in ICM_PREFIX + replaced_title:
+                                        logger.info("For platform_tests, found same case for branch {}, not trigger IcM: \
+                                            active IcM {}, duplicated one {}".format(icm_branch, icm_title, ICM_PREFIX + icm['subject']))
+                                        icm['trigger_icm'] = False
+                                        duplicated_icm_list.append(icm)
+                                        duplicated_flag = True
+                                        break
+                            elif icm_title in ICM_PREFIX + icm['subject']:
                                 # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                                logger.info("Found duplicated item, not trigger IcM: active IcM {}, duplicated one {}".format(icm_title, ICM_PREFIX + icm['subject']))
+                                logger.info("Found duplicated item in active IcM list, not trigger IcM: \
+                                    active IcM {}, duplicated one {}".format(icm_title, ICM_PREFIX + icm['subject']))
                                 icm['trigger_icm'] = False
                                 duplicated_icm_list.append(icm)
                                 duplicated_flag = True
                                 break
+                        temp_uploading_list = []
+                        temp_uploading_list.extend(new_icm_list)
+                        temp_uploading_list.extend(new_icm_table)
+                        # For loop every uploading IcM title, avoid generating smaller level IcM for same failure
+                        for uploading_new_icm in temp_uploading_list:
+                            # import pdb;pdb.set_trace()
+                            # For platform_test, we aggregate branches, don't trigger same IcM for different branches
+                            if 'platform_tests' in icm['module_path']:
+                                icm_branch = icm['branch']
+                                for branch_name in INCLUDED_BRANCH:
+                                    replaced_title = icm['subject'].replace(icm_branch, branch_name)
+                                    if uploading_new_icm['subject'] in replaced_title or replaced_title in uploading_new_icm['subject']:
+                                        logger.info("For platform_tests, found same case for branch {}, not trigger IcM: \
+                                            uploading IcM {}, duplicated one {}".format(icm_branch, icm_title, icm['subject']))
+                                        icm['trigger_icm'] = False
+                                        duplicated_icm_list.append(icm)
+                                        duplicated_flag = True
+                                        break
+                            elif uploading_new_icm['subject'] in icm['subject'] or icm['subject'] in uploading_new_icm['subject']:
+                                # Don't trigger IcM for duplicated cases, avoid IcM throttling
+                                logger.info("Found duplicated item in uploading IcM list, not trigger IcM: \
+                                    uploading IcM {}, duplicated one {}".format(uploading_new_icm['subject'], icm['subject']))
+                                icm['trigger_icm'] = False
+                                duplicated_icm_list.append(icm)
+                                duplicated_flag = True
+                                break
+
                         if not duplicated_flag:
-                            subject = icm['subject']
-                            subject = subject.lstrip('[')
-                            index = subject.find(']')
-                            subject = subject[:index]
-                            items = subject.split('.')
+                            module_path = icm['module_path']
+                            items = module_path.split('.')
                             if new_icm_count >= icm_limit:
                                 logger.info(
                                     "We limit the number of new IcM to {}, idx={}".format(icm_limit, idx))
@@ -495,7 +545,7 @@ class Analyzer(object):
                                     break
                                 else:
                                     count_dict['everflow_count'] += 1
-                            if 'qos_sai' in items[0]:
+                            if 'test_qos_sai' in items[1]:
                                 if count_dict['qos_sai_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
                                     logger.info("There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
                                     kusto_data = kusto_data[:idx]
@@ -903,7 +953,8 @@ class Analyzer(object):
                 total_success_num = case_branch_df[case_branch_df['Result'] == 'success'].shape[0]
                 total_num = case_branch_df.shape[0]
                 if total_num == 0:
-                    kusto_row_data['failure_level_info']['total_success_rate_' + branch_name] = "0%/0/0"
+                    logger.info("{} is not ran on {}.".format(case_name, branch_name))
+                    continue
                 else:
                     kusto_row_data['failure_level_info']['total_success_rate_' + branch_name] = "{}%/{}/{}".format(
                         round(total_success_num * 100 / total_num), total_success_num, total_num)

@@ -6,7 +6,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 2 * * *"
+  - cron: "0 2 * * 1-5"
     displayName: TestFailureAnalyzingScheduler
     branches:
       include:
