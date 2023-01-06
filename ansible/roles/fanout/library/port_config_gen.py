@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from natsort import natsorted
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.port_utils import get_port_alias_to_name_map
 
 
 DOCUMENTATION = """
@@ -173,14 +174,19 @@ class PortConfigGenerator(object):
         hwsku_port_config = self._read_from_port_config(os.path.join(self.HWSKU_DIR_PREFIX, self.fanout_hwsku, self.PORT_CONF_FILENAME))
 
         self.fanout_port_config = self.fanout_connections.copy()
-        for port_alias, port_config in self.fanout_port_config.items():
+        fanout_port_name_to_alias_map = dict([(cfg['name'], alias) for alias, cfg in hwsku_port_config.items()])
+        for port_name, port_config in self.fanout_port_config.items():
+            port_alias = fanout_port_name_to_alias_map.get(port_name, '')
             if port_alias not in hwsku_port_config:
                 raise ValueError("Port %s is not defined in hwsku %s port config" % (port_alias, self.fanout_hwsku))
-            port_config.update(hwsku_port_config[port_alias])
+            for k, v in hwsku_port_config[port_alias].items():
+                if k not in port_config:
+                    port_config[k] = v
 
         # add port configs for those ports that have no connections in the connection graph file
         for port_alias, port_config in hwsku_port_config.items():
-            if port_alias not in self.fanout_port_config:
+            port_name = port_config['name']
+            if port_name not in self.fanout_port_config:
                 self.fanout_port_config[port_alias] = port_config
 
 
