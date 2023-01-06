@@ -210,7 +210,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
             if _is_ipv4_address(vlan_intf["addr"]):
                 return vlan_intf
-        raise ValueError("No Vlan interface defined in T0.")
+        raise ValueError("No Vlan interface defined in current topo")
 
     def _find_loopback_interface(mg_facts):
         loopback_intf_name = "Loopback0"
@@ -260,7 +260,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t0(mg_facts, peer_count):
+    def _setup_interfaces_t0_or_mx(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
@@ -447,8 +447,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
-    elif tbinfo["topo"]["type"] in ["t0"]:
-        setup_func = _setup_interfaces_t0
+    elif tbinfo["topo"]["type"] in ["t0", "mx"]:
+        setup_func = _setup_interfaces_t0_or_mx
     elif tbinfo["topo"]["type"] in set(["t1", "t2", "m0"]):
         setup_func = _setup_interfaces_t1_or_t2
     else:
