@@ -834,6 +834,15 @@ snmp/test_snmp_queue.py:
     conditions:
       - "is_supervisor or topo_name in ['m0'] or asic_type in ['barefoot']"
 
+snmp/test_snmp_queue.py:
+  skip:
+    reason: "Test is flaky on multi-asic vs"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/13289
+      - "asic_type in ['vs']"
+      - "hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs']"
+      - "branch in ['202205']"
+
 #######################################
 #####            span             #####
 #######################################
