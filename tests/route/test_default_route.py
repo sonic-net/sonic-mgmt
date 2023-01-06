@@ -6,7 +6,6 @@ import logging
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
