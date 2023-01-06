@@ -13,7 +13,7 @@ import copy
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
@@ -26,9 +26,9 @@ from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
 from tests.common.helpers.parallel import parallel_run
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session  # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session  # noqa F401
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
@@ -211,7 +211,6 @@ def enhance_inventory(request):
 
 
 def pytest_cmdline_main(config):
-
     # Filter out unnecessary pytest_ansible plugin log messages
     pytest_ansible_logger = logging.getLogger("pytest_ansible")
     if pytest_ansible_logger:
@@ -515,13 +514,13 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
                 }
             )
         else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
         devices[k] = device
     return devices
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
+def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):  # noqa F811
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -635,7 +634,7 @@ def creds_on_dut(duthost):
         r'lag_fanout_ports_test_vars\.yml',
         r'qos\.yml',
         r'mux_simulator_http_port_map\.yml'
-        ]
+    ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
     files += glob.glob("../ansible/vars/*.yml")
     for group in groups:
@@ -695,7 +694,6 @@ def creds_all_duts(duthosts):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
@@ -1104,6 +1102,7 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
 
     if with_completeness_level:
         completeness_level = get_completeness_level_metadata(request)
+
         # if completeness_level in ["debug", "basic", "confident"],
         # only select several ports on every DUT to save test time
 
@@ -1244,7 +1243,9 @@ def generate_priority_lists(request, prio_scope):
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
-def pytest_generate_tests(metafunc):        # noqa E302
+
+
+def pytest_generate_tests(metafunc):  # noqa E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -1463,7 +1464,7 @@ def enum_rand_one_frontend_asic_index(request):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
+def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):  # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
@@ -1527,7 +1528,7 @@ def get_l2_info(dut):
 
 
 @pytest.fixture(scope='session')
-def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     # noqa F811
+def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):  # noqa F811
     """
     Configures L2 switch mode according to
     https://github.com/sonic-net/SONiC/wiki/L2-Switch-mode
@@ -1547,17 +1548,17 @@ def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     
         mgmt_ip, mgmt_gw, hwsku = get_l2_info(dut)
         # step 1
         base_config_db = {
-                            "MGMT_INTERFACE": {
-                                "eth0|{}".format(mgmt_ip): {
-                                    "gwaddr": "{}".format(mgmt_gw)
-                                }
-                            },
-                            "DEVICE_METADATA": {
-                                "localhost": {
-                                    "hostname": "sonic"
-                                }
-                            }
-                        }
+            "MGMT_INTERFACE": {
+                "eth0|{}".format(mgmt_ip): {
+                    "gwaddr": "{}".format(mgmt_gw)
+                }
+            },
+            "DEVICE_METADATA": {
+                "localhost": {
+                    "hostname": "sonic"
+                }
+            }
+        }
 
         if is_dualtor:
             base_config_db["DEVICE_METADATA"]["localhost"]["subtype"] = "DualToR"
@@ -1628,7 +1629,7 @@ def duts_running_config_facts(duthosts):
 
 @pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host):   # noqa F811
+                    ptf_portmap_file, lower_tor_host):  # noqa F811
     """
         Prepares DUT host test params
 
@@ -1654,8 +1655,8 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         "basicParams": {
             "router_mac": duthost.facts["router_mac"],
             "server": duthost.host.options['inventory_manager'].get_host(
-                        duthost.hostname
-                    ).vars['ansible_host'],
+                duthost.hostname
+            ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
             "sonic_version": duthost.os_version
@@ -1741,7 +1742,7 @@ def collect_db_dump_on_duts(request, duthosts):
                 dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
                 for db_id in db_ids:
                     dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}" \
-                               .format(namespace, db_id, dump_dest_path, db_id)
+                        .format(namespace, db_id, dump_dest_path, db_id)
                     dump_cmds.append(dump_cmd)
                 duthosts.shell_cmds(cmds=dump_cmds)
         else:
@@ -2001,6 +2002,7 @@ def on_exit():
     Utility to register callbacks for cleanup. Runs callbacks despite assertion
     failures. Callbacks are executed in reverse order of registration.
     '''
+
     class OnExit():
         def __init__(self):
             self.cbs = []
@@ -2047,6 +2049,7 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     if not received:
         def format_failure(port, failure):
             return "On port %d:\n%s" % (port, failure.format())
+
         failure_report = "\n".join([format_failure(*f) for f in failures])
         test.fail("Did not receive expected packet on any of ports %r for device %d.\n%s"
                   % (ports, device_number, failure_report))
