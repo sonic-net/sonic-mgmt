@@ -11,7 +11,6 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from natsort import natsorted
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.port_utils import get_port_alias_to_name_map
 
 
 DOCUMENTATION = """
