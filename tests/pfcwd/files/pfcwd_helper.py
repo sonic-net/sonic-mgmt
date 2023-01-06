@@ -5,8 +5,7 @@ import sys
 from tests.common import constants
 
 
-# checks if the version of the Python interpreter is greater or equal to 3,
-# and if it is, we set the unicode variable to the str class.
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
     unicode = str
 
