@@ -1,8 +1,14 @@
 import datetime
 import ipaddress
+import sys
 
 from tests.common import constants
 
+
+# checks if the version of the Python interpreter is greater or equal to 3,
+# and if it is, we set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
@@ -188,7 +194,7 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_details = self.vlan_info.values()[0]
+        vlan_details = list(self.vlan_info.values())[0]
         # Filter(remove) PortChannel interfaces from VLAN members list
         vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
 
