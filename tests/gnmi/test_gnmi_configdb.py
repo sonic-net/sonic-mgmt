@@ -132,4 +132,3 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, localhost):
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
-

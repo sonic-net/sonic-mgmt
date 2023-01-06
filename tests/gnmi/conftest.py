@@ -129,4 +129,3 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
     duthost.shell("systemctl restart %s" % GNMI_CONTAINER_NAME)
-

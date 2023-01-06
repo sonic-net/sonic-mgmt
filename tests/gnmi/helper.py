@@ -100,4 +100,3 @@ def gnoi_reboot(duthost, localhost, method, delay, message):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
-

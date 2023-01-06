@@ -47,4 +47,3 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, localhost):
     ret1, msg_list1 = gnmi_get(duthost, localhost, path_list1)
     ret2, msg_list2 = gnmi_get(duthost, localhost, path_list2)
     assert ret1 != 0 and ret2 != 0, msg_list1[0] + msg_list2[0]
-

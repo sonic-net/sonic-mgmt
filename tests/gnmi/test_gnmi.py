@@ -20,4 +20,3 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     assert ret == 0, msg
     assert "sonic-db" in msg, msg
     assert "JSON_IETF" in msg, msg
-
