@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 from natsort import natsorted
+from time import sleep as sleep
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
@@ -215,9 +216,20 @@ class TestChassisApi(PlatformApiTestBase):
         ]
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+        # Add retry logic for finicky devices
+        for attempt in range(1, 5):
+            syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
+            if syseeprom_info_dict is not None:
+                logging.info("System eeprom information successfully received")
+                sleep(5)
+                break
+            else:
+                logging.info("get_system_eeprom_info returned None - Sleeping for 10 seconds and retrying {} of 5".format(attempt))
+                sleep(10)
+
+        pytest_assert(syseeprom_info_dict is not None, "Unable to retrieve system eeprom information")
         # Convert all keys of syseeprom_info_dict into lower case
-        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
+        syseeprom_info_dict = {k.lower() : v.rstrip() for k, v in syseeprom_info_dict.items()}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
