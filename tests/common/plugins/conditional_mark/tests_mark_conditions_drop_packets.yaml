@@ -18,9 +18,27 @@ drop_packets/test_drop_counters.py::test_acl_egress_drop:
     conditions:
       - "asic_type in ['broadcom']"
 
+drop_packets/test_drop_counters.py::test_absent_ip_header:
+  skip:
+    reason: "Test case not supported on Broadcom DNX platform"
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
+  skip:
+    reason: "Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+drop_packets/test_drop_counters.py::test_dst_ip_absent:
+  skip:
+    reason: "Test case not supported on Broadcom DNX platform"
+    conditions:
+      "asic_subtype in ['broadcom-dnx']"
+
 drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds"
+    reason: "Image issue on Broadcom dualtor testbeds"
     strict: True
     conditions:
       - "asic_type in ['broadcom']"
@@ -28,9 +46,9 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
   skip:
-    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version"
+    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version. Test also not supported on Broadcom DNX"
     conditions:
-      - "asic_type=='cisco-8000' and release in ['202012']"
+      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
   skip:
@@ -42,9 +60,9 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
-    reason: "Cisco 8000 platform does not drop DIP linklocal packets in 202012 version"
+    reason: "Cisco 8000 with 202012 version and broadcom DNX platforms do not drop DIP linklocal packets"
     conditions:
-      - "asic_type=='cisco-8000' and release in ['202012']"
+      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
   skip:
@@ -119,6 +137,12 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
     reason: "Cisco 8000 platform does not drop packets with source IP address in class E"
     conditions:
       - "asic_type=='cisco-8000'"
+
+drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr:
+  skip:
+    reason: "Test currently not supported on broadcom DNX platform"
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr[vlan_members]:
   skip:
