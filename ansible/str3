@@ -232,7 +232,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.78
       serial: FOC2525NB83
       base_mac: 34:73:2D:29:B8:D0
-      model: '8800-LC-48H'
+      model: '8800-LC-48H-O'
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
         "0x22": "1A9134"
@@ -255,7 +255,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.97
       serial: FOC2420NC30
       base_mac: AC:7A:56:71:EB:70
-      model: '8800-LC-48H'
+      model: '8800-LC-48H-O'
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
         "0x22": "1A5235"
@@ -278,7 +278,7 @@ sonic_cisco_lc_100G:
       ansible_host: 10.3.147.98
       serial: FOC2425NC97
       base_mac: 3C:13:CC:83:34:E0
-      model: '8800-LC-48H'
+      model: '8800-LC-48H-O'
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
         "0x22": "1A5235"
@@ -296,7 +296,7 @@ sonic_cisco_sup:
   vars:
     HwSku:  8800-RP-O
     sonic_hwsku:  8800-RP-O
-    sonic_hw_platform:  x86_64-8800_rp-r0
+    sonic_hw_platform:  x86_64-8800_rp_o-r0
     slot_num: slot0
     card_type: supervisor
     switch_type: chassis-packet
@@ -310,7 +310,7 @@ sonic_cisco_sup:
       serial: FOC2428P4F3
       base_mac: 80:2D:BF:A5:C1:00
       syseeprom_info:
-        "0x21": "8800-RP"
+        "0x21": "8800-RP-O"
         "0x22": "1A4841"
         "0x23": "FOC2428P4F3"
         "0x24": "80:2D:BF:A5:C1:00"
