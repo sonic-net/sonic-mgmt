@@ -287,10 +287,6 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         )
 
         group = "L2"
-        # DNX platform DROP counters are not there yet
-        if setup.get("platform_asic") == "broadcom-dnx":
-            group = "NO_DROPS"
-
         do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
