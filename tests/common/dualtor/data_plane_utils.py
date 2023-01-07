@@ -141,19 +141,10 @@ def run_test(
         activehost, peerhost, ptfhost, ptfadapter, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
-
-    if traffic_direction == "server_to_t1":
-        traffic_generator = tor_IO.generate_from_server_to_t1
-    elif traffic_direction == "t1_to_server":
-        traffic_generator = tor_IO.generate_from_t1_to_server
-    elif traffic_direction == "soc_to_t1":
-        traffic_generator = tor_IO.generate_from_soc_to_t1
-    elif traffic_direction == "t1_to_soc":
-        traffic_generator = tor_IO.generate_from_t1_to_soc
-
+    
     send_and_sniff = InterruptableThread(
         target=tor_IO.start_io_test,
-        kwargs={'traffic_generator': traffic_generator}
+        kwargs={'traffic_direction': traffic_direction}
     )
     send_and_sniff.set_error_handler(lambda *args, **kargs: io_ready.set())
 
