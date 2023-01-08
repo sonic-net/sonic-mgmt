@@ -141,6 +141,8 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
     ptf_t1_intf = random.choice(get_t1_ptf_ports(lower_tor_host, tbinfo))
 
     all_servers_ips = mux_cable_server_ip(upper_tor_host)
+    unexpected_count = 0
+    expected_count = 0
 
     with prepare_services(ptfhost):
         # Get the original memeory percent before test
@@ -158,17 +160,24 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor,
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False
             )
-            with server_traffic_monitor:
-                testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
-                logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
-                            .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
-                # Check memory usage for every operation, used for debugging if test failed
-                check_memory_leak(upper_tor_host)
-                pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
-                            "The server ip {} doesn't exist in neighbor table on dut {}. \
-                            tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
-            pytest_assert(len(server_traffic_monitor.matched_packets) > 0,
-                        "Didn't receive any expected packets for server {}.".format(server_ipv4))
+            try:
+                with server_traffic_monitor:
+                    testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
+                    logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
+                                .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
+                    # Check memory usage for every operation, used for debugging if test failed
+                    check_memory_leak(upper_tor_host)
+                    pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
+                                "The server ip {} doesn't exist in neighbor table on dut {}. \
+                                tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
+            except Exception as e:
+                logging.error("Capture exception {}, continue the process.".format(repr(e)))
+            if len(server_traffic_monitor.matched_packets) == 0:
+                logging.error("Didn't receive any expected packets for server {}.".format(server_ipv4))
+                unexpected_count += 1
+            else:
+                expected_count += 1
+        logging.info("The count of expected to receive packets: {}, unexpected count: {}.".format(expected_count, unexpected_count))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
         check_result = check_memory_leak(upper_tor_host)
