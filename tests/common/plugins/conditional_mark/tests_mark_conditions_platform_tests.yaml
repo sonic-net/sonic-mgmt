@@ -869,12 +869,12 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
-platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+# platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
+#   xfail:
+#     reason: "case failed and waiting for fix"
+#     conditions:
+#       - "hwsku in ['Celestica-DX010-C32']"
+#       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 
 #######################################
