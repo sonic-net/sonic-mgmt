@@ -94,11 +94,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####   api/test_chassis_fans.py  #####

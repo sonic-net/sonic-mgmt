@@ -487,6 +487,8 @@ class TestChassisApi(PlatformApiTestBase):
             if status_led:
                 led_controllable = status_led.get("controllable", True)
                 led_supported_colors = status_led.get("colors")
+            else:
+                led_controllable = False
 
         if led_controllable:
             led_type_skipped = 0
