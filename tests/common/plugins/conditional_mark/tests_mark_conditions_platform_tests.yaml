@@ -848,13 +848,6 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
     conditions:
       - "release in ['201911']"
 
-platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status:
   xfail:
     reason: "case failed and waiting for fix"
