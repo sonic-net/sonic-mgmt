@@ -15,7 +15,7 @@ def _port_alias_to_name_map_50G(all_ports, s100G_ports,):
 def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
-    port_name_to_index_map = {} 
+    port_name_to_index_map = {}
     HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
     try:
         from sonic_py_common import multi_asic
@@ -189,6 +189,17 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Celestica-DX010-C32":
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku == "Celestica-DX010-D48C8":
+            for i in range(1, 21):
+                port_alias_to_name_map["etp{}{}".format((i + 1)//2, "a" if i % 2 == 1 else "b")] = "Ethernet%d" % ((i - 1) * 2)
+            for i in range(21, 25):
+                port_alias_to_name_map["etp{}".format(i - 10)] = "Ethernet%d" % ((i - 10 - 1) * 4)
+            for i in range(25, 33):
+                port_alias_to_name_map["etp{}{}".format((i + 4 + 1)//2, "a" if i % 2 == 1 else "b")] = "Ethernet%d" % ((i + 4 - 1) * 2)
+            for i in range(33, 37):
+                port_alias_to_name_map["etp{}".format(i - 14)] = "Ethernet%d" % ((i - 14 - 1) * 4)
+            for i in range(37, 57):
+                port_alias_to_name_map["etp{}{}".format((i + 8 + 1)//2, "a" if i % 2 == 1 else "b")] = "Ethernet%d" % ((i + 8 - 1) * 2)
         elif hwsku == "Seastone-DX010":
             for i in range(1, 33):
                 port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
