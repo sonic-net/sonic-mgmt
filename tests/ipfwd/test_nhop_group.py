@@ -387,6 +387,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
 
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
+    import pdb; pdb.set_trace()
     try:
         for i, indx_list in zip(range(nhop_group_count), ip_indices):
             # get a list of unique group of next hop IPs
