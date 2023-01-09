@@ -270,7 +270,7 @@ class DualTorIO:
             # Otherwise send packets to all servers/soc
             server_ip_list = ptf_intf_to_ip_map.values()
 
-        logger.info("-"*20 + "T1 to {} packet".format{dst} + "-"*20)
+        logger.info("-"*20 + "T1 to {} packet".format(dst) + "-"*20)
         logger.info("PTF source intf: {}".format('random' if random_source else ptf_t1_src_intf))
         logger.info("Ethernet address: dst: {} src: {}".format(eth_dst, 'random' if random_source else eth_src))
         logger.info("IP address: dst: {} src: random".format('all' if len(server_ip_list) > 1
