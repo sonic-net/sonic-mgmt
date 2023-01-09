@@ -2001,7 +2001,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if is_dualtor and def_vlan_mac != None:
             self.dst_port_mac = def_vlan_mac
 
-        if self.testbed_type in ['t0', 't0-64', 't0-116']:
+        if self.testbed_type in ['dualtor', 't0', 't0-64', 't0-116']:
             # populate ARP
             for idx, ptid in enumerate(self.src_port_ids):
 
