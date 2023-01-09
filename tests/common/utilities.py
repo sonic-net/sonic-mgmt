@@ -25,6 +25,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -736,3 +737,49 @@ def find_duthost_on_role(duthosts, role, tbinfo):
                 role_host = duthost
                 role_set = True
     return role_host
+
+def get_neighbor_port_list(duthost, neighbor_name):
+    """
+    @summary: Get neighbor port in dut by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @return a list of port name
+        Sample output: ["Ethernet45", "Ethernet46"]
+    """
+    config_facts = duthost.get_running_config_facts()
+    neighbor_port_list = []
+    for port_name, value in config_facts["DEVICE_NEIGHBOR"].items():
+        if neighbor_name.upper() in value["name"].upper():
+            neighbor_port_list.append(port_name)
+
+    return neighbor_port_list
+
+def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
+    """
+    @summary: Get neighbor port in ptf by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @param tbinfo: testbed information
+    @return a list of port index
+        Sample output: [45, 46]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor_port_list = get_neighbor_port_list(duthost, neighbor_name)
+    ptf_port_list = []
+    for neighbor_port in neighbor_port_list:
+        ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
+
+    return ptf_port_list
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
