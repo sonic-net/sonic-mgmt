@@ -6,7 +6,7 @@ from helper import gnmi_capabilities
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer
 ]
 

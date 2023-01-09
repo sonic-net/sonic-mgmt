@@ -4,6 +4,7 @@ import re
 GNMI_CONTAINER_NAME = 'telemetry'
 GNMI_PROGRAM_NAME = 'telemetry'
 GNMI_CONFIG_KEY = 'TELEMETRY|gnmi'
+# Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
 

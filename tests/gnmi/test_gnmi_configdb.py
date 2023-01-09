@@ -12,7 +12,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer
 ]
 
