@@ -493,6 +493,8 @@ class Analyzer(object):
                                         duplicated_icm_list.append(icm)
                                         duplicated_flag = True
                                         break
+                                if duplicated_flag:
+                                    break
                             elif icm_title in ICM_PREFIX + icm['subject']:
                                 # Don't trigger IcM for duplicated cases, avoid IcM throttling
                                 logger.info("Found duplicated item in active IcM list, not trigger IcM: \
@@ -519,6 +521,8 @@ class Analyzer(object):
                                         duplicated_icm_list.append(icm)
                                         duplicated_flag = True
                                         break
+                                if duplicated_flag:
+                                    break
                             elif uploading_new_icm['subject'] in icm['subject'] or icm['subject'] in uploading_new_icm['subject']:
                                 # Don't trigger IcM for duplicated cases, avoid IcM throttling
                                 logger.info("Found duplicated item in uploading IcM list, not trigger IcM: \
