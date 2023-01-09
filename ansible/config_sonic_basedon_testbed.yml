@@ -566,6 +566,22 @@
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
       - block:
+         - name: create isis config file for SONiC device
+           template: src=templates/isis_config.j2
+                     dest=/etc/sonic/isis_config.json
+           become: true
+
+         - name: active isis config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/isis_config.json -w
+
+         #will remove below task, after isisd issue got fixed
+         - name: restart bgp container
+           become: true
+           shell: docker restart bgp
+        when: topo == "wan-ecmp"
+
+      - block:
         - name: set the default grpc credential file path
           set_fact:
             grpc_credential_file: /etc/sonic/grpc_secrets.json
