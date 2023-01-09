@@ -47,8 +47,7 @@ def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     ## add delay for pcied ready
-    if "Wistron_sw_to3200k" in duthost.facts["hwsku"]:
-        time.sleep(60)
+    time.sleep(60)
 
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
