@@ -37,6 +37,7 @@ all:
           - wan-pub-cisco
           - wan-2dut
           - wan-3link-tg
+          - wan-ecmp
       children:
         server_1:
     lab:
@@ -102,7 +103,7 @@ all:
           ansible_hostv6: fec0::ffff:afa:2
           type: kvm
           hwsku: Force10-S6100
-          serial_port: 9000
+          serial_port: 9095
           ansible_password: password
           ansible_user: admin
         vlab-03:
