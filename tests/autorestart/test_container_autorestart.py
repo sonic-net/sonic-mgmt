@@ -125,7 +125,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
             ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
             ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
-            ".*WARNING kernel: \[.*\] Modules linked in: linux_ngbde\(OE\) linux_knet_cb\(OE-\) linux_bcm_knet\(OE\).*"
     ]
     ignore_regex_dict = {
         'common': [
