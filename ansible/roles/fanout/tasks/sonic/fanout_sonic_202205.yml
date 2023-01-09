@@ -28,6 +28,10 @@
   pause:
     seconds: 180
 
+- name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
+  shell: docker exec -i swss supervisorctl stop arp_update
+  become: yes
+
 - name: Setup broadcom based fanouts
   block:
     - name: configure TPID of access ports
