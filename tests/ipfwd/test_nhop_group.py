@@ -429,6 +429,10 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
     """
+    if is_mellanox_device(duthost):
+        # Note: Need remove this check once Mellanox committed Ordered ECMP
+        pytest.skip("Ordered ECMP currently not supported on Mellanox DUT")
+
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     result = asic.run_redis_cmd(
