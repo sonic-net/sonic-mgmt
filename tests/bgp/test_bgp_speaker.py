@@ -268,6 +268,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
     ptfip, mg_facts, interface_facts, vlan_ips, _, vlan_if_name, \
         speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
+    asic_type = duthost.facts["asic_type"]
 
     logger.info("announce route")
     peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
@@ -333,6 +334,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                            "ipv4": ipv4,
                            "ipv6": ipv6,
                            "testbed_mtu": mtu,
+                           "asic_type": asic_type,
                            "test_balancing": False},
                    log_file="/tmp/bgp_speaker_test.FibTest.log",
                    socket_recv_size=16384)
