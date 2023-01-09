@@ -431,7 +431,7 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     """
     if is_mellanox_device(duthost):
         # Note: Need remove this check once Mellanox committed Ordered ECMP
-        pytest.skip("Order ECMP currently not supported on Mellanox DUT")
+        pytest.skip("Ordered ECMP currently not supported on Mellanox DUT")
 
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
