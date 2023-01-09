@@ -165,3 +165,5 @@ r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/16703529
 r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"
+
+r, ".*ERR kernel: \[.*\] AMD-Vi: Event logged \[IO_PAGE_FAULT device=00:13.1 domain=0x0009 address=0x0 flags=0x0000\].*"
