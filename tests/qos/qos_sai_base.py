@@ -27,7 +27,7 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
@@ -945,10 +945,22 @@ class QosSaiBase(QosBase):
                     if line:
                         m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
                         if m:
-                            asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
+                            asicConfig['ingress_shared_limit_sp0'] = int(m.group(1), 0)
                             break
+
+                output = duthost.shell('bcmcmd "g MMU_THDM_DB_POOL_SHARED_LIMIT"', module_ignore_errors=True)
+                logger.info('Read ASIC MMU_THDM_DB_POOL_SHARED_LIMIT register, output {}'.format(output))
+                count = 0
+                for line in output['stdout'].replace('\r', '\n').split('\n'):
+                    if line:
+                        m = re.match('MMU_THDM_DB_POOL_SHARED_LIMIT\(([01])\).*\]\=(\S+)', line)
+                        if m:
+                            asicConfig['egress_shared_limit_sp{}'.format(m.group(1))] = int(m.group(2), 0)
+                            count += 1
+                            if count == 2:
+                                break
             except:
-                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP register')
+                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP/MMU_THDM_DB_POOL_SHARED_LIMIT register')
         return asicConfig
 
     @pytest.fixture(scope='class', autouse=True)
