@@ -287,7 +287,6 @@ class TestPlanManager(object):
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
-                    time.sleep(interval)
                 elif expected_status.get_status() < current_status.get_status():
                     steps = None
                     step_status = None
@@ -312,6 +311,8 @@ class TestPlanManager(object):
                         return
                 else:
                     print("Current state is {}, waiting for the state {}".format(status, expected_state))
+
+                time.sleep(interval)
 
         else:
             raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
