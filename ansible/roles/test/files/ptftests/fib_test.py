@@ -112,6 +112,9 @@ class FibTest(BaseTest):
          - single_fib_for_duts:   have a single fib file for all DUTs in multi-dut case. Default: False
         '''
         self.dataplane = ptf.dataplane_instance
+        self.asic_type = self.test_params.get('asic_type')
+        if self.asic_type == "marvell":
+            fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
