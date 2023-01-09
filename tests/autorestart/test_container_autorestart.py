@@ -118,7 +118,14 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR snmp#snmpd.*",
             ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* "
             "after [0-9]+ retries",
-        ]
+            ".*ERR gbsyncd#syncd: :- updateNotificationsPointers: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not "
+            "handled.*",
+            ".*ERR gbsyncd#syncd: :- updateNotificationsPointers: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not "
+            "handled.*",
+            ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
+            ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
+            ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
+    ]
     ignore_regex_dict = {
         'common': [
             ".*ERR monit.*",
