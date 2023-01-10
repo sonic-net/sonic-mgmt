@@ -158,6 +158,9 @@ parameters:
           - vms61-dual-t0-8102
           - vms61-t0-8102-01
           - vms61-t1-8101-01
+          - vms61-t1-8101-02
+          - vms61-t1-8101-03
+          - vms61-t2-8800-1
       server_svc_1:
         vm_type: ceos
         pool: nightly-svc
