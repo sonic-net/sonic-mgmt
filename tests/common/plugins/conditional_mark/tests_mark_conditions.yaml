@@ -716,10 +716,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
       - "asic_type in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
   skip:
     reason: "Headroom pool size not supported."
     conditions:
