@@ -81,8 +81,13 @@ parameters:
     type: boolean
     default: false
 
-  - name: ENABLE_WARM_REBOOT_TEST
-    displayName: "Run warm reboot test"
+  - name: ENABLE_PTF_WARM_REBOOT_TEST
+    displayName: "Run ptf warm reboot test"
+    type: boolean
+    default: false
+  
+  - name: ENABLE_T0_WARM_REBOOT_TEST
+    displayName: "Run t0 warm reboot test"
     type: boolean
     default: false
 
@@ -142,8 +147,9 @@ stages:
       ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
       ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
       ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-      ENABLE_WARM_REBOOT_TEST: ${{ parameters.ENABLE_WARM_REBOOT_TEST }}
-      RUN_TEST: ${{ or(or(parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST), or( parameters.ENABLE_COMMUNITY_TEST, parameters.ENABLE_WARM_REBOOT_TEST )) }}
+      ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
+      ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
+      RUN_TEST: ${{ or( parameters.ENABLE_PTF_WARM_REBOOT_TEST, parameters.ENABLE_T0_WARM_REBOOT_TEST ) }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}

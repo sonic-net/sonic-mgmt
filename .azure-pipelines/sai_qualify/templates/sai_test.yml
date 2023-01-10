@@ -126,8 +126,13 @@ parameters:
     type: boolean
     default: false
 
-  - name: ENABLE_WARM_REBOOT_TEST
-    displayName: "Run warm reboot test"
+  - name: ENABLE_PTF_WARM_REBOOT_TEST
+    displayName: "Run ptf warm reboot test"
+    type: boolean
+    default: false
+  
+  - name: ENABLE_T0_WARM_REBOOT_TEST
+    displayName: "Run t0 warm reboot test"
     type: boolean
     default: false
 
@@ -566,6 +571,9 @@ jobs:
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
+            cd ${BASH_WORKING_FOLDER}/tests/sai_qualify
+            pip install -r requirements.txt
+
             cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
             pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/setup_test_env.py::test_sai_env_setup --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
@@ -578,6 +586,11 @@ jobs:
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+          SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
+          ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
+          ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
+          ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
+          ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
           SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
           OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
@@ -726,11 +739,12 @@ jobs:
             elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
             then
               CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
-            elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]]
+            elif [[ "$ENABLE_PTF_WARM_REBOOT_TEST" == "True" ]]
             then
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/${SAI_REPO_PATH}/${SAI_TEST_PATH}"
-            else
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf  --enable_warmboot_test"
+              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_warmboot_test --sai_test_enable_deployment --skip_stop_sai_test_container"
+            elif [[ "$ENABLE_T0_WARM_REBOOT_TEST" == "True" ]]
+            then
+              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_t0_warmboot_test --sai_test_enable_deployment --skip_stop_sai_test_container"
             fi
 
             BASE_PATH=`pwd`
@@ -770,13 +784,19 @@ jobs:
               pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            elif [[ "ENABLE_COMMUNITY_TEST" == "True" ]]
+            elif [[ "$ENABLE_COMMUNITY_TEST" == "True" ]]
             then
               pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            else
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
+            elif [[ "$ENABLE_PTF_WARM_REBOOT_TEST" == "True" ]]
+            then
+              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
+              --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
+              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
+            elif [[ "$ENABLE_T0_WARM_REBOOT_TEST" == "True" ]]
+            then
+              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_t0_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
             fi
@@ -792,6 +812,8 @@ jobs:
           ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
           ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
           ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
+          ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
+          ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
           SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
 
