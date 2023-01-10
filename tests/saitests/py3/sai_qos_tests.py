@@ -646,7 +646,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     tos = (dscp << 2)
                     tos |= 1
                     pkt = simple_ip_packet(pktlen=64,
-                                            eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                            eth_dst=pkt_dst_mac,
                                             eth_src=src_port_mac,
                                             ip_src=src_port_ip,
                                             ip_dst=dst_port_ip,
