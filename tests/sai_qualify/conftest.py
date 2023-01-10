@@ -98,9 +98,13 @@ def pytest_addoption(parser):
     parser.addoption("--enable_ptf_sai_test", action="store_true",
                      help="Trigger PTF-SAI test. If enable PTF-SAI \
                      testing or not, true or false.")
-    parser.addoption("--enable_warmboot_test", action="store_true",
+    parser.addoption("--enable_t0_warmboot_test", action="store_true",
                      default=False,
-                     help="Trigger WARMBOOT test. If enable WARMBOOT \
+                     help="Trigger T0-WARMBOOT test. If enable WARMBOOT \
+                     testing or not, true or false.")
+    parser.addoption("--enable_ptf_warmboot_test", action="store_true",
+                     default=False,
+                     help="Trigger PTF-SAI-WARMBOOT test. If enable WARMBOOT \
                      testing or not, true or false.")
     parser.addoption("--enable_sai_test", action="store_true",
                      help="Trigger SAI test. If enable SAI T0 \
@@ -268,7 +272,8 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
         logger.info("Prepare saiserver with command: {}".format(cmd))
         duthost.shell(cmd)
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "init")
             duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
             duthost.shell(
@@ -290,7 +295,8 @@ def revert_sai_test_container(duthost, creds, container_name, request):
         __restore_default_syncd(duthost, creds)
     else:
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "restore")
         __remove_saiserver_deploy(duthost, creds, request)
 
@@ -317,14 +323,16 @@ def get_sai_thrift_version(request):
 
     In current implementation, it will use v2 saithrift when:
         enable_ptf_sai_test
-        enable_warmboot_test
+        enable_t0_warmboot_test
+        enable_ptf_warmboot_test
         enable_sai_test
 
     Args:
         request: Pytest request.
     """
     if request.config.option.enable_ptf_sai_test \
-       or request.config.option.enable_warmboot_test \
+       or request.config.option.enable_t0_warmboot_test \
+       or request.config.option.enable_ptf_warmboot_test \
        or request.config.option.enable_sai_test:
         return "v2"
     else:
@@ -646,9 +654,10 @@ def saiserver_warmboot_config(duthost, operation):
     """
     Saiserver warmboot mode.
     Change the sai.profile
-        Args:
-            duthost (AnsibleHost): device under test
-            operation: init|start|restore
+
+    Args:
+        duthost (AnsibleHost): device under test
+        operation: init|start|restore
     """
     logger.info("config warmboot {}".format(operation))
     duthost.command(
@@ -658,14 +667,14 @@ def saiserver_warmboot_config(duthost, operation):
 
 def __copy_sai_qualify_script(duthost):
     """
-        Copys script for controlling saiserver docker,
-        sonic services, warmboot...
+    Copys script for controlling saiserver docker,
+    sonic services, warmboot...
 
-        Args:
-            duthost (AnsibleHost): device under test
+    Args:
+        duthost (AnsibleHost): device under test
 
-        Returns:
-            None
+    Returns:
+        None
     """
     duthost.shell("sudo mkdir -p " + USR_BIN_DIR)
     for script in SAI_SCRIPTS:
