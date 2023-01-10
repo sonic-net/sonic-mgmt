@@ -5,7 +5,7 @@ import multiprocessing
 import os
 import re
 import yaml
-
+import six
 import requests
 
 from abc import ABCMeta, abstractmethod
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 CREDENTIALS_FILE = 'credentials.yaml'
 
 
-class IssueCheckerBase(object, metaclass=ABCMeta):
+class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
     """
 

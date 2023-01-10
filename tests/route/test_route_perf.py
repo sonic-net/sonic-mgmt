@@ -2,6 +2,7 @@ import pytest
 import json
 import logging
 import time
+import re
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common import config_reload

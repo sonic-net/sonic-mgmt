@@ -5,7 +5,7 @@ import logging
 import pprint
 import pytest
 import json
-
+import six
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -389,7 +389,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     yield populate_arp_table
 
     logging.info("Stopping ARP responder")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
@@ -500,7 +500,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
 
 
-class BaseAclTest(object, metaclass=ABCMeta):
+class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     """Base class for testing ACL rules.
 
     Subclasses must provide `setup_rules` method to prepare ACL rules for traffic testing.
@@ -804,16 +804,16 @@ class BaseAclTest(object, metaclass=ABCMeta):
         exp_pkt = pkt.copy()
 
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
-        exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
+        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
 
         if ip_version == "ipv4":
-            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
+            exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+            exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
         else:
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+            exp_pkt.set_do_not_care_packet(packet.IPv6, 'hlim')
 
         return exp_pkt
 

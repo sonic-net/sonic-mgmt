@@ -36,7 +36,7 @@ from datetime import datetime
 tokenizer = ','
 comment_key = '#'
 system_log_file = '/var/log/syslog'
-re_rsyslog_pid = re.compile("PID:\s+(\d+)")
+re_rsyslog_pid = re.compile(r"PID:\s+(\d+)")
 
 #-- List of ERROR codes to be returned by AnsibleLogAnalyzer
 err_duplicate_start_marker = -1
@@ -254,7 +254,7 @@ class AnsibleLogAnalyzer:
     #---------------------------------------------------------------------
 
     def error_to_regx(self, error_string):
-        '''
+        r'''
         This method converts a (list of) strings to one regular expression.
 
         @summary: Meta characters are escaped by inserting a '\' beforehand

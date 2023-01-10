@@ -3,7 +3,7 @@ import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
-
+from collections import defaultdict
 import time
 import itertools
 import logging

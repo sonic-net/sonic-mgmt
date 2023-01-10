@@ -3,7 +3,6 @@ import logging
 import time
 import pytest
 import os
-
 import ptf.testutils as testutils
 from . import everflow_test_utilities as everflow_utils
 

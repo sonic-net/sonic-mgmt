@@ -340,8 +340,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]\
-                      .decode("utf-8")
+            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
         break
 
     if ip_version == 'v4':
@@ -365,7 +364,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         )
     elif ip_version == 'v6':
         tgt_addr = increment_ipv6_addr(src_addr_v6)
-        ll_src_addr = generate_link_local_addr(ptf_intf_mac)
+        ll_src_addr = generate_link_local_addr(ptf_intf_mac.decode())
         multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
         multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
         out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac)

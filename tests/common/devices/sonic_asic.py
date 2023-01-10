@@ -68,7 +68,7 @@ class SonicAsic(object):
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'frontend':
                 return True
         return False
@@ -76,7 +76,7 @@ class SonicAsic(object):
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'backend':
                 return True
         return False
@@ -523,7 +523,7 @@ class SonicAsic(object):
 
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
-        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        ports = self.shell(cmd)["stdout_lines"][0]
         if ports is not None and portname in ports:
             return True
         return False
@@ -534,7 +534,7 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        pcs = self.shell(cmd)["stdout_lines"][0]
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:

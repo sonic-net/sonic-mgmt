@@ -46,7 +46,7 @@ class TestIPPacket(object):
         output_lines = output_lines[3:]
 
         for item in output_lines:
-            match = re.search("(Ethernet\d+|PortChannel\d+)", item)
+            match = re.search(r"(Ethernet\d+|PortChannel\d+)", item)
             if match:
                 route_targets.append(match.group(0))
 
@@ -206,8 +206,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = 120
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(duthost.command("show ip route 10.156.94.34")["stdout_lines"],
                                                    pc_ports_map)
@@ -267,8 +267,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = 120
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(duthost.command("show ip route 10.156.94.34")["stdout_lines"],
                                                    pc_ports_map)
@@ -327,8 +327,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = 120
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(duthost.command("show ip route 10.156.94.34")["stdout_lines"],
                                                    pc_ports_map)
@@ -389,8 +389,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = 121
         exp_pkt.payload.chksum = 0x0001
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(duthost.command("show ip route 10.156.190.188")["stdout_lines"],
                                                    pc_ports_map)
@@ -448,8 +448,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = 121
         exp_pkt.payload.chksum = 0x0000
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(duthost.command("show ip route 10.156.94.34")["stdout_lines"],
                                                    pc_ports_map)
@@ -499,8 +499,8 @@ class TestIPPacket(object):
         exp_pkt.payload.ttl = pkt.payload.ttl - 1
         exp_pkt = mask.Mask(exp_pkt)
 
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
 
         out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(
             duthost.command("show ip route %s" % peer_ip_ifaces_pair[1][0])["stdout_lines"],

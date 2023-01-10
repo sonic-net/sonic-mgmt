@@ -287,7 +287,7 @@ def test_standby_tor_remove_neighbor_downstream_standby(
         if ip_version == "ipv4":
             ptfhost.shell("supervisorctl stop garp_service")
         else:
-            ptfhost.shell("supervisorctl stop arp_responder")
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
         yield
         if ip_version == "ipv4":
             ptfhost.shell("supervisorctl start garp_service")

@@ -1442,7 +1442,7 @@ def is_tunnel_qos_remap_enabled(duthost):
     """
     try:
         tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
-                                                module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+                                                module_ignore_errors=True)["stdout_lines"][0]
     except IndexError:
         return False
     return "enabled" == tunnel_qos_remap_status
@@ -1475,4 +1475,4 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
     yield
 
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)

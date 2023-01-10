@@ -435,7 +435,7 @@ def setup_arp_responder(duthost, ptfhost, setup_info):
 
     yield
 
-    ptfhost.command('supervisorctl stop arp_responder')
+    ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
     ptfhost.file(path='/tmp/arp_responder.json', state="absent")
     duthost.command('sonic-clear arp')
 

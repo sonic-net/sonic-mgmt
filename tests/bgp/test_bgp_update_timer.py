@@ -171,7 +171,7 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         """Check if the bgp update packet matches."""
         if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
             return False
-        subnet = ipaddress.ip_network(route["prefix"].decode())
+        subnet = ipaddress.ip_network(route["prefix"])
 
         # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
         # address the compatibility issue of scapy versions.

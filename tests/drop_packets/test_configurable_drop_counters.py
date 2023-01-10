@@ -97,7 +97,7 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     }
     fdb_config_json.append(fdb_entry_json)
 
-    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config", mode="w") as fp:
         logging.info("Generating FDB config: {}".format(fdb_config_json))
         json.dump(fdb_config_json, fp)
         fp.flush()
@@ -426,7 +426,7 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
     yield vlan_host_map
 
     logging.info("Stopping ARP responder")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture

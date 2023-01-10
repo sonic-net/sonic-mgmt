@@ -132,7 +132,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
         ptfhost.shell("supervisorctl start arp_responder")
         ptfhost.shell("supervisorctl start icmp_responder")
         yield
-        ptfhost.shell("supervisorctl stop arp_responder")
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
         ptfhost.shell("supervisorctl stop icmp_responder")
 
     pytest_assert(is_tunnel_packet_handler_running(upper_tor_host),

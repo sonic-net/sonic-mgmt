@@ -119,7 +119,7 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
             acl_entry_config[str(seq_id)] = copy.deepcopy(acl_entry_template)
             acl_entry_config[str(seq_id)]["config"]["sequence-id"] = seq_id
 
-        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config") as fp:
+        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
             json.dump(acl_config, fp)
             fp.flush()
             logger.info("Generating config for ACL rule, ACL table - DATAACL")
@@ -173,7 +173,7 @@ def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
                           }
         fdb_config_json.append(fdb_entry_json)
 
-    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config", mode="w") as fp:
         logger.info("Generating FDB config")
         json.dump(fdb_config_json, fp)
         fp.flush()
@@ -438,7 +438,7 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
 
 def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
-    return ((used + available) / 100) + 1
+    return ((used + available) // 100) + 1
 
 
 @pytest.mark.usefixtures('disable_route_checker')

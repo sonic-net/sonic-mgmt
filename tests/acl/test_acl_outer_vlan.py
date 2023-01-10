@@ -709,7 +709,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
     def _teardown_arp_responder(self, ptfhost):
         logger.info("Stopping arp_responder")
-        ptfhost.command('supervisorctl stop arp_responder')
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
         ptfhost.file(path=ARP_RESPONDER_SCRIPT_DEST_PATH, state="absent")
 
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):

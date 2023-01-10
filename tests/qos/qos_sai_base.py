@@ -145,7 +145,7 @@ class QosSaiBase(QosBase):
         if check_qos_db_fv_reference_with_table(dut_asic):
             pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
         else:
-            pool = keystr + bufferProfile["pool"].encode("utf-8")
+            pool = keystr + bufferProfile["pool"]
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv=["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -223,7 +223,7 @@ class QosSaiBase(QosBase):
             )[0].encode("utf-8").translate(None, "[]")
         else:
             bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]

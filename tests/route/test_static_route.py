@@ -40,7 +40,7 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
     else:
         vlan_host_map = defaultdict(dict)
         for idx in range(len(nexthop_addrs)):
-            mac = ptfadapter.dataplane.get_mac(0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))).replace(":", "")
+            mac = ptfadapter.dataplane.get_mac(0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))).decode().replace(":", "")
             vlan_host_map[nexthop_interfaces[idx]][nexthop_addrs[idx]] = mac
 
         arp_responder_conf = {}
@@ -62,7 +62,7 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
         for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
     else:
-        ptfhost.shell('supervisorctl stop arp_responder')
+        ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
 def clear_arp_ndp(duthost, ipv6=False):

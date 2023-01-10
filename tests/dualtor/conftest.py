@@ -106,7 +106,7 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
     _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv6')
     yield
 
-    ptfhost.shell('supervisorctl stop arp_responder')
+    ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -114,7 +114,7 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv4')
     yield
 
-    ptfhost.shell('supervisorctl stop arp_responder')
+    ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
 def pytest_configure(config):

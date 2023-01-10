@@ -126,7 +126,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     yield setup_info
 
     logger.info("Stop arp_responder on PTF")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
     logger.info("Always try to remove any possible VxLAN tunnel and map configuration")
     for vlan in mg_facts["minigraph_vlans"]:

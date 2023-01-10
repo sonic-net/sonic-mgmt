@@ -112,7 +112,7 @@ def test_host_vlan_no_floodling(
     duthost = duthosts[rand_one_dut_hostname]
     vlan_intf, vlan_member_ports_to_ptf_ports = testbed_params
     vlan_intf_mac = duthost.get_dut_iface_mac(vlan_intf["attachto"])
-    selected_test_ports = random.sample(vlan_member_ports_to_ptf_ports, HOST_PORT_FLOODING_CHECK_COUNT + 1)
+    selected_test_ports = random.sample(list(vlan_member_ports_to_ptf_ports), HOST_PORT_FLOODING_CHECK_COUNT + 1)
     test_dut_port = selected_test_ports[0]
     test_ptf_port = vlan_member_ports_to_ptf_ports[test_dut_port]
     test_ptf_port_mac = ptfadapter.dataplane.get_mac(0, test_ptf_port)

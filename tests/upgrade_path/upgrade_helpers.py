@@ -1,7 +1,12 @@
 import pytest
 import logging
 import time
-from urlparse import urlparse
+import tempfile
+import random
+if sys.version_info.major > 2:
+    from urllib.parse import urlunparse
+else:
+    from urlparse import urlunparse
 import ipaddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot

@@ -5,7 +5,7 @@ import re
 import time
 import logging
 import tech_support_cmds as cmds
-
+import re
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
