@@ -32,6 +32,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -69,7 +70,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32'
+        'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-D48C8'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -445,6 +447,56 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
         )
 
+    def correctPortIds(self, test_port_ids, src_port_ids, dst_port_ids):
+        '''
+        if port id of test_port_ids/dst_port_ids is not existing in test_port_ids
+        correct it, make sure all src/dst id is valid
+        '''
+        sp = src_port_ids
+        slist = True
+        if not isinstance(src_port_ids, list):
+            sp = [src_port_ids]
+            slist = False
+
+        dp = dst_port_ids
+        dlist = True
+        if not isinstance(dst_port_ids, list):
+            dp = [dst_port_ids]
+            dlist = False
+
+        if len(sp) + len(dp) > len(test_port_ids):
+            logger.info('no enough ports for test')
+            return (None, None)
+
+        ports = [pid for pid in test_port_ids]
+
+        si = []
+        for idx, pid in enumerate(sp):
+            if pid not in ports:
+                si.append(idx)
+            else:
+                ports.remove(pid)
+
+        di = []
+        for idx, pid in enumerate(dp):
+            if pid not in ports:
+                di.append(idx)
+            else:
+                ports.remove(pid)
+
+        for idx in si:
+            sp[idx] = ports.pop(0)  # prefer to use port which id is smaller
+
+        for idx in di:
+            dp[idx] = ports.pop(0)  # prefer to use port which id is smaller
+
+        if not slist:
+            sp = sp[0]
+        if not dlist:
+            dp = dp[0]
+
+        return (sp, dp)
+
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
@@ -479,6 +531,10 @@ class TestQosSai(QosSaiBase):
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
+
+        qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
+            dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
+        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] and qosConfig["hdrm_pool_size"]["dst_port_id"], "No enough test ports")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
