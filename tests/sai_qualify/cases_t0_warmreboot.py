@@ -1,19 +1,19 @@
 
 """
-Test cases list under ptf/warm_boot
+Test cases list under ptf
 """
 
-WARM_REBOOT_TEST_CASE = [
+WARM_REBOOT_T0_TEST_CASE = [
     "sai_fdb_test.L2PortForwardingTest",
     "sai_fdb_test.VlanLearnDisableTest",
     "sai_fdb_test.BridgePortLearnDisableTest",
     "sai_fdb_test.NonBridgePortNoLearnTest",
     "sai_fdb_test.NewVlanmemberLearnTest",
-    # "sai_fdb_test.RemoveVlanmemberLearnTest",
+    "sai_fdb_test.RemoveVlanmemberLearnTest",
     "sai_fdb_test.InvalidateVlanmemberNoLearnTest",
-    # "sai_fdb_test.BroadcastNoLearnTest",
+    "sai_fdb_test.BroadcastNoLearnTest",
     "sai_fdb_test.MulticastNoLearnTest",
-    # "sai_fdb_test.FdbAgingTest",
+    "sai_fdb_test.FdbAgingTest",
     "sai_fdb_test.FdbAgingAfterMoveTest",
     "sai_fdb_test.FdbMacMovingAfterAgingTest",
     "sai_fdb_test.FdbFlushVlanStaticTest",
@@ -36,7 +36,7 @@ WARM_REBOOT_TEST_CASE = [
     "sai_vlan_test.BroadcastTest",
     "sai_vlan_test.UntaggedMacLearningTest",
     "sai_vlan_test.TaggedMacLearningTest",
-    # "sai_vlan_test.VlanMemberListTest",
+    "sai_vlan_test.VlanMemberListTest",
     "sai_vlan_test.VlanMemberInvalidTest",
     "sai_vlan_test.DisableMacLearningTaggedTest",
     "sai_vlan_test.DisableMacLearningUntaggedTest",
