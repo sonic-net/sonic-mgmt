@@ -15,4 +15,12 @@ bjw-e1031-can-1,13,bjw-can-720dt-1,ssh,admin
 bjw-e1031-can-1,14,bjw-can-720dt-2,ssh,admin
 bjw-e1031-can-1,15,bjw-can-7215-4,ssh,admin
 bjw-e1031-can-1,16,bjw-can-7215-3,ssh,admin
+bjw-e1031-can-1,17,bjw-can-slx-6,ssh,admin
+bjw-e1031-can-1,18,bjw-can-2700-2,ssh,admin
+bjw-e1031-can-1,19,bjw-can-slx-7,ssh,admin
+bjw-e1031-can-1,20,bjw-can-7050qx-1,ssh,admin
+bjw-e1031-can-1,21,bjw-can-slx-8,ssh,admin
+bjw-e1031-can-1,22,bjw-can-7050qx-2,ssh,admin
+bjw-e1031-can-1,45,bjw-can-ec9516-2,ssh,admin
+bjw-e1031-can-1,46,bjw-can-z9332f-2,ssh,admin
 bjw-e1031-can-2,48,bjw-e1031-can-1,ssh,admin
