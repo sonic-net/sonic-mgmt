@@ -22,13 +22,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_fan_drawers:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_model:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_my_slot:
   skip:
     reason: "Unsupported platform API"
@@ -48,13 +41,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_serial:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   # Skip unsupported API test on Mellanox platform
   skip:
@@ -67,13 +53,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager:
   skip:
@@ -145,34 +124,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_presence:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_status:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_speed:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
@@ -296,13 +247,6 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_presence:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
@@ -316,33 +260,17 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_direction:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
@@ -352,25 +280,11 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_spe
     conditions:
       - "asic_type in ['cisco-8000']"
 
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_target_speed:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_presence:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
@@ -379,20 +293,6 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000']"
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_speed:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_status:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
   skip:
@@ -445,13 +345,6 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_psu.py::TestPsuApi::test_get_presence:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
 platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
   xfail:
     reason: "case failed and waiting for fix"
@@ -470,33 +363,18 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
     reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
@@ -543,13 +421,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
-
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 #######################################
 #####        api/test_sfp.py      #####
@@ -847,42 +718,6 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
     reason: "LEDD daemon auto restart not included in 201911"
     conditions:
       - "release in ['201911']"
-
-platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
-platform_tests/daemon/test_psud.py::test_pmon_psud_running_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
-platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
-platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
-platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_running_status:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 
 #######################################
 #####    fwutil/test_fwutil.py    #####
