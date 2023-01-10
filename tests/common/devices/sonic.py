@@ -1007,7 +1007,15 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to shutdown
         """
         logging.info("Shutting down {}".format(ifname))
-        return self.command("sudo config interface shutdown {}".format(ifname))
+
+        # if input ifname is alias, not interface name, need find out the interface name
+        ifs_status = self.get_interfaces_status()
+        logging.info("##### Shutting down ifs_status {}".format(ifs_status))
+
+        for key, interface_info in ifs_status.items():
+            if ifname == interface_info['alias'] or ifname == interface_info['interface']:
+                logging.debug('Shutting down %s (%s)' % (ifname, interface_info['interface']))
+                return self.command("sudo config interface shutdown {}".format(interface_info['interface']))
 
     def shutdown_multiple(self, ifnames):
         """
@@ -1035,7 +1043,12 @@ class SonicHost(AnsibleHostBase):
                 ifname: the interface to bring up
         """
         logging.info("Starting up {}".format(ifname))
-        return self.command("sudo config interface startup {}".format(ifname))
+
+        ifs_status = self.get_interfaces_status()
+        for key, interface_info in ifs_status.items():
+            if ifname == interface_info['alias'] or ifname == interface_info['interface']:
+                logging.debug('Starting up %s (%s)' % (ifname, interface_info['interface']))
+                return self.command("sudo config interface startup {}".format(interface_info['interface']))
 
     def no_shutdown_multiple(self, ifnames):
         """
