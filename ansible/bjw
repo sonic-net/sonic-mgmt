@@ -28,8 +28,20 @@ all:
           ansible_host: 10.150.23.55
         bjw6-7:
           ansible_host: 10.150.23.56
+        bjw6-8:
+          ansible_host: 10.150.23.57
+        bjw6-9:
+          ansible_host: 10.150.23.58
+        bjw6-10:
+          ansible_host: 10.150.23.59
     pdu:
       hosts:
+        bjw-pdu-126-132:
+          ansible_host: 10.150.126.132
+          protocol: snmp
+        bjw-pdu-126-133:
+          ansible_host: 10.150.126.133
+          protocol: snmp
         bjw-pdu-126-134:
           ansible_host: 10.150.126.134
           protocol: snmp
@@ -52,6 +64,9 @@ fanout:
     bjw-can-z9332f-1:
       ansible_host: 10.150.22.108
       os: sonic
+    bjw-can-z9332f-2:
+      ansible_host: 10.150.22.120
+      os: sonic
     bjw-slx-can-2:
       ansible_host: 10.150.22.105
       os: sonic
@@ -60,6 +75,15 @@ fanout:
       os: sonic
     bjw-can-slx-5:
       ansible_host: 10.150.22.100
+      os: sonic
+    bjw-can-slx-6:
+      ansible_host: 10.150.22.114
+      os: sonic
+    bjw-can-slx-7:
+      ansible_host: 10.150.22.116
+      os: sonic
+    bjw-can-slx-8:
+      ansible_host: 10.150.22.118
       os: sonic
     bjw-can-7215-2:
       ansible_host: 10.150.22.111
@@ -75,11 +99,62 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
+    sonic_arista_7050qx:
     sonic_arista_720dt:
     sonic_celestica_dx010:
     sonic_intel_ec9516:
     sonic_mlnx_sn2700:
     sonic_nokia_7215:
+
+sonic_arista_7050qx:
+  vars:
+    hwsku: Arista-7050-QX-32S
+    iface_speed: 40000
+  hosts:
+    bjw-can-7050qx-1:
+      ansible_host: 10.150.22.117
+      hwsku: Arista-7050-QX-32S
+      model: DCS-7050QX-32S
+      serial: JPE18402553
+      base_mac: 74:83:ef:fe:ea:a0
+      syseeprom_info:   # needs to update eeprom info
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910D0"
+        "0x23": "JPE18402553"
+        "0x24": "74:83:ef:fe:ea:a0"
+        "0x25": "2018/10/16 12:32:16"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.0-3037060"
+        "0x2F": "JPE18402553"
+        "0xFE": 3735928559
+    bjw-can-7050qx-2:
+      ansible_host: 10.150.22.119
+      hwsku: Arista-7050-QX-32S
+      model: DCS-7050QX-32S
+      serial: SSJ18381373
+      base_mac: 98:5d:82:08:c4:84
+      syseeprom_info:   # needs to update eeprom info
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910D0"
+        "0x23": "SSJ18381373"
+        "0x24": "98:5d:82:08:c4:84"
+        "0x25": "2018/09/26 17:09:33"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.0-3037060"
+        "0x2F": "SSJ18381373"
+        "0xFE": 3735928559
 
 sonic_arista_720dt:
   vars:
@@ -199,6 +274,21 @@ sonic_intel_ec9516:
         "0x2A": "260"
         "0x2B": "Intel"
         "0xFE": "0xA6E0E529"
+    bjw-can-ec9516-2:
+      ansible_host: 10.150.22.121
+      model: NP5ZZ8632007A
+      serial: 9516D2226043
+      base_mac: 98:19:2c:12:33:ed
+      syseeprom_info:
+        "0x21": "Newport"
+        "0x22": "NP5ZZ8632007A"
+        "0x23": "9516D2226043"
+        "0x24": "E0:01:A6:A8:14:5C"
+        "0x25": "06/26/2022 00:00:00"
+        "0x26": "1"
+        "0x2A": "260"
+        "0x2B": "Intel"
+        "0xFE": "0x2988A06B"
 
 sonic_mlnx_sn2700:
   vars:
@@ -222,6 +312,23 @@ sonic_mlnx_sn2700:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x1619F9E1"
+    bjw-can-2700-2:
+      ansible_host: 10.150.22.115
+      model: MSN2700-CS2FOS
+      serial: MT1849X08811
+      base_mac: 98:03:9B:F6:02:80
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FOS"
+        "0x23": "MT1849X08811"
+        "0x24": "98:03:9B:F6:02:80"
+        "0x25": "12/10/2018 21:52:54"
+        "0x26": "16"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2018.05-5.2.0004-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0x05D17C32"
 
 sonic_nokia_7215:
   vars:
