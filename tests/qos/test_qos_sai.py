@@ -461,51 +461,72 @@ class TestQosSai(QosSaiBase):
         '''
         if port id of test_port_ids/dst_port_ids is not existing in test_port_ids
         correct it, make sure all src/dst id is valid
+        e.g.
+            Given below parameter:
+                test_port_ids: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                dst_port_ids: 10
+            and run correctPortIds to get below result:
+                src_port_ids: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+                dst_port_ids: 10
         '''
-        sp = src_port_ids
-        slist = True
+        # cache src port ids, and if its type isn't list, convert it to list
+        src_port = src_port_ids
+        src_is_list = True
         if not isinstance(src_port_ids, list):
-            sp = [src_port_ids]
-            slist = False
+            src_port = [src_port_ids]
+            src_is_list = False
 
-        dp = dst_port_ids
-        dlist = True
+        # cache dst port ids, and if its type isn't list, convert it to list
+        dst_port = dst_port_ids
+        dst_is_list = True
         if not isinstance(dst_port_ids, list):
-            dp = [dst_port_ids]
-            dlist = False
+            dst_port = [dst_port_ids]
+            dst_is_list = False
 
-        if len(sp) + len(dp) > len(test_port_ids):
+        if len(src_port) + len(dst_port) > len(test_port_ids):
             logger.info('no enough ports for test')
             return (None, None)
 
+        # cache test port ids
         ports = [pid for pid in test_port_ids]
 
-        si = []
-        for idx, pid in enumerate(sp):
+        # check if all src port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild src port id to invalid_src_idx variable
+        invalid_src_idx = []
+        for idx, pid in enumerate(src_port):
             if pid not in ports:
-                si.append(idx)
+                invalid_src_idx.append(idx)
             else:
                 ports.remove(pid)
 
-        di = []
-        for idx, pid in enumerate(dp):
+        # check if all dst port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild dst port id to invalid_dst_idx variable
+        invalid_dst_idx = []
+        for idx, pid in enumerate(dst_port):
             if pid not in ports:
-                di.append(idx)
+                invalid_dst_idx.append(idx)
             else:
                 ports.remove(pid)
 
-        for idx in si:
-            sp[idx] = ports.pop(0)  # prefer to use port which id is smaller
+        # pop the minimal test port id, and assign it to src port to replace its invalid port id
+        for idx in invalid_src_idx:
+            src_port[idx] = ports.pop(0)
 
-        for idx in di:
-            dp[idx] = ports.pop(0)  # prefer to use port which id is smaller
+        # pop the minimal test port id, and assign it to dst port to replace its invalid port id
+        for idx in invalid_dst_idx:
+            dst_port[idx] = ports.pop(0)
 
-        if not slist:
-            sp = sp[0]
-        if not dlist:
-            dp = dp[0]
+        # if src port is not list, conver it back to int
+        if not src_is_list:
+            src_port = src_port[0]
+        # if dst port is not list, conver it back to int
+        if not dst_is_list:
+            dst_port = dst_port[0]
 
-        return (sp, dp)
+        return (src_port, dst_port)
 
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
