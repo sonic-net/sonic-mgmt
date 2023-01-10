@@ -716,20 +716,16 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
       - "asic_type in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
-  xfail:
-    reason: "Image issue on Arista platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050cx3_32s']"
   skip:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32'] and asic_type not in ['mellanox']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
