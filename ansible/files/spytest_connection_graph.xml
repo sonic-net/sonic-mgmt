@@ -6138,10 +6138,10 @@
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="pdu-82" HwSku="APC" ManagementIp="10.3.155.82" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-83" HwSku="APC" ManagementIp="10.3.155.83" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-84" HwSku="APC" ManagementIp="10.3.155.84" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-85" HwSku="APC" ManagementIp="10.3.155.85" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-82" HwSku="Apc" ManagementIp="10.3.155.82" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-83" HwSku="Apc" ManagementIp="10.3.155.83" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-84" HwSku="Apc" ManagementIp="10.3.155.84" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-85" HwSku="Apc" ManagementIp="10.3.155.85" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-96" HwSku="Sentry4" ManagementIp="10.3.155.96" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-97" HwSku="Sentry4" ManagementIp="10.3.155.97" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-98" HwSku="Sentry4" ManagementIp="10.3.155.98" Protocol="snmp" Type="Pdu"/>
