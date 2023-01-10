@@ -32,6 +32,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -68,7 +69,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32'
+        'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-D48C8'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -156,8 +158,8 @@ class TestQosSai(QosSaiBase):
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
-            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen
             Only for MLNX Platforms
 
             Args:
@@ -400,6 +402,131 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
 
+    @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
+                             "lossless_voq_3", "lossless_voq_4"])
+    def testQosSaiLosslessVoq(
+        self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
+    ):
+        """
+            Test QoS SAI XOFF limits for various voq mode configurations
+            Args:
+                LosslessVoqProfile (pytest parameter): LosslessVoq Profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Lossless Voq test is not supported")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        testPortIps = dutConfig["testPortIps"]
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[LosslessVoqProfile]["dscp"],
+            "ecn": qosConfig[LosslessVoqProfile]["ecn"],
+            "pg": qosConfig[LosslessVoqProfile]["pg"],
+            "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
+            "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
+            "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
+            "src_port_1_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_1_id"]]['peer_addr'],
+            "src_port_2_id": qosConfig[LosslessVoqProfile]["src_port_2_id"],
+            "src_port_2_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_2_id"]]['peer_addr'],
+            "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
+            "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+            "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
+        })
+
+        if "pkts_num_margin" in qosConfig[LosslessVoqProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[LosslessVoqProfile]["pkts_num_margin"]
+
+        if "packet_size" in qosConfig[LosslessVoqProfile].keys():
+            testParams["packet_size"] = qosConfig[LosslessVoqProfile]["packet_size"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
+        )
+
+    def correctPortIds(self, test_port_ids, src_port_ids, dst_port_ids):
+        '''
+        if port id of test_port_ids/dst_port_ids is not existing in test_port_ids
+        correct it, make sure all src/dst id is valid
+        e.g.
+            Given below parameter:
+                test_port_ids: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                dst_port_ids: 10
+            and run correctPortIds to get below result:
+                src_port_ids: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+                dst_port_ids: 10
+        '''
+        # cache src port ids, and if its type isn't list, convert it to list
+        src_port = src_port_ids
+        src_is_list = True
+        if not isinstance(src_port_ids, list):
+            src_port = [src_port_ids]
+            src_is_list = False
+
+        # cache dst port ids, and if its type isn't list, convert it to list
+        dst_port = dst_port_ids
+        dst_is_list = True
+        if not isinstance(dst_port_ids, list):
+            dst_port = [dst_port_ids]
+            dst_is_list = False
+
+        if len(src_port) + len(dst_port) > len(test_port_ids):
+            logger.info('no enough ports for test')
+            return (None, None)
+
+        # cache test port ids
+        ports = [pid for pid in test_port_ids]
+
+        # check if all src port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild src port id to invalid_src_idx variable
+        invalid_src_idx = []
+        for idx, pid in enumerate(src_port):
+            if pid not in ports:
+                invalid_src_idx.append(idx)
+            else:
+                ports.remove(pid)
+
+        # check if all dst port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild dst port id to invalid_dst_idx variable
+        invalid_dst_idx = []
+        for idx, pid in enumerate(dst_port):
+            if pid not in ports:
+                invalid_dst_idx.append(idx)
+            else:
+                ports.remove(pid)
+
+        # pop the minimal test port id, and assign it to src port to replace its invalid port id
+        for idx in invalid_src_idx:
+            src_port[idx] = ports.pop(0)
+
+        # pop the minimal test port id, and assign it to dst port to replace its invalid port id
+        for idx in invalid_dst_idx:
+            dst_port[idx] = ports.pop(0)
+
+        # if src port is not list, conver it back to int
+        if not src_is_list:
+            src_port = src_port[0]
+        # if dst port is not list, conver it back to int
+        if not dst_is_list:
+            dst_port = dst_port[0]
+
+        return (src_port, dst_port)
+
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
@@ -432,6 +559,10 @@ class TestQosSai(QosSaiBase):
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
+
+        qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
+            dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
+        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] and qosConfig["hdrm_pool_size"]["dst_port_id"], "No enough test ports")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1247,8 +1378,8 @@ class TestQosSai(QosSaiBase):
     def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps):
         """
             Test QoS SAI DSCP to PG mapping ptf test.
-            Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to 
-            run separately 
+            Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to
+            run separately
 
             Args:
                 duthost (AnsibleHost)
@@ -1268,7 +1399,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
         if "dualtor" in dutTestParams['topo']:
             pytest.skip("Skip this test case on dualtor testbed")
-            
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         if direction == "downstream":
