@@ -1,4 +1,3 @@
-import ipaddress
 import logging
 import pytest
 import re
@@ -8,8 +7,10 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthost):
@@ -54,6 +55,7 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
     status = re.split(r" {2,}", interface_status)[field_index]
     return status
 
+
 def get_ethernet_port_not_in_portchannel(duthost):
     """
         Returns the name of an ethernet port which is not a member of a port channel
@@ -75,6 +77,7 @@ def get_ethernet_port_not_in_portchannel(duthost):
             break
     return port_name
 
+
 def get_port_speeds_for_test(duthost):
     """
     Get the speeds parameters for case test_update_speed, including 2 valid speeds and 1 invalid speed
@@ -93,6 +96,7 @@ def get_port_speeds_for_test(duthost):
     speeds_to_test = [(speed, True) for speed in valid_speeds_to_test]
     speeds_to_test.append(invalid_speed)
     return speeds_to_test
+
 
 def test_remove_lanes(duthost, ensure_dut_readiness):
     json_patch = [
@@ -159,7 +163,8 @@ def test_replace_mtu(duthost, ensure_dut_readiness):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         current_status_mtu = check_interface_status(duthost, "MTU", port_name)
-        pytest_assert(current_status_mtu == target_mtu, "Failed to properly configure interface MTU to requested value {}".format(target_mtu))
+        pytest_assert(current_status_mtu == target_mtu,
+                      "Failed to properly configure interface MTU to requested value {}".format(target_mtu))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -181,7 +186,8 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         current_status_pfc_asym = check_interface_status(duthost, "Asym")
-        pytest_assert(current_status_pfc_asym == pfc_asym, "Failed to properly configure interface Asym PFC to requested value off")
+        pytest_assert(current_status_pfc_asym == pfc_asym,
+                      "Failed to properly configure interface Asym PFC to requested value off")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -203,7 +209,8 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         current_status_fec = check_interface_status(duthost, "FEC")
-        pytest_assert(current_status_fec == fec, "Failed to properly configure interface FEC to requested value {}".format(fec))
+        pytest_assert(current_status_fec == fec,
+                      "Failed to properly configure interface FEC to requested value {}".format(fec))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -253,7 +260,8 @@ def test_update_speed(duthost, ensure_dut_readiness):
             if is_valid:
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
-                pytest_assert(current_status_speed == speed, "Failed to properly configure interface speed to requested value {}".format(speed))
+                pytest_assert(current_status_speed == speed,
+                              "Failed to properly configure interface speed to requested value {}".format(speed))
             else:
                 expect_op_failure(output)
         finally:
@@ -288,15 +296,15 @@ def test_eth_interface_admin_change(duthost, admin_status):
             "value": "{}".format(admin_status)
         }
     ]
-    
+
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        
-        running_status = check_interface_status(duthost, "Admin")
-        pytest_assert(admin_status == running_status, "Interface failed to update admin status to {}".format(admin_status))
+
+        pytest_assert(wait_until(10, 2, 0, lambda: check_interface_status(duthost, "Admin") == admin_status),
+                      "Interface failed to update admin status to {}".format(admin_status))
     finally:
         delete_tmpfile(duthost, tmpfile)
