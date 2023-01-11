@@ -822,9 +822,9 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue or unsupported platform"
+    reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
-      - "is_supervisor or topo_name in ['m0'] or asic_type in ['barefoot']"
+      - "is_supervisor or topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
