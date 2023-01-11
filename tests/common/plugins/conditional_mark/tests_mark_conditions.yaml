@@ -816,7 +816,7 @@ snmp/test_snmp_queue.py:
       - https://github.com/sonic-net/sonic-buildimage/issues/13289
       - "asic_type in ['vs']"
       - "hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs']"
-      - "branch in ['202205']"
+      - "'202205' in branch"
 
 #######################################
 #####            span             #####
