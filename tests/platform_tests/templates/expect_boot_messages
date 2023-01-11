@@ -39,7 +39,7 @@ r, ".* syncd.*mlnx_sai_switch.*mlnx_create_switch: Create switch.*INIT_SWITCH=tr
 r, ".* syncd#SDK.*mlnx_sai_switch.*mlnx_create_switch.*Created switch Switch ID.*"
 
 # mlnx specific sairedis regexes
-r, ".*\|n\|fdb_event.*fdb_entry.*mac.*fdb_event.*SAI_FDB_EVENT_LEARNED.*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"
+r, ".*\|n\|fdb_event.*fdb_entry.*mac.*fdb_event.*[SAI_FDB_EVENT_MOVE|SAI_FDB_EVENT_LEARNED].*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"
 
 # 201911 specific regexes
 r, ".* NOTICE admin: Stopping radv ....*"
