@@ -69,7 +69,7 @@ class MultiAsicSonicHost(object):
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
-        if self.sonichost.is_supervisor_node():
+        if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
             config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
