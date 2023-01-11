@@ -25,6 +25,8 @@ DHCP6_Reply = scapy.layers.dhcp6.DHCP6_Reply
 DHCP6_RelayReply = scapy.layers.dhcp6.DHCP6_RelayReply
 DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
 DHCP6OptAuth = scapy.layers.dhcp6.DHCP6OptAuth
+DHCP6OptClientId = scapy.layers.dhcp6.DHCP6OptClientId
+DUID_LLT = scapy.layers.dhcp6.DUID_LLT
 
 
 class DataplaneBaseTest(BaseTest):
@@ -80,6 +82,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_ip = self.test_params['vlan_ip']
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
+        self.reference = 0
 
     def generate_client_interace_ipv6_link_local_address(self, client_port_index):
         # Shutdown and startup the client interface to generate a proper IPv6 link-local address
@@ -127,7 +130,12 @@ class DHCPCounterTest(DataplaneBaseTest):
         packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         packet /= ptf.packet.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
+        if self.reference % 3 == 0:
+            packet /= DHCP6OptClientId(duid=DUID_LLT(lladdr=self.dut_mac))
         packet /= DHCP6OptRelayMsg(message=[message(trid=12345)])
+        if self.reference % 3 == 1:
+            packet /= DHCP6OptClientId(duid=DUID_LLT(lladdr=self.dut_mac))
+        self.reference += 1
 
         return packet
 

@@ -247,7 +247,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_states=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -287,7 +287,6 @@ class TestPlanManager(object):
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
-                    time.sleep(interval)
                 elif expected_status.get_status() < current_status.get_status():
                     steps = None
                     step_status = None
@@ -313,25 +312,7 @@ class TestPlanManager(object):
                 else:
                     print("Current state is {}, waiting for the state {}".format(status, expected_state))
 
-            # compate to sonic-buildimage
-            elif expected_states:
-                if status in ["FINISHED", "CANCELLED", "FAILED"]:
-                    if result == "SUCCESS":
-                        print("Test plan is successfully {}. Elapsed {:.0f} seconds"
-                              .format(status, time.time() - start_time))
-                        return
-                    else:
-                        raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                        .format(test_plan_id, status, result, time.time() - start_time))
-                elif status in expected_states:
-                    if status == "KVMDUMP":
-                        raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                        .format(test_plan_id, status, result, time.time() - start_time))
-                    return
-                else:
-                    print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
-                          .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
-                    time.sleep(interval)
+                time.sleep(interval)
 
         else:
             raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
@@ -489,15 +470,6 @@ if __name__ == "__main__":
         )
 
     parser_poll.add_argument(
-        "-e", "--expected-states",
-        type=str,
-        dest="expected_states",
-        required=False,
-        nargs='*',
-        help="Expected states.",
-        default="FINISHED"
-    )
-    parser_poll.add_argument(
         "--expected-state",
         type=str,
         dest="expected_state",
@@ -596,7 +568,7 @@ if __name__ == "__main__":
                 azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_states)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
