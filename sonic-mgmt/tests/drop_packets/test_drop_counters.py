@@ -60,8 +60,8 @@ def enable_counters(duthosts):
 
     yield
     for duthost in duthosts.frontend_nodes:
+        namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
         for namespace in namespace_list:
-            namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
             for port, status in previous_cnt_status[duthost][namespace].items():
                 if status == "disable":
                     logger.info("Restoring counter '{}' state to disable".format(port))
@@ -96,14 +96,14 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
-    # Clear SONiC counters
+    # Clear SONiC counters all the asic on all the duts
     for duthost in duthosts.frontend_nodes:
         duthost.command("sonic-clear counters")
-
-        # Clear RIF counters per namespace.
-        namespace = duthost.get_namespace_from_asic_id(asic_index)
-        CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-        duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
+        namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
+        for namespace in namespace_list:
+            # Clear RIF counters on all namespaces 
+            CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+            duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
 
     send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
 
@@ -287,10 +287,6 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         )
 
         group = "L2"
-        # DNX platform DROP counters are not there yet
-        if setup.get("platform_asic") == "broadcom-dnx":
-            group = "NO_DROPS"
-
         do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):

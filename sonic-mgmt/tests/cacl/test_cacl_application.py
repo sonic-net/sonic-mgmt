@@ -68,7 +68,7 @@ def expected_dhcp_rules_for_standby(duthost_dualtor):
 
 
 @pytest.fixture(scope="module")
-def docker_network(duthosts, enum_rand_one_per_hwsku_hostname):
+def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index):
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command("docker inspect bridge")
@@ -314,7 +314,6 @@ def get_cacl_tables_and_rules(duthost):
 def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index):
     INTERFACE_TABLE_NAME_LIST = [
         "LOOPBACK_INTERFACE",
-        "MGMT_INTERFACE",
         "VLAN_INTERFACE",
         "PORTCHANNEL_INTERFACE",
         "INTERFACE"

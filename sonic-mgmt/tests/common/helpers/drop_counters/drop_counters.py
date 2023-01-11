@@ -36,10 +36,10 @@ def get_pkt_drops(duthost, cli_cmd, asic_index):
     # Frame the correct cli command
     # the L2 commands need _SUFFIX and L3 commands need _PREFIX
     if cli_cmd == GET_L3_COUNTERS:
-        CMD_PREFIX = NAMESPACE_PREFIX if duthost.is_multi_asic else ''
+        CMD_PREFIX = NAMESPACE_PREFIX if (namespace is not None and duthost.is_multi_asic) else ''
         cli_cmd = CMD_PREFIX + cli_cmd
     elif cli_cmd == GET_L2_COUNTERS:
-        CMD_SUFFIX = NAMESPACE_SUFFIX if duthost.is_multi_asic else ''
+        CMD_SUFFIX = NAMESPACE_SUFFIX if (namespace is not None and duthost.is_multi_asic) else ''
         cli_cmd = cli_cmd + CMD_SUFFIX
 
     stdout = duthost.command(cli_cmd.format(namespace))

@@ -65,8 +65,8 @@ def generate_acl_rule(duthost, ip_type):
 def test_acl_add_del_stress(duthosts, rand_one_dut_hostname, get_function_conpleteness_level):
     duthost = duthosts[rand_one_dut_hostname]
     generate_acl_rule(duthost, "ipv4")
-    duthost.shell("config acl add table -p PortChannel101,PortChannel102,PortChannel103,PortChannel104 \
-                  IP_STRESS_ACL L3")
+    table_ports = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
+    duthost.shell("config acl add table -p {} IP_STRESS_ACL L3".format(table_ports))
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
         normalized_level = 'basic'

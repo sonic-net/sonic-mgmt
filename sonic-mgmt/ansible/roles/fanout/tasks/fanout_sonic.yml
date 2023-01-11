@@ -4,7 +4,7 @@
   set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
 
 - name: retrieve SONiC version
-  shell: cat /etc/sonic/sonic_version.yml
+  shell: cat /etc/sonic/sonic_version.yml | grep ":"
   register: sonic_version_content
 
 - name: format SONiC version content

@@ -55,7 +55,9 @@ def test_sai(sai_testbed,
         test_fail = True
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
-        if test_fail or request.config.option.always_stop_sai_test_container:
+        logger.info("skip_stop_sai_test_container [{}]".format(
+            request.config.option.skip_stop_sai_test_container))
+        if test_fail or not request.config.option.skip_stop_sai_test_container:
             stop_and_rm_sai_test_container(
                 duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)

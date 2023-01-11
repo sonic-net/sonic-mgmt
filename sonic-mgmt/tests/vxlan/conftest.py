@@ -164,7 +164,7 @@ def pytest_addoption(parser):
         "--bfd",
         action="store",
         default=True,
-        type=bool,
+        type=str2bool,
         help="BFD Status"
     )
 

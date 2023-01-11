@@ -9,10 +9,12 @@ from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
 from tests.common.utilities import wait_until, get_intf_by_sub_intf
+from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -100,10 +102,12 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
         exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
         exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
 
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(duthost, tbinfo))
-    ptf_t1_intf_index = int(ptf_t1_intf.strip("eth"))
+    topo_type = tbinfo["topo"]["type"]
+    pytest_require(topo_type in UPSTREAM_NEIGHBOR_MAP, "Unsupported topo: {}".format(topo_type))
+    upstream_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
+    ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_t1_intf_index, pkt)
+    testutils.send(ptfadapter, ptf_upstream_intf, pkt)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
 def wait_all_bgp_up(duthost):
