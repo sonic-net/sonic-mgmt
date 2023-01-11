@@ -568,21 +568,21 @@ sonic_arista:
     str2-7050cx3-acs-03:
       ansible_host: 10.3.146.185
       hwsku: Arista-7050CX3-32S-C32
-      model: DCS-7050CX3-32S-SSD
-      serial: JPE21041273
-      base_mac: 94:8e:d3:99:00:10
+      model: DCS-7050CX3-32S
+      serial: JPE21101722
+      base_mac: 2c:dd:e9:0d:cf:34
       syseeprom_info:
-        "0x21": "DCS-7050CX3-32S-SSD"
-        "0x22": "ASY0323106A0"
-        "0x23": "JPE21041273"
-        "0x24": "94:8e:d3:99:00:10"
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288205A0"
+        "0x23": "JPE21101722"
+        "0x24": "2c:dd:e9:0d:cf:34"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32s"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "JPE21041273"
+        "0x2E": "Aboot-norcal6-6.1.10-14653765"
+        "0x2F": "JPE21101722"
     str2-7050cx3-acs-06:
       ansible_host: 10.3.147.26
       hwsku: Arista-7050CX3-32S-C32
@@ -1647,7 +1647,7 @@ sonic_cisco_8101:
         "0x23": "FLM24500AT6"
         "0x24": "DC:05:39:E0:F8:00"
         "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x28": "x86_64-8101_32fh_o-r2"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
