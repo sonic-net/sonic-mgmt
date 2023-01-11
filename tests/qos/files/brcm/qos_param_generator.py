@@ -363,6 +363,10 @@ class QosParamBroadcom(object):
             logger.info('Workaround ingress calculation: ingress_pg_min_cells {}, ingress_avaiable_shared_buffer_cells {}, ingress_shared_buffer_cells(reg) {}, headroom_cells {}, pg_reset_offset_cells {}'.format(
                 ingress_pg_min_cells, ingress_avaiable_shared_buffer_cells, self.asicConfig['ingress_shared_limit_sp0'], headroom_cells, pg_reset_offset_cells))
 
+        # calculate egress lossless que min
+        egress_lossless_que_min_cells = byte_to_cell(self.egressLosslessProfile['size'])
+        logger.info('Egress lossless calculation: egress_lossless_que_min_cells {}'.format(egress_lossless_que_min_cells))
+
         # calculate egress lossy que min
         egress_lossy_que_min_cells = byte_to_cell(self.egressLossyProfile['size'])
 
@@ -372,7 +376,7 @@ class QosParamBroadcom(object):
 
         # calculate egress lossy avaiable shared buffer
         egress_lossy_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(egress_lossy_shared_buffer_cells, egress_lossy_pool, self.egressLossyProfile)
-        logger.info('Egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(calc) {},'.format(
+        logger.info('Egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(calc) {}'.format(
             egress_lossy_que_min_cells, egress_lossy_avaiable_shared_buffer_cells, egress_lossy_shared_buffer_cells))
 
         # workaround for inaccureate egress lossy shared buffer capacity
@@ -386,7 +390,7 @@ class QosParamBroadcom(object):
             egress_lossy_shared_limit_sp = egress_shared_limit_sp1
         if egress_lossy_shared_limit_sp > 0 and ingress_shared_buffer_cells != egress_lossy_shared_limit_sp:
             egress_lossy_avaiable_shared_buffer_cells = calc_avaiable_shared_buffer(egress_lossy_shared_limit_sp, egress_lossy_pool, self.egressLossyProfile)
-            logger.info('Workaround egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(reg) {},'.format(
+            logger.info('Workaround egress lossy calculation: egress_lossy_que_min_cells {}, egress_lossy_avaiable_shared_buffer_cells {}, egress_lossy_shared_buffer_cells(reg) {}'.format(
                 egress_lossy_que_min_cells, egress_lossy_avaiable_shared_buffer_cells, egress_lossy_shared_limit_sp))
 
         # todo breakout case
@@ -472,18 +476,44 @@ class QosParamBroadcom(object):
                 profile.update({"pkts_num_trig_egr_drp": egress_lossy_que_min_cells + egress_lossy_avaiable_shared_buffer_cells})
 
 
+        # testQosSaiQSharedWatermark[wm_q_shared_lossless]
+        #
+        # ingress view:        PG min |                              PG shared |           PG HDRM |
+        #                             +                                        +                   +
+        # buffer space:  -------------*----------------------------------------*-------------------*------------*
+        #                                  +                                                       .            +
+        # egress view:             Que min |                                                       . Que shared |
+        #                                  +                                                       +
+        #                                  |           <-- valid Que watermark range -->           |
+        # case param:    pkts_num_fill_min |                                pkts_num_trig_ingr_drp |
         for que_profile in ["wm_q_shared_lossless"]:
             profile = self.qos_params[self.speed_cable_len][que_profile]
+
+            default_margin = 8
+            if 'pkts_num_margin' not in profile or profile['pkts_num_margin'] < default_margin:
+                logger.info('Update qos_params[{}][{}]["pkts_num_margin"] from {} to {}'.format(self.speed_cable_len, que_profile, profile.get("pkts_num_margin", -1), default_margin))
+                profile.update({"pkts_num_margin": default_margin})
+
             if "pkts_num_trig_ingr_drp" not in profile or profile["pkts_num_trig_ingr_drp"] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_trig_ingr_drp"] from {} to {}'.format(
                     self.speed_cable_len, que_profile, profile["pkts_num_trig_ingr_drp"], ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells))
                 profile.update({"pkts_num_trig_ingr_drp": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells + headroom_cells})
 
-            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != 0:
+            if "pkts_num_fill_min" not in profile or profile["pkts_num_fill_min"] != egress_lossless_que_min_cells:
                 logger.info('Update qos_params[{}][{}]["pkts_num_fill_min"] from {} to {}'.format(
-                    self.speed_cable_len, que_profile, profile["pkts_num_fill_min"], 0))
-                profile.update({"pkts_num_fill_min": 0})
+                    self.speed_cable_len, que_profile, profile["pkts_num_fill_min"], egress_lossless_que_min_cells))
+                profile.update({"pkts_num_fill_min": egress_lossless_que_min_cells})
 
+        # testQosSaiQSharedWatermark[wm_q_shared_lossy]
+        #
+        # ingress view:        PG min |                              PG shared |           PG HDRM |
+        #                             +                                        +                   +
+        # buffer space:  -------------*----------------------------------------*--------------*----*------------
+        #                                  +                                     .            +
+        # egress view:             Que min |                                     . Que shared |
+        #                                  +                                                  +
+        #                                  |        <-- valid Que watermark range -->         |
+        # case param:    pkts_num_fill_min |                            pkts_num_trig_egr_drp |
         for que_profile in ["wm_q_shared_lossy"]:
             profile = self.qos_params[self.speed_cable_len][que_profile]
 
