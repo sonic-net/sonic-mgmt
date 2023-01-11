@@ -138,12 +138,12 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     check_all_services_status(ptfhost)
 
 
-def cleanup_tacacs(ptfhost, tacacs_creds, duthost, tacacs_server_not_delete=[]):
+def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     # stop tacacs server
     stop_tacacs_server(ptfhost)
 
     # reset tacacs client configuration
-    remove_all_tacacs_server(duthost, tacacs_server_not_delete)
+    remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config aaa authentication login default")
     duthost.shell("sudo config aaa authentication failthrough default")
@@ -160,11 +160,11 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost, tacacs_server_not_delete=[]):
     duthost.copy(src="./tacacs/templates/del_tacacs_keys.json", dest='/tmp/del_tacacs_keys.json')
     duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_keys.json"))
 
-def remove_all_tacacs_server(duthost, tacacs_server_not_delete=[]):
+def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
     find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'
     server_list = duthost.shell(find_server_command, module_ignore_errors=True)['stdout']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
-        if tacacs_server and tacacs_server not in tacacs_server_not_delete:
+        if tacacs_server:
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)

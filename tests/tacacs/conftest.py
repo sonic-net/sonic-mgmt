@@ -25,7 +25,7 @@ def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
 
     yield
 
-    cleanup_tacacs(ptfhost, tacacs_creds, duthost, default_tacacs_servers)
+    cleanup_tacacs(ptfhost, tacacs_creds, duthost)
     restore_tacacs_servers(duthost, default_tacacs_servers, tacacs_server_ip)
 
 @pytest.fixture(scope="module")
@@ -35,9 +35,9 @@ def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_
     if 'ansible_hostv6' not in ptfhost_vars:
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
     tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-    default_tacacs_servers = setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
     setup_tacacs_server(ptfhost, tacacs_creds, duthost)
 
     yield
 
-    cleanup_tacacs(ptfhost, tacacs_creds, duthost, default_tacacs_servers)
+    cleanup_tacacs(ptfhost, tacacs_creds, duthost)
