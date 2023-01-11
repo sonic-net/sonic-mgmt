@@ -203,9 +203,8 @@ class TestIPPacket(object):
         pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
-    @pytest.mark.xfail
     def test_forward_ip_packet_with_0xffff_chksum_tolerant(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
@@ -263,7 +262,7 @@ class TestIPPacket(object):
         pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
     def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
@@ -383,7 +382,7 @@ class TestIPPacket(object):
         pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
     def test_forward_ip_packet_recomputed_0x0000_chksum(self, duthost, ptfadapter, common_param):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT, it's checksum will be 0x0000 after recompute from scratch
@@ -441,7 +440,7 @@ class TestIPPacket(object):
         pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
     def test_forward_normal_ip_packet(self, duthost, ptfadapter, common_param):
         # GIVEN a random normal ip packet
@@ -492,7 +491,7 @@ class TestIPPacket(object):
         pytest_assert(tx_ok >= self.PKT_NUM_MIN, "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(rx_drp, rx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
-        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
     def test_drop_ip_packet_with_wrong_0xffff_chksum(self, duthost, ptfadapter, common_param):
         # GIVEN a random normal ip packet, and manually modify checksum to 0xffff
