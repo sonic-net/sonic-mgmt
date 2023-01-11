@@ -20,8 +20,8 @@
       <Device Hostname="bjw-can-serv-4" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-5" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-6" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-48S" Type="DevSonic"/>
-      <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-48S" Type="DevSonic"/>
+      <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
+      <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Type="DevSonic"/>
       <Device Hostname="bjw-can-ec9516-2" HwSku="newport" Type="DevSonic"/>
       <Device Hostname="bjw-can-2700-1" HwSku="Mellanox-SN2700" Type="DevSonic"/>

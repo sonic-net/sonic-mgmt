@@ -112,7 +112,7 @@
       <Device Hostname="str2-7215-acs-2" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-7215-acs-3" HwSku="Nokia-7215" Type="DevSonic"/>
       <Device Hostname="str2-7215-acs-4" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="str2-pikez-acs-1" HwSku="Arista-720DT-48S" Type="DevSonic"/>
+      <Device Hostname="str2-pikez-acs-1" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="str2-7215-acs-5" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-bluefield-01" HwSku="DPU" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-bmc-01" HwSku="DPU" Type="DevSonic"/>
