@@ -6,8 +6,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    get_egress_lossless_buffer_size, get_ingress_lossless_buffer_size,\
-    get_port_prio_dropped_packets, stop_pfcwd, disable_packet_aging
+    get_lossless_buffer_size, get_port_prio_ingress_dropped_packets,\
+    stop_pfcwd, disable_packet_aging
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -18,7 +18,6 @@ flow_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
-TEST_FLOW_SINGLE_RATE_PERCENT = 95
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
 DATA_PKT_SIZE = 1024
@@ -80,10 +79,7 @@ def run_pfc_test(api,
 
     """ Rate percent must be an integer """
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    if headroom_test_params is None:
-        test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-    else:
-        test_flow_rate_percent = int(TEST_FLOW_SINGLE_RATE_PERCENT)
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
 
     if headroom_test_params is None:
         unique_name_required = False
@@ -508,10 +504,7 @@ def __verify_results(rows,
         """ In-flight TX bytes of test flows should be held by switch buffer """
         tx_frames_total = sum(row.frames_tx for row in rows if test_flow_name in row.name)
         tx_bytes_total = tx_frames_total * data_pkt_size
-        if '8102' in duthost.facts['platform']:
-            dut_buffer_size = get_ingress_lossless_buffer_size(host_ans=duthost)
-        else:
-            dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
+        dut_buffer_size = get_lossless_buffer_size(host_ans=duthost)
 
         if headroom_test_params is None:
             exceeds_headroom = False
@@ -529,7 +522,7 @@ def __verify_results(rows,
             
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
-                    dropped_packets = get_port_prio_dropped_packets(duthost, peer_port, prio)
+                    dropped_packets = get_port_prio_ingress_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets > 0,
                         'Total TX dropped packets {} should be more than 0'.\
                         format(dropped_packets))
@@ -540,7 +533,7 @@ def __verify_results(rows,
             
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
-                    dropped_packets = get_port_prio_dropped_packets(duthost, peer_port, prio)
+                    dropped_packets = get_port_prio_ingress_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets == 0,
                         'Total TX dropped packets {} should be 0'.\
                         format(dropped_packets))
