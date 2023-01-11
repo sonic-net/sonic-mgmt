@@ -393,9 +393,6 @@ sonic_cisco_sup:
         watchdog:
           timeout: 300
           wait: 360
-        acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
