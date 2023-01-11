@@ -1755,7 +1755,7 @@
   ptf_ip: 10.150.23.54/23
   ptf_ipv6:
   server: server_bjw_6
-  vm_base: VM65038
+  vm_base: VM56038
   dut:
     - bjw-can-720dt-2
   inv_name: bjw
@@ -1770,7 +1770,7 @@
   ptf_ip: 10.150.23.55/23
   ptf_ipv6:
   server: server_bjw_6
-  vm_base: VM65044
+  vm_base: VM56044
   dut:
     - bjw-can-7215-1
   inv_name: bjw
@@ -1785,7 +1785,7 @@
   ptf_ip: 10.150.23.56/23
   ptf_ipv6:
   server: server_bjw_6
-  vm_base: VM65050
+  vm_base: VM56050
   dut:
     - bjw-slx-can-3
   inv_name: bjw
