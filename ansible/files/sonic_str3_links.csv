@@ -235,31 +235,31 @@ str3-8101-32fh-01,Ethernet224,str3-z9332f-01,etp5,400000,517,Access
 str3-8101-32fh-01,Ethernet232,str3-z9332f-01,etp6,400000,518,Access
 str3-8101-32fh-01,Ethernet240,str3-z9332f-01,etp7,400000,519,Access
 str3-8101-32fh-01,Ethernet248,str3-z9332f-01,etp8,400000,520,Access
-str3-8101-01,Ethernet0  ,str3-8101-fanout-02,etp1,100000,673,Access
-str3-8101-01,Ethernet4  ,str3-8101-fanout-02,etp2,100000,674,Access
-str3-8101-01,Ethernet8  ,str3-8101-fanout-02,etp3,100000,675,Access
-str3-8101-01,Ethernet12 ,str3-8101-fanout-02,etp4,100000,676,Access
-str3-8101-01,Ethernet16 ,str3-8101-fanout-02,etp5,100000,677,Access
-str3-8101-01,Ethernet20 ,str3-8101-fanout-02,etp6,100000,678,Access
-str3-8101-01,Ethernet24 ,str3-8101-fanout-02,etp7,100000,679,Access
-str3-8101-01,Ethernet28 ,str3-8101-fanout-02,etp8,100000,680,Access
-str3-8101-01,Ethernet32 ,str3-8101-fanout-02,etp9,100000,681,Access
-str3-8101-01,Ethernet36 ,str3-8101-fanout-02,etp10,100000,682,Access
-str3-8101-01,Ethernet40 ,str3-8101-fanout-02,etp11,100000,683,Access
-str3-8101-01,Ethernet44 ,str3-8101-fanout-02,etp12,100000,684,Access
-str3-8101-01,Ethernet48 ,str3-8101-fanout-02,etp13,100000,685,Access
-str3-8101-01,Ethernet52 ,str3-8101-fanout-02,etp14,100000,686,Access
-str3-8101-01,Ethernet56 ,str3-8101-fanout-02,etp15,100000,687,Access
-str3-8101-01,Ethernet60 ,str3-8101-fanout-02,etp16,100000,688,Access
-str3-8101-01,Ethernet64 ,str3-8101-fanout-02,etp17,100000,689,Access
-str3-8101-01,Ethernet68 ,str3-8101-fanout-02,etp18,100000,690,Access
-str3-8101-01,Ethernet72 ,str3-8101-fanout-02,etp19,100000,691,Access
-str3-8101-01,Ethernet76 ,str3-8101-fanout-02,etp20,100000,692,Access
-str3-8101-01,Ethernet80 ,str3-8101-fanout-02,etp21,100000,693,Access
-str3-8101-01,Ethernet84 ,str3-8101-fanout-02,etp22,100000,694,Access
-str3-8101-01,Ethernet88 ,str3-8101-fanout-02,etp23,100000,695,Access
-str3-8101-01,Ethernet92 ,str3-8101-fanout-02,etp24,100000,696,Access
-str3-8101-01,Ethernet96 ,str3-8101-fanout-02,etp25,100000,697,Access
+str3-8101-01,Ethernet0,str3-8101-fanout-02,etp1,100000,673,Access
+str3-8101-01,Ethernet4,str3-8101-fanout-02,etp2,100000,674,Access
+str3-8101-01,Ethernet8,str3-8101-fanout-02,etp3,100000,675,Access
+str3-8101-01,Ethernet12,str3-8101-fanout-02,etp4,100000,676,Access
+str3-8101-01,Ethernet16,str3-8101-fanout-02,etp5,100000,677,Access
+str3-8101-01,Ethernet20,str3-8101-fanout-02,etp6,100000,678,Access
+str3-8101-01,Ethernet24,str3-8101-fanout-02,etp7,100000,679,Access
+str3-8101-01,Ethernet28,str3-8101-fanout-02,etp8,100000,680,Access
+str3-8101-01,Ethernet32,str3-8101-fanout-02,etp9,100000,681,Access
+str3-8101-01,Ethernet36,str3-8101-fanout-02,etp10,100000,682,Access
+str3-8101-01,Ethernet40,str3-8101-fanout-02,etp11,100000,683,Access
+str3-8101-01,Ethernet44,str3-8101-fanout-02,etp12,100000,684,Access
+str3-8101-01,Ethernet48,str3-8101-fanout-02,etp13,100000,685,Access
+str3-8101-01,Ethernet52,str3-8101-fanout-02,etp14,100000,686,Access
+str3-8101-01,Ethernet56,str3-8101-fanout-02,etp15,100000,687,Access
+str3-8101-01,Ethernet60,str3-8101-fanout-02,etp16,100000,688,Access
+str3-8101-01,Ethernet64,str3-8101-fanout-02,etp17,100000,689,Access
+str3-8101-01,Ethernet68,str3-8101-fanout-02,etp18,100000,690,Access
+str3-8101-01,Ethernet72,str3-8101-fanout-02,etp19,100000,691,Access
+str3-8101-01,Ethernet76,str3-8101-fanout-02,etp20,100000,692,Access
+str3-8101-01,Ethernet80,str3-8101-fanout-02,etp21,100000,693,Access
+str3-8101-01,Ethernet84,str3-8101-fanout-02,etp22,100000,694,Access
+str3-8101-01,Ethernet88,str3-8101-fanout-02,etp23,100000,695,Access
+str3-8101-01,Ethernet92,str3-8101-fanout-02,etp24,100000,696,Access
+str3-8101-01,Ethernet96,str3-8101-fanout-02,etp25,100000,697,Access
 str3-8101-01,Ethernet100,str3-8101-fanout-02,etp26,100000,698,Access
 str3-8101-01,Ethernet104,str3-8101-fanout-02,etp27,100000,699,Access
 str3-8101-01,Ethernet108,str3-8101-fanout-02,etp28,100000,700,Access
@@ -299,31 +299,31 @@ str3-8101-01,Ethernet240,str3-8101-fanout-01,etp1,100000,801,Access
 str3-8101-01,Ethernet244,str3-8101-fanout-01,etp2,100000,802,Access
 str3-8101-01,Ethernet248,str3-8101-fanout-01,etp3,100000,803,Access
 str3-8101-01,Ethernet252,str3-8101-fanout-01,etp4,100000,804,Access
-str3-8101-02,Ethernet0  ,str3-8101-fanout-03,etp1,100000,737,Access
-str3-8101-02,Ethernet4  ,str3-8101-fanout-03,etp2,100000,738,Access
-str3-8101-02,Ethernet8  ,str3-8101-fanout-03,etp3,100000,739,Access
-str3-8101-02,Ethernet12 ,str3-8101-fanout-03,etp4,100000,740,Access
-str3-8101-02,Ethernet16 ,str3-8101-fanout-03,etp5,100000,741,Access
-str3-8101-02,Ethernet20 ,str3-8101-fanout-03,etp6,100000,742,Access
-str3-8101-02,Ethernet24 ,str3-8101-fanout-03,etp7,100000,743,Access
-str3-8101-02,Ethernet28 ,str3-8101-fanout-03,etp8,100000,744,Access
-str3-8101-02,Ethernet32 ,str3-8101-fanout-03,etp9,100000,745,Access
-str3-8101-02,Ethernet36 ,str3-8101-fanout-03,etp10,100000,746,Access
-str3-8101-02,Ethernet40 ,str3-8101-fanout-03,etp11,100000,747,Access
-str3-8101-02,Ethernet44 ,str3-8101-fanout-03,etp12,100000,748,Access
-str3-8101-02,Ethernet48 ,str3-8101-fanout-03,etp13,100000,749,Access
-str3-8101-02,Ethernet52 ,str3-8101-fanout-03,etp14,100000,750,Access
-str3-8101-02,Ethernet56 ,str3-8101-fanout-03,etp15,100000,751,Access
-str3-8101-02,Ethernet60 ,str3-8101-fanout-03,etp16,100000,752,Access
-str3-8101-02,Ethernet64 ,str3-8101-fanout-03,etp17,100000,753,Access
-str3-8101-02,Ethernet68 ,str3-8101-fanout-03,etp18,100000,754,Access
-str3-8101-02,Ethernet72 ,str3-8101-fanout-03,etp19,100000,755,Access
-str3-8101-02,Ethernet76 ,str3-8101-fanout-03,etp20,100000,756,Access
-str3-8101-02,Ethernet80 ,str3-8101-fanout-03,etp21,100000,757,Access
-str3-8101-02,Ethernet84 ,str3-8101-fanout-03,etp22,100000,758,Access
-str3-8101-02,Ethernet88 ,str3-8101-fanout-03,etp23,100000,759,Access
-str3-8101-02,Ethernet92 ,str3-8101-fanout-03,etp24,100000,760,Access
-str3-8101-02,Ethernet96 ,str3-8101-fanout-03,etp25,100000,761,Access
+str3-8101-02,Ethernet0,str3-8101-fanout-03,etp1,100000,737,Access
+str3-8101-02,Ethernet4,str3-8101-fanout-03,etp2,100000,738,Access
+str3-8101-02,Ethernet8,str3-8101-fanout-03,etp3,100000,739,Access
+str3-8101-02,Ethernet12,str3-8101-fanout-03,etp4,100000,740,Access
+str3-8101-02,Ethernet16,str3-8101-fanout-03,etp5,100000,741,Access
+str3-8101-02,Ethernet20,str3-8101-fanout-03,etp6,100000,742,Access
+str3-8101-02,Ethernet24,str3-8101-fanout-03,etp7,100000,743,Access
+str3-8101-02,Ethernet28,str3-8101-fanout-03,etp8,100000,744,Access
+str3-8101-02,Ethernet32,str3-8101-fanout-03,etp9,100000,745,Access
+str3-8101-02,Ethernet36,str3-8101-fanout-03,etp10,100000,746,Access
+str3-8101-02,Ethernet40,str3-8101-fanout-03,etp11,100000,747,Access
+str3-8101-02,Ethernet44,str3-8101-fanout-03,etp12,100000,748,Access
+str3-8101-02,Ethernet48,str3-8101-fanout-03,etp13,100000,749,Access
+str3-8101-02,Ethernet52,str3-8101-fanout-03,etp14,100000,750,Access
+str3-8101-02,Ethernet56,str3-8101-fanout-03,etp15,100000,751,Access
+str3-8101-02,Ethernet60,str3-8101-fanout-03,etp16,100000,752,Access
+str3-8101-02,Ethernet64,str3-8101-fanout-03,etp17,100000,753,Access
+str3-8101-02,Ethernet68,str3-8101-fanout-03,etp18,100000,754,Access
+str3-8101-02,Ethernet72,str3-8101-fanout-03,etp19,100000,755,Access
+str3-8101-02,Ethernet76,str3-8101-fanout-03,etp20,100000,756,Access
+str3-8101-02,Ethernet80,str3-8101-fanout-03,etp21,100000,757,Access
+str3-8101-02,Ethernet84,str3-8101-fanout-03,etp22,100000,758,Access
+str3-8101-02,Ethernet88,str3-8101-fanout-03,etp23,100000,759,Access
+str3-8101-02,Ethernet92,str3-8101-fanout-03,etp24,100000,760,Access
+str3-8101-02,Ethernet96,str3-8101-fanout-03,etp25,100000,761,Access
 str3-8101-02,Ethernet100,str3-8101-fanout-03,etp26,100000,762,Access
 str3-8101-02,Ethernet104,str3-8101-fanout-03,etp27,100000,763,Access
 str3-8101-02,Ethernet108,str3-8101-fanout-03,etp28,100000,764,Access
