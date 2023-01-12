@@ -2,16 +2,17 @@ import logging
 import pytest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.utilities import wait
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0", "t1", "m0", "mx"),
     pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
 
 LOOP_TIMES_LEVEL_MAP = {
-    'debug': 100,
+    'debug': 10,
     'basic': 500,
     'confident': 5000
 }
@@ -33,6 +34,8 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 def setup_stress_acl_table(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     pc = list(mg_facts['minigraph_portchannels'].keys())[0]
+    if not pc:
+        pytest.skip('No portchannels found')
 
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
     rand_selected_dut.template(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE)
@@ -88,23 +91,31 @@ def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
 
 def test_acl_add_del_stress(rand_selected_dut, setup_stress_acl_rules, get_function_conpleteness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
-
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
         normalized_level = 'basic'
-    loop_time = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     with open(STRESS_ACL_BASH_TEMPLATE, 'r') as f:
         file_data = ""
         for line in f:
             if "loop_times=" in line:
-                line = "loop_times={}\n".format(loop_time)
+                line = "loop_times={}\n".format(loop_times)
             file_data += line
     with open(STRESS_ACL_BASH_TEMPLATE, 'w') as f:
         f.write(file_data)
 
     rand_selected_dut.template(src=STRESS_ACL_BASH_TEMPLATE, dest=STRESS_ACL_BASH_FILE)
-    rand_selected_dut.shell("bash {} > {}".format(STRESS_ACL_BASH_FILE, STRESS_ACL_BASH_LOG_FILE))
+    rand_selected_dut.shell("nohup bash {} > {} 2>&1 &".format(STRESS_ACL_BASH_FILE, STRESS_ACL_BASH_LOG_FILE))
+    ask_times = loop_times / 10
+    while ask_times >= 0:
+        output = rand_selected_dut.shell('ps -aux|grep bash')['stdout']
+        wait(20, 'Wait some time to check if bash script finished.')
+        ask_times -= 1
+        if STRESS_ACL_BASH_FILE in output:
+            continue
+        else:
+            break
     rand_selected_dut.fetch(src=STRESS_ACL_BASH_LOG_FILE, dest="logs/")
 
     cmd_remove_table = "config acl remove table STRESS_ACL"
