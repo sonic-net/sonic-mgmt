@@ -166,8 +166,8 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter)
     static_neighbor_entry(duthost, ptfhost_info, "add")
     logger.info("Checking connectivity to ptf ports")
     for member in ptfhost_info:
-        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
         verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
+        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
@@ -184,5 +184,5 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter)
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
         verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
+        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
