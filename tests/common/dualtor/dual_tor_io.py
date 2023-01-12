@@ -623,7 +623,7 @@ class DualTorIO:
             # Find ranges of consecutive packets that have been duplicated
             # All packets within the same consecutive range will have the same
             # difference between the packet index and the sequence number
-            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda i, x: i - x[0]):
+            for _, grouper in groupby(enumerate(duplicate_packet_list), lambda t: t[0] - t[1][0]):
                 group = map(itemgetter(1), grouper)
                 duplicate_start, duplicate_end = group[0], group[-1]
                 duplicate_dict = {
