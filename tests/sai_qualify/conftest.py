@@ -98,9 +98,13 @@ def pytest_addoption(parser):
     parser.addoption("--enable_ptf_sai_test", action="store_true",
                      help="Trigger PTF-SAI test. If enable PTF-SAI \
                      testing or not, true or false.")
-    parser.addoption("--enable_warmboot_test", action="store_true",
+    parser.addoption("--enable_t0_warmboot_test", action="store_true",
                      default=False,
-                     help="Trigger WARMBOOT test. If enable WARMBOOT \
+                     help="Trigger T0-WARMBOOT test. If enable WARMBOOT \
+                     testing or not, true or false.")
+    parser.addoption("--enable_ptf_warmboot_test", action="store_true",
+                     default=False,
+                     help="Trigger PTF-SAI-WARMBOOT test. If enable WARMBOOT \
                      testing or not, true or false.")
     parser.addoption("--enable_sai_test", action="store_true",
                      help="Trigger SAI test. If enable SAI T0 \
@@ -109,9 +113,9 @@ def pytest_addoption(parser):
                      default=None, type=str,
                      help="SAI test port config file to map \
                      the relationship between lanes and interface.")
-    parser.addoption("--always_stop_sai_test_container",
+    parser.addoption("--skip_stop_sai_test_container",
                      action="store_true",
-                     help="If always stop the container after one \
+                     help="If skip stop the container after one \
                      test or not, true or false.")
     parser.addoption("--sai_origin_version", action="store", default=None,
                      type=str, help="SAI SDK originla version before upgrade.")
@@ -198,7 +202,7 @@ def start_sai_test_container(duthost, creds, request,
 
 
 @pytest.fixture(scope="module")
-def prepare_ptf_server(ptfhost, duthost, request):
+def prepare_ptf_server(ptfhost, duthost, tbinfo, enum_asic_index, request):
     """
     Prepare the PTF Server.
 
@@ -214,24 +218,30 @@ def prepare_ptf_server(ptfhost, duthost, request):
     else:
         if not request.config.option.sai_test_skip_setup_env:
             update_saithrift_ptf(request, ptfhost)
-            __create_sai_port_map_file(ptfhost, duthost)
+            __create_sai_port_map_file(
+                ptfhost, duthost, tbinfo, enum_asic_index)
     yield
     if not request.config.option.sai_test_keep_test_env:
         __delete_sai_port_map_file(ptfhost)
 
 
 @pytest.fixture(scope="module")
-def create_sai_test_interface_param(duthost):
+def create_sai_test_interface_param(duthost, tbinfo, enum_asic_index):
     """
     Create port interface list.
 
     Args:
         duthost (SonicHost): The target device.
     """
-    port_numbers = len(__create_sai_test_interface_info(duthost))
+    port_numbers = len(
+        __get_dut_minigraph_interface_info(
+            duthost, tbinfo, enum_asic_index))
     logger.info("Creating {} port interface list".format(port_numbers))
     interfaces_list = []
 
+    # Todo, check if we need to use the order for generate the PTF port maps
+    # Todo, sample of the order in __create_sai_port_map_file
+    # now, we ordered them by port name and map to the natural index number
     for port_number in range(port_numbers):
         interface_tmp = "\'0-{0}@eth{0}\'".format(port_number)
         interfaces_list.append(interface_tmp)
@@ -262,7 +272,8 @@ def prepare_sai_test_container(duthost, creds, container_name, request):
         logger.info("Prepare saiserver with command: {}".format(cmd))
         duthost.shell(cmd)
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "init")
             duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " stop")
             duthost.shell(
@@ -284,7 +295,8 @@ def revert_sai_test_container(duthost, creds, container_name, request):
         __restore_default_syncd(duthost, creds)
     else:
         # Prepare warmboot
-        if request.config.option.enable_warmboot_test:
+        if (request.config.option.enable_t0_warmboot_test or
+           request.config.option.enable_ptf_warmboot_test):
             saiserver_warmboot_config(duthost, "restore")
         __remove_saiserver_deploy(duthost, creds, request)
 
@@ -311,14 +323,16 @@ def get_sai_thrift_version(request):
 
     In current implementation, it will use v2 saithrift when:
         enable_ptf_sai_test
-        enable_warmboot_test
+        enable_t0_warmboot_test
+        enable_ptf_warmboot_test
         enable_sai_test
 
     Args:
         request: Pytest request.
     """
     if request.config.option.enable_ptf_sai_test \
-       or request.config.option.enable_warmboot_test \
+       or request.config.option.enable_t0_warmboot_test \
+       or request.config.option.enable_ptf_warmboot_test \
        or request.config.option.enable_sai_test:
         return "v2"
     else:
@@ -640,9 +654,10 @@ def saiserver_warmboot_config(duthost, operation):
     """
     Saiserver warmboot mode.
     Change the sai.profile
-        Args:
-            duthost (AnsibleHost): device under test
-            operation: init|start|restore
+
+    Args:
+        duthost (AnsibleHost): device under test
+        operation: init|start|restore
     """
     logger.info("config warmboot {}".format(operation))
     duthost.command(
@@ -652,14 +667,14 @@ def saiserver_warmboot_config(duthost, operation):
 
 def __copy_sai_qualify_script(duthost):
     """
-        Copys script for controlling saiserver docker,
-        sonic services, warmboot...
+    Copys script for controlling saiserver docker,
+    sonic services, warmboot...
 
-        Args:
-            duthost (AnsibleHost): device under test
+    Args:
+        duthost (AnsibleHost): device under test
 
-        Returns:
-            None
+    Returns:
+        None
     """
     duthost.shell("sudo mkdir -p " + USR_BIN_DIR)
     for script in SAI_SCRIPTS:
@@ -803,16 +818,21 @@ def get_sai_running_vendor_id(duthost):
     return vendor_id
 
 
-def __create_sai_port_map_file(ptfhost, duthost):
+def __create_sai_port_map_file(ptfhost, duthost, tbinfo, enum_asic_index):
     """
     Create port mapping file on PTF server.
 
     Args:
         ptfhost (AnsibleHost): The PTF server.
         duthost (SonicHost): The target device.
+        tbinfo: (Testbedinfo): Tested info
+        enum_asic_index: the asic index, which is used in multi asic device
     """
 
-    intfInfo = __create_sai_test_interface_info(duthost)
+    intfInfo = __get_dut_minigraph_interface_info(
+        duthost, tbinfo, enum_asic_index)
+    # Todo, check if we need to use the order for generate the PTF port maps
+    # now, we ordered them by port name
     portList = natsorted(
         [port for port in intfInfo if port.startswith('Ethernet')])
 
@@ -854,16 +874,39 @@ def update_saithrift_ptf(request, ptfhost):
     logging.info("Python saithrift package installed successfully")
 
 
-def __create_sai_test_interface_info(duthost):
+def __get_dut_interface_stat_info(duthost):
     """
-        Create sai test interface info
+        Create dut interface status info.
+        This method will run Command: show interface status
 
         Args:
             duthost (SonicHost): The target device.
     """
     logger.info(
-        "Creating {0} for SAI test on PTF server."
-        .format(PORT_MAP_FILE_PATH))
+        "Get host interface status on dut: {0}."
+        .format(duthost.hostname))
     intfInfo = duthost.show_interface(
         command="status")['ansible_facts']['int_status']
     return intfInfo
+
+
+def __get_dut_minigraph_interface_info(duthost, tbinfo, enum_asic_index):
+    """
+        Create dut interface status info.
+        This method will run Command: show interface status
+
+        Args:
+            duthost (SonicHost): The target device.
+            tbinfo: (Testbedinfo): Tested info
+            enum_asic_index: the asic index, which is used in multi asic device
+    """
+    logger.info(
+        "Get host minigraph info for dut: {0}."
+        .format(duthost.hostname))
+    asic_host = duthost.asic_instance(enum_asic_index)
+    mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
+    # the interface info can be get from many keys
+    # like minigraph_ports and minigraph_port_name_to_alias_map
+    # Here use the minigraph_ports(with more info) to get the information
+    # Todo: Generate the ptf to dut port mapping
+    return mg_facts['minigraph_ports']

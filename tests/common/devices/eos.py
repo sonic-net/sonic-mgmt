@@ -13,6 +13,12 @@ def _raise_err(msg):
     raise Exception(msg)
 
 
+FEC_MAP = {
+    'fc': 'fire-code',
+    'rs': 'reed-solomon'
+}
+
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -100,12 +106,56 @@ class EosHost(AnsibleHostBase):
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
 
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
-        logging.info("Checking interface state: {}".format(show_int_result['stdout_lines'][0][0]))
-        # Either admin/opr status is down meaning link is down
-        return 'down' in show_int_result['stdout_lines'][0][0].lower()
+    def links_status_down(self, ports):
+        show_int_result = self.eos_command(commands=['show interface status'])
+        for output_line in show_int_result['stdout_lines'][0]:
+            """ 
+            Note: 
+            (Pdb) output_line
+            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4    
+            e.g.
+            (Pdb) output_line.split(' ')[0]
+            u'Et1/1'
+            """
+            output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                if 'notconnect' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    continue
+                if 'connected' in output_line:
+                    logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+                    return False
+                else:
+                    logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
+                    return False
+        return True
 
+    def links_status_up(self, ports):
+        show_int_result = self.eos_command(commands=['show interface status'])
+        for output_line in show_int_result['stdout_lines'][0]:
+            """ 
+            Note: 
+            (Pdb) output_line
+            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4    
+            e.g.
+            (Pdb) output_line.split(' ')[0]
+            u'Et1/1'
+            """
+            output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                if 'connected' in output_line:
+                    logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+                    continue
+                if 'notconnect' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    return False
+                else:
+                    logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
+                    return False
+        return True
+        
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
@@ -271,7 +321,13 @@ class EosHost(AnsibleHostBase):
         return v[:-1] + '000'
 
     def _has_cli_cmd_failed(self, cmd_output_obj):
-        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
+        err_out = False
+        if 'stdout' in cmd_output_obj:
+            stdout = cmd_output_obj['stdout']
+            msg = stdout[-1] if type(stdout) == list else stdout
+            err_out = 'Cannot advertise' in msg
+
+        return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
 
     def set_speed(self, interface_name, speed):
 
@@ -283,9 +339,15 @@ class EosHost(AnsibleHostBase):
 
         speed_mode = 'auto' if self.get_auto_negotiation_mode(interface_name) else 'forced'
         speed = speed[:-3] + 'gfull'
-        out = self.host.eos_config(
-                lines=['speed {} {}'.format(speed_mode, speed)],
-                parents='interface %s' % interface_name)[self.hostname]
+
+        out = self.host.eos_command(commands=[
+            'conf',
+            'interface %s' % interface_name,
+            {
+                'command': 'speed {} {}'.format(speed_mode, speed),
+                'prompt': ['Do you wish to proceed with this command'],
+                'answer': ['y']}
+            ])[self.hostname]
         logger.debug('Set force speed for port {} : {}'.format(interface_name, out))
         return not self._has_cli_cmd_failed(out)
 
@@ -350,6 +412,26 @@ class EosHost(AnsibleHostBase):
                          .format(interface_name, repr(e)))
             return False
 
+    def _append_port_fec(self, interface_name, mode):
+        def _exec(cmd):
+            self.host.eos_command(commands=[
+                'conf',
+                'interface %s' % interface_name,
+                cmd
+            ])
+
+        if mode:
+            _exec('error-correction encoding ' + FEC_MAP[mode])
+        else:
+            _exec('no error-correction encoding')
+
+    def set_port_fec(self, interface_name, mode):
+        # reset FEC
+        self._append_port_fec(interface_name, None)
+
+        if mode:
+            self._append_port_fec(interface_name, mode)
+
     def rm_member_from_channel_grp(self, interface_name, channel_group):
         out = self.eos_config(
             lines=['no channel-group {} mode active'.format(channel_group)],
@@ -363,3 +445,17 @@ class EosHost(AnsibleHostBase):
             parents=['interface {}'.format(interface_name)])
         logging.info('Add interface {} to channel_group {}'.format(interface_name, channel_group))
         return out
+
+    def ping_dest(self, dest):
+        """
+        Check if ping to dest IP sucess or not
+
+        Returns: True or False
+        """
+        try:
+            command = 'ping {} repeat 5'.format(dest)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            return ' 0% packet loss' in output
+        except Exception as e:
+            logger.error('command {} failed. exception: {}'.format(command, repr(e)))
+        return False
