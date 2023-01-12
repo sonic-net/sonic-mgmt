@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
 
-def skip_test_for_multi_asic(duthosts,enum_rand_one_per_hwsku_frontend_hostname ):
+
+def skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
         pytest.skip('CLI command not supported')
@@ -66,7 +67,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         port_alias_map[port_alias_new] = item
         port_speed[port_alias_new] = port_speed_facts[port_alias_old]
 
-        #sonic-db-cli command
+        # sonic-db-cli command
         db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
                     item,
@@ -74,19 +75,19 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         # Update port alias name in redis db
         duthost.command(db_cmd)
 
-    upport_alias_list = [ port_name_map[item] for item in up_ports ]
-    portchannel_members = [ member for portchannel in minigraph_portchannels.values() for member in portchannel['members'] ]
-    physical_interfaces = [ item for item in up_ports if item not in portchannel_members ]
+    upport_alias_list = [port_name_map[item] for item in up_ports]
+    portchannel_members = [member for portchannel in minigraph_portchannels.values() for member in portchannel['members']]
+    physical_interfaces = [item for item in up_ports if item not in portchannel_members]
     setup_info = {
-         'default_interfaces' : default_interfaces,
-         'minigraph_facts' : minigraph_facts,
-         'physical_interfaces' : physical_interfaces,
-         'port_alias' : port_alias,
-         'port_name_map' : port_name_map,
-         'port_alias_map' : port_alias_map,
-         'port_speed' : port_speed,
-         'up_ports' : up_ports,
-         'upport_alias_list' : upport_alias_list
+         'default_interfaces': default_interfaces,
+         'minigraph_facts': minigraph_facts,
+         'physical_interfaces': physical_interfaces,
+         'port_alias': port_alias,
+         'port_name_map': port_name_map,
+         'port_alias_map': port_alias_map,
+         'port_speed': port_speed,
+         'up_ports': up_ports,
+         'upport_alias_list': upport_alias_list
     }
 
     yield setup_info
