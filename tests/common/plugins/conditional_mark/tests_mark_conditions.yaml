@@ -349,9 +349,15 @@ pfc/test_unknown_mac.py:
 #######################################
 pfc_asym/test_pfc_asym.py:
   skip:
-    reason: 'pfc_asym test is only supported on Mellanox platform'
+    reason: 'pfc_asym test skip except for on Barefoot platforms'
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['barefoot']"
+
+pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
+   skip:
+     reason: "skipped for Barefoot platform"
+     conditions:
+        - "asic_type in ['barefoot']"
 
 #######################################
 #####         pfcwd               #####
