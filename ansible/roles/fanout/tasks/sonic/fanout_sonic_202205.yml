@@ -10,13 +10,8 @@
     src: "sonic_deploy_202205.j2"
     dest: "/tmp/base_config.json"
 
-- name: copy platform related startup config
-  copy:
-    src: "{{ fanout_platform }}.json"
-    dest: "/tmp/platform_config.json"
-
 - name: generate config_db.json
-  shell: sonic-cfggen -H -j /tmp/base_config.json -j /tmp/platform_config.json --print-data > /etc/sonic/config_db.json
+  shell: sonic-cfggen -H -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
   become: yes
 
 - name: disable all copp rules
@@ -25,26 +20,17 @@
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
 
-- name: Reboot switch to load the config
-  shell: reboot
-  async: 300
-  poll: 0
-  become: yes
+- name: SONiC update config db
+  shell: config reload -y
+  become: true
 
-- name: Wait for switch to come back
-  local_action: wait_for
-  args:
-    host: "{{ ansible_ssh_host }}"
-    port: 22
-    state: started
-    search_regex: "OpenSSH"
-    delay: 180
-    timeout: 600
-  changed_when: false
-
-- name: pause for 60s to wait for fanout switch to initialize
+- name: wait for SONiC update config db finish
   pause:
-    seconds: 60
+    seconds: 180
+
+- name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
+  shell: docker exec -i swss supervisorctl stop arp_update
+  become: yes
 
 - name: Setup broadcom based fanouts
   block:

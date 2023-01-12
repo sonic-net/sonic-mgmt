@@ -87,7 +87,7 @@ def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be
         link_path_regex = re.escape(path_to_be_fix)
 
     target_path_regex = re.escape(target_path)
-    ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
+    ptfhost.shell("sed -i 's|{0}|{1}|g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
 
 def get_ld_path(duthost):
     """
@@ -163,7 +163,7 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
     find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'
-    server_list = duthost.shell(find_server_command)['stdout']
+    server_list = duthost.shell(find_server_command, module_ignore_errors=True)['stdout']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
         if tacacs_server:

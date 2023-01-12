@@ -35,6 +35,7 @@ ANNOUNCE = 'announce'
 # Refer to announce_routes.py, which is called in add-topo period
 TOR_SUBNET_SIZE = 128
 M0_SUBNET_SIZE = 64
+MX_SUBNET_SIZE = 64
 
 
 def get_prefix_len_by_net_size(net_size):
@@ -43,11 +44,12 @@ def get_prefix_len_by_net_size(net_size):
 
 def get_route_prefix_len(tbinfo, common_config):
     if tbinfo["topo"]["name"] == "m0":
-        m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
-        return get_prefix_len_by_net_size(m0_subnet_size)
+        subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
+    elif tbinfo["topo"]["name"] == "mx":
+        subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     else:
-        tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
-        return get_prefix_len_by_net_size(tor_subnet_size)
+        subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    return get_prefix_len_by_net_size(subnet_size)
 
 
 @pytest.fixture(scope="module")
