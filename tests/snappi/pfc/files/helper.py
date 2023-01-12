@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_port_prio_ingress_dropped_packets,\
+    get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
@@ -522,7 +522,7 @@ def __verify_results(rows,
             
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
-                    dropped_packets = get_port_prio_ingress_dropped_packets(duthost, peer_port, prio)
+                    dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets > 0,
                         'Total TX dropped packets {} should be more than 0'.\
                         format(dropped_packets))
@@ -533,7 +533,7 @@ def __verify_results(rows,
             
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
-                    dropped_packets = get_port_prio_ingress_dropped_packets(duthost, peer_port, prio)
+                    dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets == 0,
                         'Total TX dropped packets {} should be 0'.\
                         format(dropped_packets))

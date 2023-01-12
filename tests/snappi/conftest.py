@@ -92,10 +92,10 @@ def pfc_pause_delay_test_params(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts['platform']
     pfc_pause_delay_test_params = {}
-    if '8102' in platform:
+    if ('Cisco' or 'cisco') and '8102' in platform:
         pfc_pause_delay_test_params[0] = True
         pfc_pause_delay_test_params[1023] = True
-    elif '7050cx3' in platform:
+    elif ('Arista' or 'arista') and '7050cx3' in platform:
         pfc_pause_delay_test_params[0] = True
         pfc_pause_delay_test_params[200] = False
     else:
