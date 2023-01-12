@@ -148,7 +148,11 @@ class TestSfpApi(PlatformApiTestBase):
         'templowalarm',
         'rxpowerhighalarm',
         'templowwarning',
-        'txpowerlowalarm'
+        'txpowerlowalarm',
+        'lasertemphighwarning',
+        'lasertemplowwarning',
+        'lasertemplowalarm',
+        'lasertemphighalarm'
     ]
 
     chassis_facts = None
