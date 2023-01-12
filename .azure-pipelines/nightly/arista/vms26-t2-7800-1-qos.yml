@@ -19,7 +19,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms29-t2-7250-1
+    default: vms26-t2-7800-1
     displayName: "Testbed Name"
 
   # Testbed specific, to skip and/or include directories
@@ -41,5 +41,5 @@ stages:
       #DUT_NAME: ${{ parameters.DUT_NAME }}
       #IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      NIGHTLY_TEST_TIMEOUT: 1440  # 48 hours
+      NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}

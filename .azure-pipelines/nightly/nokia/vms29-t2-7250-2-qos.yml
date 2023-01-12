@@ -22,17 +22,10 @@ parameters:
     default: vms29-t2-7250-2
     displayName: "Testbed Name"
 
-  # Upgrade parameters
-  # for now ignore updating the images on chassis
-  - name: IMAGE_URL
-    type: string
-    default: $(IMAGE_BRCM_DNX_CHASSIS_202205)
-    displayName: "Image URL"
-
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "qos"'
+    default: '-I "qos pfcwd"'
     displayName: "Testbed specific"
 
   # Test Parameters
@@ -45,7 +38,8 @@ stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      #DUT_NAME: ${{ parameters.DUT_NAME }}
+      #IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
