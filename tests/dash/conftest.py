@@ -56,7 +56,6 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
 
 def get_intf_from_ip(local_ip, config_facts):
     for intf, config in config_facts["INTERFACE"].items():
-        intf_ip = ip_interface(config.keys()[0])
         for ip in config:
             intf_ip = ip_interface(ip)
             if str(intf_ip.ip) == local_ip:
@@ -75,7 +74,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
     }
-    loopback_intf_ip = ip_interface(config_facts["LOOPBACK_INTERFACE"].values()[0].keys()[0])
+    loopback_intf_ip = ip_interface(list(list(config_facts["LOOPBACK_INTERFACE"].values())[0].keys())[0])
     dash_info[LOOPBACK_IP] = str(loopback_intf_ip.ip)
     dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
 

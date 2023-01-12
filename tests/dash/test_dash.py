@@ -44,7 +44,7 @@ def inbound_vnet_packets(dash_config_info):
     )
 
     pa_mismatch_vxlan_packet = pa_match_vxlan_packet.copy()
-    remote_pa_ip = ip_address(unicode(dash_config_info[REMOTE_PA_IP]))
+    remote_pa_ip = ip_address(dash_config_info[REMOTE_PA_IP])
     pa_mismatch_vxlan_packet["IP"].src = str(remote_pa_ip + 1)
 
     masked_exp_packet = Mask(expected_packet)
