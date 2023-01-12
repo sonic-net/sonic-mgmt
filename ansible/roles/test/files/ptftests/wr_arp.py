@@ -481,7 +481,7 @@ class ArpTest(BaseTest):
 
     def check_neighbor_advertise_vxlan(self):
         output, _, _ = self.dut_connection.execCommand('show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME))
-        result = parse_show(self, output)
+        result = parse_show(output)
         if len(result) == 0:
             self.assertTrue(False, "vxlan tunnel {} not exists".format(self.VXLAN_TUNNEL_NAME))
 

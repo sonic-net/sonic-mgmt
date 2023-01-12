@@ -2,9 +2,11 @@
 Utility functions can re-used in testing scripts.
 """
 import re
+import logging
 
 
-def _parse_column_positions(self, sep_line, sep_char='-'):
+# internal used function
+def _parse_column_positions(sep_line, sep_char='-'):
     prev = ' ',
     positions = []
     for pos, char in enumerate(sep_line + ' '):
@@ -20,7 +22,7 @@ def _parse_column_positions(self, sep_line, sep_char='-'):
 
 
 # sync from sonic.py SonicHost.parse_show
-def parse_show(self, output_lines):
+def parse_show(output_lines):
     result = []
 
     sep_line_pattern = re.compile(r"^( *-+ *)+$")
@@ -34,13 +36,13 @@ def parse_show(self, output_lines):
             break
 
     if not sep_line_found:
-        self.log('Failed to find separation line in the show command output')
+        logging.info('Failed to find separation line in the show command output')
         return result
 
     try:
-        positions = self._parse_column_positions(sep_line)
+        positions = _parse_column_positions(sep_line)
     except Exception as e:
-        self.log('Possibly bad command output, exception: {}'.format(repr(e)))
+        logging.info('Possibly bad command output, exception: {}'.format(repr(e)))
         return result
 
     headers = []
