@@ -11,7 +11,7 @@ from constants import *
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('appliance'),
     pytest.mark.disable_loganalyzer
 ]
 
