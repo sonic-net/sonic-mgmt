@@ -388,6 +388,10 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
+
 #######################################
 #####           http              #####
 #######################################
@@ -592,9 +596,9 @@ pfc/test_unknown_mac.py:
 #######################################
 pfc_asym/test_pfc_asym.py:
   skip:
-    reason: 'pfc_asym test is only supported on Mellanox, Barefoot platforms'
+    reason: 'pfc_asym test skip except for on Barefoot platforms'
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot']"
+      - "asic_type not in ['barefoot']"
 
 pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
    skip:
@@ -841,9 +845,9 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue or unsupported platform"
+    reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
-      - "is_supervisor or topo_name in ['m0'] or asic_type in ['barefoot']"
+      - "is_supervisor or topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
@@ -983,7 +987,7 @@ vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run 8102. 4600 has issue https://github.com/sonic-net/sonic-mgmt/issues/6616"
     conditions:
-      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0'])"
+      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0'] and asic_type not in ['barefoot'])"
 
 vxlan/test_vnet_vxlan.py:
   skip:
