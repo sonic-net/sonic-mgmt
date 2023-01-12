@@ -2,6 +2,7 @@ from os import path
 _TEMPLATE_DIR = "dash/templates"
 TEMPLATE_DIR = path.abspath(_TEMPLATE_DIR)
 # Constants used for generating dash configs
+ENI = "eni"
 LOOPBACK_IP = "loopback_ip"
 VM_VNI = "vm_vni"
 VNET1_VNI = "vnet1_vni"

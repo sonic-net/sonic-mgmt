@@ -65,6 +65,7 @@ def get_intf_from_ip(local_ip, config_facts):
 @pytest.fixture(scope="module")
 def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info = {
+        ENI: "F4939FEFC47E",
         VM_VNI: 4321,
         VNET1_VNI: 1000,
         VNET2_VNI: 2000,
@@ -102,8 +103,13 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 @pytest.fixture(scope="module")
 def apply_vnet_configs(skip_config, duthost, dash_config_info):
+    # TODO: Combine dash_acl_allow_all and dash_bind_acl into a single template once empty group binding issue is fixed/clarified
+    config_list = ["dash_basic_config", "dash_acl_allow_all", "dash_bind_acl"]
     if skip_config:
         return
-    render_template_to_host("dash_basic_config.j2", duthost, "/tmp/dash_basic_config_gen.json", dash_config_info, op="SET")
-    apply_swssconfig_file(duthost, "/tmp/dash_basic_config_gen.json")
-    return
+
+    for config in config_list:
+        template_name = "{}.j2".format(config)
+        dest_path = "/tmp/{}.json".format(config)
+        render_template_to_host(template_name, duthost, dest_path, dash_config_info, op="SET")
+        apply_swssconfig_file(duthost, dest_path)

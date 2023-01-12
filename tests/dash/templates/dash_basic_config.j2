@@ -39,7 +39,7 @@
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ENI_TABLE:F4939FEFC47E" : {
+                "DASH_ENI_TABLE:{{ eni }}" : {
                         "eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
                         "mac_address":"{{ local_eni_mac }}",
                         "underlay_ip":"{{ local_pa_ip }}",
@@ -50,14 +50,14 @@
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ROUTE_TABLE:F4939FEFC47E:{{ remote_ca_prefix }}" : {
+                "DASH_ROUTE_TABLE:{{ eni }}:{{ remote_ca_prefix }}" : {
                         "action_type":"vnet",
                         "vnet":"Vnet2"
                 },
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ROUTE_RULE_TABLE:F4939FEFC47E:{{ vnet2_vni }}:{{ remote_pa_prefix }}" : {
+                "DASH_ROUTE_RULE_TABLE:{{ eni }}:{{ vnet2_vni }}:{{ remote_pa_prefix }}" : {
                         "action_type":"decap",
 			"priority":"1",
 			"pa_validation":"true",
