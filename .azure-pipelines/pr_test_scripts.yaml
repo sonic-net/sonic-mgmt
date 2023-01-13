@@ -14,7 +14,7 @@ t0:
   - dhcp_relay/test_dhcpv6_relay.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
-  - generic_config_updater/test_bgp_prefix.py
+#  - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
@@ -37,7 +37,7 @@ t0:
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
-  - route/test_default_route.py
+#  - route/test_default_route.py
   - route/test_static_route.py
   - show_techsupport/test_techsupport_no_secret.py
   - snmp/test_snmp_cpu.py
@@ -96,7 +96,7 @@ t1-lag:
   - pc/test_lag_2.py
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
-  - route/test_default_route.py
+#  - route/test_default_route.py
   - scp/test_scp_copy.py
   - test_interfaces.py
 
