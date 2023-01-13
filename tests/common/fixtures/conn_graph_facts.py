@@ -96,7 +96,7 @@ import copy
 def key_convert2str(conn_graph_facts):
     """
         In Python2, some key type are unicode, but In Python3, are AnsibleUnsafeText. Convert them to str.
-        Currently, convert conn_graph_facts['device_conn'].
+        Currently, convert the key in conn_graph_facts['device_conn'].
     """
     # If Python2, do not change
     if sys.version_info[0] < 3:
