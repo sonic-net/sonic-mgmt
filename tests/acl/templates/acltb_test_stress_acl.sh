@@ -1,9 +1,11 @@
 #!/bin/bash
-loop_times=1000
+loop_times=100
 finished_times=0
 while [[ ${loop_times} > 0 ]]; do
-        acl-loader update full /tmp/ip_stress_acl.json
-        acl-loader delete
+        echo "Load acl rules"
+        sonic-cfggen -j /tmp/acltb_test_stress_acl_rules.json -w
+        echo "Delete acl rules"
+        acl-loader delete STRESS_ACL
         let finished_times+=1
         let loop_times-=1
         echo "Finished ${finished_times} times, ${loop_times} times remaining"
