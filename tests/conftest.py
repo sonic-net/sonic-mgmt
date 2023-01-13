@@ -530,9 +530,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):  # noqa F811
     # WA for virtual testbed which has no fanout
     try:
         for dut_host, value in dev_conn.items():
-            # In Python2, the key in dev_conn.items() is unicode object, but in Python3 is AnsileUnsafeText.
-            # So that convert to str explicitly.
-            duthost = duthosts[str(dut_host)]
+            duthost = duthosts[dut_host]
             mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
             for dut_port in value.keys():
                 fanout_rec = value[dut_port]

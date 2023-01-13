@@ -76,7 +76,7 @@ def get_graph_facts(duthost, localhost, hostnames):
                     kargs["hosts"] = hostnames
                 conn_graph_facts = localhost.conn_graph_facts(
                     **kargs)["ansible_facts"]
-                return conn_graph_facts
+                return key_convert2str(conn_graph_facts)
     # END OF DEPRECATE WARNING: deprecate ends here.
 
     kargs = {"filepath": lab_conn_graph_path}
@@ -87,3 +87,24 @@ def get_graph_facts(duthost, localhost, hostnames):
     conn_graph_facts = localhost.conn_graph_facts(
         **kargs)["ansible_facts"]
     return conn_graph_facts
+
+
+import sys
+import copy
+
+
+def key_convert2str(conn_graph_facts):
+    """
+        In Python2, some key type are unicode, but In Python3, are AnsibleUnsafeText. Convert them to str.
+        Currently, convert conn_graph_facts['device_conn'].
+    """
+    # If Python2, do not change
+    if sys.version_info[0] < 3:
+        return conn_graph_facts
+
+    # Else, convert
+    result = copy.deepcopy(conn_graph_facts)
+    for key, value in conn_graph_facts['device_conn'].items():
+        result['device_conn'][str(key)] = result['device_conn'].pop(str(key))
+
+    return result
