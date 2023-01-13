@@ -32,7 +32,6 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
