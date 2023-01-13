@@ -118,6 +118,16 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
        duthost.command('config acl remove table DATAACL')
        # rebind with new set of ports
        bind_acl_table(duthost, tbinfo)
+def skip_sonic_leaf_fanout(fanouthosts):
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
+	1.The test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic 
+	leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout.
+	2.The egressed  packets of some testcases will be tagged with test vlan id, which will be dropped by sonic leaf-fanout.
+    """
+    for fanouthost in fanouthosts.values():
+        if fanouthost.get_fanout_os() == 'sonic':
+            pytest.skip("Not supporteds on SONiC leaf-fanout")
 
 def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
     cmds = []
@@ -324,7 +334,7 @@ def populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict):
 
 
 @pytest.mark.bsl
-def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc1_send_untagged(ptfadapter, fanouthosts, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #1
     Verify packets egress without tag from ports whose PVID same with ingress port
@@ -332,7 +342,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_sim
     """
 
     logger.info("Test case #1 starting ...")
-
+    skip_sonic_leaf_fanout(fanouthosts)
     for vlan_port in work_vlan_ports_list:
         pkt = build_icmp_packet(0)
         logger.info("Send untagged packet from {} ...".format(vlan_port["port_index"][0]))
@@ -351,7 +361,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_sim
 
 
 @pytest.mark.bsl
-def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc2_send_tagged(ptfadapter, fanouthosts, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #2
     Send tagged packets from each port.
@@ -360,7 +370,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simul
     """
 
     logger.info("Test case #2 starting ...")
-
+    skip_sonic_leaf_fanout(fanouthosts)
     for vlan_port in work_vlan_ports_list:
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             pkt = build_icmp_packet(permit_vlanid)
@@ -371,7 +381,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simul
 
 
 @pytest.mark.bsl
-def test_vlan_tc3_send_invalid_vid(ptfadapter, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc3_send_invalid_vid(ptfadapter, fanouthosts, work_vlan_ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #3
     Send packets with invalid VLAN ID
@@ -396,12 +406,13 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, work_vlan_ports_list, toggle_all_
 
 
 @pytest.mark.bsl
-def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc4_tagged_unicast(ptfadapter, fanouthosts, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
     Verify that bidirectional communication between two tagged ports work
     """
+    skip_sonic_leaf_fanout(fanouthosts)
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
 
@@ -479,12 +490,13 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
 
 
 @pytest.mark.bsl
-def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, fanouthosts, work_vlan_ports_list, vlan_intfs_dict, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #6
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
     Verify that bidirectional communication between tagged port and untagged port work
     """
+    skip_sonic_leaf_fanout(fanouthosts)
     for test_vlan in vlan_intfs_dict:
         untagged_ports_for_test = []
         tagged_ports_for_test = []
@@ -531,13 +543,13 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(test_vlan, dst_port, src_port))
 
 
-def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_list, vlan_intfs_dict, duthost, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, fanouthosts, work_vlan_ports_list, vlan_intfs_dict, duthost, toggle_all_simulator_ports_to_rand_selected_tor_m):
     """
     Test case #7
     Send qinq packets w/ src and dst specified over tagged ports in vlan
     Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
     """
-
+    skip_sonic_leaf_fanout(fanouthosts)
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
         for vlan_port in work_vlan_ports_list:
