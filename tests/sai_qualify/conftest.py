@@ -15,7 +15,6 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.barefoot_data import is_barefoot_device
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
-from tests.common.system_utils.docker import tag_image
 from tests.common.reboot import REBOOT_TYPE_SAI_WARM
 from tests.common.reboot import reboot
 from natsort import natsorted
@@ -505,6 +504,20 @@ def __deploy_saiserver(duthost, creds, request):
     )
 
 
+def tag_image(duthost, tag, image_name, image_version="latest"):
+    """Applies the specified tag to a Docker image on the duthost.
+
+    Args:
+        duthost (SonicHost): The target device.
+        tag (str): The tag to apply to the target image.
+        image_name (str): The name of the image to tag.
+        image_version (str): The version of the image to tag.
+    """
+    get_sai_running_vendor_id(duthost)
+
+    duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
+
+
 def __deploy_syncd_rpc_as_syncd(duthost, creds):
     """
     Replaces the running syncd container with the RPC version of it.
@@ -809,6 +822,8 @@ def get_sai_running_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_barefoot_device(duthost):
         vendor_id = "bfn"
+    elif vendor_id.facts["asic_type"] == "marvell":
+        vendor_id = "mrvl"
     else:
         error_message = '"{}" does not currently \
             support saitest'.format(duthost.facts["asic_type"])
