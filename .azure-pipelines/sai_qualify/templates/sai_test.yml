@@ -78,7 +78,7 @@ parameters:
 
   - name: TESTBED_LOCK_HOUR
     type: string
-    default: "3"
+    default: "5"
 
   - name: AGENT_POOL
     type: string
