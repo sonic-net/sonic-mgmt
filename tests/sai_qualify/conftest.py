@@ -41,6 +41,7 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 COMMON_CONFIG_FORMAT = ';common_configured=\'{}\''
 NEED_CONFIG = False
+PTF_TEST_CASE_TIMEOUT_IN_SEC = 600
 
 
 # PTF_TEST_ROOT_DIR is the root folder for SAI testing

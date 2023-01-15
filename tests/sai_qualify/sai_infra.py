@@ -32,6 +32,7 @@ from conftest import SAI_TEST_REPORT_TMP_DIR_ON_PTF
 from conftest import SAI_TEST_T0_CASE_DIR_ON_PTF
 from conftest import SAI_TEST_RESOURCE_ON_PTF_DIR
 from conftest import WARM_TEST_ARGS
+from conftest import PTF_TEST_CASE_TIMEOUT_IN_SEC
 from conftest import start_sai_test_conatiner_with_retry
 from conftest import get_sai_running_vendor_id
 from conftest import get_sai_test_container_name
@@ -239,9 +240,10 @@ def run_case_from_ptf(duthost,
     else:  # for old community test
         test_param = compose_community_running_param(dut_ip, request)
     logger.info("Test case param: [{}].".format(test_param))
-    ptfhost.shell(("ptf {} {} --relax --xunit \
+    ptfhost.shell(("ptf {} {} --relax --xunit --test-case-timeout={} \
         --xunit-dir {} {}").format(test_case,
                                    test_interface_params,
+                                   PTF_TEST_CASE_TIMEOUT_IN_SEC,
                                    SAI_TEST_REPORT_TMP_DIR_ON_PTF,
                                    test_param))
     logger.info("Test case [{}] passed.".format(test_case))
