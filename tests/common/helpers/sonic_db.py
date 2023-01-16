@@ -236,7 +236,7 @@ class AsicDbCli(SonicDbCli):
             return self.lagid_key_list
 
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_TABLE
-        self.lagid_key_list =self._run_and_raise(cmd)["stdout_lines"]
+        self.lagid_key_list = self._run_and_raise(cmd)["stdout_lines"]
         return self.lagid_key_list
 
     def get_asic_db_lag_member_list(self):

@@ -6,13 +6,15 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
-DEF_WAIT_TIMEOUT=300
-DEF_CHECK_INTERVAL=10
+DEF_WAIT_TIMEOUT = 300
+DEF_CHECK_INTERVAL = 10
 
-global_snmp_facts={}
+global_snmp_facts = {}
+
 
 def _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors):
-    snmp_facts = localhost.snmp_facts(host=host, version=version, community=community, is_dell=is_dell, module_ignore_errors=module_ignore_errors, include_swap=include_swap)
+    snmp_facts = localhost.snmp_facts(host=host, version=version, community=community, is_dell=is_dell,
+                                      module_ignore_errors=module_ignore_errors, include_swap=include_swap)
     return snmp_facts
 
 
