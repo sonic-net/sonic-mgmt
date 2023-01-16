@@ -10,10 +10,12 @@ GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -102,8 +104,13 @@ def load_minigraph_with_golden_empty_input(duthost):
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     current_config = get_running_config(duthost)
-    pytest_assert(initial_config == current_config,
-                  "Running config differs.")
+    for table in initial_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
+        pytest_assert(
+            initial_config[table] == current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -155,6 +162,8 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
 
     current_config = get_running_config(duthost)
     for table in full_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
         pytest_assert(
             full_config[table] == current_config[table],
             "full config override fail! {}".format(table)

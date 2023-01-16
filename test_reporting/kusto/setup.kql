@@ -92,7 +92,8 @@
                                   HardwareSku: string, OSVersion: string,
                                   Platform: string, Topology: string,
                                   TrackingId: string, ReportId: string,
-                                  TestbedName: string, UploadTimestamp: datetime)
+                                  TestbedName: string, UploadTimestamp: datetime,
+                                  sai_origin_version: string, sai_upgrade_version: string)
 
 .create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
                                                                                   '{"column":"AsicType","Properties":{"path":"$.asic"}},'
@@ -103,7 +104,9 @@
                                                                                   '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
                                                                                   '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                                   '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
-                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"sai_origin_version","Properties":{"path":"$.sai_origin_version"}},'
+                                                                                  '{"column":"sai_upgrade_version","Properties":{"path":"$.sai_upgrade_version"}}]'
 
 ###############################################################################
 # PIPELINE TABLE SETUP                                                        #

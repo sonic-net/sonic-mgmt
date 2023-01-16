@@ -275,7 +275,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
                testname="copp_tests.{}Test".format((protocol+"TopoT1")
-                         if protocol in _TOR_ONLY_PROTOCOL and dut_type not in ["ToRRouter", "MgmtToRRouter"] else protocol),
+                         if protocol in _TOR_ONLY_PROTOCOL and dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"] else protocol),
                platform="nn",
                qlen=100000,
                params=params,

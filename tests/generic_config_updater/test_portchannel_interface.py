@@ -3,6 +3,7 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -25,7 +26,7 @@ from tests.generic_config_updater.gu_utils import create_path, check_show_ip_int
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ def portchannel_table(cfg_facts):
     def _is_ipv4_address(ip_addr):
         return ipaddress.ip_address(ip_addr).version == 4
 
+    pytest_require("PORTCHANNEL_INTERFACE" in cfg_facts, "Unsupported without port_channel")
     portchannel_table = {}
     for portchannel, ip_addresses in cfg_facts["PORTCHANNEL_INTERFACE"].items():
         ips = {}

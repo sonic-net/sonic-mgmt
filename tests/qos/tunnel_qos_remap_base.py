@@ -56,7 +56,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     # Wait a default interval (10 seconds)
     time.sleep(10)
     cmd = "show queue counters {}".format(port)
-    output = duthost.shell('show queue counters')['stdout_lines']
+    output = duthost.shell(cmd)['stdout_lines']
     """
              Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
         ---------  -----  --------------  ---------------  -----------  ------------
@@ -73,13 +73,11 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
 
 def check_queue_counter(duthost, intfs, queue, counter):
     output = duthost.shell('show queue counters')['stdout_lines']
-
-    for intf in intfs:
-        for line in output:
-            fields = line.split()
-            if len(fields) == 6 and fields[0] == intf and fields[1] == 'UC{}'.format(queue):
-                if int(fields[2]) >= counter:
-                    return True
+    for line in output:
+        fields = line.split()
+        if len(fields) == 6 and fields[0] in intfs and fields[1] == 'UC{}'.format(queue):
+            if int(fields[2]) >= counter:
+                return True
     
     return False
 
