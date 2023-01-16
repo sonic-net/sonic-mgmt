@@ -47,43 +47,7 @@ dualtor_io/test_normal_op.py:
       - "'dualtor' in topo_name"
       - "'7260' in platform"
 
-platform_tests/api/test_chassis.py::TestChassisApi:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
 platform_tests/test_advanced_reboot.py:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202012']"
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
     conditions:

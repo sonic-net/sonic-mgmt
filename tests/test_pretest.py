@@ -236,8 +236,8 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
-    if result["failed"] != False or "OK" not in result["msg"]:
+    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+    if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
