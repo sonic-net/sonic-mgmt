@@ -30,7 +30,6 @@ PTF_PORT_MAPPING_MODE = "use_orig_interface"
 # Only test the first 2 portchannels
 PORTCHANNELS_TEST_NUM = 2
 
-
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
