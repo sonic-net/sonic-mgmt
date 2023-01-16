@@ -115,6 +115,12 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
     reason: "On Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
@@ -124,6 +130,11 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
@@ -132,14 +143,14 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_s
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -317,12 +328,14 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
 #######################################
 ##### api/test_module.py #####
 #######################################
+
 platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
    skip:
