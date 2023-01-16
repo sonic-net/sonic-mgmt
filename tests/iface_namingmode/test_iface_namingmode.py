@@ -76,8 +76,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         duthost.command(db_cmd)
 
     upport_alias_list = [port_name_map[item] for item in up_ports]
-    portchannel_members = [member for portchannel in minigraph_portchannels.values() for member in portchannel['members']]
-    physical_interfaces = [item for item in up_ports if item not in portchannel_members]
+    portchannel_mems = [member for portchannel in minigraph_portchannels.values() for member in portchannel['members']]
+    physical_interfaces = [item for item in up_ports if item not in portchannel_mems]
     setup_info = {
          'default_interfaces': default_interfaces,
          'minigraph_facts': minigraph_facts,
