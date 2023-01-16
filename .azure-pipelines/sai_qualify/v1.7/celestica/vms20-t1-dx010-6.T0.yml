@@ -54,7 +54,7 @@ parameters:
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: "--disable_loganalyzer --sai_port_config=port_config.ini"
+    default: " "
 
 stages:
 - stage: RunSAITest
