@@ -41,7 +41,7 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     """
     Check if transceiver information of all the specified interfaces have been detected.
     """
-    cmd = "redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
+    cmd = r"redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
