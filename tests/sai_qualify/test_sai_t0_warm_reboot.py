@@ -46,7 +46,6 @@ def test_sai(
         request: Pytest request.
         create_sai_test_interface_param: Testbed switch interface
     """
-    test_fail = False
     logger.info("sai_test_keep_test_env {}".format(request.config.option.sai_test_keep_test_env))
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     try:
@@ -54,12 +53,10 @@ def test_sai(
         run_case_from_ptf(duthost, dut_ip, ptfhost, sai_test_case, sai_test_interface_para, request)
     except BaseException as e:
         logger.info("Test case [{}] failed, failed as {}.".format(sai_test_case, e))
-        test_fail = True
         pytest.fail("Test case [{}] failed".format(sai_test_case), e)
     finally:
-        if test_fail or request.config.option.skip_stop_sai_test_container:
-            stop_and_rm_sai_test_container(
-                duthost, get_sai_test_container_name(request))
+        stop_and_rm_sai_test_container(
+            duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)
         saiserver_warmboot_config(duthost, "restore")
         saiserver_warmboot_config(duthost, "init")

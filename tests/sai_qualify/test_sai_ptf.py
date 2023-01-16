@@ -40,7 +40,6 @@ def test_sai(sai_testbed,
         request: Pytest request.
         create_sai_test_interface_param: Testbed switch interface
     """
-    test_fail = False
     dut_ip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     try:
@@ -52,12 +51,8 @@ def test_sai(sai_testbed,
         logger.info("Test case [{}] failed, \
             trying to restart sai test container, \
                 failed as {}.".format(ptf_sai_test_case, e))
-        test_fail = True
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
-        logger.info("skip_stop_sai_test_container [{}]".format(
-            request.config.option.skip_stop_sai_test_container))
-        if test_fail or not request.config.option.skip_stop_sai_test_container:
-            stop_and_rm_sai_test_container(
-                duthost, get_sai_test_container_name(request))
+        stop_and_rm_sai_test_container(
+            duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)
