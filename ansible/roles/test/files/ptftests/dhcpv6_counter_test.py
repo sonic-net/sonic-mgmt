@@ -1,4 +1,6 @@
+import os
 import ast
+import time
 import subprocess
 
 # Packet Test Framework imports
@@ -56,6 +58,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         self.server_ip = self.test_params['server_ip']
         self.relay_iface_ip = self.test_params['relay_iface_ip']
         self.relay_iface_mac = self.test_params['relay_iface_mac']
+        self.dut_mac = self.test_params['dut_mac']
         self.vlan_ip = self.test_params['vlan_ip']
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
@@ -93,7 +96,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         return packet
 
     def create_server_packet(self, message):
-        packet = Ether(dst=self.relay_iface_mac)
+        packet = Ether(dst=self.dut_mac)
         packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
@@ -112,6 +115,9 @@ class DHCPCounterTest(DataplaneBaseTest):
         for message in client_messages:
             packet = self.create_packet(message)
             testutils.send_packet(self, self.client_port_index, packet)
+            # sleep a short time to low down packet sending rate in case multicast packets
+            # flooding cause packets drop on dhcpv6 relay filter raw socket
+            time.sleep(1)
 
     def server_send(self):
         server_messages = [DHCP6_Advertise, DHCP6_Reply]
@@ -119,6 +125,7 @@ class DHCPCounterTest(DataplaneBaseTest):
             packet = self.create_server_packet(message)
             packet.src = self.dataplane.get_mac(0, self.server_port_indices[0])
             testutils.send_packet(self, self.server_port_indices[0], packet)
+            time.sleep(1)
 
     def runTest(self):
         self.client_send()
