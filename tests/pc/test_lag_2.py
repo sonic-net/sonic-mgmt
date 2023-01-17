@@ -375,24 +375,26 @@ def teardown(duthost):
 
 def get_oper_status_from_db(duthost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" netdev_oper_status".format(port_name)
-    status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    asic_index = duthost.get_port_asic_instance(port_name).asic_index
+    cmd = 'sudo {} STATE_DB HGET "PORT_TABLE|{}" netdev_oper_status'.format(duthost.asic_instance(asic_index).sonic_db_cli, port_name)
+    status = duthost.command(cmd)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key netdev_oper_status,
     # check oper_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" oper_status".format(port_name)
-        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+        cmd = 'sudo {} APPL_DB HGET "PORT_TABLE:{}" oper_status'.format(duthost.asic_instance(asic_index).sonic_db_cli, port_name)
+        status = duthost.command(cmd)['stdout']
     return status
 
 def get_admin_status_from_db(duthost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" admin_status".format(port_name)
-    status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    asic_index = duthost.get_port_asic_instance(port_name).asic_index
+    cmd = 'sudo {} STATE_DB HGET "PORT_TABLE|{}" admin_status'.format(duthost.asic_instance(asic_index).sonic_db_cli, port_name)
+    status = duthost.command(cmd)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key admin_status,
     # check admin_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" admin_status".format(port_name)
-        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+        cmd = 'sudo {} APPL_DB HGET "PORT_TABLE:{}" admin_status'.format(duthost.asic_instance(asic_index).sonic_db_cli, port_name)
+        status = duthost.command(cmd)['stdout']
     return status
 
 def check_status_is_syncd(duthost, po_intf, port_info, lag_name):
@@ -444,7 +446,9 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
         # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
         for lag_name in test_lags:
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
-                duthost.shutdown(po_intf)
+                asic_index = duthost.get_port_asic_instance(po_intf).asic_index
+                asic = duthost.asics[asic_index]
+                asic.shutdown_interface(po_intf)
                 # Retrieve lag_facts after shutdown interface
                 new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
                 port_info =  new_lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
@@ -452,7 +456,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                 "{} member {}'s admin_status or oper_status in state_db is not down.".format(lag_name, po_intf))
 
                 # Retrieve lag_facts after no shutdown interface
-                duthost.no_shutdown(po_intf)
+                asic.startup_interface(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
                 pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
                     "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
@@ -466,7 +470,9 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
                         continue
                 else:
                     logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
-                    duthost.no_shutdown(po_intf)
+                    asic_index = duthost.get_port_asic_instance(po_intf).asic_index
+                    asic = duthost.asics[asic_index]
+                    asic.startup_interface(po_intf)
 
 def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
