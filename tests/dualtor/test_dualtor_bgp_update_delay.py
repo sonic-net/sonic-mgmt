@@ -1,10 +1,12 @@
 import contextlib
 import ipaddress
+import logging
 import pytest
 import tempfile
 import time
 
-from scapy.all import EDecimal
+from datetime import datetime
+
 from scapy.all import IP
 from scapy.all import IPv6
 from scapy.all import sniff
@@ -31,7 +33,7 @@ def log_bgp_updates(duthost, iface, save_path):
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
-    stop_pcap = "sudo pkill -f '%s'" %  start_pcap
+    stop_pcap = "sudo pkill -SIGINT -f '%s'" %  start_pcap
     start_pcap = "nohup {} &".format(start_pcap)
     duthost.shell(start_pcap)
     try:
@@ -92,22 +94,26 @@ def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
     local_address = bgp_details["local_addr"]
     ip_packet = IP if ip_version == "ipv4" else IPv6
 
+    logging.info("shutdown BGP %s", bgp_neighbor)
     duthost.shell("config bgp shutdown neighbor %s" % bgp_neighbor)
     pytest_assert(
         wait_until(10, 2, 2, verify_bgp_session, duthost, bgp_neighbor, "down", "idle"),
         "Could not shutdown neighbor %s" % bgp_neighbor
     )
 
+    logging.info("startup BGP %s", bgp_neighbor)
     bgp_pcap = BGP_LOG_TMPL % bgp_neighbor
     with log_bgp_updates(duthost, "any", bgp_pcap):
-        bgp_startup_time = EDecimal(time.time())
-        duthost.shell("config bgp startup neighbor %s" % bgp_neighbor)
+        startup_ret = duthost.shell("config bgp startup neighbor %s" % bgp_neighbor)
         pytest_assert(
             wait_until(10, 2, 2, verify_bgp_session, duthost, bgp_neighbor, "up", "established"),
             "Could not startup neighbor %s" % bgp_neighbor
         )
 
         time.sleep(20)
+
+    bgp_startup_time = datetime.strptime(startup_ret['end'], "%Y-%m-%d %H:%M:%S.%f")
+    logging.debug("BGP neighbor is started at %s", bgp_startup_time)
 
     with tempfile.NamedTemporaryFile() as tmp_pcap:
         duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
@@ -134,11 +140,14 @@ def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
         first_update_to_peer is not None,
         "Could not find any BGP updates to %s" % bgp_neighbor
     )
+
+    first_update_to_peer_time = datetime.fromtimestamp(first_update_to_peer.time)
+    first_update_from_peer_time = datetime.fromtimestamp(first_update_from_peer.time)
     pytest_assert(
-        first_update_to_peer.time - bgp_startup_time >= 10,
+        (first_update_to_peer_time - bgp_startup_time).total_seconds() >= 10,
         "There should be at least 10 seconds of delay between startup BGP session and the first out BGP update"
     )
     pytest_assert(
-        first_update_to_peer.time > first_update_from_peer.time,
+        first_update_to_peer_time > first_update_from_peer_time,
         "Dualtor T0 should receive BGP update from peer first"
     )
