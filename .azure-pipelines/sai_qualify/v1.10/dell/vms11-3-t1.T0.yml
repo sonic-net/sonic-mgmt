@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 17 * * Tue,Sun"
+  - cron: "0 12 * * 2,4"
     displayName: Nightly SAI Testing Scheduler
     branches:
       include:
@@ -18,21 +18,21 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: testbed-bjw-slx-can-1
+    default: vms11-3-t1
 
   - name: LOCK_TESTBED_REASON
     displayName: "Lock Testbed Reason"
     type: string
-    default: "SAI v1.7 Nightly Test - PTF"
+    default: "SAI v1.10 Nightly Test - T0"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202012_BJ)
+    default: $(IMAGE_BRCM_202205)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFTV2_BRCM_INTERNAL_202012_BJ)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205)
     displayName: "py_saithrift URL"
 
   - name: SAI_REPO
@@ -44,23 +44,17 @@ parameters:
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
     type: boolean
-    default: true
+    default: false
 
   - name: ENABLE_BRCM_T0_TEST
     displayName: "Run Brcm T0 Test"
     type: boolean
-    default: false
+    default: true
 
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
     default: " "
-
-  #Resource agent pool
-  - name: AGENT_POOL
-    displayName: "Resource agent pool"
-    type: string
-    default: nightly-bjw
 
 stages:
 - stage: RunSAITest
@@ -75,4 +69,3 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_REPO: ${{ parameters.SAI_REPO }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-      AGENT_POOL: ${{ parameters.AGENT_POOL }}
