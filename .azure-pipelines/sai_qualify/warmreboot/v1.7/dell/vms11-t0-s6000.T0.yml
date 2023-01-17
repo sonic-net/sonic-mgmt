@@ -65,12 +65,12 @@ parameters:
   - name: MGMT_REPO
     displayName: "sonic-mgmt repo"
     type: string
-    default: "sonic-net"
+    default: "zhiyuan0112"
 
   - name: MGMT_BRANCH
     displayName: "sonic-mgmt branch"
     type: string
-    default: "master"
+    default: "zhiyuan_warmreboot2"
 
 stages:
 - stage: RunSAITest
