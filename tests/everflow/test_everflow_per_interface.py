@@ -43,7 +43,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     """
     candidate_ports = {}
     unselected_ports = {}
-    if tbinfo['topo']['type'] == 't0':
+    if tbinfo['topo']['type'] in ['t0', 'mx']:
         candidate_neigh_name = 'Server'
     elif tbinfo['topo']['type'] == 'm0':
         candidate_neigh_name = 'MX'

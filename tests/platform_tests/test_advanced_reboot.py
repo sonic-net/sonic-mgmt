@@ -8,6 +8,9 @@ from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.fixtures.ptfhost_utils import run_garp_service
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
@@ -29,11 +32,10 @@ def pytest_generate_tests(metafunc):
 
 
 ### Tetcases to verify normal reboot procedure ###
-@pytest.mark.usefixtures('get_advanced_reboot')
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
-    Fast reboot test case is run using advacned reboot test fixture
+    Fast reboot test case is run using advanced reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture

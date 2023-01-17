@@ -99,7 +99,7 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
       - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-120']"
-        
+
 cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
   skip:
     reason: "caclmgrd may crash after loading scale ipv4 cacl rules."
@@ -310,6 +310,15 @@ ecmp/test_fgnhg.py:
     conditions:
       - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6558
+
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_per_interface.py:
+  skip:
+    reason: "Skip running on unsupported platforms."
+    conditions:
+      - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
@@ -611,6 +620,15 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
         - "topo_name not in ['t1-lag']"
 
 #######################################
+#####         platform_tests      #####
+#######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
@@ -650,7 +668,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -693,7 +711,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize[None]:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
-  xfail:
+  skip:
     reason: "Headroom pool size not supported."
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s'] or hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32']"
@@ -787,9 +805,12 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue"
+    reason: "Unsupported for supervisor node / mx or m0 topo / multi-asic vs"
+    conditions_logical_operator: 'OR'
     conditions:
-      - "is_supervisor or topo_name in ['m0']"
+      - "is_supervisor"
+      - "topo_name in ['m0', 'mx']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and branch in ['202205']"
 
 #######################################
 #####            span             #####

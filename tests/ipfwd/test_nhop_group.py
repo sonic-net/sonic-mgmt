@@ -17,6 +17,8 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
+CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
+
 pytestmark = [
     pytest.mark.topology('t1', 't2')
 ]
@@ -320,7 +322,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     """
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
-        default_max_nhop_paths = 10
+        default_max_nhop_paths = 2
         polling_interval = 1
         sleep_time = 380
     elif is_innovium_device(duthost):
@@ -348,6 +350,7 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     if is_cisco_device(duthost) or is_innovium_device(duthost):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available"]
+        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
@@ -357,7 +360,10 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
     eth_if = ip_ifaces[0]
 
     # Generate ARP entries
-    arp_count = 40
+    if is_cisco_device(duthost):
+        arp_count = 257
+    else:
+        arp_count = 40
     arplist = Arp(duthost, asic, arp_count, eth_if)
     arplist.arps_add()
 
@@ -414,10 +420,19 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if not is_mellanox_device(duthost):
+    if is_cisco_device(duthost):
+        pytest_assert(
+            crm_after["available"] + nhop_group_count == crm_before["available"],
+            "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
+                crm_after["available"], crm_after["used"], nhop_group_count, crm_before["available"]
+            )
+        )
+    elif is_mellanox_device(duthost):
+        logging.info("skip this check on Mellanox as ASIC resources are shared")
+    else:
         pytest_assert(
             crm_after["available"] == 0,
-            "Unused NHOP group resource: {}, used:{}".format(
+            "Unused NHOP group resource:{}, used:{}".format(
                 crm_after["available"], crm_after["used"]
             )
         )
@@ -427,6 +442,10 @@ def test_nhop_group_member_order_capability(request, duthost, tbinfo, ptfadapter
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
     """
+    if is_mellanox_device(duthost):
+        # Note: Need remove this check once Mellanox committed Ordered ECMP
+        pytest.skip("Ordered ECMP currently not supported on Mellanox DUT")
+
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     result = asic.run_redis_cmd(

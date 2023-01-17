@@ -258,6 +258,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     """
     ptfip, mg_facts, interface_facts, vlan_ips, _, vlan_if_name, speaker_ips, port_num, http_ready = common_setup_teardown
     assert http_ready
+    asic_type = duthost.facts["asic_type"]
 
     logger.info("announce route")
     peer_range = mg_facts['minigraph_bgp_peers_with_range'][0]['ip_range'][0]
@@ -313,17 +314,18 @@ def bgp_speaker_announce_routes_common(common_setup_teardown,
     packet_size = mtu + 4
     with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix : {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
         ptf_runner(ptfhost,
-                    "ptftests",
-                    "fib_test.FibTest",
-                    platform_dir="ptftests",
-                    params={"ptf_test_port_map": PTF_TEST_PORT_MAP,
-                            "fib_info_files": ["/root/bgp_speaker_route_%s.txt" % family],
-                            "ipv4": ipv4,
-                            "ipv6": ipv6,
-                            "testbed_mtu": mtu,
-                            "test_balancing": False},
-                    log_file="/tmp/bgp_speaker_test.FibTest.log",
-                    socket_recv_size=16384)
+                   "ptftests",
+                   "fib_test.FibTest",
+                   platform_dir="ptftests",
+                   params={"ptf_test_port_map": PTF_TEST_PORT_MAP,
+                           "fib_info_files": ["/root/bgp_speaker_route_%s.txt" % family],
+                           "ipv4": ipv4,
+                           "ipv6": ipv6,
+                           "testbed_mtu": mtu,
+                           "asic_type": asic_type,
+                           "test_balancing": False},
+                   log_file="/tmp/bgp_speaker_test.FibTest.log",
+                   socket_recv_size=16384)
 
     logger.info("Withdraw routes")
     withdraw_route(ptfip, lo_addr, prefix, nexthop_ips[1].ip, port_num[0])

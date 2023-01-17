@@ -32,7 +32,6 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
@@ -2101,3 +2100,60 @@ Totals               6450                 6449
     def is_intf_status_down(self, interface_name):
         show_int_result = self.command("show interface status {}".format(interface_name))
         return 'down' in show_int_result['stdout_lines'][2].lower()
+
+    def links_status_down(self, ports):
+        show_int_result = self.command("show interface status")
+        for output_line in show_int_result['stdout_lines']:
+            output_port = output_line.split(' ')[0]
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                # Either oper or admin status 'down' means link down
+                # for SONiC OS, oper/admin status could only be up/down, so only 2 conditions here
+                if 'down' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    continue
+                else:
+                    logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+                    return False
+        return True
+
+    def links_status_up(self, ports):
+        show_int_result = self.command("show interface status")
+        for output_line in show_int_result['stdout_lines']:
+            output_port = output_line.split(' ')[0]
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                # Either oper or admin status 'down' means link down
+                if 'down' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    return False
+                logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+        return True
+
+    def get_port_fec(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
+        assert_exit_non_zero(out)
+        return out["stdout_lines"][0]
+
+    def set_port_fec(self, portname, state):
+        if not state:
+            state = 'none'
+        res = self.shell('sudo config interface fec {} {}'.format(portname, state))
+        return res['rc'] == 0
+
+    def count_portlanes(self, portname):
+        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+        assert_exit_non_zero(out)
+        lanes = out["stdout_lines"][0].split(',')
+        return len(lanes)
+
+    def get_sfp_type(self, portname):
+        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+        assert_exit_non_zero(out)
+        sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
+        return sfp_type
+
+
+def assert_exit_non_zero(shell_output):
+    if shell_output['rc'] != 0:
+        raise Exception(shell_output['stderr'])
