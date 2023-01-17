@@ -62,8 +62,6 @@ def teardown(duthost):
     # Teardown after test finished
     shutdown_cmds = ["sudo config nat remove {}".format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
     exec_command(duthost, shutdown_cmds)
-    # Clear all entries
-    duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
     duthost.command("sudo sonic-clear nat translations")
 
 
@@ -204,7 +202,6 @@ def reload_dut_config(request, duthost, setup_test_env):
     gw_ip = setup_data[interface_type]["vrf_conf"]["red"]["gw"]
     mask = setup_data[interface_type]["vrf_conf"]["red"]["mask"]
     config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
-    duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
     pch_ip = setup_info["pch_ips"][dut_iface]
     duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
     duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))

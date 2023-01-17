@@ -117,8 +117,6 @@ class TestDynamicNat(object):
         generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type)
         # Enable NAT feature and send traffic to check that NAT happens
         duthost.command("config nat feature enable")
-        # Remove additional iptables entry
-        duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
         # Perform TCP handshake (host-tor -> leaf-tor)
         configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_data, interface_type, protocol_type, default=True, handshake=True)
         # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
@@ -140,8 +138,6 @@ class TestDynamicNat(object):
         generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type)
         # Enable NAT feature and send traffic to check that NAT happens
         duthost.command("config nat feature enable")
-        # Remove additional iptables entry
-        duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
         # Send ICMP traffic(host-tor -> leaf-tor) and check
         generate_and_verify_icmp_traffic(ptfadapter, setup_data, interface_type, direction, nat_type=nat_type, icmp_id=POOL_RANGE_START_PORT)
 
@@ -467,8 +463,6 @@ class TestDynamicNat(object):
         pytest_assert(len(entries) == 0, "IP Tables rules were not removed")
         # Enable NAT docker
         exec_command(duthost, ["sudo docker start nat"])
-        # Remove additional iptables entry
-        duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
         wait_timeout(protocol_type, wait_time=5, default=False)
         # Check that NAT rules were added to iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
@@ -502,8 +496,6 @@ class TestDynamicNat(object):
         pytest_assert(len(entries) == 0, "IP Tables rules were not removed")
         # Enable NAT docker
         exec_command(duthost, ["sudo docker start nat"])
-        # Remove additional iptables entry
-        duthost.command("sudo iptables -t nat -D PREROUTING 1", module_ignore_errors=True)
         wait_timeout(protocol_type, wait_time=5, default=False)
         # Check that NAT rules were added to iptables
         output = exec_command(duthost, ["iptables -n -L -t nat"])['stdout']
