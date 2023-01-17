@@ -1,0 +1,174 @@
+# This job is to trigger the deep clean job.
+# The deep clean job needs a dict of servers and testbeds to run deep clean. To avoid hard code server&testbed
+# information in the deep clean job, we use this job to dynamically get the current server and testbed information
+# from testbed.yaml file. Then use the Azure DevOps API to trigger the deep clean pipeline with the collected
+# server%testbed info as parameter.
+
+# This trigger pipeline supports specifying the servers and testbeds to
+# skip deep clean. If just a server is specified in parameter, skip deep
+# clean on the whole server. If a server has testbed specified, deep
+# clean still runs for the server. The specified testbed will not be
+# recovered after deep clean.
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "10 14 * * 6"
+    displayName: DeepClean Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+
+  - name: DRY_RUN
+    type: boolean
+    default: false
+    displayName: "Dry run"
+
+  - name: FORCE_LOCK
+    type: boolean
+    default: false
+    displayName: "Force lock"
+
+  - name: SKIP_SERVER_OR_TESTBED
+    displayName: "Info of server and testbed to be skipped"
+    type: object
+    default:
+      dummy_1:
+      server_1:
+        - ixanvl-vs-conf
+      server_2:
+        - ptf2-6-b
+      server_6:
+        - vms-example-ixia-1
+      server_16:
+      server_24:
+        - vms24-t0-3800-azd-2
+      server_svc_3:
+      server_bjw_6:
+
+jobs:
+  - job: TriggerDeepClean
+    timeoutInMinutes: 300
+    variables:
+      - name: skipComponentGovernanceDetection
+        value: true
+      - group: GIT_SECRETS
+
+    steps:
+
+      - script: |
+          pip install PyYAML requests
+        displayName: Install dependency
+
+      - task: PythonScript@0
+        displayName: Trigger deep clean
+        inputs:
+          scriptSource: 'inline'
+          script: |
+            from __future__ import print_function
+
+            import copy
+            import json
+            import sys
+            import yaml
+
+            import requests
+
+            def read_testbed_info():
+                testbeds = yaml.safe_load(open("ansible/testbed.yaml"))
+
+                all_servers_tbs = {}
+                for testbed in testbeds:
+                    server = testbed.get('server', None)
+                    tb_name = testbed.get('conf-name', None)
+
+                    if not server or not tb_name:
+                        print("Skip testbed missing 'conf-name' or 'server', testbed: {}".format(json.dumps(testbed, indent=4)))
+                        continue
+
+                    if server not in all_servers_tbs:
+                        all_servers_tbs[server] = [tb_name]
+                    else:
+                        all_servers_tbs[server].append(tb_name)
+                return all_servers_tbs
+
+
+            def exclude_servers_testbeds(all_servers_tbs):
+                excludes = ${{ convertToJson(parameters.SKIP_SERVER_OR_TESTBED) }}
+                print("excludes below servers or testbeds on servers:\n{}".format(json.dumps(excludes, indent=4)))
+
+                target_servers_testbeds = copy.deepcopy(all_servers_tbs)
+
+                for server, server_tbs in excludes.items():
+                    if server not in target_servers_testbeds:
+                        print("Server '{}' is not a valid server".format(server))
+                        continue
+
+                    if not server_tbs:                  # Skip whole server
+                        target_servers_testbeds.pop(server)
+                    else:                               # Skip recovering specific testbed on server
+                        for server_tb in server_tbs:
+                            target_servers_testbeds[server].remove(server_tb)
+
+                return target_servers_testbeds
+
+
+            def get_agent_pool(server):
+                if server.startswith("server_svc_"):
+                    return "nightly-svc"
+                elif server.startswith("server_bjw_"):
+                    return "nightly-bjw"
+                else:
+                    return "nightly"
+
+
+            def build_deep_clean_parameters(target_servers_testbeds):
+                # build parameters for deep clean pipeline
+                servers_testbeds_param = {}
+
+                for server, server_tbs in target_servers_testbeds.items():
+                    servers_testbeds_param[server] = {
+                        "vm_type": "ceos",
+                        "pool": get_agent_pool(server),
+                        "testbeds": server_tbs
+                    }
+
+                return servers_testbeds_param
+
+
+            # Trigger deep_clean pipeline
+            def trigger_deep_clean_pipeline(servers_testbeds_param):
+                token = sys.argv[1]
+                pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/pipelines/364/runs"
+                auth = ("", token)
+                params = {
+                    "api-version": "7.0"
+                }
+                body = {
+                    "templateParameters": {
+                        "SERVER_TESTBED_INFO": yaml.safe_dump(servers_testbeds_param),
+                        "DRY_RUN": "${{ parameters.DRY_RUN }}",
+                        "FORCE_LOCK": "${{ parameters.FORCE_LOCK }}",
+                    }
+                }
+
+                return requests.post(pipeline_url, params=params, auth=auth, json=body).json()
+
+            def main():
+                all_servers_tbs = read_testbed_info()
+                target_servers_testbeds = exclude_servers_testbeds(all_servers_tbs)
+                print("Trying to deep clean below servers&testbeds:\n{}".format(json.dumps(target_servers_testbeds, indent=4)))
+
+                servers_testbeds_param = build_deep_clean_parameters(target_servers_testbeds)
+                res = trigger_deep_clean_pipeline(servers_testbeds_param)
+                print("Trigger result: {}".format(json.dumps(res, indent=4)))
+
+            main()
+
+          arguments: $(MSSONIC_TOKEN)
