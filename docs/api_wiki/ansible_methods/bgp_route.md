@@ -20,7 +20,7 @@ def test_fun(duthosts, rand_one_dut_hostname, tbinfo):
 
 - `direction` - to restict retrieving bgp neighbor advertise or received routes
     - Required: `False`, unless `neighbor` argument is provided.
-    - Choices: 
+    - Choices:
         - `adv` - Advertising
         - `rec` - Receiving
     - Type: `String`
@@ -46,4 +46,3 @@ Returns a dictionary containing information on the bgp route given the provided 
             - `weigh` - tie breaker used to determine best path
             - `nexthop` - nexthop configured for neighbor
             - `aspath` - aspath configured for neighbor
-        

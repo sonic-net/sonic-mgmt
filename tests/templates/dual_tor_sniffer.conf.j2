@@ -1,0 +1,12 @@
+[program:dual_tor_sniffer]
+command=/usr/bin/python {{ ptf_sniffer }} {{ ptf_sniffer_args }}
+process_name=dual_tor_sniffer
+stdout_logfile=/tmp/dual_tor_sniffer.out.log
+stderr_logfile=/tmp/dual_tor_sniffer.err.log
+redirect_stderr=false
+autostart=false
+autorestart=false
+startsecs=1
+numprocs=1
+stopsignal=INT
+stopwaitsecs=30

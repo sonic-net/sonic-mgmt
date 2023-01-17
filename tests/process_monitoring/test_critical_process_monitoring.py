@@ -3,6 +3,7 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
 from collections import defaultdict
+import time
 import logging
 
 import pytest
@@ -31,13 +32,14 @@ POST_CHECK_THRESHOLD_SECS = 360
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     yield
     config_reload(duthost)
 
 
 @pytest.fixture(autouse=True, scope='module')
-def disable_and_enable_autorestart(duthost):
+def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     """Changes the autorestart of containers from `enabled` to `disabled` before testing.
        and Rolls them back after testing.
 
@@ -47,6 +49,7 @@ def disable_and_enable_autorestart(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     containers_autorestart_states = duthost.get_container_autorestart_states()
     disabled_autorestart_containers = []
 
@@ -71,7 +74,7 @@ def disable_and_enable_autorestart(duthost):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, rand_one_dut_hostname):
     """Skips this test if the SONiC image installed on DUT is 20191130.70 or older image version.
 
     Args:
@@ -80,13 +83,14 @@ def check_image_version(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
 
 @pytest.fixture(autouse=True, scope="module")
-def modify_monit_config_and_restart(duthost):
+def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """Backup Monit configuration file, then customize and restart it before testing. Restore original
     Monit configuration file and restart it after testing.
 
@@ -96,6 +100,7 @@ def modify_monit_config_and_restart(duthost):
     Returns:
         None.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
     duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
 
@@ -149,7 +154,7 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state(up_bgp_neighbors, "established")
+    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -543,8 +548,7 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    bgp_neighbors = duthost.get_bgp_neighbors()
-    up_bgp_neighbors = [ k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established" ]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     skip_containers = []
     skip_containers.append("database")

@@ -83,6 +83,16 @@ class TestThermalApi(PlatformApiTestBase):
 
         return def_value
 
+    def get_thermal_temperature(self, duthost, def_value, key):
+        if duthost.facts.get("chassis"):
+            thermals_temperature = duthost.facts.get("chassis").get("thermal_temperature")
+            if thermals_temperature:
+                value = thermals_temperature.get(key)
+                if value is None:
+                    return def_value
+                return value
+        return def_value
+
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -172,11 +182,14 @@ class TestThermalApi(PlatformApiTestBase):
                 thermals_skipped += 1
                 continue
 
+            min_temperature = self.get_thermal_temperature(duthost, 0, "minimum")
+            max_temperature = self.get_thermal_temperature(duthost, 100, "maximum")
+
             temperature = thermal.get_minimum_recorded(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
+                    self.expect(temperature > min_temperature and temperature <= max_temperature,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
 
         if thermals_skipped == self.num_thermals:
@@ -195,11 +208,14 @@ class TestThermalApi(PlatformApiTestBase):
                 thermals_skipped += 1
                 continue
 
+            min_temperature = self.get_thermal_temperature(duthost, 0, "minimum")
+            max_temperature = self.get_thermal_temperature(duthost, 100, "maximum")
+
             temperature = thermal.get_maximum_recorded(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
+                    self.expect(temperature > min_temperature and temperature <= max_temperature,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
 
         if thermals_skipped == self.num_thermals:

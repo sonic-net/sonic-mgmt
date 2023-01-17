@@ -39,6 +39,11 @@ class DualToRActiveStub(object):
                 request_serializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__service__pb2.ServerVersionReply.FromString,
                 )
+        self.SetDrop = channel.unary_unary(
+                '/DualToRActive/SetDrop',
+                request_serializer=nic__simulator__grpc__service__pb2.DropRequest.SerializeToString,
+                response_deserializer=nic__simulator__grpc__service__pb2.DropReply.FromString,
+                )
 
 
 class DualToRActiveServicer(object):
@@ -74,6 +79,12 @@ class DualToRActiveServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetDrop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DualToRActiveServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -101,6 +112,11 @@ def add_DualToRActiveServicer_to_server(servicer, server):
                     servicer.QueryServerVersion,
                     request_deserializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.FromString,
                     response_serializer=nic__simulator__grpc__service__pb2.ServerVersionReply.SerializeToString,
+            ),
+            'SetDrop': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetDrop,
+                    request_deserializer=nic__simulator__grpc__service__pb2.DropRequest.FromString,
+                    response_serializer=nic__simulator__grpc__service__pb2.DropReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -194,5 +210,22 @@ class DualToRActive(object):
         return grpc.experimental.unary_unary(request, target, '/DualToRActive/QueryServerVersion',
             nic__simulator__grpc__service__pb2.ServerVersionRequest.SerializeToString,
             nic__simulator__grpc__service__pb2.ServerVersionReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetDrop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/DualToRActive/SetDrop',
+            nic__simulator__grpc__service__pb2.DropRequest.SerializeToString,
+            nic__simulator__grpc__service__pb2.DropReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

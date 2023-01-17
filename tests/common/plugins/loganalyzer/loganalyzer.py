@@ -32,10 +32,11 @@ class DisableLogrotateCronContext:
         """
         Disable logrotate cron task / systemd timer and make sure the running logrotate is stopped.
         """
-        # Disable logrotate systemd timer
-        self.ansible_host.command("systemctl stop logrotate.timer")
-        # Disable logrotate cron task
-        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate")
+        # Disable logrotate systemd timer by best effort. The reason is that logrotate.timer service is not
+        # available in older version like 201911.
+        self.ansible_host.command("systemctl stop logrotate.timer", module_ignore_errors=True)
+        # Disable logrotate cron task. Bullseye-based images will not have this file, so ignore any errors.
+        self.ansible_host.command("sed -i 's/^/#/g' /etc/cron.d/logrotate", module_ignore_errors=True)
         logging.debug("Waiting for logrotate from previous cron task or systemd timer run to finish")
         # Wait for logrotate from previous cron task run to finish
         end = time.time() + 60
@@ -55,10 +56,11 @@ class DisableLogrotateCronContext:
         """
         Restore logrotate cron task and systemd timer.
         """
-        # Enable logrotate cron task back
-        self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate")
-        # Enable logrotate systemd timer
-        self.ansible_host.command("systemctl start logrotate.timer")
+        # Enable logrotate cron task back. Bullseye-based images will not have this file, so ignore any errors.
+        self.ansible_host.command("sed -i 's/^#//g' /etc/cron.d/logrotate", module_ignore_errors=True)
+        # Enable logrotate systemd timer by best effort. The reason is that logrotate.timer service is not
+        # available in older version like 201911.
+        self.ansible_host.command("systemctl start logrotate.timer", module_ignore_errors=True)
 
 
 class LogAnalyzerError(Exception):
@@ -234,6 +236,31 @@ class LogAnalyzer:
                 log_files.append(path)
 
         return self._setup_marker(log_files=log_files)
+
+    def add_start_ignore_mark(self, log_files=None):
+        """
+        Adds the start ignore marker to the log files
+        """
+        add_start_ignore_mark = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
+        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}".format(run_dir=self.dut_run_dir, add_start_ignore_mark=add_start_ignore_mark)
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
+
+        logging.debug("Adding start ignore marker '{}'".format(add_start_ignore_mark))
+        self.ansible_host.command(cmd)
+        self._markers.append(add_start_ignore_mark)
+
+    def add_end_ignore_mark(self, log_files=None):
+        """
+        Adds the end ignore marker to the log files
+        """
+        marker = self._markers.pop()
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}".format(run_dir=self.dut_run_dir, marker=marker)
+        if log_files:
+            cmd += " --logs {}".format(','.join(log_files))
+
+        logging.debug("Adding end ignore marker '{}'".format(marker))
+        self.ansible_host.command(cmd)
 
     def _setup_marker(self, log_files=None):
         """
