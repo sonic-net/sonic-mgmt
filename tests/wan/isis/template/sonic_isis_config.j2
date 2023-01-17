@@ -3,7 +3,7 @@
 {%- if isis_instance is defined %}
         "{{ isis_instance }}": {
             "net": "{{ isis_net }}",
-            "level-capability": "level-2",
+            "level-capability": "{{ level_capability | default('level-2') }}",
             "dynamic-hostname": "{{ dynamic_hostname | default('true') }}",
             "lsp-mtu-size": "{{ lsp_mtu_size | default('1497') }}",
             "log-adjacency-changes": "{{ log_adjacency_changes | default('false') }}"
@@ -12,7 +12,7 @@
     },
     "ISIS_LEVEL": {
 {%- if isis_instance is defined %}
-        "{{ isis_instance }}|level-2": {
+        "{{ isis_instance }}|{{ level_capability | default('level-2') }}": {
             "lsp-refresh-interval": "{{ lsp_refresh_interval | default('900') }}",
             "lsp-maximum-lifetime": "{{ lsp_maximum_lifetime | default('1200') }}",
             "lsp-generation-interval": "{{ lsp_generation_interval | default('30') }}",
