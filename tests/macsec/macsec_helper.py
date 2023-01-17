@@ -1,21 +1,23 @@
-from collections import defaultdict
-import struct
-import sys
+import ast
 import binascii
-import time
+import logging
 import re
+import struct
+import time
+from collections import defaultdict
+from multiprocessing import Process
 
 import cryptography.exceptions
 import ptf
-import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
 from macsec_common_helper import convert_on_off_to_boolean
 from macsec_platform_helper import sonic_db_cli
-
+from tests.common.devices.eos import EosHost
 
 __all__ = [
     'check_wpa_supplicant_process',
@@ -27,8 +29,33 @@ __all__ = [
     'get_appl_db',
     'get_macsec_attr',
     'get_mka_session',
-    'get_sci'
+    'get_macsec_sa_name',
+    'get_macsec_counters',
+    'get_sci',
+    'getns_prefix',
+    'get_ipnetns_prefix',
 ]
+
+logger = logging.getLogger(__name__)
+process_queue = []
+
+
+def submit_async_task(target, args):
+    global process_queue
+    proc = Process(target=target, args=args)
+    process_queue.append(proc)
+    proc.start()
+
+
+def wait_all_complete(timeout=300):
+    global process_queue
+    for proc in process_queue:
+        proc.join(timeout)
+        # If process timeout, terminate all processes, otherwise the pytest process will never finish.
+        if proc.is_alive():
+            [p.terminate() for p in process_queue]
+            raise RuntimeError("Process {} timeout {}".format(proc, timeout))
+    process_queue = []
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -39,19 +66,12 @@ def check_wpa_supplicant_process(host, ctrl_port_name):
         host, ctrl_port_name)
 
 
-def get_sci(macaddress, port_identifer=1, order="network"):
-    assert order in ("host", "network")
+def get_sci(macaddress, port_identifer=1):
     system_identifier = macaddress.replace(":", "").replace("-", "")
     sci = "{}{}".format(
         system_identifier,
         str(port_identifer).zfill(4))
-    if order == "host":
-        return sci
-    sci = int(sci, 16)
-    if sys.byteorder == "little":
-        sci = struct.pack(">Q", sci)
-        sci = struct.unpack("<Q", sci)[0]
-    return str(sci)
+    return sci
 
 
 QUERY_MACSEC_PORT = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
@@ -73,6 +93,29 @@ def getns_prefix(host, intf):
         ns_prefix = "-n {}".format(ns)
 
     return ns_prefix
+
+def get_ipnetns_prefix(host, intf):
+    ns_prefix = " "
+    if host.is_multi_asic:
+        asic = host.get_port_asic_instance(intf)
+        ns = host.get_namespace_from_asic_id(asic.asic_index)
+        ns_prefix = "sudo ip netns exec {}".format(ns)
+
+    return ns_prefix
+
+def get_macsec_sa_name(sonic_asic, port_name, egress = True):
+    if egress:
+        table = 'MACSEC_EGRESS_SA_TABLE'
+    else:
+        table = 'MACSEC_INGRESS_SA_TABLE'
+
+    cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
+    names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
+    if names:
+        names.sort()
+        return ':'.join(names[0].split(':')[1:])
+    return None
+
 
 def get_appl_db(host, host_port_name, peer, peer_port_name):
     port_table = sonic_db_cli(
@@ -97,7 +140,7 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     return port_table, egress_sc_table, ingress_sc_table, egress_sa_table, ingress_sa_table
 
 
-def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
+def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, policy, cipher_suite, send_sci):
     # Check MACsec port table
     dut_port_table, dut_egress_sc_table, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
         duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name)
@@ -121,8 +164,6 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
     # CHeck MACsec SA Table
     assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
-    assert len(dut_ingress_sa_table) >= len(nbr_egress_sa_table)
-    assert len(nbr_ingress_sa_table) >= len(dut_egress_sa_table)
     for egress_sas, ingress_sas in \
             ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
         for an, sa in egress_sas.items():
@@ -130,6 +171,18 @@ def check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, poli
             assert sa["sak"] == ingress_sas[an]["sak"]
             assert sa["auth_key"] == ingress_sas[an]["auth_key"]
             assert sa["next_pn"] >= ingress_sas[an]["lowest_acceptable_pn"]
+
+
+def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
+    logger.info("Check appl_db start")
+    for port_name, nbr in ctrl_links.items():
+        if isinstance(nbr["host"], EosHost):
+            continue
+        submit_async_task(__check_appl_db, (duthost, port_name, nbr["host"],
+                        nbr["port"], policy, cipher_suite, send_sci))
+    wait_all_complete(timeout=180)
+    logger.info("Check appl_db finished")
+    return True
 
 
 def get_mka_session(host):
@@ -276,7 +329,7 @@ def get_macsec_attr(host, port):
     macsec_sa = sonic_db_cli(
         host, QUERY_MACSEC_EGRESS_SA.format(getns_prefix(host, port), port, sci, an))
     sak = binascii.unhexlify(macsec_sa["sak"])
-    sci = int(get_sci(eth_src, order="host"), 16)
+    sci = int(get_sci(eth_src), 16)
     if xpn_en:
         ssci = struct.pack('!I', int(macsec_sa["ssci"]))
         salt = binascii.unhexlify(macsec_sa["salt"])
@@ -342,25 +395,34 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         ret = __origin_dp_poll(
             test, device_number=device_number, port_number=port_number, timeout=timeout, exp_pkt=None)
         timeout -= time.time() - start_time
-        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
-        if ret.device != 0 \
-            or isinstance(ret, test.dataplane.PollFailure) \
-                or exp_pkt is None:
-            return ret
-        pkt = scapy.Ether(ret.packet)
-        if pkt[scapy.Ether].type != 0x88e5:
-            if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                return ret
+        # Since we call __origin_dp_poll with exp_pkt=None, it should only ever fail if no packets are received at all. In this case, continue normally
+        # until we exceed the timeout value provided to macsec_dp_poll.
+        if isinstance(ret, test.dataplane.PollFailure):
+            if timeout <= 0:
+                break
             else:
                 continue
-        macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
-        if macsec_info:
-            encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
-            force_reload[ret.port] = False
-            pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
-                                send_sci, 0, xpn_en, ssci, salt)
-            if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
-                return ret
+        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host), Don't need to do MACsec further.
+        if ret.device != 0 or exp_pkt is None:
+            return ret
+        pkt = scapy.Ether(ret.packet)
+        if pkt.haslayer(scapy.Ether):
+            if pkt[scapy.Ether].type != 0x88e5:
+                if ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                    return ret
+            else:
+                macsec_info = load_macsec_info(test.duthost, find_portname_from_ptf_id(test.mg_facts, ret.port), force_reload[ret.port])
+                if macsec_info:
+                    encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
+                    force_reload[ret.port] = False
+                    pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                                        send_sci, 0, xpn_en, ssci, salt)
+                    if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                        return ret
+        # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
+        # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
+        # If we don't find a matching packet (either with or without MACsec decoding), we need to manually store the packet we received.
+        # Later if we return a PollFailure, we can provide the received packets to emulate the behavior of __origin_dp_poll.
         recent_packets.append(pkt)
         packet_count += 1
         if timeout <= 0:
@@ -368,7 +430,20 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
 
 
+def get_macsec_counters(sonic_asic, namespace, name):
+    lines = [
+        'from swsscommon.swsscommon import DBConnector, CounterTable, MacsecCounter,SonicDBConfig',
+        'from sonic_py_common import multi_asic',
+        'SonicDBConfig.initializeGlobalConfig() if multi_asic.is_multi_asic() else {}',
+        'counterTable = CounterTable(DBConnector("COUNTERS_DB", 0, False, "{}"))'.format(namespace),
+        '_, values = counterTable.get(MacsecCounter(), "{}")'.format(name),
+        'print(dict(values))'
+        ]
+    cmd = "python -c '{}'".format(';'.join(lines))
+    output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
+    return {k:int(v) for k,v in ast.literal_eval(output).items()}
+
+
 __origin_dp_poll = testutils.dp_poll
 __macsec_infos = defaultdict(lambda: None)
 testutils.dp_poll = macsec_dp_poll
-

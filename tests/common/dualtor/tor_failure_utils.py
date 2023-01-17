@@ -11,6 +11,7 @@ import ipaddress
 import pytest
 import logging
 import time
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,6 @@ def tor_blackhole_traffic():
 
     for duthost in torhost:
         lo_ipv4 = None
-        lo_ipv6 = None
         config_facts = duthost.config_facts(
                             host=duthost.hostname, source="running"
                        )['ansible_facts']
@@ -90,8 +90,6 @@ def tor_blackhole_traffic():
                     ip = ipaddress.ip_interface(ipstr)
                     if ip.version == 4:
                         lo_ipv4 = ip
-                    elif ip.version == 6:
-                        lo_ipv6 = ip
 
         duthost.shell("ip -4 route add 0.0.0.0/0 nexthop via {}"
                       .format(lo_ipv4.ip))
@@ -116,6 +114,7 @@ def reboot_tor(localhost, wait_for_device_reachable):
     for duthost in torhost:
         wait_for_device_reachable(duthost)
 
+
 @pytest.fixture
 def wait_for_device_reachable(localhost):
     """
@@ -139,3 +138,29 @@ def wait_for_device_reachable(localhost):
         logger.info("SSH started on {}".format((duthost.hostname)))
 
     return wait_for_device_reachable
+
+
+@contextlib.contextmanager
+def shutdown_bgp_sessions_on_duthost():
+    """Shutdown all BGP sessions on a device"""
+    duthosts = []
+
+    def _shutdown_bgp_sessions_on_duthost(duthost):
+        duthosts.append(duthost)
+        logger.info("Shutdown all BGP sessions on {}".format(duthost.hostname))
+        duthost.shell("config bgp shutdown all")
+
+    try:
+        yield _shutdown_bgp_sessions_on_duthost
+    finally:
+        time.sleep(1)
+        for duthost in duthosts:
+            logger.info("Startup all BGP sessions on {}".format(duthost.hostname))
+            duthost.shell("config bgp startup all")
+
+
+@pytest.fixture
+def shutdown_bgp_sessions():
+    """Shutdown all bgp sessions on a device."""
+    with shutdown_bgp_sessions_on_duthost() as shutdown_util:
+        yield shutdown_util

@@ -7,7 +7,7 @@ import time
 import traceback
 
 from tests.common.broadcom_data import is_broadcom_device
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -39,31 +39,31 @@ pytestmark = [pytest.mark.disable_loganalyzer,
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_pfcwd_wb_tests(duthosts, rand_one_dut_hostname):
+def skip_pfcwd_wb_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Skip Pfcwd warm reboot tests on certain asics
 
     Args:
         duthosts (pytest fixture): list of Duts
-        rand_one_dut_hostname (str): hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname (str): hostname of DUT
 
     Returns:
         None
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     SKIP_LIST = ["td2"]
     asic_type = duthost.get_asic_name()
     pytest_require(not (is_broadcom_device(duthost) and asic_type in SKIP_LIST), "Warm reboot is not supported on {}".format(asic_type))
 
 @pytest.fixture(autouse=True)
-def setup_pfcwd(duthosts, rand_one_dut_hostname):
+def setup_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup PFCwd before the test run
 
     Args:
         duthost(AnsibleHost) : dut instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("Setup the default pfcwd config for warm-reboot test")
     duthost.command("redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" "
                     "default_pfcwd_status enable")
@@ -276,7 +276,7 @@ class SendVerifyTraffic(object):
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
                    log_file=log_file)
 
-    def verify_wd_func(self, detect=True):
+    def verify_wd_func(self, dut, detect=True):
         """
         PTF traffic send and verify
 
@@ -284,12 +284,20 @@ class SendVerifyTraffic(object):
             detect(bool) : if the current iteration is a storm detect or not (default: True)
         """
         if detect:
+            rx_action = "drop"
+            tx_action = "drop"
             wd_action="drop"
         else:
+            rx_action = "forward"
+            tx_action = "forward"
             wd_action = "forward"
-        logger.info("--- Verify PFCwd function for action {} ---".format(wd_action))
-        self.verify_tx_egress(wd_action)
-        self.verify_rx_ingress(wd_action)
+
+        if dut.facts['asic_type'] in ['mellanox', 'cisco-8000']:
+            rx_action = "forward"
+
+        logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---".format(wd_action, tx_action, rx_action))
+        self.verify_tx_egress(tx_action)
+        self.verify_rx_ingress(rx_action)
 
 
 class TestPfcwdWb(SetupPfcwdFunc):
@@ -411,7 +419,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             logger.info("--- Storm restoration path for port {} queue {} ---".format(port, queue))
             self.storm_restore_path(port, queue)
         # test pfcwd functionality on a storm/restore
-        self.traffic_inst.verify_wd_func(detect=detect)
+        self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self):
@@ -450,7 +458,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
-    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, fanout_graph_facts, ptfhost,
+    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts, ptfhost,
                         duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
@@ -459,14 +467,14 @@ class TestPfcwdWb(SetupPfcwdFunc):
             fake_storm(bool): if fake storm is enabled or disabled
             testcase_actions(list): list of actions that the test will go through
             setup_pfc_test(fixture): module scoped autouse fixture
-            fanout_graph_facts(fixture): fanout info
+            enum_fanout_graph_facts(fixture): fanout info
             ptfhost(AnsibleHost): PTF instance
             duthost(AnsibleHost): DUT instance
             localhost(AnsibleHost): local instance
             fanouthosts(AnsibleHost): fanout instance
         """
         setup_info = setup_pfc_test
-        self.fanout_info = fanout_graph_facts
+        self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
         self.fanout = fanouthosts
@@ -541,8 +549,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, fanout_graph_facts, ptfhost, duthosts,
-                      rand_one_dut_hostname, localhost, fanouthosts, two_queues):
+    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts, ptfhost, duthosts,
+                      enum_rand_one_per_hwsku_frontend_hostname, localhost, fanouthosts, two_queues):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -559,13 +567,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
                                logic
 
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
-            fanout_graph_facts(fixture) : fanout graph info
+            enum_fanout_graph_facts(fixture) : fanout graph info
             ptfhost(AnsibleHost) : ptf host instance
             duthost(AnsibleHost) : DUT instance
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
-                             fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
+                             enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)

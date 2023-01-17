@@ -16,10 +16,6 @@ pytestmark = [
 def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, mtu, gather_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t1', 't2'):
-        pytest.skip("Unsupported topology")
-
     testbed_type = tbinfo['topo']['name']
 
     log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))

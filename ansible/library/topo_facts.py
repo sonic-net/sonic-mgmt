@@ -3,11 +3,9 @@ import os
 import traceback
 import ipaddress
 import sys
-import csv
-from operator import itemgetter
-from itertools import groupby
 import yaml
 import re
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 module: topo_facts.py
@@ -19,6 +17,7 @@ options:
       Default: None
       required: True
 '''
+
 
 def parse_vm_vlan_port(vlan):
     """
@@ -33,10 +32,11 @@ def parse_vm_vlan_port(vlan):
         vlan_index = vlan
         ptf_index = vlan
     else:
-        m = re.match("(\d+)\.(\d+)@(\d+)", vlan)
+        m = re.match(r"(\d+)\.(\d+)@(\d+)", vlan)
         (dut_index, vlan_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
     return (dut_index, vlan_index, ptf_index)
+
 
 def parse_host_interfaces(hifs):
     """
@@ -61,6 +61,7 @@ def parse_host_interfaces(hifs):
 
     return ret
 
+
 def parse_console_interface(console_interface):
     """
     parse console interface
@@ -73,6 +74,7 @@ def parse_console_interface(console_interface):
     """
     fields = console_interface.split('.')
     return fields[0], fields[1], fields[2]
+
 
 class ParseTestbedTopoinfo():
     '''
@@ -112,8 +114,8 @@ class ParseTestbedTopoinfo():
                 if 'interfaces' in topo_definition['configuration'][vm]:
                     for intf in topo_definition['configuration'][vm]['interfaces']:
                         dut_index = 0
-                        if neigh_type == 'NEIGH_ASIC' and re.match("Eth(\d+)-", intf):
-                           vmconfig[vm]['intfs'][dut_index].append(intf)
+                        if neigh_type == 'NEIGH_ASIC' and re.match(r"Eth(\d+)-", intf):
+                            vmconfig[vm]['intfs'][dut_index].append(intf)
                         elif 'Ethernet' in intf:
                             if 'dut_index' in topo_definition['configuration'][vm]['interfaces'][intf]:
                                 dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
@@ -131,7 +133,6 @@ class ParseTestbedTopoinfo():
             vmconfig[vm]['bgp_ipv6'] = [None] * dut_num
             vmconfig[vm]['bgp_asn'] = None
 
-
             if 'configuration' in topo_definition:
                 if 'interfaces' in topo_definition['configuration'][vm]:
                     for intf in topo_definition['configuration'][vm]['interfaces']:
@@ -142,16 +143,22 @@ class ParseTestbedTopoinfo():
                             if 'dut_index' in topo_definition['configuration'][vm]['interfaces'][intf]:
                                 dut_index = topo_definition['configuration'][vm]['interfaces'][intf]['dut_index']
                         elif 'Port-Channel' in intf:
-                            m = re.search("(\d+)", intf)
+                            m = re.search(r"(\d+)", intf)
                             dut_index = po_map[int(m.group(1))]
 
-                        if isinstance(topo_definition['configuration'][vm]['interfaces'],dict) and 'ipv4' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
-                            (peer_ipv4, ipv4_mask) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv4'].split('/')
+                        if (isinstance(topo_definition['configuration'][vm]['interfaces'], dict)
+                                and 'ipv4' in topo_definition['configuration'][vm]['interfaces'][intf]
+                                and ('loopback' not in intf.lower())):
+                            (peer_ipv4, ipv4_mask) = \
+                                topo_definition['configuration'][vm]['interfaces'][intf]['ipv4'].split('/')
                             vmconfig[vm]['peer_ipv4'][dut_index] = peer_ipv4
                             vmconfig[vm]['ipv4mask'][dut_index] = ipv4_mask
                             vmconfig[vm]['ip_intf'][dut_index] = intf
-                        if isinstance(topo_definition['configuration'][vm]['interfaces'],dict) and 'ipv6' in topo_definition['configuration'][vm]['interfaces'][intf] and ('loopback' not in intf.lower()):
-                            (ipv6_addr, ipv6_mask) = topo_definition['configuration'][vm]['interfaces'][intf]['ipv6'].split('/')
+                        if (isinstance(topo_definition['configuration'][vm]['interfaces'], dict)
+                                and 'ipv6' in topo_definition['configuration'][vm]['interfaces'][intf]
+                                and ('loopback' not in intf.lower())):
+                            (ipv6_addr, ipv6_mask) = \
+                                topo_definition['configuration'][vm]['interfaces'][intf]['ipv6'].split('/')
                             vmconfig[vm]['peer_ipv6'][dut_index] = ipv6_addr.upper()
                             vmconfig[vm]['ipv6mask'][dut_index] = ipv6_mask
                             vmconfig[vm]['ip_intf'][dut_index] = intf
@@ -161,16 +168,18 @@ class ParseTestbedTopoinfo():
                 for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
                     ip_mask = None
                     if '/' in ipstr:
-                        (ipstr, ip_mask) = ipstr.split('/') 
+                        (ipstr, ip_mask) = ipstr.split('/')
                     if sys.version_info < (3, 0):
                         ip = ipaddress.ip_address(ipstr.decode('utf8'))
                     else:
                         ip = ipaddress.ip_address(ipstr)
                     for dut_index in range(0, dut_num):
                         if ip.version == 4:
-                            # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
+                            # Each VM might not be connected to all the DUT's,
+                            # so check if this VM is a peer to DUT at dut_index
                             if vmconfig[vm]['peer_ipv4'][dut_index]:
-                                ipsubnet_str = vmconfig[vm]['peer_ipv4'][dut_index]+'/'+vmconfig[vm]['ipv4mask'][dut_index]
+                                ipsubnet_str = \
+                                    vmconfig[vm]['peer_ipv4'][dut_index]+'/'+vmconfig[vm]['ipv4mask'][dut_index]
                                 if sys.version_info < (3, 0):
                                     ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
                                 else:
@@ -181,9 +190,11 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['bgp_ipv4'][dut_index] = ipstr.upper()
                                 vmconfig[vm]['ipv4mask'][dut_index] = ip_mask if ip_mask else '32'
                         elif ip.version == 6:
-                            # Each VM might not be connected to all the DUT's, so check if this VM is a peer to DUT at dut_index
+                            # Each VM might not be connected to all the DUT's,
+                            # so check if this VM is a peer to DUT at dut_index
                             if vmconfig[vm]['peer_ipv6'][dut_index]:
-                                ipsubnet_str = vmconfig[vm]['peer_ipv6'][dut_index]+'/'+vmconfig[vm]['ipv6mask'][dut_index]
+                                ipsubnet_str = \
+                                    vmconfig[vm]['peer_ipv6'][dut_index]+'/'+vmconfig[vm]['ipv6mask'][dut_index]
                                 if sys.version_info < (3, 0):
                                     ipsubnet = ipaddress.ip_interface(ipsubnet_str.decode('utf8'))
                                 else:
@@ -195,7 +206,7 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['ipv6mask'][dut_index] = ip_mask if ip_mask else '128'
         return vmconfig
 
-    def get_topo_config(self, topo_name, hwsku, asic_name):
+    def get_topo_config(self, topo_name, hwsku, testbed_name, asics_present, card_type):
         CLET_SUFFIX = "-clet"
 
         if 'ptf32' in topo_name:
@@ -204,13 +215,22 @@ class ParseTestbedTopoinfo():
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = 'vars/topo_' + topo_name + '.yml'
-        if asic_name:
-            asic_topo_filename = 'vars/topo_' + hwsku + '_' + asic_name + '.yml'
-        else:
-            asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
+
+        asic_topo_file_candidate_list = []
+
+        if testbed_name:
+            asic_topo_file_candidate_list.append('vars/' + testbed_name + '/topo_' + hwsku + '.yml')
+        asic_topo_file_candidate_list.append('vars/topo_' + hwsku + '.yml')
         vm_topo_config = dict()
+        vm_topo_config['topo_type'] = None
         asic_topo_config = dict()
         po_map = [None] * 16   # maximum 16 port channel interfaces
+
+        asic_topo_filename = None
+        for asic_topo_file_path in asic_topo_file_candidate_list:
+            if os.path.isfile(asic_topo_file_path):
+                asic_topo_filename = asic_topo_file_path
+                break
 
         ### read topology definition
         if not os.path.isfile(topo_filename):
@@ -219,17 +239,20 @@ class ParseTestbedTopoinfo():
             with open(topo_filename) as f:
                 topo_definition = yaml.safe_load(f)
 
-        if not os.path.isfile(asic_topo_filename):
+        if not asic_topo_filename:
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
                 slot_definition = yaml.safe_load(f)
 
-        ### parse topo file specified in vars/ to reverse as dut config
+        # parse topo file specified in vars/ to reverse as dut config
         dut_num = 1
         if 'dut_num' in topo_definition['topology']:
             dut_num = topo_definition['topology']['dut_num']
         vm_topo_config['dut_num'] = dut_num
+
+        if 'topo_type' in topo_definition['topology']:
+            vm_topo_config['topo_type'] = topo_definition['topology']['topo_type']
 
         if 'VMs' in topo_definition['topology']:
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
@@ -244,13 +267,15 @@ class ParseTestbedTopoinfo():
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
             vm_topo_config['dut_asn'] = dut_asn
 
-        for slot,asic_definition in slot_definition.items():
+        for slot, asic_definition in slot_definition.items():
             asic_topo_config[slot] = dict()
             for asic in asic_definition:
                 po_map_asic = [None] * 16   # maximum 16 port channel interfaces
                 asic_topo_config[slot][asic] = dict()
-                asic_topo_config[slot][asic]['asic_type'] = asic_definition[asic]['configuration_properties']['common']['asic_type']
-                asic_topo_config[slot][asic]['neigh_asic'] = self.parse_topo_defintion(asic_definition[asic], po_map_asic, 1, 'NEIGH_ASIC')
+                asic_topo_config[slot][asic]['asic_type'] = \
+                    asic_definition[asic]['configuration_properties']['common']['asic_type']
+                asic_topo_config[slot][asic]['neigh_asic'] = \
+                    self.parse_topo_defintion(asic_definition[asic], po_map_asic, 1, 'NEIGH_ASIC')
 
         vm_topo_config['host_interfaces_by_dut'] = [[] for i in range(dut_num)]
         if 'host_interfaces' in topo_definition['topology']:
@@ -284,9 +309,28 @@ class ParseTestbedTopoinfo():
             vm_topo_config['DUT'] = {}
 
         if 'devices_interconnect_interfaces' in topo_definition['topology']:
-            vm_topo_config['devices_interconnect_interfaces'] = topo_definition['topology']['devices_interconnect_interfaces']
+            vm_topo_config['devices_interconnect_interfaces'] = \
+                topo_definition['topology']['devices_interconnect_interfaces']
         else:
             vm_topo_config['devices_interconnect_interfaces'] = []
+
+        if 'wan_dut_configuration' in topo_definition:
+            vm_topo_config['wan_dut_configuration'] = [None]*dut_num
+            for _, v in topo_definition['wan_dut_configuration'].items():
+                vm_topo_config['wan_dut_configuration'][v['dut_offset']] = v
+
+        #  In linecard, keep neigh_asic information to only asics_present on supervisor
+        if card_type != 'supervisor' and asics_present:
+            asic_names_present = []
+            for asic in asics_present:
+                asic_name = 'ASIC' + str(asic)
+                asic_names_present.append(asic_name)
+            for slot in asic_topo_config:
+                for asic in asic_topo_config[slot]:
+                    for neigh_asic in asic_topo_config[slot][asic]['neigh_asic'].keys():
+                        if neigh_asic not in asic_names_present:
+                            # If neigh_asic is not part of asics_present, delete it.
+                            del asic_topo_config[slot][asic]['neigh_asic'][neigh_asic]
 
         self.vm_topo_config = vm_topo_config
         self.asic_topo_config = asic_topo_config
@@ -298,24 +342,29 @@ def main():
         argument_spec=dict(
             topo=dict(required=True, default=None),
             hwsku=dict(required=True, default=None),
-            asic_name=dict(required=True, default=None),
+            testbed_name=dict(required=True, default=None),
+            asics_present=dict(type='list', required=True, default=None),
+            card_type=dict(required=True, default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     topo_name = m_args['topo']
     hwsku = m_args['hwsku']
-    asic_name = m_args['asic_name']
+    testbed_name = m_args['testbed_name']
+    asics_present = m_args['asics_present']
+    card_type = m_args['card_type']
     try:
         topoinfo = ParseTestbedTopoinfo()
-        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, asic_name)
+        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, testbed_name,
+                                                                    asics_present, card_type)
         module.exit_json(ansible_facts={'vm_topo_config': vm_topo_config,
                                         'asic_topo_config': asic_topo_config})
     except (IOError, OSError):
         module.fail_json(msg="Can not find topo file for %s" % topo_name)
-    except Exception as e:
+    except Exception:
         module.fail_json(msg=traceback.format_exc())
 
-from ansible.module_utils.basic import *
-if __name__== "__main__":
+
+if __name__ == "__main__":
     main()

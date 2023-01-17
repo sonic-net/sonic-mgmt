@@ -36,10 +36,10 @@ def get_pkt_drops(duthost, cli_cmd, asic_index):
     # Frame the correct cli command
     # the L2 commands need _SUFFIX and L3 commands need _PREFIX
     if cli_cmd == GET_L3_COUNTERS:
-        CMD_PREFIX = NAMESPACE_PREFIX if duthost.is_multi_asic else ''
+        CMD_PREFIX = NAMESPACE_PREFIX if (namespace is not None and duthost.is_multi_asic) else ''
         cli_cmd = CMD_PREFIX + cli_cmd
     elif cli_cmd == GET_L2_COUNTERS:
-        CMD_SUFFIX = NAMESPACE_SUFFIX if duthost.is_multi_asic else ''
+        CMD_SUFFIX = NAMESPACE_SUFFIX if (namespace is not None and duthost.is_multi_asic) else ''
         cli_cmd = cli_cmd + CMD_SUFFIX
 
     stdout = duthost.command(cli_cmd.format(namespace))
@@ -90,7 +90,7 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
     """ Verify drop counter incremented on specific interface """
     def get_drops_across_all_duthosts():
         drop_list = [] 
-        for duthost in duthosts:
+        for duthost in duthosts.frontend_nodes:
             drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key].replace(",", "")))
         return drop_list
     check_drops_on_dut = lambda: packets_count in get_drops_across_all_duthosts()

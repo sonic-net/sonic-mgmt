@@ -45,12 +45,14 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
 
     # configure tacacs client
+    default_tacacs_servers = []
     duthost.shell("sudo config tacacs passkey %s" % tacacs_creds[duthost.hostname]['tacacs_passkey'])
 
     # get default tacacs servers
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+        default_tacacs_servers.append(tacacs_server)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
 
@@ -64,6 +66,12 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
 
     # setup local user
     setup_local_user(duthost, tacacs_creds)
+    return default_tacacs_servers
+
+def restore_tacacs_servers(duthost, default_tacacs_servers, tacacs_server_ip):
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
+    for tacacs_server in default_tacacs_servers:
+        duthost.shell("sudo config tacacs add %s" % tacacs_server)
 
 def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be_fix = None):
     """
@@ -79,7 +87,7 @@ def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be
         link_path_regex = re.escape(path_to_be_fix)
 
     target_path_regex = re.escape(target_path)
-    ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
+    ptfhost.shell("sed -i 's|{0}|{1}|g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
 
 def get_ld_path(duthost):
     """
@@ -149,11 +157,13 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     duthost.user(name=tacacs_creds['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
     duthost.user(name=tacacs_creds['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
 
+    duthost.copy(src="./tacacs/templates/del_tacacs_keys.json", dest='/tmp/del_tacacs_keys.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_keys.json"))
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
     find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'
-    server_list = duthost.shell(find_server_command)['stdout']
+    server_list = duthost.shell(find_server_command, module_ignore_errors=True)['stdout']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
         if tacacs_server:
