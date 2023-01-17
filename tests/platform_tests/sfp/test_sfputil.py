@@ -2,7 +2,7 @@
 Check SFP status and configure SFP using sfputil.
 
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 
 import logging
@@ -60,7 +60,7 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     logging.info("Check output of '{}'".format(cmd_sfp_error_status))
     sfp_error_status = duthost.command(cmd_sfp_error_status)
     for line in sfp_error_status["stdout_lines"][2:]:
-        if "Not implemented" in line: 
+        if "Not implemented" in line:
             pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
     for intf in dev_conn:

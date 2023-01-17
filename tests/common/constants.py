@@ -7,3 +7,8 @@ NAME_KEY = "name"
 IS_BACKEND_TOPOLOGY_KEY = "is_backend_topology"
 # a topology whos name contains the indicator 'backend' will be considered as a backend topology
 BACKEND_TOPOLOGY_IND = "backend"
+# ssh connect default username and password
+DEFAULT_SSH_CONNECT_PARAMS = {
+    "public": {"username": "admin",
+               "password": "YourPaSsWoRd"}
+}

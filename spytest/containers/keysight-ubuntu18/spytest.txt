@@ -13,7 +13,7 @@ natsort
 netaddr
 netmiko==2.4.2
 prettytable
-protobuf
+protobuf<3.18
 psutil
 pyang
 pycryptodome
@@ -23,7 +23,7 @@ pylint==1.8.1
 Pyro4
 pysnmp
 pytest>=4.4.1,<=4.6.5
-pytest-timeout
+pytest-timeout<=1.4.2
 pytest-xdist==1.28.0
 python-jenkins
 redis
@@ -33,3 +33,4 @@ scapy==2.4.3rc1
 sphinx
 tabulate
 textfsm
+lazy-object-proxy<=1.5.1

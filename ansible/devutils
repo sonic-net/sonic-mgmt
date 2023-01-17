@@ -25,6 +25,7 @@ g_task_runner = None
 g_pdu_dict = {}
 g_conn_graph_facts = {}
 
+
 def run_cmd(cmd):
     '''
     @summary: Utility that runs a command in a subprocess
@@ -36,6 +37,7 @@ def run_cmd(cmd):
     stdout, stderr = out.communicate()
     return out.returncode, stdout, stderr
 
+
 def get_conn_graph_facts(hosts):
 
     global g_conn_graph_facts
@@ -45,14 +47,17 @@ def get_conn_graph_facts(hosts):
     g_conn_graph_facts = conn_graph_helper.get_conn_graph_facts(hostnames)
     return g_conn_graph_facts
 
+
 def build_global_vars(concurrency, inventory):
     global g_task_runner, g_inv_mgr
     g_task_runner = TaskRunner(max_worker=concurrency)
     g_inv_mgr = HostManager(inventory)
 
+
 def retrieve_hosts(group, limit):
     global g_inv_mgr
     return g_inv_mgr.get_host_list(group, limit)
+
 
 def get_pdu_info_from_conn_graph(hostname):
     """
@@ -98,11 +103,13 @@ def get_pdu_info_from_inventory(attrs):
             pdus[ph] = pdu
     return (True, pdus)
 
+
 def get_pdu_info(dut_hostname, attrs):
     results = get_pdu_info_from_conn_graph(dut_hostname)
     if results:
         return (True, results)
     return get_pdu_info_from_inventory(attrs)
+
 
 def get_console_info_from_conn_graph(hostname):
     """
@@ -115,6 +122,7 @@ def get_console_info_from_conn_graph(hostname):
         console_info['console_port'] = g_conn_graph_facts['device_console_link'][hostname]['ConsolePort']['peerport']
     return console_info
 
+
 def get_console_info_from_inventory(attrs):
     """
     Read console info from inventory file. This should be a fallback of get_console_info_from_conn_graph.
@@ -126,6 +134,7 @@ def get_console_info_from_inventory(attrs):
             console_info[k] = attrs[k]
     return console_info
 
+
 def get_console_info(hostname, attrs):
     console_info = get_console_info_from_conn_graph(hostname)
     if not console_info:
@@ -133,6 +142,7 @@ def get_console_info(hostname, attrs):
     if not console_info:
         print("Failed to get console info for {}".format(hostname))
     return console_info
+
 
 def show_data_output(header, data, json_output=False):
     if json_output:
@@ -332,6 +342,20 @@ def validate_args(args):
     return True
 
 
+def setup_logging(level):
+    if level == 'close':
+        return
+    import logging
+    if level == 'debug':
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    elif level == 'info':
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    elif level == 'warn':
+        logging.basicConfig(stream=sys.stdout, level=logging.WARN)
+    elif level == 'error':
+        logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Device utilities')
     parser.add_argument('-6', '--ipv6', help='Include IPv6', action='store_true',
@@ -348,6 +372,9 @@ def main():
                         type=str, required=False, default='lab')
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
+    parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)', 
+                        type=str, required=False, default='warn',
+                        choices=['debug', 'info', 'warn', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
                         type=str, required=False, default='admin')
     parser.add_argument(
@@ -359,6 +386,7 @@ def main():
     args = parser.parse_args()
     if not validate_args(args):
         return
+    setup_logging(args.log_level)
     build_global_vars(args.concurrency, args.inventory)
     # Add limit argument check for pdu_reboot, pdu_on, pdu_off actions
     # If no limit argument for these actions, will not execute the process for all devices

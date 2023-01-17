@@ -23,14 +23,6 @@ def add_qos_sai_args(parser):
     )
 
     qos_group.addoption(
-        "--qos_swap_syncd",
-        action="store",
-        type=str2bool,
-        default=True,
-        help="Swap syncd container with syncd-rpc container",
-    )
-
-    qos_group.addoption(
         "--qos_dst_ports",
         action="store",
         type=lambda opt_value: [int(v) for v in opt_value.translate(None, "[]").split(',')],
@@ -46,3 +38,10 @@ def add_qos_sai_args(parser):
         help="QoS SAI comma separated list of source ports. Test currently expects exactly 1 source port",
     )
 
+    qos_group.addoption(
+        "--qos_dual_tor",
+        action="store",
+        type=str2bool,
+        default=False,
+        help="Test QoS on dual ToR ports"
+    )

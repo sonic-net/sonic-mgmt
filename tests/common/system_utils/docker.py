@@ -10,6 +10,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.cisco_data import is_cisco_device
+from tests.common.innovium_data import is_innovium_device
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,9 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
         image_name (str): The name of the image to tag.
         image_version (str): The version of the image to tag.
     """
+    vendor_id = _get_vendor_id(duthost)
+    if vendor_id in ['invm']:
+        image_name = "docker-syncd-{}-rpc".format(vendor_id)
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
@@ -112,6 +116,10 @@ def swap_syncd(duthost, creds):
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
@@ -166,6 +174,9 @@ def restore_default_syncd(duthost, creds):
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
 
@@ -193,7 +204,6 @@ def _perform_swap_syncd_shutdown_check(duthost):
         if any([
             duthost.is_container_running("syncd"),
             duthost.is_container_running("swss"),
-            not duthost.is_bgp_state_idle()
         ]):
             return False
 
@@ -218,6 +228,8 @@ def _get_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
+    elif is_innovium_device(duthost):
+        vendor_id = "invm"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

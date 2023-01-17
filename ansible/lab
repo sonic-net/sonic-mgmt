@@ -140,6 +140,8 @@ sonic_multi_asic:
     num_asics: 6
     start_topo_service: True
     frontend_asics: [0,1,2,3]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
   hosts:
     vlab-07:
       ansible_host: 10.250.0.109
@@ -152,6 +154,8 @@ sonic_multi_asic_2:
     num_asics: 4
     start_topo_service: True
     frontend_asics: [0,1]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128]
   hosts:
     vlab-08:
       ansible_host: 10.250.0.112

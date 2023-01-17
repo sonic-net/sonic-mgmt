@@ -13,9 +13,11 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
 @reset_ansible_local_tmp
 def reboot_duts(localhost, node=None, results=None):
     reboot(node, localhost, wait=60)
+
 
 @pytest.fixture(scope="module")
 def setup(duthosts, tbinfo, localhost):
@@ -30,21 +32,27 @@ def setup(duthosts, tbinfo, localhost):
 
         # Check if we already have midplane port configuration in rc.local
         try:
-            t1 = duthost.shell("sudo grep 'sudo ip addr add {}' /etc/rc.local".format(midplane_ip), executable="/bin/bash")
+            duthost.shell("sudo grep 'sudo ip addr add {}' /etc/rc.local"
+                          .format(midplane_ip), executable="/bin/bash")
             logger.info("On {}, midplane IP configuration is already in /etc/rc.local".format(duthost.hostname))
-        except:
-            # edit rc.local to have midplane ip configured on the midplane port as specified in the topology file
-            #    Replace the last line which should start with 'exit 0' with lines to configure and bring up midplane interface followed by exit 0
-            logger.info("midplane IP configuration is already in /etc/rc.local not in {}, adding it".format(duthost.hostname))
-            duthost.command("sudo sed -i 's/^exit 0/\\nsudo ip addr add {}\/24 dev {}\\nsudo ifconfig {} up\\n\\nexit 0/' /etc/rc.local".format(
-                midplane_ip, midplane_port, midplane_port))
+        except Exception:
+            # Edit rc.local to have midplane ip configured on the midplane port as specified in the topology file
+            # Replace the last line which should start with 'exit 0' with lines to configure and bring up midplane
+            # interface followed by exit 0
+            logger.info("midplane IP configuration is already in /etc/rc.local not in {}, adding it"
+                        .format(duthost.hostname))
+            duthost.command("sudo sed -i 's/^exit 0/\\nsudo ip addr add {}\/24 dev {}\\n"   # noqa W605
+                            "sudo ifconfig {} up\\n\\nexit 0/' /etc/rc.local"
+                            .format(midplane_ip, midplane_port, midplane_port))
 
         # Add chassis_db
         logger.info("Adding chassisdb.conf on {}".format(duthost.hostname))
         chassis_db_ip = dut_topo_info['vs_chassis']['chassis_db_ip']
-        duthost.shell("sudo echo 'chassis_db_address={}' > /tmp/chassisdb.conf".format(chassis_db_ip), executable="/bin/bash")
+        duthost.shell("sudo echo 'chassis_db_address={}' > /tmp/chassisdb.conf"
+                      .format(chassis_db_ip), executable="/bin/bash")
         if duthost.is_supervisor_node():
-            logger.info ("{} is supervisor card, adding config to start chassisdb in chassisdb.conf".format(duthost.hostname))
+            logger.info("{} is supervisor card, adding config to start chassisdb in chassisdb.conf"
+                        .format(duthost.hostname))
             duthost.shell("echo 'start_chassis_db=1' >> /tmp/chassisdb.conf", executable="/bin/bash")
             duthost.shell("echo 'lag_id_start=1' >> /tmp/chassisdb.conf", executable="/bin/bash")
             duthost.shell("echo 'lag_id_end=512' >> /tmp/chassisdb.conf", executable="/bin/bash")
@@ -54,16 +62,17 @@ def setup(duthosts, tbinfo, localhost):
         # scp the config_db's for each card
         logger.info("")
         BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-        if check_qos_db_fv_reference_with_table(duthost) == True:
+        if check_qos_db_fv_reference_with_table(duthost):
             src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_config_db.json".format(duthost.hostname))
         else:
-            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs", "{}_qos_new_dbfmt_config_db.json".format(duthost.hostname))
+            src_cfg_path = os.path.join(BASE_DIR, "vs_voq_cfgs",
+                                        "{}_qos_new_dbfmt_config_db.json".format(duthost.hostname))
         dst_cfg_path = os.path.join(os.sep, "tmp", "config_db.json")
         logger.info("Copying {} to /etc/sonic/config_db.json on {}".format(src_cfg_path, duthost.hostname))
         duthost.copy(src=src_cfg_path, dest=dst_cfg_path)
         duthost.command("sudo cp {} {}".format(dst_cfg_path, "/etc/sonic/config_db.json"))
 
-    logger.info ("Rebooting all the DUTs in parallel")
+    logger.info("Rebooting all the DUTs in parallel")
     parallel_run(reboot_duts, [localhost], {}, duthosts, timeout=240)
 
 
@@ -73,14 +82,17 @@ def test_midplane(duthosts, tbinfo, setup):
     chassis_db_ip = dut_topo_info['vs_chassis']['chassis_db_ip']
 
     for duthost in duthosts.frontend_nodes:
-        duthost.command ("ping {} -c1".format(chassis_db_ip))
+        duthost.command("ping {} -c1".format(chassis_db_ip))
 
 
-# From each frontend node, validate chassis-db connectivity to supervisor using redis-cli to get keys of table SYSTEM_INTERFACE
+# From each frontend node, validate chassis-db connectivity to supervisor using redis-cli to get keys of
+# table SYSTEM_INTERFACE
 def test_chassisdb(duthosts, tbinfo, setup):
     dut_topo_info = tbinfo['topo']['properties']['topology']['DUT']
     chassis_db_ip = dut_topo_info['vs_chassis']['chassis_db_ip']
     for duthost in duthosts.frontend_nodes:
-        redis_out = duthost.command("redis-cli -h {} -p 6380 -n 12 keys \"*SYSTEM_INTERFACE*\"".format(chassis_db_ip))['stdout']
+        redis_out = duthost.command("redis-cli -h {} -p 6380 -n 12 keys \"*SYSTEM_INTERFACE*\""
+                                    .format(chassis_db_ip))['stdout']
         pytest_assert("" != redis_out,
-                      "From {} have connectivity to chassis_db on supervisor {} but it does not have any entries for SYSTEM_INTERFACE".format (duthost.hostname, chassis_db_ip))
+                      "From {} have connectivity to chassis_db on supervisor {} but it does not have any entries "
+                      "for SYSTEM_INTERFACE".format(duthost.hostname, chassis_db_ip))

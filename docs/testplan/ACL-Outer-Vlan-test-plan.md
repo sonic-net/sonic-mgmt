@@ -49,7 +49,7 @@ Example of created vlan
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
 - Ethernet24 belongs to Vlan100, tagged mode
 - Ethernet28 belongs to Vlan200, untagged mode
-- Ethernet32 belongs to both Vlan100 (untagged) and Vlan200 (tagged) 
+- Ethernet32 belongs to both Vlan100 (untagged) and Vlan200 (tagged)
 
 During test run 2 ACL tables of different types 'L3' and 'L3V6' will be created and binded to all the above 3 interfaces.
 
@@ -113,4 +113,3 @@ Validate that packet is dropped if ACL rule with action ```DROP``` is matched wi
 - Send packet from PTF to one of the PortChannels on DUT.
 - Verify that packet is not switched to the target interface in vlan.
 - Verify that ACL counter for particular rule was incremented.
-

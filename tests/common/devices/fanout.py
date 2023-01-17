@@ -23,6 +23,7 @@ class FanoutHost(object):
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
+            self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
                                   shell_user=shell_user,
                                   shell_passwd=shell_passwd)
@@ -66,6 +67,9 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'shutdown_multiple' method"
                                      .format(type(self.host)))
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.shutdown(interface_name)
 
@@ -86,6 +90,10 @@ class FanoutHost(object):
                                      "'no_shutdown_multiple' method"
                                      .format(type(self.host)))
 
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
+
         return self.host.no_shutdown(interface_name)
 
     def __str__(self):
@@ -105,7 +113,7 @@ class FanoutHost(object):
             host_port is a encoded string of <host name>|<port name>,
             e.g. sample_host|Ethernet0.
         """
-        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
@@ -172,3 +180,26 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
+
+    def links_status_down(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are down
+            False: if any interface is up
+        """
+        return self.host.links_status_down(ports)
+
+    def links_status_up(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are up
+            False: if any interface is down
+        """
+        return self.host.links_status_up(ports)
+
+    def set_port_fec(self, interface_name, mode):
+        self.host.set_port_fec(interface_name, mode)
