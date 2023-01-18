@@ -2,7 +2,8 @@
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
                "ACS-MSN2010", "ACS-SN2201"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
-SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64"]
+SPC3_HWSKUS = ["ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8",
+               "Mellanox-SN4600C-C64"]
 SPC4_HWSKUS = ["ACS-SN5600"]
 SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS
 
@@ -125,6 +126,10 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 1
             }
         }
     },
@@ -176,6 +181,10 @@ SWITCH_MODELS = {
                 "number": 1
             },
             "fan_ambient": {
+                "number": 1
+            },
+            "sodimm": {
+                "start": 1,
                 "number": 1
             }
         }
@@ -278,6 +287,10 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 1
             }
         }
     },
@@ -322,6 +335,10 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
             }
         }
     },
@@ -365,6 +382,10 @@ SWITCH_MODELS = {
                 "number": 1
             },
             "fan_ambient": {
+                "number": 1
+            },
+            "sodimm": {
+                "start": 1,
                 "number": 1
             }
         }

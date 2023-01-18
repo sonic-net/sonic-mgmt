@@ -32,6 +32,7 @@ from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
@@ -69,7 +70,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32'
+        'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-D48C8'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -86,7 +88,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile, tbinfo
+        ingressLosslessProfile, egressLosslessProfile
     ):
         """
             Test QoS SAI XOFF limits
@@ -146,19 +148,6 @@ class TestQosSai(QosSaiBase):
 
         if 'cell_size' in qosConfig[xoffProfile].keys():
             testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
-
-        if "dualtor" in tbinfo["topo"]["name"]:
-            testParams["is_dualtor"] = True
-            if tbinfo["topo"]["type"] == 't0':
-                testParams["is_t0"] = True
-            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-                default_vlan_name = vlan_cfgs['default_vlan_config']
-                if default_vlan_name:
-                    for vlan in vlan_cfgs[default_vlan_name].values():
-                        if 'mac' in vlan and vlan['mac']:
-                            testParams["def_vlan_mac"] = vlan['mac']
-                            break
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
@@ -468,6 +457,77 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
         )
 
+    def correctPortIds(self, test_port_ids, src_port_ids, dst_port_ids):
+        '''
+        if port id of test_port_ids/dst_port_ids is not existing in test_port_ids
+        correct it, make sure all src/dst id is valid
+        e.g.
+            Given below parameter:
+                test_port_ids: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                dst_port_ids: 10
+            and run correctPortIds to get below result:
+                src_port_ids: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+                dst_port_ids: 10
+        '''
+        # cache src port ids, and if its type isn't list, convert it to list
+        src_port = src_port_ids
+        src_is_list = True
+        if not isinstance(src_port_ids, list):
+            src_port = [src_port_ids]
+            src_is_list = False
+
+        # cache dst port ids, and if its type isn't list, convert it to list
+        dst_port = dst_port_ids
+        dst_is_list = True
+        if not isinstance(dst_port_ids, list):
+            dst_port = [dst_port_ids]
+            dst_is_list = False
+
+        if len(src_port) + len(dst_port) > len(test_port_ids):
+            logger.info('no enough ports for test')
+            return (None, None)
+
+        # cache test port ids
+        ports = [pid for pid in test_port_ids]
+
+        # check if all src port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild src port id to invalid_src_idx variable
+        invalid_src_idx = []
+        for idx, pid in enumerate(src_port):
+            if pid not in ports:
+                invalid_src_idx.append(idx)
+            else:
+                ports.remove(pid)
+
+        # check if all dst port id is exist in test port ids
+        # if yes, remove consumed id from test port ids
+        # if no, record index of invaild dst port id to invalid_dst_idx variable
+        invalid_dst_idx = []
+        for idx, pid in enumerate(dst_port):
+            if pid not in ports:
+                invalid_dst_idx.append(idx)
+            else:
+                ports.remove(pid)
+
+        # pop the minimal test port id, and assign it to src port to replace its invalid port id
+        for idx in invalid_src_idx:
+            src_port[idx] = ports.pop(0)
+
+        # pop the minimal test port id, and assign it to dst port to replace its invalid port id
+        for idx in invalid_dst_idx:
+            dst_port[idx] = ports.pop(0)
+
+        # if src port is not list, conver it back to int
+        if not src_is_list:
+            src_port = src_port[0]
+        # if dst port is not list, conver it back to int
+        if not dst_is_list:
+            dst_port = dst_port[0]
+
+        return (src_port, dst_port)
+
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile
@@ -501,6 +561,10 @@ class TestQosSai(QosSaiBase):
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
+        qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
+            dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
+        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] != None and qosConfig["hdrm_pool_size"]["dst_port_id"] != None, "No enough test ports")
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -532,6 +596,10 @@ class TestQosSai(QosSaiBase):
         margin = qosConfig["hdrm_pool_size"].get("margin")
         if margin:
             testParams["margin"] = margin
+
+        dynamic_threshold = qosConfig["hdrm_pool_size"].get("dynamic_threshold", False)
+        if dynamic_threshold:
+            testParams["dynamic_threshold"] = dynamic_threshold
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
@@ -657,6 +725,14 @@ class TestQosSai(QosSaiBase):
             "max_headroom": sharedHeadroomPoolSize,
             "hwsku":dutTestParams['hwsku']
         })
+
+        margin = qosConfig["hdrm_pool_size"].get("margin")
+        if margin:
+            testParams["margin"] = margin
+
+        dynamic_threshold = qosConfig["hdrm_pool_size"].get("dynamic_threshold", False)
+        if dynamic_threshold:
+            testParams["dynamic_threshold"] = dynamic_threshold
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]

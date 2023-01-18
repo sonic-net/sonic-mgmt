@@ -4,6 +4,7 @@ import os
 import pytest
 import random
 import time
+from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
@@ -250,7 +251,7 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
+    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
@@ -269,22 +270,31 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     from tests.common.platform.device_utils import list_dut_fanout_connections
 
     cadidate_test_ports = {}
-
-    for duthost in duthosts:
-        all_ports = list_dut_fanout_connections(duthost, fanouthosts)
-
-        cadidate_test_ports[duthost.hostname] = {}
-        for dut_port, fanout, fanout_port in all_ports:
-            auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-            if auto_neg_mode is not None:
-                cadidate_test_ports[duthost.hostname][dut_port] = \
-                    {'fanout': fanout.hostname, 'fanout_port': fanout_port}
-    folder = 'metadata'
-    filepath = os.path.join(folder, 'autoneg-test-params.json')
+    max_interfaces_per_dut = 3
+    filepath = os.path.join('metadata', 'autoneg-test-params.json')
     try:
-        with open(filepath, 'w') as yf:
-            json.dump(cadidate_test_ports, yf, indent=4)
-    except IOError as e:
+        for duthost in duthosts:
+            all_ports = list_dut_fanout_connections(duthost, fanouthosts)
+            selected_ports = {}
+            for dut_port, fanout, fanout_port in all_ports:
+                if len(selected_ports) == max_interfaces_per_dut:
+                    break
+                auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
+                if auto_neg_mode is not None:
+                    speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
+                    selected_ports[dut_port] = {
+                        'fanout': fanout.hostname,
+                        'fanout_port': fanout_port,
+                        'common_port_speeds': speeds
+                    }
+            if len(selected_ports) > 0:
+                cadidate_test_ports[duthost.hostname] = selected_ports
+        if len(cadidate_test_ports) > 0:
+            with open(filepath, 'w') as yf:
+                json.dump(cadidate_test_ports, yf, indent=4)
+        else:
+            logger.warning('skipped to create autoneg test datafile because of no ports selected')
+    except Exception as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
 

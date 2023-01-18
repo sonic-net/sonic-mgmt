@@ -25,6 +25,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -673,6 +674,40 @@ def update_environ(*remove, **update):
         for k in to_removed:
             env.pop(k)
 
+def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
+    """
+    @summary: utility function returns list of reboot dict containing timeout and wait
+    for each reboot type
+    @return a list of reboot dict containing timeout and wait for each reboot type
+    DUTHOST:
+        plt_reboot_dict:
+          cold:
+            timeout: 300
+            wait: 600
+          warm-reboot:
+            timeout: 300
+            wait: 600
+          acl/test_acl.py::TestAclWithReboot:
+            timeout: 300
+            wait: 600
+          platform_tests/test_reload_config.py::test_reload_configuration_checks:
+            timeout: 300
+            wait: 60
+    """
+
+    reboot_dict = dict()
+    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    if 'plt_reboot_dict' in dut_vars:
+        for key in dut_vars['plt_reboot_dict'].keys():
+            if key in tc_name:
+                for mod_id in dut_vars['plt_reboot_dict'][key].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
+        if not reboot_dict:
+            if reboot_type in dut_vars['plt_reboot_dict'].keys():
+                for mod_id in dut_vars['plt_reboot_dict'][reboot_type].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
+
+    return reboot_dict
 
 def get_image_type(duthost):
     """get the SONiC image type
@@ -686,3 +721,65 @@ def get_image_type(duthost):
     """
 
     return "public"
+
+def find_duthost_on_role(duthosts, role, tbinfo):
+    role_set = False
+
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            if role in neighbor["name"]:
+                role_host = duthost
+                role_set = True
+    return role_host
+
+def get_neighbor_port_list(duthost, neighbor_name):
+    """
+    @summary: Get neighbor port in dut by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @return a list of port name
+        Sample output: ["Ethernet45", "Ethernet46"]
+    """
+    config_facts = duthost.get_running_config_facts()
+    neighbor_port_list = []
+    for port_name, value in config_facts["DEVICE_NEIGHBOR"].items():
+        if neighbor_name.upper() in value["name"].upper():
+            neighbor_port_list.append(port_name)
+
+    return neighbor_port_list
+
+def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
+    """
+    @summary: Get neighbor port in ptf by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @param tbinfo: testbed information
+    @return a list of port index
+        Sample output: [45, 46]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor_port_list = get_neighbor_port_list(duthost, neighbor_name)
+    ptf_port_list = []
+    for neighbor_port in neighbor_port_list:
+        ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
+
+    return ptf_port_list
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
