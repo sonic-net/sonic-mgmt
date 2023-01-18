@@ -10,20 +10,14 @@ from google.protobuf import symbol_database as _symbol_database
 
 _sym_db = _symbol_database.Default()
 
-
-
-
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='nic_simulator_grpc_service.proto',
   package='',
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t\"A\n\x0b\x44ropRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x11\n\tdirection\x18\x02 \x03(\x05\x12\x0f\n\x07recover\x18\x03 \x01(\x08\",\n\tDropReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x0f\n\x07success\x18\x02 \x03(\x08\x32\xef\x02\n\rDualToRActive\x12=\n\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x12%\n\x07SetDrop\x12\x0c.DropRequest\x1a\n.DropReply\"\x00\x62\x06proto3'
+  serialized_pb=b'\n nic_simulator_grpc_service.proto\"-\n\x0c\x41\x64minRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"+\n\nAdminReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10OperationRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eOperationReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\"\n\x10LinkStateRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\"/\n\x0eLinkStateReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\r\n\x05state\x18\x02 \x03(\x08\"\'\n\x14ServerVersionRequest\x12\x0f\n\x07version\x18\x01 \x01(\t\"%\n\x12ServerVersionReply\x12\x0f\n\x07version\x18\x01 \x01(\t\"A\n\x0b\x44ropRequest\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x11\n\tdirection\x18\x02 \x03(\x05\x12\x0f\n\x07recover\x18\x03 \x01(\x08\",\n\tDropReply\x12\x0e\n\x06portid\x18\x01 \x03(\x05\x12\x0f\n\x07success\x18\x02 \x03(\x08\x32\xef\x02\n\rDualToRActive\x12=\n\x1dQueryAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12;\n\x1bSetAdminForwardingPortState\x12\r.AdminRequest\x1a\x0b.AdminReply\"\x00\x12?\n\x17QueryOperationPortState\x12\x11.OperationRequest\x1a\x0f.OperationReply\"\x00\x12\x36\n\x0eQueryLinkState\x12\x11.LinkStateRequest\x1a\x0f.LinkStateReply\"\x00\x12\x42\n\x12QueryServerVersion\x12\x15.ServerVersionRequest\x1a\x13.ServerVersionReply\"\x00\x12%\n\x07SetDrop\x12\x0c.DropRequest\x1a\n.DropReply\"\x00\x62\x06proto3'  # noqa E501
 )
-
-
-
 
 _ADMINREQUEST = _descriptor.Descriptor(
   name='AdminRequest',
@@ -406,75 +400,74 @@ DESCRIPTOR.message_types_by_name['DropReply'] = _DROPREPLY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 AdminRequest = _reflection.GeneratedProtocolMessageType('AdminRequest', (_message.Message,), {
-  'DESCRIPTOR' : _ADMINREQUEST,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _ADMINREQUEST,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:AdminRequest)
   })
 _sym_db.RegisterMessage(AdminRequest)
 
 AdminReply = _reflection.GeneratedProtocolMessageType('AdminReply', (_message.Message,), {
-  'DESCRIPTOR' : _ADMINREPLY,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _ADMINREPLY,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:AdminReply)
   })
 _sym_db.RegisterMessage(AdminReply)
 
 OperationRequest = _reflection.GeneratedProtocolMessageType('OperationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _OPERATIONREQUEST,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _OPERATIONREQUEST,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:OperationRequest)
   })
 _sym_db.RegisterMessage(OperationRequest)
 
 OperationReply = _reflection.GeneratedProtocolMessageType('OperationReply', (_message.Message,), {
-  'DESCRIPTOR' : _OPERATIONREPLY,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _OPERATIONREPLY,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:OperationReply)
   })
 _sym_db.RegisterMessage(OperationReply)
 
 LinkStateRequest = _reflection.GeneratedProtocolMessageType('LinkStateRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LINKSTATEREQUEST,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _LINKSTATEREQUEST,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:LinkStateRequest)
   })
 _sym_db.RegisterMessage(LinkStateRequest)
 
 LinkStateReply = _reflection.GeneratedProtocolMessageType('LinkStateReply', (_message.Message,), {
-  'DESCRIPTOR' : _LINKSTATEREPLY,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _LINKSTATEREPLY,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:LinkStateReply)
   })
 _sym_db.RegisterMessage(LinkStateReply)
 
 ServerVersionRequest = _reflection.GeneratedProtocolMessageType('ServerVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SERVERVERSIONREQUEST,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _SERVERVERSIONREQUEST,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:ServerVersionRequest)
   })
 _sym_db.RegisterMessage(ServerVersionRequest)
 
 ServerVersionReply = _reflection.GeneratedProtocolMessageType('ServerVersionReply', (_message.Message,), {
-  'DESCRIPTOR' : _SERVERVERSIONREPLY,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _SERVERVERSIONREPLY,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:ServerVersionReply)
   })
 _sym_db.RegisterMessage(ServerVersionReply)
 
 DropRequest = _reflection.GeneratedProtocolMessageType('DropRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DROPREQUEST,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _DROPREQUEST,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:DropRequest)
   })
 _sym_db.RegisterMessage(DropRequest)
 
 DropReply = _reflection.GeneratedProtocolMessageType('DropReply', (_message.Message,), {
-  'DESCRIPTOR' : _DROPREPLY,
-  '__module__' : 'nic_simulator_grpc_service_pb2'
+  'DESCRIPTOR': _DROPREPLY,
+  '__module__': 'nic_simulator_grpc_service_pb2'
   # @@protoc_insertion_point(class_scope:DropReply)
   })
 _sym_db.RegisterMessage(DropReply)
-
 
 
 _DUALTORACTIVE = _descriptor.ServiceDescriptor(
@@ -487,67 +480,67 @@ _DUALTORACTIVE = _descriptor.ServiceDescriptor(
   serialized_start=492,
   serialized_end=859,
   methods=[
-  _descriptor.MethodDescriptor(
-    name='QueryAdminForwardingPortState',
-    full_name='DualToRActive.QueryAdminForwardingPortState',
-    index=0,
-    containing_service=None,
-    input_type=_ADMINREQUEST,
-    output_type=_ADMINREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='SetAdminForwardingPortState',
-    full_name='DualToRActive.SetAdminForwardingPortState',
-    index=1,
-    containing_service=None,
-    input_type=_ADMINREQUEST,
-    output_type=_ADMINREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='QueryOperationPortState',
-    full_name='DualToRActive.QueryOperationPortState',
-    index=2,
-    containing_service=None,
-    input_type=_OPERATIONREQUEST,
-    output_type=_OPERATIONREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='QueryLinkState',
-    full_name='DualToRActive.QueryLinkState',
-    index=3,
-    containing_service=None,
-    input_type=_LINKSTATEREQUEST,
-    output_type=_LINKSTATEREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='QueryServerVersion',
-    full_name='DualToRActive.QueryServerVersion',
-    index=4,
-    containing_service=None,
-    input_type=_SERVERVERSIONREQUEST,
-    output_type=_SERVERVERSIONREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='SetDrop',
-    full_name='DualToRActive.SetDrop',
-    index=5,
-    containing_service=None,
-    input_type=_DROPREQUEST,
-    output_type=_DROPREPLY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-])
+           _descriptor.MethodDescriptor(
+             name='QueryAdminForwardingPortState',
+             full_name='DualToRActive.QueryAdminForwardingPortState',
+             index=0,
+             containing_service=None,
+             input_type=_ADMINREQUEST,
+             output_type=_ADMINREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+           _descriptor.MethodDescriptor(
+             name='SetAdminForwardingPortState',
+             full_name='DualToRActive.SetAdminForwardingPortState',
+             index=1,
+             containing_service=None,
+             input_type=_ADMINREQUEST,
+             output_type=_ADMINREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+           _descriptor.MethodDescriptor(
+             name='QueryOperationPortState',
+             full_name='DualToRActive.QueryOperationPortState',
+             index=2,
+             containing_service=None,
+             input_type=_OPERATIONREQUEST,
+             output_type=_OPERATIONREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+           _descriptor.MethodDescriptor(
+             name='QueryLinkState',
+             full_name='DualToRActive.QueryLinkState',
+             index=3,
+             containing_service=None,
+             input_type=_LINKSTATEREQUEST,
+             output_type=_LINKSTATEREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+           _descriptor.MethodDescriptor(
+             name='QueryServerVersion',
+             full_name='DualToRActive.QueryServerVersion',
+             index=4,
+             containing_service=None,
+             input_type=_SERVERVERSIONREQUEST,
+             output_type=_SERVERVERSIONREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+           _descriptor.MethodDescriptor(
+             name='SetDrop',
+             full_name='DualToRActive.SetDrop',
+             index=5,
+             containing_service=None,
+             input_type=_DROPREQUEST,
+             output_type=_DROPREPLY,
+             serialized_options=None,
+             create_key=_descriptor._internal_create_key,
+           ),
+         ])
 _sym_db.RegisterServiceDescriptor(_DUALTORACTIVE)
 
 DESCRIPTOR.services_by_name['DualToRActive'] = _DUALTORACTIVE

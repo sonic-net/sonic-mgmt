@@ -92,74 +92,82 @@ def add_DualTorMgmtServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class DualTorMgmtService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
     def QueryAdminForwardingPortState(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+                                      target,
+                                      options=(),
+                                      channel_credentials=None,
+                                      call_credentials=None,
+                                      insecure=False,
+                                      compression=None,
+                                      wait_for_ready=None,
+                                      timeout=None,
+                                      metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryAdminForwardingPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest
+                                             .SerializeToString,
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression,
+                                             wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetAdminForwardingPortState(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+                                    target,
+                                    options=(),
+                                    channel_credentials=None,
+                                    call_credentials=None,
+                                    insecure=False,
+                                    compression=None,
+                                    wait_for_ready=None,
+                                    timeout=None,
+                                    metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetAdminForwardingPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest
+                                             .SerializeToString,
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression,
+                                             wait_for_ready, timeout, metadata)
 
     @staticmethod
     def QueryOperationPortState(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+                                target,
+                                options=(),
+                                channel_credentials=None,
+                                call_credentials=None,
+                                insecure=False,
+                                compression=None,
+                                wait_for_ready=None,
+                                timeout=None,
+                                metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryOperationPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest
+                                             .SerializeToString,
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression,
+                                             wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetDrop(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+                target,
+                options=(),
+                channel_credentials=None,
+                call_credentials=None,
+                insecure=False,
+                compression=None,
+                wait_for_ready=None,
+                timeout=None,
+                metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetDrop',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest
+                                             .SerializeToString,
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression,
+                                             wait_for_ready, timeout, metadata)
