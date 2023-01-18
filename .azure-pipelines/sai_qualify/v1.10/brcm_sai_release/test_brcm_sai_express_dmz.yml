@@ -12,7 +12,7 @@ resources:
         enabled: true
         branches:
           include:
-          - PRE_SAI_7.1.0_*
+          - SAI_PRE_7.1.0_*
 
 variables:
   - template: ../../templates/template_variables.yml
