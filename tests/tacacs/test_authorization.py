@@ -275,7 +275,7 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
     check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
     # Verify user can't run 'find' command with '-exec' parameter.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -type f -exec /bin/sh ;")
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -exec")
     pytest_assert(exit_code == 1)
     check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
