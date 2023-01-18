@@ -457,15 +457,13 @@ class OVSBridge(object):
                                                  output_ports=[self.lower_tor_port, self.upper_tor_port],
                                                  priority=8, upstream=True)
         # upstream arp packet from ptf port should be directed to both ToRs
-
-        self.upstream_arp_flow = self._add_flow(self.ptf_port, packet_filter="arp", 
-                                                output_ports=[self.lower_tor_port, self.upper_tor_port], 
+        self.upstream_arp_flow = self._add_flow(self.ptf_port, packet_filter="arp",
+                                                output_ports=[self.lower_tor_port, self.upper_tor_port],
                                                 priority=7, upstream=True)
         # upstream ipv6 icmp packet from ptf port should be directed to both ToRs
-        self.upstream_icmpv6_flow = self._add_flow(self.ptf_port, packet_filter="ipv6,nw_proto=58", 
-                                                   output_ports=[self.lower_tor_port, self.upper_tor_port], 
+        self.upstream_icmpv6_flow = self._add_flow(self.ptf_port, packet_filter="ipv6,nw_proto=58",
+                                                   output_ports=[self.lower_tor_port, self.upper_tor_port],
                                                    priority=6, upstream=True)
-
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(1, self.upper_tor_port, self.lower_tor_port)
         self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(self.ptf_port, self.upstream_ecmp_group, priority=5)
@@ -486,11 +484,11 @@ class OVSBridge(object):
 
     def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None, upstream=False):
         if upstream:
-            flow = OVSUpstreamFlow(in_port, packet_filter=packet_filter,
-                                   output_ports=output_ports, group=group, priority=priority)
+            flow = OVSUpstreamFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
+                                   group=group, priority=priority)
         else:
-            flow = OVSFlow(in_port, packet_filter=packet_filter,
-                           output_ports=output_ports, group=group, priority=priority)
+            flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
+                           group=group, priority=priority)
         logging.info("Add flow to bridge %s: %s", self.bridge_name, flow)
         OVSCommand.ovs_ofctl_add_flow(self.bridge_name, flow)
         self.flows.append(flow)
@@ -885,8 +883,8 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
 
     def _find_all_bridges(self):
         result = OVSCommand.ovs_vsctl_list_br()
-        bridges = [_ for _ in result.stdout.split()
-                   if self.vm_set in _ and _.startswith(ACTIVE_ACTIVE_BRIDGE_TEMPLATE[0])]
+        bridges = [_ for _ in result.stdout.split() if self.vm_set in
+                   _ and _.startswith(ACTIVE_ACTIVE_BRIDGE_TEMPLATE[0])]
         return bridges
 
     def start_nic_servers(self):
