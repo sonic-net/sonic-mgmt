@@ -1,5 +1,4 @@
 cd {{pfc_gen_dir}}
-ip netns exec management bash
 {% if (pfc_asym is defined) and (pfc_asym == True) %}
 sudo nohup {% if pfc_storm_defer_time is defined %}sleep {{pfc_storm_defer_time}} &&{% endif %} python {{pfc_gen_file}} -p {{pfc_queue_index}} -t 65535 -n {{pfc_frames_number}} -i {{pfc_fanout_interface | replace("Ethernet", "Eth") | replace("/", "-")}} > /dev/null 2>&1 &
 {% else %}
