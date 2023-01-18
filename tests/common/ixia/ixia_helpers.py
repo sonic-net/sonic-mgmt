@@ -14,13 +14,13 @@ from copy import deepcopy
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.common_helpers import ansible_stdout_to_str, get_peer_ixia_chassis
 from tests.common.reboot import logger
-from ixnetwork_restpy import SessionAssistant, Files
 
-class IxiaFanoutManager () :
+
+class IxiaFanoutManager ():
     """Class for managing multiple chassis and extracting the information
      like chassis IP, card, port etc. from fanout_graph_fact."""
 
-    def __init__(self,fanout_data) :
+    def __init__(self, fanout_data):
         """ When multiple chassis are available inside fanout_graph_facts
         this method makes a  list of chassis connection-details out of it.
         So each chassis and details  associated with it can be accessed by
@@ -85,13 +85,13 @@ class IxiaFanoutManager () :
         self.current_ixia_port_list = None
         self.ip_address = '0.0.0.0'
 
-        for fanout in fanout_data.keys() :
+        for fanout in fanout_data.keys():
             self.fanout_list.append(fanout_data[fanout])
 
-    def __parse_fanout_connections__ (self) :
+    def __parse_fanout_connections__(self):
         device_conn = self.last_device_connection_details
         retval = []
-        for key in device_conn.keys() :
+        for key in device_conn.keys():
             fanout_port = ansible_stdout_to_str(key)
             peer_port = ansible_stdout_to_str(device_conn[key]['peerport'])
             peer_device = ansible_stdout_to_str(device_conn[key]['peerdevice'])
@@ -102,7 +102,7 @@ class IxiaFanoutManager () :
 
         return(retval)
 
-    def get_fanout_device_details (self, device_number) :
+    def get_fanout_device_details(self, device_number):
         """With the help of this function you can select the chassis you want
         to access. For example get_fanout_device_details(0) selects the
         first chassis. It just select the chassis but does not return
@@ -134,11 +134,11 @@ class IxiaFanoutManager () :
 
         # List of chassis cards and ports
         self.current_ixia_port_list = \
-             self.__parse_fanout_connections__()
+            self.__parse_fanout_connections__()
 
-        #return self.fanout_list[self.last_fanout_assessed]
+        # return self.fanout_list[self.last_fanout_assessed]
 
-    def get_connection_details (self) :
+    def get_connection_details(self):
         """This function returns all the details associated with a particular
         chassis (selected earlier using get_fanout_device_details() function).
         Details of the chassis will be available like chassis IP, card, ports,
@@ -155,7 +155,7 @@ class IxiaFanoutManager () :
         """
         return(self.last_device_connection_details)
 
-    def get_chassis_ip (self) :
+    def get_chassis_ip(self):
         """This function returns IP address of a particular chassis
         (selected earlier using get_fanout_device_details() function).
 
@@ -170,7 +170,7 @@ class IxiaFanoutManager () :
         """
         return self.ip_address
 
-    def get_ports(self, peer_device=None) :
+    def get_ports(self, peer_device=None):
         """This function returns list of ports that are (1) associated with a
         chassis (selected earlier using get_fanout_device_details() function)
         and (2) connected to a peer device (SONiC DUT) as a list of dictionary.
@@ -202,6 +202,7 @@ class IxiaFanoutManager () :
 
         return retval
 
+
 def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
     ixia_fanout = get_peer_ixia_chassis(conn_data=conn_data,
                                         dut_hostname=dut_hostname)
@@ -217,11 +218,12 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
 
     for i in range(len(ixia_ports)):
         if ixia_ports[i]['peer_port'] == dut_port:
-           return i
+            return i
 
     return None
 
-def clean_configuration(session) :
+
+def clean_configuration(session):
     """Clean up the configurations cteated in IxNetwork API server.
 
     Args:
@@ -251,7 +253,7 @@ def _get_port_mode_by_speed(speed):
     return mode
 
 
-def configure_ports(session, port_list, start_name='port') :
+def configure_ports(session, port_list, start_name='port'):
     """Configures ports of the IXIA chassis and returns the list
        of configured Ixia ports
 
@@ -318,7 +320,7 @@ def configure_ports(session, port_list, start_name='port') :
     port_property = {
         'speed': 10000000,
         'ieee_l1_defaults': False,
-        'pfc_priotity_groups': [0,1,2,3,4,5,6,7],
+        'pfc_priotity_groups': [0, 1, 2, 3, 4, 5, 6, 7],
         'card_type': 'novusHundredGigLanFcoe',
         'enable_auto_negotiation': False
     }
@@ -329,17 +331,13 @@ def configure_ports(session, port_list, start_name='port') :
             port_list[i].get('card_type', port_property['card_type'])
 
         vport.L1Config.NovusHundredGigLan.Fcoe.PfcPriorityGroups = \
-            port_list[i].get('pfc_priotity_groups',
-                port_property['pfc_priotity_groups'])
-
+            port_list[i].get('pfc_priotity_groups', port_property['pfc_priotity_groups'])
 
         vport.L1Config.NovusHundredGigLan.IeeeL1Defaults = \
-            port_list[i].get('ieee_l1_defaults',
-                port_property['ieee_l1_defaults'])
+            port_list[i].get('ieee_l1_defaults', port_property['ieee_l1_defaults'])
 
         vport.L1Config.NovusHundredGigLan.EnableAutoNegotiation = \
-            port_list[i].get('enable_auto_negotiation',
-                port_property['enable_auto_negotiation'])
+            port_list[i].get('enable_auto_negotiation', port_property['enable_auto_negotiation'])
 
         port_speed = port_list[i].get('speed', port_property['speed'])
         vport.L1Config.NovusHundredGigLan.Speed = \
@@ -348,6 +346,7 @@ def configure_ports(session, port_list, start_name='port') :
         i += 1
 
     return vports
+
 
 def create_topology(session, name, port_list, ip_list, gw_list):
     """ This function creates a topology with ethernet and IP stack on
@@ -367,8 +366,8 @@ def create_topology(session, name, port_list, ip_list, gw_list):
     """
     ixnetwork = session.Ixnetwork
 
-    pytest_assert(len(port_list)==len(ip_list), "Each port should have an IP")
-    pytest_assert(len(port_list)==len(gw_list), "Each port should have a gateway")
+    pytest_assert(len(port_list) == len(ip_list), "Each port should have an IP")
+    pytest_assert(len(port_list) == len(gw_list), "Each port should have a gateway")
 
     topology = ixnetwork.Topology.add(Name=name, Ports=port_list)
 
@@ -391,7 +390,7 @@ def start_protocols(session):
        protocol stack (e.g., IP and Ethernet).
 
     Args:
-        session (obj) : IxNetwork session object.
+        session (obj): IxNetwork session object.
 
     Returns:
         None
@@ -404,12 +403,12 @@ def start_protocols(session):
     logger.info(protocolSummary)
 
 
-def stop_protocols(session) :
+def stop_protocols(session):
     """This function stops all the protocols configured on the IxNetwork
        protocol stack (e.g., IP and Ethernet).
 
     Args:
-        session (obj) : IxNetwork session object.
+        session (obj): IxNetwork session object.
 
     Returns:
         None
@@ -422,7 +421,7 @@ def get_traffic_statistics(session, stat_view_name='Flow Statistics'):
     """This function fetches the traffic statistics information.
 
     Args:
-        session (obj) : IxNetwork session object.
+        session (obj): IxNetwork session object.
         stat_view_name (str, optional): Statistics view name. Default
             value is 'Flow Statistics'
 
@@ -433,6 +432,7 @@ def get_traffic_statistics(session, stat_view_name='Flow Statistics'):
     traffic_statistics = session.StatViewAssistant(stat_view_name)
     ixnetwork.info('{}\n'.format(traffic_statistics))
     return traffic_statistics
+
 
 def dump_flow_statistics(session):
     """This function dumps per-flow statistics
@@ -445,6 +445,7 @@ def dump_flow_statistics(session):
     """
     flow_stats = get_traffic_statistics(session, stat_view_name='Flow Statistics')
     return [deepcopy(stat) for row, stat in enumerate(flow_stats.Rows)]
+
 
 def stop_traffic(session):
     """ This function stops all the IxNetwork traffic items configured
@@ -475,7 +476,7 @@ def start_traffic(session):
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
 
 
-def create_ip_traffic_item (
+def create_ip_traffic_item(
         session,
         src_start_port,
         src_port_count,
@@ -486,7 +487,7 @@ def create_ip_traffic_item (
         dst_first_route_index,
         dst_route_count,
         name='example_traffic',
-        traffic_type='ipv4') :
+        traffic_type='ipv4'):
 
     """
     This function creates a traffic item where source and destination ports
@@ -531,14 +532,14 @@ def create_ip_traffic_item (
     """
 
     traffic_item = session.Ixnetwork.Traffic.TrafficItem.add(
-                   Name = name,
-                   TrafficType = traffic_type)
+                   Name=name,
+                   TrafficType=traffic_type)
 
-    if (traffic_type == 'ipv4') :
+    if (traffic_type == 'ipv4'):
         obj = '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv4/1'
     elif (traffic_type == 'ipv6'):
         obj = '/api/v1/sessions/1/ixnetwork/topology/1/deviceGroup/1/ethernet/1/ipv6/1'
-    else :
+    else:
         pytest_assert(0, 'Unknown traffic type {}'.format(traffic_type))
 
     src = [{'arg1': obj,
@@ -546,14 +547,14 @@ def create_ip_traffic_item (
             'arg3': src_port_count,
             'arg4': src_first_route_index,
             'arg5': dst_route_count}
-    ]
+           ]
 
     dst = [{'arg1': obj,
             'arg2': dst_start_port,
             'arg3': dst_port_count,
             'arg4': dst_first_route_index,
             'arg5': dst_route_count}
-    ]
+           ]
 
     endPoint = traffic_item.EndpointSet.add()
     endPoint.ScalableSources = src
@@ -616,7 +617,7 @@ def create_ipv4_traffic(session,
         traffic_item = ixnetwork.Traffic.TrafficItem.add(Name=name, BiDirectional=bidirectional, TrafficType='ipv4')
         traffic_item.EndpointSet.add(Sources=source, Destinations=destination)
 
-    traffic_config  = traffic_item.ConfigElement.find()[0]
+    traffic_config = traffic_item.ConfigElement.find()[0]
     traffic_config.FrameRate.update(Type='percentLineRate', Rate=rate_percent)
     traffic_config.FrameRateDistribution.PortDistribution = 'splitRateEvenly'
     traffic_config.FrameSize.FixedSize = pkt_size
@@ -694,8 +695,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
     if pause_prio_list is not None:
         for prio in pause_prio_list:
             if prio < 0 or prio > 7:
-                logger.error('Invalid pause priorities {}'.
-                    format(pause_prio_list))
+                logger.error('Invalid pause priorities {}'.format(pause_prio_list))
                 return None
 
     ixnetwork = session.Ixnetwork
@@ -724,8 +724,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 
     elif duration is not None:
         if type(duration) != int or duration <= 0:
-            logger.error('Invalid duration value {} (positive integer only)'.
-                format(duration))
+            logger.error('Invalid duration value {} (positive integer only)'.format(duration))
 
             return None
         else:
@@ -745,8 +744,8 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
     pfc_stack_obj = __create_pkt_hdr(
         ixnetwork=ixnetwork,
         traffic_item=traffic_item,
-        pkt_hdr_to_add='^PFC PAUSE \(802.1Qbb\)',
-        append_to_stack='Ethernet II')
+        pkt_hdr_to_add=r'^PFC PAUSE \(802.1Qbb\)',
+        append_to_stack=r'Ethernet II')
 
     # Construct global pause and PFC packets.
     if global_pause:
@@ -771,6 +770,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
 # 2. __set_eth_fields
 # 3. __set_pfc_fields
 # 4. __create_pkt_hdr
+
 
 def __set_global_pause_fields(pfc_stack_obj):
     code = pfc_stack_obj.find(DisplayName='Control opcode')
@@ -846,17 +846,17 @@ def __set_pfc_fields(pfc_stack_obj, pause_prio_list):
 
 
 def __create_pkt_hdr(ixnetwork,
-                       traffic_item,
-                       pkt_hdr_to_add,
-                       append_to_stack):
-    #Add new packet header in traffic item
+                     traffic_item,
+                     pkt_hdr_to_add,
+                     append_to_stack):
+    # Add new packet header in traffic item
     config_element = traffic_item.ConfigElement.find()[0]
 
     # Do the followings to add packet headers on the new traffic item
 
     # Uncomment this to show a list of all the available protocol templates
     # to create (packet headers)
-    #for protocolHeader in ixNetwork.Traffic.ProtocolTemplate.find():
+    # for protocolHeader in ixNetwork.Traffic.ProtocolTemplate.find():
     #    ixNetwork.info('Protocol header: -- {} --'.
     #        format(protocolHeader.DisplayName))
 
@@ -864,14 +864,14 @@ def __create_pkt_hdr(ixnetwork,
     #   list.
     pkt_hdr_proto_template = \
         ixnetwork.Traffic.ProtocolTemplate.find(DisplayName=pkt_hdr_to_add)
-    #ixNetwork.info('protocolTemplate: {}'.format(packetHeaderProtocolTemplate))
+    # ixNetwork.info('protocolTemplate: {}'.format(packetHeaderProtocolTemplate))
 
     # 2> Append the <new packet header> object after the specified packet
     #   header stack.
     append_to_stack_obj = config_element.Stack.find(
         DisplayName=append_to_stack
     )
-    #ixNetwork.info('appendToStackObj: {}'.format(appendToStackObj))
+    # ixNetwork.info('appendToStackObj: {}'.format(appendToStackObj))
     append_to_stack_obj.Append(Arg2=pkt_hdr_proto_template)
 
     # 3> Get the new packet header stack to use it for appending an
@@ -880,7 +880,7 @@ def __create_pkt_hdr(ixnetwork,
 
     # 4> In order to modify the fields, get the field object
     pkt_hdr_field_obj = pkt_hdr_stack_obj.Field.find()
-    #ixNetwork.info('packetHeaderFieldObj: {}'.format(packetHeaderFieldObj))
+    # ixNetwork.info('packetHeaderFieldObj: {}'.format(packetHeaderFieldObj))
 
     # 5> Save the above configuration to the base config file.
     #   ixNetwork.SaveConfig(Files('baseConfig.ixncfg', local_file=True))
@@ -895,7 +895,7 @@ def get_tgen_location(intf):
     Note: Interface must have the keys 'ip', 'card_id' and 'port_id'
 
     Args:
-    intf (dict) : intf must contain the keys 'ip', 'card_id', 'port_id'.
+    intf (dict): intf must contain the keys 'ip', 'card_id', 'port_id'.
         Example format :
         {'ip': u'10.36.78.53',
          'port_id': u'1',

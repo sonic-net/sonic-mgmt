@@ -4,6 +4,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
+
 def prepare_testbed_ssh_keys(duthost, ptfhost, dut_username):
     '''
     Prepares testbed ssh keys by generating ssh key on ptf host and adding this key to known_hosts on duthost
@@ -19,7 +20,7 @@ def prepare_testbed_ssh_keys(duthost, ptfhost, dut_username):
     try:
         ptfhost.shell('stat /root/.ssh/known_hosts')
     except RunAnsibleModuleFail:
-        pass # files does not exist
+        pass    # files does not exist
     else:
         ptfhost.shell('ssh-keygen -f /root/.ssh/known_hosts -R ' + dut_ip)
 
