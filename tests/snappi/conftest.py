@@ -76,29 +76,3 @@ def enable_packet_aging_after_test(duthosts, rand_one_dut_hostname):
 
     duthost = duthosts[rand_one_dut_hostname]
     enable_packet_aging(duthost)
-
-
-@pytest.fixture(scope="module")
-def pfc_pause_delay_test_params(duthosts, rand_one_dut_hostname):
-    """
-    Retrieves a dictionary of pfc pause delay values for the headroom test
-    Args:
-        duthost (Ansible host instance): device under test
-    Returns:
-        pfc_pause_delay_test_params: Mapped from pfc pause quanta to whether
-                                the headroom test will fail or not
-                                E.g. {1:True, 2:False, 3:False}
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts['platform']
-    pfc_pause_delay_test_params = {}
-    if ('Cisco' or 'cisco') and '8102' in platform:
-        pfc_pause_delay_test_params[0] = True
-        pfc_pause_delay_test_params[1023] = True
-    elif ('Arista' or 'arista') and '7050cx3' in platform:
-        pfc_pause_delay_test_params[0] = True
-        pfc_pause_delay_test_params[200] = False
-    else:
-        pfc_pause_delay_test_params = None
-    
-    return pfc_pause_delay_test_params

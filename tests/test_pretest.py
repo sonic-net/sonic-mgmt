@@ -214,6 +214,30 @@ def collect_dut_lossy_prio(dut):
     return [p for p in all_prio if p not in lossless_prio]
 
 
+def collect_dut_pfc_pause_delay_params(dut):
+    """
+    Retrieves a dictionary of pfc pause delay values for the headroom test
+    Args:
+        dut (Ansible host instance): device under test
+    Returns:
+        pfc_pause_delay_test_params: Mapped from pfc pause quanta to whether
+                                the headroom test will fail or not
+                                E.g. {1:True, 2:False, 3:False}
+    """
+    platform = dut.facts['platform']
+    pfc_pause_delay_test_params = {}
+    if 'cisco' and '8102' in platform.lower():
+        pfc_pause_delay_test_params[0] = True
+        pfc_pause_delay_test_params[1023] = True
+    elif 'arista' and '7050cx3' in platform.lower():
+        pfc_pause_delay_test_params[0] = True
+        pfc_pause_delay_test_params[200] = False
+    else:
+        pfc_pause_delay_test_params = None
+    
+    return pfc_pause_delay_test_params
+
+
 def test_collect_testbed_prio(duthosts, tbinfo):
     all_prio = {}
     lossless_prio = {}
@@ -240,6 +264,33 @@ def test_collect_testbed_prio(duthosts, tbinfo):
                 json.dump({tbname: prio_info[i]}, yf, indent=4)
         except IOError as e:
             logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
+def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
+    pfc_pause_delay_params = {}
+
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+
+    for dut in duthosts:
+        pfc_pause_delay_params_dut = collect_dut_pfc_pause_delay_params(dut)
+        if pfc_pause_delay_params_dut is None:
+            continue
+        else:
+            pfc_pause_delay_params[dut.hostname] = pfc_pause_delay_params_dut
+
+    file_name = tbname + '.json'
+    folder = 'pfc_headroom_test_params'
+
+    
+    filepath = os.path.join(folder, file_name)
+    try:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(filepath, 'w') as yf:
+            json.dump({ tbname : pfc_pause_delay_params}, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
 def test_update_saithrift_ptf(request, ptfhost):
