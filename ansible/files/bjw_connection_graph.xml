@@ -20,6 +20,11 @@
       <Device Hostname="bjw-can-serv-4" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-5" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-6" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-7" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-8" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-9" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-10" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-11" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Type="DevSonic"/>
@@ -468,6 +473,11 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-6" EndPort="Ethernet124" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet14/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-7" EndPort="Ethernet124" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet15/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-slx-8" EndPort="Ethernet124" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet16/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-7" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet17/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-8" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet18/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-9" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet19/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-10" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet20/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-11" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/1"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -492,6 +502,11 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids="517-547"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids="553-583"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet16/1" vlanids="588-618"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet17/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet18/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet19/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet20/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-3">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.103/23"/>
@@ -733,8 +748,17 @@
       <InterfaceVlan mode="Access" portname="Ethernet120" vlanids="379"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet124" vlanids="349-379"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="bjw-can-serv-8">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.229/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-9">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.230/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-serv-6">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.227/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-7">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.228/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-serv-4">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.225/23"/>
@@ -940,6 +964,12 @@
       <InterfaceVlan mode="Access" portname="Ethernet7/4" vlanids="587"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252,316,348,380,429-432,481-484,548,549-551,584-587"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="bjw-can-serv-10">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.231/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-11">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.232/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-2700-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.115/23"/>
     </DevicesL3Info>
@@ -1142,6 +1172,16 @@
       <PowerControlLinkInfo EndDevice="bjw-can-serv-5" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="33"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-6" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="27"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-6" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="27"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-7" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-7" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-8" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="25"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-8" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="25"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-9" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="27"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-9" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="27"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-10" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="29"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-10" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="29"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-11" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="30"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-serv-11" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="30"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7060-fanout-1" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="29"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7060-fanout-1" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="29"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7260-root-1" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="30"/>

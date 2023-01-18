@@ -367,3 +367,13 @@ server:
       ansible_host: 10.150.22.226
     bjw-can-serv-6:
       ansible_host: 10.150.22.227
+    bjw-can-serv-7:
+      ansible_host: 10.150.22.228
+    bjw-can-serv-8:
+      ansible_host: 10.150.22.229
+    bjw-can-serv-9:
+      ansible_host: 10.150.22.230
+    bjw-can-serv-10:
+      ansible_host: 10.150.22.231
+    bjw-can-serv-11:
+      ansible_host: 10.150.22.232
