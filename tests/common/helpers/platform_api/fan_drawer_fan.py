@@ -10,10 +10,12 @@ logger = logging.getLogger(__name__)
 def fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, name, args=None):
     if args is None:
         args = []
-    conn.request('POST', '/platform/chassis/fan_drawer/{}/fan/{}/{}'.format(fan_drawer_idx, fan_idx, name), json.dumps({'args': args}))
+    conn.request('POST', '/platform/chassis/fan_drawer/{}/fan/{}/{}'.format(fan_drawer_idx, fan_idx, name),
+                 json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
-    logger.info('Executing fan drawer fan API: "{}", fan_drawer index: {}, fan_index {} , arguments: "{}", result: "{}"'.format(name, fan_drawer_idx, fan_idx, args, res))
+    logger.info('Executing fan drawer fan API: "{}", fan_drawer index: {}, fan_index {} , arguments: "{}", \
+                result: "{}"'.format(name, fan_drawer_idx, fan_idx, args, res))
     return res
 
 #
