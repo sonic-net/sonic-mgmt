@@ -288,6 +288,5 @@ class NeighLagMemberDown(LagMemberDown):
                 else:
                     fanout.shutdown(fanport)
 
-
     def __str__(self):
         return "neigh_lag_member_down:{}:{}".format(len(self.vms), len(self.ports))
