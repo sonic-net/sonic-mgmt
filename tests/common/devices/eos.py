@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import re
+import os
 
 from tests.common.devices.base import AnsibleHostBase
 
@@ -109,10 +110,10 @@ class EosHost(AnsibleHostBase):
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
-            """ 
-            Note: 
+            """
+            Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4    
+            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -134,10 +135,10 @@ class EosHost(AnsibleHostBase):
     def links_status_up(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
-            """ 
-            Note: 
+            """
+            Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4    
+            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -155,7 +156,7 @@ class EosHost(AnsibleHostBase):
                     logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
                     return False
         return True
-        
+
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
             lines=['lacp rate %s' % mode],
@@ -459,3 +460,33 @@ class EosHost(AnsibleHostBase):
         except Exception as e:
             logger.error('command {} failed. exception: {}'.format(command, repr(e)))
         return False
+
+    def get_portchannel_by_member(self, member_intf):
+        try:
+            command = 'show lacp interface {} | json'.format(member_intf)
+            output = self.eos_command(commands=[command])['stdout'][0]
+            for port in output['portChannels'].keys():
+                return port
+        except Exception as e:
+            logger.error('Failed to get PortChannel for member interface "{}", exception: {}'.format(
+                        member_intf, repr(e)
+                        ))
+            return None
+
+    def load_configuration(self, config_file, backup_file=None):
+        if backup_file is None:
+            out = self.eos_config(
+                src=config_file,
+                replace='config',
+            )
+        else:
+            out = self.eos_config(
+                src=config_file,
+                replace='line',
+                backup='yes',
+                backup_options={
+                    'filename': os.path.basename(backup_file),
+                    'dir_path': os.path.dirname(backup_file),
+                }
+            )
+        return not self._has_cli_cmd_failed(out)

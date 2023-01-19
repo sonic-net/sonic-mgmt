@@ -13,15 +13,17 @@ from tests.common.utilities import wait_until
 def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
     for k, v in processes_status.items():
-        if v['status'] == False or len(v['exited_critical_process']) > 0:
+        if v['status'] is False or len(v['exited_critical_process']) > 0:
             return False, processes_status
 
     return True, processes_status
+
 
 def _all_critical_processes_healthy(dut):
     logging.info("Check critical processes status")
     status, _ = get_critical_processes_status(dut)
     return status
+
 
 def check_critical_processes(dut, watch_secs=0):
     """
@@ -38,6 +40,7 @@ def check_critical_processes(dut, watch_secs=0):
             time.sleep(min(5, watch_secs))
         watch_secs = watch_secs - 5
 
+
 def wait_critical_processes(dut):
     """
     @summary: wait until all critical processes are healthy.
@@ -46,4 +49,3 @@ def wait_critical_processes(dut):
     logging.info("Wait until all critical processes are healthy")
     pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")
-

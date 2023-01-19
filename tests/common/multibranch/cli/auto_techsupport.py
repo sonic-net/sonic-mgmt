@@ -35,9 +35,9 @@ class AutoTechSupportCliDefault:
     def parse_show_auto_techsupport_global(self):
         """
         Parse output for cmd "show auto-techsupport global"
-        STATE    RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)    AVAILABLE MEM THRESHOLD (%)    MIN AVAILABLE MEM (Kb)    SINCE
-        -------  ---------------------------  ---------------------------  --------------------  -----------------------------  ------------------------  ----------
-        enabled  180                          10                           5                     10                             200                       2 days ago
+        STATE    RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)    AVAILABLE MEM THRESHOLD (%)    MIN AVAILABLE MEM (Kb)    SINCE                 # noqa E501
+        -------  ---------------------------  ---------------------------  --------------------  -----------------------------  ------------------------  ----------            # noqa E501
+        enabled  180                          10                           5                     10                             200                       2 days ago            # noqa E501
         :return: dictionary with parsed result, example: {'state': 'enabled', 'rate_limit_interval': '180',
         'max_techsupport_limit': '10', 'max_core_size': '5', 'since': '2 days ago'}
         """

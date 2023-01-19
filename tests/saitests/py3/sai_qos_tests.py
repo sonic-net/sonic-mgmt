@@ -2001,7 +2001,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if is_dualtor and def_vlan_mac != None:
             self.dst_port_mac = def_vlan_mac
 
-        if self.testbed_type in ['dualtor', 't0', 't0-64', 't0-116']:
+        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
             # populate ARP
             for idx, ptid in enumerate(self.src_port_ids):
 
@@ -2644,6 +2644,13 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         q_cnt_sum = sum(q_pkt_cnt)
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            sys.stderr.write("Since it's dual-TOR testbed, modify pkt_dst_mac from {} to {}\n".format(pkt_dst_mac, def_vlan_mac))
+            pkt_dst_mac = def_vlan_mac
+
         pkt = construct_ip_pkt(64,
                                pkt_dst_mac,
                                src_port_mac,
