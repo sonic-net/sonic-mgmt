@@ -13,7 +13,7 @@ import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
@@ -330,6 +330,10 @@ def test_nhop_group_member_count(request, duthost, tbinfo):
         sleep_time = 380
     elif is_innovium_device(duthost):
         default_max_nhop_paths = 3
+        polling_interval = 10
+        sleep_time = 120
+    elif is_mellanox_device(duthost) and get_chip_type(duthost) == 'spectrum1':
+        default_max_nhop_paths = 8
         polling_interval = 10
         sleep_time = 120
     else:
