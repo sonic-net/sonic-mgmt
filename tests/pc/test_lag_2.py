@@ -12,7 +12,6 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
-from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 
 logger = logging.getLogger(__name__)
