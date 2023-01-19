@@ -102,6 +102,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
                     port_alias_old)
         duthost.command(db_cmd)
 
+
 @pytest.fixture(scope='module', params=['alias', 'default'])
 def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     """
@@ -133,13 +134,15 @@ def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_
     # So return Error from this fixture itself.
     if (ifmode != mode) or (naming_mode != mode):
         logger.info('Removing the created guest user')
-        duthost.user(name='guest', groups='sudo', state ='absent', shell='/bin/bash', remove='yes')
-        pytest.fail('Interface naming mode in .bashrc "{}", returned by show interfaces naming_mode "{}" does not the match the configured naming mode "{}"'.format(ifmode, naming_mode, mode))
+        duthost.user(name='guest', groups='sudo', state='absent', shell='/bin/bash', remove='yes')
+        pytest.fail('Interface naming mode in .bashrc "{}", returned by show interfaces naming_mode \
+        "{}" does not the match the configured naming mode "{}"'.format(ifmode, naming_mode, mode))
 
     yield dutHostGuest, mode, ifmode
 
     logger.info('Removing the created guest user')
-    duthost.user(name='guest', groups='sudo', state ='absent', shell='/bin/bash', remove='yes')
+    duthost.user(name='guest', groups='sudo', state='absent', shell='/bin/bash', remove='yes')
+
 
 @pytest.fixture(scope='module')
 def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -179,10 +182,11 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return interface_info
 
 #############################################################
-######################## START OF TESTS #####################
+#                        START OF TESTS                     #
 #############################################################
 
 # Tests to be run in all topologies
+
 
 class TestShowLLDP():
 
@@ -225,7 +229,8 @@ class TestShowLLDP():
 
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
-                assert re.search(r'{}.*\s+{}'.format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']), lldp_table) is not None
+                assert re.search(r'{}.*\s+{}'
+                .format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']), lldp_table) is not None
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
                 assert re.search(r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']), lldp_table) is not None
@@ -240,15 +245,18 @@ class TestShowLLDP():
         test_intf = lldp_interfaces['alias'][0] if (mode == 'alias') else lldp_interfaces['interface'][0]
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_neighbor = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'.format(ifmode, test_intf))['stdout']
+        lldp_neighbor = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'
+        .format(ifmode, test_intf))['stdout']
         logger.info('lldp_neighbor:\n{}'.format(lldp_neighbor))
 
         if mode == 'alias':
             assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
-            assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']), lldp_neighbor) is not None
+            assert re.search(r'SysName:\s+{}'
+            .format(minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']), lldp_neighbor) is not None
         elif mode == 'default':
             assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
             assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[test_intf]['name']), lldp_neighbor) is not None
+
 
 class TestShowInterfaces():
 
@@ -288,7 +296,8 @@ class TestShowInterfaces():
         interface = sample_intf['default']
         interface_alias = sample_intf['alias']
 
-        show_intf_desc = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces description {} | sed -n "/^ *Eth/ p"'.format(ifmode, test_intf))['stdout']
+        show_intf_desc = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces description {} | \
+        sed -n "/^ *Eth/ p"'.format(ifmode, test_intf))['stdout']
         logger.info('show_intf_desc:\n{}'.format(show_intf_desc))
 
         assert re.search(r'{}.*{}'.format(interface, interface_alias), show_intf_desc) is not None
@@ -305,7 +314,8 @@ class TestShowInterfaces():
         interface_alias = sample_intf['alias']
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+[\w\/]+\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
 
-        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | grep -w {1}'.format(ifmode, test_intf))
+        show_intf_status = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={0} show interfaces status {1} | \
+        grep -w {1}'.format(ifmode, test_intf))
         logger.info('show_intf_status:\n{}'.format(show_intf_status['stdout']))
 
         line = show_intf_status['stdout'].strip()
@@ -330,7 +340,8 @@ class TestShowInterfaces():
 
         for key, value in minigraph_portchannels.items():
             if mode == 'alias':
-                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, setup['port_name_map'][value['members'][0]]), int_po) is not None
+                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'
+                .format(key, setup['port_name_map'][value['members'][0]]), int_po) is not None
             elif mode == 'default':
                 assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, value['members'][0]), int_po) is not None
 
@@ -354,6 +365,7 @@ def test_show_pfc_counters(setup, setup_config_mode):
             assert (intf in pfc_rx) and (intf in pfc_tx)
             assert (setup['port_name_map'][intf] not in pfc_rx) and (setup['port_name_map'][intf] not in pfc_tx)
 
+
 class TestShowPriorityGroup():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -366,7 +378,8 @@ class TestShowPriorityGroup():
         lists the interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark headroom'.format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark headroom'
+        .format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -382,7 +395,8 @@ class TestShowPriorityGroup():
         lists the interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark shared'.format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark shared'
+        .format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -398,7 +412,8 @@ class TestShowPriorityGroup():
         interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark headroom'.format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark headroom'
+        .format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -414,7 +429,8 @@ class TestShowPriorityGroup():
         interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark shared'.format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark shared'
+        .format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -439,7 +455,8 @@ class TestShowQueue():
         """
         duthost = duthosts[rand_one_dut_hostname]
         sonic_asic = duthost.asic_instance(asic_index=enum_frontend_asic_index)
-        redis_out = sonic_asic.run_redis_cmd(argv=["redis-dump", "-d", 1, "-y", "-k", "*ASIC_STATE:SAI_OBJECT_TYPE_QUEUE*"])
+        redis_out = sonic_asic.run_redis_cmd(
+        argv=["redis-dump", "-d", 1, "-y", "-k", "*ASIC_STATE:SAI_OBJECT_TYPE_QUEUE*"])
         supported_queues = set(re.findall(r'SAI_QUEUE_TYPE_(\w*)', ''.join(redis_out)))
         return supported_queues
 
@@ -449,7 +466,8 @@ class TestShowQueue():
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC\|ALL"'.format(ifmode))['stdout']
+        queue_counter = dutHostGuest.shell(
+        'SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC.MC.ALL"'.format(ifmode))['stdout']
         logger.info('queue_counter:\n{}'.format(queue_counter))
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -465,10 +483,12 @@ class TestShowQueue():
         if mode == 'alias':
             for intf in interfaces:
                 alias = setup['port_name_map'][intf]
-                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter)
+                is not None) and (setup['port_alias_map'][alias] not in queue_counter)
         elif mode == 'default':
             for intf in interfaces:
-                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter)
+                is not None) and (setup['port_name_map'][intf] not in queue_counter)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -477,11 +497,13 @@ class TestShowQueue():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
-        queue_counter_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC\|ALL"'.format(ifmode, test_intf))
+        queue_counter_intf = dutHostGuest.shell(
+        'SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC.MC.ALL"'.format(ifmode, test_intf))
         logger.info('queue_counter_intf:\n{}'.format(queue_counter_intf))
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
-            assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
+            assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i),
+            queue_counter_intf['stdout']) is not None
             
     @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
     def test_show_queue_persistent_watermark(self, setup, setup_config_mode, queues, supported_queues):
