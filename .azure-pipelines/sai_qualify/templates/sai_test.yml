@@ -38,7 +38,7 @@ parameters:
 
   - name: SAI_TEST_TIMEOUT
     type: number
-    default: 600    # minutes, totally 10 hours
+    default: 360    # minutes, totally 6 hours
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
@@ -78,7 +78,7 @@ parameters:
 
   - name: TESTBED_LOCK_HOUR
     type: string
-    default: "5"
+    default: "6"
 
   - name: AGENT_POOL
     type: string
