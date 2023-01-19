@@ -21,9 +21,6 @@ DEFAULT_PDUCSV = 'sonic_lab_pdu_links.csv'
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
 LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
 
-PORT_TYPE_NAME = "name"
-PORT_TYPE_ALIAS = "alias"
-
 
 class LabGraph(object):
 
@@ -33,8 +30,7 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment.
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None,
-                 port_type=PORT_TYPE_NAME):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         self.devices = {}
         self.links = []
         self.consoles = []
@@ -46,7 +42,6 @@ class LabGraph(object):
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
         self.one_xmlfile = graph_xmlfile
-        self.port_type = port_type
         self._cache_port_name_to_alias = {}
         self._cache_port_alias_to_name = {}
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
@@ -75,41 +70,27 @@ class LabGraph(object):
         self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
         return port_name_to_alias_map
 
-    def _get_port_name_list(self, hwsku):
+    def _get_port_name_set(self, device_hostname):
         """
-        Retrive port name list of a specific hwsku.
-        """
-        return self._get_port_name_to_alias_map(hwsku).keys()
-
-    def _get_port_alias_list(self, hwsku):
-        """
-        Retrive port alias list of a specific hwsku.
-        """
-        return self._get_port_alias_to_name_map(hwsku).keys()
-
-    def _all_ports_using_name(self, device_hostname, ports):
-        """
-        Check if all ports of a device are using port name
+        Retrive port name set of a specific hwsku.
         """
         hwsku = self.devices[device_hostname]['HwSku']
-        port_name_list = self._get_port_name_list(hwsku)
-        return all([port in port_name_list for port in ports])
+        return set(self._get_port_name_to_alias_map(hwsku).keys())
 
-    def _all_ports_using_alias(self, device_hostname, ports):
+    def _get_port_alias_set(self, device_hostname):
         """
-        Check if all ports of a device are using port alias
+        Retrive port alias set of a specific hwsku.
         """
         hwsku = self.devices[device_hostname]['HwSku']
-        port_alias_list = self._get_port_alias_list(hwsku)
-        return all([port in port_alias_list for port in ports])
+        return set(self._get_port_alias_to_name_map(hwsku).keys())
 
     def _convert_port_alias_to_name(self, device_hostname, port_alias):
         """
         Given the device hostname and port alias, return the corresponding port name.
         """
         devtype = self.devices[device_hostname]['Type'].lower()
-        if devtype != 'devsonic' and 'fanout' not in devtype:
-            raise Exception("Cannot convert port alias to name for device type {}".format(devtype))
+        if 'sonic' not in devtype:
+            raise Exception("Cannot convert port alias to name for non-SONiC device {}".format(device_hostname))
         hwsku = self.devices[device_hostname]['HwSku']
         port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
         return port_alias_to_name_map[port_alias]
@@ -164,13 +145,20 @@ class LabGraph(object):
                     ports.append(link['StartPort'])
                 elif device == link['EndDevice']:
                     ports.append(link['EndPort'])
-            if (self.port_type == PORT_TYPE_NAME and not self._all_ports_using_name(device, ports)) \
-                    or (self.port_type == PORT_TYPE_ALIAS and self._all_ports_using_alias(device, ports)):
+            if any([port not in self._get_port_alias_set(device).union(self._get_port_name_set(device)) for port in ports]):
+                # If any port of a device is neither port name nor port alias, skip conversion for this device.
+                continue
+            if all([port in self._get_port_alias_set(device) for port in ports]):
+                # If all ports of a device are port alias, convert them to port name.
                 for link in links:
                     if device == link['StartDevice']:
                         link['StartPort'] = self._convert_port_alias_to_name(device, link['StartPort'])
                     elif device == link['EndDevice']:
                         link['EndPort'] = self._convert_port_alias_to_name(device, link['EndPort'])
+            elif not all([port in self._get_port_name_set(device) for port in ports]):
+                # If some ports use port name and others use port alias, raise an Exception.
+                raise Exception("[Failed] For device {}, please check {} and ensure all ports use port name, "
+                                "or ensure all ports use port alias.".format(device, self.linkcsv))
 
         # Generate DeviceInterfaceLink XML nodes for connection graph
         links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
@@ -279,8 +267,6 @@ def main():
     parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
     parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
-    parser.add_argument("--port-type", help="[for SONiC devices] port type used in link file",
-                        type=str, required=False, default=PORT_TYPE_NAME, choices=[PORT_TYPE_NAME, PORT_TYPE_ALIAS])
     args = parser.parse_args()
 
     device, links, console, pdu = get_file_names(args)
