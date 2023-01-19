@@ -100,7 +100,7 @@ class LabGraph(object):
         Check if all ports of a device are using port alias
         """
         hwsku = self.devices[device_hostname]['HwSku']
-        port_alias_list = self._get_port_name_list(hwsku)
+        port_alias_list = self._get_port_alias_list(hwsku)
         return all([port in port_alias_list for port in ports])
 
     def _convert_port_alias_to_name(self, device_hostname, port_alias):
@@ -113,17 +113,6 @@ class LabGraph(object):
         hwsku = self.devices[device_hostname]['HwSku']
         port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
         return port_alias_to_name_map[port_alias]
-
-    def _convert_port_name_to_alias(self, device_hostname, port_name):
-        """
-        Given the device hostname and port alias, return the corresponding port name.
-        """
-        devtype = self.devices[device_hostname]['Type'].lower()
-        if devtype != 'devsonic' and 'fanout' not in devtype:
-            raise Exception("Cannot convert port name to alias for device type {}".format(devtype))
-        hwsku = self.devices[device_hostname]['HwSku']
-        port_name_to_alias_map = self._get_port_name_to_alias_map(hwsku)
-        return port_name_to_alias_map[port_name]
 
     def read_devices(self):
         with open(self.devcsv) as csv_dev:
@@ -158,14 +147,17 @@ class LabGraph(object):
                 self.links.append(link)
                 if link['StartDevice'] not in links_group_by_devices:
                     links_group_by_devices[link['StartDevice']] = []
-                links_group_by_devices.append(link)
+                links_group_by_devices[link['StartDevice']].append(link)
                 if link['EndDevice'] not in links_group_by_devices:
                     links_group_by_devices[link['EndDevice']] = []
-                links_group_by_devices.append(link)
+                links_group_by_devices[link['EndDevice']].append(link)
 
-        # Convert port alias to port name. Updates in `links_group_by_devices` will also be reflected 
-        # in `self.links`, because they are holding reference to the same underlying `link` variable.
+        # For SONiC devices (DUT/Fanout), convert port alias to port name. Updates in `links_group_by_devices` will
+        # also be reflected in `self.links`, because they are holding reference to the same underlying `link` variable.
         for device, links in links_group_by_devices.items():
+            devtype = self.devices[device]['Type'].lower()
+            if 'sonic' not in devtype:
+                continue
             ports = []
             for link in links:
                 if device == link['StartDevice']:
@@ -173,7 +165,7 @@ class LabGraph(object):
                 elif device == link['EndDevice']:
                     ports.append(link['EndPort'])
             if (self.port_type == PORT_TYPE_NAME and not self._all_ports_using_name(device, ports)) \
-                or (self.port_type == PORT_TYPE_ALIAS and self._all_ports_using_alias(device, ports)):
+                    or (self.port_type == PORT_TYPE_ALIAS and self._all_ports_using_alias(device, ports)):
                 for link in links:
                     if device == link['StartDevice']:
                         link['StartPort'] = self._convert_port_alias_to_name(device, link['StartPort'])
@@ -287,8 +279,8 @@ def main():
     parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
     parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
-    parser.add_argument("--port-type", help="port type used in link file", type=str, required=False,
-                        default=PORT_TYPE_NAME, choices=[PORT_TYPE_NAME, PORT_TYPE_ALIAS])
+    parser.add_argument("--port-type", help="[for SONiC devices] port type used in link file",
+                        type=str, required=False, default=PORT_TYPE_NAME, choices=[PORT_TYPE_NAME, PORT_TYPE_ALIAS])
     args = parser.parse_args()
 
     device, links, console, pdu = get_file_names(args)
