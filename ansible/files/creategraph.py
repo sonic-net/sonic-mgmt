@@ -21,6 +21,9 @@ DEFAULT_PDUCSV = 'sonic_lab_pdu_links.csv'
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
 LAB_CONNECTION_GRAPH_DPGL2_NAME = 'DevicesL2Info'
 
+PORT_TYPE_NAME = "name"
+PORT_TYPE_ALIAS = "alias"
+
 
 class LabGraph(object):
 
@@ -30,7 +33,8 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment.
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None,
+                 port_type=PORT_TYPE_NAME):
         self.devices = {}
         self.links = []
         self.consoles = []
@@ -42,22 +46,84 @@ class LabGraph(object):
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
         self.one_xmlfile = graph_xmlfile
+        self.port_type = port_type
+        self._cache_port_name_to_alias = {}
+        self._cache_port_alias_to_name = {}
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
         self.csgroot = etree.Element('ConsoleGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
-    def translate_port_alias(self, device_hostname, device_port):
+    def _get_port_alias_to_name_map(self, hwsku):
         """
-        If device_port is port alias, return the corresponding port name.
-        Otherwise, return as is.
+        Retrive port alias to name map for specific hwsku.
+        """
+        if hwsku in self._cache_port_alias_to_name:
+            return self._cache_port_alias_to_name[hwsku]
+        port_alias_to_name_map, _, _ = get_port_alias_to_name_map(hwsku)
+        self._cache_port_alias_to_name[hwsku] = port_alias_to_name_map
+        return port_alias_to_name_map
+
+    def _get_port_name_to_alias_map(self, hwsku):
+        """
+        Retrive port name to alias map for specific hwsku.
+        """
+        if hwsku in self._cache_port_name_to_alias:
+            return self._cache_port_name_to_alias[hwsku]
+        port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
+        port_name_to_alias_map = dict([(name, alias) for alias, name in port_alias_to_name_map.items()])
+        self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
+        return port_name_to_alias_map
+
+    def _get_port_name_list(self, hwsku):
+        """
+        Retrive port name list of a specific hwsku.
+        """
+        return self._get_port_name_to_alias_map(hwsku).keys()
+
+    def _get_port_alias_list(self, hwsku):
+        """
+        Retrive port alias list of a specific hwsku.
+        """
+        return self._get_port_alias_to_name_map(hwsku).keys()
+
+    def _all_ports_using_name(self, device_hostname, ports):
+        """
+        Check if all ports of a device are using port name
+        """
+        hwsku = self.devices[device_hostname]['HwSku']
+        port_name_list = self._get_port_name_list(hwsku)
+        return all([port in port_name_list for port in ports])
+
+    def _all_ports_using_alias(self, device_hostname, ports):
+        """
+        Check if all ports of a device are using port alias
+        """
+        hwsku = self.devices[device_hostname]['HwSku']
+        port_alias_list = self._get_port_name_list(hwsku)
+        return all([port in port_alias_list for port in ports])
+
+    def _convert_port_alias_to_name(self, device_hostname, port_alias):
+        """
+        Given the device hostname and port alias, return the corresponding port name.
         """
         devtype = self.devices[device_hostname]['Type'].lower()
-        if devtype == 'devsonic' or 'fanout' in devtype:
-            hwsku = self.devices[device_hostname]['HwSku']
-            port_alias_to_name, _, _ = get_port_alias_to_name_map(hwsku)
-            return port_alias_to_name.get(device_port, device_port)
-        return device_port
+        if devtype != 'devsonic' and 'fanout' not in devtype:
+            raise Exception("Cannot convert port alias to name for device type {}".format(devtype))
+        hwsku = self.devices[device_hostname]['HwSku']
+        port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
+        return port_alias_to_name_map[port_alias]
+
+    def _convert_port_name_to_alias(self, device_hostname, port_name):
+        """
+        Given the device hostname and port alias, return the corresponding port name.
+        """
+        devtype = self.devices[device_hostname]['Type'].lower()
+        if devtype != 'devsonic' and 'fanout' not in devtype:
+            raise Exception("Cannot convert port name to alias for device type {}".format(devtype))
+        hwsku = self.devices[device_hostname]['HwSku']
+        port_name_to_alias_map = self._get_port_name_to_alias_map(hwsku)
+        return port_name_to_alias_map[port_name]
 
     def read_devices(self):
         with open(self.devcsv) as csv_dev:
@@ -84,18 +150,44 @@ class LabGraph(object):
                     etree.SubElement(devices_root, 'Device', attrs)
 
     def read_links(self):
+        # Read and parse link.csv file
         with open(self.linkcsv) as csv_file:
             csv_links = csv.DictReader(filter(lambda row: row[0] != '#' and len(row.strip()) != 0, csv_file))
-            links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+            links_group_by_devices = {}
             for link in csv_links:
-                link['StartPort'] = self.translate_port_alias(link['StartDevice'], link['StartPort'])
-                link['EndPort'] = self.translate_port_alias(link['EndDevice'], link['EndPort'])
-                attrs = {}
-                for key in link:
-                    if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
-                        attrs[key] = link[key].decode('utf-8')
-                etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
                 self.links.append(link)
+                if link['StartDevice'] not in links_group_by_devices:
+                    links_group_by_devices[link['StartDevice']] = []
+                links_group_by_devices.append(link)
+                if link['EndDevice'] not in links_group_by_devices:
+                    links_group_by_devices[link['EndDevice']] = []
+                links_group_by_devices.append(link)
+
+        # Convert port alias to port name. Updates in `links_group_by_devices` will also be reflected 
+        # in `self.links`, because they are holding reference to the same underlying `link` variable.
+        for device, links in links_group_by_devices.items():
+            ports = []
+            for link in links:
+                if device == link['StartDevice']:
+                    ports.append(link['StartPort'])
+                elif device == link['EndDevice']:
+                    ports.append(link['EndPort'])
+            if (self.port_type == PORT_TYPE_NAME and not self._all_ports_using_name(device, ports)) \
+                or (self.port_type == PORT_TYPE_ALIAS and self._all_ports_using_alias(device, ports)):
+                for link in links:
+                    if device == link['StartDevice']:
+                        link['StartPort'] = self._convert_port_alias_to_name(device, link['StartPort'])
+                    elif device == link['EndDevice']:
+                        link['EndPort'] = self._convert_port_alias_to_name(device, link['EndPort'])
+
+        # Generate DeviceInterfaceLink XML nodes for connection graph
+        links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+        for link in self.links:
+            attrs = {}
+            for key in link:
+                if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
+                    attrs[key] = link[key].decode('utf-8')
+            etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
 
     def read_consolelinks(self):
         if not os.path.exists(self.conscsv):
@@ -195,6 +287,8 @@ def main():
     parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
     parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
+    parser.add_argument("--port-type", help="port type used in link file", type=str, required=False,
+                        default=PORT_TYPE_NAME, choices=[PORT_TYPE_NAME, PORT_TYPE_ALIAS])
     args = parser.parse_args()
 
     device, links, console, pdu = get_file_names(args)
