@@ -285,9 +285,10 @@ class EosHost(AnsibleHostBase):
         output = self.eos_command(commands=[{
             'command': 'show interfaces %s status' % interface_name,
             'output': 'json'
-        }])
+        }], module_ignore_errors=True)
         if self._has_cli_cmd_failed(output):
-            _raise_err('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
+            logger.info('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
+            return None
         autoneg_enabled = output['stdout'][0]['interfaceStatuses'][interface_name]['autoNegotiateActive']
         return autoneg_enabled
 
