@@ -725,31 +725,14 @@ class BaseEverflowTest(object):
         if 't2' in setup['topo']:
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
+                src_port_metadata_map[src_port] = (None, 1)
                 if duthost.facts['switch_type'] == "voq":
-                    src_port_metadata_map[src_port] = (None, 1)
                     if self.mirror_type() != "egress":  # no egress route on the other node/namespace
                         src_port_set.add(dest_ports[0])
                         src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
                 else:
-                    src_port_metadata_map[src_port] = (None, 0)
                     src_port_set.add(dest_ports[0])
                     src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
-
-        if 't2' in setup['topo']:
-            if valid_across_namespace is True:
-                src_port_set.add(src_port)
-                if duthost.facts['switch_type'] == "voq":
-                        src_port_metadata_map[src_port] = (None, 1)
-                else:
-                    src_port_metadata_map[src_port] = (None, 0)
-
-            if duthost.facts['switch_type'] == "voq":
-                if self.mirror_type() != "egress":  # no egress route on the other node/namespace
-                    src_port_set.add(dest_ports[0])
-                    src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
-            else:
-                src_port_set.add(dest_ports[0])
-                src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -821,10 +804,6 @@ class BaseEverflowTest(object):
                     inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
 
                 logging.info("Expected inner packet: %s", mirror_packet_sent.summary())
-                if not inner_packet.pkt_match(mirror_packet_sent):
-                    logging.info("going to fail")
-                    mirror_packet_sent.show()
-                    inner_packet.exp_pkt.show()
                 pytest_assert(inner_packet.pkt_match(mirror_packet_sent), "Mirror payload does not match received packet")
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
