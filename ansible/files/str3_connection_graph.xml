@@ -22,8 +22,10 @@
       <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc2-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc3-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc4-1" HwSku="88-LC0-36FH-MO" Type="DevSonic"/>
       <Device Hostname="str3-z9332f-01" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
       <Device Hostname="str3-z9332f-04" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-z9332f-06" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-61" EndPort="enp59s0f1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet4/1"/>
@@ -35,6 +37,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-01" EndPort="etp34" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet9/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet11/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-06" EndPort="Ethernet257" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
@@ -486,6 +489,38 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet42/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet43/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet44/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet0" StartDevice="str3-8800-lc4-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet8" StartDevice="str3-8800-lc4-1" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet16" StartDevice="str3-8800-lc4-1" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet24" StartDevice="str3-8800-lc4-1" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet32" StartDevice="str3-8800-lc4-1" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet40" StartDevice="str3-8800-lc4-1" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet48" StartDevice="str3-8800-lc4-1" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet56" StartDevice="str3-8800-lc4-1" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet64" StartDevice="str3-8800-lc4-1" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet72" StartDevice="str3-8800-lc4-1" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet80" StartDevice="str3-8800-lc4-1" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet88" StartDevice="str3-8800-lc4-1" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet96" StartDevice="str3-8800-lc4-1" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet104" StartDevice="str3-8800-lc4-1" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet112" StartDevice="str3-8800-lc4-1" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet120" StartDevice="str3-8800-lc4-1" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet128" StartDevice="str3-8800-lc4-1" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet136" StartDevice="str3-8800-lc4-1" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet144" StartDevice="str3-8800-lc4-1" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet152" StartDevice="str3-8800-lc4-1" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet160" StartDevice="str3-8800-lc4-1" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet168" StartDevice="str3-8800-lc4-1" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet176" StartDevice="str3-8800-lc4-1" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet184" StartDevice="str3-8800-lc4-1" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet192" StartDevice="str3-8800-lc4-1" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet200" StartDevice="str3-8800-lc4-1" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet208" StartDevice="str3-8800-lc4-1" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet216" StartDevice="str3-8800-lc4-1" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet224" StartDevice="str3-8800-lc4-1" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet232" StartDevice="str3-8800-lc4-1" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet240" StartDevice="str3-8800-lc4-1" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet248" StartDevice="str3-8800-lc4-1" StartPort="Ethernet256"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -502,6 +537,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids="513-576"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="577-636"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="637-672"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="577-608"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="673-736"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids="737-800"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="801-864"/>
@@ -1009,6 +1045,9 @@
     <DevicesL3Info Hostname="str3-8800-lc3-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.98/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str3-8800-lc4-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.98/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="str3-z9332f-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.248/23"/>
     </DevicesL3Info>
@@ -1052,6 +1091,44 @@
       <InterfaceVlan mode="Access" portname="etp22" vlanids="470"/>
       <InterfaceVlan mode="Access" portname="etp23" vlanids="471"/>
       <InterfaceVlan mode="Access" portname="etp24" vlanids="472"/>
+    </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-z9332f-06">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.7/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-z9332f-06">
+      <InterfaceVlan mode="Trunk" portname="Ethernet257" vlanids="577-608"/>
+      <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="577"/>
+      <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="578"/>
+      <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="579"/>
+      <InterfaceVlan mode="Access" portname="Ethernet24" vlanids="580"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="581"/>
+      <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="582"/>
+      <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="583"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="584"/>
+      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="585"/>
+      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="586"/>
+      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="587"/>
+      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="588"/>
+      <InterfaceVlan mode="Access" portname="Ethernet96" vlanids="589"/>
+      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="590"/>
+      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="591"/>
+      <InterfaceVlan mode="Access" portname="Ethernet120" vlanids="592"/>
+      <InterfaceVlan mode="Access" portname="Ethernet128" vlanids="593"/>
+      <InterfaceVlan mode="Access" portname="Ethernet136" vlanids="594"/>
+      <InterfaceVlan mode="Access" portname="Ethernet144" vlanids="595"/>
+      <InterfaceVlan mode="Access" portname="Ethernet152" vlanids="596"/>
+      <InterfaceVlan mode="Access" portname="Ethernet160" vlanids="597"/>
+      <InterfaceVlan mode="Access" portname="Ethernet168" vlanids="598"/>
+      <InterfaceVlan mode="Access" portname="Ethernet176" vlanids="599"/>
+      <InterfaceVlan mode="Access" portname="Ethernet184" vlanids="600"/>
+      <InterfaceVlan mode="Access" portname="Ethernet192" vlanids="601"/>
+      <InterfaceVlan mode="Access" portname="Ethernet200" vlanids="602"/>
+      <InterfaceVlan mode="Access" portname="Ethernet208" vlanids="603"/>
+      <InterfaceVlan mode="Access" portname="Ethernet216" vlanids="604"/>
+      <InterfaceVlan mode="Access" portname="Ethernet224" vlanids="605"/>
+      <InterfaceVlan mode="Access" portname="Ethernet232" vlanids="606"/>
+      <InterfaceVlan mode="Access" portname="Ethernet240" vlanids="607"/>
+      <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="608"/>
     </DevicesL2Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>

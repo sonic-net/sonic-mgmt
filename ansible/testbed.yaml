@@ -1487,6 +1487,25 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms61-t2-8800-2
+  group-name: vms61-4
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: vms61-4
+  ptf_ip: 10.64.246.37/23
+  ptf_ipv6:
+  server: server_61
+  vm_base: VM61056
+  dut:
+    - str3-8800-lc4-1
+    - str3-8800-lc2-1
+    - str3-8800-lc3-1
+    - str3-8800-sup-1
+
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: vms29-t2-8800-2
   group-name: vms29-3
   topo: t2_2lc_min_ports-masic
