@@ -85,7 +85,7 @@ parameters:
     displayName: "Run ptf warm reboot test"
     type: boolean
     default: false
-  
+
   - name: ENABLE_T0_WARM_REBOOT_TEST
     displayName: "Run t0 warm reboot test"
     type: boolean
@@ -104,7 +104,7 @@ parameters:
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: "--disable_loganalyzer --sai_port_config=port_config.ini"
+    default: " "
 
   # Checkout sai_qualify/ folder from public
   - name: OVERWRITE_INTERNAL_MGMT
@@ -116,7 +116,7 @@ parameters:
     displayName: "sonic-mgmt repo"
     type: string
     default: "sonic-net"
-  
+
   - name: MGMT_BRANCH
     displayName: "sonic-mgmt branch"
     type: string
@@ -131,7 +131,7 @@ parameters:
       - nightly
       - nightly2
       - nightly-svc
-      - nightly-bjw   
+      - nightly-bjw
 
 stages:
 - stage: RunSAITest
@@ -149,7 +149,7 @@ stages:
       ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
       ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
       ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
-      RUN_TEST: ${{ or( parameters.ENABLE_PTF_WARM_REBOOT_TEST, parameters.ENABLE_T0_WARM_REBOOT_TEST ) }}
+      RUN_TEST: ${{ or( parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST, parameters.ENABLE_COMMUNITY_TEST, parameters.ENABLE_PTF_WARM_REBOOT_TEST, parameters.ENABLE_T0_WARM_REBOOT_TEST ) }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       SAI_PTF_DOCKER: ${{ parameters.SAI_PTF_DOCKER }}

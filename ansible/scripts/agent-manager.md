@@ -121,6 +121,9 @@ After=network.target
 
 [Service]
 ExecStart=/usr/bin/python /usr/bin/agent-manager.py
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 2. Prepare the configuration file `/etc/agent-manager.conf` with content like below:
@@ -153,6 +156,10 @@ sudo pip install PyYAML
 sudo systemctl start agent-manager
 ```
 
+6. Enable the service to ensure that it starts after system reboot.
+```
+sudo systemctl enable agent-manager
+```
 
 ## Rolling upgrade
 When the docker image for nightly test is updated and we need to upgrade the agents, we can do rolling upgrade.

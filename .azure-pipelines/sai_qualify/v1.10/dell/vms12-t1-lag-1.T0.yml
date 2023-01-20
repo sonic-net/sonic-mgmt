@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 7 * * 2,4"
+  - cron: "0 12 * * 2,4"
     displayName: Nightly SAI Testing Scheduler
     branches:
       include:
@@ -18,12 +18,12 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms3-4
+    default: vms12-t1-lag-1
 
   - name: LOCK_TESTBED_REASON
     displayName: "Lock Testbed Reason"
     type: string
-    default: "SAI v1.10 Nightly Test - PTF"
+    default: "SAI v1.10 Nightly Test - T0"
 
   - name: IMAGE_URL
     type: string
@@ -44,17 +44,17 @@ parameters:
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
     type: boolean
-    default: true
+    default: false
 
   - name: ENABLE_BRCM_T0_TEST
     displayName: "Run Brcm T0 Test"
     type: boolean
-    default: false
+    default: true
 
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: "--disable_loganalyzer --sai_port_config=port_config.ini"
+    default: " "
 
 stages:
 - stage: RunSAITest

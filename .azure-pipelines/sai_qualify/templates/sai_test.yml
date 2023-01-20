@@ -38,7 +38,7 @@ parameters:
 
   - name: SAI_TEST_TIMEOUT
     type: number
-    default: 1800    # minutes, totally 30 hours
+    default: 360    # minutes, totally 6 hours
 
   # WorkFlow parameters
   - name: LOCK_TESTBED
@@ -78,7 +78,7 @@ parameters:
 
   - name: TESTBED_LOCK_HOUR
     type: string
-    default: "3"
+    default: "6"
 
   - name: AGENT_POOL
     type: string
@@ -93,15 +93,18 @@ parameters:
   - name: IMAGE_URL
     type: string
     default: ""
+
   - name: ALWAYS_INSTALL_NEW_IMAGE
     type: boolean
     default: true
+
   - name: UPGRADE_TYPE
     type: string
     default: sonic
     values:
       - sonic
       - onie
+
   - name: PAUSE_TIME
     type: number
     default: 0
@@ -130,7 +133,7 @@ parameters:
     displayName: "Run ptf warm reboot test"
     type: boolean
     default: false
-  
+
   - name: ENABLE_T0_WARM_REBOOT_TEST
     displayName: "Run t0 warm reboot test"
     type: boolean
@@ -147,18 +150,8 @@ parameters:
     type: string
     default: "tests/sai_qualify/reports"
 
-  #SAI test report path, relative to SAI_REPO_PATH
-  - name: SAI_TEST_PATH
-    type: string
-    default: "tests"
-
-  #SAI test report path, relative to bash execute path
-  - name: SAI_REPO_PATH
-    type: string
-    default: "SAI/test/saithrift"
-
   #SAI test root folder on agent
-  - name: SAI_TEST_ENDPOINT
+  - name: PYTEST_PATH
     type: string
     default: "tests"
 
@@ -353,7 +346,6 @@ jobs:
             sleep 30
         env:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-          ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
       - task: Bash@3
         displayName: Generate SAI testbed file
@@ -416,7 +408,6 @@ jobs:
         env:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
-          ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
       - task: Bash@3
         displayName: Deploy SAI Minigraph
@@ -472,25 +463,23 @@ jobs:
 
             CONFIG_DB_PATH=/etc/sonic/config_db.json
             PORT_CONFIG_PATH=/usr/share/sonic/device/$PLATFORM/$HWSKU/port_config.ini
-            SAI_TEST_PATH=$BASE_PATH/SAI/test/sai_test
-            RESOURCE_PATH=$SAI_TEST_PATH/resources
-            SAI_TEST_PATH=$BASE_PATH/SAI/test/sai_test
+            RESOURCE_PATH=$BASE_PATH/resources
 
             PTF_PATH=/tmp/sai_qualify
-            PY_SAITHRIFT_PATH=$PTF_PATH/sai_test/resources/
+            PTF_RESOURCE_PATH=$PTF_PATH/resources
             PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
 
 
-            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
             if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
             then
               git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
               git fetch ${{ parameters.MGMT_REPO }}
-              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }} -- sai_qualify/
+              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }} -- sai_qualify/ scripts/sai_qualify/
             fi
             popd
 
-            pushd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify
+            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify
             echo "Install SAI_Qualify requirements"
             cat requirements.txt
             pip3 install -r requirements.txt
@@ -505,30 +494,28 @@ jobs:
             git checkout -b ${{ parameters.SAI_BRANCH }} origin/${{ parameters.SAI_BRANCH }}
             cd $BASE_PATH
             tar -cvzf sai.tar.gz ./SAI
+            mkdir -p $RESOURCE_PATH
             wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
 
-            #fetch files from dut to server
-
+            #fetch config files from dut to server
             python $SAI_ADHOC_PATH -t dut -o fetch -n ${{ parameters.TESTBED_NAME }} -c "src=$CONFIG_DB_PATH dest=$RESOURCE_PATH/ flat=true"
             python $SAI_ADHOC_PATH -t dut -o fetch -n ${{ parameters.TESTBED_NAME }} -c "src=$PORT_CONFIG_PATH dest=$RESOURCE_PATH/ flat=true"
 
-            #copy files from server to ptf
+            #Tar resource prepare to copy to PTF
+            ls $RESOURCE_PATH
+            tar -cvzf resource.tar.gz ./resources
 
+            #copy files from server to ptf
+            # Place SAI
             python $SAI_ADHOC_PATH -i -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "rm -rf $PTF_PATH/SAI"
             python $SAI_ADHOC_PATH -i -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "mkdir -p $PTF_PATH"
             python $SAI_ADHOC_PATH -i -t ptf -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/sai.tar.gz dest=$PTF_PATH/"
             python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "cd  $PTF_PATH; tar -xvzf $PTF_PATH/sai.tar.gz"
             python $SAI_ADHOC_PATH -i -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "rm $PTF_PATH/sai.tar.gz"
             python $SAI_ADHOC_PATH -i -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "rm -rf $PTF_PATH/sai_test"
-            pushd ./SAI/test/
-            tar -cvzf sai_test.tar.gz ./sai_test
-            popd
-            mv ./SAI/test/sai_test.tar.gz ./
-            python $SAI_ADHOC_PATH -i -t ptf -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/sai_test.tar.gz dest=$PTF_PATH"
-            python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "cd  $PTF_PATH; tar -xvzf $PTF_PATH/sai_test.tar.gz"
-            python $SAI_ADHOC_PATH -i -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "rm $PTF_PATH/sai_test.tar.gz"
-            rm sai.tar.gz
-            rm sai_test.tar.gz
+            # Place Resource
+            python $SAI_ADHOC_PATH -i -t ptf -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/resource.tar.gz dest=$PTF_PATH/"
+            python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "cd  $PTF_PATH; tar -xvzf $PTF_PATH/resource.tar.gz"
 
             #copy files from server to dut
             pushd ./tests/scripts/sai_qualify
@@ -541,19 +528,13 @@ jobs:
             rm DUTScript.tar.gz
 
             #install deb pkg into ptf
-            python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "dpkg -i $PY_SAITHRIFT_PATH$PY_SAITHRIFT"
+            python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "dpkg -i $PTF_RESOURCE_PATH/$PY_SAITHRIFT"
 
             #Setup test bed and ptf
 
-            CONFIG_PARAMS=""
-            if [ ! "$JOB_CONFIG" ]
-            then
-              CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
-            else
-              CONFIG_PARAMS="${JOB_CONFIG}"
-            fi
-            CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
-            CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_enable_deployment --sai_test_keep_test_env "
+            CONFIG_PARAMS=" ${JOB_CONFIG} --disable_loganalyzer --enable_ptf_sai_test"
+            # Keep the set up environment
+            CONFIG_PARAMS="${CONFIG_PARAMS} --sai_test_keep_test_env "
 
             BASE_PATH=`pwd`
             LOG_LEVEL=info
@@ -568,14 +549,14 @@ jobs:
             ${CONFIG_PARAMS}"
 
 
-            rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+            rm -rf ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/_cache
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/tests/sai_qualify
             pip install -r requirements.txt
 
-            cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/setup_test_env.py::test_sai_env_setup --inventory $INVT --host-pattern all \
+            cd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
+            pytest ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify/setup_test_env.py::test_sai_env_setup --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=sai_env_setup_tr.xml --log-cli-level ${LOG_LEVEL} \
               --collect_techsupport=False --topology='ptf'
@@ -584,14 +565,8 @@ jobs:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-          SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-          SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
-          ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
-          ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
-          ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
-          ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
-          SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
           OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
 
@@ -613,7 +588,12 @@ jobs:
 
             apt install sshpass
             echo "saideploy" > saideploy
-            sshpass -f "./saideploy" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null saideploy@10.64.247.30:/data/vscode/vscode.tar.gz ./
+
+            if [[ "${{ parameters.AGENT_POOL }}" == *"bjw"* ]]; then
+              sshpass -f "./saideploy" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null saideploy@10.150.22.222:/data/vscode/vscode.tar.gz ./
+            else
+              sshpass -f "./saideploy" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null saideploy@10.64.247.30:/data/vscode/vscode.tar.gz ./
+            fi
             python $SAI_ADHOC_PATH -i -t ptf -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=./vscode.tar.gz dest=/root"
             python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "tar -xvzf ./vscode.tar.gz"
 
@@ -724,27 +704,31 @@ jobs:
           targetType: 'inline'
           script: |
             set -x
+            CONFIG_PARAMS=" ${JOB_CONFIG} --disable_loganalyzer"
+            #Skip test setup, they have been setup in 'Prepare testing env'
+            CONFIG_PARAMS="${CONFIG_PARAMS} --sai_test_skip_setup_env "
 
-            CONFIG_PARAMS=""
-            if [ ! "$JOB_CONFIG" ]
-            then
-              CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
-            else
-              CONFIG_PARAMS="${JOB_CONFIG}"
-            fi
+            # ignore the sai_test_dir cause it also setup in 'Prepare testing env'
+            # CONFIG_PARAMS="${CONFIG_PARAMS} --sai_test_dir=${BASH_WORKING_FOLDER}/SAI
 
-            if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
+            # Set test type parameters
+            TEST_SET="test_community"
+            if [[ "${ENABLE_PTF_SAI_TEST}" == "True" ]]
             then
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
-            elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
+              CONFIG_PARAMS="${CONFIG_PARAMS} --enable_ptf_sai_test"
+              TEST_SET="test_sai_ptf"
+            elif [[ "${ENABLE_BRCM_T0_TEST}" == "True" ]]
             then
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_sai_test"
-            elif [[ "$ENABLE_PTF_WARM_REBOOT_TEST" == "True" ]]
+              CONFIG_PARAMS="${CONFIG_PARAMS} --enable_sai_test"
+              TEST_SET="test_brcm_t0"
+            elif [[ "${ENABLE_PTF_WARM_REBOOT_TEST}" == "True" ]]
             then
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_warmboot_test --sai_test_enable_deployment --skip_stop_sai_test_container"
-            elif [[ "$ENABLE_T0_WARM_REBOOT_TEST" == "True" ]]
+              CONFIG_PARAMS="${CONFIG_PARAMS} --enable_ptf_warmboot_test "
+              TEST_SET="test_sai_ptf_warm_reboot"
+            elif [[ "${ENABLE_T0_WARM_REBOOT_TEST}" == "True" ]]
             then
-              CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/test/sai_test --enable_t0_warmboot_test --sai_test_enable_deployment --skip_stop_sai_test_container"
+              CONFIG_PARAMS="${CONFIG_PARAMS} --enable_t0_warmboot_test "
+              TEST_SET="test_sai_t0_warm_reboot"
             fi
 
             BASE_PATH=`pwd`
@@ -767,54 +751,28 @@ jobs:
             export PYTEST_ADDOPTS+=" --sai_upgrade_version=$(sai_updated_version)"
 
 
-            rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+            rm -rf ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/_cache
             rm -rf ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
-            cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
+            cd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
 
-            if [[ "$ENABLE_PTF_SAI_TEST" == "True" ]]
-            then
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf.py::test_sai --inventory $INVT --host-pattern all \
-              --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} \
-              --collect_techsupport=False --topology='ptf'
-            elif [[ "$ENABLE_BRCM_T0_TEST" == "True" ]]
-            then
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_brcm_t0.py::test_sai --inventory $INVT --host-pattern all \
+            pytest ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify/${TEST_SET}.py::test_sai --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            elif [[ "$ENABLE_COMMUNITY_TEST" == "True" ]]
-            then
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_community.py::test_sai --inventory $INVT --host-pattern all \
-              --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            elif [[ "$ENABLE_PTF_WARM_REBOOT_TEST" == "True" ]]
-            then
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_ptf_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
-              --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            elif [[ "$ENABLE_T0_WARM_REBOOT_TEST" == "True" ]]
-            then
-              pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/test_sai_t0_warm_reboot.py::test_sai --inventory $INVT --host-pattern all \
-              --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
-              --junit-xml=tr.xml --log-cli-level ${LOG_LEVEL} --collect_techsupport=False --topology='ptf'
-            fi
 
         env:
           PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-          SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-          SAI_REPO_PATH: ${{ parameters.SAI_REPO_PATH }}
           ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
           ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
           ENABLE_COMMUNITY_TEST: ${{ parameters.ENABLE_COMMUNITY_TEST }}
           ENABLE_PTF_WARM_REBOOT_TEST: ${{ parameters.ENABLE_PTF_WARM_REBOOT_TEST }}
           ENABLE_T0_WARM_REBOOT_TEST: ${{ parameters.ENABLE_T0_WARM_REBOOT_TEST }}
-          SAI_TEST_PATH: ${{ parameters.SAI_TEST_PATH }}
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
 
       - task: Bash@3
@@ -870,7 +828,6 @@ jobs:
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           OS_VERSION: ${{ variables.OS_VERSION }}
-          PLT_VERSION: $(PLT_VERSION)
           BUILD_ID: $(Build.BuildId)
 
       - task: Bash@3
@@ -883,15 +840,9 @@ jobs:
 
             #Restore test bed and ptf
 
-            CONFIG_PARAMS=""
-            if [ ! "$JOB_CONFIG" ]
-            then
-              CONFIG_PARAMS="--sai_test_container=saiserver --disable_loganalyzer"
-            else
-              CONFIG_PARAMS="${JOB_CONFIG}"
-            fi
-            CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_dir=${BASH_WORKING_FOLDER}/SAI/ptf --enable_ptf_sai_test"
-            CONFIG_PARAMS=${CONFIG_PARAMS}" --sai_test_enable_deployment --sai_test_skip_setup_env"
+            CONFIG_PARAMS=" ${JOB_CONFIG} --disable_loganalyzer "
+            CONFIG_PARAMS="${CONFIG_PARAMS} --enable_ptf_sai_test "
+            CONFIG_PARAMS="${CONFIG_PARAMS} --sai_test_skip_setup_env "
 
             BASE_PATH=`pwd`
             LOG_LEVEL=info
@@ -906,11 +857,11 @@ jobs:
             ${CONFIG_PARAMS}"
 
 
-            rm -rf ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/_cache
+            rm -rf ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/_cache
             mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
-            cd ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}
-            pytest ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/sai_qualify/setup_test_env.py::test_sai_env_teardown --inventory $INVT --host-pattern all \
+            cd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
+            pytest ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify/setup_test_env.py::test_sai_env_teardown --inventory $INVT --host-pattern all \
               --module-path $MPATH --testbed $TESTBED_NAME --testbed_file $TESTBED_FILE \
               --junit-xml=sai_env_teardown_tr.xml --log-cli-level ${LOG_LEVEL} \
               --collect_techsupport=False --topology='ptf'
@@ -921,9 +872,8 @@ jobs:
         env:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           SAI_TESTBED_FILE:  ${{ parameters.SAI_TESTBED_FILE }}
-          ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-          SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
 
@@ -941,7 +891,6 @@ jobs:
             sleep 60
         env:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-          ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
 
       - task: Bash@3
@@ -990,7 +939,7 @@ jobs:
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
-            mv ${BASH_WORKING_FOLDER}/${SAI_ENDPOINT}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+            mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
@@ -1005,4 +954,4 @@ jobs:
           TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
-          SAI_ENDPOINT: ${{ parameters.SAI_TEST_ENDPOINT }}
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}

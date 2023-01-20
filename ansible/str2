@@ -1224,12 +1224,12 @@ sonic_cisco_lc_400G:
     str2-8800-lc1-2:
       hwsku: 88-LC0-36FH-MO
       sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      sonic_hw_platform:  x86_64-88_lc0_36fh_m-r0
       slot_num: slot1
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: 10.3.147.176
-      serial: FOC2601NALA
+      serial: FOC2601N5UV
       base_mac: 14:A2:A0:C6:62:78
       model: '88-LC0-36FH-M'
       syseeprom_info:
@@ -1239,11 +1239,11 @@ sonic_cisco_lc_400G:
         "0x24": "14:A2:A0:C6:62:78"
         "0x26": "4"
         "0x28": "x86_64-88_lc0_36fh_m-r4"
-        "0x2A": "200"
+        "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFF": "0xE4DC0C41"
+        "0xFE": "0x23D862DD"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1260,7 +1260,7 @@ sonic_cisco_lc_400G:
     str2-8800-lc2-2:
       hwsku: 88-LC0-36FH-MO
       sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0 
       slot_num: slot5
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
@@ -1271,15 +1271,15 @@ sonic_cisco_lc_400G:
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
-        "0x23": "FOC2601N5SZ "
+        "0x23": "FOC2601N5SZ"
         "0x24": "14:A2:A0:C6:34:38"
         "0x26": "4"
         "0x28": "x86_64-88_lc0_36fh_m-r4"
-        "0x2A": "200"
+        "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFF": "0xFA60D183"
+        "0xFE": "0xFA60D183"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1465,6 +1465,7 @@ sonic_cisco_sup:
     str2-8800-sup-2:
       ansible_host: 10.3.147.175
       hwsku: 8800-RP-O
+      model: '8800-RP'
       num_asics: 16
       asic_name: Q200
       serial: FOC2516N6GB
@@ -1483,8 +1484,9 @@ sonic_cisco_sup:
         "0xFE": "0x87079ED0"
       skip_modules:
           'line-cards':
-            - LINE-CARD0
-            - LINE-CARD4
+            - LINE-CARD1
+            - LINE-CARD2
+            - LINE-CARD3
             - LINE-CARD5
             - LINE-CARD6
             - LINE-CARD7

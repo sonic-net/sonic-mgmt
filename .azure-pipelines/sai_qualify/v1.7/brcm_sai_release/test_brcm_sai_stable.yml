@@ -82,7 +82,7 @@ parameters:
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
-    default: "--disable_loganalyzer --sai_port_config=port_config.ini"
+    default: " "
 
   # Checkout sai_qualify/ folder from public
   - name: OVERWRITE_INTERNAL_MGMT
@@ -134,7 +134,7 @@ jobs:
       # PTF_DEPLOY_VSCODE: false
 
 
-        
+
 - ${{ if parameters.RUN_SONiC_TEST }}:
     - template: ../../templates/sonic_test_for_sai.yml
       parameters:

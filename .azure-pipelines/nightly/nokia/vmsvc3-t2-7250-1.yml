@@ -39,3 +39,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
