@@ -129,7 +129,7 @@ parameters:
 jobs:
   - job: SONiCTest
     pool: ${{ parameters.AGENT_POOL }}
-    timeoutInMinutes: 600  # 10 hours
+    timeoutInMinutes: 360  # 6 hours
     workspace:
       clean: all
     variables:
