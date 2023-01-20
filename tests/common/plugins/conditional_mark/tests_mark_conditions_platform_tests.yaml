@@ -862,7 +862,7 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
     reason: "Skip test_fast_reboot_from_other_vendor on mellanox and broadcom"
     conditions:
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'mellanox']"
 
 #######################################
 #####   test_reload_config.py     #####
