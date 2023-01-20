@@ -489,38 +489,38 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet42/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet43/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet44/1" StartDevice="str3-8800-lc3-1" StartPort="Ethernet124"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet0" StartDevice="str3-8800-lc4-1" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet8" StartDevice="str3-8800-lc4-1" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet16" StartDevice="str3-8800-lc4-1" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet24" StartDevice="str3-8800-lc4-1" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet32" StartDevice="str3-8800-lc4-1" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet40" StartDevice="str3-8800-lc4-1" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet48" StartDevice="str3-8800-lc4-1" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet56" StartDevice="str3-8800-lc4-1" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet64" StartDevice="str3-8800-lc4-1" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet72" StartDevice="str3-8800-lc4-1" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet80" StartDevice="str3-8800-lc4-1" StartPort="Ethernet88"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet88" StartDevice="str3-8800-lc4-1" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet96" StartDevice="str3-8800-lc4-1" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet104" StartDevice="str3-8800-lc4-1" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet112" StartDevice="str3-8800-lc4-1" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet120" StartDevice="str3-8800-lc4-1" StartPort="Ethernet128"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet128" StartDevice="str3-8800-lc4-1" StartPort="Ethernet136"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet136" StartDevice="str3-8800-lc4-1" StartPort="Ethernet144"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet144" StartDevice="str3-8800-lc4-1" StartPort="Ethernet152"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet152" StartDevice="str3-8800-lc4-1" StartPort="Ethernet160"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet160" StartDevice="str3-8800-lc4-1" StartPort="Ethernet168"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet168" StartDevice="str3-8800-lc4-1" StartPort="Ethernet176"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet176" StartDevice="str3-8800-lc4-1" StartPort="Ethernet184"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet184" StartDevice="str3-8800-lc4-1" StartPort="Ethernet192"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet192" StartDevice="str3-8800-lc4-1" StartPort="Ethernet200"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet200" StartDevice="str3-8800-lc4-1" StartPort="Ethernet208"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet208" StartDevice="str3-8800-lc4-1" StartPort="Ethernet216"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet216" StartDevice="str3-8800-lc4-1" StartPort="Ethernet224"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet224" StartDevice="str3-8800-lc4-1" StartPort="Ethernet232"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet232" StartDevice="str3-8800-lc4-1" StartPort="Ethernet240"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet240" StartDevice="str3-8800-lc4-1" StartPort="Ethernet248"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet248" StartDevice="str3-8800-lc4-1" StartPort="Ethernet256"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet0" StartDevice="str3-8800-lc4-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet8" StartDevice="str3-8800-lc4-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet16" StartDevice="str3-8800-lc4-1" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet24" StartDevice="str3-8800-lc4-1" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet32" StartDevice="str3-8800-lc4-1" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet40" StartDevice="str3-8800-lc4-1" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet48" StartDevice="str3-8800-lc4-1" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet56" StartDevice="str3-8800-lc4-1" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet64" StartDevice="str3-8800-lc4-1" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet72" StartDevice="str3-8800-lc4-1" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet80" StartDevice="str3-8800-lc4-1" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet88" StartDevice="str3-8800-lc4-1" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet96" StartDevice="str3-8800-lc4-1" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet104" StartDevice="str3-8800-lc4-1" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet112" StartDevice="str3-8800-lc4-1" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet120" StartDevice="str3-8800-lc4-1" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet128" StartDevice="str3-8800-lc4-1" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet136" StartDevice="str3-8800-lc4-1" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet144" StartDevice="str3-8800-lc4-1" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet152" StartDevice="str3-8800-lc4-1" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet160" StartDevice="str3-8800-lc4-1" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet168" StartDevice="str3-8800-lc4-1" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet176" StartDevice="str3-8800-lc4-1" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet184" StartDevice="str3-8800-lc4-1" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet192" StartDevice="str3-8800-lc4-1" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet200" StartDevice="str3-8800-lc4-1" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet208" StartDevice="str3-8800-lc4-1" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet216" StartDevice="str3-8800-lc4-1" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet224" StartDevice="str3-8800-lc4-1" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet232" StartDevice="str3-8800-lc4-1" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet240" StartDevice="str3-8800-lc4-1" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-z9332f-06" EndPort="Ethernet248" StartDevice="str3-8800-lc4-1" StartPort="Ethernet248"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
