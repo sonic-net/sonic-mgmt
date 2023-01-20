@@ -856,6 +856,15 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
+#####   test_advanced_reboot.py   #####
+#######################################
+platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
+  skip:
+    reason: "Skip test_fast_reboot_from_other_vendor on mellanox and broadcom"
+    conditions:
+      - "asic_type in ['broadcom']"
+
+#######################################
 #####   test_reload_config.py     #####
 #######################################
 platform_tests/test_reload_config.py:
