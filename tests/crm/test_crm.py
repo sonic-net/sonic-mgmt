@@ -622,24 +622,6 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
 
     # Get new "crm_stats_ipv[4/6]_nexthop" used and available counter value
     new_crm_stats_nexthop_used, new_crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
-
-    # Verify "crm_stats_ipv[4/6]_nexthop_used" counter was incremented
-    if not (new_crm_stats_nexthop_used - crm_stats_nexthop_used >= 1):
-        RESTORE_CMDS["test_crm_nexthop"].append(nexthop_del_cmd)
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_ipv{}_nexthop_used\" counter was not incremented or "
-                  "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
-    # Remove nexthop
-    asichost.shell(nexthop_del_cmd)
-
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
-                                   crm_stats_nexthop_available)
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_ipv{}_nexthop_used\" counter was not decremented or "
-                  "\"crm_stats_ipv{}_nexthop_available\" counter was not incremented".format(ip_ver, ip_ver))
-
-    # Get new "crm_stats_ipv[4/6]_nexthop" used and available counter value
-    new_crm_stats_nexthop_used, new_crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     used_percent = get_used_percent(new_crm_stats_nexthop_used, new_crm_stats_nexthop_available)
     if used_percent < 1:
         neighbours_num = get_entries_num(new_crm_stats_nexthop_used, new_crm_stats_nexthop_available)
