@@ -188,7 +188,8 @@ def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_daemon_pid != -1,
                   "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
-                  "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
+                  "Restarted {} pid should be bigger than {} but it is {}"
+                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
     data_after_restart = wait_data(duthost, data_before_restart)
     verify_data(data_before_restart, data_after_restart)
