@@ -657,6 +657,12 @@ platform_tests/broadcom:
     conditions:
       - "'marvell' in asic_type"
 
+platform_tests/broadcom/test_ser.py:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
+
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
