@@ -73,7 +73,7 @@ class MultiAsicSonicHost(object):
             # Update the asic service based on feature table state and asic flag
             config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-                if service == "teamd" and config_facts['DEVICE_METADATA']['localhost']['switch_type'] == 'dpu':
+                if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
                     logger.warning("Removing teamd from default services for switch_type DPU")
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                     continue
