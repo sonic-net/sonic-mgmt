@@ -755,6 +755,16 @@ platform_tests/mellanox/test_reboot_cause.py:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
 
 #######################################
+#####   test_advanced_reboot.py   #####
+#######################################
+platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "asic_type in ['broadcom', 'mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7293
+
+#######################################
 #####    test_platform_info.py    #####
 #######################################
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
@@ -854,16 +864,6 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     reason: "Skip watchdog reboot test for Wistron / Nokia 7215"
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
-
-#######################################
-#####   test_advanced_reboot.py   #####
-#######################################
-platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "asic_type in ['broadcom', 'mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7293
 
 #######################################
 #####   test_reload_config.py     #####
