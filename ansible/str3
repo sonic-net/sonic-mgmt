@@ -69,6 +69,9 @@ fanout:
     str3-z9332f-04:
       ansible_host: 10.3.146.230
       os: sonic
+    str3-z9332f-06:
+      ansible_host: 10.3.146.7
+      os: sonic
     str3-8101-fanout-01:
       ansible_host: 10.3.146.195
       os: sonic
@@ -88,6 +91,7 @@ sonic:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_C48T8:
     sonic_cisco_lc_100G:
+    sonic_cisco_lc_400G:
     sonic_cisco_sup:
 
 sonic_cisco_8102:
@@ -317,6 +321,48 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x21244D4B"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+sonic_cisco_lc_400G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 3
+    frontend_asics: [0,1,2]
+  hosts:
+    str3-8800-lc4-1:
+      hwsku: 88-LC0-36FH-MO
+      sonic_hwsku: 88-LC0-36FH-MO
+      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      slot_num: slot4
+      loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
+      ansible_host: 10.3.146.98
+      serial: FOC2533NMVZ
+      base_mac: 20:CF:AE:B2:BF:50
+      model: '88-LC0-36FH-M'
+      syseeprom_info:
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B0020"
+        "0x23": "FOC2533NMVZ"
+        "0x24": "20:CF:AE:B2:BF:50"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh_mo-r3"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFF": "0x7DA6B680"
       plt_reboot_dict:
         cold:
           timeout: 300

@@ -20,6 +20,7 @@ str3-8800-sup-1,10.3.147.95/23,8800-RP-O,DevSonic,
 str3-8800-lc1-1,10.3.147.78/23,8800-LC-48H-O,DevSonic,
 str3-8800-lc2-1,10.3.147.97/23,8800-LC-48H-O,DevSonic,
 str3-8800-lc3-1,10.3.147.98/23,8800-LC-48H-O,DevSonic,
+str3-8800-lc4-1,10.3.146.98/23,88-LC0-36FH-MO,DevSonic,
 pdu-90,10.3.155.90,Sentry,Pdu,snmp
 pdu-91,10.3.155.91,Sentry,Pdu,snmp
 pdu-92,10.3.155.92,Sentry,Pdu,snmp
@@ -32,3 +33,4 @@ console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh
 str3-z9332f-01,10.3.146.248/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
 str3-z9332f-04,10.3.146.230/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
+str3-z9332f-06,10.3.146.7/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
