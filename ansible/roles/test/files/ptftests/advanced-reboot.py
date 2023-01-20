@@ -1205,6 +1205,7 @@ class ReloadTest(BaseTest):
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
             dataplane_downtime = self.total_disrupt_time
         dataplane_report = dict()
+        dataplane_report["checked_successfully"] = self.dataplane_loss_checked_successfully
         dataplane_report["downtime"] = str(dataplane_downtime)
         dataplane_report["lost_packets"] = str(self.total_disrupt_packets) \
             if self.total_disrupt_packets is not None else ""
@@ -1256,7 +1257,11 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check_kvm()
             else:
                 if self.reboot_type == 'fast-reboot':
+                    thr = threading.Thread(target=self.wait_until_control_plane_up)
+                    thr.setDaemon(True)
+                    thr.start()
                     self.handle_fast_reboot_health_check()
+                    thr.join()
                 if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
                     self.handle_warm_reboot_health_check()
                 self.handle_post_reboot_health_check()
@@ -1702,6 +1707,24 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        self.dataplane_loss_checked_successfully = True
+
+        if self.reboot_type == "fast-reboot" and not self.lost_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Data traffic loss not found but reboot test type is '%s' which "
+                                  "must have data traffic loss" % self.reboot_type)
+
+        total_validation_packets = received_t1_to_vlan + received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
+        if total_validation_packets != sent_counter:
+            # Specific case when packet loss started but final lost packet not detected
+            self.dataplane_loss_checked_successfully = False
+            message = "Unable to calculate the dataplane traffic loss time. The traffic did not restore after " \
+                      "performing reboot for the pre-defined test checker period. Note: the traffic could possibly " \
+                      "restore after too long time, this could be checked manually."
+            self.log(message)
+            self.fails["dut"].add(message)
+
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
             filename = '/tmp/capture_filtered.pcap' if self.logfile_suffix is None else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix
