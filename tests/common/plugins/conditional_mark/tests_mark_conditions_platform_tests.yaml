@@ -859,10 +859,11 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
 #####   test_advanced_reboot.py   #####
 #######################################
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
-  skip:
-    reason: "Skip test_fast_reboot_from_other_vendor on mellanox and broadcom"
+  xfail:
+    reason: "case failed and waiting for fix"
     conditions:
       - "asic_type in ['broadcom', 'mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7293
 
 #######################################
 #####   test_reload_config.py     #####
