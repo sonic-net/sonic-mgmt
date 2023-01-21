@@ -21,45 +21,6 @@ class snmpPduController(PduControllerBase):
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
-    def get_pdu_controller_type(self):
-        """
-        @summary: Use SNMP to get the type of PDU controller host
-        @param pdu_controller_host: IP address of PDU controller host
-        @return: Returns type string of the specified PDU controller host
-        """
-        pSYSDESCR = ".1.3.6.1.2.1.1.1.0"
-        SYSDESCR = "1.3.6.1.2.1.1.1.0"
-        pdu = None
-        cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
-            snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
-            cmdgen.MibVariable(pSYSDESCR)
-        )
-        if errorIndication:
-            logging.error("Failed to get pdu controller type, exception: " + str(errorIndication))
-        for oid, val in varBinds:
-            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if current_oid == SYSDESCR:
-                pdu = current_val
-        if pdu is None:
-            self.pduType = None
-            return
-        if 'Sentry Switched PDU' in pdu:
-            self.pduType = "SENTRY4"
-        if 'Sentry Switched CDU' in pdu:
-            self.pduType = "SENTRY"
-        if 'APC Web/SNMP Management Card' in pdu:
-            self.pduType = "APC"
-        if 'Emerson' in pdu:
-            self.pduType = 'Emerson'
-        if 'Vertiv Geist Upgradeable PDU' in pdu:
-            self.pduType = 'Vertiv'
-        return
-
     def pduCntrlOid(self):
         """
         Define Oids based on the PDU Type
@@ -93,11 +54,11 @@ class snmpPduController(PduControllerBase):
         self.has_lanes = True
         self.max_lanes = 5
         self.PORT_POWER_BASE_OID = None
-        if self.pduType == "APC":
+        if self.pduType == "Apc":
             self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
-        elif self.pduType == "SENTRY":
+        elif self.pduType == "Sentry":
             self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY_PORT_CONTROL_BASE_OID
@@ -106,7 +67,7 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID = EMERSON_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
             self.CONTROL_OFF = "0"
-        elif self.pduType == "SENTRY4":
+        elif self.pduType == "Sentry4":
             self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
@@ -169,16 +130,15 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-    def __init__(self, controller, pdu):
+    def __init__(self, controller, pdu, hwsku):
         logging.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
         self.snmp_rwcommunity = pdu['snmp_rwcommunity']
-        self.pduType = None
+        self.pduType = hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
-        self.get_pdu_controller_type()
         self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
@@ -334,9 +294,9 @@ class snmpPduController(PduControllerBase):
         pass
 
 
-def get_pdu_controller(controller_ip, pdu):
+def get_pdu_controller(controller_ip, pdu, hwsku):
     """
     @summary: Factory function to create the actual PDU controller object.
     @return: The actual PDU controller object. Returns None if something went wrong.
     """
-    return snmpPduController(controller_ip, pdu)
+    return snmpPduController(controller_ip, pdu, hwsku)
