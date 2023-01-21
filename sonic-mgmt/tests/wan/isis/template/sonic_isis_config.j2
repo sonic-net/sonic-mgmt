@@ -1,0 +1,41 @@
+{
+    "ISIS_GLOBAL": {
+{%- if isis_instance is defined %}
+        "{{ isis_instance }}": {
+            "net": "{{ isis_net }}",
+            "level-capability": "{{ level_capability | default('level-2') }}",
+            "dynamic-hostname": "{{ dynamic_hostname | default('true') }}",
+            "lsp-mtu-size": "{{ lsp_mtu_size | default('1497') }}",
+            "log-adjacency-changes": "{{ log_adjacency_changes | default('false') }}"
+        }
+{%- endif %}
+    },
+    "ISIS_LEVEL": {
+{%- if isis_instance is defined %}
+        "{{ isis_instance }}|{{ level_capability | default('level-2') }}": {
+            "lsp-refresh-interval": "{{ lsp_refresh_interval | default('900') }}",
+            "lsp-maximum-lifetime": "{{ lsp_maximum_lifetime | default('1200') }}",
+            "lsp-generation-interval": "{{ lsp_generation_interval | default('30') }}",
+            "spf-minimum-interval": "{{ spf_minimum_interval | default('1') }}"
+        }
+{%- endif %}
+    },
+    "ISIS_INTERFACE": {
+{%- if isis_instance is defined %}
+{%- for name in isis_intfs %}
+        "{{ isis_instance }}|{{ name }}": {
+            "passive": "{{ isis_passive | default('false') }}",
+            "hello-padding": "{{ hello_padding | default('false') }}",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "{{ isis_instance }}",
+            "ipv6-routing-instance": "{{ isis_instance }}",
+            "metric": "{{ wide_metric | default('0') }}",
+            "csnp-interval": "{{ csnp_interval | default('10') }}",
+            "psnp-interval": "{{ psnp_interval | default('2') }}",
+            "hello-interval": "{{ hello_interval | default('3') }}",
+            "hello-multiplier": "{{ hello_multiplier | default('10') }}"
+        }{{ "," if not loop.last else "" }}
+{%- endfor %}
+{%- endif %}
+    }
+}

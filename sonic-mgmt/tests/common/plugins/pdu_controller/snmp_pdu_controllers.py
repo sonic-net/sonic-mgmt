@@ -17,7 +17,7 @@ class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
@@ -99,11 +99,11 @@ class snmpPduController(PduControllerBase):
         self.has_lanes = True
         self.max_lanes = 5
         self.PORT_POWER_BASE_OID = None
-        if self.pduType == "APC":
+        if self.pduType == "Apc":
             self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
-        elif self.pduType == "SENTRY":
+        elif self.pduType == "Sentry":
             self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY_PORT_CONTROL_BASE_OID
@@ -112,7 +112,7 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID = EMERSON_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
             self.CONTROL_OFF = "0"
-        elif self.pduType == "SENTRY4":
+        elif self.pduType == "Sentry4":
             self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
@@ -184,16 +184,15 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-    def __init__(self, controller, pdu):
+    def __init__(self, controller, pdu, hwsku):
         logging.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
         self.snmp_rwcommunity = pdu['snmp_rwcommunity']
-        self.pduType = None
+        self.pduType = hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
-        self.get_pdu_controller_type()
         self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
@@ -349,9 +348,9 @@ class snmpPduController(PduControllerBase):
         pass
 
 
-def get_pdu_controller(controller_ip, pdu):
+def get_pdu_controller(controller_ip, pdu, hwsku):
     """
     @summary: Factory function to create the actual PDU controller object.
     @return: The actual PDU controller object. Returns None if something went wrong.
     """
-    return snmpPduController(controller_ip, pdu)
+    return snmpPduController(controller_ip, pdu, hwsku)

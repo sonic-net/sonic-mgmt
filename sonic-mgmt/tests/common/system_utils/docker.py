@@ -106,7 +106,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 def swap_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss 
+    This will download a new Docker image to the duthost and restart the swss
     service.
 
     Args:
@@ -123,7 +123,7 @@ def swap_syncd(duthost, creds):
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
 
@@ -135,7 +135,8 @@ def swap_syncd(duthost, creds):
 
     _perform_swap_syncd_shutdown_check(duthost)
 
-    is_syncdrpc_present_locally = duthost.command('docker image inspect '+docker_rpc_image, module_ignore_errors=True)['rc'] == 0
+    is_syncdrpc_present_locally = duthost.command('docker image inspect ' + docker_rpc_image,
+                                                  module_ignore_errors=True)['rc'] == 0
 
     if is_syncdrpc_present_locally:
         tag_image(

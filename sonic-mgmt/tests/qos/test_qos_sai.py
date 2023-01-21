@@ -563,7 +563,7 @@ class TestQosSai(QosSaiBase):
 
         qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
             dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
-        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] and qosConfig["hdrm_pool_size"]["dst_port_id"], "No enough test ports")
+        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] != None and qosConfig["hdrm_pool_size"]["dst_port_id"] != None, "No enough test ports")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])

@@ -14,12 +14,14 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
+
 class SonicProcess(Process):
     """
     Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
     an exception when run.
 
-    This exception (including backtrace) can be logged in test log to provide better info of why a particular Process failed.
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
@@ -75,6 +77,7 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
@@ -86,9 +89,7 @@ def parallel_run(
         running_processes = [worker for worker in workers if worker.is_alive()]
         if len(running_processes) > 0:
             logger.info(
-                'Found processes still running: {}. Try to kill them.'.format( #lgtm [py/clear-text-logging-sensitive-data]
-                    str(running_processes)
-                )
+                'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
                 # If sanity check process is killed, it still has init results.
@@ -110,7 +111,6 @@ def parallel_run(
                         """Processes running target "{}" could not be terminated.
                         Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
-
 
     workers = []
     results = Manager().dict()

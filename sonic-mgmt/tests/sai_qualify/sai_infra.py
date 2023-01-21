@@ -29,8 +29,10 @@ from conftest import stop_dockers
 from conftest import SAI_TEST_CONMUN_CASE_DIR_ON_PTF
 from conftest import SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF
 from conftest import SAI_TEST_REPORT_TMP_DIR_ON_PTF
-from conftest import SAI_TEST_SAI_CASE_DIR_ON_PTF
+from conftest import SAI_TEST_T0_CASE_DIR_ON_PTF
+from conftest import SAI_TEST_RESOURCE_ON_PTF_DIR
 from conftest import WARM_TEST_ARGS
+from conftest import PTF_TEST_CASE_TIMEOUT_IN_SEC
 from conftest import start_sai_test_conatiner_with_retry
 from conftest import get_sai_running_vendor_id
 from conftest import get_sai_test_container_name
@@ -155,9 +157,19 @@ def sai_testbed(duthost,
     """
     try:
         if not request.config.option.sai_test_skip_setup_env:
+            dut_ip = duthost.host.options['inventory_manager'].get_host(
+                duthost.hostname).vars['ansible_host']
+            ptfhost.shell(
+                "echo \"export PLATFORM={}\" >> ~/.bashrc".format(
+                    get_sai_running_vendor_id(duthost)))
+            ptfhost.shell(
+                "echo \"export DUTIP={}\" >> ~/.bashrc".format(dut_ip))
             prepare_test_cases(ptfhost, request)
         yield
     finally:
+        # ptfhost.shell(
+        #    "sed -i \'/export PLATFORM={}/d\' \
+        # ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
         store_test_result(ptfhost)
         if not request.config.option.sai_test_keep_test_env:
             teardown_dut(duthost, ptfhost, request)
@@ -218,49 +230,79 @@ def run_case_from_ptf(duthost,
     logger.info("Running test: {0}".format(test_case))
     logger.info("Sleep {} sec between tests.".format(TEST_INTERVAL_IN_SEC))
     time.sleep(TEST_INTERVAL_IN_SEC)
-    test_para = ''
-    ptfhost.shell(
-        "echo \"export PLATFORM={}\" >> ~/.bashrc".format(
-            get_sai_running_vendor_id(duthost)))
+    test_param = ''
 
-    if request.config.option.enable_sai_test:
-        test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
-        test_para += " \"--test-params=thrift_server='{}';\
-            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(
-            dut_ip, request.config.option.sai_port_config_file)
-    elif request.config.option.enable_ptf_sai_test:
-        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
-        test_para += " \"--test-params=thrift_server='{}';\
-            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'\"".format(
-            dut_ip, request.config.option.sai_port_config_file)
-    elif request.config.option.enable_ptf_warmboot_test:
-        test_para = "--test-dir {}".format(SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF)
-        test_para += " \"--test-params=thrift_server='{}';\
-            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
-            dut_ip,
-            request.config.option.sai_port_config_file,
-            WARM_TEST_ARGS)
-    elif request.config.option.enable_t0_warmboot_test:
-        test_para = "--test-dir {}".format(SAI_TEST_SAI_CASE_DIR_ON_PTF)
-        test_para += " \"--test-params=thrift_server='{}';\
-            port_config_ini='/tmp/sai_qualify/sai_test/resources/{}'{}\"".format(
-            dut_ip,
-            request.config.option.sai_port_config_file,
-            WARM_TEST_ARGS)
+    if request.config.option.enable_sai_test \
+       or request.config.option.enable_ptf_sai_test \
+       or request.config.option.enable_ptf_warmboot_test \
+       or request.config.option.enable_t0_warmboot_test:
+        test_param = compose_sai_ptfv2_running_param(dut_ip, request)
     else:  # for old community test
-        test_para = "--test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
-            SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
-            dut_ip,
-            PORT_MAP_FILE_PATH)
-    ptfhost.shell(("ptf {} {} --relax --xunit \
+        test_param = compose_community_running_param(dut_ip, request)
+    logger.info("Test case param: [{}].".format(test_param))
+    ptfhost.shell(("ptf {} {} --relax --xunit --test-case-timeout={} \
         --xunit-dir {} {}").format(test_case,
                                    test_interface_params,
+                                   PTF_TEST_CASE_TIMEOUT_IN_SEC,
                                    SAI_TEST_REPORT_TMP_DIR_ON_PTF,
-                                   test_para))
-
-    ptfhost.shell(
-        "sed -i \'/export PLATFORM={}/d\' ~/.bashrc".format(get_sai_running_vendor_id(duthost)))
+                                   test_param))
     logger.info("Test case [{}] passed.".format(test_case))
+
+
+def compose_sai_ptfv2_running_param(dut_ip, request):
+    """
+    Run the sai test cases from ptf.
+
+    Args:
+        dut_ip: dut ip address.
+        request: Pytest request.
+    """
+    test_param = ''
+    test_set = ''
+    warm_param = ''
+    if request.config.option.enable_sai_test \
+       or request.config.option.enable_t0_warmboot_test:
+        test_set = SAI_TEST_T0_CASE_DIR_ON_PTF
+    elif request.config.option.enable_ptf_sai_test \
+        or request.config.option.enable_ptf_warmboot_test:   # noqa: E125
+        test_set = SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF
+    else:
+        raise Exception("Unknown Test set.")
+
+    if request.config.option.enable_t0_warmboot_test \
+       or request.config.option.enable_ptf_warmboot_test:
+        warm_param = WARM_TEST_ARGS
+
+    port_config_file = SAI_TEST_RESOURCE_ON_PTF_DIR + '/port_config.ini'
+    config_db_file = SAI_TEST_RESOURCE_ON_PTF_DIR + '/config_db.json'
+    if request.config.option.sai_port_config_file:
+        port_config_file = request.config.option.sai_port_config_file
+    if request.config.option.sai_config_db_file:
+        config_db_file = request.config.option.sai_config_db_file
+
+    test_param = "--test-dir {}".format(test_set)
+    test_param += " \"--test-params=thrift_server='{}';\
+        port_config_ini='{}';config_db_json='{}';{}\"".format(
+        dut_ip,
+        port_config_file,
+        config_db_file,
+        warm_param)
+    return test_param
+
+
+def compose_community_running_param(dut_ip, request):
+    """
+    Run the community sai test cases from ptf.
+
+    Args:
+        dut_ip: dut ip address.
+        request: Pytest request.
+    """
+    test_param = "--test-dir {} -t \"server='{}';port_map_file='{}'\"".format(
+        SAI_TEST_CONMUN_CASE_DIR_ON_PTF,
+        dut_ip,
+        PORT_MAP_FILE_PATH)
+    return test_param
 
 
 def reset_sai_test_dut(duthost, creds, request):
@@ -379,7 +421,7 @@ def delete_sai_test_cases(ptfhost, request):
     if request.config.option.enable_sai_test \
        or request.config.option.enable_t0_warmboot_test:
         ptfhost.file(path="{0}".format(
-            SAI_TEST_SAI_CASE_DIR_ON_PTF), state="absent")
+            SAI_TEST_T0_CASE_DIR_ON_PTF), state="absent")
     else:
         ptfhost.file(path="{0}".format(
             SAI_TEST_CONMUN_CASE_DIR_ON_PTF), state="absent")
@@ -435,11 +477,13 @@ def copy_sai_test_cases(ptfhost, request):
         ptfhost (AnsibleHost): The PTF server.
         request: Pytest request.
     """
-
-    logger.info("Copying SAI test cases to PTF server.")
-    ptfhost.copy(
-        src=request.config.option.sai_test_dir,
-        dest=PTF_TEST_ROOT_DIR + "/")
+    if request.config.option.sai_test_dir:
+        logger.info("Copying SAI test cases to PTF server.")
+        ptfhost.copy(
+            src=request.config.option.sai_test_dir,
+            dest=PTF_TEST_ROOT_DIR + "/")
+    else:
+        logger.info("Skip Copying SAI test cases to PTF server.")
 
 
 def collect_test_result(duthost, ptfhost, request):

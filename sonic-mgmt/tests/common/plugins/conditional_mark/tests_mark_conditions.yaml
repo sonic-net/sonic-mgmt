@@ -375,6 +375,10 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
+
 #######################################
 #####           http              #####
 #######################################
@@ -472,13 +476,13 @@ macsec/test_macsec.py:
     conditions:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
-macsec/test_macsec.py::TestDataPlane::test_server_to_neighbor:
+macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
     conditions:
       - "'t2' in topo_name"
 
-macsec/test_macsec.py::TestInteropProtocol::test_bgp:
+macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
   skip:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
@@ -589,9 +593,9 @@ pfc/test_unknown_mac.py:
 #######################################
 pfc_asym/test_pfc_asym.py:
   skip:
-    reason: 'pfc_asym test is only supported on Mellanox, Barefoot platforms'
+    reason: 'pfc_asym test skip except for on Barefoot platforms'
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot']"
+      - "asic_type not in ['barefoot']"
 
 pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
    skip:
@@ -832,9 +836,9 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue or unsupported platform"
+    reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
-      - "is_supervisor or topo_name in ['m0'] or asic_type in ['barefoot']"
+      - "is_supervisor or topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####

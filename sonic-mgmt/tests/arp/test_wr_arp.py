@@ -246,6 +246,35 @@ class TestWrArp:
                 "alt_password": sonicadmin_alt_password,
                 'config_file': VXLAN_CONFIG_FILE,
                 'how_long': testDuration,
+                'advance': False,
             },
             log_file='/tmp/wr_arp.ArpTest.log'
+        )
+
+    def testWrArpAdvance(self, request, duthost, ptfhost, creds):
+        testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
+        ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+
+        logger.info('Warm-Reboot Control-Plane assist feature')
+        sonicadmin_alt_password = duthost.host.options['variable_manager'].\
+            _hostvars[duthost.hostname].get("ansible_altpassword")
+        ptf_runner(
+            ptfhost,
+            'ptftests',
+            'wr_arp.ArpTest',
+            qlen=PTFRUNNER_QLEN,
+            platform_dir='ptftests',
+            platform='remote',
+            params={
+                'ferret_ip': ptfIp,
+                'dut_ssh': dutIp,
+                'dut_username': creds['sonicadmin_user'],
+                'dut_password': creds['sonicadmin_password'],
+                "alt_password": sonicadmin_alt_password,
+                'config_file': VXLAN_CONFIG_FILE,
+                'how_long': testDuration,
+                'advance': True,
+            },
+            log_file='/tmp/wr_arp.ArpTest.Advance.log'
         )

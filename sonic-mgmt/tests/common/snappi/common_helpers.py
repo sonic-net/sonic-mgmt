@@ -17,6 +17,7 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
+
 def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
@@ -66,7 +67,7 @@ def get_vlan_subnet(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print 'There should be only one Vlan at the DUT'
+        print('There should be only one Vlan at the DUT')
         return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
@@ -656,6 +657,7 @@ def enable_packet_aging(duthost):
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """
     Get N IPv6 addresses in a subnet.
@@ -667,7 +669,7 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
+    subnet = subnet.encode().decode("utf-8")
     ipv6_list = []
     for i in range(number_of_ip):
         network = IPv6Network(subnet)

@@ -65,7 +65,7 @@ class FanoutOnyxDropCounter(FanoutDropCounter):
 
     @staticmethod
     def _get_openflow_port_id_from_show_openflow(show_openflow, port):
-        regexp = 'Eth1/{}\s*OF-(\d+)'.format(port)
+        regexp = r'Eth1/{}\s*OF-(\d+)'.format(port)
         match = re.search(regexp, show_openflow)
         if match:
             return match.group(1)

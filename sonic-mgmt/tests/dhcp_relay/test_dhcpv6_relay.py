@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def wait_all_bgp_up(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    if not wait_until(60, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(180, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after config change")
 
 

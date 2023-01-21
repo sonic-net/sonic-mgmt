@@ -57,6 +57,7 @@ def is_replaceable(conn, mod_idx):
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
 
+
 def get_base_mac(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_base_mac')
 

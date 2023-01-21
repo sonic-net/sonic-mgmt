@@ -5,6 +5,7 @@ DUT_TMP_DIR = "/tmp"
 TEMPLATE_DIR = os.path.join(BASE_DIR, '../templates')
 ACL_TEMPLATE = 'backend_acl_update_config.j2'
 
+
 def apply_acl_rules(duthost, tbinfo, intf_list=None):
     if "t0-backend" not in tbinfo["topo"]["name"]:
         return

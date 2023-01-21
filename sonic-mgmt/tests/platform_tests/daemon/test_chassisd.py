@@ -67,6 +67,10 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
 
+def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    return (daemon_pid > pre_daemon_pid)
+
 def collect_data(duthost):
     keys = duthost.shell('sonic-db-cli STATE_DB KEYS "CHASSIS_*TABLE|*"')['stdout_lines']
 
@@ -164,6 +168,7 @@ def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, enum
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
     wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
