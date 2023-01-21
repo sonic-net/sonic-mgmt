@@ -343,7 +343,7 @@ sonic_cisco_lc_400G:
     str3-8800-lc4-1:
       hwsku: 88-LC0-36FH-MO
       sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform:  x86_64-88_lc0_36fh_mo-r1
+      sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
       slot_num: slot4
       loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
       loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
@@ -407,7 +407,7 @@ sonic_cisco_sup:
         "0xFE": "0x1026B8C6"
       skip_modules:
           'line-cards':
-            - LINE-CARD3
+            - LINE-CARD0
             - LINE-CARD4
             - LINE-CARD5
             - LINE-CARD6
