@@ -362,7 +362,7 @@ sonic_cisco_lc_400G:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFF": "0x7DA6B680"
+        "0xFE": "0x7DA6B680"
       plt_reboot_dict:
         cold:
           timeout: 300
