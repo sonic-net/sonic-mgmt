@@ -7,6 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 
 import pytest
+import re
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
@@ -87,6 +88,8 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
 
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
+    # Check if interfaces-config.service is exited
+    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
 
     logging.info("Reload configuration check")
     out = duthost.shell("sudo config reload -y", executable="/bin/bash", module_ignore_errors=True)
@@ -122,3 +125,10 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     assert "Retry later" not in out['stdout']
 
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+
+
+def check_interfaces_config_service_status(duthost):
+    # check interfaces-config.service status
+    regx_interface_config_service_exit = r'.*Main PID: \d+ \(code=exited, status=0\/SUCCESS\).*'
+    interface_config_server_status = duthost.command('systemctl status interfaces-config.service')['stdout']
+    return re.search(regx_interface_config_service_exit, interface_config_server_status)
