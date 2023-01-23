@@ -355,6 +355,37 @@ class SonicHost(AnsibleHostBase):
                 result[fields[0]] = fields[1]
         return result
 
+    def get_service_props_bulk(self, services, props=["ActiveState", "SubState"]):
+        """
+        @summary: Same as get_service_props, but retrieves data about the listed services by a single network request 
+        @param services: list of service names to get data about.
+        @param props: Properties of the service to be shown.
+        @return: Returns a dictionary containing per service properties, for example:
+            {
+                "snmp": {
+                    "ActivateState": "active",
+                    "SubState": "running"
+                },
+                "syncd": {
+                    "ActivateState": "active",
+                    "SubState": "running"
+                }
+            }
+        """
+        props_arg = " ".join(["-p %s" % prop for prop in props])
+        commands = ["systemctl %s show %s" % (props_arg, service) for service in services]
+        results = self.shell_cmds(cmds=commands)['results']
+
+        def parse_output(output):
+            result = {}
+            for line in output["stdout_lines"]:
+                fields = line.split("=")
+                if len(fields) >= 2:
+                    result[fields[0]] = fields[1]
+            return result
+
+        return {services[svc_index]: parse_output(output) for svc_index, output in enumerate(results)}
+
     def get_asics_present_from_inventory(self):
         im = self.host.options['inventory_manager']
         inv_files = im._sources
