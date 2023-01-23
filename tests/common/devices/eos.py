@@ -315,12 +315,12 @@ class EosHost(AnsibleHostBase):
 
     def get_speed(self, interface_name):
         output = self.eos_command(commands=['show interfaces %s transceiver properties' % interface_name])
-        found_txt = re.search(r'Operational Speed: (\S+)', output['stdout'][0])
+        found_txt = re.search(r'Operational [Ss]peed: (\d+)G', output['stdout'][0])
         if found_txt is None:
             _raise_err('Not able to extract interface %s speed from output: %s' % (interface_name, output['stdout']))
 
         v = found_txt.groups()[0]
-        return v[:-1] + '000'
+        return v + '000'
 
     def _has_cli_cmd_failed(self, cmd_output_obj):
         err_out = False
@@ -366,7 +366,7 @@ class EosHost(AnsibleHostBase):
                     'show interface {} hardware'.format(interface_name)]
         for command in commands:
             output = self.eos_command(commands=[command])
-            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+            found_txt = re.search("Speed/[Dd]uplex: (.+)", output['stdout'][0])
             if found_txt is not None:
                 break
 
@@ -379,7 +379,10 @@ class EosHost(AnsibleHostBase):
 
         def extract_speed_only(v):
             return re.match(r'\d+', v.strip()).group() + '000'
-        return list(map(extract_speed_only, speed_list))
+
+        speed_list = map(extract_speed_only, speed_list)
+        uniq_speeds = set(speed_list)
+        return list(uniq_speeds)
 
     def get_dut_iface_mac(self, interface_name):
         """
