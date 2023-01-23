@@ -465,8 +465,12 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     finally:
         # Recover interfaces in case of failure
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
         for lag_name in test_lags:
-            asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+            else:
+                asic_index = DEFAULT_ASIC_ID
             asichost = duthost.asic_instance(asic_index)
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if port_info['link']['up']:
