@@ -569,6 +569,13 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                                         shell_passwd=shell_password)
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
+
+                    if fanout.os == 'sonic':
+                        ifs_status = fanout.host.get_interfaces_status()
+                        for key, interface_info in ifs_status.items():
+                            fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                        logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
                 # Add port name to fanout port mapping port if dut_port is alias.
