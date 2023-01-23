@@ -229,8 +229,8 @@ class TestShowLLDP():
 
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
-                assert re.search(r'{}.*\s+{}'
-                    .format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']), lldp_table) is not None
+                assert re.search(r'{}.*\s+{}'.format(
+                    alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']), lldp_table) is not None
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
                 assert re.search(r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']), lldp_table) is not None
@@ -251,8 +251,8 @@ class TestShowLLDP():
 
         if mode == 'alias':
             assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
-            assert re.search(r'SysName:\s+{}'
-                .format(minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']), lldp_neighbor) is not None
+            assert re.search(r'SysName:\s+{}'.format(
+                minigraph_neighbors[setup['port_alias_map'][test_intf]]['name']), lldp_neighbor) is not None
         elif mode == 'default':
             assert re.search(r'Interface:\s+{},\svia:\sLLDP,'.format(test_intf), lldp_neighbor) is not None
             assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[test_intf]['name']), lldp_neighbor) is not None
@@ -340,8 +340,8 @@ class TestShowInterfaces():
 
         for key, value in minigraph_portchannels.items():
             if mode == 'alias':
-                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'
-                    .format(key, setup['port_name_map'][value['members'][0]]), int_po) is not None
+                assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(
+                    key, setup['port_name_map'][value['members'][0]]), int_po) is not None
             elif mode == 'default':
                 assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, value['members'][0]), int_po) is not None
 
@@ -381,8 +381,8 @@ class TestShowPriorityGroup():
         lists the interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark headroom'
-            .format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark headroom'.format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -398,8 +398,8 @@ class TestShowPriorityGroup():
         lists the interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark shared'
-            .format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show priority-group persistent-watermark shared'.format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -415,8 +415,8 @@ class TestShowPriorityGroup():
         interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark headroom'
-            .format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show priority-group watermark headroom'.format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -432,8 +432,8 @@ class TestShowPriorityGroup():
         interface names as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        show_pg = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show priority-group watermark shared'
-            .format(ifmode))['stdout']
+        show_pg = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show priority-group watermark shared'.format(ifmode))['stdout']
         logger.info('show_pg:\n{}'.format(show_pg))
 
         if mode == 'alias':
@@ -487,11 +487,11 @@ class TestShowQueue():
             for intf in interfaces:
                 alias = setup['port_name_map'][intf]
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter)
-                    is not None) and (setup['port_alias_map'][alias] not in queue_counter)
+                        is not None) and (setup['port_alias_map'][alias] not in queue_counter)
         elif mode == 'default':
             for intf in interfaces:
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter)
-                    is not None) and (setup['port_name_map'][intf] not in queue_counter)
+                        is not None) and (setup['port_name_map'][intf] not in queue_counter)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -506,7 +506,7 @@ class TestShowQueue():
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
             assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i),
-                queue_counter_intf['stdout']) is not None
+                             queue_counter_intf['stdout']) is not None
             
     @pytest.mark.parametrize("queues", ["multicast", "unicast", "all"])
     def test_show_queue_persistent_watermark(self, setup, setup_config_mode, queues, supported_queues):
@@ -747,13 +747,13 @@ class TestConfigInterface():
         # Get supported speeds for interface
         supported_speeds = duthost.get_supported_speeds(interface)
         # Remove native speed from supported speeds
-        if supported_speeds != None:
+        if supported_speeds is not None:
             supported_speeds.remove(native_speed)
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
-             ifmode,cli_ns_option, test_intf, configure_speed))
+             ifmode, cli_ns_option, test_intf, configure_speed))
 
         if out['rc'] != 0:
             pytest.fail()
@@ -777,12 +777,13 @@ class TestConfigInterface():
 
         assert speed == native_speed
 
+
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in  ['t1', 't2']:
+    if tbinfo['topo']['type'] not in ['t1', 't2']:
         pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
@@ -804,7 +805,9 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
             elif mode == 'default':
                 assert item in acl_table
 
-def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo,duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+
+def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts, 
+                                           enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
@@ -817,15 +820,18 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo,duth
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-    show_int_neighbor = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces neighbor expected'.format(ifmode))['stdout']
+    show_int_neighbor = dutHostGuest.shell(
+        'SONIC_CLI_IFACE_MODE={} show interfaces neighbor expected'.format(ifmode))['stdout']
     logger.info('show_int_neighbor:\n{}'.format(show_int_neighbor))
 
     for key, value in minigraph_neighbors.items():
         if 'server' not in value['name'].lower():
             if mode == 'alias':
-                assert re.search(r'{}\s+{}'.format(setup['port_name_map'][key], value['name']), show_int_neighbor) is not None
+                assert re.search(r'{}\s+{}'.format(
+                    setup['port_name_map'][key], value['name']), show_int_neighbor) is not None
             elif mode == 'default':
                 assert re.search(r'{}\s+{}'.format(key, value['name']), show_int_neighbor) is not None
+
 
 class TestNeighbors():
 
@@ -855,11 +861,14 @@ class TestNeighbors():
 
         for item in arptable['v4']:
             # To ignore Midplane interface, added check on what is being set in setup fixture
-            if (arptable['v4'][item]['interface'] in setup['port_name_map']) and (arptable['v4'][item]['interface'] not in minigraph_portchannels):
+            if (arptable['v4'][item]['interface'] in setup['port_name_map']) and 
+               (arptable['v4'][item]['interface'] not in minigraph_portchannels):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'.format(item, setup['port_name_map'][arptable['v4'][item]['interface']]), arp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(
+                        item, setup['port_name_map'][arptable['v4'][item]['interface']]), arp_output) is not None
                 elif mode == 'default':
-                    assert re.search(r'{}.*\s+{}'.format(item, arptable['v4'][item]['interface']), arp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(
+                        item, arptable['v4'][item]['interface']), arp_output) is not None
 
     def test_show_ndp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, setup_config_mode):
         """
@@ -881,7 +890,8 @@ class TestNeighbors():
                     detail['interface'] not in minigraph_portchannels
             ):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'.format(addr, setup['port_name_map'][detail['interface']]), ndp_output) is not None
+                    assert re.search(r'{}.*\s+{}'.format(
+                        addr, setup['port_name_map'][detail['interface']]), ndp_output) is not None
                 elif mode == 'default':
                     assert re.search(r'{}.*\s+{}'.format(addr, detail['interface']), ndp_output) is not None
 
@@ -938,7 +948,8 @@ class TestShowIP():
         for item in minigraph_interfaces:
             if IPAddress(item['addr']).version == 4:
                 if mode == 'alias':
-                    assert re.search(r'{}\s+{}'.format(setup['port_name_map'][item['attachto']], item['addr']), show_ip_interface) is not None
+                    assert re.search(r'{}\s+{}'.format(
+                        setup['port_name_map'][item['attachto']], item['addr']), show_ip_interface) is not None
                 elif mode == 'default':
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']), show_ip_interface) is not None
 
@@ -956,7 +967,8 @@ class TestShowIP():
         for item in minigraph_interfaces:
             if IPAddress(item['addr']).version == 6:
                 if mode == 'alias':
-                    assert re.search(r'{}\s+{}'.format(setup['port_name_map'][item['attachto']], item['addr']), show_ipv6_interface) is not None
+                    assert re.search(r'{}\s+{}'.format(
+                        setup['port_name_map'][item['attachto']], item['addr']), show_ipv6_interface) is not None
                 elif mode == 'default':
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']), show_ipv6_interface) is not None
 
