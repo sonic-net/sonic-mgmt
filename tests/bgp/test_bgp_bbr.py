@@ -303,7 +303,8 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         results[node] = vm_route
         
     def route_check():
-        results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
+        results = parallel_run(check_other_vms, (nbrhosts, setup, route), 
+                               {'accepted': accepted}, other_vms, timeout=120)
 
         failed_results = {}
         for node, result in results.items():
