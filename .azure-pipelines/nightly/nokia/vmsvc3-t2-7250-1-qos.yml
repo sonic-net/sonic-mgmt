@@ -1,0 +1,48 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+# run on internal or private image
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vmsvc3-t2-7250-1
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  # for now ignore updating the images on chassis
+  #- name: IMAGE_URL
+  #  type: string
+  #  default: ""
+  #  displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-svc
+    displayName: "Agent pool"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "qos pfcwd"'
+    displayName: "Testbed specific"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      NIGHTLY_TEST_TIMEOUT: 2880  # 48 hours
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
