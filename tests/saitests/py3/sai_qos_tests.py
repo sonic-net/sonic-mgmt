@@ -1136,15 +1136,15 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly PFC counter not increase, {}'.format(test_stage)
 
-	    if platform_asic and platform_asic == "broadcom-dnx":
+            if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info ("On J2C+ don't support port level drop counters - so ignoring this step for now")
             else:
                 # recv port ingress drop
-		for cntr in ingress_counters:
-		    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
-		# xmit port no egress drop
-		for cntr in egress_counters:
-		    assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                for cntr in ingress_counters:
+                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                # xmit port no egress drop
+                for cntr in egress_counters:
+                    assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(
@@ -2775,10 +2775,10 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print(diff_list, file=sys.stderr)
 
         for dscp, diff in diff_list:
-	   if platform_asic and platform_asic == "broadcom-dnx":
-	      logging.info("On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
-	   else:
-	      assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (dscp, diff, limit)
+           if platform_asic and platform_asic == "broadcom-dnx":
+                logging.info("On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
+           else:
+                assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (dscp, diff, limit)
 
         # Read counters
         print("DST port counters: ")

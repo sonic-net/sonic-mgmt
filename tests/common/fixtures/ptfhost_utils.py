@@ -179,7 +179,7 @@ def _ptf_portmap_file(duthost, ptfhost, tbinfo):
             filename (str): returns the filename copied to PTF host
     """
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up' and intfInfo[port]['admin_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
