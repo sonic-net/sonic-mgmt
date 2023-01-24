@@ -143,6 +143,7 @@ class ReloadTest(BaseTest):
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '', required=False)
+        self.check_param('lo_prefix2', '', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
@@ -569,7 +570,10 @@ class ReloadTest(BaseTest):
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
+        self.ping_dut_packets = []
+        self.ping_dut_macjump_packet = []
         self.lo_prefix = self.test_params['lo_prefix']
+        self.lo_prefix2 = self.test_params['lo_prefix2']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -617,7 +621,9 @@ class ReloadTest(BaseTest):
 
         self.generate_from_t1()
         self.generate_from_vlan()
-        self.generate_ping_dut_lo()
+        self.generate_ping_dut_lo(self.lo_prefix)
+        #if self.lo_prefix2 != '':
+        #    self.generate_ping_dut_lo(self.lo_prefix2)
         self.generate_arp_ping_packet()
 
         if 'warm-reboot' in self.reboot_type:
@@ -749,9 +755,8 @@ class ReloadTest(BaseTest):
 
         self.from_vlan_packet = str(packet)
 
-    def generate_ping_dut_lo(self):
-        self.ping_dut_packets = []
-        dut_lo_ipv4 = self.lo_prefix.split('/')[0]
+    def generate_ping_dut_lo(self, lo_prefix):
+        dut_lo_ipv4 = lo_prefix.split('/')[0]
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
@@ -765,9 +770,11 @@ class ReloadTest(BaseTest):
                                         ip_src=dut_lo_ipv4,
                                         icmp_type='echo-reply')
 
-        self.ping_dut_macjump_packet = simple_icmp_packet(eth_dst=self.dut_mac,
+        packet = simple_icmp_packet(eth_dst=self.dut_mac,
                                     ip_src=self.from_server_src_addr,
                                     ip_dst=dut_lo_ipv4)
+        
+        self.ping_dut_macjump_packet.append(packet)
 
         self.ping_dut_exp_packet = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -1975,7 +1982,8 @@ class ReloadTest(BaseTest):
     def pingDut(self):
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
             for i in xrange(self.ping_dut_pkts):
-                testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
+                for i in range(ping_dut_macjump_packet):
+                    testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet[i])
         else:
             for i in xrange(self.ping_dut_pkts):
                 src_port, packet = random.choice(self.ping_dut_packets)
