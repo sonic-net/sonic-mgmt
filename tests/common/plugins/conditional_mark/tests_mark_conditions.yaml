@@ -2,7 +2,7 @@
 #####            acl              #####
 #######################################
 acl/test_acl_outer_vlan.py:
-  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000 
+  #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
   xfail:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests"
@@ -290,6 +290,50 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
+
+#######################################
+#####       passw_hardening       #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  skip:
+    reason: "Password-hardening supported just in master version"
+    conditions_logical_operator: or
+    conditions:
+        - "release not in ['master']"
+        - https://github.com/sonic-net/sonic-mgmt/issues/6428
+
+#######################################
+#####           pc               #####
+#######################################
+pc/test_lag_2.py::test_lag_db_status_with_po_update:
+  skip:
+    reason: "Only support t1-lag and t2 topology"
+    conditions:
+        - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
+
+pc/test_po_cleanup.py:
+  skip:
+    reason: "Skip test due to there is no portchannel exists in current topology."
+    conditions:
+      - "len(minigraph_portchannels) == 0 and not is_multi_asic"
+
+pc/test_po_update.py::test_po_update:
+  skip:
+    reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
+    conditions:
+      - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0"
+
+pc/test_po_update.py::test_po_update_io_no_loss:
+  skip:
+    reason: "Skip test due to there isn't enough port channel exists in current topology."
+    conditions:
+      - "len(minigraph_portchannel_interfaces) < 2"
+
+pc/test_po_voq.py:
+  skip:
+    reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
+    conditions:
+      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
