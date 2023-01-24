@@ -541,9 +541,9 @@ passw_hardening/test_passw_hardening.py:
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag topology"
+    reason: "Only support t1-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag']"
+        - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
