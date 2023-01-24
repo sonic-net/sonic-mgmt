@@ -461,7 +461,7 @@ class TestModuleApi(PlatformApiTestBase):
                 logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                pytest_assert(module_reboot == bool(True), "module {} reboot failed".format(mod_idx))
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
