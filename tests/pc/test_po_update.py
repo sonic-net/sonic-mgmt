@@ -99,6 +99,9 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             portchannel_members = port_channels_data[portchannel]
             break
 
+    if not portchannel:
+        pytest.skip( 'Can not get PortChannel interface for test' )
+
     pytest_assert(portchannel and portchannel_members, 'Can not get PortChannel interface for test')
 
     tmp_portchannel = "PortChannel999"
