@@ -1212,7 +1212,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            continue
+            dut_asic_list.append([None]) 
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
