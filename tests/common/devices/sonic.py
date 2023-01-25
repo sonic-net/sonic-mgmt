@@ -2097,10 +2097,6 @@ Totals               6450                 6449
         json_info = json.loads(commond_output["stdout"])
         return json_info
 
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.command("show interface status {}".format(interface_name))
-        return 'down' in show_int_result['stdout_lines'][2].lower()
-
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
