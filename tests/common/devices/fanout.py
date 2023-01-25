@@ -181,9 +181,6 @@ class FanoutHost(object):
         """
         return self.host.get_speed(interface_name)
 
-    def is_intf_status_down(self, interface_name):
-        return self.host.is_intf_status_down(interface_name)
-
     def links_status_down(self, ports):
         """Get interface status
         Args:
