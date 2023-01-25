@@ -129,6 +129,7 @@ def test_stop_pfcwd(duthost):
     for line in pfcwd_config['stdout_lines']:
         if line.startswith('Ethernet'):
             interface = line.split()[0]
+            break
 
     json_patch = [
         {
