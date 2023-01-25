@@ -1,6 +1,7 @@
 PYTHON := python3.8
 BIN := pyats/bin
 TESTFILE ?= sanity_scripts.txt
+GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_sim.tar.gz
 
 .PHONY: init t0_run t1_run collect
 
@@ -17,12 +18,12 @@ endif
 t0_run:
 	echo "run T0 testing..."
 	bash -c "python3.8 update_topo.py T0"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r -s $(TESTFILE) --cicd --cicd_clean"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean"
 
 t1_run:
 	echo "run T1 testing..."
 	bash -c "python3.8 update_topo.py T1"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r -s $(TESTFILE) --cicd --cicd_clean"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean"
 
 collect:
 	echo "collect test result..."
