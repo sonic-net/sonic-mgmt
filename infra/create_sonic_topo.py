@@ -56,8 +56,8 @@ def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
-    parser.add_argument('-b', '--branch', type=str, help='Specify git branch',
-                      required=False,default="master")
+    parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
+                      required=False,default="http://172.29.93.10/sonic-images/golden-code/golden_code.tar.gz")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
@@ -146,14 +146,15 @@ def repo_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("wget http://172.29.93.10/sonic-images/golden-code/golden_code.tar.gz\n")
+    chan.send("wget {}\n".format(data['tar_ball']))
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8")
     time.sleep(3)
 
-    chan.send("tar -xvf golden_code.tar.gz\n")
+    tar_ball = data['tar_ball'].split('/')[-1]
+    chan.send("tar -xvf {}\n".format(tar_ball))
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
@@ -842,7 +843,7 @@ def main():
     script_file = args['script_file']
     drop_version = args['drop_version']
     log_dir = args['log_dir']
-    branch = args['branch']
+    tar_ball = args['tar_ball']
     cicd = args['cicd']
     cicd_clean = args['cicd_clean']
 
@@ -928,7 +929,7 @@ def main():
         data[dut_name]['uname'] = dut_uname
         data[dut_name]['passwd'] = dut_passwd
 
-    data['branch'] = branch
+    data['tar_ball'] = tar_ball
     data['ptf_intf_count'] = ptf_intfcount
 
     # Create admin user in vEOS vm
