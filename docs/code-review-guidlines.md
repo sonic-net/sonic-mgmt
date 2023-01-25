@@ -4,7 +4,7 @@
 - The code shall be fully tested before the developer asks for an internal review.
 - The test should pass succesfully for X iterations.
 - The developer shall make sure there is no degradation after introducing the new code.
-- The code is PEP-8 compiant.
+- The code is PEP-8 compliant.
 
 
 ## Checklist for the code reviewer
