@@ -133,7 +133,7 @@ class EosHost(AnsibleHostBase):
         for output_line in show_int_result['stdout_lines'][0]:
             """
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et37/1     str2-7804-lc6-1-Ethernet16           connected    1138     full   100G   100GBASE-CR4
             """
             items = re.split("\s+", output_line)
             output_port = items[0].replace('Et', 'Ethernet')
