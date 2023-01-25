@@ -120,7 +120,7 @@ def get_new_interval(duthost, is_valid):
         return min(detection_time, restoration_time) + 10
 
 
-def test_stop_pfcwd(duthost):
+def test_stop_pfcwd(duthost, ensure_dut_readiness):
     start_pfcwd = duthost.shell('config pfcwd start_default')
     pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
     pfcwd_config = duthost.shell("show pfcwd config")
@@ -147,11 +147,12 @@ def test_stop_pfcwd(duthost):
     ]
 
     try:
+        tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         pfcwd_updated_config = duthost.shell("show pfcwd config")
         pytest_assert(not pfcwd_config['rc'], "Unable to read updated pfcwd config")
-        pytest_assert(interface not in pfcwd_updated_config['stdout_lines'].split(), "pfcwd unexpectedly still running on interface {}".format(interface))
+        pytest_assert(interface not in pfcwd_updated_config['stdout'].split(), "pfcwd unexpectedly still running on interface {}".format(interface))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
