@@ -123,13 +123,11 @@ class EosHost(AnsibleHostBase):
             if output_port in ports:
                 if 'notconnect' in output_line:
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                    continue
-                if 'connected' in output_line:
+                else if 'connected' in output_line:
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
                     return False
                 else:
-                    logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
-                    return False
+                    logger.error("Interface {} on {} is unexpected, please check link status".format(output_port, self.hostname))
         return True
 
     def links_status_up(self, ports):
@@ -148,13 +146,11 @@ class EosHost(AnsibleHostBase):
             if output_port in ports:
                 if 'connected' in output_line:
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
-                    continue
-                if 'notconnect' in output_line:
+                else if 'notconnect' in output_line:
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
                     return False
                 else:
-                    logging.info("Please check status for interface {} on {}".format(output_port, self.hostname))
-                    return False
+                    logger.error("Interface {} on {} is unexpected, please check link status".format(output_port, self.hostname))
         return True
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
