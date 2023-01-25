@@ -111,46 +111,42 @@ class EosHost(AnsibleHostBase):
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
             """
-            Note:
             (Pdb) output_line
             u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
-            e.g.
-            (Pdb) output_line.split(' ')[0]
-            u'Et1/1'
             """
-            output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
+            items = re.split("\s+", output_line)
+            output_port = items[0].replace('Et', 'Ethernet')
+            port_status = items[2]
             # Only care about port that connect to current DUT
             if output_port in ports:
-                if 'notconnect' in output_line:
+                if port_status == 'notconnect':
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                else if 'connected' in output_line:
+                else if port_status == 'connected':
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
                     return False
                 else:
-                    logger.error("Interface {} on {} is unexpected, please check link status".format(output_port, self.hostname))
+                    logger.error("Interface {} status is {} on {}".format(output_port, port_status, self.hostname))
         return True
 
     def links_status_up(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
             """
-            Note:
             (Pdb) output_line
             u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
-            e.g.
-            (Pdb) output_line.split(' ')[0]
-            u'Et1/1'
             """
-            output_port = output_line.split(' ')[0].replace('Et', 'Ethernet')
+            items = re.split("\s+", output_line)
+            output_port = items[0].replace('Et', 'Ethernet')
+            port_status = items[2]
             # Only care about port that connect to current DUT
             if output_port in ports:
-                if 'connected' in output_line:
+                if port_status == 'connected':
                     logging.info("Interface {} is up on {}".format(output_port, self.hostname))
-                else if 'notconnect' in output_line:
+                else if port_status == 'notconnect':
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
                     return False
                 else:
-                    logger.error("Interface {} on {} is unexpected, please check link status".format(output_port, self.hostname))
+                    logger.error("Interface {} status is {} on {}".format(output_port, port_status, self.hostname))
         return True
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
