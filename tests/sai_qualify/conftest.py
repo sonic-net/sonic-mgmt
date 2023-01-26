@@ -15,7 +15,6 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.barefoot_data import is_barefoot_device
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
-from tests.common.system_utils.docker import tag_image
 from tests.common.reboot import REBOOT_TYPE_SAI_WARM
 from tests.common.reboot import reboot
 from natsort import natsorted
@@ -42,6 +41,7 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 COMMON_CONFIG_FORMAT = ';common_configured=\'{}\''
 NEED_CONFIG = False
+PTF_TEST_CASE_TIMEOUT_IN_SEC = 600
 
 
 # PTF_TEST_ROOT_DIR is the root folder for SAI testing
@@ -51,9 +51,11 @@ DUT_WORKING_DIR = "/home/admin"
 
 
 # These paths are for the SAI cases/results
-SAI_TEST_CONMUN_CASE_DIR_ON_PTF = "/tmp/sai_qualify/tests"
-SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF = "/tmp/sai_qualify/ptf"
-SAI_TEST_SAI_CASE_DIR_ON_PTF = "/tmp/sai_qualify/sai_test"
+SAI_TEST_ON_PTF_DIR = "/tmp/sai_qualify/SAI"
+SAI_TEST_CONMUN_CASE_DIR_ON_PTF = SAI_TEST_ON_PTF_DIR + "/test/saithrift/tests"
+SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF = SAI_TEST_ON_PTF_DIR + "/ptf"
+SAI_TEST_T0_CASE_DIR_ON_PTF = SAI_TEST_ON_PTF_DIR + "/test/sai_test"
+SAI_TEST_RESOURCE_ON_PTF_DIR = "/tmp/sai_qualify/resources"
 SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
 SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
 SAISERVER_CONTAINER = "saiserver"
@@ -76,17 +78,12 @@ def pytest_addoption(parser):
 
     # sai test options
     parser.addoption("--sai_test_dir", action="store", default=None, type=str,
-                     help="SAI repo folder where the tests will be run.")
+                     help="SAI repo folder, will copy this folder to PTF.")
     parser.addoption("--sai_test_report_dir", action="store", default=None,
                      type=str, help="SAI test report directory on mgmt node.")
     parser.addoption("--sai_test_container", action="store",
                      default="saiserver",
                      type=str, help="SAI test container, saiserver or syncd.")
-    parser.addoption("--sai_test_enable_deployment",
-                     action="store_true", default=False,
-                     help="SAI test setup options. If deployment the \
-                     saiserver and script in DUT and install \
-                     dependences in PTF.")
     parser.addoption("--sai_test_keep_test_env", action="store_true",
                      default=False,
                      help="SAI test debug options. If keep the test \
@@ -113,10 +110,9 @@ def pytest_addoption(parser):
                      default=None, type=str,
                      help="SAI test port config file to map \
                      the relationship between lanes and interface.")
-    parser.addoption("--skip_stop_sai_test_container",
-                     action="store_true",
-                     help="If skip stop the container after one \
-                     test or not, true or false.")
+    parser.addoption("--sai_config_db_file", action="store",
+                     default=None, type=str,
+                     help="SAI test config db file.")
     parser.addoption("--sai_origin_version", action="store", default=None,
                      type=str, help="SAI SDK originla version before upgrade.")
     parser.addoption("--sai_upgrade_version", action="store", default=None,
@@ -146,22 +142,18 @@ def deploy_sai_test_container(duthost, creds, request):
         creds (dict): Credentials used to access the docker registry.
         request: Pytest request.
     """
-    logger.info("sai_test_enable_deployment {}"
-                .format(request.config.option.sai_test_enable_deployment))
     container_name = request.config.option.sai_test_container
-    if not request.config.option.sai_test_enable_deployment:
-        logger.info("Skip deploy_sai_test_container!")
-    else:
-        logger.info("sai_test_keep_test_env {}"
-                    .format(request.config.option.sai_test_keep_test_env))
-        logger.info("sai_test_skip_setup_env {}"
-                    .format(request.config.option.sai_test_skip_setup_env))
-        if not request.config.option.sai_test_skip_setup_env:
-            __copy_sai_qualify_script(duthost)
-            stop_dockers(duthost)
-            prepare_sai_test_container(duthost, creds, container_name, request)
-            logger.info("Starting sai test container {}"
-                        .format(get_sai_test_container_name(request)))
+
+    logger.info("sai_test_keep_test_env {}"
+                .format(request.config.option.sai_test_keep_test_env))
+    logger.info("sai_test_skip_setup_env {}"
+                .format(request.config.option.sai_test_skip_setup_env))
+    if not request.config.option.sai_test_skip_setup_env:
+        __copy_sai_qualify_script(duthost)
+        stop_dockers(duthost)
+        prepare_sai_test_container(duthost, creds, container_name, request)
+        logger.info("Starting sai test container {}"
+                    .format(get_sai_test_container_name(request)))
     yield
     if not request.config.option.sai_test_keep_test_env:
         logger.info("Stopping and removing sai test container {}"
@@ -211,15 +203,10 @@ def prepare_ptf_server(ptfhost, duthost, tbinfo, enum_asic_index, request):
         duthost (SonicHost): The target device.
         request: Pytest request.
     """
-    logger.info("sai_test_enable_deployment {}"
-                .format(request.config.option.sai_test_enable_deployment))
-    if not request.config.option.sai_test_enable_deployment:
-        logger.info("Skip prepare_ptf_server!")
-    else:
-        if not request.config.option.sai_test_skip_setup_env:
-            update_saithrift_ptf(request, ptfhost)
-            __create_sai_port_map_file(
-                ptfhost, duthost, tbinfo, enum_asic_index)
+    if not request.config.option.sai_test_skip_setup_env:
+        update_saithrift_ptf(request, ptfhost)
+        __create_sai_port_map_file(
+            ptfhost, duthost, tbinfo, enum_asic_index)
     yield
     if not request.config.option.sai_test_keep_test_env:
         __delete_sai_port_map_file(ptfhost)
@@ -503,6 +490,20 @@ def __deploy_saiserver(duthost, creds, request):
         "{}/{}".format(registry.host, docker_saiserver_image),
         duthost.os_version
     )
+
+
+def tag_image(duthost, tag, image_name, image_version="latest"):
+    """Applies the specified tag to a Docker image on the duthost.
+
+    Args:
+        duthost (SonicHost): The target device.
+        tag (str): The tag to apply to the target image.
+        image_name (str): The name of the image to tag.
+        image_version (str): The version of the image to tag.
+    """
+    get_sai_running_vendor_id(duthost)
+
+    duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
 
 def __deploy_syncd_rpc_as_syncd(duthost, creds):
@@ -809,6 +810,8 @@ def get_sai_running_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_barefoot_device(duthost):
         vendor_id = "bfn"
+    elif vendor_id.facts["asic_type"] == "marvell":
+        vendor_id = "mrvl"
     else:
         error_message = '"{}" does not currently \
             support saitest'.format(duthost.facts["asic_type"])

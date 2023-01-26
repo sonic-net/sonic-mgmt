@@ -1,0 +1,23 @@
+{% if isis_intfs is defined %}
+{% for name in isis_intfs %}
+interface {{ name }}
+{% if isis_instance is defined %}
+ mtu 9100
+ isis enable {{ isis_instance }}
+ isis network point-to-point
+{% endif %}
+!
+{% endfor %}
+{% endif %}
+{% if isis_instance is defined %}
+router isis {{ isis_instance }}
+{% if isis_net is defined %}
+ net {{ isis_net }}
+{% endif %}
+ is-type level-2
+ !
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+!
+{% endif %}
