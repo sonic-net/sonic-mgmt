@@ -19,7 +19,7 @@
 - Check the code reusability and communalization.
 - Check if all the return values are validated and all the exceptions handled.
 - Use allure steps for better visualization.
-- make sure that no secrets (username, password, internal IP address...) leaked in this PR.
+- Make sure that no secrets (username, password, internal IP address...) are leaked in this PR.
 - Avoid print statements, use the logging module instead.
 - All the supported topologies are specified in the test.
 - The test script should perform a proper clean-up, also under error conditions.
