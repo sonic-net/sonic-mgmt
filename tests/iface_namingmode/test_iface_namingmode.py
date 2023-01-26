@@ -245,8 +245,8 @@ class TestShowLLDP():
         test_intf = lldp_interfaces['alias'][0] if (mode == 'alias') else lldp_interfaces['interface'][0]
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_neighbor = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'
-            .format(ifmode, test_intf))['stdout']
+        lldp_neighbor = dutHostGuest.shell(
+            'SONIC_CLI_IFACE_MODE={} show lldp neighbor {}'.format(ifmode, test_intf))['stdout']
         logger.info('lldp_neighbor:\n{}'.format(lldp_neighbor))
 
         if mode == 'alias':
@@ -923,7 +923,7 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if (key in setup['physical_interfaces'] and ('T2' in value['name'] \
+            if (key in setup['physical_interfaces'] and ('T2' in value['name']
                     or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
