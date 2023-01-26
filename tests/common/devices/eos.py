@@ -97,12 +97,6 @@ class EosHost(AnsibleHostBase):
             commands=['show interface %s' % interface_name])
         return 'Up' in show_int_result['stdout_lines'][0]
 
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.eos_command(commands=['show interface %s' % interface_name])
-        logging.info("Checking interface state: {}".format(show_int_result['stdout_lines'][0][0]))
-        # Either admin/opr status is down meaning link is down
-        return 'down' in show_int_result['stdout_lines'][0][0].lower()
-
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
