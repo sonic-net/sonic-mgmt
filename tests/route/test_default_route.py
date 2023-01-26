@@ -76,15 +76,16 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
      
-    nexthops = list() 
+    nexthops = set() 
     if uplink_ns:
         # multi-asic case: Now we have all routes on all asics, get the uplink routes only 
         for ns in uplink_ns:
-            nexthops += default_route[ns].values()[0]['value']['nexthop'].split(',')
+            nexthop_list = default_route[ns].values()[0]['value']['nexthop'].split(',')
+            nexthops.update(set(nexthop_list))
     else:
         key = default_route.keys()[0]
         nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
-        nexthops += list(nexthop_list.split(','))
+        nexthops.update(set(nexthop_list.split(',')))
      
     pytest_assert(nexthops is not None, "Default route has not nexthops")
     logging.info("nexthops in app_db {}".format(nexthops) )
