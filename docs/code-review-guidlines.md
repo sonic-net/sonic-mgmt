@@ -5,6 +5,7 @@
 - The test should pass successfully for X iterations.
 - The developer shall make sure there is no degradation after introducing the new code.
 - The code is PEP-8 compliant.
+- Run the pre-commit checker before uploading the PR.
 
 
 ## Checklist for the code reviewer
