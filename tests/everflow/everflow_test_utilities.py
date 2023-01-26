@@ -839,7 +839,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
-        if duthost.facts["asic_type"] in ["cisco-8000", "innovium", "broadcom"]:
+        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
