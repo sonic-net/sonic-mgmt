@@ -279,11 +279,12 @@ class TestShowInterfaces():
 
         assert(len(interfaces) > 0)
 
-        for item in interfaces:
-            if mode == 'alias':
-                assert item in setup['port_alias']
-            elif mode == 'default':
-                assert item in setup['default_interfaces']
+        if mode == 'alias':
+            for item in setup['port_alias']:
+                assert item in interfaces
+        elif mode == 'default':
+            for item in setup['default_interfaces']:
+                assert item in interfaces
 
     def test_show_interfaces_description(self, setup_config_mode, sample_intf):
         """
