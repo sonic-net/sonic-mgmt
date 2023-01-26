@@ -419,7 +419,7 @@ def parse_dpg(dpg, hname):
             if vintftype is not None:
                 vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
-            ports.pop(vintfname)
+            ports.pop(vintfname, None)
 
         aclintfs = child.find(str(QName(ns, "AclInterfaces")))
         acls = {}
