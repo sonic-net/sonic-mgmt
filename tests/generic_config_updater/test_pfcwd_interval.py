@@ -130,6 +130,7 @@ def test_stop_pfcwd(duthost, ensure_dut_readiness):
         if line.startswith('Ethernet'):
             interface = line.split()[0]
             break
+    pytest_assert(interface in locals(), "No interface found running pfcwd - unable to run test")
 
     json_patch = [
         {
