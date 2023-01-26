@@ -132,6 +132,38 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
 
 
+def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
+                                    duts_running_config_facts, conn_graph_facts, 
+                                    fanouthosts, xcvr_skip_list, tbinfo):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    hostname = duthost.hostname
+
+    # Before test, check all interfaces and services are up
+    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
+    
+    dut_ports = single_dut_and_ports(duthost)
+    fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
+
+    # Also make sure fanout hosts' links are up
+    link_status_on_host(duthost, localhost, fanouts_and_ports)
+
+    # Get a dut uptime before reboot
+    dut_uptime_before = duthost.get_up_time()
+    
+    # Reboot dut, we should detect this host's fanout switches have all links down
+    reboot(duthost, localhost, wait_for_ssh=False)
+
+    # After reboot, immediately check for links 'down' status
+    link_status_on_host(duthost, localhost, fanouts_and_ports, up=False)
+
+    time.sleep(MAX_TIME_TO_REBOOT)
+
+    dut_uptime = duthost.get_up_time()
+    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
+    assert rebooted, "Device {} did not reboot".format(hostname)
+
+
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                  conn_graph_facts, duts_running_config_facts, 
                                  fanouthosts, tbinfo, xcvr_skip_list):
@@ -157,38 +189,6 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
     # RP doesn't have any interfaces, check all LCs' interfaces
     link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up=False)
-
-    time.sleep(MAX_TIME_TO_REBOOT)
-
-    dut_uptime = duthost.get_up_time()
-    logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
-    assert rebooted, "Device {} did not reboot".format(hostname)
-
-
-def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
-                                    duts_running_config_facts, conn_graph_facts, 
-                                    fanouthosts, xcvr_skip_list, tbinfo):
-    duthost = duthosts[enum_frontend_dut_hostname]
-    hostname = duthost.hostname
-
-    # Before test, check all interfaces and services are up
-    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
-    
-    dut_ports = single_dut_and_ports(duthost)
-    fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
-
-    # Also make sure fanout hosts' links are up
-    link_status_on_host(duthost, localhost, fanouts_and_ports)
-
-    # Get a dut uptime before reboot
-    dut_uptime_before = duthost.get_up_time()
-    
-    # Reboot dut, we should detect this host's fanout switches have all links down
-    reboot(duthost, localhost, wait_for_ssh=False)
-
-    # After reboot, immediately check for links 'down' status
-    link_status_on_host(duthost, localhost, fanouts_and_ports, up=False)
 
     time.sleep(MAX_TIME_TO_REBOOT)
 
