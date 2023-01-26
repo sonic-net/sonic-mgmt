@@ -2,7 +2,7 @@
 
 ## Checklist for the PR author
 - The code shall be fully tested before the developer asks for an internal review.
-- The test should pass successfully for X iterations.
+- The test should pass successfully for 10 iterations.
 - The developer shall make sure there is no degradation after introducing the new code.
 - The code is PEP-8 compliant.
 - Run the pre-commit checker before uploading the PR.
@@ -26,4 +26,4 @@
 - For new test suites, at least one test should be supported on VS(Virtual SONiC).
 - Remove any TODO from the code.
 - Is the code optimized in terms of time and space complexity
-- The test run time should comply with the test budget, as defined in the test plan review. A new test case, in any case, should not consume more than X minutes.
+- The test run time should comply with the test budget, as defined in the test plan review. A new test case, in any case, should not consume more than 30 minutes.
