@@ -9,6 +9,7 @@ file currently holds the following fixture(s):
     4. lossy_prio_list
 """
 
+import pdb
 
 @pytest.fixture(scope="module")
 def prio_dscp_map(duthosts, rand_one_dut_hostname):
@@ -25,8 +26,9 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
+    pdb.set_trace()
 
     if "DSCP_TO_TC_MAP" not in config_facts.keys():
         return None
@@ -73,9 +75,9 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
         Lossless priorities (list)
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
-
+    pdb.set_trace()
     if "PORT_QOS_MAP" not in config_facts.keys():
         return None
 
@@ -104,5 +106,65 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     Returns:
         Lossy priorities (list)
     """
+    pdb.set_trace()
     result = [x for x in all_prio_list if x not in lossless_prio_list]
+    return result
+
+def prio_dscp_map_dut_base(duthost):
+    """
+    This fixture reads the QOS parameters from SONiC DUT, and creates
+    priority Vs. DSCP priority port map
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       rand_one_dut_hostname (pytest fixture): DUT hostname
+    Returns:
+        Priority vs. DSCP map (dictionary, key = priority).
+        Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
+                                        source="running")['ansible_facts']
+
+    if "DSCP_TO_TC_MAP" not in config_facts.keys():
+        return None
+
+    dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
+    if len(dscp_to_tc_map_lists) != 1:
+        return None
+
+    profile = dscp_to_tc_map_lists.keys()[0]
+    dscp_to_tc_map = dscp_to_tc_map_lists[profile]
+
+    result = {}
+    for dscp in dscp_to_tc_map:
+        tc = int(dscp_to_tc_map[dscp])
+        result.setdefault(tc, []).append(int(dscp))
+
+    return result
+
+def lossless_prio_list_dut_base(duthost):
+    """
+    This fixture returns the list of lossless priorities
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       rand_one_dut_hostname (pytest fixture): DUT hostname
+    Returns:
+        Lossless priorities (list)
+    """
+
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
+                                        source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in config_facts.keys():
+        return None
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(port_qos_map.keys()) == 0:
+        return None
+
+    """ Here we assume all the ports have the same lossless priorities """
+    intf = port_qos_map.keys()[1]
+    if 'pfc_enable' not in port_qos_map[intf]:
+        return None
+
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
     return result
