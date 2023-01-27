@@ -7,7 +7,6 @@ This test supports different platforms including:
     Note that for now we only run this on t2(chassis)
     
 """
-import time
 import logging
 import pytest
 
@@ -150,7 +149,8 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     # and SUP may not have enough time to recover all dockers and the wait for process wait for 300 secs in
     # pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
     # would not be enough. _all_critical_processes_healthy only validates processes are started
-    time.sleep(MAX_TIME_TO_REBOOT)
+    # Wait for ssh port to open up on the DUT
+    wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
 
     hostname = duthost.hostname
     # Before test, check all interfaces and services are up on all linecards
