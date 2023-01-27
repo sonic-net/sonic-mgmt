@@ -629,7 +629,7 @@ class QosSaiBase(QosBase):
                     if "." in iface:
                         iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface }
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
                     dutPortIps.update({portIndex: portIpMap})
@@ -638,7 +638,7 @@ class QosSaiBase(QosBase):
                         iter(mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName }
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -698,9 +698,15 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
         })
         dutinterfaces = {}
-        for port, index in mgFacts["minigraph_ptf_indices"].items():
-            if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
-                dutinterfaces[index] = port
+
+        if tbinfo["topo"]["type"] == "t2":
+            for ptf_port, ptf_val in dutPortIps.items():
+                dutinterfaces[ptf_port] = ptf_val['port']
+        else:
+            for port, index in mgFacts["minigraph_ptf_indices"].items():
+                if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
+                    dutinterfaces[index] = port
+
         yield {
             "dutInterfaces": dutinterfaces,
             "testPortIds": testPortIds,
