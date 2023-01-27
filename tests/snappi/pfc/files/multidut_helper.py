@@ -65,12 +65,17 @@ def run_pfc_test(api,
     asic_count_2 = get_asic_count(duthost2)[0]
     asic_2 = None if get_asic_count(duthost2)[1] == True else ['asic%d'%i for i in range(0,asic_count_2)]
 
-    for i,j in asic_1,asic_2:
-        stop_pfcwd(duthost1,i)
+    if asic_1 != None and asic_2 != None:
+        for i,j in asic_1,asic_2:
+            stop_pfcwd(duthost1,i)
+            disable_packet_aging(duthost1)
+            stop_pfcwd(duthost2,j)
+            disable_packet_aging(duthost2)
+    else:
+        stop_pfcwd(duthost1)
         disable_packet_aging(duthost1)
-        stop_pfcwd(duthost2,j)
+        stop_pfcwd(duthost2)
         disable_packet_aging(duthost2)
-
 
     """ Rate percent must be an integer """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))

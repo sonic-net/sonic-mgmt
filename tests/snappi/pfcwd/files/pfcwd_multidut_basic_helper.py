@@ -64,16 +64,15 @@ def run_pfcwd_basic_test(api,
     #start_pfcwd(duthost2,asic)
     #enable_packet_aging(duthost2)
 
-    #if asic_1 != None and asic_2 != None:
-    for i,j in asic_1,asic_2:
-        start_pfcwd(duthost1,i)
-        enable_packet_aging(duthost1)
-        start_pfcwd(duthost2,j)
-        enable_packet_aging(duthost2)
-        poll_interval_sec = get_pfcwd_poll_interval(duthost1,i) / 1000.0
-        detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
-        restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
-    '''
+    if asic_1 != None and asic_2 != None:
+        for i,j in asic_1,asic_2:
+            start_pfcwd(duthost1,i)
+            enable_packet_aging(duthost1)
+            start_pfcwd(duthost2,j)
+            enable_packet_aging(duthost2)
+            poll_interval_sec = get_pfcwd_poll_interval(duthost1,i) / 1000.0
+            detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
+            restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
     else:
         start_pfcwd(duthost1)
         enable_packet_aging(duthost1)
@@ -82,7 +81,7 @@ def run_pfcwd_basic_test(api,
         poll_interval_sec = float(get_pfcwd_poll_interval(duthost1) / 1000.0)
         detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port) / 1000.0
         restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port) / 1000.0
-    '''
+
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
         pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
