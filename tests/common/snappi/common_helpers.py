@@ -17,6 +17,7 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
+
 def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
@@ -186,6 +187,8 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
 
     if len(peer_devices) == 1:
         return peer_devices[0]
+    elif len(peer_devices) > 1:
+        return peer_devices[-1]
     else:
         return None
 
@@ -366,6 +369,16 @@ def get_wred_profiles(host_ans):
     else:
         return None
 
+def get_asic_count(host_ans):
+    flag = False
+    platform_info = host_ans.shell('show platform summary')['stdout_lines']
+    platform_info_dict=dict()
+    for i in platform_info:
+        platform_info_dict[i.split(':')[0]]=i.split(':')[1]
+
+    flag = True if 'Switch Type: voq' not in platform_info_dict else False
+    return [int(platform_info_dict['ASIC Count'].encode("utf-8")),flag]
+
 
 def config_wred(host_ans, kmin, kmax, pmax, profile=None):
     """
@@ -414,10 +427,13 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
         if kmin > kmin_old:
             host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
             host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
-
+            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmax {}'.format(p, kmax))
+            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmin {}'.format(p, kmin))
         else:
             host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
             host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
+            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmin {}'.format(p, kmin))
+            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmax {}'.format(p, kmax))
 
     return True
 
@@ -506,7 +522,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     return True
 
 
-def get_pfcwd_config_attr(host_ans, config_scope, attr):
+def get_pfcwd_config_attr(host_ans, config_scope, attr,namespace = None):
     """
     Get PFC watchdog configuration attribute
 
@@ -518,9 +534,8 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
     Returns:
         config attribute (str) or None
     """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
-
+    #config_facts = host_ans.config_facts(host=host_ans.hostname,source="running")['ansible_facts']
+    config_facts = host_ans.config_facts(host=host_ans.hostname,source="running",namespace= namespace)['ansible_facts']
     if 'PFC_WD' not in config_facts.keys():
         return None
 
@@ -535,7 +550,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
     return None
 
 
-def get_pfcwd_poll_interval(host_ans):
+def get_pfcwd_poll_interval(host_ans,namespace=None):
     """
     Get PFC watchdog polling interval
 
@@ -545,9 +560,11 @@ def get_pfcwd_poll_interval(host_ans):
     Returns:
         Polling interval in ms (int) or None
     """
+
     val = get_pfcwd_config_attr(host_ans=host_ans,
                                 config_scope='GLOBAL',
-                                attr='POLL_INTERVAL')
+                                attr='POLL_INTERVAL',
+                                namespace= namespace)
 
     if val is not None:
         return int(val)
@@ -555,7 +572,7 @@ def get_pfcwd_poll_interval(host_ans):
     return None
 
 
-def get_pfcwd_detect_time(host_ans, intf):
+def get_pfcwd_detect_time(host_ans, intf,namespace=None):
     """
     Get PFC watchdog detection time of a given interface
 
@@ -568,7 +585,8 @@ def get_pfcwd_detect_time(host_ans, intf):
     """
     val = get_pfcwd_config_attr(host_ans=host_ans,
                                 config_scope=intf,
-                                attr='detection_time')
+                                attr='detection_time',
+                                namespace= namespace)
 
     if val is not None:
         return int(val)
@@ -576,7 +594,7 @@ def get_pfcwd_detect_time(host_ans, intf):
     return None
 
 
-def get_pfcwd_restore_time(host_ans, intf):
+def get_pfcwd_restore_time(host_ans, intf,namespace=None):
     """
     Get PFC watchdog restoration time of a given interface
 
@@ -589,7 +607,8 @@ def get_pfcwd_restore_time(host_ans, intf):
     """
     val = get_pfcwd_config_attr(host_ans=host_ans,
                                 config_scope=intf,
-                                attr='restoration_time')
+                                attr='restoration_time',
+                                namespace= namespace)
 
     if val is not None:
         return int(val)
@@ -597,7 +616,7 @@ def get_pfcwd_restore_time(host_ans, intf):
     return None
 
 
-def start_pfcwd(duthost):
+def start_pfcwd(duthost,asic=None):
     """
     Start PFC watchdog with default setting
 
@@ -607,10 +626,13 @@ def start_pfcwd(duthost):
     Returns:
         N/A
     """
-    duthost.shell('sudo pfcwd start_default')
+    if asic == None:
+        duthost.shell('sudo pfcwd start_default')
+    else:
+        duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic))
 
 
-def stop_pfcwd(duthost):
+def stop_pfcwd(duthost,asic=None):
     """
     Stop PFC watchdog
 
@@ -620,7 +642,10 @@ def stop_pfcwd(duthost):
     Returns:
         N/A
     """
-    duthost.shell('sudo pfcwd stop')
+    if asic == None:
+        duthost.shell('sudo pfcwd stop')
+    else:
+        duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic))
 
 
 def disable_packet_aging(duthost):
