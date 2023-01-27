@@ -259,6 +259,13 @@ test_multi_asic_t1_lag() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    bgp/test_bgp_update_timer.py \
+    bgp/test_bgpmon.py \
+    cacl/test_cacl_function.py \
+    pc/test_po_voq.py \
+    platform_tests/link_flap/test_link_flap \
+    voq/test_voq_init.py \
+    route/test_default_route.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
@@ -279,6 +286,13 @@ test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    bgp/test_bgp_update_timer.py \
+    bgp/test_bgpmon.py \
+    cacl/test_cacl_function.py \
+    pc/test_po_voq.py \
+    platform_tests/link_flap/test_link_flap \
+    voq/test_voq_init.py \
+    route/test_default_route.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
@@ -286,6 +300,7 @@ test_multi_asic_t1_lag_pr() {
     tacacs/test_accounting.py \
     tacacs/test_authorization.py \
     tacacs/test_jit_user.py \
+    tacacs/test_ro_disk.py \
     tacacs/test_ro_user.py \
     tacacs/test_rw_user.py"
 
