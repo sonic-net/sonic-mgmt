@@ -150,7 +150,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0', 'mx']"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo)"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   xfail:

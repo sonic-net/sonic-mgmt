@@ -34,6 +34,8 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import get_upstream_neigh_type
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -115,6 +117,8 @@ class TestCOPP(object):
         3. Verify the trap status is installed by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.is_multi_asic:
+            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
@@ -147,6 +151,8 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.is_multi_asic:
+            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
@@ -176,6 +182,8 @@ class TestCOPP(object):
         """
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.is_multi_asic:
+            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Set always_enabled of {} to true".format(self.trap_id))
         copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
@@ -223,14 +231,16 @@ def copp_testbed(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
+    upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
+
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)
+        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
         yield test_params
     finally:
         _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
+        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -340,7 +350,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                send_rate_limit=send_rate_limit,
                                nn_target_vlanid=nn_target_vlanid)
 
-def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
+def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
         Sets up the testbed to run the COPP tests.
     """
@@ -354,9 +364,9 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
 
     # Multi-asic will not support this mode as of now.
-    if test_params.swap_syncd and not dut.is_multi_asic:
+    if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
-        docker.swap_syncd(dut, creds)
+        docker.swap_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         # Set sysctl RCVBUF parameter for tests
         dut.command("sysctl -w net.core.rmem_max=609430500")
@@ -369,12 +379,14 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
+    # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+    upStreamDuthost.command("sudo config bgp shutdown all")
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,
                                test_params.swap_syncd, creds)
 
-def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
+def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -384,13 +396,15 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     logging.info("Restore COPP policer to default settings")
     copp_utils.restore_policer(dut, test_params.nn_target_namespace)
 
-    if test_params.swap_syncd and not dut.is_multi_asic:
+    if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
-        docker.restore_default_syncd(dut, creds)
+        docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+    
+    upStreamDuthost.command("sudo config bgp startup all")
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -400,19 +414,19 @@ def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
         return
 
     logging.info("Adding iptables rules and enabling eth0 port forwarding")
-    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
     # Add IP Table rule for http and ptf nn_agent traffic.
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
-    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-    # Add Rule to communicate to http/s proxy from namespace
-    dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-    dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-    if http_proxy != https_proxy:
-        dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+
+    if not test_params.swap_syncd:
+        http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
+        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+        # Add Rule to communicate to http/s proxy from namespace
+        dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
+        if http_proxy != https_proxy:
+            dut.command("sudo ip -n {} rule add from all to {} pref 3 lookup default".format(test_params.nn_target_namespace, https_proxy))
     # Add Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-    dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -422,19 +436,18 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
         return
 
     logging.info("Removing iptables rules and disabling eth0 port forwarding")
-    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
-    # Delete IP Table rule for http and ptf nn_agent traffic.
-    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-    # Delete Rule to communicate to http/s proxy from namespace
-    dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-    dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-    if http_proxy != https_proxy:
-        dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+    if not test_params.swap_syncd:
+        http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
+        # Delete IP Table rule for http and ptf nn_agent traffic.
+        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+        # Delete Rule to communicate to http/s proxy from namespace
+        dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
+        if http_proxy != https_proxy:
+            dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
     # Delete Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-    dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 
 @pytest.fixture(scope="function", autouse=False)
