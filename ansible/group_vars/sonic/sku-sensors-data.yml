@@ -3717,20 +3717,20 @@ sensors_checks:
       fan: []
       power: []
       temp:
-      - - tmp75-i2c-3-48/Outlet Middle Temp/temp1_input
-        - tmp75-i2c-3-48/Outlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-49/Inlet Middle Temp/temp1_input
-        - tmp75-i2c-3-49/Inlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-4a/Inlet Left Temp/temp1_input
-        - tmp75-i2c-3-4a/Inlet Left Temp/temp1_max
-      - - tmp75-i2c-3-4b/Switch Temp/temp1_input
-        - tmp75-i2c-3-4b/Switch Temp/temp1_max
-      - - tmp75-i2c-3-4c/Inlet Right Temp/temp1_input
-        - tmp75-i2c-3-4c/Inlet Right Temp/temp1_max
-      - - tmp75-i2c-8-48/Outlet Right Temp/temp1_input
-        - tmp75-i2c-8-48/Outlet Right Temp/temp1_max
-      - - tmp75-i2c-8-49/Outlet Left Temp/temp1_input
-        - tmp75-i2c-8-49/Outlet Left Temp/temp1_max
+      - - tmp75-i2c-3-48/Chip Temp/temp1_input
+        - tmp75-i2c-3-48/Chip Temp/temp1_max
+      - - tmp75-i2c-3-49/Exhaust2 Temp/temp1_input
+        - tmp75-i2c-3-49/Exhaust2 Temp/temp1_max
+      - - tmp75-i2c-3-4a/Exhaust Temp/temp1_input
+        - tmp75-i2c-3-4a/Exhaust Temp/temp1_max
+      - - tmp75-i2c-3-4b/Intake Temp/temp1_input
+        - tmp75-i2c-3-4b/Intake Temp/temp1_max
+      - - tmp75-i2c-3-4c/Intake2 Temp/temp1_input
+        - tmp75-i2c-3-4c/Intake2 Temp/temp1_max
+      - - tmp75-i2c-8-48/Fan Board Outlet Right Temp/temp1_input
+        - tmp75-i2c-8-48/Fan Board Outlet Right Temp/temp1_max
+      - - tmp75-i2c-8-49/Fan Board Outlet Left Temp/temp1_input
+        - tmp75-i2c-8-49/Fan Board Outlet Left Temp/temp1_max
 
     non_zero:
       fan:
@@ -3761,16 +3761,16 @@ sensors_checks:
       fan: []
       power: []
       temp:
-      - - tmp75-i2c-3-48/Outlet Middle Temp/temp1_input
-        - tmp75-i2c-3-48/Outlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-49/Inlet Middle Temp/temp1_input
-        - tmp75-i2c-3-49/Inlet Middle Temp/temp1_max
-      - - tmp75-i2c-3-4a/Inlet Left Temp/temp1_input
-        - tmp75-i2c-3-4a/Inlet Left Temp/temp1_max
-      - - tmp75-i2c-3-4b/Switch Temp/temp1_input
-        - tmp75-i2c-3-4b/Switch Temp/temp1_max
-      - - tmp75-i2c-3-4c/Inlet Right Temp/temp1_input
-        - tmp75-i2c-3-4c/Inlet Right Temp/temp1_max
+      - - tmp75-i2c-3-48/Chip Temp/temp1_input
+        - tmp75-i2c-3-48/Chip Temp/temp1_max
+      - - tmp75-i2c-3-49/Exhaust2 Temp/temp1_input
+        - tmp75-i2c-3-49/Exhaust2 Temp/temp1_max
+      - - tmp75-i2c-3-4a/Exhaust Temp/temp1_input
+        - tmp75-i2c-3-4a/Exhaust Temp/temp1_max
+      - - tmp75-i2c-3-4b/Intake Temp/temp1_input
+        - tmp75-i2c-3-4b/Intake Temp/temp1_max
+      - - tmp75-i2c-3-4c/Tofino Temp/temp1_input
+        - tmp75-i2c-3-4c/Tofino Temp/temp1_max
       - - tmp75-i2c-8-48/Outlet Right Temp/temp1_input
         - tmp75-i2c-8-48/Outlet Right Temp/temp1_max
       - - tmp75-i2c-8-49/Outlet Left Temp/temp1_input
@@ -7207,4 +7207,3 @@ sensors_checks:
     psu_skips: {}
 
     sensor_skip_per_version: {}
-
