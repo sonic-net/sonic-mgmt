@@ -7,10 +7,9 @@ This test supports different platforms including:
     Note that for now we only run this on t2(chassis)
     
 """
-import logging
 import time
+import logging
 import pytest
-import os
 
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -26,6 +25,13 @@ pytestmark = [
 
 MAX_TIME_TO_REBOOT = 120
 
+
+@pytest.fixture(scope='function')
+def set_max_to_reboot(duthost):
+    global MAX_TIME_TO_REBOOT
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_link_down.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
 
 def multi_duts_and_ports(duthosts):
     """
@@ -132,18 +138,19 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
 
-
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                  conn_graph_facts, duts_running_config_facts, 
-                                 fanouthosts, tbinfo, xcvr_skip_list):
+                                 fanouthosts, tbinfo, xcvr_skip_list, set_max_to_reboot):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
-    global MAX_TIME_TO_REBOOT
+
     duthost = duthosts[enum_supervisor_dut_hostname]
-    tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
-    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, 'cold')
-    if plt_reboot_ctrl:
-        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
+
+    # There are some errors due to reboot happened before this test file for some reason,
+    # and SUP may not have enough time to recover all dockers and the wait for process wait for 300 secs in
+    # pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
+    # would not be enough. _all_critical_processes_healthy only validates processes are started
+    time.sleep(MAX_TIME_TO_REBOOT)
 
     hostname = duthost.hostname
     # Before test, check all interfaces and services are up on all linecards
@@ -181,15 +188,9 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
                                     duts_running_config_facts, conn_graph_facts, 
-                                    fanouthosts, xcvr_skip_list, tbinfo):
-    global MAX_TIME_TO_REBOOT
+                                    fanouthosts, xcvr_skip_list, tbinfo, set_max_to_reboot):
     duthost = duthosts[enum_frontend_dut_hostname]
     hostname = duthost.hostname
-
-    tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
-    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, 'cold')
-    if plt_reboot_ctrl:
-        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
 
     # Before test, check all interfaces and services are up
     check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
