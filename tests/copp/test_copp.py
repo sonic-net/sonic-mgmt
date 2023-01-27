@@ -453,6 +453,8 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
 @pytest.fixture(scope="function", autouse=False)
 def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.is_multi_asic:
+        return
     copp_utils.backup_config_db(duthost)
 
     yield
