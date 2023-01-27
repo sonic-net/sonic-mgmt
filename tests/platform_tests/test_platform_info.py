@@ -2,7 +2,7 @@
 Check platform information
 
 This script covers the test case 'Check platform information' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
@@ -46,12 +46,16 @@ LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warn
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
 # These error messages are not triggered by platform test cases,
-# Ref to https://github.com/Azure/sonic-buildimage/issues/8944
+# Ref to https://github.com/sonic-net/sonic-buildimage/issues/8944
 SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* queue egress Min limit get failed with error Invalid parameter.*',
                          '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string.* or a number.*',
-                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
+                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*',
+                                     '.*ERR pmon#thermalctld.*Failed to get minimum ambient temperature, use pessimistic instead.*',
+                                     '.*ERR pmon#thermalctld.*Failed to read from file /run/hw-management/thermal.*',
+                                     '.*ERR pmon#thermalctld.*Failed to read from file /var/run/hw-management/thermal.*',
+                                     '.*ERR pmon#thermalctld.*Failed to run thermal policy.*']
 
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*',
                               '.*ERR pmon#psud:.*Fail to read model number: No key PN_VPD_FIELD in.*',
@@ -151,6 +155,24 @@ def get_psu_num(dut):
 
     return psu_num
 
+def get_healthy_psu_num(duthost):
+    """
+        @Summary: get number of healthy PSUs
+        @param: DUT host instance
+        @return: Number of healthy PSUs
+    """
+    PSUUTIL_CMD = "sudo psuutil status"
+    healthy_psus = 0
+    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+
+    psus_status = psuutil_status_output["stdout_lines"][2:]
+    for iter in psus_status:
+        fields = iter.split()
+        if fields[2] == 'OK':
+            healthy_psus += 1
+
+    return healthy_psus
+
 
 def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
     """
@@ -207,7 +229,7 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
@@ -215,7 +237,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
-    psu_num = get_psu_num(duthost)
+    psu_num = get_healthy_psu_num(duthost)
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
@@ -235,6 +257,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
+    if tbinfo["topo"]["properties"]["configuration_properties"]["common"]["dut_type"] == "MgmtTsToR":
+        all_outlet_status = all_outlet_status[0:-2]
+        logging.info("DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
     for outlet in all_outlet_status:
         psu_under_test = None
 
@@ -306,7 +331,7 @@ def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_host
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hwsku_hostname, thermal_manager_enabled):
     """
     @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
@@ -317,7 +342,7 @@ def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hw
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_value_json(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_thermal_control_load_invalid_value_json(duthosts, enum_rand_one_per_hwsku_hostname, thermal_manager_enabled):
     """
     @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed

@@ -264,11 +264,40 @@ def execute_command(duthost, since):
     :param duthost: DUT
     :param since: since string enterd by user
     """
-    result = duthost.command("show techsupport -r --since={}".format('"' + since + '"'), module_ignore_errors=True)
+    opt = "-r" if duthost.sonic_release not in ["201811", "201911"] else ""
+    result = duthost.command(
+        "show techsupport {} --since={}".format(opt, '"' + since + '"'),
+        module_ignore_errors=True
+    )
     if result['rc'] != SUCCESS_CODE:
         pytest.fail('Failed to create techsupport. \nstdout:{}. \nstderr:{}'.format(result['stdout'], result['stderr']))
     pytest.tar_stdout = result['stdout']
     return True
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+        In Mellanox, when techsupport is taken, it invokes fw dump.
+        While taking the fw dump, the fw is busy and doesn't respond to other calls.
+        The access of sfp eeprom happens through firmware and xcvrd gets the DOM fields
+        every 60 seconds which fails during the fw dump.
+        This is a temporary issue and this log can be ignored. 
+        Issue link: https://github.com/sonic-net/sonic-buildimage/issues/12621
+    """
+    ignoreRegex = [
+        ".*ERR kernel:.*Reg cmd access status failed.*",
+        ".*ERR kernel:.*Reg cmd access failed.*",
+        ".*ERR kernel:.*Eeprom query failed.*",
+        ".*ERR kernel:.*Fails to access.*register MCIA.*",
+        ".*ERR kernel:.*Fails to read module eeprom.*",
+        ".*ERR kernel:.*Fails to access.*module eeprom.*",
+        ".*ERR kernel:.*Fails to get module type.*",
+        ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
+    ]
+
+    if loganalyzer:
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -351,10 +380,10 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "show_platform_cmds": cmds.show_platform_cmds,
         "ip_cmds": cmds.ip_cmds,
         "bridge_cmds": cmds.bridge_cmds,
-        "frr_cmds": add_asic_arg("  -n  {}", cmds.frr_cmds, num),
-        "bgp_cmds": add_asic_arg("  -n  {}", cmds.bgp_cmds, num),
+        "frr_cmds": add_asic_arg(" -n {}", cmds.frr_cmds, num),
+        "bgp_cmds": add_asic_arg(" -n {}", cmds.bgp_cmds, num),
         "nat_cmds": cmds.nat_cmds,
-        "bfd_cmds": add_asic_arg("  -n  {}", cmds.bfd_cmds, num),
+        "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
         "docker_cmds": add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
@@ -370,7 +399,8 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0']:
+        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0',
+                                         'x86_64-arista_720dt_48s']:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
@@ -392,7 +422,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return cmds_to_check
 
 
-def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
     """ 
     Check commands within a group against the command list 
 
@@ -408,9 +438,16 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
 
         for command in cmdlist:
             if isinstance(cmd_name, str):
-                result = cmd_name in command
+                if strbash_in_cmdlist :
+                    result = (cmd_name.replace('"', '\\"') in command)
+                else :
+                    result = (cmd_name in command)
             else:
-                result = cmd_name.search(command)
+                if strbash_in_cmdlist :
+                    new_pattern = re.compile(cmd_name.pattern.replace('"', '\\\\"'))
+                    result = new_pattern.search(command)
+                else :
+                    result = cmd_name.search(command)
             if result:
                 found = True
                 break
@@ -449,9 +486,15 @@ def test_techsupport_commands(
 
     cmd_list = stdout["stdout_lines"]
 
+    strbash_in_cmdlist = False
+    for command in cmd_list:
+        if "bash -c" in command :
+            strbash_in_cmdlist = True
+            break
+
     for cmd_group_name, cmd_group_to_check in commands_to_check.items():
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )
 
     pytest_assert(len(cmd_not_found) == 0, cmd_not_found)

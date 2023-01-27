@@ -2,7 +2,7 @@ import logging
 import paramiko
 import pytest
 
-from .utils import stop_tacacs_server, start_tacacs_server, per_command_check_skip_versions, remove_all_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server, per_command_check_skip_versions, remove_all_tacacs_server, get_ld_path
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 
@@ -288,9 +288,11 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
         Verify user can't run command with loader:
             /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 sh")
-    pytest_assert(exit_code == 1)
-    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    ld_path = get_ld_path(duthost)
+    if not ld_path:
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, ld_path + " sh")
+        pytest_assert(exit_code == 1)
+        check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
     """
         Verify user can't run command with prefix/quoting:

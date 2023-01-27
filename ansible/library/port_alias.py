@@ -20,7 +20,7 @@ short_description:   Find SONiC device port alias mapping if there is alias mapp
 Description:
         Minigraph file is using SONiC device alias to describe the interface name, it's vendor and and hardware platform dependent
         This module is used to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
-        The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
+        The definition of this mapping is specified in http://github.com/sonic-net/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
         When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with
@@ -54,6 +54,9 @@ ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', '
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
 ABOOT_PLATFORM_KEY = 'aboot_platform'
+NVIDIA_BF_PLATFORM_KEY = 'bf_platform'
+
+PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
@@ -74,7 +77,7 @@ class SonicPortAliasMap():
                 tokens = line.split('=')
                 key = tokens[0].strip()
                 value = tokens[1].strip()
-                if key == ONIE_PLATFORM_KEY or key == ABOOT_PLATFORM_KEY:
+                if key in PLATFORM_KEYS: 
                     return value
         return None
 
@@ -245,10 +248,10 @@ def main():
         slotid = None
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
-        
+
         if 'slotid' in m_args and m_args['slotid'] != None:
            slotid = m_args['slotid']
-        # When this script is invoked on sonic-mgmt docker, num_asic 
+        # When this script is invoked on sonic-mgmt docker, num_asic
         # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
@@ -298,13 +301,20 @@ def main():
 
         # Sort the Interface Name needed in multi-asic
         aliases.sort(key=lambda x: int(x[1]))
+        # Get ASIC interface names list based on sorted aliases
+        front_panel_asic_ifnames_list = []
+        for k in aliases:
+            if k[0] in front_panel_asic_ifnames:
+                front_panel_asic_ifnames_list.append(front_panel_asic_ifnames[k[0]])
+
         module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
-                                        'front_panel_asic_ifnames': [front_panel_asic_ifnames[k[0]] for k in aliases] if front_panel_asic_ifnames else [],
+                                        'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
+
     except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
         module.fail_json(msg=fail_msg)

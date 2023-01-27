@@ -41,7 +41,7 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     """
     Check if transceiver information of all the specified interfaces have been detected.
     """
-    cmd = "redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
+    cmd = r"redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
@@ -78,7 +78,9 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     """
     asichost = dut.asic_instance(asic_index)
     logging.info("Check detailed transceiver information of each connected port")
-    if dut.sonic_release == "202012":
+    # NOTE: No more releases to be added here. Platform should use SFP-refactor.
+    # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
+    if dut.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
         expected_fields = ["type", "hardware_rev", "serial", "manufacturer", "model"]
     else:
         expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]

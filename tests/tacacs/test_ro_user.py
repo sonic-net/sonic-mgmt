@@ -3,6 +3,8 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from .utils import check_output
 
+import logging
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),

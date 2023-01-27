@@ -152,7 +152,10 @@ def makeVMHostCreds(data, outfile):
     result = {
         "ansible_user": veos.get("vm_host_ansible").get("ansible_user"),
         "ansible_password": veos.get("vm_host_ansible").get("ansible_password"),
-        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass")
+        "ansible_become_pass": veos.get("vm_host_ansible").get("ansible_become_pass"),
+        "vm_host_user": veos.get("vm_host_ansible").get("ansible_user"),
+        "vm_host_password": veos.get("vm_host_ansible").get("ansible_password"),
+        "vm_host_become_password": veos.get("vm_host_ansible").get("ansible_become_pass")
     }
     with open(outfile, "w") as toWrite:
         toWrite.write("---\n")
@@ -404,6 +407,12 @@ def makeLab(data, devices, testbed, outfile):
                         except:
                             print("\t\t" + host + ": ansible_host not found")
 
+                        try:
+                            ansible_hostv6 = dev.get("ansible").get("ansible_hostv6")
+                            entry += "\tansible_hostv6=" + ansible_hostv6.split("/")[0]
+                        except:
+                            print("\t\t" + host + ": ansible_hostv6 not found")
+
                         if ansible_host:
                             try: # get ansible ssh username
                                 ansible_ssh_user = dev.get("ansible").get("ansible_ssh_user")
@@ -631,6 +640,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                 if dut in devices:
                     dutDict.update({dut:
                         {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
+                        'ansible_hostv6': devices[dut].get("ansible").get("ansible_hostv6"),
                         'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
                         'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
                         'hwsku': devices[dut].get("hwsku"),
@@ -643,18 +653,12 @@ def makeLabYAML(data, devices, testbed, outfile):
                         'serial': devices[dut].get("serial"),
                         'os': devices[dut].get("os"),
                         'model': devices[dut].get("model"),
-                        'asic_type': devices[dut].get("asic_type"),
-                        'syseeprom_info': {"0x21": devices[dut].get("syseeprom_info").get("0x21"),
-                                           "0x22": devices[dut].get("syseeprom_info").get("0x22"),
-                                           "0x23": devices[dut].get("syseeprom_info").get("0x23"),
-                                           "0x24": devices[dut].get("syseeprom_info").get("0x24"),
-                                           "0x25": devices[dut].get("syseeprom_info").get("0x25"),
-                                           "0x26": devices[dut].get("syseeprom_info").get("0x26"),
-                                           "0x2A": devices[dut].get("syseeprom_info").get("0x2A"),
-                                           "0x2B": devices[dut].get("syseeprom_info").get("0x2B"),
-                                           "0xFE": devices[dut].get("syseeprom_info").get("0xFE")}
+                        'asic_type': devices[dut].get("asic_type")
                         }
                     })
+                    if devices[dut].get("syseeprom_info"):
+                        dutDict[dut].update({'syseeprom_info': {field: devices[dut]["syseeprom_info"][field] \
+                            for field in devices[dut]["syseeprom_info"]}})
                     sonicDict[group]['hosts'].update(dutDict)
     if "fanout" in deviceGroup['lab']['children']:
         for fanoutType in deviceGroup['fanout']['children']:
@@ -681,6 +685,7 @@ def makeLabYAML(data, devices, testbed, outfile):
             if ptfhost in testbed:
                 ptfDict.update({ptfhost:
                     {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
+                    'ansible_hostv6': testbed[ptfhost].get("ansible").get("ansible_hostv6"),
                     'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
                     'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
                     }
@@ -695,7 +700,7 @@ def makeLabYAML(data, devices, testbed, outfile):
                                 }
                             },
                         'ptf': {'hosts': ptfDict},
-                        'server': serverDict
+                        'server': {'hosts': serverDict}
                         }
                     }
     })

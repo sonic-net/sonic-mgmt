@@ -1,7 +1,6 @@
 import pytest
 import logging
 import os
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 ans_host = None
 
@@ -13,16 +12,22 @@ def teardown_module():
 
 
 @pytest.fixture(autouse=True)
-def disable_analyzer_for_mellanox(duthost):
-    if duthost.facts["asic_type"] in ["mellanox"]:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='sfp_cfg')
-        loganalyzer.load_common_config()
+def update_la_ignore_errors_list_for_mlnx(duthost, loganalyzer):
+    extended_ignore_list = []
 
-        loganalyzer.ignore_regex.append("kernel.*Eeprom query failed*")
-        # Ignore PMPE error https://github.com/Azure/sonic-buildimage/issues/7163
-        loganalyzer.ignore_regex.append(r".*ERR pmon#xcvrd: Receive PMPE error event on module.*")
-        marker = loganalyzer.init()
+    if loganalyzer:
+        if duthost.facts["asic_type"] in ["mellanox"]:
+            extended_ignore_list.append("kernel.*Eeprom query failed*")
+            # Ignore PMPE error https://github.com/sonic-net/sonic-buildimage/issues/7163
+            extended_ignore_list.append(r".*ERR pmon#xcvrd: Receive PMPE error event on module.*")
+
+            for host in loganalyzer:
+                loganalyzer[host].ignore_regex.extend(extended_ignore_list)
+
     yield
 
-    if duthost.facts["asic_type"] in ["mellanox"]:
-        loganalyzer.analyze(marker)
+    if loganalyzer:
+        if duthost.facts["asic_type"] in ["mellanox"]:
+            for host in loganalyzer:
+                for ignore_regexp in extended_ignore_list:
+                    loganalyzer[host].ignore_regex.remove(ignore_regexp)

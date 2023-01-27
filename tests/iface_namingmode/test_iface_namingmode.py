@@ -6,6 +6,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -430,21 +431,32 @@ class TestShowQueue():
         skip_test_for_multi_asic(
             duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
-    def test_show_queue_counters(self, setup, setup_config_mode):
+    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC"'.format(ifmode))['stdout']
+        queue_counter = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters | grep "UC\|MC\|ALL"'.format(ifmode))['stdout']
         logger.info('queue_counter:\n{}'.format(queue_counter))
 
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        buffer_queue_keys = redis_get_keys(duthost, 'CONFIG_DB', 'BUFFER_QUEUE|*')
+        interfaces = set()
+
+        for key in buffer_queue_keys:
+            try:
+                interfaces.add(key.split('|')[1])
+            except IndexError:
+                pass
+
         if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert (re.search(r'{}\s+[U|M]C\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
+            for intf in interfaces:
+                alias = setup['port_name_map'][intf]
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(alias), queue_counter) is not None) and (setup['port_alias_map'][alias] not in queue_counter)
         elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert (re.search(r'{}\s+[U|M]C\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
+            for intf in interfaces:
+                assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'.format(intf), queue_counter) is not None) and (setup['port_name_map'][intf] not in queue_counter)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -453,11 +465,11 @@ class TestShowQueue():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         test_intf = sample_intf[mode]
-        queue_counter_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC"'.format(ifmode, test_intf))
+        queue_counter_intf = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show queue counters {} | grep "UC\|MC\|ALL"'.format(ifmode, test_intf))
         logger.info('queue_counter_intf:\n{}'.format(queue_counter_intf))
 
         for i in range(len(queue_counter_intf['stdout_lines'])):
-            assert re.search(r'{}\s+[U|M]C{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
+            assert re.search(r'{}\s+[U|M]C|ALL{}\s+\S+\s+\S+\s+\S+\s+\S+'.format(test_intf, i), queue_counter_intf['stdout']) is not None
 
     def test_show_queue_persistent_watermark_multicast(self, setup, setup_config_mode):
         """
@@ -468,12 +480,13 @@ class TestShowQueue():
         show_queue_wm_mcast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue persistent-watermark multicast'.format(ifmode))['stdout']
         logger.info('show_queue_wm_mcast:\n{}'.format(show_queue_wm_mcast))
 
-        if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
-        elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
+        if show_queue_wm_mcast != "Object map from the COUNTERS_DB is empty because the multicast queues are not configured in the CONFIG_DB!":
+            if mode == 'alias':
+                for alias in setup['port_alias']:
+                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
+            elif mode == 'default':
+                for intf in setup['default_interfaces']:
+                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
 
     def test_show_queue_persistent_watermark_unicast(self, setup, setup_config_mode):
         """
@@ -500,12 +513,13 @@ class TestShowQueue():
         show_queue_wm_mcast = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show queue watermark multicast'.format(ifmode))['stdout']
         logger.info('show_queue_wm_mcast:\n{}'.format(show_queue_wm_mcast))
 
-        if mode == 'alias':
-            for alias in setup['port_alias']:
-                assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
-        elif mode == 'default':
-            for intf in setup['default_interfaces']:
-                assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
+        if show_queue_wm_mcast != "Object map from the COUNTERS_DB is empty because the multicast queues are not configured in the CONFIG_DB!":
+            if mode == 'alias':
+                for alias in setup['port_alias']:
+                    assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
+            elif mode == 'default':
+                for intf in setup['default_interfaces']:
+                    assert re.search(r'{}'.format(intf), show_queue_wm_mcast) is not None
 
     def test_show_queue_watermark_unicast(self, setup, setup_config_mode):
         """
@@ -523,13 +537,13 @@ class TestShowQueue():
             for intf in setup['default_interfaces']:
                 assert re.search(r'{}'.format(intf), show_queue_wm_ucast) is not None
 
-# Tests to be run in t0 topology
+# Tests to be run in t0/m0 topology
 
 class TestShowVlan():
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_check_topo(self, tbinfo):
-        if tbinfo['topo']['type'] != 't0':
+        if tbinfo['topo']['type'] not in ['t0', 'm0']:
             pytest.skip('Unsupported topology')
 
     @pytest.fixture()
@@ -714,9 +728,16 @@ class TestConfigInterface():
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # Get supported speeds for interface
+        supported_speeds = duthost.get_supported_speeds(interface)
+        # Remove native speed from supported speeds
+        if supported_speeds != None:
+            supported_speeds.remove(native_speed)
+        # Set speed to configure
+        configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
-        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} 10000'.format(
-             ifmode,cli_ns_option, test_intf))
+        out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
+             ifmode,cli_ns_option, test_intf, configure_speed))
 
         if out['rc'] != 0:
             pytest.fail()
@@ -728,7 +749,7 @@ class TestConfigInterface():
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
-        assert speed == '10000'
+        assert speed == configure_speed
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
@@ -860,7 +881,7 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def spine_ports(self, setup):
+    def spine_ports(self, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
@@ -876,7 +897,8 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if (key in setup['physical_interfaces']) and ('T2' in value['name']):
+            if (key in setup['physical_interfaces'] 
+                    and ('T2' in value['name'] or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
 

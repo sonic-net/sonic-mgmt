@@ -12,49 +12,14 @@ from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 logger = logging.getLogger(__name__)
 
+
 class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
-
-    def get_pdu_controller_type(self):
-        """
-        @summary: Use SNMP to get the type of PDU controller host
-        @param pdu_controller_host: IP address of PDU controller host
-        @return: Returns type string of the specified PDU controller host
-        """
-        pSYSDESCR = ".1.3.6.1.2.1.1.1.0"
-        SYSDESCR = "1.3.6.1.2.1.1.1.0"
-        pdu = None
-        cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
-            snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161), timeout=5.0),
-            cmdgen.MibVariable(pSYSDESCR)
-            )
-        if errorIndication:
-            logging.info("Failed to get pdu controller type, exception: " + str(errorIndication))
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
-            if current_oid == SYSDESCR:
-                pdu = current_val
-        if pdu is None:
-            self.pduType = None
-            return
-        if 'Sentry Switched PDU' in pdu:
-            self.pduType = "SENTRY4"
-        if 'Sentry Switched CDU' in pdu:
-            self.pduType = "SENTRY"
-        if 'APC Web/SNMP Management Card' in pdu:
-            self.pduType = "APC"
-        if 'Emerson' in pdu:
-            self.pduType = 'Emerson'
-        return
 
     def pduCntrlOid(self):
         """
@@ -77,6 +42,11 @@ class snmpPduController(PduControllerBase):
         SENTRY4_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.1"
         SENTRY4_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.5.1.2"
         SENTRY4_PORT_POWER_BASE_OID = "1.3.6.1.4.1.1718.4.1.8.3.1.9"
+        # MIB OID for 'Vertiv Geist Upgradeable PDU'
+        VERTIV_PORT_NAME_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.3"
+        VERTIV_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.4"
+        VERTIV_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.6"
+        VERTIV_PORT_POWER_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.6.1.12"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -84,34 +54,42 @@ class snmpPduController(PduControllerBase):
         self.has_lanes = True
         self.max_lanes = 5
         self.PORT_POWER_BASE_OID = None
-        if self.pduType == "APC":
-            self.PORT_NAME_BASE_OID      = APC_PORT_NAME_BASE_OID
-            self.PORT_STATUS_BASE_OID    = APC_PORT_STATUS_BASE_OID
-            self.PORT_CONTROL_BASE_OID   = APC_PORT_CONTROL_BASE_OID
-        elif self.pduType == "SENTRY":
-            self.PORT_NAME_BASE_OID      = SENTRY_PORT_NAME_BASE_OID
-            self.PORT_STATUS_BASE_OID    = SENTRY_PORT_STATUS_BASE_OID
-            self.PORT_CONTROL_BASE_OID   = SENTRY_PORT_CONTROL_BASE_OID
+        if self.pduType == "Apc":
+            self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
+        elif self.pduType == "Sentry":
+            self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = SENTRY_PORT_CONTROL_BASE_OID
         elif self.pduType == "Emerson":
-            self.PORT_NAME_BASE_OID      = EMERSON_PORT_NAME_BASE_OID
-            self.PORT_STATUS_BASE_OID    = EMERSON_PORT_STATUS_BASE_OID
-            self.PORT_CONTROL_BASE_OID   = EMERSON_PORT_CONTROL_BASE_OID
-            self.CONTROL_OFF             = "0"
-        elif self.pduType == "SENTRY4":
-            self.PORT_NAME_BASE_OID      = SENTRY4_PORT_NAME_BASE_OID
-            self.PORT_STATUS_BASE_OID    = SENTRY4_PORT_STATUS_BASE_OID
-            self.PORT_CONTROL_BASE_OID   = SENTRY4_PORT_CONTROL_BASE_OID
-            self.PORT_POWER_BASE_OID     = SENTRY4_PORT_POWER_BASE_OID
+            self.PORT_NAME_BASE_OID = EMERSON_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = EMERSON_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
+            self.CONTROL_OFF = "0"
+        elif self.pduType == "Sentry4":
+            self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
+            self.PORT_POWER_BASE_OID = SENTRY4_PORT_POWER_BASE_OID
+            self.has_lanes = False
+            self.max_lanes = 1
+        elif self.pduType == "Vertiv":
+            self.PORT_NAME_BASE_OID = VERTIV_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = VERTIV_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = VERTIV_PORT_CONTROL_BASE_OID
+            self.PORT_POWER_BASE_OID = VERTIV_PORT_POWER_BASE_OID
+            self.STATUS_OFF = "2"
+            self.CONTROL_ON = "2"
+            self.CONTROL_OFF = "4"
             self.has_lanes = False
             self.max_lanes = 1
         else:
             pass
 
-
     def _build_outlet_maps(self, port_oid, label):
-        self.port_oid_dict[port_oid] = { 'label' : label }
-        self.port_label_dict[label] = { 'port_oid' : port_oid }
-
+        self.port_oid_dict[port_oid] = {'label': label}
+        self.port_label_dict[label] = {'port_oid': port_oid}
 
     def _probe_lane(self, lane_id, cmdGen, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
@@ -123,17 +101,17 @@ class snmpPduController(PduControllerBase):
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
             cmdgen.MibVariable(query_oid)
-            )
+        )
         if errorIndication:
             logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
         else:
             for varBinds in varTable:
                 for oid, val in varBinds:
+                    oid = oid.getOid() if hasattr(oid, 'getoid') else oid
                     current_oid = oid.prettyPrint()
                     port_oid = current_oid.replace(pdu_port_base, '')
                     label = val.prettyPrint().lower()
                     self._build_outlet_maps(port_oid, label)
-
 
     def _get_pdu_ports(self):
         """
@@ -143,7 +121,7 @@ class snmpPduController(PduControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         if not self.pduType:
-            logging.info('PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logging.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
 
         cmdGen = cmdgen.CommandGenerator()
@@ -152,21 +130,18 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-
-    def __init__(self, controller, pdu):
+    def __init__(self, controller, pdu, hwsku):
         logging.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
         self.snmp_rwcommunity = pdu['snmp_rwcommunity']
-        self.pduType = None
+        self.pduType = hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
-        self.get_pdu_controller_type()
         self.pduCntrlOid()
         self._get_pdu_ports()
         logging.info("Initialized " + self.__class__.__name__)
-
 
     def turn_on_outlet(self, outlet):
         """
@@ -187,11 +162,11 @@ class snmpPduController(PduControllerBase):
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
         errorIndication, errorStatus, _, _ = \
-        cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData(self.snmp_rwcommunity),
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            (port_oid, rfc1902.Integer(self.CONTROL_ON))
-        )
+            cmdgen.CommandGenerator().setCmd(
+                cmdgen.CommunityData(self.snmp_rwcommunity),
+                cmdgen.UdpTransportTarget((self.controller, 161)),
+                (port_oid, rfc1902.Integer(self.CONTROL_ON))
+            )
         if errorIndication or errorStatus != 0:
             logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
@@ -216,16 +191,15 @@ class snmpPduController(PduControllerBase):
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
         errorIndication, errorStatus, _, _ = \
-        cmdgen.CommandGenerator().setCmd(
-            cmdgen.CommunityData(self.snmp_rwcommunity),
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            (port_oid, rfc1902.Integer(self.CONTROL_OFF))
-        )
+            cmdgen.CommandGenerator().setCmd(
+                cmdgen.CommunityData(self.snmp_rwcommunity),
+                cmdgen.UdpTransportTarget((self.controller, 161)),
+                (port_oid, rfc1902.Integer(self.CONTROL_OFF))
+            )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
+            logging.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
-
 
     def _get_one_outlet_power(self, cmdGen, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
@@ -236,11 +210,12 @@ class snmpPduController(PduControllerBase):
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
             cmdgen.MibVariable(query_id)
-            )
+        )
         if errorIndication:
             logging.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
+            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
@@ -248,18 +223,18 @@ class snmpPduController(PduControllerBase):
                 status['output_watts'] = current_val
                 return
 
-
     def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((self.controller, 161)),
             cmdgen.MibVariable(query_id)
-            )
+        )
         if errorIndication:
             logging.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
+            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
@@ -269,7 +244,6 @@ class snmpPduController(PduControllerBase):
                 return status
 
         return None
-
 
     def get_outlet_status(self, outlet=None, hostname=None):
         """
@@ -296,12 +270,12 @@ class snmpPduController(PduControllerBase):
             # Return status of all outlets
             ports = self.port_oid_dict.keys()
         elif outlet:
-            ports = [ oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet) ]
+            ports = [oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet)]
             if not ports:
                 logging.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
             hn = hostname.lower()
-            ports = [ self.port_label_dict[label]['port_oid'] for label in self.port_label_dict.keys() if hn in label ]
+            ports = [self.port_label_dict[label]['port_oid'] for label in self.port_label_dict.keys() if hn in label]
             if not ports:
                 logging.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
@@ -320,9 +294,9 @@ class snmpPduController(PduControllerBase):
         pass
 
 
-def get_pdu_controller(controller_ip, pdu):
+def get_pdu_controller(controller_ip, pdu, hwsku):
     """
     @summary: Factory function to create the actual PDU controller object.
     @return: The actual PDU controller object. Returns None if something went wrong.
     """
-    return snmpPduController(controller_ip, pdu)
+    return snmpPduController(controller_ip, pdu, hwsku)

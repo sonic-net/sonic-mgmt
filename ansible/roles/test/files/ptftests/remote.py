@@ -26,7 +26,7 @@ def get_ifaces():
         # Skip not FP interfaces and vlan interface, like eth1.20
         if ETH_PFX not in iface:
             continue
-        
+
         ifaces.append(iface)
 
     # Sort before return
@@ -39,7 +39,7 @@ def build_ifaces_map(ifaces):
     constants_file = os.path.join(os.path.dirname(__file__), "constants.yaml")
     if os.path.exists(constants_file):
         with open(constants_file) as fd:
-            constants = yaml.load(fd)
+            constants = yaml.safe_load(fd)
             ptf_port_mapping_mode = constants.get("PTF_PORT_MAPPING_MODE", ptf_port_mapping_mode)
 
 
@@ -57,7 +57,7 @@ def build_ifaces_map(ifaces):
     if ptf_port_mapping_mode == "use_sub_interface":
         # override those interfaces that has sub interfaces
         for i, si in sub_ifaces:
-            iface_map[(0, i)] = si;
+            iface_map[(0, i)] = si
         return iface_map
     elif ptf_port_mapping_mode == "use_orig_interface":
         return iface_map

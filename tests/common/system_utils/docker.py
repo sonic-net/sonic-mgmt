@@ -9,6 +9,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.cisco_data import is_cisco_device
+from tests.common.innovium_data import is_innovium_device
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,9 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
         image_name (str): The name of the image to tag.
         image_version (str): The version of the image to tag.
     """
+    vendor_id = _get_vendor_id(duthost)
+    if vendor_id in ['invm']:
+        image_name = "docker-syncd-{}-rpc".format(vendor_id)
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
@@ -101,7 +106,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 def swap_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss 
+    This will download a new Docker image to the duthost and restart the swss
     service.
 
     Args:
@@ -111,10 +116,14 @@ def swap_syncd(duthost, creds):
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
 
@@ -126,18 +135,29 @@ def swap_syncd(duthost, creds):
 
     _perform_swap_syncd_shutdown_check(duthost)
 
-    registry = load_docker_registry_info(duthost, creds)
-    download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+    is_syncdrpc_present_locally = duthost.command('docker image inspect ' + docker_rpc_image,
+                                                  module_ignore_errors=True)['rc'] == 0
 
-    tag_image(
-        duthost,
-        "{}:latest".format(docker_syncd_name),
-        "{}/{}".format(registry.host, docker_rpc_image),
-        duthost.os_version
-    )
+    if is_syncdrpc_present_locally:
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            docker_rpc_image,
+            'latest'
+        )
+    else:
+        registry = load_docker_registry_info(duthost, creds)
+        download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            "{}/{}".format(registry.host, docker_rpc_image),
+            duthost.os_version
+        )
 
     logger.info("Reloading config and restarting swss...")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
     _perform_syncd_liveness_check(duthost)
 
@@ -154,6 +174,9 @@ def restore_default_syncd(duthost, creds):
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
 
     duthost.stop_service("swss")
     duthost.delete_container("syncd")
@@ -182,7 +205,6 @@ def _perform_swap_syncd_shutdown_check(duthost):
         if any([
             duthost.is_container_running("syncd"),
             duthost.is_container_running("swss"),
-            not duthost.is_bgp_state_idle()
         ]):
             return False
 
@@ -205,6 +227,10 @@ def _get_vendor_id(duthost):
         vendor_id = "brcm"
     elif is_mellanox_device(duthost):
         vendor_id = "mlnx"
+    elif is_cisco_device(duthost):
+        vendor_id = "cisco"
+    elif is_innovium_device(duthost):
+        vendor_id = "invm"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

@@ -60,7 +60,7 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     check_reset_status_after_reboot('cold', "false", "true", duthost, localhost, construct_url)
     # Check reset status post warm reboot
     check_reset_status_after_reboot('warm', "false", "false", duthost, localhost, construct_url)
-
+    
 def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_status, duthost, localhost, construct_url):
     logger.info("Checking for RESTAPI reset status after "+reboot_type+" reboot")
     params = '{"reset_status":"false"}'
@@ -71,7 +71,13 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     logger.info(r.json())
     response = r.json()
     pytest_assert(response['reset_status'] == pre_reboot_status)
-    reboot(duthost, localhost, reboot_type)
+    # Add extra wait for warm-reboot to ensure warmboot-finalizer is done
+    # Otherwise, the warmboot-finalizer will write the testing vnet and vlan config
+    # into config_db.json and cause unrecoverable errors
+    wait_warmboot_finalizer = False
+    if reboot_type == 'warm':
+        wait_warmboot_finalizer = True
+    reboot(duthost, localhost, reboot_type, wait_warmboot_finalizer=wait_warmboot_finalizer)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
@@ -650,7 +656,7 @@ def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
     logger.info(r.json())
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
 
-def test_create_interface_sad(construct_url, vlan_members, cleanup_after_testing):
+def test_create_interface_sad(construct_url, vlan_members):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'

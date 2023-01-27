@@ -56,6 +56,9 @@ class GitHubIssueChecker(IssueCheckerBase):
                     github_creds = creds.get(self.NAME, {})
                     self.user = github_creds.get('user', '')
                     self.api_token = github_creds.get('api_token', '')
+                else:
+                    self.user = os.environ.get("GIT_USER_NAME")
+                    self.api_token = os.environ.get("GIT_API_TOKEN")
         except Exception as e:
             logger.error('Load credentials from {} failed with error: {}'.format(creds_file_path, repr(e)))
 
@@ -76,7 +79,7 @@ class GitHubIssueChecker(IssueCheckerBase):
                 labels = issue_data.get('labels', [])
                 if any(['name' in label and 'duplicate' in label['name'].lower() for label in labels]):
                     logger.warning('GitHub issue: {} looks like duplicate and was closed. Please re-check and ignore'
-                        'the test on the parent issue'.format(self.url))
+                                   'the test on the parent issue'.format(self.url))
                 return False
         except Exception as e:
             logger.error('Get details for {} failed with: {}'.format(self.url, repr(e)))

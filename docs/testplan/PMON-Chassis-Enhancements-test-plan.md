@@ -1,4 +1,4 @@
-# Test plan for PMON enhancements for Chassis 
+# Test plan for PMON enhancements for Chassis
 
 - [Introduction](#introduction)
 - [CLI Test Cases](#cli-test-cases)
@@ -37,14 +37,14 @@
 
 This test plan ONLY covers the changes associated with PRs below:
 
-1. [Configure and show for platform chassis_modules #1145](https://github.com/Azure/sonic-utilities/pull/1145)
-2. [CHASSIS_STATE_DB on control-card for chassis state #395](https://github.com/Azure/sonic-swss-common/pull/395)
-3. [PSUd changes to compute power-budget for Modular chassis #104](https://github.com/Azure/sonic-platform-daemons/pull/104)
-4. [Introduce APIs for modular chassis support #124](https://github.com/Azure/sonic-platform-common/pull/124)
-5. [Common power consumption and supply APIs for modular chassis #136](https://github.com/Azure/sonic-platform-common/pull/136/files)
-6. [Thermalctld APIs for recording min and max temp #131](https://github.com/Azure/sonic-platform-common/pull/131)
-7. [Modular Chassis - Midplane monitoring APIs #148](https://github.com/Azure/sonic-platform-common/pull/148)
-8. [Modular-Chassis: Show midplane status #1267](https://github.com/Azure/sonic-utilities/pull/1267)
+1. [Configure and show for platform chassis_modules #1145](https://github.com/sonic-net/sonic-utilities/pull/1145)
+2. [CHASSIS_STATE_DB on control-card for chassis state #395](https://github.com/sonic-net/sonic-swss-common/pull/395)
+3. [PSUd changes to compute power-budget for Modular chassis #104](https://github.com/sonic-net/sonic-platform-daemons/pull/104)
+4. [Introduce APIs for modular chassis support #124](https://github.com/sonic-net/sonic-platform-common/pull/124)
+5. [Common power consumption and supply APIs for modular chassis #136](https://github.com/sonic-net/sonic-platform-common/pull/136/files)
+6. [Thermalctld APIs for recording min and max temp #131](https://github.com/sonic-net/sonic-platform-common/pull/131)
+7. [Modular Chassis - Midplane monitoring APIs #148](https://github.com/sonic-net/sonic-platform-common/pull/148)
+8. [Modular-Chassis: Show midplane status #1267](https://github.com/sonic-net/sonic-utilities/pull/1267)
 
 
 ### Definitions/Abbrevations
@@ -53,8 +53,8 @@ This test plan ONLY covers the changes associated with PRs below:
   VOQ  | Virtual Output Queue
   PSU  | Power Suppy Unit
   SFM  | Switch Fabric Card
-  
-### Test Plan 
+
+### Test Plan
 
 #### Debuggability
 
@@ -74,15 +74,15 @@ The following are useful commands for validating the testcases that follow.
       }
    }
 ```
-2. Use redis cli to dump state Db `redis-dump -d 6 -y -k "*CHASSIS*"`, for example: 
+2. Use redis cli to dump state Db `redis-dump -d 6 -y -k "*CHASSIS*"`, for example:
 ```
    "CHASSIS_MODULE_TABLE|LINE-CARD1": {
-      "expireat": 980474761.732194, 
-       "ttl": -0.001, 
-       "type": "hash", 
+      "expireat": 980474761.732194,
+       "ttl": -0.001,
+       "type": "hash",
        "value": {
-                "desc": "imm36-400g-qsfpdd", 
-                "oper_status": "down", 
+                "desc": "imm36-400g-qsfpdd",
+                "oper_status": "down",
                 "slot": "1"
         }
    }
@@ -92,11 +92,11 @@ The following are useful commands for validating the testcases that follow.
    redis-dump  -d 6 -y -k "*MIDPLANE*"
    {
     "CHASSIS_MIDPLANE_TABLE|SUPERVISOR0": {
-      "expireat": 1551352416.7598891, 
-      "ttl": -0.001, 
-      "type": "hash", 
+      "expireat": 1551352416.7598891,
+      "ttl": -0.001,
+      "type": "hash",
       "value": {
-            "access": "True", 
+            "access": "True",
             "ip_address": "10.0.0.16"
             }
        }
@@ -105,12 +105,12 @@ The following are useful commands for validating the testcases that follow.
 
 ## CLI Test Cases
 
-### 1.1 Check platform chassis module status 
+### 1.1 Check platform chassis module status
 
 #### Steps
- * Use command `show chassis-modules status` to get status of modular chassis 
- 
- 
+ * Use command `show chassis-modules status` to get status of modular chassis
+
+
 #### Verify in
  * Supervisor
  * Line card
@@ -138,9 +138,9 @@ The following are useful commands for validating the testcases that follow.
      SUPERVISOR0                         cpm2-ixr                16         Online              up
 
 
-```  
 ```
-    on line card: 
+```
+    on line card:
     show chassis-modules status
            Name                      Description    Physical-Slot    Oper-Status    Admin-Status
      -----------  -------------------------------  ---------------  -------------  --------------
@@ -151,7 +151,7 @@ The following are useful commands for validating the testcases that follow.
  * Verify output on supervisor shows 'up' for operational and admin state for supervisor, all line cards, all fabric cards for DUT.
  * Verify output of each line card   shows 'up' for operational state admin state for itself and  supervisor for DUT
 
-### 1.2 Configure chassis-modules 
+### 1.2 Configure chassis-modules
 
 #### Steps
 
@@ -167,27 +167,27 @@ The following are useful commands for validating the testcases that follow.
 
   ```
      sudo config chassis-modules shutdown LINE-CARD1
-     admin@sonic:~$ show chassis-modules status LINE-CARD1 
+     admin@sonic:~$ show chassis-modules status LINE-CARD1
        Name        Description     	Slot    Oper-Status    Admin-Status
      -------------  -----------------  ------  -------------  --------------
        LINE-CARD1  imm36-400g-qsfpdd       1       down            down
   ```
-     
+
 
  * Verify  `show chassis-modules status` report line-card up after startup on supervisor
      for example:
-    
+
   ```
     sudo config chassis-modules startup LINE-CARD1
-    admin@sonic:~$ show chassis-modules status LINE-CARD1 
+    admin@sonic:~$ show chassis-modules status LINE-CARD1
       Name        Description     	Slot    Oper-Status    Admin-Status
     -------------  -----------------  ------  -------------  --------------
       LINE-CARD1  imm36-400g-qsfpdd       1       Online           up
   ```
  *  `show chassis-modules status` report card status unchanged after shutdown on line card
- 
 
-### 1.3 Check platform chassis midplane status 
+
+### 1.3 Check platform chassis midplane status
 
 #### Steps
  * Use command `show chassis-modules midplane-status` to get status of midplane in modular chassis
@@ -206,21 +206,21 @@ The following are useful commands for validating the testcases that follow.
    LINE-CARD1      10.0.0.2           False
    LINE-CARD2      10.0.0.3            True
    LINE-CARD3      10.0.0.4            True
-```  
 ```
-   on line card: 
+```
+   on line card:
         Name    IP-Address    Reachability
    -----------  ------------  --------------
    SUPERVISOR0     10.0.0.16            True
 
 ```
-     
+
 
 #### Pass/Fail Criteria
- * Verify output on supervisor lists all the line cards, midplane ip addresses and reachability status as expected  
+ * Verify output on supervisor lists all the line cards, midplane ip addresses and reachability status as expected
  * Verify on each Line Card supervisor reachability is correct and supervisor ip address is correct
 
-### 1.4 Check thermal sensor output in chassis state db 
+### 1.4 Check thermal sensor output in chassis state db
 #### Steps
  * Run command “redis-dump  -p 6380 -d 13 -y -k "*TEMP*" "on Supervisor
  * Run command “redis-dump -d 6 -y -k "*TEMP*" on line card
@@ -228,22 +228,22 @@ The following are useful commands for validating the testcases that follow.
 #### Verify in
  * Supervisor
  * Line Card
- 
+
 #### Sample Output
 ```
  "TEMPERATURE_INFO_8|Thermal 7": {
-    "expireat": 1605120521.5682561, 
-    "ttl": -0.001, 
-    "type": "hash", 
+    "expireat": 1605120521.5682561,
+    "ttl": -0.001,
+    "type": "hash",
     "value": {
-      "critical_high_threshold": "N/A", 
-      "critical_low_threshold": "N/A", 
-      "high_threshold": "105.0", 
-      "low_threshold": "0.0", 
-      "maximum_temperature": "127.0", 
-      "minimum_temperature": "-2.0", 
-      "temperature": "47.0", 
-      "timestamp": "20190217 16:03:13", 
+      "critical_high_threshold": "N/A",
+      "critical_low_threshold": "N/A",
+      "high_threshold": "105.0",
+      "low_threshold": "0.0",
+      "maximum_temperature": "127.0",
+      "minimum_temperature": "-2.0",
+      "temperature": "47.0",
+      "timestamp": "20190217 16:03:13",
       "warning_status": "False"
     }
 
@@ -257,12 +257,12 @@ The following are useful commands for validating the testcases that follow.
     * High threshold is greater than maximum_temperature.
     * Low threshold is lesser than the minimum_temperature.
     * Warning status is False except check criteria high or low threshold above is false
- 
- 
-### 1.5 Check power budget output in chassis state db 
+
+
+### 1.5 Check power budget output in chassis state db
 
 #### Steps
- * Run command `redis-dump -d 6 -y -k "*power*"` 
+ * Run command `redis-dump -d 6 -y -k "*power*"`
  * Manually take one of the PSU offline
  * Manually bring back PSU online
  * Manually remove line card
@@ -278,27 +278,27 @@ The following are useful commands for validating the testcases that follow.
   redis-dump -d 6 -y -k "*power*"
    {
       "CHASSIS_INFO|chassis_power_budget 1": {
-        "expireat": 1605209491.4552531, 
-        "ttl": -0.001, 
-        "type": "hash", 
+        "expireat": 1605209491.4552531,
+        "ttl": -0.001,
+        "type": "hash",
         "value": {
-          "": "", 
-          "Consumed Power FABRIC-CARD0": "370", 
-          "Consumed Power FABRIC-CARD1": "370", 
-          "Consumed Power FABRIC-CARD2": "370", 
-          "Consumed Power FABRIC-CARD3": "370", 
-          "Consumed Power FABRIC-CARD4": "370", 
-          "Consumed Power FABRIC-CARD5": "370", 
-          "Consumed Power FanTray0": "500", 
-          "Consumed Power FanTray1": "500", 
-          "Consumed Power FanTray2": "500", 
-          "Consumed Power LINE-CARD1": "1000", 
-          "Consumed Power LINE-CARD7": "1000", 
-          "Consumed Power SUPERVISOR0": "80", 
-          "Supplied Power PSU7": "3000.0", 
-          "Supplied Power PSU8": "3000.0", 
-          "Supplied Power PSU9": "3000.0", 
-          "Total Consumed Power": "5800.0", 
+          "": "",
+          "Consumed Power FABRIC-CARD0": "370",
+          "Consumed Power FABRIC-CARD1": "370",
+          "Consumed Power FABRIC-CARD2": "370",
+          "Consumed Power FABRIC-CARD3": "370",
+          "Consumed Power FABRIC-CARD4": "370",
+          "Consumed Power FABRIC-CARD5": "370",
+          "Consumed Power FanTray0": "500",
+          "Consumed Power FanTray1": "500",
+          "Consumed Power FanTray2": "500",
+          "Consumed Power LINE-CARD1": "1000",
+          "Consumed Power LINE-CARD7": "1000",
+          "Consumed Power SUPERVISOR0": "80",
+          "Supplied Power PSU7": "3000.0",
+          "Supplied Power PSU8": "3000.0",
+          "Supplied Power PSU9": "3000.0",
+          "Total Consumed Power": "5800.0",
           "Total Supplied Power": "3000.0"
         }
       }
@@ -312,8 +312,8 @@ The following are useful commands for validating the testcases that follow.
  * Verify that when fan tray is removed, the consumed power is 0 and when fan tray is re-inserted it is not 0.
 
 
-## API Test Cases 
-This set of test cases will verify expected value return API calls using HTTP server in DUT. These tests will use existing API infrastructure existing in platform_tests/api 
+## API Test Cases
+This set of test cases will verify expected value return API calls using HTTP server in DUT. These tests will use existing API infrastructure existing in platform_tests/api
 
 ## APIs for module base added for chassis
 
@@ -331,7 +331,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Data returned is of correct type and appropriate for the specific platform and verified to fact where applicable (slot number , module type etc., True/False)  
+* Data returned is of correct type and appropriate for the specific platform and verified to fact where applicable (slot number , module type etc., True/False)
 * Verify returned value is correct if called from supervisor should have supervisor in name, if line card should have line card prefix to slot name
 
 ### 2.2 Test api get_description
@@ -348,7 +348,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate   
+* Verify data returned is of correct type and appropriate
 
 ### 2.3 Test api get_type
 
@@ -365,7 +365,7 @@ This set of test cases will verify expected value return API calls using HTTP se
 
 #### Pass/Fail Criteria
 * Verify data returned is of correct type and appropriate
-* verify module type is correct if called from supervisor should be type supervisor and line card for line card   
+* verify module type is correct if called from supervisor should be type supervisor and line card for line card
 
 
 ### 2.4 Test api get_slot
@@ -380,7 +380,7 @@ This set of test cases will verify expected value return API calls using HTTP se
 #### Verify in
  * Supervisor
  * Line Card
- 
+
 ### Pass/Fail Criteria
 * Verify data returned is of correct type and appropriate
 * verify slot number , compare with facts
@@ -450,7 +450,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 
 ### 2.9 Test api get_midplane_ip
 #### Steps
@@ -465,7 +465,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 * verify ip is correct based on slot index
 
 ### 2.10 Test api is_midplane_reachable
@@ -481,7 +481,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 * Value is true for line card that is up
 * Value is false for line card that is not up
 
@@ -502,7 +502,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 * Verify Module index is correct for each module , get modules present from get_all_modules
 
 ### 3.2 Test api get_supervisor_slot
@@ -520,7 +520,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 * Verify slot index return is correct for superovisor card in chassis facts
 
 ### 3.3 Test api get_my_slot
@@ -536,7 +536,7 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Line Card
 
 #### Pass/Fail Criteria
-* Verify data returned is of correct type and appropriate 
+* Verify data returned is of correct type and appropriate
 * Verify slot index return is correct compare value from chassis facts
 
 ### 3.4 Test api is_modular_chassis
@@ -563,7 +563,7 @@ This set of test cases will verify expected value return API calls using HTTP se
 * get get_maximum_supplied_power api method from psu_base
 ```
   api description :
-  get_maximum_supplied_power -A float number, the maximum power output in Watts, e.g. 1200.1 
+  get_maximum_supplied_power -A float number, the maximum power output in Watts, e.g. 1200.1
 ```
 #### Verify in
  * Supervisor
@@ -589,7 +589,7 @@ This set of test cases will verify expected value return API calls using HTTP se
 * Verify data returned is of correct type and appropriate and true for chassis
 * Verify valid LED color predefined is returned and is as expected
 
-### 4.3 Test api set_status_master_led 
+### 4.3 Test api set_status_master_led
 
 #### Steps
 * set set_status_master_led api method from psu_base to red (if supported by platform)
@@ -646,14 +646,14 @@ This set of test cases will verify expected value return API calls using HTTP se
  * Verify each sensor returns a valid value
 
 #### AUTOMATION
-* Add this new api tests to script tests/api/test_thermal.py 
+* Add this new api tests to script tests/api/test_thermal.py
 
 ## APIs for fan_drawer added for  chassis
 
 ### 6.1 Test api get_maximum_consumed_power
 
 #### Steps
- * get_maximum_consumed_power for each fan 
+ * get_maximum_consumed_power for each fan
 ```
   api description :
   get_maximum_consumed_power - A float, with value of the maximum consumable power of the component.
@@ -665,5 +665,3 @@ This set of test cases will verify expected value return API calls using HTTP se
 #### Pass/Fail Criteria
  * Values are type float and returns applicable values
  * verify value returned for each fan is valid
-
-

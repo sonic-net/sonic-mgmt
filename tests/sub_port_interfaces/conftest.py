@@ -1,3 +1,4 @@
+import logging
 import os
 import ipaddress
 import time
@@ -7,12 +8,17 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.utilities import get_host_visible_vars
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.ptf_agent_updater import PtfAgentUpdater
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
+from tests.common import constants
 from sub_ports_helpers import DUT_TMP_DIR
 from sub_ports_helpers import TEMPLATE_DIR
 from sub_ports_helpers import SUB_PORTS_TEMPLATE
 from sub_ports_helpers import TUNNEL_TEMPLATE
+from sub_ports_helpers import PTF_NN_AGENT_TEMPLATE
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_member_from_vlan
 from sub_ports_helpers import get_port
@@ -33,12 +39,11 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import add_member_to_vlan
 from sub_ports_helpers import remove_sub_port_from_ptf
 from sub_ports_helpers import remove_bond_port
-from sub_ports_helpers import configure_ptf_nn_agent
-from sub_ports_helpers import cleanup_ptf_nn_agent
 from sub_ports_helpers import add_static_route_to_dut
 from sub_ports_helpers import remove_static_route_from_dut
 from sub_ports_helpers import update_dut_arp_table
 
+logger = logging.getLogger(__name__)
 
 def pytest_addoption(parser):
     """
@@ -52,24 +57,29 @@ def pytest_addoption(parser):
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
 
-
-@pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SUBPORT_UNSUPPORTED_ASIC_LIST = ["th2"]
-    vendor = duthost.facts["asic_type"]
-    hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
-    for asic in SUBPORT_UNSUPPORTED_ASIC_LIST:
-        vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
-            pytest.skip(
-                "Skipping test since subport is not supported on {0} {1} platforms".format(vendor, asic))
-
-
 @pytest.fixture(params=['port', 'port_in_lag'])
 def port_type(request):
     """Port type to test, could be either port or port-channel."""
     return request.param
 
+@pytest.fixture
+def acl_rule_cleanup(duthost, tbinfo):
+    """Cleanup all the existing DATAACL rules"""
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete')
+
+    yield
+
+@pytest.fixture
+def modify_acl_table(duthost, tbinfo, port_type, acl_rule_cleanup):
+   """ Remove the DATAACL table prior to the test and recreate it at the end"""
+   if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
+       duthost.command('config acl remove table DATAACL')
+
+   yield
+
+   if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
+       bind_acl_table(duthost, tbinfo)
 
 @pytest.fixture
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
@@ -100,6 +110,11 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     """
     sub_ports_config = {}
     max_numbers_of_sub_ports = request.config.getoption("--max_numbers_of_sub_ports")
+    if is_mellanox_device(duthost) and get_chip_type(duthost) == 'spectrum1':
+        if max_numbers_of_sub_ports > 215:
+            logger.info("Maximum number of sub ports provided by user is {} not supported on SPC1, "
+                        "will be used value: 215".format(max_numbers_of_sub_ports))
+            max_numbers_of_sub_ports = 215
     vlan_ranges_dut = range(20, 60, 10)
     vlan_ranges_ptf = range(20, 60, 10)
 
@@ -153,7 +168,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
 
 
 @pytest.fixture
-def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_config):
+def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_config, modify_acl_table):
     """
     Apply Sub-ports configuration on the DUT and remove after tests
 
@@ -204,7 +219,7 @@ def apply_config_on_the_ptf(define_sub_ports_configuration, ptfhost, reload_ptf_
 
 
 @pytest.fixture(params=['same', 'different'])
-def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
     """
     Apply route configuration on the PTF and remove after tests
 
@@ -253,6 +268,10 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
+    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' not in port_type:
+        parent_port_list = list(set([sub_port.split('.')[0] for sub_port in sub_ports_keys]))
+        apply_acl_rules(duthost, tbinfo, parent_port_list)
+
     yield {
         'new_sub_ports': new_sub_ports,
         'sub_ports': sub_ports
@@ -273,7 +292,7 @@ def apply_route_config(request, ptfhost, define_sub_ports_configuration, apply_c
 
 
 @pytest.fixture(params=['svi', 'l3'])
-def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
     """
     Apply route configuration on the PTF and remove after tests
 
@@ -359,6 +378,11 @@ def apply_route_config_for_port(request, duthost, ptfhost, define_sub_ports_conf
             add_static_route_to_ptf(ptfhost, dst_port_network, dut_port_ip)
 
             port_map[ptf_port]['dst_ports'].append((next_hop_sub_port, name_of_namespace))
+
+    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' not in port_type:
+        parent_port_list = list(set([sub_port.split('.')[0] for sub_port in sub_ports_keys]))
+        intf_list = parent_port_list + dut_ports.values()
+        apply_acl_rules(duthost, tbinfo, intf_list)
 
     yield {
         'port_map': port_map,
@@ -459,12 +483,25 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
-    # Selectonly up ports as src_ports 
+    ptf_agent_updater = PtfAgentUpdater(ptfhost=ptfhost,
+                                        ptfadapter=ptfadapter,
+                                        ptf_nn_agent_template=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE))
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    all_up_ports = set()
-    for port in mg_facts['minigraph_ports'].keys():
-        all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
-    src_ports = tuple(all_up_ports.difference(ptf_ports))
+    if "backend" in tbinfo["topo"]["name"]:
+        src_ports = set()
+        for vlan_sub_interface in mg_facts['minigraph_vlan_sub_interfaces']:
+            sub_intf_name = vlan_sub_interface['attachto']
+            port = sub_intf_name.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
+            vlan_id = vlan_sub_interface['vlan']
+            src_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id))
+        src_ports = tuple(src_ports)
+    else:
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        all_up_ports = set()
+        for port in mg_facts['minigraph_ports'].keys():
+            all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
+        src_ports = tuple(all_up_ports.difference(ptf_ports))
 
     network = u'1.1.1.0/24'
     network = ipaddress.ip_network(network)
@@ -473,7 +510,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
         sub_ports_on_port = [sub_port for sub_port in sub_ports if port + '.' in sub_port]
 
         sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
-        configure_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+        ptf_agent_updater.configure_ptf_nn_agent(sub_port_neighbors)
 
         new_sub_ports.append((sub_ports_on_port, subnet))
 
@@ -489,14 +526,14 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
 
     for sub_ports_on_port, subnet in new_sub_ports:
         sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
-        cleanup_ptf_nn_agent(ptfhost, ptfadapter, sub_port_neighbors)
+        ptf_agent_updater.cleanup_ptf_nn_agent(sub_port_neighbors)
 
         for next_hop_sub_port in sub_ports_on_port:
             remove_static_route_from_dut(duthost, str(subnet), sub_ports[next_hop_sub_port]['neighbor_ip'])
 
 
 @pytest.fixture
-def reload_dut_config(request, duthost, define_sub_ports_configuration):
+def reload_dut_config(request, duthost, define_sub_ports_configuration, loganalyzer):
     """
     DUT's configuration reload on teardown
 
@@ -506,6 +543,9 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
         define_sub_ports_configuration: Dictonary of parameters for configuration DUT
     """
     yield
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].add_start_ignore_mark()
+
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -521,7 +561,9 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration):
             remove_lag_port(duthost, cfg_facts, lag_port)
 
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
-
+    wait_critical_processes(duthost)
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].add_end_ignore_mark()
 
 @pytest.fixture
 def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
@@ -561,3 +603,12 @@ def teardown_test_class(duthost):
     """
     yield
     config_reload(duthost)
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        ignore_regex_list = [
+            ".*ERR teamd[0-9]*#tlm_teamd.*process_add_queue: Can't connect to teamd after.*attempts. LAG 'PortChannel.*'",
+            ".*ERR swss[0-9]*#orchagent.*update: Failed to get port by bridge port ID.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)

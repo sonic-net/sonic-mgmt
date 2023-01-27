@@ -2,8 +2,10 @@ all:
   children:
     vm_host:
       children:
-        vm_host_1:
-        vm_host_2:
+        veos_vtb:
+          children:
+            vm_host_1:
+            vm_host_2:
     eos:
       children:
         vms_1:
@@ -35,6 +37,12 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
+          - dualtor-mixed
+          - dualtor-mixed-56
+          - dualtor-mixed-120
+          - m0
+          - mc0
+          - mx
       children:
         server_1:
         server_2:

@@ -2,7 +2,7 @@
 Check SFP status using 'show interface transciever'.
 
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 
 import logging

@@ -95,7 +95,8 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     urllib3.disable_warnings()
 
     yield
-    config_reload(duthost)
+    # Perform a config load_minigraph to ensure config_db is not corrupted
+    config_reload(duthost, config_source='minigraph')
     # Delete all created certs
     local_command = "rm \
                         restapiCA.* \
@@ -119,13 +120,14 @@ def construct_url(duthosts, rand_one_dut_hostname):
         return endpoint
     return get_endpoint
 
+
 @pytest.fixture
 def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     VLAN_INDEX = 0
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
-    if vlan_interfaces is not None:
-        return vlan_interfaces
-    else:
-        return []
+    if mg_facts["minigraph_vlans"] != {}:
+        vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
+        if vlan_interfaces is not None:
+            return vlan_interfaces
+    return []

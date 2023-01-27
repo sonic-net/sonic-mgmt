@@ -111,7 +111,7 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
         platform = dut.facts['platform']
         mocker_object = None
 
-        if 'mlnx' in platform:
+        if 'mlnx' in platform or 'nvidia' in platform:
             from tests.platform_tests.mellanox import mellanox_thermal_control_test_helper
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
@@ -265,6 +265,9 @@ def restart_thermal_control_daemon(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return:
     """
+    if dut.is_multi_asic and dut.sonic_release in ["201911"]:
+        logging.info("thermalctl daemon is not present")
+        return
     logging.info('Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
@@ -274,14 +277,22 @@ def restart_thermal_control_daemon(dut):
     # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
     # use subprocess to call ethtool to do initialization.
     # So we check here thermalcltd must have at least 2 processes.
-    assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+    # For mellanox, it has at least two processes, but for celestica(broadcom),
+    # it only has one thermalctld process
+    if dut.facts["asic_type"] == "mellanox":
+        assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+    else:
+        assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
 
     restart_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl restart thermalctld'"
     output = dut.shell(restart_thermalctl_cmd)
     if output["rc"] == 0:
         output = dut.shell(find_thermalctld_pid_cmd)
         assert output["rc"] == 0, "Run command '{}' failed after restart of thermalctld on {}".format(find_thermalctld_pid_cmd, dut.hostname)
-        assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+        if dut.facts["asic_type"] == "mellanox":
+            assert len(output["stdout_lines"]) >= 2, "There should be at least 2 thermalctld process"
+        else:
+            assert len(output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
         logging.info("thermalctld processes restarted successfully on {}".format(dut.hostname))
         return
     # try restore by config reload...

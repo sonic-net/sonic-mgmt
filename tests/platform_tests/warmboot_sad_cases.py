@@ -17,7 +17,7 @@ SAD_CASE_LIST = [
     "sad_inboot"
 ]
 
-def get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type):
+def get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lagMemberCnt = len(mg_facts['minigraph_portchannels'].values()[0]['members'])
 
@@ -34,7 +34,7 @@ def get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type):
             # Shutdown 1 vlan port (interface) on DUT
             DutVlanMemberDown(duthost, PhyPropsPortSelector(duthost, 1)),
             # Shutdown 1 vlan port (interface) on fanout
-            NeighVlanMemberDown(duthost, fanouthosts, PhyPropsPortSelector(duthost, 1))
+            NeighVlanMemberDown(duthost, fanouthosts, vmhost, PhyPropsPortSelector(duthost, 1))
         ],
 
         "multi_sad": [
@@ -48,7 +48,7 @@ def get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type):
                 # Shutdown 1 LAG member of 2 LAG sessions on 2 remote devices (VM) (1 each)
                 NeighLagMemberDown(duthost, nbrhosts, fanouthosts, DatetimeSelector(2), PhyPropsPortSelector(duthost, 1)),
                 DutVlanMemberDown(duthost, PhyPropsPortSelector(duthost, 4)),
-                NeighVlanMemberDown(duthost, fanouthosts, PhyPropsPortSelector(duthost, 4)),
+                NeighVlanMemberDown(duthost, fanouthosts, vmhost, PhyPropsPortSelector(duthost, 4)),
             ] + ([
                 # Shutdown <lag count> LAG member(s) of 2 LAG sessions corresponding to 2 remote
                 # devices (VM) on DUT
@@ -85,7 +85,7 @@ def get_sad_case_list(duthost, nbrhosts, fanouthosts, tbinfo, sad_case_type):
 
         "sad_vlan_port": [
                 DutVlanMemberDown(duthost, PhyPropsPortSelector(duthost, 4)),                # Shutdown 4 vlan ports (interfaces) on DUT
-                NeighVlanMemberDown(duthost, fanouthosts, PhyPropsPortSelector(duthost, 4)), # Shutdown 4 vlan ports (interfaces) on fanout
+                NeighVlanMemberDown(duthost, fanouthosts, vmhost, PhyPropsPortSelector(duthost, 4)), # Shutdown 4 vlan ports (interfaces) on fanout
             ]
     }
 

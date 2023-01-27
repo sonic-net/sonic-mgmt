@@ -26,6 +26,6 @@ def test_fun(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
 - `instance_id` - ASIC instance id for desired ASIC (for multi-asic devies)
     - Required: `False`
     - Type: `Integer`
-    
+
 ## Expected Output
 See the [bgp_facts](../ansible_methods/bgp_facts.md#expected-output) Ansible module for example output.

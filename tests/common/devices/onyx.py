@@ -1,7 +1,7 @@
 import json
 import logging
-
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.drop_counters.fanout_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
 
@@ -15,17 +15,18 @@ class OnyxHost(AnsibleHostBase):
 
     def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
-        evars = {'ansible_connection':'network_cli',
-                'ansible_network_os':'onyx',
-                'ansible_user': user,
-                'ansible_password': passwd,
-                'ansible_ssh_user': user,
-                'ansible_ssh_pass': passwd,
-                'ansible_become_method': 'enable'
-                }
+        evars = {'ansible_connection': 'network_cli',
+                 'ansible_network_os': 'onyx',
+                 'ansible_user': user,
+                 'ansible_password': passwd,
+                 'ansible_ssh_user': user,
+                 'ansible_ssh_pass': passwd,
+                 'ansible_become_method': 'enable'
+                 }
 
         self.host.options['variable_manager'].extra_vars.update(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.fanout_helper = FanoutOnyxDropCounter(self)
 
     def __str__(self):
         return '<OnyxHost {}>'.format(self.hostname)
@@ -49,11 +50,16 @@ class OnyxHost(AnsibleHostBase):
 
     def check_intf_link_state(self, interface_name):
         show_int_result = self.host.onyx_command(
-            commands=['show interfaces ethernet {} | include "Operational state"'.format(interface_name)])[self.hostname]
+            commands=['show interfaces ethernet {} | include "Operational state"'
+                      .format(interface_name)])[self.hostname]
         return 'Up' in show_int_result['stdout'][0]
 
     def command(self, cmd):
         out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def config(self, cmd):
+        out = self.host.onyx_config(commands=[cmd])
         return out
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
@@ -67,9 +73,10 @@ class OnyxHost(AnsibleHostBase):
         """
         Execute ansible playbook with specified parameters
         """
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} \
+                            -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
         cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
-            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+                                           fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
@@ -212,3 +219,29 @@ class OnyxHost(AnsibleHostBase):
         speed = out.split(':')[-1].strip()
         pos = speed.find('G')
         return speed[:pos] + '000'
+
+    def prepare_drop_counter_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        """Set configuration for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Args:
+            fanout_graph_facts (dict): fixture fanout_graph_facts
+            match_mac (str): mac address to match in openflow rule
+            set_mac (str): mac address to which match mac should be changed
+            eth_field (str): place in which replace match mac to set_mac, usually 'eth_src'
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
+
+    def restore_drop_counter_config(self):
+        """Delete configuraion for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.restore_drop_counter_config()
