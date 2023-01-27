@@ -32,6 +32,7 @@ def set_max_to_reboot(duthost):
     if plt_reboot_ctrl:
         MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
 
+
 def multi_duts_and_ports(duthosts):
     """
     For multi-host
@@ -136,6 +137,7 @@ def link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up=True):
 def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list):
     for LC in duthosts.frontend_nodes:
         check_interfaces_and_services(LC, conn_graph_facts["device_conn"][LC.hostname], xcvr_skip_list)
+
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                  conn_graph_facts, duts_running_config_facts, 
