@@ -9,8 +9,6 @@ file currently holds the following fixture(s):
     4. lossy_prio_list
 """
 
-import pdb
-
 @pytest.fixture(scope="module")
 def prio_dscp_map(duthosts, rand_one_dut_hostname):
     """
@@ -28,7 +26,6 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
-    pdb.set_trace()
 
     if "DSCP_TO_TC_MAP" not in config_facts.keys():
         return None
@@ -77,7 +74,6 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
-    pdb.set_trace()
     if "PORT_QOS_MAP" not in config_facts.keys():
         return None
 
@@ -106,7 +102,6 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     Returns:
         Lossy priorities (list)
     """
-    pdb.set_trace()
     result = [x for x in all_prio_list if x not in lossless_prio_list]
     return result
 
