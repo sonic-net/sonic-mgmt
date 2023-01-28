@@ -68,46 +68,6 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_lo
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6660
 
-dualtor_io/test_link_failure.py::test_active_link_down_downstream_active[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
-dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_active[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
-dualtor_io/test_link_failure.py::test_active_tor_downlink_down_downstream_standby[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
-dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
-dualtor_io/test_link_failure.py::test_standby_tor_downlink_down_downstream_standby[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
 dualtor_io/test_tor_bgp_failure.py::test_active_tor_shutdown_bgp_sessions_upstream[active-standby]:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"

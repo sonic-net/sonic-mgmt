@@ -32,7 +32,6 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
@@ -2097,10 +2096,6 @@ Totals               6450                 6449
         commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
         json_info = json.loads(commond_output["stdout"])
         return json_info
-
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.command("show interface status {}".format(interface_name))
-        return 'down' in show_int_result['stdout_lines'][2].lower()
 
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")

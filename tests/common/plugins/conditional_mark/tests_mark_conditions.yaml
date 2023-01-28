@@ -805,18 +805,12 @@ snmp/test_snmp_phy_entity.py::test_psu_info:
 
 snmp/test_snmp_queue.py:
   skip:
-    reason: "Interfaces not present on supervisor node or M0 topo does not support test_snmp_queue"
+    reason: "Unsupported for supervisor node / mx or m0 topo / multi-asic vs"
+    conditions_logical_operator: 'OR'
     conditions:
-      - "is_supervisor or topo_name in ['m0']"
-
-snmp/test_snmp_queue.py:
-  skip:
-    reason: "Test is flaky on multi-asic vs"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/13289
-      - "asic_type in ['vs']"
-      - "hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs']"
-      - "'202205' in branch"
+      - "is_supervisor"
+      - "topo_name in ['m0', 'mx']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and '202205' in branch"
 
 #######################################
 #####            span             #####
