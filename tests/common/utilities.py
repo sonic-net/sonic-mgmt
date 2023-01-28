@@ -744,7 +744,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
-    pytest_assert(role_host, "Could not find duthost")
+    pytest_assert(role_host, "Could not find {} duthost".format(role))
     return role_host
 
 
