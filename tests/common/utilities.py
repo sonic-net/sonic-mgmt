@@ -730,8 +730,9 @@ def get_image_type(duthost):
 
 
 def find_duthost_on_role(duthosts, role, tbinfo):
+    pytest_assert(role_host, "Could not find duthost")
     role_set = False
-
+    role_host = None
     for duthost in duthosts:
         if role_set:
             break
@@ -743,6 +744,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
+    pytest_assert(role_host, "Could not find duthost")
     return role_host
 
 
