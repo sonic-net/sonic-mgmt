@@ -48,6 +48,11 @@ parameters:
     default: '-S "span sub_port_interfaces dualtor_io platform_tests"'
     displayName: Testbed specific
 
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -57,3 +62,4 @@ stages:
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
