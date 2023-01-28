@@ -17,7 +17,7 @@ class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
