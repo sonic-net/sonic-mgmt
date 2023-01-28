@@ -3341,6 +3341,10 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (default_packet_length + cell_size - 1) // cell_size
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
         pkt = construct_ip_pkt(default_packet_length,
                                pkt_dst_mac,
                                src_port_mac,
@@ -3374,8 +3378,15 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
+        xmit_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
         # send packets
         try:
+            # Starting with zero pkts_num_leak_out and trying to find
+            # actual leakout by sending packets and reading actual leakout from HW.
+            if check_leackout_compensation_support(asic_type, hwsku):
+                pkts_num_leak_out = 0
+
             # send packets to trigger pfc but not trek into headroom
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
@@ -3385,6 +3396,10 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             pkts_num_trig_pfc) // cell_occupancy - margin)
 
             time.sleep(8)
+
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 30)
+
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(
                 self.client, port_list[src_port_id])
             assert(pg_headroom_wm_res[pg] == 0)
