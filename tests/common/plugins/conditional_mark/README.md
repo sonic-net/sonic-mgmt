@@ -180,3 +180,4 @@ A new pytest command line option is added for specifying location of the conditi
 The plugin is open for extension in couple of areas:
 * Collect more facts. Then more variables can be used in condition string for evaluation.
 * Add more arguments for marks, not just the current `reason` argument.
+
