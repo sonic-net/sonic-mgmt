@@ -7,8 +7,10 @@ included in this file.
 import pytest
 from ipaddress import ip_address, IPv4Address
 from ixnetwork_restpy import SessionAssistant
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
-from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet, get_peer_ixia_chassis
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+    fanout_graph_facts
+from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
+    get_peer_ixia_chassis
 from tests.common.ixia.ixia_helpers import IxiaFanoutManager, get_tgen_location
 from tests.common.ixia.port import IxiaPortConfig, IxiaPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -16,8 +18,10 @@ from tests.common.helpers.assertions import pytest_assert
 try:
     from abstract_open_traffic_generator.port import Port
     from abstract_open_traffic_generator.config import Options, Config
-    from abstract_open_traffic_generator.layer1 import Layer1, FlowControl, Ieee8021qbb, AutoNegotiation
-    from abstract_open_traffic_generator.device import Device, Ethernet, Ipv4, Pattern
+    from abstract_open_traffic_generator.layer1 import Layer1, FlowControl,\
+        Ieee8021qbb, AutoNegotiation
+    from abstract_open_traffic_generator.device import Device, Ethernet, Ipv4,\
+        Pattern
     from ixnetwork_open_traffic_generator.ixnetworkapi import IxNetworkApi
     from abstract_open_traffic_generator.port import Options as PortOptions
     import abstract_open_traffic_generator.lag as lag
@@ -25,8 +29,7 @@ try:
 except ImportError as e:
     raise pytest.skip.Exception("Test case is skipped: " + repr(e), allow_module_level=True)
 
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api_serv_ip(tbinfo):
     """
     In an Ixia testbed, there is no PTF docker.
@@ -42,7 +45,7 @@ def ixia_api_serv_ip(tbinfo):
     return tbinfo['ptf_ip']
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api_serv_user(duthosts, rand_one_dut_hostname):
     """
     Return the username of Ixia API server.
@@ -57,7 +60,7 @@ def ixia_api_serv_user(duthosts, rand_one_dut_hostname):
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['user']
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api_serv_passwd(duthosts, rand_one_dut_hostname):
     """
     Return the password of Ixia API server.
@@ -72,7 +75,7 @@ def ixia_api_serv_passwd(duthosts, rand_one_dut_hostname):
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['password']
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api_serv_port(duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP port for REST API of the ixia API server.
@@ -87,7 +90,7 @@ def ixia_api_serv_port(duthosts, rand_one_dut_hostname):
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['rest_port']
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api_serv_session_id(duthosts, rand_one_dut_hostname):
     """
     Ixia API server can spawn multiple session on the same REST port.
@@ -103,7 +106,7 @@ def ixia_api_serv_session_id(duthosts, rand_one_dut_hostname):
     return duthost.host.options['variable_manager']._hostvars[duthost.hostname]['ixia_api_server']['session_id']
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_dev(duthosts, rand_one_dut_hostname, fanouthosts):
     """
     Returns the Ixia chassis IP. This fixture can return multiple IPs if
@@ -124,13 +127,13 @@ def ixia_dev(duthosts, rand_one_dut_hostname, fanouthosts):
     return result
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope = "function")
 def ixia_api_server_session(
         ixia_api_serv_ip,
         ixia_api_serv_user,
         ixia_api_serv_passwd,
         ixia_api_serv_port,
-        ixia_api_serv_session_id):
+        ixia_api_serv_session_id) :
     """
     Ixia session manager fixture.
 
@@ -146,13 +149,13 @@ def ixia_api_server_session(
         IxNetwork Session
     """
 
-    if (ixia_api_serv_session_id.lower() != 'none'):
+    if (ixia_api_serv_session_id.lower() != 'none') :
         session = SessionAssistant(IpAddress=ixia_api_serv_ip,
                                    UserName=ixia_api_serv_user,
                                    Password=ixia_api_serv_passwd,
                                    RestPort=ixia_api_serv_port,
                                    SessionId=ixia_api_serv_session_id)
-    else:
+    else :
         session = SessionAssistant(IpAddress=ixia_api_serv_ip,
                                    UserName=ixia_api_serv_user,
                                    Password=ixia_api_serv_passwd,
@@ -165,8 +168,7 @@ def ixia_api_server_session(
     ixNetwork.NewConfig()
     session.Session.remove()
 
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope = "module")
 def ixia_api(ixia_api_serv_ip,
              ixia_api_serv_port,
              ixia_api_serv_user,
@@ -195,10 +197,11 @@ def ixia_api(ixia_api_serv_ip,
     if api_session and api_session.assistant and api_session.assistant.Session:
         api_session.assistant.Session.remove()
 
-
-@pytest.fixture(scope="function")
-def ixia_testbed(conn_graph_facts, fanout_graph_facts,  # noqa F811
-                 duthosts, rand_one_dut_hostname):
+@pytest.fixture(scope = "function")
+def ixia_testbed(conn_graph_facts,
+                 fanout_graph_facts,
+                 duthosts,
+                 rand_one_dut_hostname):
 
     """
     L2/L3 Tgen API config for the T0 testbed
@@ -296,7 +299,6 @@ def ixia_testbed(conn_graph_facts, fanout_graph_facts,  # noqa F811
 
     return config
 
-
 def __gen_mac(id):
     """
     Generate a MAC address
@@ -308,7 +310,6 @@ def __gen_mac(id):
         MAC address (string)
     """
     return '00:11:22:33:44:{:02d}'.format(id)
-
 
 def __valid_ipv4_addr(ip):
     """
@@ -324,7 +325,6 @@ def __valid_ipv4_addr(ip):
         return True if type(ip_address(ip)) is IPv4Address else False
     except ValueError:
         return False
-
 
 def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
     """
@@ -361,7 +361,7 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
         prefix = str(v['prefixlen'])
         ip = str(v['peer_addr'])
 
-        port_ids = [id for id, ixia_pot in enumerate(ixia_ports)
+        port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
                     if ixia_pot['peer_port'] == intf]
         if len(port_ids) != 1:
             return False
@@ -396,7 +396,6 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
         port_config_list.append(port_config)
 
     return True
-
 
 def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
     """
@@ -445,7 +444,7 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
             phy_intf = phy_intfs[i]
             vlan_ip_addr = vlan_ip_addrs[i]
 
-            port_ids = [id for id, ixia_pot in enumerate(ixia_ports)
+            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
                         if ixia_pot['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -480,7 +479,6 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
             port_config_list.append(port_config)
 
     return True
-
 
 def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
     """
@@ -528,7 +526,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
-            port_ids = [id for id, ixia_pot in enumerate(ixia_ports)
+            port_ids = [id for id, ixia_pot in enumerate(ixia_ports) \
                         if ixia_pot['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -581,10 +579,11 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
 
     return True
 
-
-@pytest.fixture(scope="function")
-def ixia_testbed_config(conn_graph_facts, fanout_graph_facts,   # noqa F811
-                        duthosts, rand_one_dut_hostname):
+@pytest.fixture(scope = "function")
+def ixia_testbed_config(conn_graph_facts,
+                        fanout_graph_facts,
+                        duthosts,
+                        rand_one_dut_hostname):
     """
     Geenrate Tgen API config and port config information for the testbed
 

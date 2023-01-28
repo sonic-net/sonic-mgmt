@@ -79,7 +79,7 @@ class GitHubIssueChecker(IssueCheckerBase):
                 labels = issue_data.get('labels', [])
                 if any(['name' in label and 'duplicate' in label['name'].lower() for label in labels]):
                     logger.warning('GitHub issue: {} looks like duplicate and was closed. Please re-check and ignore'
-                                   'the test on the parent issue'.format(self.url))
+                        'the test on the parent issue'.format(self.url))
                 return False
         except Exception as e:
             logger.error('Get details for {} failed with: {}'.format(self.url, repr(e)))

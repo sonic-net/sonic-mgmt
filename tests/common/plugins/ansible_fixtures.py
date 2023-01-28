@@ -2,7 +2,6 @@
 
 import pytest
 
-
 # Here we override ansible_adhoc fixture from pytest-ansible plugin to overcome
 # scope limitation issue; since we want to be able to use ansible_adhoc in module/class scope
 # fixtures we have to override the scope here in global conftest.py

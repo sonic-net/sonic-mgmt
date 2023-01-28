@@ -55,8 +55,8 @@ def _recover_interfaces(dut, fanouthosts, result, wait_time):
 
 
 def _recover_services(dut, result):
-    status = result['services_status']
-    services = [x for x in status if not status[x]]
+    status   = result['services_status']
+    services = [ x for x in status if not status[x] ]
     logging.warning("Service(s) down: {}".format(services))
     return 'reboot' if 'database' in services else 'config_reload'
 
@@ -128,7 +128,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp':
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo)
-            elif result['check_item'] in ['processes', 'mux_simulator']:
+            elif result['check_item'] in [ 'processes', 'mux_simulator' ]:
                 action = 'config_reload'
             else:
                 action = 'reboot'
@@ -138,13 +138,12 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
             if action and (not outstanding_action or outstanding_action == 'config_reload'):
                 outstanding_action = action
 
-            logging.warning("Restoring {} with proposed action: {}, final action: {}"
-                            .format(result, action, outstanding_action))
+            logging.warning("Restoring {} with proposed action: {}, final action: {}".format(result, action, outstanding_action))
 
     if outstanding_action:
         if outstanding_action == "config_reload" and config_force_option_supported(dut):
             outstanding_action = "config_reload_f"
-        method = constants.RECOVER_METHODS[outstanding_action]
+        method    = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reboot"]:
             reboot_dut(dut, localhost, method["cmd"])
@@ -156,7 +155,7 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
     if recover_method == "config_reload" and config_force_option_supported(dut):
         recover_method = "config_reload_f"
-    method = constants.RECOVER_METHODS[recover_method]
+    method    = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:
         adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)

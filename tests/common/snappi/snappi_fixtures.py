@@ -5,12 +5,13 @@ import pytest
 import snappi
 import snappi_convergence
 from ipaddress import ip_address, IPv4Address
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
-from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_ipv6_addrs_in_subnet, get_peer_snappi_chassis
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+    fanout_graph_facts
+from tests.common.snappi.common_helpers import get_addrs_in_subnet,\
+    get_ipv6_addrs_in_subnet, get_peer_snappi_chassis
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
-
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
@@ -72,7 +73,6 @@ def __gen_mac(id):
     """
     return '00:11:22:33:44:{:02d}'.format(id)
 
-
 def __gen_pc_mac(id):
     """
     Generate a MAC address for a portchannel interface
@@ -83,7 +83,6 @@ def __gen_pc_mac(id):
         MAC address (string)
     """
     return '11:22:33:44:55:{:02d}'.format(id)
-
 
 def __valid_ipv4_addr(ip):
     """
@@ -132,7 +131,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         prefix = str(v['prefixlen'])
         ip = str(v['peer_addr'])
 
-        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
             return False
@@ -213,7 +212,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             phy_intf = phy_intfs[i]
             vlan_ip_addr = vlan_ip_addrs[i]
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -292,7 +291,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -340,8 +339,11 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
 
 @pytest.fixture(scope="function")
-def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
-                          duthosts, rand_one_dut_hostname, snappi_api):
+def snappi_testbed_config(conn_graph_facts,
+                          fanout_graph_facts,
+                          duthosts,
+                          rand_one_dut_hostname,
+                          snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
     Args:
@@ -427,9 +429,10 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
 
     return config, port_config_list
 
-
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
+def tgen_ports(duthost,
+               conn_graph_facts,
+               fanout_graph_facts):
 
     """
     Populate tgen ports info of T0 testbed and returns as a list
@@ -473,8 +476,8 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
                                             dut_hostname=duthost.hostname)
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+    snappi_fanout_list.get_fanout_device_details(device_number = snappi_fanout_id)
+    snappi_ports = snappi_fanout_list.get_ports(peer_device = duthost.hostname)
     port_speed = None
 
     for i in range(len(snappi_ports)):
@@ -504,7 +507,7 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
                 raise Exception("IPv6 is not configured on the interface {}".format(peer_port))
             port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
             port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
-    except Exception:
+    except:
         raise Exception('Configure IPv4 and IPv6 on DUT interfaces')
 
     return snappi_ports
@@ -513,7 +516,8 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
 @pytest.fixture(scope='module')
 def cvg_api(snappi_api_serv_ip,
             snappi_api_serv_port):
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
+    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port),ext='ixnetwork')
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
+    

@@ -12,9 +12,9 @@ call or teardown section starts and ends while inspecting the log files.
 This plugin uses pytest hook functions to insert a visually outstanding log message at the start of each section. The
 log message also contains 'nodeid' of the current test case. Examples of such log messages:
 
-09:40:50 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 setup  ===================
-09:40:50 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 call ===================
-09:40:52 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 teardown ===================
+09:40:50 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 setup  ====================
+09:40:50 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 call ====================
+09:40:52 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 teardown ====================
 """
 import pytest
 import logging

@@ -74,7 +74,7 @@ class PduManager():
             return
 
         if psu_peer['Protocol'] != 'snmp':
-            logger.warning('Controller protocol {} is not supported'.format(psu_peer['Protocol']))
+            logger.warning('Controller protocol {} is not supported'.format(protocol))
             return
 
         controller = None
@@ -91,10 +91,10 @@ class PduManager():
         outlets = []
         pdu = {
             'psu_name': psu_name,
-            'host': pdu_ip,
-            'controller': controller,
-            'outlets': outlets,
-            'psu_peer': psu_peer,
+                'host': pdu_ip,
+                'controller': controller,
+                'outlets': outlets,
+                'psu_peer': psu_peer,
         }
         next_index = len(self.controllers)
         self.controllers.append(pdu)
@@ -195,7 +195,7 @@ def _merge_dev_link(devs, links):
         for key, val in info.items():
             if key not in ret[host]:
                 ret[host][key] = {}
-            ret[host][key] = dict(ret[host][key], **val)
+            ret[host][key]=dict(ret[host][key], **val)
 
     return ret
 
@@ -237,11 +237,11 @@ def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars)
 
         psu_peer = {
             'peerdevice': ph,
-            'HwSku': 'unknown',
-            'Protocol': controller_protocol,
-            'ManagementIp': controller_ip,
-            'Type': 'Pdu',
-            'peerport': 'probing',
+                        'HwSku': 'unknown',
+                        'Protocol': controller_protocol,
+                        'ManagementIp': controller_ip,
+                        'Type': 'Pdu',
+                        'peerport': 'probing',
         }
         pduman.add_controller(ph, psu_peer, pdu_vars)
 
