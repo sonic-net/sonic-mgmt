@@ -24,7 +24,7 @@ class QosParamBroadcom(object):
                  dualTor,
                  dutTopo,
                  bufferConfig,
-                 asicConfig,
+                 dutHost,
                  testbedTopologyName,
                  verbose=True):
 
@@ -42,7 +42,6 @@ class QosParamBroadcom(object):
             logger.info('dualTor {}'.format(dualTor))
             logger.info('dutTopo {}'.format(dutTopo))
             logger.info('bufferConfig: {}'.format(bufferConfig))
-            logger.info('asicConfig: {}'.format(asicConfig))
             logger.info('testbedTopologyName: {}'.format(testbedTopologyName))
 
         self.asic_param_dic = {
@@ -80,10 +79,41 @@ class QosParamBroadcom(object):
         self.dualTor = dualTor
         self.dutTopo = dutTopo
         self.bufferConfig = bufferConfig
-        self.asicConfig = asicConfig
+        self.dutHost = dutHost
         self.testbedTopologyName = testbedTopologyName
         self.verbose = verbose
-        return
+        self.asicConfig = None
+        if self.dutHost != None:
+            self.asicConfig = self.collect_asic_config(self.dutHost)
+
+
+    def collect_asic_config(self, duthost):
+        asicConfig = {}
+        try:
+            output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
+            logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
+            for line in output['stdout'].replace('\r', '\n').split('\n'):
+                if line:
+                    m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
+                    if m:
+                        asicConfig['ingress_shared_limit_sp0'] = int(m.group(1), 0)
+                        break
+
+            output = duthost.shell('bcmcmd "g MMU_THDM_DB_POOL_SHARED_LIMIT"', module_ignore_errors=True)
+            logger.info('Read ASIC MMU_THDM_DB_POOL_SHARED_LIMIT register, output {}'.format(output))
+            count = 0
+            for line in output['stdout'].replace('\r', '\n').split('\n'):
+                if line:
+                    m = re.match('MMU_THDM_DB_POOL_SHARED_LIMIT\(([01])\).*\]\=(\S+)', line)
+                    if m:
+                        asicConfig['egress_shared_limit_sp{}'.format(m.group(1))] = int(m.group(2), 0)
+                        count += 1
+                        if count == 2:
+                            break
+        except:
+            logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP/MMU_THDM_DB_POOL_SHARED_LIMIT register')
+        logger.info('ASIC buffer config {}'.format(asicConfig))
+        return asicConfig
 
 
     def run(self):
