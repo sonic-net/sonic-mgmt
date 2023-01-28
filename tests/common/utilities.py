@@ -26,6 +26,7 @@ from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -730,7 +731,6 @@ def get_image_type(duthost):
 
 
 def find_duthost_on_role(duthosts, role, tbinfo):
-    pytest_assert(role_host, "Could not find duthost")
     role_set = False
     role_host = None
     for duthost in duthosts:
