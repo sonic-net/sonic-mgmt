@@ -810,7 +810,7 @@ snmp/test_snmp_queue.py:
     conditions:
       - "is_supervisor"
       - "topo_name in ['m0', 'mx']"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and branch in ['202205']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and '202205' in branch"
 
 #######################################
 #####            span             #####
