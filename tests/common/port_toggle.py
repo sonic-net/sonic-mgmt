@@ -25,8 +25,8 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     def __get_down_ports(expect_up=True):
         """Check interface status and return the down ports in a set."""
         ports_down = duthost.interface_facts(up_ports=ports)["ansible_facts"]["ansible_interface_link_down_ports"]
-        db_ports_down = duthost.show_interface(command="status", up_ports=ports)[
-            "ansible_facts"]["ansible_interface_link_down_ports"]
+        db_ports_down = duthost.show_interface(command="status", up_ports=ports)["ansible_facts"]\
+            ["ansible_interface_link_down_ports"]
         if expect_up:
             return set(ports_down) | set(db_ports_down)
         else:
@@ -46,8 +46,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     cmds_down = []
     cmds_up = []
     for port in ports:
-        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) \
-            if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
+        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
         cmds_down.append("config interface {} shutdown {}".format(namespace, port))
         cmds_up.append("config interface {} startup {}".format(namespace, port))
 
@@ -61,8 +60,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
             log_system_resources(duthost, logger)
 
         logger.info("Wait for ports to go down")
-        shutdown_ok = wait_until(port_down_wait_time, 5, 0,
-                                 lambda: len(__get_down_ports(expect_up=False)) == len(ports))
+        shutdown_ok = wait_until(port_down_wait_time, 5, 0, lambda: len(__get_down_ports(expect_up=False)) == len(ports))
 
         if not shutdown_ok:
             up_ports = __get_down_ports(expect_up=True)

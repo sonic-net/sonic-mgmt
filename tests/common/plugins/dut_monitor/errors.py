@@ -1,6 +1,5 @@
 import pprint
 
-
 class HDDThresholdExceeded(Exception):
     """Raised when HDD consumption on DUT exceed threshold"""
     def __repr__(self):

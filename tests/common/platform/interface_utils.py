@@ -46,8 +46,7 @@ def check_interface_status_of_up_ports(duthost):
     if duthost.is_multi_asic:
         up_ports = []
         for asic in duthost.frontend_asics:
-            asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running",
-                                               namespace=asic.namespace)['ansible_facts']
+            asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running", namespace=asic.namespace)['ansible_facts']
             asic_up_ports = [p for p, v in asic_cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
             up_ports.extend(asic_up_ports)
     else:
@@ -69,12 +68,12 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
-    # TODO Remove this logic when minigraph facts supports namespace in multi_asic
+    #TODO Remove this logic when minigraph facts supports namespace in multi_asic
     mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
     if asic_index is not None:
         portmap = get_port_map(dut, asic_index)
         # Check if the interfaces of this AISC is present in mg_ports
-        interface_list = {k: v for k, v in portmap.items() if k in mg_ports}
+        interface_list = {k:v for k, v in portmap.items() if k in mg_ports}
         mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
@@ -113,13 +112,12 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
     return True
 
-
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
-        interfaces_per_asic = {k: v for k, v in interface_list.items() if k in interfaces}
+        interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
         if not all_transceivers_detected(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
             logging.info("Not all transceivers are detected")
             return False
@@ -128,7 +126,6 @@ def check_all_interface_information(dut, interfaces, xcvr_skip_list):
             return False
 
     return True
-
 
 # This API to check the interface information per asic.
 def check_interface_information(dut, asic_index, interfaces, xcvr_skip_list):
@@ -141,7 +138,6 @@ def check_interface_information(dut, asic_index, interfaces, xcvr_skip_list):
 
     return True
 
-
 def get_port_map(dut, asic_index=None):
     """
     @summary: Get the port mapping info from the DUT
@@ -149,13 +145,12 @@ def get_port_map(dut, asic_index=None):
     """
     logging.info("Retrieving port mapping from DUT")
     namespace = dut.get_namespace_from_asic_id(asic_index)
-    config_facts = dut.config_facts(host=dut.hostname, source="running", namespace=namespace)['ansible_facts']
+    config_facts = dut.config_facts(host=dut.hostname, source="running",namespace=namespace)['ansible_facts']
     port_mapping = config_facts['port_index_map']
-    for k, v in port_mapping.items():
+    for k,v in port_mapping.items():
         port_mapping[k] = [v]
 
     return port_mapping
-
 
 def get_physical_port_indices(duthost, logical_intfs=None):
     """
