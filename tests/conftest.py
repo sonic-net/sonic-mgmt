@@ -61,6 +61,8 @@ from ptf import testutils
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
+pytest.DUT_CHECK_RESULT = ""
+
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
@@ -700,11 +702,12 @@ def creds_all_duts(duthosts):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
+        if pytest.DUT_CHECK_RESULT:
+            item.user_properties.append(('dut_check_result', "FAILED"))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
     item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
@@ -1212,7 +1215,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            dut_asic_list.append([None]) 
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1821,6 +1824,8 @@ def core_dump_and_config_check(duthosts, request):
     cur_only_config = {}
     config_db_check_pass = True
 
+    pytest.DUT_CHECK_RESULT = ""
+
     if check_flag:
         for duthost in duthosts:
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
@@ -1992,6 +1997,7 @@ def core_dump_and_config_check(duthosts, request):
                     "inconsistent_config": inconsistent_config
                 }
             }
+            pytest.DUT_CHECK_RESULT = check_result
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
             results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
