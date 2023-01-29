@@ -73,8 +73,25 @@ def setup_swap_if_necessary(module):
                      msg="Create a temporary swap file")
 
 
-def reduce_installed_sonic_images(module):
+def reduce_installed_sonic_images(module, disk_used_pcent):
+    _, out, _  = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    lines = out.split('\n')
+
+    # if next boot image not same with current, set current as next boot, and delete the orinal next image
+    for line in lines:
+        if 'Current:' in line:
+            curr_image = line.split(':')[1].strip()
+        elif 'Next:' in line:
+            next_image = line.split(':')[1].strip()
+
+    if curr_image != next_image:
+        exec_command(module, cmd="sonic_installer set-next-boot {}".format(curr_image), ignore_error=True)
+
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
+
+    if get_disk_used_percent(module) > disk_used_pcent:
+        cmd = "rm -rf /host/{}/rw/home/admin/*".format(curr_image.replace('SONiC-OS', 'image'))
+        exec_command(module, cmd, ignore_error=True)
 
 
 def download_new_sonic_image(module, new_image_url, save_as):
@@ -145,12 +162,13 @@ def work_around_for_slow_disks(module):
     exec_command(module, cmd="sysctl -w kernel.hung_task_timeout_secs=600", ignore_error=True)
 
 
+def get_disk_used_percent(module):
+    output = exec_command(module, cmd="df -BM --output=pcent /host")[1]
+    return int(output.splitlines()[-1][:-1])
+
+
 def free_up_disk_space(module, disk_used_pcent):
     """Remove old log, core and dump files."""
-    def get_disk_used_percent(module):
-        output = exec_command(module, cmd="df -BM --output=pcent /host")[1]
-        return int(output.splitlines()[-1][:-1])
-
     if get_disk_used_percent(module) > disk_used_pcent:
         # free up spaces at best effort
         exec_command(module, "rm -f /var/log/*.gz", ignore_error=True)
@@ -173,7 +191,7 @@ def main():
 
     try:
         work_around_for_slow_disks(module)
-        reduce_installed_sonic_images(module)
+        reduce_installed_sonic_images(module, disk_used_pcent)
         if new_image_url or save_as:
             free_up_disk_space(module, disk_used_pcent)
             setup_swap_if_necessary(module)
