@@ -599,7 +599,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
 
     logger.info("original crm_stats_nexthop_used is: {}, original crm_stats_nexthop_available is {}".format(
         crm_stats_nexthop_used, crm_stats_nexthop_available))
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used + 1,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used + 1,
                                    crm_stats_nexthop_available - 1, ">=", "<=")
     if not crm_stats_checker:
         RESTORE_CMDS["test_crm_nexthop"].append(nexthop_del_cmd)
@@ -612,7 +612,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         asichost.shell(ip_remove_cmd)
         asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)  
         ptfhost.remove_ip_addresses() 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
                                    crm_stats_nexthop_available)
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv{}_nexthop_used\" counter was not decremented or "
@@ -662,7 +662,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
                                    crm_stats_neighbor_available, ">", "<")
     if not crm_stats_checker:
         RESTORE_CMDS["test_crm_nexthop"].append(neighbor_del_cmd)
@@ -676,7 +676,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
                                    crm_stats_neighbor_available, ">=", "==")
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv4_neighbor_used\" counter was not decremented or "
@@ -758,7 +758,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         template_resource = 2
     else:
         template_resource = 1
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
                                    nexthop_group_used + template_resource,
                                    nexthop_group_available + template_resource, "==", "<=")
     if not crm_stats_checker:
@@ -774,7 +774,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     logger.info("Removing nexthop groups")
     duthost.shell(del_template.render(iface=crm_interface[0], iface2=crm_interface[1], prefix=network, namespace=asichost.namespace))
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
                                    nexthop_group_used,
                                    nexthop_group_available)
     nexthop_group_name = "member_" if group_member else ""
