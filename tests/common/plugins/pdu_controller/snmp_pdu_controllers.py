@@ -47,6 +47,10 @@ class snmpPduController(PduControllerBase):
         VERTIV_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.4"
         VERTIV_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.6"
         VERTIV_PORT_POWER_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.6.1.12"
+        # MIB OID for APC controller rPDU
+        APC_RPDU_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.2"
+        APC_RPDU_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1.4"
+        APC_RPDU_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.4"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -82,6 +86,12 @@ class snmpPduController(PduControllerBase):
             self.STATUS_OFF = "2"
             self.CONTROL_ON = "2"
             self.CONTROL_OFF = "4"
+            self.has_lanes = False
+            self.max_lanes = 1
+        elif self.pduType == "ApcRPDU":
+            self.PORT_NAME_BASE_OID      = APC_RPDU_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID    = APC_RPDU_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID   = APC_RPDU_PORT_CONTROL_BASE_OID
             self.has_lanes = False
             self.max_lanes = 1
         else:
