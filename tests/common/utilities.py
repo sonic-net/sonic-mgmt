@@ -696,7 +696,10 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     """
 
     reboot_dict = dict()
-    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
     if 'plt_reboot_dict' in dut_vars:
         for key in dut_vars['plt_reboot_dict'].keys():
             if key in tc_name:
