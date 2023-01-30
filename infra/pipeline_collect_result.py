@@ -6,8 +6,8 @@ import re
 SUMMARY_REPORT_FILENAME = "results.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
-sum_f = open("./" + SUMMARY_REPORT_FILENAME, "w")
-com_f = open("./" + COMMON_REPORT_FILENAME, "w")
+sum_f = open("../../" + SUMMARY_REPORT_FILENAME, "w")
+com_f = open("../../" + COMMON_REPORT_FILENAME, "w")
 
 sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0}
 
