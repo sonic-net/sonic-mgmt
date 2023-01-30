@@ -1,0 +1,169 @@
+name: SAI_202205_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+#Pipeline name TEST.EXP.SAI.BRCM.7.1.DMZ
+trigger: none
+pr: none
+
+resources:
+ pipelines:
+   - pipeline: bcm_sai_external_sug
+     source: bcm_sai_external_sug
+     project: broadcom
+     trigger:
+        enabled: true
+        branches:
+          include:
+          - SAI_PRE_7.1.0_*
+
+variables:
+  - template: ../../templates/template_variables.yml
+
+parameters:
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI 7.1 Release Express Testing"
+
+  - name: RUN_SAI_TEST
+    type: boolean
+    displayName: "Is Run SAI Test"
+    default: true
+
+  - name: RECOVER_TB
+    displayName: "Recover Testbed"
+    type: boolean
+    default: true
+
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name for SAI test"
+    default: vms3-t1-dx010-1
+
+  - name: RUN_SONiC_TEST
+    type: boolean
+    displayName: "Is Run SONiC Test"
+    default: false
+
+  - name: TESTBED_NAME_FOR_SONIC
+    type: string
+    displayName: "Testbed Name for SONiC test"
+    default: vms20-t1-dx010-6
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_202205)
+    displayName: "Image URL"
+
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205)
+    displayName: "py_saithrift URL"
+
+  - name: SDK_ARTIFACT_NAME
+    displayName: "artifact name"
+    type: string
+    default: xgs
+
+  # Deploy SAI SDK
+  - name: DEPLOY_SAI_SDK
+    displayName: "Deploy sai sdk"
+    type: boolean
+    default: true
+
+  # WorkFlow parameters
+  - name: LOCK_TESTBED
+    displayName: "Lock Testbed"
+    type: boolean
+    default: true
+
+  - name: ENABLE_PTF_SAI_TEST
+    displayName: "Run PTF-SAI Test"
+    type: boolean
+    default: false
+
+  - name: ENABLE_BRCM_T0_TEST
+    displayName: "Run Brcm T0 Test"
+    type: boolean
+    default: true
+
+  - name: UPLOAD_TEST_REPORT
+    displayName: "Upload Test Report"
+    type: boolean
+    default: true
+
+  - name: JOB_CONFIG
+    type: string
+    displayName: "JOB CONFIG"
+    default: " "
+
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
+    type: boolean
+    default: true
+
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
+
+  # - name: PIPELINE_BRANCH
+  #   displayName: "pipeline running branch(all the buildouts binding to a branch)"
+  #   default: "internal"
+  #   type: string
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    default: "bcm_sai_external_sug"
+    type: string
+
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: broadcom
+
+jobs:
+- ${{ if parameters.RUN_SAI_TEST }}:
+  - template: ../../templates/sai_test.yml
+    parameters:
+      LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+      LOCK_TESTBED_REASON: ${{ parameters.LOCK_TESTBED_REASON }}
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
+      SDK_ARTIFACT_NAME:  ${{ parameters.SDK_ARTIFACT_NAME }}
+      DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+      ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
+      ENABLE_BRCM_T0_TEST: ${{ parameters.ENABLE_BRCM_T0_TEST }}
+      # PIPELINE_BRANCH: ${{ parameters.PIPELINE_BRANCH }}
+      SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
+      RUN_TEST: ${{ or(parameters.ENABLE_PTF_SAI_TEST, parameters.ENABLE_BRCM_T0_TEST) }}
+      OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
+      MGMT_REPO: ${{ parameters.MGMT_REPO }}
+      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+      RECOVER_TB: ${{ parameters.RECOVER_TB }}
+      UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+      # Below is only for debugging pipeline
+      # PREPARE_SAI_TB: false
+      # UPDATE_IMAGE: false
+      # CHANGE_TOPO: false
+      # PTF_DEPLOY_VSCODE: false
+
+
+
+- ${{ if parameters.RUN_SONiC_TEST }}:
+    - template: ../../templates/sonic_test_for_sai.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME_FOR_SONIC }}
+        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+        SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
+        ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
