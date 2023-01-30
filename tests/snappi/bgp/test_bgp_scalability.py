@@ -41,7 +41,7 @@ def test_bgp_scalability_256_v6_routes(cvg_api, duthost, localhost, tgen_ports, 
 @pytest.mark.parametrize('ipv4_routes',[8000])
 @pytest.mark.parametrize('ipv6_routes',[4000])
 @pytest.mark.parametrize('ipv6_prefix',[64])
-def test_bgp_scalability_8kv4_4kv6_routes(cvg_api, duthost, localhost, tgen_ports, conn_graph_facts, fanout_graph_facts, multipath, ipv4_routes, ipv6_routes,ipv6_prefix):
+def test_bgp_scalability_8kv4_4kv6_routes(cvg_api, duthost, localhost, tgen_ports, conn_graph_facts, fanout_graph_facts, multipath, ipv4_routes, ipv6_routes, ipv6_prefix):
     run_bgp_scalability_v4_v6(cvg_api, duthost, localhost, tgen_ports, multipath, ipv4_routes, ipv6_routes, ipv6_prefix)
 
 
@@ -49,7 +49,7 @@ def test_bgp_scalability_8kv4_4kv6_routes(cvg_api, duthost, localhost, tgen_port
 @pytest.mark.parametrize('ipv4_routes',[100000])
 @pytest.mark.parametrize('ipv6_routes',[25000])
 @pytest.mark.parametrize('ipv6_prefix',[64])
-def test_bgp_scalability_100kv4_25kv6_routes(cvg_api, duthost, localhost, tgen_ports, conn_graph_facts, fanout_graph_facts, multipath, ipv4_routes, ipv6_routes,ipv6_prefix):
+def test_bgp_scalability_100kv4_25kv6_routes(cvg_api, duthost, localhost, tgen_ports, conn_graph_facts, fanout_graph_facts, multipath, ipv4_routes, ipv6_routes, ipv6_prefix):
     run_bgp_scalability_v4_v6(cvg_api, duthost, localhost, tgen_ports, multipath, ipv4_routes, ipv6_routes, ipv6_prefix)
 
 
