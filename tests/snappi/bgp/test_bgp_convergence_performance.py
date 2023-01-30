@@ -8,11 +8,11 @@ import pytest
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
-@pytest.mark.parametrize('multipath',[2])
-@pytest.mark.parametrize('start_routes',[500])
-@pytest.mark.parametrize('routes_step',[500])
-@pytest.mark.parametrize('stop_routes',[2000])
-@pytest.mark.parametrize('route_type',['IPv4'])
+@pytest.mark.parametrize('multipath', [2])
+@pytest.mark.parametrize('start_routes', [500])
+@pytest.mark.parametrize('routes_step', [500])
+@pytest.mark.parametrize('stop_routes', [2000])
+@pytest.mark.parametrize('route_type', ['IPv4'])
 def test_bgp_convergence_performance(cvg_api,
                                     duthost,
                                     tgen_ports,
