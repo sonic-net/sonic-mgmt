@@ -923,8 +923,8 @@ class TestShowIP():
         spine_ports['alias'] = list()
 
         for key, value in minigraph_neighbors.items():
-            if (key in setup['physical_interfaces'] and ('T2' in value['name']
-                    or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
+            if (key in setup['physical_interfaces'] and ('T2' in value['name'] or (
+                    tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
                 spine_ports['alias'].append(setup['port_name_map'][key])
 
