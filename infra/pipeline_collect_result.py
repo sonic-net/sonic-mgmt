@@ -37,7 +37,7 @@ for line in lines:
         sum[resultclass] = int(n[0])
         sum["total"] += int(n[0])
 if sum["total"] > 0:
-    sum["success_rate"] = sum["passed"] / (sum["total"] - sum["skipped"]) * 100
+    sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
 print(sum)
 
 json.dump(sum, sum_f)
