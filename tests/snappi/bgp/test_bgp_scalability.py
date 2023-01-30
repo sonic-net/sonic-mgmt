@@ -10,7 +10,7 @@ import pytest
 pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize('multipath',[1])
-def test_duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
+def test_duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
 
 @pytest.mark.parametrize('multipath',[1])
