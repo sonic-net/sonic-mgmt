@@ -41,6 +41,7 @@ if sum["total"] > 0:
 print(sum)
 
 json.dump(sum, sum_f)
+json.dump(sum, com_f)
 sum_f.close()
 com_f.close()
 
