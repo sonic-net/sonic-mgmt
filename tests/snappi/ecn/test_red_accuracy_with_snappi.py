@@ -10,7 +10,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
 
 from files.helper import run_ecn_test, is_ecn_marked
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_red_accuracy(request,
                       snappi_api,

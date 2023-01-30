@@ -3,8 +3,13 @@ import logging
 import itertools
 import collections
 import ipaddress
-
+import time
+import json
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from jinja2 import Template
+from netaddr import valid_ipv4
+
 
 logger = logging.getLogger(__name__)
 
@@ -123,23 +128,28 @@ def disable_fdb_aging(duthost):
     switch_config_template = Template(switch_config)
     duthost.copy(content=switch_config_template.render(aging_time=0),
                  dest=TMP_SWITCH_CONFIG_FILE)
+    if duthost.is_multi_asic:
+        ns = duthost.get_asic_namespace_list()[0]
+        asic_id = duthost.get_asic_id_from_namespace(ns)
+    else:
+        asic_id = ''
+
     # Generate and load config with swssconfig
     cmds = [
-        "docker cp {} swss:{}".format(TMP_SWITCH_CONFIG_FILE, DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss swssconfig {}".format(DST_SWITCH_CONFIG_FILE)
+        "docker cp {} swss{}:{}".format(TMP_SWITCH_CONFIG_FILE, asic_id, DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss{} swssconfig {}".format(asic_id, DST_SWITCH_CONFIG_FILE)
     ]
     duthost.shell_cmds(cmds=cmds)
- 
+
     yield
     # Recover default aging time
     DEFAULT_SWITCH_CONFIG_FILE = "/etc/swss/config.d/switch.json"
     cmds = [
-        "docker exec -i swss rm {}".format(DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss swssconfig {}".format(DEFAULT_SWITCH_CONFIG_FILE)
+        "docker exec -i swss{} rm {}".format(asic_id, DST_SWITCH_CONFIG_FILE),
+        "docker exec -i swss{} swssconfig {}".format(asic_id, DEFAULT_SWITCH_CONFIG_FILE)
     ]
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
-
 
 @pytest.fixture(scope="module")
 def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
@@ -159,6 +169,71 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     return ports
 
 
+def check_orch_cpu_utilization(dut, orch_cpu_threshold):
+    """
+    Compare orchagent CPU utilization 5 times, with 1 second interval in between and make sure all 5 readings are
+    less than threshold
+
+    Args:
+        dut: DUT host object
+        orch_cpu_threshold: orch cpu threshold
+    """
+    for i in range(5):
+        orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        for line in orch_cpu:
+            if int(float(line)) > orch_cpu_threshold:
+               return False
+        time.sleep(1)
+    return True
+
+
+def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
+    MAX_DIFF = 5
+    sumv4, sumv6 = duthost.get_ip_route_summary()
+    rtn_val = True
+    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+        rtn_val = False
+    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+        rtn_val = False
+    return rtn_val
+
+@pytest.fixture(scope="module")
+def shutdown_ebgp(duthosts):
+    # To store the original number of eBGP v4 and v6 routes.
+    v4ebgps = {}
+    v6ebgps = {}
+    orch_cpu_threshold = 10
+    for duthost in duthosts.frontend_nodes:
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
+        # Verify that the total eBGP routes are 0.
+        pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
+                      "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                      "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                              orch_cpu_threshold))
+
+    yield
+
+    for duthost in duthosts.frontend_nodes:
+        # Startup all the eBGP neighbors
+        duthost.command("sudo config bgp startup all")
+
+    for duthost in duthosts.frontend_nodes:
+        # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
+        orig_v4_ebgp = v4ebgps[duthost.hostname]
+        orig_v6_ebgp = v6ebgps[duthost.hostname]
+        pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
+                      "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
+        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                      "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
+                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                              orch_cpu_threshold))
 @pytest.fixture(scope="module")
 def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
@@ -178,7 +253,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # address could be IPV6 and IPV4, only need IPV4 here
-            if addr.find(':') == -1:
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
@@ -245,7 +320,12 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     Returns:
         VLAN info dict with original VLAN info
         Example:
-            {1000: {'ip':'192.168.0.1/21', 'orig': True}}
+            "Vlan1000": {
+                "fc02:1000::1/64": {},
+                "grat_arp": "enabled",
+                "proxy_arp": "enabled",
+                "192.168.0.1/21": {}
+            }
     '''
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -253,7 +333,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     for k, v in cfg_facts['VLAN'].items():
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            if addr.find(':') == -1:
+            # NOTE: here only returning IPv4.
+            if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
         else:
@@ -339,3 +420,100 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope='module')
+def dut_qos_maps(rand_selected_dut):
+    """
+    A module level fixture to get QoS map from DUT host.
+    Return a dict
+    {
+        "dscp_to_tc_map": {
+            "0":"1",
+            ...
+        },
+        "tc_to_queue_map": {
+            "0":"0"
+        },
+        ...
+    }
+    or an empty dict if failed to parse the output
+    """
+    maps = {}
+    try:
+        # port_qos_map
+        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        # dscp_to_tc_map
+        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        # tc_to_queue_map
+        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        # tc_to_priority_group_map
+        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_PRIORITY_GROUP_MAP'")['stdout'])
+        # tc_to_dscp_map
+        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
+    except:
+        pass
+    return maps
+
+
+def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+    """
+    A helper function to check if separated DSCP_TO_TC_MAP is applied to
+    downlink/unlink ports.
+    """
+    dscp_to_tc_map_names = set()
+    for port_name, qos_map in dut_qos_maps['port_qos_map'].iteritems():
+        if port_name == "global":
+            continue
+        dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
+        if len(dscp_to_tc_map_names) > 1:
+            return True
+    return False
+
+
+def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
+    """
+    Helper function to calculate DSCP to PG map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = dut_qos_maps['port_qos_map']
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name]
+        # Load tc_to_pg_map
+        tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
+        # Calculate dscp to pg map
+        dscp_to_pg_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
+        return dscp_to_pg_map
+    except:
+        logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
+        return {}
+
+
+def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
+    """
+    Helper function to calculate DSCP to Queue map for a port.
+    The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
+    return a dict like {0:0, 1:1...}
+    """
+    try:
+        port_qos_map = dut_qos_maps['port_qos_map']
+        dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
+        tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
+        # Load dscp_to_tc_map
+        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
+        # Load tc_to_queue_map
+        tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
+        # Calculate dscp to queue map
+        dscp_to_queue_map = {}
+        for dscp, tc in dscp_to_tc_map.items():
+            dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
+        return dscp_to_queue_map
+    except:
+        logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
+        return {}

@@ -4,7 +4,7 @@
   set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
 
 - name: retrieve SONiC version
-  shell: cat /etc/sonic/sonic_version.yml
+  shell: cat /etc/sonic/sonic_version.yml | grep ":"
   register: sonic_version_content
 
 - name: format SONiC version content
@@ -21,3 +21,8 @@
   include_tasks:
     sonic/fanout_sonic_202012.yml
   when: "'20201231' in fanout_sonic_version['build_version']"
+
+- name: deploy SONiC fanout with image version 202205
+  include_tasks:
+    sonic/fanout_sonic_202205.yml
+  when: "'20220531' in fanout_sonic_version['build_version']"

@@ -27,6 +27,7 @@
     url: "{{ vm_images_url }}/{{ ceos_image_filename }}?{{ ceosimage_saskey }}"
     dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
     timeout: 1800
+  environment: "{{ proxy_env | default({}) }}"
   when: (ceos_stat.images | length == 0) and not skip_ceos_image_downloading
 
 - name: Import cEOS image

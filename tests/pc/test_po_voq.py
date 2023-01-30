@@ -1,15 +1,16 @@
 import pytest
 import tests.common.helpers.voq_lag as voq_lag
+from tests.voq.voq_helpers import verify_no_routes_from_nexthop
+import logging
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-
 def get_asic_with_pc(duthost):
     """
-    Returns Asic with portchannel or skip the testcase if portchannel is not present in any of
-    the Asic on dut
+    Returns Asic with portchannel
 
     Args:
         duthost <obj>: The duthost object
@@ -23,9 +24,6 @@ def get_asic_with_pc(duthost):
                                             asic_index=asic.asic_index)['ansible_facts']
         if 'PORTCHANNEL' in config_facts:
             return asic
-
-    pytest.skip('Skip test since there is no portchannel configured.')
-
 
 @pytest.fixture(scope='module')
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -48,6 +46,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     asic = get_asic_with_pc(duthost)
     config_facts = duthost.config_facts(source='persistent',
                                         asic_index=asic.asic_index)['ansible_facts']
+
     portchannel = config_facts['PORTCHANNEL'].keys()[0]
     portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
 
@@ -58,10 +57,12 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             if '.' in ip:
                 portchannel_ip = ip
 
-    if len(portchannel_members) == 0:
-        pytest.skip("Skip test due to there is no portchannel member exists in current topology.")
+    for addr in config_facts['BGP_NEIGHBOR']:
+        if portchannel_ip.split('/')[0] == config_facts['BGP_NEIGHBOR'][addr]['local_addr']:
+            nbr_addr = addr
 
     voq_lag.delete_lag_members_ip(duthost, asic, portchannel_members, portchannel_ip, portchannel)
+    verify_no_routes_from_nexthop(duthosts, nbr_addr)
     voq_lag.add_lag(duthost, asic, portchannel_members, portchannel_ip)
 
     yield asic, portchannel_ip, portchannel_members
@@ -69,6 +70,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     voq_lag.delete_lag_members_ip(duthost, asic, portchannel_members, portchannel_ip)
     # remove tmp portchannel
     voq_lag.delete_lag(duthost, asic)
+    verify_no_routes_from_nexthop(duthosts, nbr_addr)
     # add only lag members and ip since lag already exist
     voq_lag.add_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel, add=False)
 

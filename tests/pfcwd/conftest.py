@@ -7,6 +7,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lg
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
+from tests.common.utilities import str2bool
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +27,10 @@ def pytest_addoption(parser):
                      help='Warm reboot needs to be enabled or not')
     parser.addoption('--restore-time', action='store', type=int, default=3000,
                      help='PFC WD storm restore interval')
-    parser.addoption('--fake-storm', action='store', type=bool, default=True,
+    parser.addoption('--fake-storm', action='store', type=str2bool, default=True,
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
-
-@pytest.fixture(scope="module", autouse=True)
-def skip_pfcwd_test_dualtor(tbinfo):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Pfcwd tests skipped on dual tor testbed")
-
-    yield
-
 
 @pytest.fixture(scope="module")
 def two_queues(request):
@@ -48,7 +41,7 @@ def two_queues(request):
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         two_queues: False/True
@@ -57,19 +50,19 @@ def two_queues(request):
 
 
 @pytest.fixture(scope="module")
-def fake_storm(request, duthosts, rand_one_dut_hostname):
+def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Enable/disable fake storm based on platform and input parameters
 
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         fake_storm: False/True
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
@@ -96,7 +89,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, rand_one_dut_hostname, ptfhost, conn_graph_facts, tbinfo,
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,
     enum_frontend_asic_index
 ):
     """
@@ -111,7 +104,7 @@ def setup_pfc_test(
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)
@@ -120,6 +113,21 @@ def setup_pfc_test(
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+            if len(vlan_data['members']) < 2:
+               unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
         # gather all vlan specific info
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
@@ -164,6 +172,3 @@ def setup_pfc_test(
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
     yield setup_info
-
-    logger.info("--- Starting Pfcwd ---")
-    duthost.command("pfcwd start_default")

@@ -3,13 +3,18 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401  # lgtm [py/unused-import]
+from tests.ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan')
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 logger = logging.getLogger(__name__)
+
+DISABLE_REFRESH = "disable_refresh"
+REFRESH_DEST_MAC = "refresh_with_dest_mac"
+
 
 class TestFdbMacExpire:
     """
@@ -88,24 +93,14 @@ class TestFdbMacExpire:
                 RunAnsibleModuleFail if ptf test fails
         """
         logger.info("Running PTF test case '{0}' on '{1}'".format(testCase, ptfhost.hostname))
-        ptfhost.shell(argv=[
-            "ptf",
-            "--test-dir",
+        ptf_runner(
+            ptfhost,
             "ptftests",
             testCase,
-            "--platform-dir",
-            "ptftests",
-            "--platform",
-            "remote",
-            "-t",
-            ";".join(["{0}={1}".format(k, repr(v)) for k, v in testParams.items()]),
-            "--relax",
-            "--debug",
-            "info",
-            "--log-file",
-            "/tmp/{0}".format(testCase)
-            ],
-            chdir = "/root",
+            platform_dir="ptftests",
+            params=testParams,
+            log_file="/tmp/{0}".format(testCase),
+            is_python3=True
         )
 
     @pytest.fixture(scope="class", autouse=True)
@@ -201,7 +196,8 @@ class TestFdbMacExpire:
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost):
+    @pytest.mark.parametrize("refresh_type", [DISABLE_REFRESH, REFRESH_DEST_MAC])
+    def testFdbMacExpire(self, request, tbinfo, rand_selected_dut, ptfhost, refresh_type):
         """
             TestFdbMacExpire Verifies FDb aging timer is respected
 
@@ -218,11 +214,6 @@ class TestFdbMacExpire:
             Returns:
                 None
         """
-        if "t0" not in tbinfo["topo"]["type"]:
-            pytest.skip(
-                "FDB MAC Expire test case is not supported on this DUT topology '{0}'".format(tbinfo["topo"]["type"])
-            )
-
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
 
         testParams = {
@@ -230,6 +221,8 @@ class TestFdbMacExpire:
             "router_mac": rand_selected_dut.facts["router_mac"],
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
+            "refresh_type":  refresh_type,
+            "aging_time": fdbAgingTime
         }
         self.__runPtfTest(ptfhost, "fdb_mac_expire_test.FdbMacExpireTest", testParams)
 

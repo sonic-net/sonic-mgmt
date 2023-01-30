@@ -1,4 +1,6 @@
 # QoS-SAI Args file
+from tests.common.utilities import str2bool
+
 
 def add_qos_sai_args(parser):
     """
@@ -15,17 +17,9 @@ def add_qos_sai_args(parser):
     qos_group.addoption(
         "--disable_test",
         action="store",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Control execution of buffer watermark experimental tests",
-    )
-
-    qos_group.addoption(
-        "--qos_swap_syncd",
-        action="store",
-        type=bool,
-        default=True,
-        help="Swap syncd container with syncd-rpc container",
     )
 
     qos_group.addoption(
@@ -44,3 +38,10 @@ def add_qos_sai_args(parser):
         help="QoS SAI comma separated list of source ports. Test currently expects exactly 1 source port",
     )
 
+    qos_group.addoption(
+        "--qos_dual_tor",
+        action="store",
+        type=str2bool,
+        default=False,
+        help="Test QoS on dual ToR ports"
+    )

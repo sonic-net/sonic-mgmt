@@ -160,7 +160,7 @@ def config_classifier_table(dut, **kwargs):
                 elif 'src-port' in criteria:
                     string = 'eq' if criteria_val != '' else ''
                     if criteria_val != '' and '-' in str(criteria_val):
-                        string = 'range';
+                        string = 'range'
                         criteria_val = criteria_val.split('-')
                     if type(criteria_val) is list:
                         cmd = '{} l4-port source {} {} {}'.format(prefix, string, criteria_val[0],criteria_val[1])
@@ -169,7 +169,7 @@ def config_classifier_table(dut, **kwargs):
                 elif 'dst-port' in criteria:
                     string = 'eq' if criteria_val != '' else ''
                     if criteria_val != '' and '-' in str(criteria_val):
-                        string = 'range';
+                        string = 'range'
                         criteria_val = criteria_val.split('-')
                     if type(criteria_val) is list:
                         cmd = '{} l4-port destination {} {} {}'.format(prefix, string, criteria_val[0], criteria_val[1])

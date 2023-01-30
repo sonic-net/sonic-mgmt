@@ -12,7 +12,7 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -84,7 +84,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, utils_vlan_ports_list, toggle_all_simu
     ptfadapter.dataplane.flush()
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     assert 'snmp_fdb' in snmp_facts
     assert 'snmp_interfaces' in snmp_facts
     dummy_mac_cnt = 0

@@ -129,17 +129,24 @@ class NeighVlanMemberDown(VlanMemberDown):
     """ Sad path test case to verify warm-reboot when vlan member port goes operationaly down
     by shutting down the corresponding port on the neighbor side. """
 
-    def __init__(self, duthost, fanouthosts, port_selector):
+    def __init__(self, duthost, fanouthosts, vmhost, port_selector):
         super(NeighVlanMemberDown, self).__init__(duthost, port_selector)
         self.fanouthosts = fanouthosts
+        self.vmhost = vmhost
+        self.port_info = duthost.get_running_config_facts()["PORT"]
         logger.info("Selected ports for neighbor vlan member down case {}".format(self.ports))
 
     def setup(self, test_data):
         super(NeighVlanMemberDown, self).setup(test_data)
 
         for port in self.ports:
+            if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+                index = int(self.port_info.get(port).get("index")) + 1
+                self.vmhost.shell("virsh domif-setlink {} {}-{} down".format(
+                    self.duthost.hostname, self.duthost.hostname, index))
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.shutdown(fanport)
+            if fanout and fanport:
+                fanout.shutdown(fanport)
 
     def verify(self):
         facts = self.duthost.show_interface(command="status", interfaces=self.ports)
@@ -148,8 +155,13 @@ class NeighVlanMemberDown(VlanMemberDown):
 
     def revert(self):
         for port in self.ports:
+            if self.duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+                index = int(self.port_info.get(port).get("index")) + 1
+                self.vmhost.shell("virsh domif-setlink {} {}-{} up".format(
+                    self.duthost.hostname, self.duthost.hostname, index))
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            fanout.no_shutdown(fanport)
+            if fanout and fanport:
+                fanout.no_shutdown(fanport)
 
     def __str__(self):
         return "neigh_vlan_member_down:{}".format(len(self.ports))
@@ -270,11 +282,11 @@ class NeighLagMemberDown(LagMemberDown):
                 nbrhost.shutdown(nbrport)
 
             fanout, fanport = fanout_switch_port_lookup(self.fanouthosts, self.duthost.hostname, port)
-            if bring_up:
-                fanout.no_shutdown(fanport)
-            else:
-                fanout.shutdown(fanport)
-
+            if fanout and fanport:
+                if bring_up:
+                    fanout.no_shutdown(fanport)
+                else:
+                    fanout.shutdown(fanport)
 
     def __str__(self):
         return "neigh_lag_member_down:{}:{}".format(len(self.vms), len(self.ports))

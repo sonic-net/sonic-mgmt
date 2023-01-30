@@ -43,6 +43,7 @@ class TestContLinkFlap(object):
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        duthost.command("sonic-clear arp")
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
 
         # Record memory status at start
@@ -83,13 +84,6 @@ class TestContLinkFlap(object):
             for dut_port, fanout, fanout_port in candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
-        config_facts = duthost.get_running_config_facts()
-
-        if config_facts and 'PORTCHANNEL' in config_facts:
-            for portchannel in config_facts['PORTCHANNEL'].keys():
-                pytest_assert(check_portchannel_status(duthost, portchannel, "up", verbose=True),
-                              "Fail: dut interface {}: link operational down".format(portchannel))
-
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
             endv4, endv6 = duthost.get_ip_route_summary()
@@ -99,8 +93,16 @@ class TestContLinkFlap(object):
                                                                                                                 sumv6,
                                                                                                                 endv4,
                                                                                                                 endv6))
+            config_facts = duthost.get_running_config_facts()
             nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
-            for k in nei_meta.keys():
+            dut_type = None
+            dev_meta = config_facts.get('DEVICE_METADATA', {})
+            if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
+                dut_type = dev_meta["localhost"]["type"]
+
+            for k, v in nei_meta.items():
+                if v['type'] in ['SmartCable', 'Server', 'Asic'] or dut_type == v['type']:
+                    continue
                 nbrhost = nbrhosts[k]['host']
                 if isinstance(nbrhost, EosHost):
                     res = nbrhost.eos_command(commands=['show ip bgp sum'])
@@ -122,8 +124,11 @@ class TestContLinkFlap(object):
         logging.info("Memory Status at end: %s", memory_output)
 
         # Record orchagent CPU utilization at end
-        orch_cpu = duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-        logging.info("Orchagent CPU Util at end: %s", orch_cpu)
+        orch_cpu = duthost.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $1, $9}'")[
+            "stdout_lines"]
+        for line in orch_cpu:
+            pid, util = line.split(" ")
+            logging.info("Orchagent PID {0} CPU Util at end: {1}".format(pid, util))
 
         # Record Redis Memory at end
         end_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
@@ -143,5 +148,5 @@ class TestContLinkFlap(object):
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
         pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))

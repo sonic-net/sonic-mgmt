@@ -9,6 +9,7 @@ from nat_helpers import GLOBAL_NAT_TIMEOUT
 from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
 from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
 from nat_helpers import FULL_CONE_TEST_SUBNET
+from nat_helpers import PORT_CHANNEL_TEMP
 from nat_helpers import conf_ptf_interfaces
 from nat_helpers import teardown_test_env
 from nat_helpers import exec_command
@@ -61,7 +62,8 @@ def teardown(duthost):
     """
     yield
     # Teardown after test finished
-    shutdown_cmds = ["sudo config nat remove {}".format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
+    shutdown_cmds = ["sudo config nat remove {}"
+                     .format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
     exec_command(duthost, shutdown_cmds)
     # Clear all enries
     duthost.command("sudo sonic-clear nat translations")
@@ -85,6 +87,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     config_port_indices = cfg_facts['port_index_map']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+    port_channel_1_name = PORT_CHANNEL_TEMP.format(1)
     # Get outer port indices
     for port_id in config_portchannels.keys():
         port = config_portchannels[port_id]['members'][0]
@@ -100,7 +103,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
         interfaces_nat_zone[rif] = {'interface_name': rif,
                                     "global_interface_name": '{}_INTERFACE'.format(
                                         (rif.encode()).translate(None, '0123456789').upper())
-                                   }
+                                    }
         if rif in inner_zone_interfaces:
             interfaces_nat_zone[rif]['zone_id'] = 0
         elif rif in outer_zone_interfaces:
@@ -118,8 +121,10 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                          "indices_to_ports_config": indices_to_ports_config,
                          "ptf_ports_available_in_topo": ptf_ports_available_in_topo,
                          "config_portchannels": config_portchannels,
-                         "pch_ips": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['address']},
-                         "pch_masks": {"PortChannel0001": duthost.setup()['ansible_facts']['ansible_PortChannel0001']['ipv4']['netmask']},
+                         "pch_ips": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'
+                                     .format(port_channel_1_name)]['ipv4']['address']},
+                         "pch_masks": {port_channel_1_name: duthost.setup()['ansible_facts']['ansible_{}'
+                                       .format(port_channel_1_name)]['ipv4']['netmask']},
                          "outer_vrf": ["red"],
                          "inner_vrf": ["blue", "yellow"],
                          interface_type: {"vrf_conf": SETUP_CONF[interface_type]["vrf"],
@@ -133,8 +138,8 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
                                           "public_ip": public_ip,
                                           "gw": duthost.setup()['ansible_facts']['ansible_Vlan1000']['ipv4']['address'],
                                           "acl_subnet": SETUP_CONF[interface_type]["acl_subnet"]
-                                         }
-                        }
+                                          }
+                         }
     try:
         # Setup interfaces on PTF container
         conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type)
@@ -146,7 +151,8 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     conf_ptf_interfaces(tbinfo, ptfhost, duthost, setup_information, interface_type, teardown=True)
 
 
-def nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT, udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT):
+def nat_global_config(duthost, timeout_in=GLOBAL_NAT_TIMEOUT, tcp_timeout_in=GLOBAL_TCP_NAPT_TIMEOUT,
+                      udp_timeout_in=GLOBAL_UDP_NAPT_TIMEOUT):
     """
     sets DUT's global NAT configuration;
     """
@@ -186,7 +192,7 @@ def apply_global_nat_config(duthost, config_nat_feature_enabled):
     nat_global_config(duthost)
     yield
     # reload config on teardown
-    config_reload(duthost, config_source='minigraph')
+    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture()
@@ -202,7 +208,7 @@ def reload_dut_config(request, duthost, setup_test_env):
     dut_iface = setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"]
     gw_ip = setup_data[interface_type]["vrf_conf"]["red"]["gw"]
     mask = setup_data[interface_type]["vrf_conf"]["red"]["mask"]
-    config_reload(duthost, config_source='minigraph')
+    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
     pch_ip = setup_info["pch_ips"][dut_iface]
     duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
     duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))

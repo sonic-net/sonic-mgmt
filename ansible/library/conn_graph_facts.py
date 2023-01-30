@@ -79,18 +79,15 @@ EXAMPLES='''
               "HwSku": "Arista-7260QX-64",
               "Type": "FanoutLeaf"
             },
-          "device_conn": [
-          {
-             "StartPort": "Ethernet0",
-             "EndPort": "Ethernet33",
-             "StartDevice": "str-s6000-on-1",
-             "VlanID": "233",
-             "BandWidth": "40000",
-             "VlanMode": "Access",
-             "EndDevice": "str-7260-01"
-           },
-           {...}
-           ],
+          "device_conn": {
+              "str-7260-11": {
+                  "Ethernet0": {
+                      "peerdevice": "str-7050qx-2",
+                      "peerport": "Ethernet4",
+                      "speed": "40000"
+                  },
+              }
+          },
            "device_vlan_range": {
               "VlanRange": "201-980,1041-1100"
             },
@@ -235,14 +232,17 @@ class Parse_Lab_Graph():
                     for consolelink in allconsolelinks:
                         start_dev = consolelink.attrib['StartDevice']
                         end_dev = consolelink.attrib['EndDevice']
+                        console_proxy = consolelink.attrib['Proxy']
+                        console_type = consolelink.attrib['Console_type']
+
                         if start_dev:
                             if start_dev not in self.consolelinks:
                                 self.consolelinks.update({start_dev : {}})
-                            self.consolelinks[start_dev][consolelink.attrib['StartPort']] = {'peerdevice':consolelink.attrib['EndDevice'], 'peerport': 'ConsolePort'}
+                            self.consolelinks[start_dev][consolelink.attrib['StartPort']] = {'peerdevice':consolelink.attrib['EndDevice'], 'peerport': 'ConsolePort', 'proxy':console_proxy, 'type':console_type}
                         if end_dev:
                             if end_dev not in self.consolelinks:
                                 self.consolelinks.update({end_dev : {}})
-                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': consolelink.attrib['StartDevice'], 'peerport': consolelink.attrib['StartPort']}
+                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': consolelink.attrib['StartDevice'], 'peerport': consolelink.attrib['StartPort'], 'proxy':console_proxy, 'type':console_type}
 
         pdu_root = self.root.find(self.pcgtag)
         if pdu_root:
@@ -388,7 +388,7 @@ class Parse_Lab_Graph():
         """
         if hostname in self.devices:
             ret = {}
-            for key in ['PSU1', 'PSU2']:
+            for key in ['PSU1', 'PSU2', 'PSU3', 'PSU4']:
                 try:
                     ret.update({key : self.devices[self.pdulinks[hostname][key]['peerdevice']]})
                 except KeyError:
@@ -449,7 +449,7 @@ def find_graph(hostnames, part=False):
 def get_port_name_list(hwsku):
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names
-    port_alias_to_name_map, _ = get_port_alias_to_name_map(hwsku)
+    port_alias_to_name_map, _, _ = get_port_alias_to_name_map(hwsku)
 
     # Create a map of SONiC port name to physical port index
     # Start by creating a list of all port names

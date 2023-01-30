@@ -2,7 +2,7 @@
 Check platform information
 
 This script covers the test case 'Check platform information' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
@@ -46,17 +46,22 @@ LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warn
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
 # These error messages are not triggered by platform test cases,
-# Ref to https://github.com/Azure/sonic-buildimage/issues/8944
+# Ref to https://github.com/sonic-net/sonic-buildimage/issues/8944
 SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* queue egress Min limit get failed with error Invalid parameter.*',
                          '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP = ['.*ERR pmon#thermalctld.*int\(\) argument must be a string.* or a number.*',
-                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*']
+                                     '.*ERR pmon#thermalctld.*invalid literal for int\(\) with base 10.*',
+                                     '.*ERR pmon#thermalctld.*Failed to get minimum ambient temperature, use pessimistic instead.*',
+                                     '.*ERR pmon#thermalctld.*Failed to read from file /run/hw-management/thermal.*',
+                                     '.*ERR pmon#thermalctld.*Failed to read from file /var/run/hw-management/thermal.*',
+                                     '.*ERR pmon#thermalctld.*Failed to run thermal policy.*']
 
 SKIP_ERROR_LOG_PSU_ABSENCE = ['.*Error getting sensor data: dps460.*Kernel interface error.*',
                               '.*ERR pmon#psud:.*Fail to read model number: No key PN_VPD_FIELD in.*',
                               '.*ERR pmon#psud:.*Fail to read serial number: No key SN_VPD_FIELD in.*',
-                              '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*']
+                              '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*',
+                              '.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
 SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
@@ -150,6 +155,24 @@ def get_psu_num(dut):
 
     return psu_num
 
+def get_healthy_psu_num(duthost):
+    """
+        @Summary: get number of healthy PSUs
+        @param: DUT host instance
+        @return: Number of healthy PSUs
+    """
+    PSUUTIL_CMD = "sudo psuutil status"
+    healthy_psus = 0
+    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+
+    psus_status = psuutil_status_output["stdout_lines"][2:]
+    for iter in psus_status:
+        fields = iter.split()
+        if fields[2] == 'OK':
+            healthy_psus += 1
+
+    return healthy_psus
+
 
 def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
     """
@@ -206,7 +229,7 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
@@ -214,7 +237,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
-    psu_num = get_psu_num(duthost)
+    psu_num = get_healthy_psu_num(duthost)
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
@@ -234,6 +257,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
     pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
+    if tbinfo["topo"]["properties"]["configuration_properties"]["common"]["dut_type"] == "MgmtTsToR":
+        all_outlet_status = all_outlet_status[0:-2]
+        logging.info("DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
     for outlet in all_outlet_status:
         psu_under_test = None
 
@@ -305,7 +331,7 @@ def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_host
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hwsku_hostname, thermal_manager_enabled):
     """
     @summary: Load a thermal policy file with invalid format, check thermal
               control daemon is up and there is an error log printed
@@ -316,7 +342,7 @@ def test_thermal_control_load_invalid_format_json(duthosts, enum_rand_one_per_hw
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_load_invalid_value_json(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_thermal_control_load_invalid_value_json(duthosts, enum_rand_one_per_hwsku_hostname, thermal_manager_enabled):
     """
     @summary: Load a thermal policy file with invalid value, check thermal
               control daemon is up and there is an error log printed
@@ -336,97 +362,6 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
     with loganalyzer:
         with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
-
-
-@pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_thermal_control_psu_absence(duthosts, enum_rand_one_per_hwsku_hostname, pdu_controller, mocker_factory, ignore_particular_error_log):
-    """
-    @summary: Turn off/on PSUs, check thermal control is working as expect.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    psu_num = get_psu_num(duthost)
-    
-    pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
-
-    logging.info("Create PDU controller for testing")
-    pdu_ctrl = pdu_controller
-
-    pytest_require(pdu_ctrl, "No PDU controller for %s, skip rest of the testing in this case" % duthost.hostname)
-
-    logging.info("To avoid DUT being shutdown, need to turn on PSUs that are not powered")
-    turn_all_outlets_on(pdu_ctrl)
-
-    logging.info("Initialize test results")
-    psu_test_results = {}
-    pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
-
-    with ThermalPolicyFileContext(duthost, THERMAL_POLICY_VALID_FILE):
-        fan_mocker = mocker_factory(duthost, 'FanStatusMocker')
-        pytest_require(fan_mocker, "No FanStatusMocker for %s, skip rest of the testing in this case" % duthost.facts['asic_type'])
-
-        restart_thermal_control_daemon(duthost)
-        logging.info('Wait and check all FAN speed turn to 60%...')
-        wait_result = wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                                 THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                                 0,
-                                 fan_mocker.check_all_fan_speed,
-                                 60)
-
-        pytest_require(wait_result, "FAN speed is not 60%, there might be abnormal in FAN/PSU, skip rest of the testing in this case")
-
-        check_thermal_algorithm_status(duthost, mocker_factory, False)
-
-        logging.info('Shutdown first PDU outlet and check thermal control result...')
-        all_outlet_status = pdu_ctrl.get_outlet_status()
-        pytest_require(all_outlet_status and len(all_outlet_status) >= 2, 'Skip the test, cannot get at least 2 outlet status: {}'.format(all_outlet_status))
-        outlet = all_outlet_status[0]
-        turn_off_outlet_and_check_thermal_control(duthost, pdu_ctrl, outlet, fan_mocker)
-        psu_test_results.clear()
-        pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
-
-        logging.info('Shutdown second PDU outlet and check thermal control result...')
-        outlet = all_outlet_status[1]
-        turn_off_outlet_and_check_thermal_control(duthost, pdu_ctrl, outlet, fan_mocker)
-        psu_test_results.clear()
-        pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
-
-        logging.info('Wait and check all FAN speed turn to 65%...')
-        pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                                 THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                                 0,
-                                 fan_mocker.check_all_fan_speed,
-                                 65), 'FAN speed not change to 65% according to policy')
-
-
-def turn_off_outlet_and_check_thermal_control(dut, pdu_ctrl, outlet, mocker):
-    """
-    @summary: Turn off PSUs, check all FAN speed are set to 100% according to thermal
-              control policy file.
-    """
-    logging.info("Turn off outlet %s" % str(outlet["outlet_id"]))
-    pdu_ctrl.turn_off_outlet(outlet)
-    time.sleep(5)
-
-    psu_under_test = None
-    psu_line_pattern = get_dut_psu_line_pattern(dut)
-    cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
-    for line in cli_psu_status["stdout_lines"][2:]:
-        psu_match = psu_line_pattern.match(line)
-        pytest_assert(psu_match, "Unexpected PSU status output")
-        if psu_match.group(2) != "OK":
-            psu_under_test = psu_match.group(1)
-
-    pytest_assert(psu_under_test is not None, "No PSU is turned off")
-    logging.info('Wait and check all FAN speed turn to 100%...')
-    pytest_assert(wait_until(THERMAL_CONTROL_TEST_WAIT_TIME,
-                             THERMAL_CONTROL_TEST_CHECK_INTERVAL,
-                             0,
-                             mocker.check_all_fan_speed,
-                             100), 'FAN speed not turn to 100% after PSU off')
-
-    pdu_ctrl.turn_on_outlet(outlet)
-    time.sleep(5)
 
 
 @pytest.mark.disable_loganalyzer

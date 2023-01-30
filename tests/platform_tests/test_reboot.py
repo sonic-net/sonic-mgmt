@@ -5,7 +5,7 @@ Check platform status after reboot. Three types of reboot are covered in this sc
 * Warm reboot
 
 This script is to cover the test case 'Reload configuration' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
 import re
@@ -55,9 +55,15 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
-    logging.info("Run %s reboot on DUT" % reboot_type)
 
+    logging.info("Sync reboot cause history queue with DUT reboot cause history queue")
+    sync_reboot_history_queue_with_dut(dut)
+
+    logging.info("Run %s reboot on DUT" % reboot_type)
     reboot(dut, localhost, reboot_type=reboot_type, reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
+
+    # Append the last reboot type to the queue
+    logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
@@ -73,29 +79,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
 
-    if reboot_type is not None:
-        logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
-
-        if "201811" in dut.os_version or "201911" in dut.os_version:
-            logging.info("Skip check reboot-cause history for version before 202012")
-        else:
-            logger.info("Check reboot-cause history")
-            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
-                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
-        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
-            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
-            return
-
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
         result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
-        if not dut.has_sku:
-            pytest.xfail("hwsku.json is needed for interface checking to pass, and it is not provided.")
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
             MAX_WAIT_TIME_FOR_INTERFACES)
 
@@ -120,6 +109,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("Check sysfs")
         check_sysfs(dut)
 
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logging.info("Skip check reboot-cause history for version before 202012")
+        else:
+            logger.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
 
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """

@@ -2,9 +2,12 @@
 Utility functions can re-used in testing scripts.
 """
 import collections
+import contextlib
 import inspect
 import ipaddress
+import json
 import logging
+import os
 import re
 import six
 import sys
@@ -12,6 +15,7 @@ import threading
 import time
 import traceback
 from io import BytesIO
+from ast import literal_eval
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -21,19 +25,28 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-
-def skip_version(duthost, version_list):
+def check_skip_release(duthost, release_list):
     """
-    @summary: Skip current test if any given version keywords are in os_version
+    @summary: check if need skip current test if any given release keywords are in os_version, match sonic_release.
     @param duthost: The DUT
-    @param version_list: A list of incompatible versions
+    @param release_list: A list of incompatible releases
     """
-    if any(version in duthost.os_version for version in version_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(version_list)))
+    if any(release in duthost.os_version for release in release_list):
+        reason = "DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list))
+        logger.info(reason)
+        return (True, reason)
+
+    if any(release == duthost.sonic_release for release in release_list):
+        reason = "DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list))
+        logger.info(reason)
+        return (True, reason)
+
+    return (False, '')
 
 def skip_release(duthost, release_list):
     """
@@ -42,11 +55,9 @@ def skip_release(duthost, release_list):
     @param duthost: The DUT
     @param release_list: A list of incompatible releases
     """
-    if any(release in duthost.os_version for release in release_list):
-        pytest.skip("DUT has version {} and test does not support {}".format(duthost.os_version, ", ".join(release_list)))
-
-    if any(release == duthost.sonic_release for release in release_list):
-        pytest.skip("DUT is release {} and test does not support {}".format(duthost.sonic_release, ", ".join(release_list)))
+    (skip, reason) = check_skip_release(duthost, release_list)
+    if skip:
+        pytest.skip(reason)
 
 def skip_release_for_platform(duthost, release_list, platform_list):
     """
@@ -152,6 +163,10 @@ class InterruptableThread(threading.Thread):
         """Add error handler callback that will be called when the thread exits with error."""
         self.error_handler = error_handler
 
+    def set_exit_handler(self, exit_handler):
+        """Add exit handler callback that will be called when the thread eixts."""
+        self.exit_handler = exit_handler
+
     def run(self):
         """
         @summary: Run the target function, call `start()` to start the thread
@@ -163,6 +178,9 @@ class InterruptableThread(threading.Thread):
             self._e = sys.exc_info()
             if getattr(self, "error_handler", None) is not None:
                 self.error_handler(*self._e)
+
+        if getattr(self, "exit_handler", None) is not None:
+            self.exit_handler()
 
     def join(self, timeout=None, suppress_exception=False):
         """
@@ -425,6 +443,7 @@ def get_test_server_visible_vars(inv_files, server):
 
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
+    ip_address = unicode(ip_address)
     try:
         ipaddress.IPv4Address(ip_address)
         return True
@@ -485,13 +504,16 @@ def dump_scapy_packet_show_output(packet):
         sys.stdout = _stdout
 
 
-def compose_dict_from_cli(fields_list):
-    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+def compose_dict_from_cli(str_output):
+    """Convert the output of sonic-db-cli <DB> HGETALL command from string to
+       dict object containing the field, key pairs of the database table content
 
     Args:
-        fields_list: A list of lines, the output of redis-cli hgetall command
+        str_output: String with output of cli sonic-db-cli <DB> HGETALL <key>
+    Returns:
+        dict: dict object containing the field, key pairs of the database table content
     """
-    return dict(zip(fields_list[0::2], fields_list[1::2]))
+    return literal_eval(str_output)
 
 
 def get_intf_by_sub_intf(sub_intf, vlan_id=None):
@@ -521,6 +543,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
         return sub_intf[:-len(vlan_suffix)]
     return sub_intf
 
+
 def check_qos_db_fv_reference_with_table(duthost):
     """
     @summary: Check qos db field value refrence with table name or not.
@@ -531,3 +554,235 @@ def check_qos_db_fv_reference_with_table(duthost):
         logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
+
+
+def str2bool(str):
+    """
+    This is used as a type when add option for pytest
+    :param str: The input string value
+    :return: False if value is 0 or false, else True
+    """
+    return str.lower() not in ["0", "false", "no"]
+
+
+def setup_ferret(duthost, ptfhost, tbinfo):
+    '''
+        Sets Ferret service on PTF host.
+    '''
+    VXLAN_CONFIG_FILE = '/tmp/vxlan_decap.json'
+
+    def prepareVxlanConfigData(duthost, ptfhost, tbinfo):
+        '''
+            Prepares Vxlan Configuration data for Ferret service running on PTF host
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+            Returns:
+                None
+        '''
+        mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+        vxlanConfigData = {
+            'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
+            'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
+            'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
+            'minigraph_vlans': mgFacts['minigraph_vlans'],
+            'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
+            'dut_mac': duthost.facts['router_mac']
+        }
+        with open(VXLAN_CONFIG_FILE, 'w') as file:
+            file.write(json.dumps(vxlanConfigData, indent=4))
+
+        logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
+        ptfhost.copy(src=VXLAN_CONFIG_FILE, dest='/tmp/')
+
+    ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
+    result = duthost.shell(
+        cmd='''ip route show type unicast |
+        sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
+        head -n 1 |
+        sed -ne 's/0\/.*$/1/p'
+        '''
+    )
+    dip = result['stdout']
+    logger.info('VxLan Sender {0}'.format(dip))
+    vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+    if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
+        vxlan_port = int(vxlan_port_out['stdout'])
+        ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1} -p {2}'.format(
+            dip, duthost.facts["asic_type"], vxlan_port)
+    else:
+        ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1}'.format(dip, duthost.facts["asic_type"])
+
+    ptfhost.host.options['variable_manager'].extra_vars.update({'ferret_args': ferret_args})
+    logger.info('Copying ferret config file to {0}'.format(ptfhost.hostname))
+    ptfhost.template(src='arp/files/ferret.conf.j2', dest='/etc/supervisor/conf.d/ferret.conf')
+
+    logger.info('Generate pem and key files for ssl')
+    ptfhost.command(
+        cmd='''openssl req -new -x509 -keyout test.key -out test.pem -days 365 -nodes
+        -subj "/C=10/ST=Test/L=Test/O=Test/OU=Test/CN=test.com"''',
+        chdir='/opt'
+    )
+    prepareVxlanConfigData(duthost, ptfhost, tbinfo)
+    logger.info('Refreshing supervisor control with ferret configuration')
+    ptfhost.shell('supervisorctl reread && supervisorctl update')
+    ptfhost.shell('supervisorctl restart ferret')
+
+
+def safe_filename(filename, replacement_char='_'):
+    """Replace illegal characters in the original filename with "_" or other specified characters.
+
+    Reference: https://www.mtu.edu/umc/services/websites/writing/characters-avoid/
+
+    Args:
+        filename (str): The original filename
+        replacement_char (str, optional): Replacement for illegal characters. Defaults to '_'.
+
+    Returns:
+        str: New filename with illegal characters replaced.
+    """
+    illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
+    return re.sub(illegal_chars_pattern, replacement_char, filename)
+
+
+@contextlib.contextmanager
+def update_environ(*remove, **update):
+    """
+    Temporarily update the environment variables.
+
+    :param remove: Environment variables to remove.
+    :param update: Dictionary of environment variables and values to add/update.
+    """
+    env = os.environ
+    update = update or {}
+    remove = remove or []
+
+    updated = (set(update.keys()) | set(remove)) & set(env.keys())
+
+    to_restore = {k: env[k] for k in updated}
+    to_removed = set(k for k in update if k not in env)
+
+    try:
+        env.update(update)
+        [env.pop(k, None) for k in remove]
+        yield
+    finally:
+        env.update(to_restore)
+        for k in to_removed:
+            env.pop(k)
+
+def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
+    """
+    @summary: utility function returns list of reboot dict containing timeout and wait
+    for each reboot type
+    @return a list of reboot dict containing timeout and wait for each reboot type
+    DUTHOST:
+        plt_reboot_dict:
+          cold:
+            timeout: 300
+            wait: 600
+          warm-reboot:
+            timeout: 300
+            wait: 600
+          acl/test_acl.py::TestAclWithReboot:
+            timeout: 300
+            wait: 600
+          platform_tests/test_reload_config.py::test_reload_configuration_checks:
+            timeout: 300
+            wait: 60
+    """
+
+    reboot_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_reboot_dict' in dut_vars:
+        for key in dut_vars['plt_reboot_dict'].keys():
+            if key in tc_name:
+                for mod_id in dut_vars['plt_reboot_dict'][key].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
+        if not reboot_dict:
+            if reboot_type in dut_vars['plt_reboot_dict'].keys():
+                for mod_id in dut_vars['plt_reboot_dict'][reboot_type].keys():
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
+
+    return reboot_dict
+
+def get_image_type(duthost):
+    """get the SONiC image type
+        It might be public/microsoft/...or any other type.
+        Different vendors can define their different types by checking the specific information from the build image.
+    Args:
+        duthost: AnsibleHost instance for DUT
+    Returns:
+        The returned image type string will be used as a key of map DEFAULT_SSH_CONNECT_PARAMS defined in
+        tests/common/constants.py for looking up default credential for this type of image.
+    """
+
+    return "public"
+
+def find_duthost_on_role(duthosts, role, tbinfo):
+    role_set = False
+
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            if role in neighbor["name"]:
+                role_host = duthost
+                role_set = True
+    return role_host
+
+def get_neighbor_port_list(duthost, neighbor_name):
+    """
+    @summary: Get neighbor port in dut by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @return a list of port name
+        Sample output: ["Ethernet45", "Ethernet46"]
+    """
+    config_facts = duthost.get_running_config_facts()
+    neighbor_port_list = []
+    for port_name, value in config_facts["DEVICE_NEIGHBOR"].items():
+        if neighbor_name.upper() in value["name"].upper():
+            neighbor_port_list.append(port_name)
+
+    return neighbor_port_list
+
+def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
+    """
+    @summary: Get neighbor port in ptf by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @param tbinfo: testbed information
+    @return a list of port index
+        Sample output: [45, 46]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor_port_list = get_neighbor_port_list(duthost, neighbor_name)
+    ptf_port_list = []
+    for neighbor_port in neighbor_port_list:
+        ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
+
+    return ptf_port_list
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None

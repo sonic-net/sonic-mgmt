@@ -1,34 +1,49 @@
 import contextlib
+import ipaddress
 import logging
+import itertools
 import pytest
 import random
 import time
 import json
+import os
 import ptf
-from scapy.all import Ether, IP, TCP
-import scapy.all as scapyall
-from datetime import datetime
-from tests.ptf_runner import ptf_runner
+import re
+import string
+import sys
 
 from collections import defaultdict
+from datetime import datetime
 from natsort import natsorted
+from ptf import mask
+from ptf import testutils
+from scapy.layers.l2 import Ether
+from scapy.layers.inet import IP, TCP
+from scapy.layers.inet6 import IPv6
+
+from tests.common import constants
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf
-import ipaddress
-
-from ptf import mask
-from ptf import testutils
-from scapy.all import Ether, IP
+from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common import constants
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.ptf_runner import ptf_runner
 
 
-__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs', 'upper_tor_host', 'lower_tor_host', 'force_active_tor']
+__all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs',
+           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
 
 logger = logging.getLogger(__name__)
+
+ARP_RESPONDER_PY = "arp_responder.py"
+SCRIPTS_SRC_DIR = "scripts/"
+OPT_DIR = "/opt"
 
 
 def get_tor_mux_intfs(duthost):
@@ -200,6 +215,7 @@ def get_t1_active_ptf_ports(dut, tbinfo):
 
     return ptf_portchannel_intfs
 
+
 def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     """
     @summary: Get ptf port indices for PortChannels on which BGP session is up
@@ -222,7 +238,7 @@ def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     ptf_portchannel_intfs = {}
     for k, v in config_facts['PORTCHANNEL'].items():
         if k in portchannels:
-            ptf_portchannel_intfs[k]  = []
+            ptf_portchannel_intfs[k] = []
             for member in v['members']:
                 ptf_portchannel_intfs[k].append(mg_facts['minigraph_ptf_indices'][member])
 
@@ -272,6 +288,7 @@ def force_active_tor():
     @param intf: One or a list of names of interface or 'all' for all interfaces
     """
     forced_intfs = []
+
     def force_active_tor_fn(dut, intf):
         logger.info('Setting {} as active for intfs {}'.format(dut, intf))
         if type(intf) == str:
@@ -289,6 +306,32 @@ def force_active_tor():
     for x in forced_intfs:
         x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
+
+@pytest.fixture
+def force_standby_tor():
+    """
+    @summary: Manually set dut host to the standby tor for intf
+    @param dut: The duthost for which to toggle mux
+    @param intf: One or a list of names of interface or 'all' for all interfaces
+    """
+    forced_intfs = []
+
+    def force_standby_tor_fn(dut, intf):
+        logger.info('Setting {} as standby for intfs {}'.format(dut, intf))
+        if type(intf) == str:
+            cmds = ["config muxcable mode standby {}; true".format(intf)]
+            forced_intfs.append((dut, intf))
+        else:
+            cmds = []
+            for i in intf:
+                forced_intfs.append((dut, i))
+                cmds.append("config muxcable mode standby {}; true".format(i))
+        dut.shell_cmds(cmds=cmds, continue_on_fail=True)
+
+    yield force_standby_tor_fn
+
+    for x in forced_intfs:
+        x[0].shell("config muxcable mode auto {}; true".format(x[1]))
 
 
 def _get_tor_fanouthosts(tor_host, fanouthosts):
@@ -338,6 +381,9 @@ def lower_tor_fanouthosts(lower_tor_host, fanouthosts):
     return _get_tor_fanouthosts(lower_tor_host, fanouthosts)
 
 
+fanout_intfs_to_recover = defaultdict(list)
+
+
 def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None):
     """Helper function for shutting down fanout interfaces that are connected to specified DUT interfaces.
 
@@ -345,14 +391,16 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         tor_host (object): Host object for the ToR DUT.
         tor_fanouthosts (dict): Key is fanout hostname, value is fanout host object.
         tbinfo (dict): Testbed info from the tbinfo fixture.
-        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All the
-            fanout interfaces that are connected to the specified DUT interfaces will be shutdown. If dut_intfs is not
-            specified, the function will shutdown all the fanout interfaces that are connected to the tor_host DUT and in a VLAN.
+        dut_intfs (list, optional): List of DUT interface names,
+            for example: ['Ethernet0', 'Ethernet4']. All the
+            fanout interfaces that are connected to the specified DUT interfaces will be shutdown.
+            If dut_intfs is not specified, the function will shutdown all the fanout interfaces
+            that are connected to the tor_host DUT and in a VLAN.
             Defaults to None.
 
     Returns:
-        dict (fanouthost: list): Each key is a fanout host, and the corresponding value is the interfaces that were shut down
-                                 on that host device.
+        dict (fanouthost: list): Each key is a fanout host, and the corresponding value
+            is the interfaces that were shut down on that host device.
     """
     if not dut_intfs:
         # If no interface is specified, shutdown all VLAN ports
@@ -388,12 +436,14 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
 
     for fanout_host, intf_list in fanout_shut_intfs.items():
         fanout_host.shutdown(intf_list)
+        fanout_intfs_to_recover[fanout_host].extend(intf_list)
 
     return fanout_shut_intfs
 
 
 @pytest.fixture
-def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo):
+def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
     """
     Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
@@ -406,22 +456,28 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified upper_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to upper_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to upper_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
-def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo,
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
     """
     Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
@@ -434,22 +490,28 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     shut_fanouts = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None):
         logger.info('Shutdown fanout ports connected to lower_tor')
+        if dut_intfs is None:
+            dut_intfs = mux_ports
         shut_fanouts.append(_shutdown_fanout_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo, dut_intfs))
 
     yield shutdown
 
     logger.info('Recover fanout ports connected to lower_tor')
 
-    for instance in shut_fanouts:
-        for fanout_host, intf_list in instance.items():
-            fanout_host.no_shutdown(intf_list)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 @pytest.fixture
-def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts, tbinfo):
+def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts,
+                              tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa F811
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
@@ -463,11 +525,17 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
         function: A function for shutting down fanout interfaces connected to specified lower_tor interfaces
     """
     down_intfs = []
+    fanout_intfs_to_recover.clear()
+
+    mux_ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     def shutdown(dut_intfs=None, upper=False, lower=False):
         if not upper and not lower:
             logger.info('lower=False and upper=False, no fanout interface will be shutdown.')
             return
+
+        if dut_intfs is None:
+            dut_intfs = mux_ports
 
         if upper:
             logger.info('Shutdown fanout ports connected to upper_tor')
@@ -480,8 +548,9 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     yield shutdown
 
     logger.info('Recover fanout ports connected to tor')
-    for fanout_host, fanout_intf in down_intfs:
-        fanout_host.no_shutdown(fanout_intf)
+    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+        fanout_host.no_shutdown(intf_list)
+    fanout_intfs_to_recover.clear()
 
 
 def _shutdown_t1_tor_intfs(tor_host, nbrhosts, tbinfo, vm_names=None):
@@ -612,6 +681,85 @@ def shutdown_t1_tor_intfs(upper_tor_host, lower_tor_host, nbrhosts, tbinfo):
         eos_host.no_shutdown(vm_intf)
 
 
+def _shutdown_tor_downlink_intfs(tor_host, dut_intfs=None):
+    """Helper function for shutting down DUT downlink interfaces connected to fanout.
+
+    Args:
+        tor_host (object): Host object for the ToR DUT.
+        dut_intfs (list, optional): List of DUT interface names, for example: ['Ethernet0', 'Ethernet4']. All
+            downlink interfaces on DUT will be shutdown. If dut_intfs is not
+            specified, the function will shutdown all DUT downlink interfaces.
+            Defaults to None.
+
+    Returns:
+        dut_intfs (list): interfaces that were shut down on that host device.
+    """
+    if not dut_intfs:
+        # If no interface is specified, shutdown all VLAN ports
+        vlan_intfs = []
+        vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
+        for vlan_members in vlan_member_table.values():
+            vlan_intfs.extend(list(vlan_members.keys()))
+
+        dut_intfs = vlan_intfs
+
+    dut_intfs = natsorted(dut_intfs)
+
+    logger.debug('dut_intfs: {}'.format(dut_intfs))
+
+    tor_host.shutdown_multiple(dut_intfs)
+
+    return dut_intfs
+
+
+@pytest.fixture
+def shutdown_upper_tor_downlink_intfs(upper_tor_host):
+    """
+    Fixture for shutting down upper tor downlink interfaces connected to fanout.
+
+    Args:
+        upper_tor_host (object): Host object for upper_tor.
+
+    Yields:
+        function: A function for shutting down upper tor downlink interfaces connected to fanout
+    """
+    shut_intfs = []
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown downlink interfaces in upper_tor')
+        shut_intfs.extend(_shutdown_tor_downlink_intfs(upper_tor_host, dut_intfs))
+
+    yield shutdown
+
+    logger.info('Recover upper_tor downlink interfaces connected to fanout')
+
+    upper_tor_host.no_shutdown_multiple(shut_intfs)
+
+
+@pytest.fixture
+def shutdown_lower_tor_downlink_intfs(lower_tor_host):
+    """
+    Fixture for shutting down lower tor downlink interfaces connected to fanout.
+
+    Args:
+        lower_tor_host (object): Host object for lower_tor.
+
+    Yields:
+        function: A function for shutting down lower tor downlink interfaces connected to fanout
+    """
+    shut_intfs = []
+
+    def shutdown(dut_intfs=None):
+        logger.info('Shutdown downlink interfaces in lower_tor')
+        shut_intfs.extend(_shutdown_tor_downlink_intfs(lower_tor_host, dut_intfs))
+
+    yield shutdown
+
+    logger.info('Recover lower_tor downlink interfaces connected to fanout')
+
+    lower_tor_host.no_shutdown_multiple(shut_intfs)
+
+
 def mux_cable_server_ip(dut):
     """Function for retrieving all ip of servers connected to mux_cable
 
@@ -625,7 +773,10 @@ def mux_cable_server_ip(dut):
     return json.loads(mux_cable_config)
 
 
-def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, standby_tor_ip, selected_port, target_server_ip, target_server_port, ptf_portchannel_indices):
+def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
+                         standby_tor_ip, selected_port, target_server_ip,
+                         target_server_ipv6, target_server_port, ptf_portchannel_indices,
+                         completeness_level, check_ipv6=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -639,9 +790,11 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         target_server_ip: The IP address of server for testing. The mux cable connected to this server must be standby
         target_server_port: PTF port indice on which server is connected
         ptf_portchannel_indices: A dict, the mapping from portchannel to ptf port indices
+        check_ipv6: if True, check ipv6 traffic, if False, check ipv4 traffic
     Returns:
         None.
     """
+
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
@@ -651,8 +804,12 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
         "active_tor_ip": active_tor_ip,
         "standby_tor_ip": standby_tor_ip,
         "ptf_portchannel_indices": ptf_portchannel_indices,
-        "hash_key_list": HASH_KEYS
+        "hash_key_list": HASH_KEYS,
+        "completeness_level": completeness_level
     }
+    if check_ipv6:
+        params["server_ip"] = target_server_ipv6
+
     logging.info("run ptf test for verifying IPinIP tunnel balance")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
@@ -664,57 +821,119 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip, stan
                params=params,
                log_file=log_file,
                qlen=2000,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 
-def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip):
+def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_server_ip, count=1):
     """
     Generate a packet to server based on hash.
     The value of field in packet is filled with random value according to hash_key
     """
+
+    def _generate_hashed_ipv4_packet(src_mac, dst_mac, dst_ip, hash_key):
+        SRC_IP_RANGE = [u'1.0.0.0', u'200.255.255.255']
+        src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
+        sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
+        dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
+        send_pkt = testutils.simple_tcp_packet(
+            pktlen=128,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            vlan_vid=0,
+            vlan_pcp=0,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            tcp_sport=sport,
+            tcp_dport=dport,
+            ip_ttl=64
+        )
+        exp_pkt = mask.Mask(send_pkt)
+        exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+        exp_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_pkt.set_do_not_care_scapy(IP, "ttl")
+        exp_pkt.set_do_not_care_scapy(IP, "chksum")
+
+        inner_packet = send_pkt[IP]
+        inner_packet.ttl = inner_packet.ttl - 1
+        exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src="10.1.0.32",
+            ip_dst="10.1.0.33",
+            inner_frame=inner_packet
+        )
+        send_pkt.ttl = 64
+        exp_tunnel_pkt[TCP] = inner_packet[TCP]
+        exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")       # since src and dst changed, ID would change too
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")      # ttl in outer packet is set to 255
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")   # checksum would differ as the IP header is not the same
+
+        return send_pkt, exp_pkt, exp_tunnel_pkt
+
+    def _generate_hashed_ipv6_packet(src_mac, dst_mac, dst_ip, hash_key):
+        SRC_IP_RANGE = [u'20D0:A800:0:00::', u'20D0:FFFF:0:00::FFFF']
+        src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
+        sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
+        dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
+        send_pkt = testutils.simple_tcpv6_packet(
+            pktlen=128,
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            dl_vlan_enable=False,
+            ipv6_src=src_ip,
+            ipv6_dst=dst_ip,
+            ipv6_hlim=64,
+            tcp_sport=sport,
+            tcp_dport=dport
+        )
+        exp_pkt = mask.Mask(send_pkt)
+        exp_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_pkt.set_do_not_care_scapy(IPv6, "hlim")
+
+        inner_packet = send_pkt[IPv6]
+        inner_packet[IPv6].hlim -= 1
+        exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src="10.1.0.32",
+            ip_dst="10.1.0.33",
+            inner_frame=inner_packet
+        )
+        send_pkt.hlim = 64
+        exp_tunnel_pkt[TCP] = inner_packet[TCP]
+        exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "dst")
+        exp_tunnel_pkt.set_do_not_care_scapy(Ether, "src")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")
+
+        return send_pkt, exp_pkt, exp_tunnel_pkt
+
     src_mac = ptfadapter.dataplane.get_mac(0, 0)
-    ip_dst = target_server_ip
-    SRC_IP_RANGE = [unicode('1.0.0.0'), unicode('200.255.255.255')]
-    ip_src = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
-    sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
-    dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
     dst_mac = duthost.facts["router_mac"]
-    send_pkt = testutils.simple_tcp_packet(pktlen=128,
-                        eth_dst=dst_mac,
-                        eth_src=src_mac,
-                        dl_vlan_enable=False,
-                        vlan_vid=0,
-                        vlan_pcp=0,
-                        ip_src=ip_src,
-                        ip_dst=ip_dst,
-                        tcp_sport=sport,
-                        tcp_dport=dport,
-                        ip_ttl=64)
-    exp_pkt = mask.Mask(send_pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, 'dst')
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
 
-    inner_packet = send_pkt[IP]
-    inner_packet.ttl = inner_packet.ttl - 1
-    exp_tunnel_pkt = testutils.simple_ipv4ip_packet(
-        eth_dst=dst_mac,
-        eth_src=src_mac,
-        ip_src="10.1.0.32",
-        ip_dst="10.1.0.33",
-        inner_frame=inner_packet
-    )
-    send_pkt.ttl = 64
-    exp_tunnel_pkt[TCP] = inner_packet[TCP]
-    exp_tunnel_pkt = mask.Mask(exp_tunnel_pkt)
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "id") # since src and dst changed, ID would change too
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "ttl") # ttl in outer packet is set to 255
-    exp_tunnel_pkt.set_do_not_care_scapy(scapyall.IP, "chksum") # checksum would differ as the IP header is not the same
+    # initialize the packets cache
+    if not hasattr(generate_hashed_packet_to_server, "packets_cache"):
+        generate_hashed_packet_to_server.packets_cache = defaultdict(list)
 
-    return send_pkt, exp_pkt, exp_tunnel_pkt
+    call_signature = (target_server_ip, tuple(hash_key))
+    if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
+        pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
+        for _ in range(pkt_num):
+            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+                pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            else:
+                pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
+            generate_hashed_packet_to_server.packets_cache[call_signature].append(pkt_t)
+
+    return generate_hashed_packet_to_server.packets_cache[call_signature][:count]
 
 
 def random_ip(begin, end):
@@ -725,7 +944,8 @@ def random_ip(begin, end):
     return str(ipaddress.ip_address(begin) + random.randint(0, length))
 
 
-def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, ports=[], device_number=0, timeout=None, count=1):
+def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt,
+                                    ports=[], device_number=0, timeout=None, count=1):
     """
     Receive all packets on all specified ports and count how many expected packets were received.
     """
@@ -745,7 +965,7 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
             if ((result.port in ports) and
                 (ptf.dataplane.match_exp_pkt(exp_packet, result.packet) or
-                ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
+                 ptf.dataplane.match_exp_pkt(exp_tunnel_pkt, result.packet))):
                 port_packet_count[result.port] = port_packet_count.get(result.port, 0) + 1
                 packet_count += 1
                 if packet_count == count:
@@ -756,15 +976,11 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
     return port_packet_count
 
 
-def check_nexthops_balance(rand_selected_dut,
-    ptfadapter,
-    dst_server_ipv4,
-    tbinfo,
-    downlink_ints,
-    nexthops_count):
+def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
+                           tbinfo, downlink_ints, nexthops_count):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
-    expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
     expected_uplink_portchannels = list()
     portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
@@ -777,17 +993,17 @@ def check_nexthops_balance(rand_selected_dut,
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    for _ in range(10000):
-        send_packet, exp_pkt, exp_tunnel_pkt = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_ipv4)
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect ECMP hashing to work and distribute downlink traffic evenly to every nexthop
         all_allowed_ports = expected_downlink_ports + expected_uplink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter,
-                                            exp_packet=exp_pkt,
-                                            exp_tunnel_pkt=exp_tunnel_pkt,
-                                            ports=all_allowed_ports,
-                                            timeout=0.1,
-                                            count=1)
+                                                         exp_packet=exp_pkt,
+                                                         exp_tunnel_pkt=exp_tunnel_pkt,
+                                                         ports=all_allowed_ports,
+                                                         timeout=0.1,
+                                                         count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
@@ -828,7 +1044,7 @@ def check_nexthops_balance(rand_selected_dut,
                     pc))
 
 
-def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num = 100, drop = False):
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
     """
     @summary: Helper function for verifying upstream packets
     @param host: The dut host
@@ -850,9 +1066,9 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
     eth_src = ptfadapter.dataplane.get_mac(0, tx_port)
     # Generate packets from server to a random IP address, which goes default routes
     pkt = testutils.simple_ip_packet(eth_src=eth_src,
-                                    eth_dst=vlan_mac,
-                                    ip_src=server_ip,
-                                    ip_dst=random_ip)
+                                     eth_dst=vlan_mac,
+                                     ip_src=server_ip,
+                                     ip_dst=random_ip)
     # Generate packet forwarded to portchannels
     pkt_copy = pkt.copy()
     pkt_copy[Ether].src = router_mac
@@ -879,7 +1095,8 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num =
         rx_ports += v
     rx_ports = [int(x.strip('eth')) for x in rx_ports]
 
-    logger.info("Verifying upstream traffic. packet number = {} interface = {} server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    logger.info("Verifying upstream traffic. packet number = {} interface = {} \
+                server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, tx_port, pkt, count=1)
@@ -897,7 +1114,7 @@ def get_crm_nexthop_counter(host):
     return crm_facts['resources']['ipv4_nexthop']['used']
 
 
-def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
+def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_function_completeness_level=None):
     """
     @summary: A helper function for collecting info of dualtor testbed.
     @param ptfhost: The ptf host fixture
@@ -925,7 +1142,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
     if 't0' in tbinfo["topo"]["name"]:
         # For mocked dualtor
         res['active_tor_ip'] = str(ipaddress.ip_address(res['standby_tor_ip']) + 1)
-        # For mocked dualtor, routes to peer switch is static 
+        # For mocked dualtor, routes to peer switch is static
         res['ptf_portchannel_indices'] = get_t1_active_ptf_ports(standby_tor, tbinfo)
     else:
         active_tor_mg_facts = active_tor.get_extended_minigraph_facts(tbinfo)
@@ -937,36 +1154,58 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo):
 
     res['selected_port'] = random_server_iface
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
+    res['target_server_ipv6'] = servers[random_server_iface]['server_ipv6'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
+
+    normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+    res['completeness_level'] = normalize_level
 
     logger.debug("dualtor info is generated {}".format(res))
     return res
 
 
-def show_arp(duthost, neighbor_addr):
-    """Show arp table entry for neighbor."""
-    command = "/usr/sbin/arp -n %s" % neighbor_addr
-    output = duthost.shell(command)["stdout_lines"]
-    if "no entry" in output[0]:
+def get_neighbor(duthost, neighbor_addr):
+    """Get the neighbor details from ip neighbor show output."""
+    command = "ip neighbor show %s" % neighbor_addr
+    output = [_.strip() for _ in duthost.shell(command)["stdout_lines"]]
+    if not output:
         return {}
-    headers = ("address", "hwtype", "hwaddress", "flags", "iface")
-    return dict(zip(headers, output[1].split()))
+    output = output[0]
+    return dict(_.split() for _ in itertools.chain(*re.findall(r'(dev\s+[\w\.]+)|(lladdr\s+[\w\.:]+)', output)) if _)
 
 
 @contextlib.contextmanager
 def flush_neighbor(duthost, neighbor, restore=True):
     """Flush neighbor entry for server in duthost."""
-    neighbor_info = show_arp(duthost, neighbor)
-    logging.info("neighbor entry for %s: %s", neighbor, neighbor_info)
-    assert neighbor_info, "No neighbor info for neighbor %s" % neighbor
+    neighbor_details = get_neighbor(duthost, neighbor)
+    assert neighbor_details, "No dev found for neighbor %s" % neighbor
+    logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
     logging.info("remove neighbor entry for %s", neighbor)
-    duthost.shell("ip -4 neighbor del %s dev %s" % (neighbor, neighbor_info["iface"]))
+    duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
     try:
-        yield
+        yield neighbor_details
     finally:
         if restore:
             logging.info("restore neighbor entry for %s", neighbor)
-            duthost.shell("ip -4 neighbor replace {address} lladdr {hwaddress} dev {iface}".format(**neighbor_info))
+            duthost.shell("ip neighbor replace %s lladdr %s dev %s" %
+                          (neighbor, neighbor_details['lladdr'], neighbor_details['dev']))
+
+
+def delete_neighbor(duthost, neighbor):
+    """Delete neighbor entry for server in duthost, ignore it if doesn't exist."""
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        logging.info("neighbor details for %s: %s", neighbor, neighbor_details)
+        logging.info("remove neighbor entry for %s", neighbor)
+        duthost.shell("ip neighbor del %s dev %s" % (neighbor, neighbor_details['dev']))
+    else:
+        logging.info("Neighbor entry %s doesn't exist", neighbor)
+        return True
+
+    neighbor_details = get_neighbor(duthost, neighbor)
+    if neighbor_details:
+        return False
+    return True
 
 
 @pytest.fixture(scope="function")
@@ -983,19 +1222,18 @@ def show_muxcable_status(duthost):
     """
     Show muxcable status and parse into a dict
     """
-    command = "show muxcable status"
-    output = duthost.shell(command)["stdout_lines"]
-    
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+
     ret = {}
-    for i in range(2, len(output)):
-        port, status, health = output[i].split()
-        ret[port] = {'status': status, 'health': health}
+    for port, muxcable in output['MUX_CABLE'].items():
+        ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
 
     return ret
 
 
-def build_packet_to_server(duthost, ptfadapter, target_server_ip):
-    """Build packet and expected mask packet destinated to server."""
+def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build ipv4 packet and expected mask packet destinated to server."""
     pkt_dscp = random.choice(range(0, 33))
     pkt_ttl = random.choice(range(3, 65))
     pkt = testutils.simple_ip_packet(
@@ -1012,26 +1250,56 @@ def build_packet_to_server(duthost, ptfadapter, target_server_ip):
         dump_scapy_packet_show_output(pkt)
     )
     exp_pkt = mask.Mask(pkt)
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "dst")
-    exp_pkt.set_do_not_care_scapy(scapyall.Ether, "src")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "tos")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "ttl")
-    exp_pkt.set_do_not_care_scapy(scapyall.IP, "chksum")
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(Ether, "src")
+    exp_pkt.set_do_not_care_scapy(IP, "tos")
+    exp_pkt.set_do_not_care_scapy(IP, "ttl")
+    exp_pkt.set_do_not_care_scapy(IP, "chksum")
     return pkt, exp_pkt
 
 
+def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build ipv6 packet and expected mask packet destinated to server."""
+    pkt_dscp = random.choice(range(0, 33))
+    pkt_hl = random.choice(range(3, 65))
+    pktlen = 100
+    pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
+    pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
+    pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
+    pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
+    logging.info(
+        "the packet destinated to server %s:\n%s",
+        target_server_ip,
+        dump_scapy_packet_show_output(pkt)
+    )
+    exp_pkt = mask.Mask(pkt)
+    exp_pkt.set_do_not_care_scapy(Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(Ether, "src")
+    exp_pkt.set_do_not_care_scapy(IPv6, "hlim")
+    return pkt, exp_pkt
+
+
+def build_packet_to_server(duthost, ptfadapter, target_server_ip):
+    """Build packet and expected mask packet destinated to server."""
+    if is_ipv4_address(target_server_ip):
+        return build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip)
+    else:
+        return build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip)
+
+
 @contextlib.contextmanager
-def crm_neighbor_checker(duthost):
+def crm_neighbor_checker(duthost, ip_version="ipv4", expect_change=False):
+    resource_name = "{}_neighbor".format(ip_version)
     crm_facts_before = duthost.get_crm_facts()
-    ipv4_neighbor_before = crm_facts_before["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor before test: %s", ipv4_neighbor_before)
+    neighbor_before = crm_facts_before["resources"][resource_name]["used"]
+    logging.info("{} neighbor before test: {}".format(ip_version, neighbor_before))
     yield
     time.sleep(crm_facts_before["polling_interval"])
     crm_facts_after = duthost.get_crm_facts()
-    ipv4_neighbor_after = crm_facts_after["resources"]["ipv4_neighbor"]["used"]
-    logging.info("ipv4 neighbor after test: %s", ipv4_neighbor_after)
-    if ipv4_neighbor_after != ipv4_neighbor_before:
-        raise ValueError("ipv4 neighbor differs, before %s, after %s", ipv4_neighbor_before, ipv4_neighbor_after)
+    neighbor_after = crm_facts_after["resources"][resource_name]["used"]
+    logging.info("{} neighbor after test: {}".format(ip_version, neighbor_after))
+    if neighbor_after != neighbor_before and not expect_change:
+        raise ValueError("{} neighbor differs, before {}, after {}".format(ip_version, neighbor_before, neighbor_after))
 
 
 def get_ptf_server_intf_index(tor, tbinfo, iface):
@@ -1057,15 +1325,15 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
 
-    ipv4_neighbors = []
-
+    route_dst = ipaddress.ip_address(route_dst.decode())
+    ip_neighbors = []
     for neighbor in bgp_neighbors:
-        if ipaddress.ip_address(neighbor).version == 4:
-            ipv4_neighbors.append(neighbor)
+        if ipaddress.ip_address(neighbor).version == route_dst.version:
+            ip_neighbors.append(neighbor)
 
     nexthop_str = ''
     if nexthops is None:
-        for neighbor in ipv4_neighbors:
+        for neighbor in ip_neighbors:
             nexthop_str += 'nexthop via {} '.format(neighbor)
     else:
         for nexthop in nexthops:
@@ -1073,7 +1341,8 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
 
     # Use `ip route replace` in case a rule already exists for this IP
     # If there are no pre-existing routes, equivalent to `ip route add`
-    route_cmd = 'ip route replace {}/32 {}'.format(route_dst, nexthop_str)
+    subnet_mask_len = 32 if route_dst.version == 4 else 128
+    route_cmd = 'ip route replace {}/{} {}'.format(str(route_dst), subnet_mask_len, nexthop_str)
     standby_tor.shell(route_cmd)
     logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 
@@ -1099,6 +1368,117 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
 
     cmds = []
     cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                    .format(probe_interval_ms))
+                .format(probe_interval_ms))
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
+
+
+def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
+    '''
+    Temporarily modify linkmgrd probe interval
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
+    cmds = []
+    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms))
+    duthosts.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope='module')
+def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+    # Fetch dual ToR ports
+    logger.info("Starting fetching dual ToR info")
+
+    fetch_dual_tor_ports_script = "\
+        local remap_enabled = redis.call('HGET', 'SYSTEM_DEFAULTS|tunnel_qos_remap', 'status')\
+        if remap_enabled ~= 'enabled' then\
+            return {}\
+        end\
+        local type = redis.call('HGET', 'DEVICE_METADATA|localhost', 'type')\
+        local expected_neighbor_type\
+        local expected_neighbor_suffix\
+        if type == 'LeafRouter' then\
+            expected_neighbor_type = 'ToRRouter'\
+            expected_neighbor_suffix = 'T0'\
+        else\
+            if type == 'ToRRouter' then\
+                local subtype = redis.call('HGET', 'DEVICE_METADATA|localhost', 'subtype')\
+                if subtype == 'DualToR' then\
+                    expected_neighbor_type = 'LeafRouter'\
+                    expected_neighbor_suffix = 'T1'\
+                end\
+            end\
+        end\
+        if expected_neighbor_type == nil then\
+            return {}\
+        end\
+        local result = {}\
+        local all_ports_with_neighbor = redis.call('KEYS', 'DEVICE_NEIGHBOR|*')\
+        for i = 1, #all_ports_with_neighbor, 1 do\
+            local neighbor = redis.call('HGET', all_ports_with_neighbor[i], 'name')\
+            if neighbor ~= nil and string.sub(neighbor, -2, -1) == expected_neighbor_suffix then\
+                local peer_type = redis.call('HGET', 'DEVICE_NEIGHBOR_METADATA|' .. neighbor, 'type')\
+                if peer_type == expected_neighbor_type then\
+                    table.insert(result, string.sub(all_ports_with_neighbor[i], 17, -1))\
+                end\
+            end\
+        end\
+        return result\
+    "
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+    dualtor_ports_str = dut_asic.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+                                                     fetch_dual_tor_ports_script, "0"])
+    if dualtor_ports_str:
+        dualtor_ports_set = set(dualtor_ports_str)
+    else:
+        dualtor_ports_set = set({})
+
+    logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
+
+    return dualtor_ports_set
+
+
+def is_tunnel_qos_remap_enabled(duthost):
+    """
+    Check whether tunnel_qos_remap is enabled or not
+    """
+    try:
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
+                                                module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    except IndexError:
+        return False
+    return "enabled" == tunnel_qos_remap_status
+
+
+@pytest.fixture(scope="session")
+def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # noqa F811
+    """
+    Apply standard ARP responder for dualtor testbeds
+
+    In this case, ARP responder will reply to ARP requests and NA messages for the
+    server IPs configured in the ToR's config DB MUX_CABLE table
+    """
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY), dest=OPT_DIR)
+    arp_responder_conf = {}
+    tor_to_ptf_intf_map = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+
+    for tor_intf, config_vals in mux_config.items():
+        ptf_intf = "eth{}".format(tor_to_ptf_intf_map[tor_intf])
+        arp_responder_conf[ptf_intf] = [
+            str(ipaddress.ip_interface(config_vals["SERVER"]["IPv4"]).ip),
+            str(ipaddress.ip_interface(config_vals["SERVER"]["IPv6"]).ip)]
+
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True), dest="/tmp/from_t1.json")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+    supervisor_cmd = "supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder"
+    ptfhost.shell(supervisor_cmd)
+
+    yield
+
+    ptfhost.shell("supervisorctl stop arp_responder")

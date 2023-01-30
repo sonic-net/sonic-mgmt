@@ -71,6 +71,14 @@ class Restapi:
         else:
             logger.error("Malformed URL for "+path+"!")
 
+    def get_config_tunnel_decap_tunnel_type(self, construct_url, tunnel_type):
+        path = API_VERSION+'/config/tunnel/decap/{tunnel_type}'.format(tunnel_type=tunnel_type)
+        url = construct_url(path)
+        if url:
+            return self.request(GET, url)           
+        else:
+            logger.error("Malformed URL for "+path+"!")
+
     # VRF/VNET
     def post_config_vrouter_vrf_id(self, construct_url, vrf_id, params):
         path = API_VERSION+'/config/vrouter/{vrf_id}'.format(vrf_id=vrf_id)
@@ -197,3 +205,12 @@ class Restapi:
             pytest_assert(r.status_code == 200)
         else:
             logger.error("Malformed URL for "+path+"!")
+
+    def post_config_tunnel_decap(self, construct_url, params):
+        path = API_VERSION+'/config/tunnel/decap/vxlan'
+        url = construct_url(path)
+        if url:
+            return self.request(POST, url,params)
+        else:
+            logger.error("Malformed URL for "+path+"!")
+

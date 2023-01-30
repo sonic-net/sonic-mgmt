@@ -101,9 +101,9 @@
       <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo EndDevice="str-msn2700-01" StartDevice="console-1" StartPort="10"/>
-      <ConsoleLinkInfo EndDevice="str-7260-10" StartDevice="console-1" StartPort="11"/>
-      <ConsoleLinkInfo EndDevice="str-7260-11" StartDevice="console-1" StartPort="12"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-1" StartPort="11"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>

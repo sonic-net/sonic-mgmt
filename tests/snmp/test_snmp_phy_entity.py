@@ -137,7 +137,7 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-# The sort factor values are got from https://github.com/Azure/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
+# The sort factor values are got from https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
 XCVR_SENSOR_PATTERN = {
     'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
     'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
@@ -170,7 +170,7 @@ def is_sensor_test_supported(duthost):
     The new sensor test is not supported in 201811, 201911 and 202012
     The assumption is that image under test always has a correct version.
     If image version doesn't including above "version keyword", it will be considered
-    as a newer version which support the new sensor test. 
+    as a newer version which support the new sensor test.
     """
     if "201811" in duthost.os_version or "201911" in duthost.os_version or "202012" in duthost.os_version:
         logging.info("Image doesn't support new sensor test, image version {}, test will be skipped".format(duthost.os_version))
@@ -203,7 +203,7 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
     for oid, info in snmp_facts['snmp_physical_entities'].items():
@@ -277,15 +277,14 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
-        if parent_name == CHASSIS_KEY:
+        if 'PSU' in parent_name:
+            continue
+        elif parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
             parent_entity_info = redis_hgetall(duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
-            if 'PSU' in parent_name:
-                parent_oid = MODULE_TYPE_PSU + parent_position * MODULE_INDEX_MULTIPLE
-            else:
-                parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
+            parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
         expect_oid = parent_oid + DEVICE_TYPE_FAN + position * DEVICE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, 'Cannot find fan {} in physical entity mib'.format(name)
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
@@ -345,8 +344,6 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not duthost.is_supervisor_node():
-        pytest.skip("Not supported on non supervisor node")
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:
@@ -472,7 +469,7 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         assert thermal_snmp_fact['entPhysMfgName'] == ''
         assert thermal_snmp_fact['entPhysModelName'] == ''
         assert thermal_snmp_fact['entPhysIsFRU'] == NOT_REPLACEABLE
-        
+
         # snmp_entity_sensor_info is only supported in image newer than 202012
         if is_sensor_test_supported(duthost):
             thermal_sensor_snmp_fact = snmp_entity_sensor_info[expect_oid]
@@ -501,6 +498,12 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
         name_to_snmp_facts[values['entPhysName']] = values
+
+    transceiver_rev_key = "vendor_rev"
+    release_list = ["201911", "202012", "202106", "202111"]
+    if any(release in duthost.os_version for release in release_list):
+        transceiver_rev_key = "hardware_rev"
+
     for key in keys:
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         assert name in name_to_snmp_facts, 'Cannot find port {} in physical entity mib'.format(name)
@@ -511,7 +514,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         assert transceiver_snmp_fact['entPhysClass'] == PHYSICAL_CLASS_PORT
         assert transceiver_snmp_fact['entPhyParentRelPos'] == -1
         assert transceiver_snmp_fact['entPhysName'] == name
-        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info['hardware_rev']
+        assert transceiver_snmp_fact['entPhysHwVer'] == transceiver_info[transceiver_rev_key]
         assert transceiver_snmp_fact['entPhysFwVer'] == ''
         assert transceiver_snmp_fact['entPhysSwVer'] == ''
         assert transceiver_snmp_fact['entPhysSerialNum'] == transceiver_info['serial']
@@ -615,7 +618,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     pdu_controller.turn_off_outlet(first_outlet)
     assert wait_until(30, 5, 0, check_outlet_status, pdu_controller, first_outlet, False)
     # wait for psud update the database
-    assert wait_until(180, 20, 0, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
+    assert wait_until(180, 20, 5, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts)
 
 
 def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
@@ -631,27 +634,35 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
+    # Ignore the test if the platform does not have psus (e.g Line card)
+    if not keys:
+        pytest.skip('PSU information does not exist in DB, skipping this test {}'.format(duthost.hostname))
     power_off_psu_found = False
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
+        if psu_info['presence'] == 'false' or psu_info['status'] == 'true':
+            continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
-        if psu_info['status'] != 'true':
-            assert expect_oid in entity_mib_info
-            for field, sensor_tuple in PSU_SENSOR_INFO.items():
-                sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
-                # entity_sensor_mib_info is only supported in image newer than 202012
-                if is_sensor_test_supported(duthost):
-                    if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
-                        power_off_psu_found = True
-                        break
-                else:
-                    if sensor_oid not in entity_mib_info:
-                        power_off_psu_found = True
-                        break
+        assert expect_oid in entity_mib_info
+        for field, sensor_tuple in PSU_SENSOR_INFO.items():
+            sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
+            # entity_sensor_mib_info is only supported in image newer than 202012
+            if sensor_oid in entity_mib_info:
+                if psu_info['current'] == '0.0' and psu_info['power'] == '0.0':
+                    power_off_psu_found = True
+                    break
+            if is_sensor_test_supported(duthost):
+                if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
+                    power_off_psu_found = True
+                    break
+            else:
+                if sensor_oid not in entity_mib_info:
+                    power_off_psu_found = True
+                    break
     return power_off_psu_found
 
 
@@ -746,7 +757,8 @@ def redis_hgetall(duthost, db_id, key):
     content = output['stdout'].strip()
     if not content:
         return {}
-
+    # fix to make literal_eval() work with nested dictionaries
+    content = content.replace("'{", '"{').replace("}'", '}"')
     return ast.literal_eval(content)
 
 

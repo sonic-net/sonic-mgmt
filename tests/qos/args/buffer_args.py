@@ -19,3 +19,11 @@ def add_dynamic_buffer_calculation_args(parser):
         default=False,
         help="Whether the shared headroom pool should be enabled before dynamic buffer calculation test",
     )
+
+    dynamic_buffer_calculation_group.addoption(
+        "--port_to_test",
+        action="store",
+        type=str,
+        default=None,
+        help="The port to test"
+    )

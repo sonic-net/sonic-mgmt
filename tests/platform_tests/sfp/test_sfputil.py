@@ -2,7 +2,7 @@
 Check SFP status and configure SFP using sfputil.
 
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 
 import logging
@@ -14,7 +14,8 @@ import pytest
 from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
-from tests.common.utilities import skip_version
+from tests.common.utilities import skip_release
+from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -53,13 +54,13 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     @param: cmd_sfp_error_status: fixture representing the command used to test
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    skip_version(duthost, ["201811", "201911", "202012"])
+    skip_release(duthost, ["201811", "201911", "202012"])
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
     logging.info("Check output of '{}'".format(cmd_sfp_error_status))
     sfp_error_status = duthost.command(cmd_sfp_error_status)
     for line in sfp_error_status["stdout_lines"][2:]:
-        if "Not implemented" in line: 
+        if "Not implemented" in line:
             pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
     for intf in dev_conn:
@@ -86,7 +87,7 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
 
-def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list):
+def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -125,7 +126,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
 
 
-def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list):
+def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
     """
     @summary: Check SFP low power mode
 

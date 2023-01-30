@@ -1,5 +1,7 @@
 import pytest
 import pexpect
+import string
+
 
 from tests.common.helpers.assertions import pytest_assert
 
@@ -38,7 +40,7 @@ def test_console_loopback_echo(duthost, creds, target_line):
         client.sendline(text)
         assert_expect_text(client, text, target_line, timeout_sec)
     except Exception as e:
-        pytest.fail("Not able to communicate DUT via reverse SSH")
+        pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
 
 @pytest.mark.parametrize("src_line,dst_line", [('17', '19'),
                                                ('18', '20'),

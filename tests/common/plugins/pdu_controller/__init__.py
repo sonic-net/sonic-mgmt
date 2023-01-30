@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from pdu_manager import pdu_manager_factory
+from .pdu_manager import pdu_manager_factory
 
 
 logger = logging.getLogger(__name__)
@@ -55,5 +55,6 @@ def get_pdu_controller(conn_graph_facts, pdu):
     yield pdu_controller_helper
 
     for controller in controller_map.values():
-        controller.turn_on_outlet()
-        controller.close()
+        if controller:
+            controller.turn_on_outlet()
+            controller.close()

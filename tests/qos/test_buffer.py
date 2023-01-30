@@ -10,11 +10,17 @@ from natsort import natsorted
 import pytest
 
 from tests.common import config_reload
+from tests.common.broadcom_data import is_broadcom_device
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.innovium_data import is_innovium_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
+from tests.common.utilities import skip_release
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # lgtm[py/unused-import]
+from tests.qos.buffer_helpers import DutDbInfo
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -38,7 +44,8 @@ ASIC_TYPE = None
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
 TESTPARAM_SHARED_HEADROOM_POOL = None
-TESTPARAM_LOSSY_PG = None
+TESTPARAM_EXTRA_OVERHEAD = None
+TESTPARAM_ADMIN_DOWN = None
 
 BUFFER_MODEL_DYNAMIC = True
 
@@ -51,6 +58,8 @@ LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
 LOSSLESS_MTU = None
 SMALL_PACKET_PERCENTAGE = None
 
+KEY_2_LOSSLESS_QUEUE = "2_lossless_queues"
+KEY_4_LOSSLESS_QUEUE = "4_lossless_queues"
 
 def detect_buffer_model(duthost):
     """Detect the current buffer model (dynamic or traditional) and store it for further use. Called only once when the module is initialized
@@ -208,8 +217,10 @@ def load_test_parameters(duthost):
     global TESTPARAM_HEADROOM_OVERRIDE
     global TESTPARAM_LOSSLESS_PG
     global TESTPARAM_SHARED_HEADROOM_POOL
-    global TESTPARAM_LOSSY_PG
+    global TESTPARAM_EXTRA_OVERHEAD
+    global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
+    global MAX_SPEED_8LANE_PORT
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -221,7 +232,46 @@ def load_test_parameters(duthost):
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
         TESTPARAM_LOSSLESS_PG = vendor_specific_param['lossless_pg']
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
-        TESTPARAM_LOSSY_PG = vendor_specific_param['lossy_pg']
+        TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
+        TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(duthost.facts['platform'])
+
+        # For ingress profile list, we need to check whether the ingress lossy profile exists
+        ingress_lossy_pool = duthost.shell('redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
+        if ingress_lossy_pool:
+            ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
+            ingress_profile_list.append('[BUFFER_PROFILE_TABLE:ingress_lossy_zero_profile]')
+
+        # 'admin-down' section contains references to buffer profiles
+        # We need to convert the format of the references according to whether table name should be in the reference
+        if not check_qos_db_fv_reference_with_table(duthost):
+            expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
+            if expected_pgs:
+                new_pgs = {}
+                for pg, profile in expected_pgs.items():
+                    new_pgs[pg] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                TESTPARAM_ADMIN_DOWN['BUFFER_PG_TABLE'] = new_pgs
+
+            expected_queues = TESTPARAM_ADMIN_DOWN.get('BUFFER_QUEUE_TABLE')
+            if expected_queues:
+                new_queues = {}
+                for queue, profile in expected_queues.items():
+                    new_queues[queue] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = new_queues
+
+            expected_ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
+            if expected_ingress_profile_list:
+                new_list = []
+                for profile in expected_ingress_profile_list:
+                    new_list.append(profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', ''))
+                TESTPARAM_ADMIN_DOWN['BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE'] = new_list
+
+            expected_egress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE')
+            if expected_egress_profile_list:
+                new_list = []
+                for profile in expected_egress_profile_list:
+                    new_list.append(profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', ''))
+                TESTPARAM_ADMIN_DOWN['BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE'] = new_list
 
 
 def configure_shared_headroom_pool(duthost, enable):
@@ -251,6 +301,26 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
 
     duthost = duthosts[rand_one_dut_hostname]
     detect_buffer_model(duthost)
+    if not is_mellanox_device(duthost) and not is_innovium_device(duthost):
+        load_lossless_headroom_data(duthost)
+        yield
+        return
+
+    # Disable BGP neighbors
+    # There are a lot of routing entries learnt with BGP neighbors enabled.
+    # There are a lot of speed changing operations during the buffer test,
+    # which causes port operational down and routing entries withdrawn.
+    # Since orchagent works in a single thread model, this can causes buffer related notifications
+    # pended in the queue and can not be drained until routing entries handled,
+    # which in turn significantly slows down the process in orchagent and makes many checks timeout.
+    # As the buffer test has already taken ~30 minutes, we don't want to extend the wait time.
+    # So disabling BGP neighbors is a reasonal way to tolerance this situation.
+    bgp_neighbors = duthost.shell('redis-cli -n 4 keys BGP_NEIGHBOR*')['stdout']
+    if bgp_neighbors:
+        duthost.shell('config bgp shutdown all')
+        logging.info("Shutting down BGP neighbors and waiting for all routing entries withdrawn")
+        time.sleep(60)
+
     enable_shared_headroom_pool = request.config.getoption("--enable_shared_headroom_pool")
     need_to_disable_shared_headroom_pool_after_test = False
     if BUFFER_MODEL_DYNAMIC:
@@ -272,12 +342,22 @@ def setup_module(duthosts, rand_one_dut_hostname, request):
             logging.info("Shared headroom pool enabled according to test option")
             need_to_disable_shared_headroom_pool_after_test = True
     else:
-        pytest.skip("Dynamic buffer isn't enabled, skip the test")
+        load_lossless_headroom_data(duthost)
+        logging.info("Lossless headroom data {}".format(DEFAULT_LOSSLESS_HEADROOM_DATA))
 
     yield
 
     if need_to_disable_shared_headroom_pool_after_test:
         configure_shared_headroom_pool(duthost, False)
+
+    if bgp_neighbors:
+        duthost.shell("config bgp startup all")
+        time.sleep(60)
+
+
+def skip_traditional_model():
+    if not BUFFER_MODEL_DYNAMIC:
+        pytest.skip("Skip test in traditional model")
 
 
 def init_log_analyzer(duthost, marker, expected, ignored=None):
@@ -333,9 +413,13 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
         global PORTS_WITH_8LANES
         hostname = conn_graph_facts['device_conn'].keys()[0]
         ports_info = conn_graph_facts['device_conn'][hostname]
+        if not ports_info:
+            ports = [port.split('|')[1] for port in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split('\n')]
+        else:
+            ports = ports_info.keys()
         if PORTS_WITH_8LANES is None:
             PORTS_WITH_8LANES = []
-            for port in ports_info.keys():
+            for port in ports:
                 lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port))['stdout']
                 if len(lanes.split(',')) == 8:
                     PORTS_WITH_8LANES.append(port)
@@ -393,17 +477,17 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             else:
                 new_reserved = 0
 
-            if "adjust_lossy_pg_size" in kwargs:
-                adjust_lossy_pg_size = int(kwargs["adjust_lossy_pg_size"])
+            if "adjust_extra_overhead" in kwargs:
+                adjust_extra_overhead = int(kwargs["adjust_extra_overhead"])
             else:
-                adjust_lossy_pg_size = 0
+                adjust_extra_overhead = 0
 
-            original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number + adjust_lossy_pg_size
+            original_memory = curr_pool_size * DEFAULT_INGRESS_POOL_NUMBER + old_size * old_pg_number + adjust_extra_overhead
 
             if DEFAULT_OVER_SUBSCRIBE_RATIO:
-                private_headroom_str = TESTPARAM_SHARED_HEADROOM_POOL.get("private_pg_headroom") 
+                private_headroom_str = TESTPARAM_SHARED_HEADROOM_POOL.get("private_pg_headroom")
                 if private_headroom_str:
-                    private_headroom_number = int(private_headroom_str) 
+                    private_headroom_number = int(private_headroom_str)
                 else:
                     private_headroom_number = 0
                 curr_shp_size = int(kwargs["shp_size"])
@@ -653,7 +737,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
     return profile_oid, pool_oid
 
 
-def make_expected_profile_name(speed, cable_length, other_factors=None):
+def make_expected_profile_name(speed, cable_length, **kwargs):
     """Make the name of an expected profile according to parameters
 
     Args:
@@ -666,10 +750,15 @@ def make_expected_profile_name(speed, cable_length, other_factors=None):
         The name of the profile
     """
     expected_profile = 'pg_lossless_{}_{}_'.format(speed, cable_length)
+    other_factors = kwargs.get('other_factors')
     if other_factors:
         expected_profile += '_'.join(other_factors) + '_'
     if ASIC_TYPE == 'mellanox':
-        if NUMBER_OF_LANES == 8 and speed != '400000':
+        number_of_lanes = kwargs.get('number_of_lanes')
+        if number_of_lanes is not None:
+            if number_of_lanes == 8 and speed != MAX_SPEED_8LANE_PORT:
+                expected_profile += '8lane_'
+        elif NUMBER_OF_LANES == 8 and speed != MAX_SPEED_8LANE_PORT:
             expected_profile += '8lane_'
     expected_profile += 'profile'
     return expected_profile
@@ -737,10 +826,16 @@ def port_to_test(request, duthost):
         dutLagInterfaces += lag["members"]
 
     testPort = set(mgFacts["minigraph_ports"].keys())
-    testPort -= set(dutLagInterfaces)
+    lagMembers = set(dutLagInterfaces)
+    testPort -= lagMembers
     pytest_require(len(testPort) > 0, "No port to run test")
 
-    PORT_TO_TEST = list(testPort)[0]
+    PORT_TO_TEST = request.config.getoption("--port_to_test")
+    if PORT_TO_TEST in lagMembers:
+        logging.info("LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
+        PORT_TO_TEST = None
+    if not PORT_TO_TEST:
+        PORT_TO_TEST = list(testPort)[0]
     lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(PORT_TO_TEST))['stdout']
     NUMBER_OF_LANES = len(lanes.split(','))
 
@@ -794,6 +889,8 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
         mtu_to_test: To what mtu will the port's be changed
         cable_len_to_test: To what cable length will the port's be changed
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
     if supported_speeds and speed_to_test not in supported_speeds:
@@ -840,7 +937,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
         # Check whether profile is correct in PG table
         if mtu_to_test != DEFAULT_MTU:
-            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test, ['mtu{}'.format(mtu_to_test)])
+            expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test, other_factors=['mtu{}'.format(mtu_to_test)])
             check_profile_removed = True
         else:
             expected_profile = make_expected_profile_name(speed_to_test, cable_len_to_test)
@@ -1059,6 +1156,8 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
     Args:
         port_to_test: On which port will the test be performed
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     if not TESTPARAM_HEADROOM_OVERRIDE:
         pytest.skip("Headroom override test skipped due to no parameters provided")
@@ -1214,6 +1313,8 @@ def test_shared_headroom_pool_configure(duthosts, rand_one_dut_hostname, conn_gr
         7. Testcase: remove both over subscribe ratio and shared headroom pool size
         8. Restore configuration
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
 
     pool_size_before_shp = duthost.shell('redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
@@ -1357,6 +1458,8 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         port_to_test: On which port will the test be performed
         pg_to_test: To what PG will the profiles be applied
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell('redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
@@ -1419,7 +1522,7 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
         # Update it to non-default dynamic_th
         logging.info('[Testcase: headroom override => dynamically calculated headroom with non-default dynamic_th]')
         duthost.shell(set_command + 'non-default-dynamic_th')
-        expected_nondef_profile = make_expected_profile_name(original_speed, '15m', ['th2'])
+        expected_nondef_profile = make_expected_profile_name(original_speed, '15m', other_factors=['th2'])
         check_pg_profile(duthost, buffer_pg, expected_nondef_profile)
         # A new profile should be created in ASIC DB
         profile_oid, _ = check_buffer_profile_details(duthost, initial_asic_db_profiles, expected_nondef_profile, None, pool_oid, port_to_test)
@@ -1496,11 +1599,106 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
            - change the cable length
         4. Check whether the PGs are correctly applied after port being started up
     """
+    def _convert_ref_from_configdb_to_appldb(references):
+        """Convert reference format from CONFIG_DB to APPL_DB
+
+        Args:
+            references: The reference or reference list to CONFIG_DB entry
+
+        Return:
+            The reference or reference list to APPL_DB entry
+
+        Example 1 profile list:
+            Input: '[BUFFER_PROFILE|ingress_lossless_profile],[BUFFER_PROFILE|ingress_lossy_profile]'
+            Output: '[BUFFER_PROFILE_TABLE:ingress_lossless_profile],[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'
+
+        Example 2 single item:
+            Input: '[BUFFER_PROFILE|ingress_lossless_profile]
+            Output: '[BUFFER_PROFILE_TABLE:ingress_lossless_profile]
+        """
+        if not references:
+            return ''
+
+        references_in_appldb = ''
+        for reference in references.split(','):
+            fields = reference.split('|')
+            fields[0] += '_TABLE'
+            references_in_appldb += ':'.join(fields) + ','
+
+        return references_in_appldb[:-1]
+
+    def _check_buffer_object_aligns_between_appldb_configdb(port_to_test, key, profile_field_name):
+        """Check whether buffer objects (queues and priority groups) align between APPL_DB and CONFIG_DB
+
+        This is to verify whether the entries in BUFFER_QUEUE, BUFFER_PORT_INGRESS/EGRESS_PROFILE_LIST
+        tables have been popagated to APPL_DB correctly after the port has been started up.
+
+        Args:
+            port_to_test: The port under test
+            key: The key in buffer tables in CONFIG_DB format, like BUFFER_PG|Ethernet0|3-4
+            profile_field_name: profile for BUFFER_QUEUE table and profile_list for buffer profile list tables
+        """
+        objects_in_configdb = duthost.shell('redis-cli -n 4 keys "{}"'.format(key))['stdout'].split()
+        if objects_in_configdb:
+            for object_in_configdb in objects_in_configdb:
+                profile_in_configdb = duthost.shell('redis-cli -n 4 hget "{}" {}'.format(object_in_configdb, profile_field_name))['stdout']
+                # Convert config db reference to appl db reference
+                if is_qos_db_reference_with_table:
+                    expected_profile_in_appldb = _convert_ref_from_configdb_to_appldb(profile_in_configdb)
+                else:
+                    expected_profile_in_appldb = profile_in_configdb
+                # Convert queue id
+                object_in_app_db = _convert_ref_from_configdb_to_appldb(object_in_configdb)
+                profile_in_appl_db = duthost.shell('redis-cli hget "{}" {}'.format(object_in_app_db, profile_field_name))['stdout']
+                pytest_assert(profile_in_appl_db == expected_profile_in_appldb,
+                              "Buffer object {} contains {} which isn't expected ({})".format(key, profile_in_appl_db, expected_profile_in_appldb))
+
+    def _check_buffer_object_aligns_with_expected_ones(port_to_test, table, expected_objects):
+        """Check whether the content in BUFFER_PG or BUFFER_QUEUE tables is exactly the same as the expected objects
+
+        Args:
+            port_to_test: The port under test
+            table: BUFFER_PG or BUFFER_QUEUE
+            expected_objects: The expected buffer items of BUFFER_PG or BUFFER_QUEUE when the port is admin down.
+                              They are predefined parameters and loaded at the beginning of the test.
+                              Typically, they are zero profiles.
+        """
+        objects_in_appl_db = duthost.shell('redis-cli keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
+        if expected_objects:
+            expected_object_keys = ['{}:{}:{}'.format(table, port_to_test, objectid) for objectid in expected_objects.keys()]
+            pytest_assert(set(expected_object_keys) == set(objects_in_appl_db),
+                          "Objects in {} on admin-down port is {} but should be {}".format(table, objects_in_appl_db, expected_object_keys))
+            for objectid, expected_profile in expected_objects.items():
+                profile = duthost.shell('redis-cli hget {}:{}:{} profile'.format(table, port_to_test, objectid))['stdout']
+                pytest_assert(profile == expected_profile,
+                              "Profile in {}:{}:{} should be {} but got {}".format(table, port_to_test, objectid, expected_objects[objectid], profile))
+        else:
+            pytest_assert(not objects_in_appl_db, "There shouldn't be any object in {} on an administratively down port but we got {}".format(table, objects_in_appl_db))
+
+    def _check_buffer_object_list_aligns_with_expected_ones(port_to_test, table, expected_objects):
+        """Check whether the content in BUFFER_PG or BUFFER_QUEUE tables is exactly the same as the expected objects
+
+        Args:
+            port_to_test: The port under test
+            table: BUFFER_PG or BUFFER_QUEUE
+            expected_objects: The expected buffer items of BUFFER_PG or BUFFER_QUEUE when the port is admin down.
+                              They are predefined parameters and loaded at the beginning of the test.
+        """
+        object_list_in_appl_db = duthost.shell('redis-cli hget "{}:{}" profile_list'.format(table, port_to_test))['stdout'].split(',')
+        if expected_objects:
+            pytest_assert(set(expected_objects) == set(object_list_in_appl_db),
+                          "Profile in {}:{} should be {} but got {}".format(table, port_to_test, expected_objects, object_list_in_appl_db))
+        else:
+            pytest_assert(not object_list_in_appl_db, "There shouldn't be any object in {} on an administratively down port but we got {}".format(table, object_list_in_appl_db))
+
+    skip_traditional_model()
+
     param = TESTPARAM_HEADROOM_OVERRIDE.get("add")
     if not param:
         pytest.skip('Shutdown port test skipped due to no headroom override parameters defined')
 
     duthost = duthosts[rand_one_dut_hostname]
+    is_qos_db_reference_with_table = check_qos_db_fv_reference_with_table(duthost)
     original_speed = duthost.shell('redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
     raw_lanes_str =  duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
     list_of_lanes = raw_lanes_str.split(',')
@@ -1515,10 +1713,10 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     new_cable_len = '15m'
 
-    lossy_pg_size = TESTPARAM_LOSSY_PG.get(str(len(list_of_lanes)))
-    if not lossy_pg_size:
-        lossy_pg_size = TESTPARAM_LOSSY_PG.get('default')
-        if not lossy_pg_size:
+    extra_overhead = TESTPARAM_EXTRA_OVERHEAD.get(str(len(list_of_lanes)))
+    if not extra_overhead:
+        extra_overhead = TESTPARAM_EXTRA_OVERHEAD.get('default')
+        if not extra_overhead:
             pytest.skip('Shutdown port test skipped due to no lossy pg size defined')
 
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
@@ -1555,7 +1753,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
          False),
         ('Add a PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless add {} 3-4 {}'.format(port_to_test, non_default_dynamic_th_profile),
-         make_expected_profile_name(original_speed, original_cable_len, ['th{}'.format(dynamic_th_value)]),
+         make_expected_profile_name(original_speed, original_cable_len, other_factors=['th{}'.format(dynamic_th_value)]),
          False),
         ('Remove the PG with non default dynamic_th when port is administratively down',
          'config interface buffer priority-group lossless remove {} 3-4'.format(port_to_test),
@@ -1589,11 +1787,26 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             # Shutdown port
             logging.info('Shut down port {}'.format(port_to_test))
             duthost.shell('config interface shutdown {}'.format(port_to_test))
-            # Make sure there isn't any PG on the port
-            logging.info('Check whether all PGs are removed from port {}'.format(port_to_test))
+            # Make sure there isn't any PG on the port or zero profile configured for PGs
             time.sleep(10)
-            pgs_in_appl_db = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:{}:*"'.format(port_to_test))['stdout']
-            pytest_assert(not pgs_in_appl_db, "There shouldn't be any PGs on an administratively down port but we got {}".format(pgs_in_appl_db))
+            logging.info('Check whether all PGs are removed from port {}'.format(port_to_test))
+            expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
+            _check_buffer_object_aligns_with_expected_ones(port_to_test, 'BUFFER_PG_TABLE', expected_pgs)
+
+            # Make sure the zero profiles have been applied on queues on the port
+            logging.info('Check whether all queues are configured as zero profile or removed from port {}'.format(port_to_test))
+            expected_queues = TESTPARAM_ADMIN_DOWN.get('BUFFER_QUEUE_TABLE')
+            _check_buffer_object_aligns_with_expected_ones(port_to_test, 'BUFFER_QUEUE_TABLE', expected_queues)
+
+            # Make sure the zero profiles have been applied on ingress buffer profile list on the port
+            logging.info('Check whether ingress profile list is configured as zero profile or removed from port {}'.format(port_to_test))
+            expected_ingress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
+            _check_buffer_object_list_aligns_with_expected_ones(port_to_test, 'BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE', expected_ingress_profile_list)
+
+            # Make sure the zero profiles have been applied on egress buffer profile list on the port
+            logging.info('Check whether egress profile list is configured as zero profile or removed from port {}'.format(port_to_test))
+            expected_egress_profile_list = TESTPARAM_ADMIN_DOWN.get('BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE')
+            _check_buffer_object_list_aligns_with_expected_ones(port_to_test, 'BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE', expected_egress_profile_list)
 
             # Check the pool size after the port is admin down
             check_pool_size(duthost,
@@ -1603,7 +1816,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                             old_xoff = original_pg_xoff,
                             old_size = original_pg_size,
                             new_pg_number = 0,
-                            adjust_lossy_pg_size = lossy_pg_size)
+                            adjust_extra_overhead = extra_overhead)
 
             previous_profile = expected_profile_in_appldb
             hint, command, expected_profile_in_appldb, need_remove_previous_profile = scenario
@@ -1625,6 +1838,18 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                 time.sleep(10)
                 pgs_in_appl_db = duthost.shell('redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
                 pytest_assert(not pgs_in_appl_db, "There shouldn't be PGs 3-4 but we got {}".format(pgs_in_appl_db))
+
+            # Check whether the queues have been applied correctly
+            logging.info('Check whether queues are readded to port {}'.format(port_to_test))
+            _check_buffer_object_aligns_between_appldb_configdb(port_to_test, "BUFFER_QUEUE|{}|*".format(port_to_test), 'profile')
+
+            # Check whether the ingress profile list have been applied correctly
+            logging.info('Check whether ingress profile list are readded to port {}'.format(port_to_test))
+            _check_buffer_object_aligns_between_appldb_configdb(port_to_test, "BUFFER_PORT_INGRESS_PROFILE_LIST|{}".format(port_to_test), 'profile_list')
+
+            # Check whether the egress profile list have been applied correctly
+            logging.info('Check whether egress profile list are readded to port {}'.format(port_to_test))
+            _check_buffer_object_aligns_between_appldb_configdb(port_to_test, "BUFFER_PORT_EGRESS_PROFILE_LIST|{}".format(port_to_test), 'profile_list')
 
         # Check the pool size at the end of test.
         # We don't check the pool size each time the port is admin down because
@@ -1685,6 +1910,8 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
     def _get_max_speed_from_list(speed_list_str):
         speed_list = natsorted(speed_list_str.split(','))
         return speed_list[-1]
+
+    skip_traditional_model()
 
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
@@ -1793,6 +2020,8 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
 
         In each step, it also checks whether the expected error message is found.
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     max_headroom_size = duthost.shell('redis-cli -n 6 hget "BUFFER_MAX_PARAM_TABLE|{}" max_headroom_size'.format(port_to_test))['stdout']
     if not max_headroom_size:
@@ -1823,21 +2052,44 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname, conn_graph_facts, p
                                                  'Failed to remove buffer profile .* with type BUFFER_PROFILE_TABLE',
                                                  'doTask: Failed to process buffer task, drop it'])
         logging.info('[Find out the longest cable length the port can support]')
-        cable_length = 300
+        cable_length = int(original_cable_len[:-1])
+        cable_length_step = 128
         while True:
             duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
             expected_profile = make_expected_profile_name(original_speed, '{}m'.format(cable_length))
             profile_applied = check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile, False)
             if not profile_applied:
                 break
-            logging.debug('Cable length {} has been applied successfully'.format(cable_length))
-            cable_length += 100
-            if cable_length > 2000:
-                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 2km, skip the test".format(port_to_test))
+            logging.info('Cable length {} has been applied successfully'.format(cable_length))
+            if cable_length > 10000:
+                pytest.skip("Not able to find the maximum headroom of port {} after cable length has been increased to 10km, skip the test".format(port_to_test))
+            cable_length += cable_length_step
+            cable_length_step *= 2
+
+        # Find the exact point from which the accumulative headroom starts to exceed the limit via using binary seach
+        cable_length_upper = cable_length
+        cable_length_step /= 2
+        cable_length -= cable_length_step
+        cable_length_lower = cable_length
+        logging.info("Cable length {} can be applied but {} can't. Finding the exact maximum cable length".format(cable_length_lower, cable_length_upper))
+        while True:
+            cable_length = (cable_length_upper + cable_length_lower) / 2
+            duthost.shell('config interface cable-length {} {}m'.format(port_to_test, cable_length))
+            expected_profile = make_expected_profile_name(original_speed, '{}m'.format(cable_length))
+            profile_applied = check_pg_profile(duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile, False)
+            if profile_applied:
+                cable_length_lower = cable_length
+                logging.info('Cable length {} has been applied successfully, moving forward. Range now is [{}, {})'.format(cable_length, cable_length_lower, cable_length_upper))
+            else:
+                cable_length_upper = cable_length
+                logging.info('Cable length {} has not been applied, moving backward. Range now is [{}, {})'.format(cable_length, cable_length_lower, cable_length_upper))
+            if cable_length_lower + 1 >= cable_length_upper:
+                cable_length = cable_length_lower
+                break
 
         # We've got the maximum cable length that can be applied on the port
-        violating_cable_length = cable_length
-        maximum_cable_length = cable_length - 100
+        violating_cable_length = cable_length_upper
+        maximum_cable_length = cable_length_lower
         logging.info('Got maximum cable length {}'.format(maximum_cable_length))
 
         # Check whether there is the expected error message in the log
@@ -1966,6 +2218,8 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
      - Whether the buffer model is traditional after executing config load_minigraph
      - Whether the buffer model is dynamic after recovering the buffer model to dynamic
     """
+    skip_traditional_model()
+
     duthost = duthosts[rand_one_dut_hostname]
     try:
         logging.info('[Config load_minigraph]')
@@ -1980,6 +2234,340 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):
     finally:
         _recovery_to_dynamic_buffer_model(duthost)
 
+
+def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports):
+    """The testcase to verify whether buffer template has been correctly rendered and applied
+
+    1. For all ports in the config_db,
+       - Check whether there is no lossless buffer PG configured on an admin-down port
+       - Check whether the lossless PG and queues aligns with the port's speed and cable length
+       - If name to oid maps exist for port and PG, check whether the information in ASIC_DB aligns with that in CONFIG_DB
+       - If a lossless profile hasn't been checked, check whether lossless profile in CONFIG_DB aligns with
+         - pg_profile_lookup.ini according to speed and cable length
+         - information in ASIC_DB
+    2. Shutdown a port and check whether the lossless buffer PG has been remvoed
+    3. Startup the port and check whether the lossless PG has been readded.
+    """
+    def _check_condition(condition, message, use_assert):
+        """Check whether the condition is satisfied
+
+        Args:
+            condition: The condition to check
+            message: The message to log or in pytest_assert
+            use_assert: Whether to use assert or not. If this is called from wait_until(), it should be False.
+
+        Return:
+            The condition
+        """
+        if use_assert:
+            pytest_assert(condition, message)
+        elif not condition:
+            logging.info("Port buffer check: {}".format(message))
+            return False
+
+        return True
+
+    def _check_buffer_item_in_asic_db(dut_db_info, port, buffer_item, name_map, buffer_profile_oid, asic_key_name, should_have_profile, use_assert):
+        """Check whether the buffer queues or priority groups align between APPL_DB and ASIC_DB
+
+        Args:
+            buffer_item: ID of buffer queues or priority groups in APPL_DB, like "Ethernet0:3-4".
+            name_map: The map from buffer item's name to its SAI OID.
+                      The map is fetched from CONFIG_DB at the beginning of the test.
+            buffer_profile_oid: The OID of the expected buffer profile.
+                                Not None: It will check whether the OID of profile in ASIC_DB is the same.
+            asic_key_name: The field name buffer profiles of queues or priority groups in ASIC_DB
+            should_have_profile: Whether there should be a profile configured for the buffer object
+            use_assert: In case the test failed, to assert or just return false.
+                        It should return false if it is called in a wait_until loop
+        """
+        buffer_item_asic_oid = name_map['{}:{}'.format(port, buffer_item)]
+        buffer_item_asic_key = dut_db_info.get_buffer_profile_key_from_asic_db(buffer_item_asic_oid)
+        buffer_profile_oid_in_pg = dut_db_info.get_buffer_profile_oid_in_pg_from_asic_db(buffer_item_asic_key, asic_key_name)
+        if should_have_profile:
+            if buffer_profile_oid:
+                if not _check_condition(buffer_profile_oid == buffer_profile_oid_in_pg,
+                                        "Different OIDs in buffer items ({}) and ({}) in port {}".format(buffer_profile_oid, buffer_profile_oid_in_pg, port),
+                                        use_assert):
+                    return None, False
+            else:
+                buffer_profile_oid = buffer_profile_oid_in_pg
+        else:
+            if not _check_condition(not buffer_profile_oid_in_pg or buffer_profile_oid_in_pg == 'oid:0x0',
+                                    "Buffer PG configured on admin down port in ASIC_DB {}".format(port),
+                                    use_assert):
+                return None, False
+
+        return buffer_profile_oid, True
+
+    def _ids_to_id_list(ids):
+        """Convert ID map to list of IDs
+
+        Example: "0-2" => ["0", "1", "2"]
+        """
+        pattern = "^([0-9])+(-[0-9]+)*$"
+        m = re.match(pattern, ids)
+        lower = m.group(1)
+        upper = m.group(2)
+        if not upper:
+            upper = lower
+        else:
+            upper = upper[1:]
+        return [str(x) for x in range(int(lower), int(upper) + 1)]
+
+    def _check_port_buffer_info_and_get_profile_oid(dut_db_info, table, ids, port, expected_profile, use_assert=True):
+        """Check port's buffer information against APPL_DB and ASIC_DB
+
+        Args:
+            dut_db_info: The dut db info object
+            table: BUFFER_QUEUE or BUFFER_PG
+            ids: The ID map, like "3-4" or "0-2"
+            port: The port to test in string
+            expected_profile: The expected profile in string
+            use_assert: Whether or not to use pytest_assert in case any conditional check isn't satisfied
+
+        Return:
+            A tuple consisting of the OID of buffer profile and whether there is any check failed
+        """
+        profile_in_db = dut_db_info.get_profile_name_from_appl_db(table, port, ids)
+        buffer_profile_oid = None
+        if table == 'BUFFER_PG_TABLE':
+            sai_field = 'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'
+            buffer_name_map = pg_name_map
+        elif table == 'BUFFER_QUEUE_TABLE':
+            sai_field = 'SAI_QUEUE_ATTR_BUFFER_PROFILE_ID'
+            buffer_name_map = queue_name_map
+
+        id_list = _ids_to_id_list(ids)
+
+        if expected_profile:
+            if not _check_condition(profile_in_db == expected_profile, "The profile of {}:{}:{} isn't the expected ({})".format(table, port, ids, expected_profile), use_assert):
+                return None, False
+
+            if buffer_name_map:
+                buffer_profile_oid = None
+                for item in id_list:
+                    logging.info("Checking {}:{}:{} in ASIC_DB, expected_profile:{}".format(table, port, item, expected_profile))
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(dut_db_info, port, item, buffer_name_map, buffer_profile_oid, sai_field, True, use_assert)
+                    if not success:
+                        return None, False
+        else:
+            if not _check_condition(not profile_in_db, "{}:{}:{} configured on admin down port".format(table, port, ids), use_assert):
+                return None, False
+            if buffer_name_map:
+                for item in id_list:
+                    logging.info("Checking {}:{}:{} in ASIC_DB".format(table, port, item))
+                    buffer_profile_oid, success = _check_buffer_item_in_asic_db(dut_db_info, port, item, buffer_name_map, None, sai_field, False, use_assert)
+
+        return buffer_profile_oid, True
+
+    def _check_port_buffer_info_and_return(dut_db_info, table, ids, port, expected_profile):
+        """Check port's buffer information against CONFIG_DB and ASIC_DB and return the result
+
+        This is called from wait_until
+
+        Args:
+            duthost: The dut db info object
+            port: The port to test in string
+            expected_profile: The expected profile in string
+
+        Return:
+            Whether all the checks passed
+        """
+        dut_db_info.update_db_info()
+        _, result = _check_port_buffer_info_and_get_profile_oid(dut_db_info, table, ids, port, expected_profile, False)
+        return result
+
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.get_asic_name()
+
+    # Skip the legacy branches
+    skip_release(duthost, ["201811", "201911"])
+
+    # Get dut asic, config, and appl db information
+    dut_db_info = DutDbInfo(duthost)
+
+    # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
+    pg_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
+    queue_name_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
+    cable_length_map = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
+    buffer_table_up = {
+        KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         (None, None, None)
+                             ],
+        KEY_4_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '2-4', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '6', '[BUFFER_PROFILE_TABLE:egress_lossless_profile]'),
+                                         ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:q_lossy_profile]'),
+                                         (None, None, None)
+                             ]
+    }
+    if is_tunnel_qos_remap_enabled(duthost):
+        buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:q_lossy_profile]')
+
+    if not is_mellanox_device(duthost):
+        buffer_table_up[KEY_2_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        if is_tunnel_qos_remap_enabled(duthost):
+            buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        else:
+            buffer_table_up[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][1] = ('BUFFER_QUEUE_TABLE', '0-1', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_table_up[KEY_4_LOSSLESS_QUEUE][5] = ('BUFFER_QUEUE_TABLE', '7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+
+    buffer_table_down = {
+        KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_pg_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '0-2', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '3-4', '[BUFFER_PROFILE_TABLE:egress_lossless_zero_profile]'),
+                                           ('BUFFER_QUEUE_TABLE', '5-6', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]'),
+                                           (None, None, None)
+                             ],
+        KEY_4_LOSSLESS_QUEUE: [(None, None, None)] # The admin_down ports can not be dualtor_ports. Hence there is no 4_lossless_queue profile
+    }
+
+    if is_tunnel_qos_remap_enabled(duthost):
+        buffer_table_down[KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+
+    buffer_items_to_check_dict = {"up": buffer_table_up, "down": buffer_table_down}
+
+
+    if is_innovium_device(duthost):
+        buffer_items_to_check_dict["up"][KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_profile]')
+        buffer_items_to_check_dict["down"][KEY_2_LOSSLESS_QUEUE][3] = ('BUFFER_QUEUE_TABLE', '5-7', '[BUFFER_PROFILE_TABLE:egress_lossy_zero_profile]')
+
+    if check_qos_db_fv_reference_with_table(duthost):
+        profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
+        is_qos_db_reference_with_table = True
+    else:
+        for status, buffer_items_to_check_4_6 in buffer_items_to_check_dict.items():
+            for queue_4_6, buffer_items_to_check in buffer_items_to_check_4_6.items():
+                new_buffer_items_to_check = []
+                for item in buffer_items_to_check:
+                    table, ids, profiles = item
+                    if profiles:
+                        profiles = profiles.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
+                    new_buffer_items_to_check.append((table, ids, profiles))
+                buffer_items_to_check_dict[status][queue_4_6] = new_buffer_items_to_check
+        profile_wrapper = '{}'
+        is_qos_db_reference_with_table = False
+
+    configdb_ports = [x.split('|')[1] for x in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
+    profiles_checked = {}
+    lossless_pool_oid = None
+    admin_up_ports = set()
+    for port in configdb_ports:
+        logging.info("Checking port buffer information: {}".format(port))
+        port_config = dut_db_info.get_port_info_from_config_db(port)
+        cable_length = cable_length_map[port]
+        speed = port_config['speed']
+        expected_profile = make_expected_profile_name(speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
+
+        if port in dualtor_ports:
+            key_name = KEY_4_LOSSLESS_QUEUE
+        else:
+            key_name = KEY_2_LOSSLESS_QUEUE
+        # The last item in the check list various according to port's admin state.
+        # We need to append it according to the port each time. Pop the last item first
+        if port_config.get('admin_status') == 'up':
+            admin_up_ports.add(port)
+            buffer_items_to_check = buffer_items_to_check_dict["up"][key_name][:]
+            if key_name == KEY_4_LOSSLESS_QUEUE:
+                buffer_items_to_check.extend(
+                    [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
+                    ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
+            else:
+                buffer_items_to_check.append(('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+        else:
+            if is_mellanox_device(duthost):
+                buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
+            else:
+                buffer_items_to_check = [(None, None, None)]
+
+        for table, ids, expected_profile in buffer_items_to_check:
+            logging.info("Checking buffer item {}:{}:{}, expected_profile:{}".format(table, port, ids, expected_profile))
+
+            if not expected_profile:
+                continue
+
+            buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(dut_db_info, table, ids, port, expected_profile)
+
+            if is_qos_db_reference_with_table:
+                expected_profile_key = expected_profile[1:-1]
+            else:
+                expected_profile_key = "BUFFER_PROFILE_TABLE:{}".format(expected_profile)
+
+            if expected_profile not in profiles_checked:
+                profile_info = dut_db_info.get_profile_info_from_appl_db(expected_profile_key)
+                is_ingress_lossless = expected_profile[:12] == 'pg_lossless_'
+                if is_ingress_lossless and not BUFFER_MODEL_DYNAMIC:
+                    std_profiles_for_speed = DEFAULT_LOSSLESS_HEADROOM_DATA.get(speed)
+                    if std_profiles_for_speed:
+                        std_profile = std_profiles_for_speed.get(cable_length)
+                        if std_profile:
+                            # This means it's a profile with std speed and cable length. We can check whether the headroom data is correct
+                            pytest_assert(profile_info['xon'] == std_profile['xon'] and profile_info['xoff'] == std_profile['xoff']
+                                          and (profile_info['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                                          "Buffer profile {} {} doesn't match default {}".format(expected_profile, profile_info, std_profile))
+
+                if buffer_profile_oid:
+                    # Further check the buffer profile in ASIC_DB
+                    logging.info("Checking profile {} oid {}".format(expected_profile, buffer_profile_oid))
+                    buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(buffer_profile_oid)
+                    buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(buffer_profile_key)
+                    pytest_assert(buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') == profile_info.get('xon') and
+                                  buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') == profile_info.get('xoff') and
+                                  buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] == profile_info['size'] and
+                                  (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] == 'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
+                                   buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] == profile_info['dynamic_th'] or
+                                   buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] == 'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
+                                   buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] == profile_info['static_th']),
+                                  "Buffer profile {} {} doesn't align with ASIC_TABLE {}".format(expected_profile, profile_info, buffer_profile_asic_info))
+
+                profiles_checked[expected_profile] = buffer_profile_oid
+                if is_ingress_lossless:
+                    if not lossless_pool_oid:
+                        lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
+                    else:
+                        pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                      "Buffer profile {} has different buffer pool id {} from others {}".format(expected_profile, buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'], lossless_pool_oid))
+            else:
+                pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
+                              "PG {}:{} has different OID of profile from other PGs sharing the same profile {}".format(port, ids, expected_profile))
+
+    if not BUFFER_MODEL_DYNAMIC:
+
+        def _profile_name(duthost, port, pg_id_name):
+            if is_mellanox_device(duthost):
+                profile_name = None
+            else:
+                profile_name = duthost.shell('redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
+
+            return profile_name
+
+        port_to_shutdown = admin_up_ports.pop()
+        if port_to_shutdown in dualtor_ports:
+            pg_id_names = ["2-4", "6"]
+        else:
+            pg_id_names = ["3-4"]
+        try:
+            # Shutdown the port and check whether the lossless PG has been remvoed
+            logging.info("Shut down an admin-up port {} and check its buffer information".format(port_to_shutdown))
+            duthost.shell('config interface shutdown {}'.format(port_to_shutdown))
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, dut_db_info, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
+            # Startup the port and check whether the lossless PG has been reconfigured
+            logging.info("Re-startup the port {} and check its buffer information".format(port_to_shutdown))
+            duthost.shell('config interface startup {}'.format(port_to_shutdown))
+            for pg_id_name in pg_id_names:
+                wait_until(60, 5, 0, _check_port_buffer_info_and_return, dut_db_info, 'BUFFER_PG_TABLE', pg_id_name, port_to_shutdown, _profile_name(duthost, port, pg_id_name))
+        finally:
+            duthost.shell('config interface startup {}'.format(port_to_shutdown), module_ignore_errors=True)
 
 def calculate_headroom_data(duthost, port_to_test):
     """
@@ -1996,7 +2584,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     """
     This function is Mellanox platform specific.
     It intends to calculate the headroom size based on the input port attributes(speed, cable_length, number of lanes..., etc)
-    This algorithm is the same as the implementation in https://github.com/Azure/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
+    This algorithm is the same as the implementation in https://github.com/sonic-net/sonic-swss/blob/master/cfgmgr/buffer_headroom_mellanox.lua
     """
     global ASIC_TABLE_KEYS_LOADED
     global CELL_SIZE
@@ -2021,9 +2609,21 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     pause_quanta_per_speed_dict = {400000: 905, 200000: 453, 100000: 394, 50000: 147, 40000: 118, 25000: 80, 10000: 67,
                                    1000: 2, 100: 1}
 
-    # Get port speed from config DB
-    # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'speed'
-    port_speed_raw = duthost.shell('redis-cli -n 4 hget "PORT|{}" "speed"'.format(port_to_test))['stdout']
+    # Get effective speed
+    # If auto neg is off, effective speed is configured speed
+    # elif advertised speeds is configured or supported speeds is fetched
+    # effective speed is the maximum speed in the speeds list
+    # else the effective speed can not be conducted and the test fail
+    port_info = _compose_dict_from_cli(duthost.shell('redis-cli -n 4 hgetall "PORT|{}"'.format(port_to_test))['stdout'].split('\n'))
+    if port_info.get('autoneg') == 'on':
+        adv_speeds = port_info.get('adv_speeds')
+        if adv_speeds and adv_speeds != 'all':
+            available_speeds = adv_speeds
+        else:
+            available_speeds = duthost.shell('redis-cli -n 6 hget "PORT_TABLE|{}" "supported_speeds"'.format(port_to_test))['stdout']
+        port_speed_raw = natsorted(available_speeds.split(','))[-1]
+    else:
+        port_speed_raw = port_info.get('speed')
     if port_speed_raw:
         port_speed = int(port_speed_raw)
     else:
@@ -2109,9 +2709,10 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     xon_value = 0
     headroom_size = 0
     speed_overhead = 0
+    pipeline_latency = PIPELINE_LATENCY
 
     if is_8lane:
-        PIPELINE_LATENCY = PIPELINE_LATENCY * 2 - 1024
+        pipeline_latency = PIPELINE_LATENCY * 2 - 1024
         speed_overhead = port_mtu
     else:
         speed_overhead = 0
@@ -2137,7 +2738,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * cell_occupancy
     xoff_value = math.ceil(xoff_value / 1024) * 1024
-    xon_value = PIPELINE_LATENCY
+    xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:
@@ -2151,4 +2752,3 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
     return True, head_room_data
-

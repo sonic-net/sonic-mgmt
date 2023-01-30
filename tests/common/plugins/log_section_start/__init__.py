@@ -20,9 +20,10 @@ import pytest
 import logging
 import inspect
 import decorator
-import postimport
 import traceback
 import sys
+
+from . import postimport
 
 
 LOGGER_NAME = "SectionStartLogger"
@@ -44,6 +45,16 @@ def pytest_configure(config):
     logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
     config.pluginmanager.register(LogSectionStartPlugin(logging_plugin), "LogSectionStart")
     logging.LogRecord = _LogRecord
+
+    if sys.version_info.major > 2:
+        old_factory = logging.getLogRecordFactory()
+
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            record.funcNamewithModule = "%s.%s" % (record.module, record.funcName)
+            return record
+
+        logging.setLogRecordFactory(record_factory)
 
     postimport.register_hook(_pytest_import_callback)
     # simply replace the fixture decorator in the imported `pytest` with the mocked one
@@ -83,7 +94,7 @@ def _pytest_import_callback(module):
         try:
             next(it)
         except StopIteration:
-            raise
+            return
         except Exception as detail:
             logging.exception("\n%r", detail)
             raise
@@ -104,8 +115,8 @@ def _pytest_import_callback(module):
             func = None
             if len(args) == 1 and callable(args[0]) and not kargs:
                 func = args[0]
-            elif len(kargs) == 1 and callable(kargs.values()[0]) and not args:
-                func = kargs.values()[0]
+            elif len(kargs) == 1 and callable(list(kargs.values())[0]) and not args:
+                func = list(kargs.values())[0]
             if func is not None:
                 args = ()
                 kargs = {}

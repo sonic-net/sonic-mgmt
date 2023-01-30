@@ -10,7 +10,7 @@ Following those instructions on how to setup the SAI testing environment.
 
 ## Example
 Following are the examples for SAI testing
+- [PTF-SAIv2 testing guide](PTF-SAIv2TestingGuide.md)
 - [SAI Testing Example](SAI.Example.md)
 - [Example: Check Sonic Version And Build Saiserver Docker](ExampleCheckSonicVersionAndBuildSaiserverDocker.md)
 - [Example:Start SaiServer Docker In DUT](ExampleStartSaiServerDockerInDUT.md)
-

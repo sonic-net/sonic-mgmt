@@ -7,7 +7,7 @@ Description:    This file contains the log analyzer functionality in order
                 to verify no failures are detected in the system logs while
                 it can be that traffic/functionality works.
 
-                Design is available in https://github.com/Azure/SONiC/wiki/LogAnalyzer
+                Design is available in https://github.com/sonic-net/SONiC/wiki/LogAnalyzer
 
 Usage:          Examples of how to use log analyzer
                 sudo python loganalyzer.py  --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results --action analyze --run_id myTest114 --logs file3.log -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log  -i ignore.file.1.log,ignore.file.2.log -v
@@ -45,6 +45,8 @@ err_no_end_marker = -3
 err_no_start_marker = -4
 err_invalid_string_format = -5
 err_invalid_input = -6
+err_end_ignore_marker = -7
+err_start_ignore_marker = -8
 
 class AnsibleLogAnalyzer:
     '''
@@ -76,6 +78,8 @@ class AnsibleLogAnalyzer:
 
     start_marker_prefix = "start-LogAnalyzer"
     end_marker_prefix = "end-LogAnalyzer"
+    start_ignore_marker_prefix = "start-ignore-LogAnalyzer"
+    end_ignore_marker_prefix = "end-ignore-LogAnalyzer"
 
     def init_sys_logger(self):
         logger = logging.getLogger('LogAnalyzer')
@@ -127,6 +131,14 @@ class AnsibleLogAnalyzer:
 
     def create_end_marker(self):
         return self.end_marker_prefix + "-" + self.run_id
+    #---------------------------------------------------------------------
+
+    def create_start_ignore_marker(self):
+        return self.start_ignore_marker_prefix + "-" + self.run_id
+    #---------------------------------------------------------------------
+
+    def create_end_ignore_marker(self):
+        return self.end_ignore_marker_prefix + "-" + self.run_id
     #---------------------------------------------------------------------
 
     def flush_rsyslogd(self):
@@ -182,7 +194,7 @@ class AnsibleLogAnalyzer:
         syslogger.info('\n')
         self.flush_rsyslogd()
 
-    def wait_for_marker(self, marker, timeout=60, polling_interval=10):
+    def wait_for_marker(self, marker, timeout=120, polling_interval=10):
         '''
         @summary: Wait the marker to appear in the /var/log/syslog file
         @param marker:         Marker to be placed into log files.
@@ -291,7 +303,7 @@ class AnsibleLogAnalyzer:
 
         for filename in file_lsit:
             self.print_diagnostic_message('processing match file:%s' % filename)
-            with open(filename, 'rb') as csvfile:
+            with open(filename, 'r') as csvfile:
                 csvreader = csv.reader(csvfile, quotechar='"', delimiter=',',
                                        skipinitialspace=True)
 
@@ -421,11 +433,12 @@ class AnsibleLogAnalyzer:
         start_marker = self.create_start_marker()
         end_marker = self.create_end_marker()
 
+        ignore_marker_run_ids = []
         for rev_line in reversed(log_file.readlines()):
             if stdin_as_input:
                 in_analysis_range = True
             else:
-                if rev_line.find(end_marker) != -1:
+                if end_marker in rev_line:
                     self.print_diagnostic_message('found end marker: %s' % end_marker)
                     if (found_end_marker):
                         print('ERROR: duplicate end marker found')
@@ -433,9 +446,29 @@ class AnsibleLogAnalyzer:
                     found_end_marker = True
                     in_analysis_range = True
                     continue
+                elif self.end_ignore_marker_prefix in rev_line:
+                    marker_run_id = rev_line.split(self.end_ignore_marker_prefix)[1]
+                    ignore_marker_run_ids.append(marker_run_id)
+                    self.print_diagnostic_message('found end ignore marker: %s'
+                                                  % rev_line[rev_line.index(self.end_ignore_marker_prefix):])
+                    if not in_analysis_range:
+                        print('ERROR: duplicate end ignore marker found')
+                        sys.exit(err_end_ignore_marker)
+                    in_analysis_range = False
+                    continue
+
+                elif self.start_ignore_marker_prefix in rev_line:
+                    marker_run_id = ignore_marker_run_ids.pop()
+                    self.print_diagnostic_message('found start ignore marker: %s'
+                                                  % rev_line[rev_line.index(self.start_ignore_marker_prefix):])
+                    if in_analysis_range or marker_run_id not in rev_line:
+                        print('ERROR: unexpected start ignore marker found')
+                        sys.exit(err_start_ignore_marker)
+                    in_analysis_range = True
+                    continue
 
             if not stdin_as_input:
-                if rev_line.find(start_marker) != -1 and 'nsible' not in rev_line:
+                if rev_line.find(start_marker) != -1 and 'extract_log' not in rev_line:
                     self.print_diagnostic_message('found start marker: %s' % start_marker)
                     if (found_start_marker):
                         print('ERROR: duplicate start marker found')
@@ -544,11 +577,9 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
 
     ret_code = True
 
-    if (action == 'init'):
+    if action in ['init', 'add_end_marker', 'add_start_ignore_mark', 'add_end_ignore_mark']:
         ret_code = True
-    elif (action == 'add_end_marker'):
-        ret_code = True
-    elif (action == 'analyze'):
+    elif action == 'analyze':
         if out_dir is None or len(out_dir) == 0:
             print('ERROR: missing required out_dir for analyze action')
             ret_code = False
@@ -735,10 +766,10 @@ def main(argv):
     log_file_list = list(filter(None, log_files_in.split(tokenizer)))
 
     result = {}
-    if (action == "init"):
+    if action == "init":
         analyzer.place_marker(log_file_list, analyzer.create_start_marker())
         return 0
-    elif (action == "analyze"):
+    elif action == "analyze":
         match_file_list = match_files_in.split(tokenizer)
         ignore_file_list = ignore_files_in.split(tokenizer)
         expect_file_list = expect_files_in.split(tokenizer)
@@ -758,9 +789,16 @@ def main(argv):
         unused_regex_messages = []
         write_result_file(run_id, out_dir, result, messages_regex_e, unused_regex_messages)
         write_summary_file(run_id, out_dir, result, unused_regex_messages)
-    elif (action == "add_end_marker"):
+    elif action == "add_end_marker":
         analyzer.place_marker(log_file_list, analyzer.create_end_marker(), wait_for_marker=True)
         return 0
+    elif action == "add_start_ignore_mark":
+        analyzer.place_marker(log_file_list, analyzer.create_start_ignore_marker(), wait_for_marker=True)
+        return 0
+    elif action == "add_end_ignore_mark":
+        analyzer.place_marker(log_file_list, analyzer.create_end_ignore_marker(), wait_for_marker=True)
+        return 0
+
 
     else:
         print('Unknown action:%s specified' % action)

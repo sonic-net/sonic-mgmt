@@ -44,6 +44,35 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 MOCK_DEST_IP = "2.2.2.2"
 LINK_LOCAL_IP = "169.254.0.1"
 
+# For dualtor
+@pytest.fixture(scope='module')
+def vlan_mac(duthost):
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dut_vlan_mac = None
+    for vlan in config_facts.get('VLAN', {}).values():
+        if 'mac' in vlan:
+            logging.debug('Found VLAN mac')
+            dut_vlan_mac = vlan['mac']
+            break
+    if not dut_vlan_mac:
+        logging.debug('No VLAN mac, use default router_mac')
+        dut_vlan_mac = duthost.facts['router_mac']
+    return dut_vlan_mac
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, loganalyzer):
+    if loganalyzer:
+        ignore_regex_list = [
+            ".*ERR swss[0-9]*#orchagent.*meta_sai_validate_fdb_entry.*object key SAI_OBJECT_TYPE_FDB_ENTRY.*doesn't exist.*",
+            ".*ERR swss[0-9]*#orchagent.*removeFdbEntry: FdbOrch RemoveFDBEntry: Failed to remove FDB entry. mac=.*, bv_id=.*",
+            ".*ERR swss[0-9]*#orchagent.*handleSaiRemoveStatus: Encountered failure in remove operation, exiting orchagent, SAI API: SAI_API_FDB, status: SAI_STATUS_INVALID_PARAMETER.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get.*No debug_counter at index.*found.*",
+            ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*"
+        ]
+        duthost = duthosts[rand_one_dut_hostname]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
+
 
 def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     """ Generate FDB config file to apply it using 'swssconfig' tool.
@@ -69,7 +98,7 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     fdb_config_json.append(fdb_entry_json)
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
-        logging.info("Generating FDB config")
+        logging.info("Generating FDB config: {}".format(fdb_config_json))
         json.dump(fdb_config_json, fp)
         fp.flush()
 
@@ -153,7 +182,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         # FIXME: Add config reload on t0-backend as a workaround to keep DUT healthy because the following
         # drop packet testcases will suffer from the brcm_sai_get_port_stats errors flooded in syslog
         if "backend" in tbinfo["topo"]["name"]:
-            config_reload(duthost)
+            config_reload(duthost, safe_reload=True)
 
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
@@ -438,10 +467,11 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
 
 @pytest.fixture
-def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params):
+def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vlan_mac):
 
     def _get_simple_ip_packet(rx_port, src_ip, dst_ip):
-        dst_mac = duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
+        dst_mac = vlan_mac if rx_port in testbed_params["vlan_ports"] \
+            else duthost.get_dut_iface_mac(testbed_params["physical_port_map"][rx_port])
         src_mac = "DE:AD:BE:EF:12:34"
         # send tagged packet for t0-backend whose vlan mode is tagged
         enable_vlan = rx_port in testbed_params["vlan_ports"] and testbed_params["vlan_interface"]["type"] == "tagged"

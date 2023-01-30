@@ -5,7 +5,7 @@ Conftest file for span tests
 import pytest
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
-
+from tests.common.utilities import skip_release
 
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):
@@ -38,7 +38,7 @@ def ports_for_test(cfg_facts):
 
     # Select 3 ports for test
     ports = cfg_facts['VLAN_MEMBER']['Vlan{}'.format(vlan)]
-    port_names = ports.keys()
+    port_names = [port_name for port_name in ports.keys() if 'PortChannel' not in port_name]
     selected_ports = [port_names[0], port_names[1], port_names[-1]]
 
     # Generate port info for selected ports
@@ -56,12 +56,11 @@ def ports_for_test(cfg_facts):
         'vlan': vlan
     }
 
-@pytest.fixture(scope='module', autouse=True)
-def skip_unsupported_asic_type(duthost):
-    SPAN_UNSUPPORTED_ASIC_TYPE = ["broadcom", "cisco-8000"]
-    if duthost.facts["asic_type"] in SPAN_UNSUPPORTED_ASIC_TYPE:
-        pytest.skip(
-            "Skipping span test on {} platform".format(duthost.facts["asic_type"]))
+@pytest.fixture(scope='session', autouse=True)
+def skip_unsupported_release(duthost):
+    """ Span mirror is not supported on release < 202012
+    """
+    skip_release(duthost, ["201811", "201911"])
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):

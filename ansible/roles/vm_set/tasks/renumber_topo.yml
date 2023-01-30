@@ -1,7 +1,7 @@
 # Increase netdev_max_backlog to mitigate the packet drop issue
 # Ref https://www.kernel.org/doc/Documentation/sysctl/net.txt
 - name: Increase netdev_max_backlog
-  shell: echo 65535 > /proc/sys/net/core/netdev_max_backlog
+  shell: echo 250000 > /proc/sys/net/core/netdev_max_backlog
   become: yes
 
 - name: set "PTF" container type, by default
@@ -20,6 +20,20 @@
     vars:
       mux_simulator_action: stop
     when: "'dualtor' in topo"
+
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
+  - name: Stop exabgp processes
+    include_tasks: announce_routes.yml
+    vars:
+      exabgp_action: stop
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
 
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
@@ -43,6 +57,13 @@
       ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
     when: ptf_docker_info.exists
+
+  - name: Stop ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
 
   - name: Remove ptf container ptf_{{ vm_set_name }}
     docker_container:
@@ -86,6 +107,10 @@
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
     become: yes
 
+  - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
+    become: yes
+
   - name: Get dut ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
@@ -123,6 +148,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
@@ -153,5 +179,11 @@
     vars:
       mux_simulator_action: start
     when: "'dualtor' in topo"
+
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
   when: container_type == "PTF"

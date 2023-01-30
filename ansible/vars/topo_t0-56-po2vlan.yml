@@ -110,7 +110,7 @@ topology:
       vm_offset: 7
   DUT:
     portchannel_config:
-      PortChannel101:
+      PortChannel201:
         intfs: [0, 4]
     vlan_configs:
       default_vlan_config: two_vlan_a
@@ -118,14 +118,14 @@ topology:
         Vlan101:
           id: 101
           intfs: []
-          portchannels: ['PortChannel101']
+          portchannels: ['PortChannel201']
           prefix: 192.168.0.1/22
           prefix_v6: fc02:100::1/64
           tag: 101
         Vlan102:
           id: 102
           intfs: [8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
-          portchannels: ['PortChannel101']
+          portchannels: ['PortChannel201']
           prefix: 192.168.4.1/22
           prefix_v6: fc02:200::1/64
           tag: 102

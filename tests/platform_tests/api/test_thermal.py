@@ -46,6 +46,9 @@ class TestThermalApi(PlatformApiTestBase):
                 self.num_thermals = int(chassis.get_num_thermals(platform_api_conn))
             except:
                 pytest.fail("num_thermals is not an integer")
+            else:
+                if self.num_thermals == 0:
+                    pytest.skip("No thermals found on device")
 
     #
     # Helper functions
@@ -78,6 +81,16 @@ class TestThermalApi(PlatformApiTestBase):
 
                 return value
 
+        return def_value
+
+    def get_thermal_temperature(self, duthost, def_value, key):
+        if duthost.facts.get("chassis"):
+            thermals_temperature = duthost.facts.get("chassis").get("thermal_temperature")
+            if thermals_temperature:
+                value = thermals_temperature.get(key)
+                if value is None:
+                    return def_value
+                return value
         return def_value
 
     #
@@ -159,24 +172,54 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_minimum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            record_supported = self.get_thermal_facts(duthost, i, True, "minimum-recorded")
+            if not record_supported:
+                logger.info("test_get_minimum_recorded: Skipping thermal {} (not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
+            min_temperature = self.get_thermal_temperature(duthost, 0, "minimum")
+            max_temperature = self.get_thermal_temperature(duthost, 100, "maximum")
+
             temperature = thermal.get_minimum_recorded(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
+                    self.expect(temperature > min_temperature and temperature <= max_temperature,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' minimum-recorded is not supported")
 
         self.assert_expectations()
 
     def test_get_maximum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        thermals_skipped = 0
+
         for i in range(self.num_thermals):
+            record_supported = self.get_thermal_facts(duthost, i, True, "maximum-recorded")
+            if not record_supported:
+                logger.info("test_get_maximum_recorded: Skipping thermal {} (not supported)".format(i))
+                thermals_skipped += 1
+                continue
+
+            min_temperature = self.get_thermal_temperature(duthost, 0, "minimum")
+            max_temperature = self.get_thermal_temperature(duthost, 100, "maximum")
+
             temperature = thermal.get_maximum_recorded(platform_api_conn, i)
 
             if self.expect(temperature is not None, "Unable to retrieve Thermal {} temperature".format(i)):
                 if self.expect(isinstance(temperature, float), "Thermal {} temperature appears incorrect".format(i)):
-                    self.expect(temperature > 0 and temperature <= 100,
+                    self.expect(temperature > min_temperature and temperature <= max_temperature,
                                 "Thermal {} temperature {} reading is not within range".format(i, temperature))
+
+        if thermals_skipped == self.num_thermals:
+            pytest.skip("skipped as all chassis thermals' maximum-recorded is not supported")
 
         self.assert_expectations()
 

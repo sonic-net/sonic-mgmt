@@ -1,7 +1,6 @@
 import logging
 import random
 import ipaddr
-import ipaddress
 import pytest
 
 import ptf.testutils as testutils
@@ -11,7 +10,7 @@ from ptf.mask import Mask
 from socket import INADDR_ANY
 
 pytestmark = [
-    pytest.mark.topology("t1")
+    pytest.mark.topology("t1", "m0")
 ]
 
 logger = logging.getLogger(__name__)
@@ -87,7 +86,7 @@ class DhcpPktFwdBase:
         ))
         duthost.shell("vtysh -c \"configure terminal\" -c \"{} ip route {} {}\"".format(
             op,
-            ipaddress.ip_interface(unicode(ip + "/24")).network,
+            ipaddress.ip_interface((ip + "/24").encode().decode("utf-8")).network,
             peerIp
         ))
 
@@ -104,8 +103,9 @@ class DhcpPktFwdBase:
             dict: contains downstream/upstream ports information
         """
         duthost = duthosts[rand_one_dut_hostname]
-        if "t1" not in tbinfo["topo"]["name"]:
-            pytest.skip("Unsupported topology")
+        topo_name = tbinfo["topo"]["name"]
+        if "t1" not in topo_name and topo_name != "m0":
+            pytest.skip("Unsupported topology: {}".format(topo_name))
 
         downstreamPorts = []
         upstreamPorts = []
@@ -113,9 +113,9 @@ class DhcpPktFwdBase:
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
-            if "T0" in neigh["name"]:
+            if "t1" in topo_name and "T0" in neigh["name"] or topo_name == "m0" and "MX" in neigh["name"]:
                 downstreamPorts.append(dutPort)
-            elif "T2" in neigh["name"]:
+            elif "t1" in topo_name and "T2" in neigh["name"] or topo_name == "m0" and "M1" in neigh["name"]:
                 upstreamPorts.append(dutPort)
 
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
@@ -144,13 +144,13 @@ class DhcpPktFwdBase:
             tbinfo
         )
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp)
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp)
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp)
 
         yield {"upstream": upstreamLags, "downstream": downstreamLags}
 
-        self.__updateRoute(duthost, self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
-        self.__updateRoute(duthost, self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_SERVER["ip"], upstreamPeerIp, "no")
+        duthost.update_ip_route(self.DHCP_RELAY["ip"], downstreamPeerIp, "no")
 
     @classmethod
     def createDhcpDiscoverRelayedPacket(self, dutMac):
@@ -231,8 +231,8 @@ class DhcpPktFwdBase:
             packet: DHCP Request packet
         """
         ether = scapy.Ether(dst=dutMac, src=self.DHCP_RELAY["mac"], type=0x0800)
-        ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=336, ttl=64)
-        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=316)
+        ip = scapy.IP(src=self.DHCP_RELAY["loopback"], dst=self.DHCP_SERVER["ip"], len=328, ttl=64)
+        udp = scapy.UDP(sport=self.DHCP_SERVER["port"], dport=self.DHCP_SERVER["port"], len=308)
         bootp = scapy.BOOTP(
             op=1,
             htype=1,
@@ -315,7 +315,7 @@ class TestDhcpPktFwd(DhcpPktFwdBase):
 
         # Update fields of the forwarded packet
         dhcpPacket[scapy.Ether].src = duthost.facts["router_mac"]
-        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - 1
+        dhcpPacket[scapy.IP].ttl = dhcpPacket[scapy.IP].ttl - duthost.ttl_decr_value
 
         expectedDhcpPacket = Mask(dhcpPacket)
         expectedDhcpPacket.set_do_not_care_scapy(scapy.Ether, "dst")

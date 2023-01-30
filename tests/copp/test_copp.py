@@ -24,22 +24,23 @@ import logging
 import pytest
 import json
 import random
-import threading
-import time
 from collections import namedtuple
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload, constants
 from tests.common.system_utils import docker
+from tests.common.reboot import reboot
+from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 
 pytestmark = [
-    pytest.mark.topology("t1", "t2")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -52,20 +53,19 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_namespace",
                                   "send_rate_limit",
                                   "nn_target_vlanid"])
-_SUPPORTED_PTF_TOPOS = ["ptf32", "ptf64"]
-_SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-52", "t0-116"]
-_SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-backend"]
-_SUPPORTED_T2_TOPOS = ["t2"]
-_TOR_ONLY_PROTOCOL = ["DHCP"]
+
+_TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT = 600
-_SEND_PACKET_NUMBER = 1500
-_SEND_DURATION = 30
+
+logger = logging.getLogger(__name__)
 
 
 class TestCOPP(object):
     """
         Tests basic COPP functionality in SONiC.
     """
+    trap_id = "bgp"
+    feature_name = "bgp"
 
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
@@ -87,6 +87,7 @@ class TestCOPP(object):
 
     @pytest.mark.parametrize("protocol", ["BGP",
                                           "DHCP",
+                                          "DHCP6",
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
@@ -104,49 +105,94 @@ class TestCOPP(object):
                      copp_testbed,
                      dut_type)
 
-    @pytest.mark.parametrize("protocol", ["LACP",
-                                          "LLDP",
-                                          "UDLD",
-                                          "IP2ME"])
-    def test_counter(self, protocol, duthosts, rand_one_dut_hostname, ptfhost, copp_testbed, dut_type, counter_test):
-        duthost = duthosts[rand_one_dut_hostname]
-        trap_type = protocol.lower()
+    @pytest.mark.disable_loganalyzer
+    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
+        """
+        Validates that one new trap(bgp) can be installed
 
-        # wait until the trap counter is enabled
-        assert wait_until(10, 1, 0, _check_trap_counter_enabled, duthost, trap_type), 'counter is not created for {}'.format(trap_type)
+        1. The trap(bgp) should be uninstalled
+        2. Set always_enabled of bgp to true
+        3. Verify the trap status is installed by sending traffic
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-        # clean previous counter value
-        duthost.command('sonic-clear flowcnt-trap')
+        logger.info("Uninstall trap {}".format(self.trap_id))
+        copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
 
-        # start a thread to collect the max PPS value
-        actual_rate = []
-        t = threading.Thread(target=_collect_counter_rate, args=(duthost, trap_type, actual_rate))
-        t.start()
-
-        # init and start PTF
+        logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         _copp_runner(duthost,
                      ptfhost,
-                     protocol,
+                     self.trap_id.upper(),
                      copp_testbed,
                      dut_type,
-                     True)
+                     has_trap=False)
 
-        # wait for thread finish
-        t.join()
+        logger.info("Set always_enabled of {} to true".format(self.trap_id))
+        copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
 
-        # get final packet count from CLI
-        expect_rate = float(_SEND_PACKET_NUMBER / _SEND_DURATION)
-        actual_packet_number = None
-        cli_data = duthost.show_and_parse('show flowcnt-trap stats')
-        for line in cli_data:
-            if 'trap name' in line and line['trap name'] == trap_type:
-                actual_packet_number = int(line['packets'].replace(',', ''))
-                break
+        logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            "Installing {} trap fail".format(self.trap_id))
 
-        assert actual_packet_number == _SEND_PACKET_NUMBER, 'Trap {} expect send packet number: {}, but actual: {}'.format(trap_type, _SEND_PACKET_NUMBER, actual_packet_number)
-        assert len(actual_rate) == 1, 'Failed to collect PPS value for trap {}'.format(trap_type)
-        # Allow a 10 percent threshold for trap rate
-        assert (expect_rate * 0.9) < actual_rate[0] < (expect_rate * 1.1), 'Trap {} expect send packet rate: {}, but actual: {}'.format(trap_type, expect_rate, actual_rate)
+    @pytest.mark.disable_loganalyzer
+    @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
+                                                  "disable_feature_status"])
+    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
+        """
+        Validates that The trap(bgp) can be uninstalled after deleting the corresponding entry from the feature table
+
+        1. Pre condition: make the tested trap installed and always_enable is false
+        2. Remove trap according to remove trap type
+        4. Verify the trap status is uninstalled by sending traffic
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
+        pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
+
+        if remove_trap_type == "delete_feature_entry":
+            logger.info("Remove feature entry: {}".format(self.feature_name))
+            copp_utils.remove_feature_entry(duthost, self.feature_name)
+        else:
+            logger.info("Disable {} in feature table".format(self.feature_name))
+            copp_utils.disable_feature_entry(duthost, self.feature_name)
+
+        logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
+            "uninstalling {} trap fail".format(self.trap_id))
+
+    @pytest.mark.disable_loganalyzer
+    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
+        """
+        Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
+
+        1. Set always_enabled of a trap(e.g. bgp) to true
+        2. Config save -y
+        3. Do reboot according to the specified parameter of copp_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
+        4. Verify configuration are saved successfully
+        5. Verify the trap status is installed by sending traffic
+        """
+
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        logger.info("Set always_enabled of {} to true".format(self.trap_id))
+        copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
+
+        logger.info("Config save")
+        duthost.command("sudo config save -y")
+
+        reboot_type = request.config.getoption("--copp_reboot_type")
+        logger.info("Do {}".format(reboot_type))
+        reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
+
+        logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
+        copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
+        logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
+        pytest_assert(
+            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            "Installing {} trap fail".format(self.trap_id))
 
 
 @pytest.fixture(scope="class")
@@ -177,9 +223,6 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request)
 
-    if test_params.topo not in (_SUPPORTED_PTF_TOPOS + _SUPPORTED_T0_TOPOS + _SUPPORTED_T1_TOPOS + _SUPPORTED_T2_TOPOS):
-        pytest.skip("Topology not supported by COPP tests")
-
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
         _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)
@@ -208,33 +251,19 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
-@pytest.fixture(scope="function")
-def counter_test(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    duthost.command('counterpoll flowcnt-trap enable')
 
-    yield
-
-    duthost.command('counterpoll flowcnt-trap disable')
-
-def _copp_runner(dut, ptf, protocol, test_params, dut_type, counter_test=False):
+def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
     """
         Configures and runs the PTF test cases.
     """
-    if not counter_test:
-        params = {"verbose": False,
-                "target_port": test_params.nn_target_port,
-                "myip": test_params.myip,
-                "peerip": test_params.peerip,
-                "send_rate_limit": test_params.send_rate_limit}
-    else:
-        params = {"verbose": False,
-                "target_port": test_params.nn_target_port,
-                "myip": test_params.myip,
-                "peerip": test_params.peerip,
-                "send_rate_limit": test_params.send_rate_limit,
-                "sent_pkt_number": _SEND_PACKET_NUMBER,
-                "send_duration": _SEND_DURATION}
+
+    params = {"verbose": False,
+              "target_port": test_params.nn_target_port,
+              "myip": test_params.myip,
+              "peerip": test_params.peerip,
+              "send_rate_limit": test_params.send_rate_limit,
+              "has_trap": has_trap}
+
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
@@ -246,13 +275,15 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, counter_test=False):
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
                testname="copp_tests.{}Test".format((protocol+"TopoT1")
-                         if protocol in _TOR_ONLY_PROTOCOL and dut_type != "ToRRouter" else protocol),
+                         if protocol in _TOR_ONLY_PROTOCOL and dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"] else protocol),
                platform="nn",
                qlen=100000,
                params=params,
                relax=None,
                debug_level=None,
                device_sockets=device_sockets)
+    return True
+
 
 def _gather_test_params(tbinfo, duthost, request):
     """
@@ -331,11 +362,12 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         # NOTE: Even if the rpc syncd image is already installed, we need to restart
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
-                               test_params.nn_target_namespace, test_params.nn_target_vlanid, creds)
+                               test_params.nn_target_namespace, test_params.nn_target_vlanid,
+                               test_params.swap_syncd, creds)
 
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     """
@@ -353,7 +385,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -399,50 +431,35 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
     dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
-def _check_trap_counter_enabled(duthost, trap_type):
-    lines = duthost.command('show flowcnt-trap stats')['stdout']
-    return trap_type in lines
 
-def _collect_counter_rate(duthost, trap_type, actual_rate):
-    rate_values = []
-    # Wait up to _SEND_DURATION + 5 seconds for PTF to stop sending packet,
-    # as it might take some time for PTF to initialize itself
-    max_wait = _SEND_DURATION + 5
-    packets = None
-    while max_wait > 0:
-        cli_data = duthost.show_and_parse('show flowcnt-trap stats')
-        for line in cli_data:
-            if 'trap name' in line and line['trap name'] == trap_type:
-                packets = line['packets']
-                if packets == 'N/A':
-                    # Packets value is not available yet
-                    logging.debug('Trap {} packets value is not available yet'.format(trap_type))
-                    break
+@pytest.fixture(scope="function", autouse=False)
+def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    copp_utils.backup_config_db(duthost)
 
-                pps_value = line['pps']
-                if pps_value == 'N/A':
-                    # PPS value is not available yet
-                    logging.debug('Trap {} PPS value is not available yet'.format(trap_type))
-                    break
+    yield
+    copp_utils.restore_config_db(duthost)
 
-                packets = int(packets.replace(',', ''))
-                if packets == 0:
-                    # PTF has not started yet
-                    logging.debug('Trap {} packets value is still 0, PTF has not started yet'.format(trap_type))
-                    break
 
-                logging.info('Trap {} current PPS value is {}, packets value is {}'.format(trap_type, pps_value, packets))
-                rate_values.append(float(pps_value[:-2]))
-                break
-        if packets == _SEND_PACKET_NUMBER:
-            # Enough packets are sent, stop
-            break
-        time.sleep(0.5)
-        max_wait -= 0.5
+def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
+    copp_utils.install_trap(duthost, feature_name)
+    logger.info("Set always_enabled of {} to false".format(trap_id))
+    copp_utils.configure_always_enabled_for_trap(duthost, trap_id, "false")
 
-    if rate_values:
-        # Calculate max PPS
-        max_pps = max(rate_values)
-        logging.info('Trap {} max PPS is {}'.format(trap_type, max_pps))
-        actual_rate.append(max_pps)
+    logger.info("Verify {} trap status is installed by sending traffic in pre_condition".format(trap_id))
+    pytest_assert(
+        wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type),
+        "Installing {} trap fail".format(trap_id))
 
+
+@pytest.fixture(autouse=False, scope="class")
+def check_image_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Skips this test because new copp management logic works on 202012 branch and above
+
+    Args:
+        duthost: Hostname of DUT.
+
+    Returns:
+        None.
+    """
+    skip_release(duthosts[enum_rand_one_per_hwsku_frontend_hostname], ["201911"])

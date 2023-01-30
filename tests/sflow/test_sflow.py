@@ -20,7 +20,7 @@ from tests.common.utilities import wait_until
 from netaddr import *
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ def setup_ptf(ptfhost, collector_ports):
 # ----------------------------------------------------------------------------------
 
 def config_dut_ports(duthost, ports, vlan):
-   # https://github.com/Azure/sonic-buildimage/issues/2665
+   # https://github.com/sonic-net/sonic-buildimage/issues/2665
    # Introducing config vlan member add and remove for the test port due to above mentioned PR.
    # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
    # Hence config reload is done as workaround. ##FIXME
@@ -114,8 +114,16 @@ def get_ifindex(duthost, port):
 
 def get_port_index(duthost, port):
     py_version = 'python' if '201911' in duthost.os_version else 'python3'
-    cmd = "{} -c \"from swsssdk import port_util; print(port_util.get_index_from_str(\'{}\'))\""
-    index = duthost.shell(cmd.format(py_version, port))['stdout']
+
+    # if sonic_py_common.port_util exist, use port_util from sonic_py_common.
+    util_lib = "swsssdk"
+    cmd = "{} -c \"import pkgutil; print(pkgutil.find_loader(\'sonic_py_common.port_util\'))\"".format(py_version)
+    class_exist = duthost.shell(cmd)['stdout']
+    if class_exist != "None":
+        util_lib = "sonic_py_common"
+
+    cmd = "{} -c \"from {} import port_util; print(port_util.get_index_from_str(\'{}\'))\""
+    index = duthost.shell(cmd.format(py_version, util_lib, port))['stdout']
     return index
 
 # ----------------------------------------------------------------------------------
@@ -205,7 +213,8 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                    testname="sflow_test",
                    params=params,
                    socket_recv_size=16384,
-                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
+                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
+                   is_python3=True)
 
     return _partial_ptf_runner
 

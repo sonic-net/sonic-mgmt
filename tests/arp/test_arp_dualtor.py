@@ -1,274 +1,197 @@
+"""
+This module tests ARP scenarios specific to dual ToR testbeds
+"""
+from ipaddress import ip_address, ip_interface
 import logging
-import ptf.testutils as testutils
+import random
+import time
 import pytest
-import ptf.mask as mask
-import ptf.packet as packet
 
-from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
-                      ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
-                      in6_getnsma, inet_pton, inet_ntop, socket
-from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv6_addr, increment_ipv4_addr
+import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, show_muxcable_status, config_dualtor_arp_responder  # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import mux_config
+from tests.common.fixtures.ptfhost_utils import run_garp_service, change_mac_addresses, run_icmp_responder, pause_garp_service
+
+from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0', 'dualtor')
+    pytest.mark.topology('dualtor')
 ]
 
 logger = logging.getLogger(__name__)
 
-
-@pytest.fixture(scope='module')
-def ip_and_intf_info(config_facts, intfs_for_test):
-    """
-    Calculate IP addresses and interface to use for test
-    """
-    _, _, intf1_index, _, = intfs_for_test
-    ptf_intf_name = "eth{}".format(intf1_index)
-
-    # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = config_facts['VLAN_INTERFACE'].items()[0][1].keys()
-    intf_ipv6_addr = None
-    intf_ipv4_addr = None
-
-    for addr in vlan_addrs:
-        try:
-            if type(ip_network(addr, strict=False)) is IPv6Network:
-                intf_ipv6_addr = ip_network(addr, strict=False)
-            elif type(ip_network(addr, strict=False)) is IPv4Network:
-                intf_ipv4_addr = ip_network(addr, strict=False)
-        except ValueError:
-            continue
-
-    # The VLAN interface on the DUT has an x.x.x.1 address assigned (or x::1 in the case of IPv6)
-    # But the network_address property returns an x.x.x.0 address (or x::0 for IPv6) so we increment by two to avoid conflict
-    if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=2)
-    else:
-        ptf_intf_ipv4_addr = None
-
-    if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=2)
-    else:
-        ptf_intf_ipv6_addr = None
-
-    logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
-
-    return ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name 
+FAILED = "FAILED"
+INCOMPLETE = "INCOMPLETE"
+STALE = "STALE"
+REACHABLE = "REACHABLE"
 
 
 @pytest.fixture
-def garp_enabled(rand_selected_dut, config_facts):
+def restore_mux_auto_config(duthosts):
     """
-    Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
-
-    Also checks the kernel `arp_accept` value to see if the
-    attempt was successful.
-
-    During teardown, restores the original `grat_arp` value in 
-    CONFIG_DB
-
-    Yields:
-        (bool) True if `arp_accept` was successfully set for all VLANs,
-               False otherwise
-
+    Fixture to ensure ToRs have all mux interfaces set to auto after testing
     """
-    duthost = rand_selected_dut
 
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
-    garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
-    garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
-    cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
-    arp_accept_vals = []
-    old_grat_arp_vals = {}
+    yield
 
-    for vlan in vlan_intfs:
-        old_grat_arp_res = duthost.shell(garp_check_cmd.format(vlan))
-        old_grat_arp_vals[vlan] = old_grat_arp_res['stdout']
-        res = duthost.shell(garp_enable_cmd.format(vlan))
+    for duthost in duthosts:
+        duthost.shell("sudo config mux mode auto all")
 
-        if res['rc'] != 0:
-            pytest.fail("Unable to enable GARP for {}".format(vlan))
-        else:
-            logger.info("Enabled GARP for {}".format(vlan))
-
-            # Get the `arp_accept` values for each VLAN interface
-            arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
-            arp_accept_vals.append(arp_accept_res['stdout'])
-
-    yield all(int(val) == 1 for val in arp_accept_vals)
-
-    garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
-    for vlan in vlan_intfs:
-        old_grat_arp_val = old_grat_arp_vals[vlan]
-
-        if 'enabled' not in old_grat_arp_val:
-            res = duthost.shell(garp_disable_cmd.format(vlan))
-
-            if res['rc'] != 0:
-                pytest.fail("Unable to disable GARP for {}".format(vlan))
-            else:
-                logger.info("GARP disabled for {}".format(vlan))
 
 @pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
+def pause_arp_update(duthosts):
     """
-    Tries to enable proxy ARP for each VLAN on the ToR
+    Temporarily stop arp_update process during test cases
 
-    Also checks CONFIG_DB to see if the attempt was successful
-
-    During teardown, restores the original proxy ARP setting
-
-    Yields:
-        (bool) True if proxy ARP was enabled for all VLANs,
-               False otherwise
+    Some test cases manually call arp_update so we use this fixture to pause it on
+    the testbed to prevent interference with the test case
     """
-    duthost = rand_selected_dut
-    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
+    arp_update_stop_cmd = "docker exec -it swss supervisorctl stop arp_update"
+    for duthost in duthosts:
+        duthost.shell(arp_update_stop_cmd)
 
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
-    vlans = config_facts['VLAN']
-    vlan_ids =[vlans[vlan]['vlanid'] for vlan in vlans.keys()]
-    old_proxy_arp_vals = {}
-    new_proxy_arp_vals = []
+    yield
 
-    # Enable proxy ARP/NDP for the VLANs on the DUT
-    for vid in vlan_ids:
-        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
+    arp_update_start_cmd = "docker exec -it swss supervisorctl start arp_update"
+    for duthost in duthosts:
+        duthost.shell(arp_update_start_cmd)
 
-        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
 
-        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
-        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
-
-    yield all('enabled' in val for val in new_proxy_arp_vals)
-
-    for vid, proxy_arp_val in old_proxy_arp_vals.items():
-        if 'enabled' not in proxy_arp_val:
-            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
-
-def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
+@pytest.fixture(params=['IPv4', 'IPv6'])
+def neighbor_ip(request, mux_config):
     """
-    Send a gratuitous ARP (GARP) packet from the PTF to the DUT
+    Provide the neighbor IP used for testing
 
-    The DUT should learn the (previously unseen) ARP info from the packet
+    Randomly select an IP from the server IPs configured in the config DB MUX_CABLE table
     """
-    pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
-    duthost = rand_selected_dut
-    ptf_intf_ipv4_addr, _, _ = ip_and_intf_info
-
-    arp_request_ip = increment_ipv4_addr(ptf_intf_ipv4_addr)
-    arp_src_mac = '00:00:07:08:09:0a'
-    _, _, intf1_index, _, = intfs_for_test
-
-    pkt = testutils.simple_arp_packet(pktlen=60,
-                                eth_dst='ff:ff:ff:ff:ff:ff',
-                                eth_src=arp_src_mac,
-                                vlan_pcp=0,
-                                arp_op=2,
-                                ip_snd=arp_request_ip,
-                                ip_tgt=arp_request_ip,
-                                hw_snd=arp_src_mac,
-                                hw_tgt='ff:ff:ff:ff:ff:ff'
-                            )
-
-    clear_dut_arp_cache(duthost)
-
-    logger.info("Sending GARP for target {} from PTF interface {}".format(arp_request_ip, intf1_index))
-    testutils.send_packet(ptfadapter, intf1_index, pkt)
-
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
-
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
-    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower())
-    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
-
-def generate_link_local_addr(mac):
-    parts = mac.split(":")
-    parts.insert(3, "ff")
-    parts.insert(4, "fe")
-    parts[0] = "{:x}".format(int(parts[0], 16) ^ 2)
-
-    ipv6Parts = []
-    for i in range(0, len(parts), 2):
-        ipv6Parts.append("".join(parts[i:i+2]))
-    ipv6 = "fe80::{}".format(":".join(ipv6Parts))
-    return ipv6
-
-@pytest.fixture(params=['v4', 'v6'])
-def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
-    src_addr_v4, src_addr_v6, ptf_intf = ip_and_intf_info
-    ptf_intf_index = int(ptf_intf.replace('eth', ''))
-    ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
-    vlans = config_facts['VLAN']
-    topology = tbinfo['topo']['name']
-    dut_mac = ''
-    for vlan_details in vlans.values():
-        if 'dualtor' in topology:
-            dut_mac = vlan_details['mac'].lower()
-        else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
-        break
+    selected_intf = random.choice(mux_config.values())
+    neigh_ip = ip_interface(selected_intf["SERVER"][ip_version]).ip
+    logger.info("Using {} as neighbor IP".format(neigh_ip))
+    return neigh_ip
 
-    if ip_version == 'v4':
-        tgt_addr = increment_ipv4_addr(src_addr_v4)
-        out_pkt = testutils.simple_arp_packet(
-                                eth_dst='ff:ff:ff:ff:ff:ff',
-                                eth_src=ptf_intf_mac,
-                                ip_snd=src_addr_v4,
-                                ip_tgt=tgt_addr,
-                                arp_op=1,
-                                hw_snd=ptf_intf_mac
-                            )
-        exp_pkt = testutils.simple_arp_packet(
-                                eth_dst=ptf_intf_mac,
-                                eth_src=dut_mac,
-                                ip_snd=tgt_addr,
-                                ip_tgt=src_addr_v4,
-                                arp_op=2,
-                                hw_snd=dut_mac,
-                                hw_tgt=ptf_intf_mac
-        )
-    elif ip_version == 'v6':
-        tgt_addr = increment_ipv6_addr(src_addr_v6)
-        ll_src_addr = generate_link_local_addr(ptf_intf_mac)
-        multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
-        multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
-        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac) 
-        out_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=ll_src_addr)
-        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr) 
-        out_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_intf_mac)
 
-        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac) 
-        exp_pkt /= IPv6(dst=ll_src_addr, src=generate_link_local_addr(dut_mac))
-        exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
-        exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
-        exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'fl')
+@pytest.fixture
+def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):
+    logger.info("Clearing neighbor table on {}".format(duthosts))
+    for duthost in duthosts:
+        duthost.shell("sudo ip neigh flush all")
 
-    return ip_version, out_pkt, exp_pkt
+    return
 
-def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_test):
+
+def verify_neighbor_status(duthost, neigh_ip, expected_status):
+    ip_version = 'v4' if ip_address(neigh_ip).version == 4 else 'v6'
+    neighbor_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    return expected_status.lower() in neighbor_table[ip_version][str(neigh_ip)]['state'].lower()
+
+
+def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
+                                        ptfadapter, packets_for_test, upper_tor_host,   # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor):   # noqa F811
     """
-    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
+    Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
+    within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
+    (i.e. that IP points to a standby neighbor)
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
+
+    Test steps:
+    1. During setup, learn neighbor IPs on ToR interfaces using `run_garp_service` fixture
+    2. Pick a learned IP address as the target IP and generate an ARP request/neighbor solicitation for it
+    3. Set the interface this IP is learned on to standby. This will ensure the route for the IP points to the
+       IPinIP tunnel
+    4. Send the ARP request/NS packet to the ToR on some other active interface
+    5. Expect the ToR to still proxy ARP for the IP and send an ARP reply/neighbor advertisement back, even though
+       the route for the requested IP is pointing to the tunnel
     """
-    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
-    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name = ip_and_intf_info
-    ptf_intf_index = int(ptf_intf_name.replace('eth', ''))
+    # This should never fail since we are only running on dual ToR platforms
+    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs, check dual ToR configuration')
+
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ip_version, outgoing_packet, expected_packet = packets_for_test
 
     if ip_version == 'v4':
         pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
+        intf_name_cmd = "show arp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+        intf_name_cmd = "show ndp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
 
+    # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
+    intf_name = upper_tor_host.shell(intf_name_cmd)['stdout']
+    mux_mode_cmd = "sudo config mux mode standby {}".format(intf_name)
+    upper_tor_host.shell(mux_mode_cmd)
+    pytest_assert(wait_until(5, 1, 0, lambda: show_muxcable_status(upper_tor_host)[intf_name]['status'] == "standby"),
+                  "Interface {} not standby on {}".format(intf_name, upper_tor_host))
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
-    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index)
+    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+
+
+def test_arp_update_for_failed_standby_neighbor(
+    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host
+):
+    """
+    Test the standby ToR's ability to recover from having a failed neighbor entry
+
+    Test steps:
+    1. For the same neighbor IP, create a failed neighbor entry on the standby ToR and a reachable entry on the active ToR
+    2. Run `arp_update` on the standby ToR
+    3. Verify the failed entry is now incomplete and stays incomplete for 10 seconds
+    4. Run `arp_update` on the active ToR
+    5. Verify the incomplete entry is now reachable
+    """
+    # We only use ping to trigger an ARP request from the kernel, so exit early to save time
+    ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
+
+    # Important to run on lower (standby) ToR first so that the lower ToR neighbor entry will be failed
+    # Otherwise, the ARP reply/NA message generated by the active ToR will create a REACHABLE entry on the lowwer ToR
+    lower_tor_host.shell(ping_cmd, module_ignore_errors=True)
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, FAILED)))
+    upper_tor_host.shell(ping_cmd, module_ignore_errors=True)
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(upper_tor_host, neighbor_ip, REACHABLE)))
+
+    # For IPv4 neighbors, the ARP reply generated when the upper/active ToR sends an ARP request will also
+    # be learned by the lower/standby ToR, so we expect it already be reachable at this stage.
+    # However, IPv6 neighbors are not learned by the kernel the same way, so it we expect it the standby ToR
+    # neighbor entry to be INCOMPLETE as a result of the arp_update script
+    expected_midpoint_state = REACHABLE if ip_address(neighbor_ip).version == 4 else INCOMPLETE
+
+    arp_update_cmd = "docker exec -it swss supervisorctl start arp_update"
+    lower_tor_host.shell(arp_update_cmd)
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, expected_midpoint_state)))
+
+    # Need to make sure the entry does not auto-transition to FAILED
+    time.sleep(10)
+    pytest_assert(verify_neighbor_status(lower_tor_host, neighbor_ip, expected_midpoint_state))
+
+    upper_tor_host.shell(arp_update_cmd)
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, REACHABLE)))
+
+
+def test_standby_unsolicited_neigh_learning(
+    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host
+):
+    """
+    Test the standby ToR's ability to perform unsolicited neighbor learning (GARP and unsolicited NA)
+
+    Test steps:
+    1. Create a reachable neighbor entry on the active ToR only
+    2. Run arp_update on the active ToR
+    3. Confirm that the standby ToR learned the entry and it is REACHABLE
+    """
+    ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
+
+    upper_tor_host.shell(ping_cmd, module_ignore_errors=True)
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(upper_tor_host, neighbor_ip, REACHABLE)))
+    lower_tor_host.shell("sudo ip neigh flush all")
+
+    arp_update_cmd = "docker exec -it swss supervisorctl start arp_update"
+    upper_tor_host.shell(arp_update_cmd)
+
+    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, REACHABLE)))

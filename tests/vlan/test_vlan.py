@@ -1,4 +1,3 @@
-
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -17,6 +16,7 @@ from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_lis
 from tests.common.fixtures.duthost_utils import utils_create_test_vlans
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,14 @@ def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):
     # Below ip prefix overlaps with 192.168.0.1/21, and need to skip:
     # 192.168.0.1/24, 192.168.1.1/24, 192.168.2.1/24, 192.168.3.1/24,
     # 192.168.4.1/24, 192.168.5.1/24, 192.168.6.1/24, 192.168.7.1/24
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         vlan_intfs_dict = utils_vlan_intfs_dict_add(vlan_intfs_dict, 2)
     return vlan_intfs_dict
 
 
 @pytest.fixture(scope="module")
 def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils_vlan_ports_list, vlan_intfs_dict, pc_num=PORTCHANNELS_TEST_NUM):
-    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+    if tbinfo['topo']['name'] in ('t0-54-po2vlan', 't0-56-po2vlan'):
         return utils_vlan_ports_list
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
@@ -97,6 +97,27 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
 
     return work_vlan_ports_list
 
+@pytest.fixture(scope="module")
+def acl_rule_cleanup(duthost, tbinfo):
+    """Cleanup all the existing DATAACL rules"""
+    # remove all rules under the ACL_RULE table
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete')
+
+    yield
+
+@pytest.fixture(scope="module")
+def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
+   """ Remove the DATAACL table prior to the test and recreate it at the end"""
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+
+   yield
+
+   if "t0-backend" in tbinfo["topo"]["name"]:
+       duthost.command('config acl remove table DATAACL')
+       # rebind with new set of ports
+       bind_acl_table(duthost, tbinfo)
 
 def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TEST_NUM):
     cmds = []
@@ -153,11 +174,11 @@ def startup_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_TE
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts):
+def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_ports_list, vlan_intfs_dict, cfg_facts, setup_acl_table):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
-        if tbinfo['topo']['name'] != 't0-56-po2vlan':
+        if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
             portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
 
             shutdown_portchannels(duthost, portchannel_interfaces)
@@ -174,6 +195,10 @@ def setup_vlan(duthosts, rand_one_dut_hostname, tbinfo, work_vlan_ports_list, vl
 
             res = duthost.command('show int portchannel')
             logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+            populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict)
+            bind_acl_table(duthost, tbinfo)
+            apply_acl_rules(duthost, tbinfo)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
@@ -185,7 +210,7 @@ def tearDown(duthost, tbinfo):
 
     logger.info("VLAN test ending ...")
 
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         config_reload(duthost)
 
 
@@ -217,7 +242,7 @@ def build_qinq_packet(outer_vlan_id, vlan_id,
     return pkt
 
 
-def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=1):
+def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], device_number=0, timeout=5):
     for port in ports:
         result = testutils.dp_poll(test, device_number=device_number, port_number=port,
                                    timeout=timeout, exp_pkt=pkt)
@@ -236,7 +261,7 @@ def verify_packets_with_portchannel(test, pkt, ports=[], portchannel_ports=[], d
                     % (device_number, str(port_group)))
 
 
-def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
+def verify_icmp_packets(ptfadapter, send_pkt, work_vlan_ports_list, vlan_port, vlan_id):
     untagged_pkt = build_icmp_packet(0)
     tagged_pkt = build_icmp_packet(vlan_id)
     untagged_dst_ports = []
@@ -263,6 +288,8 @@ def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
             else:
                 tagged_dst_ports += port["port_index"]
 
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, vlan_port["port_index"][0], send_pkt)
     verify_packets_with_portchannel(test=ptfadapter,
                                     pkt=untagged_pkt,
                                     ports=untagged_dst_ports,
@@ -274,6 +301,7 @@ def verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_id):
 
 
 def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
+    ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, send_pkt)
     try:
         testutils.verify_packets_any(ptfadapter, exp_pkt, ports=dst_ports)
@@ -281,6 +309,18 @@ def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet was not received")
         raise
+
+
+def populate_fdb(ptfadapter, work_vlan_ports_list, vlan_intfs_dict):
+    # send icmp packet from each tagged and untagged port in each test vlan to populate fdb
+    for vlan in vlan_intfs_dict:
+        for vlan_port in work_vlan_ports_list:
+            if vlan in vlan_port['permit_vlanid']:
+                vlan_id = 0 if vlan == vlan_port['pvid'] else vlan  # vlan_id: 0 - untagged, vlan = tagged
+                port_id = vlan_port['port_index'][0]
+                src_mac = ptfadapter.dataplane.get_mac(0, port_id)
+                pkt = build_icmp_packet(vlan_id=vlan_id, src_mac=src_mac)
+                testutils.send(ptfadapter, port_id, pkt)
 
 
 @pytest.mark.bsl
@@ -298,8 +338,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, work_vlan_ports_list, toggle_all_sim
         logger.info("Send untagged packet from {} ...".format(vlan_port["port_index"][0]))
         logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
         if vlan_port['pvid'] != 0:
-            testutils.send(ptfadapter, vlan_port["port_index"][0], pkt)
-            verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, vlan_port["pvid"])
+            verify_icmp_packets(ptfadapter, pkt, work_vlan_ports_list, vlan_port, vlan_port["pvid"])
         else:
             exp_pkt = Mask(pkt)
             exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
@@ -327,8 +366,8 @@ def test_vlan_tc2_send_tagged(ptfadapter, work_vlan_ports_list, toggle_all_simul
             pkt = build_icmp_packet(permit_vlanid)
             logger.info("Send tagged({}) packet from {} ...".format(permit_vlanid, vlan_port["port_index"][0]))
             logger.info(pkt.sprintf("%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
-            testutils.send(ptfadapter, vlan_port["port_index"][0], pkt)
-            verify_icmp_packets(ptfadapter, work_vlan_ports_list, vlan_port, permit_vlanid)
+
+            verify_icmp_packets(ptfadapter, pkt, work_vlan_ports_list, vlan_port, permit_vlanid)
 
 
 @pytest.mark.bsl
@@ -414,7 +453,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
         if len(ports_for_test) < 2:
             continue
 
-        #take two tagged ports for test
+        #take two untagged ports for test
         src_port = ports_for_test[0]
         dst_port = ports_for_test[-1]
 
@@ -498,11 +537,6 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, work_vlan_ports_li
     Send qinq packets w/ src and dst specified over tagged ports in vlan
     Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
     """
-
-    # Add more supported platforms to the list as they are tested
-    qinq_switching_supported_platforms = ['mellanox', 'barefoot']
-    if duthost.facts["asic_type"] not in qinq_switching_supported_platforms:
-        pytest.skip("Unsupported platform")
 
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
