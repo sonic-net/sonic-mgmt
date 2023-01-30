@@ -438,4 +438,4 @@ bjw-can-7260-root-1,Ethernet17/1,bjw-can-serv-7,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet18/1,bjw-can-serv-8,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet19/1,bjw-can-serv-9,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet20/1,bjw-can-serv-10,ens4f1,100000,,Trunk
-bjw-can-7260-root-1,Ethernet21/1,bjw-can-serv-11,ens4f1,100000,,Trunk
+bjw-can-serv-11,ens4f0,bjw-can-serv-11,ens4f1,100000,,Trunk
