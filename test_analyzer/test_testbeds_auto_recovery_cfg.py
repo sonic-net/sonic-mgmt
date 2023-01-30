@@ -3,6 +3,7 @@ skip_testbeds_list = [
     'azd',
     '3164',
     '8101',
+    'ec9516',
     'testbed-bjw-can-7215-1',
     'testbed-str2-7215-acs-3',
     '-t2-'
